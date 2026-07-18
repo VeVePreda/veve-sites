@@ -30,6 +30,8 @@ const canary = createHash('sha256')
 const team = links.team || [];
 const affiliate = links.affiliate || [];
 const fresh = updatedAt ? new Date(updatedAt).toLocaleDateString(dateLocale[lang] || 'en-GB') : null;
+const analytics = m.analytics || {};
+const statsOn = Boolean(analytics.website_id);
 const suggestData = alternates.filter((a) => a.lang !== lang).map((a) => ({ l: a.lang, h: a.href, n: localeNames[a.lang] || a.lang }));
 ---
 <!doctype html>
@@ -47,8 +49,15 @@ const suggestData = alternates.filter((a) => a.lang !== lang).map((a) => ({ l: a
 <meta property="og:title" content={fullTitle} />
 <meta property="og:description" content={desc} />
 <meta property="og:url" content={canon} />
-<meta name="twitter:card" content="summary" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta property="og:image" content={`${root}/og.png`} />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta name="twitter:image" content={`${root}/og.png`} />
+<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 <meta name="generator-ref" content={canary} />
+{statsOn && <script defer src="/stats/script.js" data-website-id={analytics.website_id}></script>}
 <style is:inline set:html={vars}></style>
 <style is:inline set:html={themeCss}></style>
 <style is:inline set:html={`.langbar{display:flex;gap:6px;margin-left:12px}.langbar a{font-size:13px;color:var(--muted);padding:2px 6px;border-radius:6px}.langbar a[aria-current]{background:#ffffff14;color:var(--text)}#langsuggest{display:none;background:var(--surface);border:1px solid var(--primary);border-radius:10px;padding:10px 14px;margin:14px 0;font-size:14px}#langsuggest a{font-weight:500}#langsuggest button{background:none;border:0;color:var(--muted);cursor:pointer;font-size:13px;text-decoration:underline}`}></style>
@@ -93,6 +102,22 @@ const suggestData = alternates.filter((a) => a.lang !== lang).map((a) => ({ l: a
   <p style="margin:0 0 6px">{t(lang, 'legal.notAffiliated')}</p>
   <p style="margin:0;font-size:13px">{t(lang, 'legal.notFinancialAdvice')}</p>
 </div></footer>
+<script is:inline>
+  // Reassemble les adresses de contact cote navigateur (anti-aspirateur).
+  (function () {
+    var els = document.querySelectorAll('.mail');
+    for (var i = 0; i < els.length; i++) {
+      var u = els[i].getAttribute('data-u'), d = els[i].getAttribute('data-d');
+      if (!u || !d) continue;
+      var a = u + String.fromCharCode(64) + d;
+      var link = document.createElement('a');
+      link.href = 'mai' + 'lto' + ':' + a;
+      link.textContent = a;
+      els[i].textContent = '';
+      els[i].appendChild(link);
+    }
+  })();
+</script>
 <script is:inline define:vars={{ suggestData, suggestTxt: t(lang, 'lang.suggest'), switchTxt: t(lang, 'lang.switch'), dismissTxt: t(lang, 'lang.dismiss') }}>
   // Detection DOUCE : on propose, on ne redirige jamais (sinon Googlebot ne verrait qu'une langue).
   (function () {

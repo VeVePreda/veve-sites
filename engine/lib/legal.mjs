@@ -23,10 +23,19 @@ export function legalDoc(lang, doc) {
   const fb = legalDict(locales().def);
   const title = d[`${doc}.title`] ?? fb[`${doc}.title`] ?? doc;
   let body = d[`${doc}.body`] ?? fb[`${doc}.body`] ?? '';
+  // L'adresse de contact n'est JAMAIS ecrite en entier dans le HTML :
+  // elle est decoupee et reassemblee par le navigateur. Les aspirateurs
+  // d'adresses lisent la source sans executer de JavaScript.
+  const mailMarkup = (addr) => {
+    const [u, d] = String(addr || '').split('@');
+    if (!u || !d) return '';
+    const human = `${u} (at) ${d.replace(/\./g, ' (dot) ')}`;
+    return `<span class="mail" data-u="${u}" data-d="${d}"><noscript>${human}</noscript></span>`;
+  };
   const vals = {
     brand: m.site.brand || '',
     domain: m.site.domain || '',
-    contact: info.contact || '',
+    contact: mailMarkup(info.contact),
     host: info.host || '',
     updated: info.updated || new Date().toISOString().slice(0, 10),
   };

@@ -59,6 +59,13 @@ identity:
     heading: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif"
     body: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif"
 
+# --- Mesure d'audience (inactive tant que website_id est vide) -------------
+# Le script est servi par le domaine DU SITE (/stats/) et non par un domaine
+# d'analytics commun : sinon les 15 sites deviendraient reliables entre eux.
+analytics:
+  provider: umami
+  website_id: ""           # <-- identifiant Umami du site
+
 seo:
   title_template: "%s | VeVe Price"
   indexnow_key: "8f3c1b7a92d54e6fa0c7b5e214d83f60"   # cle publique IndexNow (Bing/Yandex)
