@@ -43,7 +43,19 @@ function jolieRarete(r) {
     .map((w) => w[0].toUpperCase() + w.slice(1)).join(' ');
 }
 
-export async function dataset() {
+// ⚠️ MEMOISER LA PROMESSE, PAS LE RESULTAT.
+// 18 fichiers de route appellent dataset() et Astro les evalue EN PARALLELE.
+// Si l'on ne memorise qu'a la fin (apres le telechargement et la lecture en
+// flux), chaque appel voit encore null et relance un flux complet du fichier
+// de prix : 18 lectures simultanees de centaines de Mo = build a genoux.
+// Invisible sur l'echantillon, fatal sur les vraies donnees.
+let _promesse = null;
+export function dataset() {
+  if (!_promesse) _promesse = construireDataset();
+  return _promesse;
+}
+
+async function construireDataset() {
   if (_ds) return _ds;
   const m = manifest();
   const pub = m.publication || {};
@@ -245,5 +257,6 @@ export async function dataset() {
   console.log(`[site] ${items.length} fiches publiees (${dejaPublie.length} deja connues + ${items.length - dejaPublie.length} nouvelles) sur ${cat.length} items du catalogue`);
 
   _ds = { items, bySlug, collections, rarities, movers, catalogueSize: cat.length, windowDays: WINDOW_DAYS, maxPoints: MAX_POINTS, updatedAt: new Date().toISOString() };
+  console.log(`[entrepot] jeu de donnees construit : ${items.length} fiches publiees`);
   return _ds;
 }

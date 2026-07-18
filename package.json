@@ -10,7 +10,9 @@
     "start": "node ./dist/server/entry.mjs",
     "slugs": "node engine/tools/freeze-slugs.mjs",
     "audit": "python3 engine/tools/audit_seo.py dist",
-    "test:slugs": "python3 engine/tools/test_slugs.py"
+    "test:slugs": "python3 engine/tools/test_slugs.py",
+    "test:donnees": "node engine/tools/test_concurrence.mjs",
+    "test": "npm run test:donnees && npm run test:slugs"
   },
   "dependencies": {
     "@astrojs/node": "^11.0.2",
