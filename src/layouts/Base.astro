@@ -1,11 +1,14 @@
 ---
+import { createHash } from 'node:crypto';
 import { manifest, siteUrl } from '../../engine/lib/manifest.mjs';
 import { jsonld, websiteLd } from '../../engine/lib/seo.mjs';
 
 const m = manifest();
 const p = m.identity.palette || {};
 const f = m.identity.fonts || {};
-const { title, description, crumbs = [], ld = [] } = Astro.props;
+const legal = m.legal || {};
+const links = m.links || {};
+const { title, description, crumbs = [], ld = [], updatedAt = null } = Astro.props;
 const root = siteUrl();
 const fullTitle = title ? (m.seo.title_template || '%s').replace('%s', title) : `${m.site.brand} — ${m.site.tagline}`;
 const desc = description || m.site.description || m.site.tagline;
@@ -14,6 +17,15 @@ const canon = new URL(Astro.url.pathname, root).href;
 const themeFiles = import.meta.glob('../../themes/*/theme.css', { query: '?raw', import: 'default', eager: true });
 const themeCss = themeFiles[`../../themes/${m.identity.theme}/theme.css`] ?? Object.values(themeFiles)[0] ?? '';
 const vars = `:root{--primary:${p.primary};--accent:${p.accent};--danger:${p.danger};--bg:${p.bg};--surface:${p.surface};--text:${p.text};--muted:${p.muted};--font-heading:${f.heading};--font-body:${f.body}}`;
+
+// Marqueur invisible et unique par page : permet de reperer une recopie du site.
+const canary = createHash('sha256')
+  .update((process.env.CANARY_SALT || m.site.domain) + Astro.url.pathname)
+  .digest('hex').slice(0, 16);
+
+const team = links.team || [];
+const affiliate = links.affiliate || [];
+const fresh = updatedAt ? new Date(updatedAt).toLocaleDateString(m.site.lang === 'fr' ? 'fr-FR' : 'en-GB') : null;
 ---
 <!doctype html>
 <html lang={m.site.lang || 'fr'}>
@@ -29,6 +41,7 @@ const vars = `:root{--primary:${p.primary};--accent:${p.accent};--danger:${p.dan
 <meta property="og:description" content={desc} />
 <meta property="og:url" content={canon} />
 <meta name="twitter:card" content="summary" />
+<meta name="generator-ref" content={canary} />
 <style is:inline set:html={vars}></style>
 <style is:inline set:html={themeCss}></style>
 <Fragment set:html={jsonld(websiteLd(m.site.brand, root))} />
@@ -52,7 +65,16 @@ const vars = `:root{--primary:${p.primary};--accent:${p.accent};--danger:${p.dan
   <slot />
 </main>
 <footer class="site"><div class="wrap">
-  <p>{m.site.brand} — {m.site.tagline}. Données issues de la blockchain et du marché VeVe, mises à jour quotidiennement.</p>
+  {fresh && <p style="margin:0 0 10px">Données mises à jour le {fresh}.</p>}
+  {(team.length > 0 || affiliate.length > 0) && (
+    <p style="margin:0 0 10px">
+      {team.map((l) => (<a class="tag" href={l.url} target="_blank" rel="noopener">{l.label}</a>))}
+      {affiliate.map((l) => (<a class="tag" href={l.url} target="_blank" rel="sponsored noopener">{l.label} (partenaire)</a>))}
+    </p>
+  )}
+  {affiliate.length > 0 && <p style="margin:0 0 10px;font-size:13px">Certains liens ci-dessus sont des partenariats rémunérés.</p>}
+  <p style="margin:0 0 6px">{legal.not_affiliated}</p>
+  <p style="margin:0;font-size:13px">{legal.not_financial_advice}</p>
 </div></footer>
 </body>
 </html>

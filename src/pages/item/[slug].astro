@@ -7,19 +7,21 @@ import { manifest, siteUrl } from '../../../engine/lib/manifest.mjs';
 
 export async function getStaticPaths() {
   const ds = await dataset();
-  return ds.items.map((i) => ({ params: { slug: i.slug }, props: { item: i } }));
+  return ds.items.map((i) => ({ params: { slug: i.slug }, props: { item: i, windowDays: ds.windowDays, updatedAt: ds.updatedAt } }));
 }
 
-const { item } = Astro.props;
+const { item, windowDays, updatedAt } = Astro.props;
 const m = manifest();
+const offer = m.offer || {};
 const root = siteUrl();
 const url = `${root}/item/${item.slug}/`;
 const svg = priceChartSVG(item.history);
 const money = (v) => (v === null || v === undefined ? '—' : v.toLocaleString('fr-FR', { maximumFractionDigits: 2 }));
 const pct = (v) => (v === null || v === undefined ? '—' : `${v > 0 ? '+' : ''}${v.toFixed(1)} %`);
 const cls = (v) => (v === null || v === undefined ? '' : v > 0 ? 'up' : v < 0 ? 'down' : '');
-const recent = [...item.history].slice(-14).reverse();
-const first = item.history[0];
+const recent = [...item.history].slice(-10).reverse();
+const sinceTxt = item.since ? new Date(item.since).toLocaleDateString('fr-FR') : null;
+const hidden = Math.max(0, (item.totalPoints || 0) - (item.points || 0));
 const crumbs = [{ name: 'Accueil', url: '/' }];
 if (item.series) crumbs.push({ name: item.series, url: `/collection/${item.series.toLowerCase().replace(/[^a-z0-9]+/g, '-')}/` });
 crumbs.push({ name: item.name });
@@ -27,9 +29,9 @@ const ld = [
   productLd(item, url, m.site.brand),
   breadcrumbLd(crumbs.map((c) => ({ name: c.name, url: c.url ? root + c.url : url }))),
 ];
-const desc = `Prix plancher, historique multi-années et nombre d'offres pour ${item.name}${item.series ? ` (${item.series})` : ''} sur VeVe.`;
+const desc = `Prix plancher et évolution récente pour ${item.name}${item.series ? ` (${item.series})` : ''} sur VeVe.`;
 ---
-<Base title={`${item.name} — prix et historique`} description={desc} crumbs={crumbs} ld={ld}>
+<Base title={`${item.name} — prix et évolution`} description={desc} crumbs={crumbs} ld={ld} updatedAt={updatedAt}>
   <h1>{item.name}</h1>
   <p class="lead">
     {item.series && <span class="tag">{item.series}</span>}
@@ -47,13 +49,21 @@ const desc = `Prix plancher, historique multi-années et nombre d'offres pour ${
   </div>
 
   <div class="card">
-    <h2 style="margin-top:0">Historique du prix plancher</h2>
+    <h2 style="margin-top:0">Prix plancher — derniers relevés</h2>
     <Fragment set:html={svg} />
-    <p class="muted" style="font-size:14px;margin:6px 0 0">
-      {item.points > 0 ? `${item.points} relevés` : 'Aucun relevé'}
-      {first && ` depuis le ${new Date(first.ts).toLocaleDateString('fr-FR')}`}. Prix en gems.
-    </p>
+    <p class="muted" style="font-size:14px;margin:6px 0 0">{item.points} relevés affichés. Prix en gems.</p>
   </div>
+
+  {hidden > 0 && (
+    <div class="card" style="margin-top:14px;border-color:var(--primary)">
+      <strong>{item.totalPoints.toLocaleString('fr-FR')} relevés au total{sinceTxt ? `, depuis le ${sinceTxt}` : ''}.</strong>
+      <p class="muted" style="margin:6px 0 10px">
+        Cette page en montre {item.points}. Les {hidden.toLocaleString('fr-FR')} relevés antérieurs — soit l'historique complet —
+        {offer.teaser ? ` ${offer.teaser.toLowerCase()},` : ''} sont réservés aux membres.
+      </p>
+      {offer.url ? <a class="tag" style="background:var(--primary);color:#fff;font-size:14px;padding:8px 14px" href={offer.url}>{offer.cta || 'Accès membre'}</a> : <span class="muted" style="font-size:13px">Offre membre bientôt disponible.</span>}
+    </div>
+  )}
 
   {recent.length > 0 && (
     <>

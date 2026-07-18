@@ -2,14 +2,37 @@ site:
   domain: veveprice.com
   brand: "VeVe Price"
   tagline: "Historique de prix et floor des collectibles VeVe"
-  description: "Suivez le prix plancher et l'historique multi-annees de chaque collectible VeVe : evolution, plus hauts, plus bas, nombre d'offres."
+  description: "Suivez le prix plancher et l'historique des collectibles VeVe : évolution, plus hauts, plus bas, nombre d'offres."
   lang: fr
 
 rendering: static          # static | server
 features:
-  search: pagefind
+  search: internal
   comments: false
   database: false
+
+# --- Vitrine publique : on ne publie QUE des pages utiles -------------------
+publication:
+  min_price_points: 8      # relevés minimum AU TOTAL pour qu'une fiche mérite d'exister
+  public_points_max: 30    # nb de relevés RÉELLEMENT exposés (le reste = offre membre)
+  public_history_days: 90  # plafond de date supplémentaire (ignoré s'il vide la courbe)
+  max_items: 400           # taille de la vitrine (0 = illimité)
+
+# --- Offre payante (l'historique complet, les alertes, le détail) ----------
+offer:
+  teaser: "historique complet, alertes et données détaillées"
+  cta: "Accès membre"
+  url: ""                  # <-- à compléter (lien Discord / page d'offre)
+
+# --- Mentions obligatoires -------------------------------------------------
+legal:
+  not_affiliated: "Site indépendant, non affilié à VeVe / ECOMI."
+  not_financial_advice: "Information à but documentaire. Ceci n'est pas un conseil en investissement."
+
+# --- Liens de l'équipe (visibles dès le départ) ----------------------------
+links:
+  team: []                 # - { label: "Discord", url: "https://..." }
+  affiliate: []            # - { label: "...", url: "https://...", sponsored: true }
 
 identity:
   theme: aurora

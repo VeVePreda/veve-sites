@@ -12,7 +12,7 @@ const collections = [...ds.collections.values()].sort((a, b) => b.items.length -
 const pct = (v) => (v === null || v === undefined ? '—' : `${v > 0 ? '+' : ''}${v.toFixed(1)} %`);
 const money = (v) => (v === null || v === undefined ? '—' : v.toLocaleString('fr-FR', { maximumFractionDigits: 2 }));
 ---
-<Base title={null}>
+<Base title={null} updatedAt={ds.updatedAt}>
   <h1>{m.site.tagline}</h1>
   <p class="lead">{m.site.description}</p>
 
@@ -20,8 +20,8 @@ const money = (v) => (v === null || v === undefined ? '—' : v.toLocaleString('
   <div id="results" class="grid" style="margin-top:14px"></div>
 
   <div class="stats">
-    <div class="stat"><div class="k">Items suivis</div><div class="v">{ds.items.length.toLocaleString('fr-FR')}</div></div>
-    <div class="stat"><div class="k">Points de prix</div><div class="v">{ds.items.reduce((s, i) => s + i.points, 0).toLocaleString('fr-FR')}</div></div>
+    <div class="stat"><div class="k">Fiches suivies</div><div class="v">{ds.items.length.toLocaleString('fr-FR')}</div></div>
+    <div class="stat"><div class="k">Catalogue couvert</div><div class="v">{ds.catalogueSize.toLocaleString('fr-FR')}</div></div>
     <div class="stat"><div class="k">Collections</div><div class="v">{ds.collections.size}</div></div>
   </div>
 
@@ -66,7 +66,7 @@ const money = (v) => (v === null || v === undefined ? '—' : v.toLocaleString('
       var q = document.getElementById('q'), out = document.getElementById('results'), idx = null;
       function render(list) {
         out.innerHTML = list.slice(0, 24).map(function (i) {
-          return '<a class="item" href="/item/' + i.s + '/"><div class="n">' + i.n + '</div><div class="f">' + (i.f ? i.f : '—') + '</div></a>';
+          return '<a class="item" href="/item/' + i.s + '/"><div class="n">' + i.n + '</div></a>';
         }).join('');
       }
       q.addEventListener('input', function () {
