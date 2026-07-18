@@ -64,7 +64,7 @@ identity:
 # d'analytics commun : sinon les 15 sites deviendraient reliables entre eux.
 analytics:
   provider: umami
-  website_id: ""           # <-- identifiant Umami du site
+  website_id: "f5e7b44c-bdc7-4793-b30e-1bc40fe7db87"
 
 seo:
   title_template: "%s | VeVe Price"
