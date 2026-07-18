@@ -37,6 +37,13 @@ function pctChange(hist, days, o) {
 }
 
 let _ds = null;
+// Le vocabulaire du champ « kind » du catalogue n'est pas garanti : on a vu
+// des comics evidents classes ailleurs. On accepte donc toute variante
+// contenant « comic » (comic, comics, comic_book, Comic...), sans casse.
+function estComic(kind) {
+  return /comic/i.test(String(kind || ''));
+}
+
 // SECRET_RARE -> Secret Rare
 function jolieRarete(r) {
   return String(r).toLowerCase().split(/[_\s]+/).filter(Boolean)
@@ -207,7 +214,7 @@ async function construireDataset() {
   });
   const suffixeUuid = (u) => String(u).replace(/[^a-z0-9]/gi, '').slice(-6).toLowerCase();
   for (const i of ordreStable) {
-    i.racine = i.kind === 'comic' ? 'comic' : 'collectible';
+    i.racine = estComic(i.kind) ? 'comic' : 'collectible';
     i.serieSlug = slugify(i.series) || 'sans-collection';
     i.legacySlug = slugify(i.name);
     if (pinned[i.uuid]) { i.path = pinned[i.uuid]; seen.add(i.path); continue; }
@@ -257,6 +264,11 @@ async function construireDataset() {
   console.log(`[site] ${items.length} fiches publiees (${dejaPublie.length} deja connues + ${items.length - dejaPublie.length} nouvelles) sur ${cat.length} items du catalogue`);
 
   _ds = { items, bySlug, collections, rarities, movers, catalogueSize: cat.length, windowDays: WINDOW_DAYS, maxPoints: MAX_POINTS, updatedAt: new Date().toISOString() };
-  console.log(`[entrepot] jeu de donnees construit : ${items.length} fiches publiees`);
+  const parType = {};
+  for (const c of cat) { const k = String(c.kind || '(vide)'); parType[k] = (parType[k] || 0) + 1; }
+  console.log(`[entrepot] valeurs du champ kind dans le catalogue : ${JSON.stringify(parType)}`);
+  const parRacine = {};
+  for (const i of items) parRacine[i.racine] = (parRacine[i.racine] || 0) + 1;
+  console.log(`[entrepot] jeu de donnees construit : ${items.length} fiches publiees ${JSON.stringify(parRacine)}`);
   return _ds;
 }
