@@ -34,6 +34,12 @@ publication:
 offer:
   url: ""                  # <-- à compléter (lien Discord / page d'offre)
 
+# --- Informations légales --------------------------------------------------
+legal_info:
+  contact: "contact@veveprice.com"   # <-- à activer via Cloudflare Email Routing (gratuit)
+  host: "Hostinger International Ltd, 61 Lordou Vironos Street, 6023 Larnaca, Chypre"
+  updated: "2026-07-18"
+
 # --- Liens de l'équipe (visibles dès le départ) ----------------------------
 links:
   team: []                 # - { label: "Discord", url: "https://..." }
@@ -55,6 +61,7 @@ identity:
 
 seo:
   title_template: "%s | VeVe Price"
+  indexnow_key: "8f3c1b7a92d54e6fa0c7b5e214d83f60"   # cle publique IndexNow (Bing/Yandex)
 
 content:
   data_modules: [item_price_pages, collection_index, movers, rarity_index]

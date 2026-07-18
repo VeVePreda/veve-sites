@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { manifest, siteUrl } from '../../engine/lib/manifest.mjs';
 import { jsonld, websiteLd } from '../../engine/lib/seo.mjs';
 import { locales, t, pick, localize, localeNames, dateLocale } from '../../engine/lib/i18n.mjs';
+import { DOCS, legalTitle } from '../../engine/lib/legal.mjs';
 
 const m = manifest();
 const p = m.identity.palette || {};
@@ -86,6 +87,9 @@ const suggestData = alternates.filter((a) => a.lang !== lang).map((a) => ({ l: a
     </p>
   )}
   {affiliate.length > 0 && <p style="margin:0 0 10px;font-size:13px">{t(lang, 'footer.affiliateNote')}</p>}
+  <p style="margin:0 0 10px">
+    {DOCS.map((d, i) => (<>{i > 0 && ' · '}<a href={localize(lang, `/legal/${d}/`)}>{legalTitle(lang, d)}</a></>))}
+  </p>
   <p style="margin:0 0 6px">{t(lang, 'legal.notAffiliated')}</p>
   <p style="margin:0;font-size:13px">{t(lang, 'legal.notFinancialAdvice')}</p>
 </div></footer>

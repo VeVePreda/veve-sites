@@ -1,0 +1,13 @@
+---
+import LegalPage from '../../components/pages/LegalPage.astro';
+import { DOCS } from '../../../engine/lib/legal.mjs';
+import { locales } from '../../../engine/lib/i18n.mjs';
+import { dataset } from '../../../engine/lib/dataset.mjs';
+export async function getStaticPaths() {
+  const ds = await dataset();
+  return DOCS.map((doc) => ({ params: { doc }, props: { updatedAt: ds.updatedAt } }));
+}
+const { updatedAt } = Astro.props;
+const lang = locales().def;
+---
+<LegalPage lang={lang} doc={Astro.params.doc} updatedAt={updatedAt} />

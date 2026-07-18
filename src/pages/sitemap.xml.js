@@ -1,11 +1,12 @@
 import { dataset } from '../../engine/lib/dataset.mjs';
 import { siteUrl } from '../../engine/lib/manifest.mjs';
 import { locales, localize } from '../../engine/lib/i18n.mjs';
+import { DOCS } from '../../engine/lib/legal.mjs';
 export async function GET() {
   const ds = await dataset();
   const root = siteUrl();
   const { active } = locales();
-  const paths = ['/', '/movers/', '/collections/', '/rarity/']
+  const paths = ['/', '/movers/', '/collections/', '/rarity/'].concat(DOCS.map((d) => `/legal/${d}/`))
     .concat(ds.items.map((i) => `/item/${i.slug}/`))
     .concat([...ds.collections.values()].map((c) => `/collection/${c.slug}/`))
     .concat([...ds.rarities.values()].map((r) => `/rarity/${r.slug}/`));

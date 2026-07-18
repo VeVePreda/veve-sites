@@ -43,3 +43,8 @@ footer.site{border-top:1px solid #ffffff14;padding:26px 0;color:var(--muted);fon
 .crumbs{font-size:14px;color:var(--muted);margin-bottom:14px}
 .crumbs a{color:var(--muted)}
 @media(max-width:640px){header.site .wrap{height:auto;padding-top:10px;padding-bottom:10px;flex-wrap:wrap;gap:10px}nav.main{margin-left:0;width:100%}th.hide,td.hide{display:none}}
+
+.legal{max-width:760px}
+.legal h2{font-size:19px;margin:26px 0 8px}
+.legal p{margin:0 0 12px}
+.legal strong{font-weight:500}
