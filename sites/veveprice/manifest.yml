@@ -25,6 +25,10 @@ features:
 
 # --- Vitrine publique : on ne publie QUE des pages utiles -------------------
 publication:
+  # Feuille des adresses de comics : rarity (defaut) ou name
+  #   rarity -> /comic/alias-1-2001/secret-rare/
+  #   name   -> /comic/<serie>/<nom de la couverture>/
+  comic_leaf: rarity
   min_price_points: 8      # relevés minimum AU TOTAL pour qu'une fiche mérite d'exister
   public_points_max: 30    # nb de relevés RÉELLEMENT exposés (le reste = offre membre)
   public_history_days: 90  # plafond de date supplémentaire (ignoré s'il vide la courbe)

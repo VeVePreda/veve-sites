@@ -178,15 +178,49 @@ export async function dataset() {
   const place = MAX_ITEMS > 0 ? Math.max(0, MAX_ITEMS - dejaPublie.length) : nouvelles.length;
   const items = [...dejaPublie, ...nouvelles.slice(0, place)];
 
+  // ═══ ADRESSES ═══
+  // Hierarchie par type (decision Preda 18/07) :
+  //   collectibles : /collectible/<serie>/<nom>/
+  //   comics       : /comic/<serie>/<rarete>/   <- chez les comics le nom
+  //                  recopie souvent la serie ; la rarete est le vrai
+  //                  discriminant (une serie = plusieurs couvertures).
+  // L'attribution est DETERMINISTE et independante des donnees de prix : on
+  // parcourt par uuid (immuable), jamais par classement. Sinon l'adresse
+  // /item/batgirl/ change d'objet d'un jour a l'autre (constate en prod).
   const seen = new Set();
-  for (const i of items) {
-    let s = pinned[i.uuid] || slugify(i.name);
-    if (seen.has(s)) s = `${s}-${String(i.uuid).replace(/[^a-z0-9]/gi, '').slice(-6).toLowerCase()}`;
-    seen.add(s);
-    i.slug = s;
+  const ordreStable = [...items].sort((a, b) => {
+    const pa = pinned[a.uuid] ? 0 : 1;
+    const pb = pinned[b.uuid] ? 0 : 1;
+    return pa - pb || String(a.uuid).localeCompare(String(b.uuid));
+  });
+  const suffixeUuid = (u) => String(u).replace(/[^a-z0-9]/gi, '').slice(-6).toLowerCase();
+  for (const i of ordreStable) {
+    i.racine = i.kind === 'comic' ? 'comic' : 'collectible';
+    i.serieSlug = slugify(i.series) || 'sans-collection';
+    i.legacySlug = slugify(i.name);
+    if (pinned[i.uuid]) { i.path = pinned[i.uuid]; seen.add(i.path); continue; }
+    // Feuille des comics : reglable au manifeste (urls.comic_leaf).
+    //  'rarity' (defaut, choix Preda) -> /comic/alias-1-2001/secret-rare/
+    //  'name'                          -> /comic/<serie>/<nom de la couverture>/
+    // Utile car certaines series de comics ont des noms de couverture tres
+    // parlants ("Bill Sienkiewicz Original Main Cover") qu'on perd avec la rarete.
+    const feuilleComic = (pub.comic_leaf || 'rarity') === 'name' ? i.legacySlug : slugify(i.rarity);
+    const principal = i.racine === 'comic' ? (feuilleComic || i.legacySlug) : i.legacySlug;
+    // Repli en cas de collision : pour un comic, ajouter le nom serait redondant
+    // (il recopie souvent la serie) -> on prend l'autre attribut, puis l'uuid.
+    // Repli en cas de collision. Pour un comic, ajouter le nom serait redondant
+    // (il recopie souvent la serie) : on prend directement l'identifiant court.
+    const secours = i.racine === 'comic'
+      ? `${principal}-${suffixeUuid(i.uuid)}`
+      : `${i.legacySlug}-${slugify(i.rarity) || 'edition'}`;
+    let feuille = principal || 'sans-nom';
+    if (seen.has(`/${i.racine}/${i.serieSlug}/${feuille}/`)) feuille = secours;
+    if (seen.has(`/${i.racine}/${i.serieSlug}/${feuille}/`)) feuille = `${principal}-${suffixeUuid(i.uuid)}`;
+    i.path = `/${i.racine}/${i.serieSlug}/${feuille}/`;
+    seen.add(i.path);
   }
 
-  const bySlug = new Map(items.map((i) => [i.slug, i]));
+  const bySlug = new Map(items.map((i) => [i.path, i]));
   const collections = new Map();
   for (const i of items) {
     if (!i.series) continue;

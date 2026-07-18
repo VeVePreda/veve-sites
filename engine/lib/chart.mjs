@@ -1,5 +1,6 @@
 // Graphique de prix rendu cote SERVEUR en SVG : zero JavaScript envoye au navigateur.
 export function priceChartSVG(history, opts = {}) {
+  const label = opts.label || 'Floor price history';
   const w = opts.width || 720, h = opts.height || 260;
   const pad = { t: 16, r: 16, b: 28, l: 52 };
   const pts = (history || []).filter((p) => Number.isFinite(p.floor));
@@ -17,5 +18,5 @@ export function priceChartSVG(history, opts = {}) {
   const yTicks = [y0, y0 + spanY / 2, y1].map((v) => `<line x1="${pad.l}" y1="${py(v).toFixed(1)}" x2="${w - pad.r}" y2="${py(v).toFixed(1)}" class="grid"/><text x="${pad.l - 8}" y="${(py(v) + 4).toFixed(1)}" class="axis" text-anchor="end">${fmt(v)}</text>`).join('');
   const year = (t) => new Date(t).getUTCFullYear();
   const xTicks = [x0, x0 + spanX / 2, x1].map((t) => `<text x="${px(t).toFixed(1)}" y="${h - 8}" class="axis" text-anchor="middle">${year(t)}</text>`).join('');
-  return `<svg class="chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="Historique du prix plancher"><title>Historique du prix plancher</title>${yTicks}<path d="${area}" class="area"/><path d="${d}" class="line" fill="none"/>${xTicks}</svg>`;
+  return `<svg class="chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="${label}"><title>${label}</title>${yTicks}<path d="${area}" class="area"/><path d="${d}" class="line" fill="none"/>${xTicks}</svg>`;
 }

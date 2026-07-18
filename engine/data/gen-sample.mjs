@@ -9,6 +9,11 @@ const series = [
   { name: 'DC Classics S2', brand: 'DC', licensor: 'Warner' },
   { name: 'Cosmic Heroes', brand: 'Marvel', licensor: 'Disney' },
   { name: 'Retro Arcade', brand: 'Capcom', licensor: 'Capcom' },
+  // Comics : plusieurs raretes (= couvertures) DANS la meme serie, et le nom
+  // recopie la serie. C'est exactement la forme reelle du catalogue VeVe, et
+  // c'est ce qui justifie /comic/<serie>/<rarete>/.
+  { name: 'The Cimmerian #1 (2020)', brand: 'Ablaze', licensor: 'Ablaze', kind: 'comic' },
+  { name: 'Alias #1 (2001)', brand: 'Marvel', licensor: 'Disney', kind: 'comic' },
 ];
 const rarities = ['Common', 'Uncommon', 'Rare', 'Ultra Rare', 'Secret Rare'];
 const heroes = ['Spider-Man','Iron Man','Batman','Superman','Wolverine','Thor','Flash','Hulk','Venom','Mega Man','Ryu','Groot','Loki','Joker','Storm','Vision','Rocket','Gamora','Zangief','Doctor Strange'];
@@ -24,8 +29,8 @@ const baselines = [];
 for (let i = 0; i < 40; i++) {
   const uuid = `sample-${String(i).padStart(4, '0')}-${Math.floor(rnd() * 1e6)}`;
   const s = series[i % series.length];
-  const rarity = pick(rarities);
-  const name = `${heroes[i % heroes.length]} ${['','Variant','Gold','Prime'][i % 4]}`.trim();
+  const rarity = s.kind === 'comic' ? rarities[Math.floor(i / series.length) % rarities.length] : pick(rarities);
+  const name = s.kind === 'comic' ? s.name : `${heroes[i % heroes.length]} ${['','Variant','Gold','Prime'][i % 4]}`.trim();
   const tirage = [500, 1000, 2500, 5000, 10000][i % 5];
   const store = [10, 20, 30, 60, 100][i % 5];
   const start = new Date(Date.UTC(2021, 9 + (i % 3), 1 + (i % 20)));
@@ -52,7 +57,7 @@ for (let i = 0; i < 40; i++) {
   const q = (p) => fl[Math.min(fl.length - 1, Math.floor(fl.length * p))];
   const last = hist[hist.length - 1];
   baselines.push(`${uuid},${fl[0]},${q(0.05)},${q(0.25)},${q(0.5)},${q(0.75)},${q(0.95)},${fl[fl.length-1]},${hist.length},${last.floor},${last.listings}`);
-  cat.push([uuid,'collectible',name,'Standard',rarity,start.toISOString().slice(0,10),s.name,s.brand,s.licensor,tirage,store,last.floor,last.listings,fl[fl.length-1],fl[0]].join(','));
+  cat.push([uuid,s.kind || 'collectible',name,'Standard',rarity,start.toISOString().slice(0,10),s.name,s.brand,s.licensor,tirage,store,last.floor,last.listings,fl[fl.length-1],fl[0]].join(','));
 }
 
 writeFileSync(join(OUT, 'catalogue.csv'), 'uuid,kind,name,edition_type,rarity,release_date,series,brand,licensor,tirage,store_price,floor,listings,ath,atl\n' + cat.join('\n') + '\n');

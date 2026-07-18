@@ -57,7 +57,7 @@ const tagsAvecPage = new Set((await tagsFor(lang)).map((x) => x.tag));
       <h2>{t(lang, 'blog.relatedItems')}</h2>
       <div class="grid">
         {cited.map((i) => (
-          <a class="item" href={localize(lang, `/item/${i.slug}/`)}>
+          <a class="item" href={localize(lang, i.path)}>
             <div class="n">{i.name}</div><div class="s">{i.series}</div>
           </a>
         ))}

@@ -9,7 +9,7 @@ export async function GET() {
   const root = siteUrl();
   const { active } = locales();
   const paths = ['/', '/movers/', '/collections/', '/rarity/'].concat(DOCS.map((d) => `/legal/${d}/`))
-    .concat(ds.items.map((i) => `/item/${i.slug}/`))
+    .concat(ds.items.map((i) => i.path))
     .concat([...ds.collections.values()].map((c) => `/collection/${c.slug}/`))
     .concat([...ds.rarities.values()].map((r) => `/rarity/${r.slug}/`));
   const entries = [];

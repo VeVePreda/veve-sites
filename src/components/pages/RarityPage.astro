@@ -15,7 +15,7 @@ const money = (v) => (v === null || v === undefined ? '—' : v.toLocaleString(n
   <table>
     <thead><tr><th>{t(lang, 'movers.item')}</th><th class="hide">{t(lang, 'item.collection')}</th><th class="num">{t(lang, 'movers.floor')}</th></tr></thead>
     <tbody>{items.map((i) => (
-      <tr><td><a href={localize(lang, `/item/${i.slug}/`)}>{i.name}</a></td><td class="hide">{i.series}</td><td class="num">{money(i.floor)}</td></tr>
+      <tr><td><a href={localize(lang, i.path)}>{i.name}</a></td><td class="hide">{i.series}</td><td class="num">{money(i.floor)}</td></tr>
     ))}</tbody>
   </table>
 </Base>

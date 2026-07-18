@@ -31,7 +31,7 @@ const money = (v) => (v === null || v === undefined ? '—' : v.toLocaleString(n
   <h2>{t(lang, 'home.up')}</h2>
   <div class="grid">
     {up.map((i) => (
-      <a class="item" href={localize(lang, `/item/${i.slug}/`)}>
+      <a class="item" href={localize(lang, i.path)}>
         <div class="n">{i.name}</div><div class="s">{i.series} · {i.rarity}</div>
         <div class="f">{money(i.floor)} <span class="up" style="font-size:14px">{pct(i.change7d)}</span></div>
       </a>
@@ -41,7 +41,7 @@ const money = (v) => (v === null || v === undefined ? '—' : v.toLocaleString(n
   <h2>{t(lang, 'home.down')}</h2>
   <div class="grid">
     {down.map((i) => (
-      <a class="item" href={localize(lang, `/item/${i.slug}/`)}>
+      <a class="item" href={localize(lang, i.path)}>
         <div class="n">{i.name}</div><div class="s">{i.series} · {i.rarity}</div>
         <div class="f">{money(i.floor)} <span class="down" style="font-size:14px">{pct(i.change7d)}</span></div>
       </a>
@@ -51,7 +51,7 @@ const money = (v) => (v === null || v === undefined ? '—' : v.toLocaleString(n
   <h2>{t(lang, 'home.documented')}</h2>
   <div class="grid">
     {featured.map((i) => (
-      <a class="item" href={localize(lang, `/item/${i.slug}/`)}>
+      <a class="item" href={localize(lang, i.path)}>
         <div class="n">{i.name}</div><div class="s">{i.totalPoints.toLocaleString(nf)} {t(lang, 'home.points')}</div>
         <div class="f">{money(i.floor)}</div>
       </a>
@@ -61,12 +61,12 @@ const money = (v) => (v === null || v === undefined ? '—' : v.toLocaleString(n
   <h2>{t(lang, 'home.collections')}</h2>
   <p>{collections.map((c) => (<a class="tag" href={localize(lang, `/collection/${c.slug}/`)}>{c.name} ({c.items.length})</a>))}</p>
 
-  <script is:inline define:vars={{ base: localize(lang, '/item/') }}>
+  <script is:inline define:vars={{ prefixe: localize(lang, '') }}>
     (function () {
       var q = document.getElementById('q'), out = document.getElementById('results'), idx = null;
       function render(list) {
         out.innerHTML = list.slice(0, 24).map(function (i) {
-          return '<a class="item" href="' + base + i.s + '/"><div class="n">' + i.n + '</div></a>';
+          return '<a class="item" href="' + prefixe + i.s + '"><div class="n">' + i.n + '</div></a>';
         }).join('');
       }
       function filter(v) { if (idx) render(idx.filter(function (i) { return i.n.toLowerCase().indexOf(v) !== -1; })); }

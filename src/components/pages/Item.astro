@@ -11,11 +11,11 @@ const { lang, item, updatedAt } = Astro.props;
 const m = manifest();
 const offer = m.offer || {};
 const root = siteUrl();
-const path = `/item/${item.slug}/`;
+const path = item.path;
 const url = `${root}${localize(lang, path)}`;
 const nf = numberLocale[lang] || 'en-GB';
 const df = dateLocale[lang] || 'en-GB';
-const svg = priceChartSVG(item.history);
+const svg = priceChartSVG(item.history, { label: t(lang, 'chart.label') });
 const money = (v) => (v === null || v === undefined ? '—' : v.toLocaleString(nf, { maximumFractionDigits: 2 }));
 const pct = (v) => (v === null || v === undefined ? '—' : `${v > 0 ? '+' : ''}${v.toFixed(1)} %`);
 const cls = (v) => (v === null || v === undefined ? '' : v > 0 ? 'up' : v < 0 ? 'down' : '');
@@ -24,9 +24,15 @@ const relatedPosts = await postsForItem(lang, item.uuid);
 const sinceTxt = item.since ? new Date(item.since).toLocaleDateString(df) : null;
 const hidden = Math.max(0, (item.totalPoints || 0) - (item.points || 0));
 const colSlug = item.series ? item.series.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') : null;
+// Chez beaucoup de comics le nom RECOPIE la serie (« Alias #1 (2001) ») :
+// repeter la serie dans le titre et le fil d'Ariane n'apprend rien.
+const norm = (v) => String(v || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+const jolieRareteFr = (r) => String(r).toLowerCase().split(/[_\s]+/).filter(Boolean)
+  .map((w) => w[0].toUpperCase() + w.slice(1)).join(' ');
+const serieRedondante = norm(item.series) === norm(item.name);
 const crumbs = [{ name: t(lang, 'home.crumb'), url: localize(lang, '/') }];
 if (colSlug) crumbs.push({ name: item.series, url: localize(lang, `/collection/${colSlug}/`) });
-crumbs.push({ name: item.name });
+crumbs.push({ name: serieRedondante && item.rarity ? jolieRareteFr(item.rarity) : item.name });
 const ld = [productLd(item, url, m.site.brand), breadcrumbLd(crumbs.map((c) => ({ name: c.name, url: c.url ? root + c.url : url })))];
 
 // Titre UNIQUE : plusieurs collectibles VeVe portent le meme nom (Batgirl, Loki,
@@ -35,7 +41,7 @@ const ld = [productLd(item, url, m.site.brand), breadcrumbLd(crumbs.map((c) => (
 // Budget reel : Google tronque vers 60 caracteres, gabarit de marque compris.
 const budget = Math.max(24, 60 - (m.seo?.title_template || '%s').replace('%s', '').length);
 const titreItem = (() => {
-  if (!item.series) return item.qualifie || item.name;
+  if (!item.series || serieRedondante) return item.qualifie || item.name;
   const base = item.qualifie || item.name;
   const complet = `${base} — ${item.series}`;
   if (complet.length <= budget) return complet;
