@@ -1,0 +1,21 @@
+---
+import Base from '../../layouts/Base.astro';
+import { dataset } from '../../../engine/lib/dataset.mjs';
+import { t, localize, numberLocale } from '../../../engine/lib/i18n.mjs';
+
+const { lang, rar, updatedAt } = Astro.props;
+const nf = numberLocale[lang] || 'en-GB';
+const items = [...rar.items].sort((a, b) => (b.floor ?? 0) - (a.floor ?? 0));
+const money = (v) => (v === null || v === undefined ? '—' : v.toLocaleString(nf, { maximumFractionDigits: 2 }));
+---
+<Base lang={lang} path={`/rarity/${rar.slug}/`} title={`${t(lang, 'rarity.title')} ${rar.name}`} updatedAt={updatedAt}
+      crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') }, { name: t(lang, 'rarities.title'), url: localize(lang, '/rarity/') }, { name: rar.name }]}>
+  <h1>{t(lang, 'rarity.title')} : {rar.name}</h1>
+  <p class="lead">{items.length} {t(lang, 'rarity.count')}.</p>
+  <table>
+    <thead><tr><th>{t(lang, 'movers.item')}</th><th class="hide">{t(lang, 'item.collection')}</th><th class="num">{t(lang, 'movers.floor')}</th></tr></thead>
+    <tbody>{items.map((i) => (
+      <tr><td><a href={localize(lang, `/item/${i.slug}/`)}>{i.name}</a></td><td class="hide">{i.series}</td><td class="num">{money(i.floor)}</td></tr>
+    ))}</tbody>
+  </table>
+</Base>

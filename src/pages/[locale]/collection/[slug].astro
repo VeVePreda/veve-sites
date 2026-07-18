@@ -1,0 +1,17 @@
+---
+import CollectionPage from '../../../components/pages/CollectionPage.astro';
+import { dataset } from '../../../../engine/lib/dataset.mjs';
+import { locales } from '../../../../engine/lib/i18n.mjs';
+export async function getStaticPaths() {
+  const ds = await dataset();
+  const { active, def } = locales();
+  const out = [];
+  for (const l of active.filter((x) => x !== def)) {
+    for (const e of [...ds.collections.values()]) out.push({ params: { locale: l, slug: e.slug }, props: { col: e, updatedAt: ds.updatedAt } });
+  }
+  return out;
+}
+const { col, updatedAt } = Astro.props;
+const lang = Astro.params.locale;
+---
+<CollectionPage lang={lang} col={col} updatedAt={updatedAt} />

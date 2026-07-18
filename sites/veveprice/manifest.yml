@@ -1,9 +1,21 @@
 site:
   domain: veveprice.com
   brand: "VeVe Price"
-  tagline: "Historique de prix et floor des collectibles VeVe"
-  description: "Suivez le prix plancher et l'historique des collectibles VeVe : évolution, plus hauts, plus bas, nombre d'offres."
-  lang: fr
+  tagline:
+    en: "Price history and floor tracker for VeVe collectibles"
+    fr: "Historique de prix et floor des collectibles VeVe"
+    es: "Historial de precios y precio mínimo de los coleccionables VeVe"
+    de: "Preisverlauf und Bodenpreise für VeVe-Sammelobjekte"
+  description:
+    en: "Track the floor price and price history of every VeVe collectible: moves, all-time highs and lows, number of listings."
+    fr: "Suivez le prix plancher et l'historique des collectibles VeVe : évolution, plus hauts, plus bas, nombre d'offres."
+    es: "Sigue el precio mínimo y el historial de los coleccionables VeVe: evolución, máximos, mínimos y ofertas."
+    de: "Verfolge Bodenpreis und Preisverlauf jedes VeVe-Sammelobjekts: Entwicklung, Höchst- und Tiefststände, Angebote."
+
+# --- Langues : anglais par defaut, les autres en sous-dossier (/fr/, /es/, /de/)
+languages:
+  default: en
+  active: [en, fr, es, de]
 
 rendering: static          # static | server
 features:
@@ -20,14 +32,7 @@ publication:
 
 # --- Offre payante (l'historique complet, les alertes, le détail) ----------
 offer:
-  teaser: "historique complet, alertes et données détaillées"
-  cta: "Accès membre"
   url: ""                  # <-- à compléter (lien Discord / page d'offre)
-
-# --- Mentions obligatoires -------------------------------------------------
-legal:
-  not_affiliated: "Site indépendant, non affilié à VeVe / ECOMI."
-  not_financial_advice: "Information à but documentaire. Ceci n'est pas un conseil en investissement."
 
 # --- Liens de l'équipe (visibles dès le départ) ----------------------------
 links:

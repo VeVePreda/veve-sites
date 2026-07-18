@@ -1,0 +1,20 @@
+---
+import Base from '../../layouts/Base.astro';
+import { dataset } from '../../../engine/lib/dataset.mjs';
+import { t, localize } from '../../../engine/lib/i18n.mjs';
+
+const { lang } = Astro.props;
+const ds = await dataset();
+const rars = [...ds.rarities.values()].sort((a, b) => b.items.length - a.items.length);
+---
+<Base lang={lang} path="/rarity/" title={t(lang, 'rarities.title')} updatedAt={ds.updatedAt}
+      crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') }, { name: t(lang, 'rarities.title') }]}>
+  <h1>{t(lang, 'rarities.title')}</h1>
+  <div class="grid">
+    {rars.map((r) => (
+      <a class="item" href={localize(lang, `/rarity/${r.slug}/`)}>
+        <div class="n">{r.name}</div><div class="f">{r.items.length} <span style="font-size:14px" class="muted">{t(lang, 'rarity.count')}</span></div>
+      </a>
+    ))}
+  </div>
+</Base>

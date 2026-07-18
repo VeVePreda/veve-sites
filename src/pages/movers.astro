@@ -1,40 +1,6 @@
 ---
-import Base from '../layouts/Base.astro';
-import { dataset } from '../../engine/lib/dataset.mjs';
-const ds = await dataset();
-const money = (v) => (v === null || v === undefined ? '—' : v.toLocaleString('fr-FR', { maximumFractionDigits: 2 }));
-const pct = (v) => (v === null || v === undefined ? '—' : `${v > 0 ? '+' : ''}${v.toFixed(1)} %`);
+import Movers from '../components/pages/Movers.astro';
+import { locales } from '../../engine/lib/i18n.mjs';
+const lang = locales().def;
 ---
-<Base title="Mouvements de prix" description="Les plus fortes hausses et baisses de prix plancher sur 7 jours." crumbs={[{ name: 'Accueil', url: '/' }, { name: 'Mouvements' }]}>
-  <h1>Mouvements de prix (7 jours)</h1>
-
-  <h2>Hausses</h2>
-  <table>
-    <thead><tr><th>Collectible</th><th class="hide">Collection</th><th class="num">Plancher</th><th class="num">7 j</th></tr></thead>
-    <tbody>
-      {ds.movers.up.map((i) => (
-        <tr>
-          <td><a href={`/item/${i.slug}/`}>{i.name}</a></td>
-          <td class="hide">{i.series}</td>
-          <td class="num">{money(i.floor)}</td>
-          <td class="num up">{pct(i.change7d)}</td>
-        </tr>
-      ))}
-    </tbody>
-  </table>
-
-  <h2>Baisses</h2>
-  <table>
-    <thead><tr><th>Collectible</th><th class="hide">Collection</th><th class="num">Plancher</th><th class="num">7 j</th></tr></thead>
-    <tbody>
-      {ds.movers.down.map((i) => (
-        <tr>
-          <td><a href={`/item/${i.slug}/`}>{i.name}</a></td>
-          <td class="hide">{i.series}</td>
-          <td class="num">{money(i.floor)}</td>
-          <td class="num down">{pct(i.change7d)}</td>
-        </tr>
-      ))}
-    </tbody>
-  </table>
-</Base>
+<Movers lang={lang} />

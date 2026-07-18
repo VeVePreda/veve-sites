@@ -1,0 +1,87 @@
+---
+import Base from '../../layouts/Base.astro';
+import { dataset } from '../../../engine/lib/dataset.mjs';
+import { priceChartSVG } from '../../../engine/lib/chart.mjs';
+import { productLd, breadcrumbLd } from '../../../engine/lib/seo.mjs';
+import { manifest, siteUrl } from '../../../engine/lib/manifest.mjs';
+import { t, localize, numberLocale, dateLocale } from '../../../engine/lib/i18n.mjs';
+
+const { lang, item, updatedAt } = Astro.props;
+const m = manifest();
+const offer = m.offer || {};
+const root = siteUrl();
+const path = `/item/${item.slug}/`;
+const url = `${root}${localize(lang, path)}`;
+const nf = numberLocale[lang] || 'en-GB';
+const df = dateLocale[lang] || 'en-GB';
+const svg = priceChartSVG(item.history);
+const money = (v) => (v === null || v === undefined ? '—' : v.toLocaleString(nf, { maximumFractionDigits: 2 }));
+const pct = (v) => (v === null || v === undefined ? '—' : `${v > 0 ? '+' : ''}${v.toFixed(1)} %`);
+const cls = (v) => (v === null || v === undefined ? '' : v > 0 ? 'up' : v < 0 ? 'down' : '');
+const recent = [...item.history].slice(-10).reverse();
+const sinceTxt = item.since ? new Date(item.since).toLocaleDateString(df) : null;
+const hidden = Math.max(0, (item.totalPoints || 0) - (item.points || 0));
+const colSlug = item.series ? item.series.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') : null;
+const crumbs = [{ name: t(lang, 'home.crumb'), url: localize(lang, '/') }];
+if (colSlug) crumbs.push({ name: item.series, url: localize(lang, `/collection/${colSlug}/`) });
+crumbs.push({ name: item.name });
+const ld = [productLd(item, url, m.site.brand), breadcrumbLd(crumbs.map((c) => ({ name: c.name, url: c.url ? root + c.url : url })))];
+---
+<Base lang={lang} path={path} title={item.name} description={`${item.name}${item.series ? ` (${item.series})` : ''} — ${t(lang, 'item.floor')}.`} crumbs={crumbs} ld={ld} updatedAt={updatedAt}>
+  <h1>{item.name}</h1>
+  <p class="lead">
+    {item.series && <span class="tag">{item.series}</span>}
+    {item.rarity && <span class="tag">{item.rarity}</span>}
+    {item.tirage && <span class="tag">{t(lang, 'item.supply')} {item.tirage.toLocaleString(nf)}</span>}
+  </p>
+
+  <div class="stats">
+    <div class="stat"><div class="k">{t(lang, 'item.floor')}</div><div class="v">{money(item.floor)}</div></div>
+    <div class="stat"><div class="k">{t(lang, 'item.listings')}</div><div class="v">{item.listings ?? '—'}</div></div>
+    <div class="stat"><div class="k">{t(lang, 'item.7d')}</div><div class={`v ${cls(item.change7d)}`}>{pct(item.change7d)}</div></div>
+    <div class="stat"><div class="k">{t(lang, 'item.30d')}</div><div class={`v ${cls(item.change30d)}`}>{pct(item.change30d)}</div></div>
+    <div class="stat"><div class="k">{t(lang, 'item.high')}</div><div class="v">{money(item.ath)}</div></div>
+    <div class="stat"><div class="k">{t(lang, 'item.low')}</div><div class="v">{money(item.atl)}</div></div>
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top:0">{t(lang, 'item.chart')}</h2>
+    <Fragment set:html={svg} />
+    <p class="muted" style="font-size:14px;margin:6px 0 0">{item.points} {t(lang, 'item.shown')}</p>
+  </div>
+
+  {hidden > 0 && (
+    <div class="card" style="margin-top:14px;border-color:var(--primary)">
+      <strong>{item.totalPoints.toLocaleString(nf)} {t(lang, 'offer.total')}{sinceTxt ? `, ${t(lang, 'offer.since')} ${sinceTxt}` : ''}.</strong>
+      <p class="muted" style="margin:6px 0 10px">
+        {t(lang, 'offer.showing')} {item.points}. {hidden.toLocaleString(nf)} {t(lang, 'offer.hidden')}
+      </p>
+      {offer.url
+        ? <a class="tag" style="background:var(--primary);color:#fff;font-size:14px;padding:8px 14px" href={offer.url}>{t(lang, 'offer.cta')}</a>
+        : <span class="muted" style="font-size:13px">{t(lang, 'offer.soon')}</span>}
+    </div>
+  )}
+
+  {recent.length > 0 && (
+    <>
+      <h2>{t(lang, 'item.recent')}</h2>
+      <table>
+        <thead><tr><th>{t(lang, 'item.date')}</th><th class="num">{t(lang, 'movers.floor')}</th><th class="num hide">{t(lang, 'item.listings')}</th></tr></thead>
+        <tbody>{recent.map((p) => (
+          <tr><td>{new Date(p.ts).toLocaleDateString(df)}</td><td class="num">{money(p.floor)}</td><td class="num hide">{p.listings}</td></tr>
+        ))}</tbody>
+      </table>
+    </>
+  )}
+
+  <h2>{t(lang, 'item.sheet')}</h2>
+  <table><tbody>
+    {colSlug && <tr><th>{t(lang, 'item.collection')}</th><td><a href={localize(lang, `/collection/${colSlug}/`)}>{item.series}</a></td></tr>}
+    {item.rarity && <tr><th>{t(lang, 'item.rarity')}</th><td>{item.rarity}</td></tr>}
+    {item.brand && <tr><th>{t(lang, 'item.brand')}</th><td>{item.brand}</td></tr>}
+    {item.licensor && <tr><th>{t(lang, 'item.licensor')}</th><td>{item.licensor}</td></tr>}
+    {item.tirage && <tr><th>{t(lang, 'item.supply')}</th><td>{item.tirage.toLocaleString(nf)}</td></tr>}
+    {item.storePrice && <tr><th>{t(lang, 'item.storePrice')}</th><td>{money(item.storePrice)}</td></tr>}
+    {item.releaseDate && <tr><th>{t(lang, 'item.release')}</th><td>{item.releaseDate}</td></tr>}
+  </tbody></table>
+</Base>

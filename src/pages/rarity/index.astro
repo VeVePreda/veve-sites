@@ -1,12 +1,6 @@
 ---
-import Base from '../../layouts/Base.astro';
-import { dataset } from '../../../engine/lib/dataset.mjs';
-const ds = await dataset();
-const rars = [...ds.rarities.values()].sort((a, b) => b.items.length - a.items.length);
+import Rarities from '../../components/pages/Rarities.astro';
+import { locales } from '../../../engine/lib/i18n.mjs';
+const lang = locales().def;
 ---
-<Base title="Raretés" description="Parcourir les collectibles VeVe par rareté." crumbs={[{ name: 'Accueil', url: '/' }, { name: 'Raretés' }]}>
-  <h1>Raretés</h1>
-  <div class="grid">
-    {rars.map((r) => (<a class="item" href={`/rarity/${r.slug}/`}><div class="n">{r.name}</div><div class="f">{r.items.length} <span style="font-size:14px" class="muted">items</span></div></a>))}
-  </div>
-</Base>
+<Rarities lang={lang} />

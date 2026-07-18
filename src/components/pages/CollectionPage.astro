@@ -1,0 +1,26 @@
+---
+import Base from '../../layouts/Base.astro';
+import { dataset } from '../../../engine/lib/dataset.mjs';
+import { itemListLd } from '../../../engine/lib/seo.mjs';
+import { siteUrl } from '../../../engine/lib/manifest.mjs';
+import { t, localize, numberLocale } from '../../../engine/lib/i18n.mjs';
+
+const { lang, col, updatedAt } = Astro.props;
+const root = siteUrl();
+const nf = numberLocale[lang] || 'en-GB';
+const items = [...col.items].sort((a, b) => (b.floor ?? 0) - (a.floor ?? 0));
+const money = (v) => (v === null || v === undefined ? '—' : v.toLocaleString(nf, { maximumFractionDigits: 2 }));
+const path = `/collection/${col.slug}/`;
+const ld = [itemListLd(items.map((i) => ({ name: i.name, url: `${root}${localize(lang, `/item/${i.slug}/`)}` })), `${root}${localize(lang, path)}`)];
+---
+<Base lang={lang} path={path} title={col.name} ld={ld} updatedAt={updatedAt}
+      crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') }, { name: t(lang, 'collections.title'), url: localize(lang, '/collections/') }, { name: col.name }]}>
+  <h1>{col.name}</h1>
+  <p class="lead">{items.length} {t(lang, 'collection.tracked')}.</p>
+  <table>
+    <thead><tr><th>{t(lang, 'movers.item')}</th><th class="hide">{t(lang, 'item.rarity')}</th><th class="num">{t(lang, 'movers.floor')}</th><th class="num hide">{t(lang, 'item.listings')}</th></tr></thead>
+    <tbody>{items.map((i) => (
+      <tr><td><a href={localize(lang, `/item/${i.slug}/`)}>{i.name}</a></td><td class="hide">{i.rarity}</td><td class="num">{money(i.floor)}</td><td class="num hide">{i.listings ?? '—'}</td></tr>
+    ))}</tbody>
+  </table>
+</Base>

@@ -1,0 +1,22 @@
+---
+import Base from '../../layouts/Base.astro';
+import { dataset } from '../../../engine/lib/dataset.mjs';
+import { t, localize } from '../../../engine/lib/i18n.mjs';
+
+const { lang } = Astro.props;
+const ds = await dataset();
+const cols = [...ds.collections.values()].sort((a, b) => b.items.length - a.items.length);
+---
+<Base lang={lang} path="/collections/" title={t(lang, 'collections.title')} updatedAt={ds.updatedAt}
+      crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') }, { name: t(lang, 'collections.title') }]}>
+  <h1>{t(lang, 'collections.title')}</h1>
+  <p class="lead">{cols.length} {t(lang, 'collections.count')}.</p>
+  <div class="grid">
+    {cols.map((c) => (
+      <a class="item" href={localize(lang, `/collection/${c.slug}/`)}>
+        <div class="n">{c.name}</div><div class="s">{c.brand}</div>
+        <div class="f">{c.items.length} <span style="font-size:14px" class="muted">{t(lang, 'collections.items')}</span></div>
+      </a>
+    ))}
+  </div>
+</Base>

@@ -1,0 +1,81 @@
+---
+import Base from '../../layouts/Base.astro';
+import { dataset } from '../../../engine/lib/dataset.mjs';
+import { manifest } from '../../../engine/lib/manifest.mjs';
+import { t, pick, localize, numberLocale } from '../../../engine/lib/i18n.mjs';
+
+const { lang } = Astro.props;
+const m = manifest();
+const ds = await dataset();
+const nf = numberLocale[lang] || 'en-GB';
+const up = ds.movers.up.slice(0, 6);
+const down = ds.movers.down.slice(0, 6);
+const featured = [...ds.items].sort((a, b) => (b.totalPoints || 0) - (a.totalPoints || 0)).slice(0, 8);
+const collections = [...ds.collections.values()].sort((a, b) => b.items.length - a.items.length).slice(0, 8);
+const pct = (v) => (v === null || v === undefined ? '—' : `${v > 0 ? '+' : ''}${v.toFixed(1)} %`);
+const money = (v) => (v === null || v === undefined ? '—' : v.toLocaleString(nf, { maximumFractionDigits: 2 }));
+---
+<Base lang={lang} path="/" title={null} updatedAt={ds.updatedAt}>
+  <h1>{pick(m.site.tagline, lang)}</h1>
+  <p class="lead">{pick(m.site.description, lang)}</p>
+
+  <input id="q" class="searchbox" type="search" placeholder={t(lang, 'search.placeholder')} autocomplete="off" aria-label={t(lang, 'search.placeholder')} />
+  <div id="results" class="grid" style="margin-top:14px"></div>
+
+  <div class="stats">
+    <div class="stat"><div class="k">{t(lang, 'stats.tracked')}</div><div class="v">{ds.items.length.toLocaleString(nf)}</div></div>
+    <div class="stat"><div class="k">{t(lang, 'stats.catalogue')}</div><div class="v">{ds.catalogueSize.toLocaleString(nf)}</div></div>
+    <div class="stat"><div class="k">{t(lang, 'stats.collections')}</div><div class="v">{ds.collections.size}</div></div>
+  </div>
+
+  <h2>{t(lang, 'home.up')}</h2>
+  <div class="grid">
+    {up.map((i) => (
+      <a class="item" href={localize(lang, `/item/${i.slug}/`)}>
+        <div class="n">{i.name}</div><div class="s">{i.series} · {i.rarity}</div>
+        <div class="f">{money(i.floor)} <span class="up" style="font-size:14px">{pct(i.change7d)}</span></div>
+      </a>
+    ))}
+  </div>
+
+  <h2>{t(lang, 'home.down')}</h2>
+  <div class="grid">
+    {down.map((i) => (
+      <a class="item" href={localize(lang, `/item/${i.slug}/`)}>
+        <div class="n">{i.name}</div><div class="s">{i.series} · {i.rarity}</div>
+        <div class="f">{money(i.floor)} <span class="down" style="font-size:14px">{pct(i.change7d)}</span></div>
+      </a>
+    ))}
+  </div>
+
+  <h2>{t(lang, 'home.documented')}</h2>
+  <div class="grid">
+    {featured.map((i) => (
+      <a class="item" href={localize(lang, `/item/${i.slug}/`)}>
+        <div class="n">{i.name}</div><div class="s">{i.totalPoints.toLocaleString(nf)} {t(lang, 'home.points')}</div>
+        <div class="f">{money(i.floor)}</div>
+      </a>
+    ))}
+  </div>
+
+  <h2>{t(lang, 'home.collections')}</h2>
+  <p>{collections.map((c) => (<a class="tag" href={localize(lang, `/collection/${c.slug}/`)}>{c.name} ({c.items.length})</a>))}</p>
+
+  <script is:inline define:vars={{ base: localize(lang, '/item/') }}>
+    (function () {
+      var q = document.getElementById('q'), out = document.getElementById('results'), idx = null;
+      function render(list) {
+        out.innerHTML = list.slice(0, 24).map(function (i) {
+          return '<a class="item" href="' + base + i.s + '/"><div class="n">' + i.n + '</div></a>';
+        }).join('');
+      }
+      function filter(v) { if (idx) render(idx.filter(function (i) { return i.n.toLowerCase().indexOf(v) !== -1; })); }
+      q.addEventListener('input', function () {
+        var v = q.value.trim().toLowerCase();
+        if (!v) { out.innerHTML = ''; return; }
+        if (!idx) { fetch('/search-index.json').then(function (r) { return r.json(); }).then(function (d) { idx = d; filter(v); }); }
+        else filter(v);
+      });
+    })();
+  </script>
+</Base>

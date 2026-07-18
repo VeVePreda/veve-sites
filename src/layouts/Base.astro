@@ -2,39 +2,45 @@
 import { createHash } from 'node:crypto';
 import { manifest, siteUrl } from '../../engine/lib/manifest.mjs';
 import { jsonld, websiteLd } from '../../engine/lib/seo.mjs';
+import { locales, t, pick, localize, localeNames, dateLocale } from '../../engine/lib/i18n.mjs';
 
 const m = manifest();
 const p = m.identity.palette || {};
 const f = m.identity.fonts || {};
-const legal = m.legal || {};
 const links = m.links || {};
-const { title, description, crumbs = [], ld = [], updatedAt = null } = Astro.props;
+const { lang, path = '/', title, description, crumbs = [], ld = [], updatedAt = null } = Astro.props;
+const { active, def } = locales();
 const root = siteUrl();
-const fullTitle = title ? (m.seo.title_template || '%s').replace('%s', title) : `${m.site.brand} — ${m.site.tagline}`;
-const desc = description || m.site.description || m.site.tagline;
-const canon = new URL(Astro.url.pathname, root).href;
+
+const fullTitle = title ? (m.seo.title_template || '%s').replace('%s', title) : `${m.site.brand} — ${pick(m.site.tagline, lang)}`;
+const desc = description || pick(m.site.description, lang) || pick(m.site.tagline, lang);
+const canon = `${root}${localize(lang, path)}`;
+// Chaque langue a SA propre adresse ; hreflang les relie. Aucune redirection auto.
+const alternates = active.map((l) => ({ lang: l, href: `${root}${localize(l, path)}` }));
 
 const themeFiles = import.meta.glob('../../themes/*/theme.css', { query: '?raw', import: 'default', eager: true });
 const themeCss = themeFiles[`../../themes/${m.identity.theme}/theme.css`] ?? Object.values(themeFiles)[0] ?? '';
 const vars = `:root{--primary:${p.primary};--accent:${p.accent};--danger:${p.danger};--bg:${p.bg};--surface:${p.surface};--text:${p.text};--muted:${p.muted};--font-heading:${f.heading};--font-body:${f.body}}`;
 
-// Marqueur invisible et unique par page : permet de reperer une recopie du site.
 const canary = createHash('sha256')
   .update((process.env.CANARY_SALT || m.site.domain) + Astro.url.pathname)
   .digest('hex').slice(0, 16);
 
 const team = links.team || [];
 const affiliate = links.affiliate || [];
-const fresh = updatedAt ? new Date(updatedAt).toLocaleDateString(m.site.lang === 'fr' ? 'fr-FR' : 'en-GB') : null;
+const fresh = updatedAt ? new Date(updatedAt).toLocaleDateString(dateLocale[lang] || 'en-GB') : null;
+const suggestData = alternates.filter((a) => a.lang !== lang).map((a) => ({ l: a.lang, h: a.href, n: localeNames[a.lang] || a.lang }));
 ---
 <!doctype html>
-<html lang={m.site.lang || 'fr'}>
+<html lang={lang}>
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>{fullTitle}</title>
 <meta name="description" content={desc} />
 <link rel="canonical" href={canon} />
+{alternates.map((a) => <link rel="alternate" hreflang={a.lang} href={a.href} />)}
+<link rel="alternate" hreflang="x-default" href={`${root}${localize(def, path)}`} />
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content={m.site.brand} />
 <meta property="og:title" content={fullTitle} />
@@ -44,19 +50,26 @@ const fresh = updatedAt ? new Date(updatedAt).toLocaleDateString(m.site.lang ===
 <meta name="generator-ref" content={canary} />
 <style is:inline set:html={vars}></style>
 <style is:inline set:html={themeCss}></style>
+<style is:inline set:html={`.langbar{display:flex;gap:6px;margin-left:12px}.langbar a{font-size:13px;color:var(--muted);padding:2px 6px;border-radius:6px}.langbar a[aria-current]{background:#ffffff14;color:var(--text)}#langsuggest{display:none;background:var(--surface);border:1px solid var(--primary);border-radius:10px;padding:10px 14px;margin:14px 0;font-size:14px}#langsuggest a{font-weight:500}#langsuggest button{background:none;border:0;color:var(--muted);cursor:pointer;font-size:13px;text-decoration:underline}`}></style>
 <Fragment set:html={jsonld(websiteLd(m.site.brand, root))} />
 {ld.map((o) => <Fragment set:html={jsonld(o)} />)}
 </head>
 <body>
 <header class="site"><div class="wrap">
-  <a class="brand" href="/">{m.site.brand}</a>
+  <a class="brand" href={localize(lang, '/')}>{m.site.brand}</a>
   <nav class="main">
-    <a href="/movers/">Mouvements</a>
-    <a href="/collections/">Collections</a>
-    <a href="/rarity/">Raretés</a>
+    <a href={localize(lang, '/movers/')}>{t(lang, 'nav.movers')}</a>
+    <a href={localize(lang, '/collections/')}>{t(lang, 'nav.collections')}</a>
+    <a href={localize(lang, '/rarity/')}>{t(lang, 'nav.rarities')}</a>
+    <span class="langbar">
+      {alternates.map((a) => (
+        <a href={a.href} hreflang={a.lang} aria-current={a.lang === lang ? 'true' : undefined}>{a.lang.toUpperCase()}</a>
+      ))}
+    </span>
   </nav>
 </div></header>
 <main class="wrap">
+  <div id="langsuggest"></div>
   {crumbs.length > 0 && (
     <div class="crumbs">
       {crumbs.map((c, i) => (<>{i > 0 && ' › '}{c.url ? <a href={c.url}>{c.name}</a> : <span>{c.name}</span>}</>))}
@@ -65,16 +78,32 @@ const fresh = updatedAt ? new Date(updatedAt).toLocaleDateString(m.site.lang ===
   <slot />
 </main>
 <footer class="site"><div class="wrap">
-  {fresh && <p style="margin:0 0 10px">Données mises à jour le {fresh}.</p>}
+  {fresh && <p style="margin:0 0 10px">{t(lang, 'footer.updated')} {fresh}.</p>}
   {(team.length > 0 || affiliate.length > 0) && (
     <p style="margin:0 0 10px">
       {team.map((l) => (<a class="tag" href={l.url} target="_blank" rel="noopener">{l.label}</a>))}
-      {affiliate.map((l) => (<a class="tag" href={l.url} target="_blank" rel="sponsored noopener">{l.label} (partenaire)</a>))}
+      {affiliate.map((l) => (<a class="tag" href={l.url} target="_blank" rel="sponsored noopener">{l.label} ({t(lang, 'footer.partner')})</a>))}
     </p>
   )}
-  {affiliate.length > 0 && <p style="margin:0 0 10px;font-size:13px">Certains liens ci-dessus sont des partenariats rémunérés.</p>}
-  <p style="margin:0 0 6px">{legal.not_affiliated}</p>
-  <p style="margin:0;font-size:13px">{legal.not_financial_advice}</p>
+  {affiliate.length > 0 && <p style="margin:0 0 10px;font-size:13px">{t(lang, 'footer.affiliateNote')}</p>}
+  <p style="margin:0 0 6px">{t(lang, 'legal.notAffiliated')}</p>
+  <p style="margin:0;font-size:13px">{t(lang, 'legal.notFinancialAdvice')}</p>
 </div></footer>
+<script is:inline define:vars={{ suggestData, suggestTxt: t(lang, 'lang.suggest'), switchTxt: t(lang, 'lang.switch'), dismissTxt: t(lang, 'lang.dismiss') }}>
+  // Detection DOUCE : on propose, on ne redirige jamais (sinon Googlebot ne verrait qu'une langue).
+  (function () {
+    try {
+      if (localStorage.getItem('langChoice') || localStorage.getItem('langDismiss')) return;
+      var nav = (navigator.language || '').slice(0, 2).toLowerCase();
+      var match = suggestData.filter(function (s) { return s.l === nav; })[0];
+      if (!match) return;
+      var box = document.getElementById('langsuggest');
+      box.innerHTML = suggestTxt + ' <a href="' + match.h + '">' + match.n + '</a> — <button type="button">' + dismissTxt + '</button>';
+      box.style.display = 'block';
+      box.querySelector('a').addEventListener('click', function () { localStorage.setItem('langChoice', match.l); });
+      box.querySelector('button').addEventListener('click', function () { localStorage.setItem('langDismiss', '1'); box.style.display = 'none'; });
+    } catch (e) {}
+  })();
+</script>
 </body>
 </html>
