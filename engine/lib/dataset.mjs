@@ -210,6 +210,13 @@ async function construireDataset() {
 
   const bl = new Map();
   for (const b of baselines) bl.set(b.veve_uuid || b.uuid, b);
+  // ⭐ Le schema de l'entrepot n'est pas fige : on le JOURNALISE au lieu de le
+  // supposer. Un champ absent ne provoque aucune erreur, il rend juste une
+  // valeur nulle — le defaut le plus difficile a voir. C'est exactement ce qui
+  // a rendu le classement par mediane inoperant pendant un deploiement entier.
+  if (baselines.length) {
+    console.log(`[entrepot] colonnes de prices_baselines : ${Object.keys(baselines[0]).join(', ')}`);
+  }
 
   const pinPath = join(ROOT, 'sites', SITE, 'slugs.json');
   let pinned = {};
@@ -254,8 +261,20 @@ async function construireDataset() {
       // juste au-dessus d'un prix a 42 000 milliards.
       ath: pos(c.ath) ?? pos(b.floor_max),
       atl: pos(c.atl) ?? pos(b.floor_min),
-      prixMedian: pos(b.p50) ?? pos(b.p25) ?? null,
-      p95: pos(b.p95) ?? null,
+      // ⚠️ NOMS REELS DES COLONNES (verifies dans scraper/price_baseline.py) :
+      // floor_min, floor_p5, floor_p25, floor_p50, floor_p75, floor_p95,
+      // floor_max, listings_p50... — les percentiles sont PREFIXES.
+      // J'avais ecrit `p50`/`p95` d'apres mon echantillon : silencieusement
+      // null en production, donc score et avertissement inoperants. Comme
+      // floor_min/floor_max, eux, coincidaient, l'ATH s'est reparé et le reste
+      // non — le defaut etait invisible. Les alias sont gardes par prudence.
+      // PAS DE REPLI SUR UN AUTRE PERCENTILE : se rabattre sur floor_p25
+      // reviendrait a classer sur une autre statistique sans le dire, et
+      // masquerait un changement de schema — la faute meme qu'on repare ici.
+      // Absence = null = le journal et le test le crient.
+      prixMedian: pos(b.floor_p50) ?? pos(b.p50) ?? null,
+      p95: pos(b.floor_p95) ?? pos(b.p95) ?? null,
+      offresMedianes: pos(b.listings_p50) ?? null,
       history: publicHist,
       points: publicHist.length,
       totalPoints: a.n,
@@ -483,6 +502,11 @@ async function construireDataset() {
   console.log(`[vitrine] catalogue ${cat.length} · sous le seuil de ${MIN_POINTS} releves : ${refusesSeuil} · eligibles ${JSON.stringify(eligibles)}`);
   console.log(`[vitrine] quotas ${JSON.stringify(quotas)} · deja geles ${JSON.stringify(acquis)} · places offertes ${JSON.stringify(places)}${SPILL ? ` · report ${reporte}` : ''}${MAX_SERIE ? ` · ecartes par le plafond de ${MAX_SERIE}/serie : ${recalesSerie}` : ''}`);
   console.log(`[vitrine] PUBLIE ${items.length} fiches ${JSON.stringify(publies)} (${dejaPublie.length} deja gelees + ${items.length - dejaPublie.length} nouvelles)`);
+  const avecMediane = items.filter((i) => i.prixMedian).length;
+  console.log(`[vitrine] prix median disponible pour ${avecMediane}/${items.length} fiches (c'est lui qui pilote le classement)`);
+  if (items.length && !avecMediane) {
+    console.log('[vitrine] ATTENTION AUCUNE mediane trouvee : le classement retombe sur le dernier prix, donc les annonces farceuses remontent. Verifier les colonnes de prices_baselines ci-dessus.');
+  }
   const aberrants = items.filter((i) => i.prixAberrant).length;
   if (aberrants) console.log(`[vitrine] ${aberrants} fiches au prix non representatif (offre isolee au-dela de ${FACTEUR_ABERRANT}x leur p95) : signalees sur la fiche`);
   if (comicsSansRarete) console.log(`[adresses] ATTENTION ${comicsSansRarete} comics sans rarete : adresse basee sur le nom de couverture, ou l'identifiant court s'il n'y a rien de distinctif`);

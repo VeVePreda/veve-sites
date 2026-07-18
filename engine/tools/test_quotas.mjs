@@ -40,6 +40,7 @@ for (const i of ds.items) racines[i.path.split('/')[1]] = (racines[i.path.split(
 process.stdout.write('###' + JSON.stringify({
   total: ds.items.length, parType, racines,
   eligibles: ds.eligibles,
+  avecMediane: ds.items.filter((i) => i.prixMedian).length,
   maxParSerie: Math.max(0, ...Object.values(parSerie)),
   exemplesComics: ds.items.filter((i) => i.type === 'comic').slice(0, 3).map((i) => i.path),
 }));
@@ -99,6 +100,12 @@ try {
     JSON.stringify(a.racines));
   verifie('les adresses de comics portent la rarete', a.exemplesComics.every((p) => /^\/comics\/[^/]+\/[^/]+\/$/.test(p)),
     a.exemplesComics.join(' '));
+  // ⭐ CE CONTROLE EXISTE A CAUSE D'UN DEFAUT MUET REEL. Le classement s'appuie
+  // sur le prix MEDIAN ; si la colonne change de nom dans l'entrepot, la lecture
+  // ne leve aucune erreur — elle rend null, le score retombe sur le dernier prix
+  // et les annonces farceuses remontent en page d'accueil. Rien ne le signale.
+  verifie('le prix median est reellement lu (colonnes de l\'entrepot)', a.avecMediane === a.total,
+    `${a.avecMediane}/${a.total} fiches ont une mediane`);
 
   // --- 2. Le quota inutilise revient a l'autre type ------------------------
   console.log('\n2. report du quota inutilise (comic: 500, introuvables en si grand nombre)');

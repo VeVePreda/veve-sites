@@ -92,13 +92,20 @@ for (let i = 0; i < N; i++) {
   const fl = hist.map((h) => h.floor).sort((a, b) => a - b);
   const q = (p) => fl[Math.min(fl.length - 1, Math.floor(fl.length * p))];
   const last = hist[hist.length - 1];
-  baselines.push(`${uuid},${fl[0]},${q(0.05)},${q(0.25)},${q(0.5)},${q(0.75)},${q(0.95)},${fl[fl.length-1]},${hist.length},${last.floor},${last.listings}`);
+  baselines.push(`${uuid},${hist.length},${fl[0]},${q(0.05)},${q(0.25)},${q(0.5)},${q(0.75)},${q(0.95)},${fl[fl.length-1]},${last.listings},${last.listings},${last.floor},${last.listings}`);
   cat.push([uuid,s.kind,name,'Standard',rarity,start.toISOString().slice(0,10),s.name,s.brand,s.licensor,tirage,store,last.floor,last.listings,fl[fl.length-1],fl[0]].join(','));
 }
 
 writeFileSync(join(OUT, 'catalogue.csv'), 'uuid,kind,name,edition_type,rarity,release_date,series,brand,licensor,tirage,store_price,floor,listings,ath,atl\n' + cat.join('\n') + '\n');
 writeFileSync(join(OUT, 'prices.csv'), 'veve_uuid,ts_utc,floor,listings\n' + prices.join('\n') + '\n');
-writeFileSync(join(OUT, 'prices_baselines.csv'), 'veve_uuid,floor_min,p5,p25,p50,p75,p95,floor_max,n_points,last_floor,last_listings\n' + baselines.join('\n') + '\n');
+// ⚠️ EN-TETE REEL de prices_baselines, copie de scraper/price_baseline.py.
+// Mon en-tete invente (p50, p95 sans prefixe) a produit un defaut MUET : le
+// classement par mediane et l'avertissement « prix non representatif » etaient
+// inoperants en production alors que tout passait au vert en local.
+// C'est la 3e fois qu'un echantillon ecrit selon MES conventions masque la
+// realite (apres kind='comic' au lieu de 'Comic'). Regle : l'echantillon copie
+// le schema de la SOURCE, jamais l'inverse.
+writeFileSync(join(OUT, 'prices_baselines.csv'), 'veve_uuid,n_points,floor_min,floor_p5,floor_p25,floor_p50,floor_p75,floor_p95,floor_max,listings_p50,listings_p90,last_floor,last_listings\n' + baselines.join('\n') + '\n');
 
 const parKind = {};
 for (const l of cat) { const k = l.split(',')[1]; parKind[k] = (parKind[k] || 0) + 1; }
