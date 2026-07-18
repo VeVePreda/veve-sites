@@ -1,11 +1,13 @@
 // Modele de donnees du site.
-// REGLES DE PROTECTION (spec v3) :
-//  - on ne publie QUE des fiches utiles (seuil de relevés dans la fenetre publique)
-//  - l'historique public est tronque AU NIVEAU DE LA DONNEE (rien d'ancien n'entre dans la page)
+// REGLES (spec v3) :
+//  - on ne publie QUE des fiches utiles (seuil de releves)
+//  - l'historique public est tronque AU NIVEAU DE LA DONNEE
 //  - les variations ne sont calculees que si elles ont un sens statistique
+//  - l'historique des prix est lu EN FLUX : la memoire ne depend pas de la
+//    taille du fichier, qui grandit indefiniment avec le backfill.
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { getCatalogue, getPrices, getBaselines } from '../data/warehouse.mjs';
+import { getCatalogue, getBaselines, streamPrices } from '../data/warehouse.mjs';
 import { manifest, SITE } from './manifest.mjs';
 
 const ROOT = process.env.PROJECT_ROOT || process.cwd();
@@ -17,7 +19,6 @@ export const slugify = (s) =>
 
 const num = (v) => { const n = Number(String(v).replace(',', '.')); return Number.isFinite(n) ? n : null; };
 
-// Variation en % : null si la donnee ne permet pas une lecture honnete.
 function pctChange(hist, days, o) {
   if (hist.length < o.minPoints) return null;
   const last = hist[hist.length - 1];
@@ -25,9 +26,9 @@ function pctChange(hist, days, o) {
   const cutoff = Date.now() - days * DAY;
   let ref = null;
   for (const p of hist) { if (new Date(p.ts).getTime() <= cutoff) ref = p; }
-  if (!ref || !ref.floor || ref.floor < o.minRef) return null;   // pas de reference significative
+  if (!ref || !ref.floor || ref.floor < o.minRef) return null;
   const v = ((last.floor - ref.floor) / ref.floor) * 100;
-  if (!Number.isFinite(v) || Math.abs(v) > o.maxAbs) return null; // aberration = manque de donnees
+  if (!Number.isFinite(v) || Math.abs(v) > o.maxAbs) return null;
   return v;
 }
 
@@ -41,44 +42,54 @@ export async function dataset() {
   const MAX_ITEMS = pub.max_items ?? 0;
   const WINDOW_DAYS = pub.public_history_days ?? 90;
   const CHANGE = { minPoints: 5, minRef: 1, maxAbs: 300 };
+  const TAIL = MAX_POINTS + 5;
 
-  const [cat, prices, baselines] = await Promise.all([getCatalogue(), getPrices(), getBaselines()]);
+  const [cat, baselines] = await Promise.all([getCatalogue(), getBaselines()]);
 
-  // Historique complet (interne uniquement, jamais rendu tel quel)
-  const hist = new Map();
-  for (const r of prices) {
-    const u = r.veve_uuid || r.uuid;
-    const f = num(r.floor);
-    if (!u || f === null) continue;
-    if (!hist.has(u)) hist.set(u, []);
-    hist.get(u).push({ ts: r.ts_utc || r.ts, floor: f, listings: num(r.listings) ?? 0 });
-  }
-  for (const arr of hist.values()) arr.sort((a, b) => String(a.ts).localeCompare(String(b.ts)));
+  // --- Agregation EN FLUX -------------------------------------------------
+  // Par item on ne retient que : le nombre total de releves, la date du
+  // premier, et une courte queue des derniers points. La memoire depend du
+  // nombre d'items (~19 000), JAMAIS de la taille du fichier de prix.
+  const known = new Set();
+  for (const c of cat) { const u = c.uuid || c.veve_uuid; if (u) known.add(u); }
+  const agg = new Map();
+  await streamPrices((cols, idx) => {
+    const u = cols[idx.uuid];
+    if (!u || !known.has(u)) return;   // on ignore ce qui n'est pas au catalogue
+    const f = Number(cols[idx.floor]);
+    if (!Number.isFinite(f)) return;
+    const ts = cols[idx.ts];
+    let a = agg.get(u);
+    if (!a) { a = { n: 0, first: ts, tail: [] }; agg.set(u, a); }
+    a.n++;
+    if (ts < a.first) a.first = ts;
+    a.tail.push({ ts, floor: f, listings: Number(cols[idx.listings]) || 0 });
+    if (a.tail.length > TAIL) a.tail.shift();
+  });
 
   const bl = new Map();
   for (const b of baselines) bl.set(b.veve_uuid || b.uuid, b);
 
-  // Slugs figes : un item renomme chez VeVe ne doit JAMAIS changer d'adresse.
   const pinPath = join(ROOT, 'sites', SITE, 'slugs.json');
   let pinned = {};
   if (existsSync(pinPath)) { try { pinned = JSON.parse(readFileSync(pinPath, 'utf8')); } catch {} }
 
   const cutoff = Date.now() - WINDOW_DAYS * DAY;
-  // Tranche publique : au plus MAX_POINTS releves, en privilegiant la fenetre recente
-  // tant qu'elle laisse une courbe lisible. Le reste de l'historique ne quitte jamais le build.
-  const publicSlice = (full) => {
-    const tail = full.slice(-MAX_POINTS);
-    const recent = tail.filter((p) => new Date(p.ts).getTime() >= cutoff);
-    return recent.length >= 5 ? recent : tail;
+  const publicSlice = (tail) => {
+    const t = tail.slice(-MAX_POINTS);
+    const recent = t.filter((p) => new Date(p.ts).getTime() >= cutoff);
+    return recent.length >= 5 ? recent : t;
   };
+
   const candidates = [];
   for (const c of cat) {
     const uuid = c.uuid || c.veve_uuid;
     if (!uuid) continue;
-    const full = hist.get(uuid) || [];
-    if (full.length < MIN_POINTS) continue;                   // <<< SEUIL : pas de page creuse
-    const publicHist = publicSlice(full);
-    if (publicHist.length < 2) continue;                      // courbe illisible = pas de page
+    const a = agg.get(uuid);
+    if (!a || a.n < MIN_POINTS) continue;               // <<< SEUIL : pas de page creuse
+    const tail = [...a.tail].sort((x, y) => String(x.ts).localeCompare(String(y.ts)));
+    const publicHist = publicSlice(tail);
+    if (publicHist.length < 2) continue;                 // courbe illisible = pas de page
     const b = bl.get(uuid) || {};
     candidates.push({
       uuid,
@@ -95,16 +106,16 @@ export async function dataset() {
       listings: num(c.listings) ?? publicHist[publicHist.length - 1].listings,
       ath: num(c.ath) ?? num(b.floor_max),
       atl: num(c.atl) ?? num(b.floor_min),
-      history: publicHist,                                    // <<< TRONQUE : 90 jours
+      history: publicHist,
       points: publicHist.length,
-      totalPoints: full.length,                               // teaser : on montre le NOMBRE
-      since: full.length ? full[0].ts : null,                 // ... et la profondeur
+      totalPoints: a.n,
+      since: a.first,
       change7d: pctChange(publicHist, 7, CHANGE),
       change30d: pctChange(publicHist, 30, CHANGE),
     });
   }
+  agg.clear();                                           // on libere tout de suite
 
-  // Vitrine : les mieux documentes d'abord
   candidates.sort((a, b) => b.points - a.points || String(a.name).localeCompare(String(b.name)));
   const items = MAX_ITEMS > 0 ? candidates.slice(0, MAX_ITEMS) : candidates;
 
@@ -140,12 +151,6 @@ export async function dataset() {
 
   console.log(`[site] ${items.length} fiches publiees sur ${cat.length} items du catalogue (seuil ${MIN_POINTS} releves, ${MAX_POINTS} exposes max)`);
 
-  _ds = {
-    items, bySlug, collections, rarities, movers,
-    catalogueSize: cat.length,
-    windowDays: WINDOW_DAYS,
-    maxPoints: MAX_POINTS,
-    updatedAt: new Date().toISOString(),
-  };
+  _ds = { items, bySlug, collections, rarities, movers, catalogueSize: cat.length, windowDays: WINDOW_DAYS, maxPoints: MAX_POINTS, updatedAt: new Date().toISOString() };
   return _ds;
 }

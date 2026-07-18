@@ -95,6 +95,65 @@ export async function load(name) {
   return rows;
 }
 
+
+// --- Lecture EN FLUX de l'historique des prix -------------------------------
+// Ce fichier grandit sans limite (append-on-change sur 18 900 items) : le
+// charger en entier fait exploser la memoire du build. On le traite donc
+// ligne par ligne, et l'appelant ne garde que ce dont il a besoin.
+import { createGunzip } from 'node:zlib';
+import { createReadStream } from 'node:fs';
+import { Readable } from 'node:stream';
+import { createInterface } from 'node:readline';
+
+async function consumeStream(stream, onRow) {
+  const rl = createInterface({ input: stream, crlfDelay: Infinity });
+  let idx = null;
+  let n = 0;
+  for await (const line of rl) {
+    if (!line) continue;
+    const cols = line.split(',');
+    if (idx === null) {
+      const h = cols.map((c) => c.trim());
+      idx = {
+        uuid: h.indexOf('veve_uuid') >= 0 ? h.indexOf('veve_uuid') : h.indexOf('uuid'),
+        ts: h.indexOf('ts_utc') >= 0 ? h.indexOf('ts_utc') : h.indexOf('ts'),
+        floor: h.indexOf('floor'),
+        listings: h.indexOf('listings'),
+      };
+      continue;
+    }
+    onRow(cols, idx);
+    n++;
+  }
+  return n;
+}
+
+export async function streamPrices(onRow) {
+  const src = SOURCES.prices;
+  if (!OFFLINE) {
+    for (const url of [src.url, src.prev]) {
+      try {
+        const res = await fetch(url, { redirect: 'follow' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        let stream = Readable.fromWeb(res.body);
+        if (url.endsWith('.gz')) stream = stream.pipe(createGunzip());
+        const n = await consumeStream(stream, onRow);
+        console.log(`[entrepot] prix : ${n} lignes lues EN FLUX depuis ${url}`);
+        return n;
+      } catch (e) {
+        console.warn(`[entrepot] prix : echec ${url} (${e.message})`);
+      }
+    }
+  }
+  const p = join(SAMPLE_DIR, src.sample);
+  if (existsSync(p)) {
+    const n = await consumeStream(createReadStream(p), onRow);
+    console.log(`[entrepot] prix : ECHANTILLON local (${n} lignes, en flux)`);
+    return n;
+  }
+  console.warn('[entrepot] prix : aucune source disponible');
+  return 0;
+}
+
 export const getCatalogue = () => load('catalogue');
-export const getPrices = () => load('prices');
 export const getBaselines = () => load('baselines');

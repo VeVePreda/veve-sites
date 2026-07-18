@@ -57,6 +57,7 @@ const suggestData = alternates.filter((a) => a.lang !== lang).map((a) => ({ l: a
 <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 <meta name="generator-ref" content={canary} />
+<meta name="build-time" content={updatedAt || new Date().toISOString()} />
 {statsOn && <script defer src="/stats/script.js" data-website-id={analytics.website_id}></script>}
 <style is:inline set:html={vars}></style>
 <style is:inline set:html={themeCss}></style>

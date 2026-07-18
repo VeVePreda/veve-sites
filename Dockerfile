@@ -9,6 +9,8 @@ ARG SITE=veveprice
 ARG SITE_URL=https://veveprice.com
 ARG RENDERING=static
 ENV SITE=$SITE SITE_URL=$SITE_URL RENDERING=$RENDERING
+# Marge de securite : le catalogue et l'historique grandissent avec le temps.
+ENV NODE_OPTIONS=--max-old-space-size=3072
 RUN npm run build
 
 # --- Etape 2 : service web ---
