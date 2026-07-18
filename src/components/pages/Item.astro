@@ -32,7 +32,9 @@ const jolieRareteFr = (r) => String(r).toLowerCase().split(/[_\s]+/).filter(Bool
 const serieRedondante = norm(item.series) === norm(item.name);
 const crumbs = [{ name: t(lang, 'home.crumb'), url: localize(lang, '/') }];
 if (colSlug) crumbs.push({ name: item.series, url: localize(lang, `/collection/${colSlug}/`) });
-crumbs.push({ name: serieRedondante && item.rarity ? jolieRareteFr(item.rarity) : item.name });
+// Le fil d'Ariane doit refleter l'adresse : la serie est deja le maillon
+// precedent, on ne la repete pas dans le dernier.
+crumbs.push({ name: serieRedondante && item.rarity ? jolieRareteFr(item.rarity) : (item.nomAffiche || item.name) });
 const ld = [productLd(item, url, m.site.brand), breadcrumbLd(crumbs.map((c) => ({ name: c.name, url: c.url ? root + c.url : url })))];
 
 // Titre UNIQUE : plusieurs collectibles VeVe portent le meme nom (Batgirl, Loki,
@@ -45,12 +47,26 @@ const titreItem = (() => {
   const base = item.qualifie || item.name;
   const complet = `${base} — ${item.series}`;
   if (complet.length <= budget) return complet;
-  const place = budget - base.length - 4;   // 3 pour " — ", 1 pour l'ellipse
-  if (place <= 8) return base;
+  // ⚠️ ANCIENNE VERSION : quand la place manquait, on SUPPRIMAIT la serie.
+  // Sur les comics c'etait le pire choix possible : le titre devenait
+  // « Adi Granov Main Cover · Uncommon » — le nom de la collection, c'est-a-dire
+  // le terme que les gens tapent reellement, disparaissait de la balise.
+  // Un titre trop long est seulement TRONQUE A L'AFFICHAGE par Google ; ses
+  // mots comptent toujours pour la pertinence. Un titre ampute du nom de la
+  // serie, lui, ne peut plus etre trouve. On garde donc toujours la serie, en
+  // la raccourcissant au mot, avec un minimum lisible.
+  // 24 : de quoi laisser passer un vrai nom de serie (« Return of the Jedi #1 »)
+  // plutot qu'un moignon (« Return of the… ») qui ne se cherche pas.
+  const MINI = 24;
+  const place = Math.max(MINI, budget - base.length - 4);   // 3 pour " — ", 1 pour l'ellipse
+  if (item.series.length <= place) return complet;
   let bout = item.series.slice(0, place);
+  // Couper au dernier espace DISPONIBLE, pas seulement s'il tombe apres MINI :
+  // sinon on produit « Return of the Jedi #1: P… », un mot coupe en plein
+  // milieu, qui ne ressemble a rien dans une page de resultats.
   const esp = bout.lastIndexOf(' ');
-  if (esp > place * 0.5) bout = bout.slice(0, esp);
-  return `${base} — ${bout.trim()}…`;
+  if (esp > 0) bout = bout.slice(0, esp);
+  return `${base} — ${bout.replace(/[\s:,\-–—·|]+$/, '').trim()}…`;
 })();
 const anneeDebut = item.since ? new Date(item.since).getFullYear() : null;
 const serieTxt = item.series ? ` (${item.series})` : '';

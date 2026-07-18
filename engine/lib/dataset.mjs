@@ -13,6 +13,12 @@ import { manifest, SITE } from './manifest.mjs';
 const ROOT = process.env.PROJECT_ROOT || process.cwd();
 const DAY = 86400000;
 
+// Les deux types publies, et la RACINE D'ADRESSE de chacun.
+// Racines au PLURIEL (decision Preda 18/07) : /collectibles/ et /comics/.
+export const TYPES = ['collectible', 'comic'];
+export const RACINE = { collectible: 'collectibles', comic: 'comics' };
+const RACINES_VALIDES = new Set(Object.values(RACINE));
+
 export const slugify = (s) =>
   String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
     .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'item';
@@ -37,17 +43,87 @@ function pctChange(hist, days, o) {
 }
 
 let _ds = null;
-// Le vocabulaire du champ « kind » du catalogue n'est pas garanti : on a vu
-// des comics evidents classes ailleurs. On accepte donc toute variante
-// contenant « comic » (comic, comics, comic_book, Comic...), sans casse.
+
+// Le vocabulaire du champ « kind » du catalogue n'est pas garanti. Mesure en
+// production le 18/07 : {"Collectible":2690,"Comic":16271} -> MAJUSCULE
+// initiale. Mon test initial `kind === 'comic'` n'aurait jamais rien matche.
+// On accepte donc toute variante contenant « comic », sans casse.
 function estComic(kind) {
   return /comic/i.test(String(kind || ''));
+}
+export const typeDe = (c) => (estComic(c.kind) ? 'comic' : 'collectible');
+
+// Chez les comics, le nom recopie tres souvent la serie
+// (« Return of the Jedi #1: Poster Series - Alex Ross Main Cover »). Comme la
+// serie est DEJA un segment de l'adresse, la repeter donnerait
+// /comics/return-of-the-jedi-1-poster-series/common-return-of-the-jedi-1-poster-series-alex-ross...
+// On ne garde donc que ce qui distingue reellement la couverture. Meme regle
+// que pour les titres et le fil d'Ariane, appliquee aux adresses.
+function sansPrefixeSerie(nom, serie) {
+  const n = String(nom || '').trim();
+  const s = String(serie || '').trim();
+  if (!s) return n;
+  // Nom STRICTEMENT egal a la serie : rien de distinctif du tout.
+  if (n.toLowerCase() === s.toLowerCase()) return '';
+  if (n.length <= s.length) return n;
+  if (n.slice(0, s.length).toLowerCase() !== s.toLowerCase()) return n;
+  // Chaine VIDE si le nom ne fait que recopier la serie : il n'y a alors rien
+  // de distinctif a mettre dans l'adresse, et repeter la serie
+  // (/comics/alias-1-2001/common-alias-1-2001/) serait du bruit pur.
+  // L'appelant enchaine alors sur l'identifiant court.
+  return n.slice(s.length).replace(/^[\s\-–—:,.·|]+/, '').trim();
 }
 
 // SECRET_RARE -> Secret Rare
 function jolieRarete(r) {
   return String(r).toLowerCase().split(/[_\s]+/).filter(Boolean)
     .map((w) => w[0].toUpperCase() + w.slice(1)).join(' ');
+}
+
+// ═══ SCORE D'UTILITE ═══
+// On NE classe PLUS par nombre de releves. Les prix sont enregistres AU
+// CHANGEMENT : ce nombre mesure surtout (a) jusqu'ou le backfill est alle et
+// (b) a quel point le prix flotte. Il fait donc remonter les pieces bavardes
+// et bon marche -- et c'est lui qui a laisse les collectibles evincer 100 %
+// des comics de la vitrine.
+// Le score croise ce que le produit PROMET (un historique profond) avec ce
+// que les gens CHERCHENT (des pieces qui valent quelque chose). Les
+// logarithmes empechent l'un des deux facteurs d'ecraser l'autre : un item a
+// 10 000 $ ne doit pas passer devant tout le reste au seul titre de son prix.
+function scoreUtilite(c) {
+  const debut = Date.parse(c.since);
+  const jours = Number.isFinite(debut) ? Math.max(1, (Date.now() - debut) / DAY) : 1;
+  const valeur = Math.max(1, c.floor || 0);
+  return Math.log1p(jours) * Math.log1p(valeur);
+}
+
+// ═══ ADRESSES GELEES : migration + hygiene ═══
+// Reecrit une table slugs.json heritee et ecarte ce qui n'est plus servable.
+// Exporte car freeze-slugs.mjs doit appliquer EXACTEMENT la meme regle avant
+// de reecrire le fichier -- sinon la migration ne vivrait qu'en memoire et le
+// disque garderait les anciennes adresses.
+export function migrerRacines(map) {
+  const out = {};
+  let migres = 0;
+  const abandonnes = [];
+  for (const [uuid, p] of Object.entries(map || {})) {
+    if (typeof p !== 'string' || !p.startsWith('/')) continue;
+    const np = p
+      .replace(/^\/collectible\//, '/collectibles/')
+      .replace(/^\/comic\//, '/comics/');
+    const racine = np.split('/')[1];
+    if (!RACINES_VALIDES.has(racine)) {
+      // Typiquement une table gelee du temps des adresses plates /item/<nom>/,
+      // qui ne sont plus servies par aucune route (aucune redirection : une
+      // /item/ a designe deux objets differents dans la meme journee). La
+      // conserver epinglerait la fiche sur une adresse qui n'existe pas.
+      abandonnes.push(p);
+      continue;
+    }
+    if (np !== p) migres++;
+    out[uuid] = np;
+  }
+  return { map: out, migres, abandonnes };
 }
 
 // ⚠️ MEMOISER LA PROMESSE, PAS LE RESULTAT.
@@ -62,16 +138,30 @@ export function dataset() {
   return _promesse;
 }
 
+// Quotas par type, lus au manifeste. Retrocompatible : un ancien manifeste
+// qui ne connait que `max_items` continue de fonctionner (tout le budget va
+// aux collectibles + report, donc comportement inchange).
+function quotasDuManifeste(pub) {
+  const q = pub.quotas;
+  if (q && typeof q === 'object') {
+    const out = {};
+    for (const t of TYPES) out[t] = Math.max(0, Number(q[t]) || 0);
+    return out;
+  }
+  const total = pub.max_items ?? 0;
+  return { collectible: total, comic: 0 };
+}
+
 async function construireDataset() {
   if (_ds) return _ds;
   const m = manifest();
   const pub = m.publication || {};
   const MIN_POINTS = pub.min_price_points ?? 8;
   const MAX_POINTS = pub.public_points_max ?? 30;
-  const MAX_ITEMS = pub.max_items ?? 0;
   const WINDOW_DAYS = pub.public_history_days ?? 90;
+  const MAX_SERIE = Math.max(0, Number(pub.max_new_per_series) || 0);   // 0 = pas de plafond
+  const SPILL = pub.quota_spillover !== false;
   const CHANGE = { minPoints: 5, minRef: 1, maxAbs: 300 };
-  const TAIL = MAX_POINTS + 5;
 
   const [cat, baselines] = await Promise.all([getCatalogue(), getBaselines()]);
 
@@ -112,20 +202,30 @@ async function construireDataset() {
 
   const pinPath = join(ROOT, 'sites', SITE, 'slugs.json');
   let pinned = {};
-  if (existsSync(pinPath)) { try { pinned = JSON.parse(readFileSync(pinPath, 'utf8')); } catch {} }
+  if (existsSync(pinPath)) {
+    try {
+      const brut = JSON.parse(readFileSync(pinPath, 'utf8'));
+      const mig = migrerRacines(brut);
+      pinned = mig.map;
+      if (mig.migres) console.log(`[adresses] ${mig.migres} adresses gelees migrees vers les racines au pluriel`);
+      if (mig.abandonnes.length) console.log(`[adresses] ATTENTION ${mig.abandonnes.length} adresses gelees ecartees (racine inconnue, ex. ${mig.abandonnes[0]})`);
+    } catch (e) { console.log(`[adresses] slugs.json illisible (${e.message}) : on repart sans gel`); }
+  }
 
+  // --- Candidats ----------------------------------------------------------
   const candidates = [];
+  let refusesSeuil = 0;
   for (const c of cat) {
     const uuid = c.uuid || c.veve_uuid;
     if (!uuid) continue;
     const a = agg.get(uuid);
-    if (!a || a.n < MIN_POINTS) continue;               // <<< SEUIL : pas de page creuse
+    if (!a || a.n < MIN_POINTS) { refusesSeuil++; continue; }   // <<< SEUIL : pas de page creuse
     const byTs = (x, y) => String(x.ts).localeCompare(String(y.ts));
     const spread = [...a.buckets.values()].sort(byTs);
     const publicHist = spread.length >= 2 ? spread : [...a.tail].sort(byTs);
-    if (publicHist.length < 2) continue;                 // courbe illisible = pas de page
+    if (publicHist.length < 2) { refusesSeuil++; continue; }    // courbe illisible = pas de page
     const b = bl.get(uuid) || {};
-    candidates.push({
+    const item = {
       uuid,
       name: c.name || 'Sans nom',
       kind: c.kind || 'collectible',
@@ -146,21 +246,36 @@ async function construireDataset() {
       since: a.first,
       change7d: pctChange(publicHist, 7, CHANGE),
       change30d: pctChange(publicHist, 30, CHANGE),
-    });
+    };
+    item.type = typeDe(item);
+    item.racine = RACINE[item.type];
+    item.score = scoreUtilite(item);
+    candidates.push(item);
   }
   agg.clear();                                           // on libere tout de suite
 
-  // Desambiguisation des noms : on ajoute la rarete UNIQUEMENT aux collectibles
+  // ⭐ NOM D'AFFICHAGE. Chez les comics, le nom recopie tres souvent la serie
+  // en prefixe (« Return of the Jedi #1: Poster Series - Alex Ross Main Cover »).
+  // Comme le titre ajoute deja la serie et que le fil d'Ariane la porte, la
+  // garder donnait des titres de 111 a 128 caracteres, tronques par Google, et
+  // la meme suite de mots deux fois dans la meme balise. On ne conserve donc
+  // que ce qui distingue reellement l'objet. Chaine vide (= nom identique a la
+  // serie) -> on garde le nom, c'est Item.astro qui evitera la repetition.
+  for (const c of candidates) c.nomAffiche = sansPrefixeSerie(c.name, c.series) || c.name;
+
+  // Desambiguisation des noms : on ajoute la rarete UNIQUEMENT aux items
   // dont le couple (nom, collection) est partage. Un titre doit etre unique.
+  // ⚠️ Les passes ci-dessous travaillent sur le nom D'AFFICHAGE : c'est lui qui
+  // finit dans la balise <title>, donc c'est SON unicite qu'il faut garantir.
   const cles = new Map();
   for (const c of candidates) {
-    const k = `${c.name}|${c.series}`;
+    const k = `${c.nomAffiche}|${c.series}`;
     cles.set(k, (cles.get(k) || 0) + 1);
   }
   for (const c of candidates) {
-    const k = `${c.name}|${c.series}`;
+    const k = `${c.nomAffiche}|${c.series}`;
     c.ambigu = cles.get(k) > 1;
-    c.qualifie = c.ambigu && c.rarity ? `${c.name} · ${jolieRarete(c.rarity)}` : c.name;
+    c.qualifie = c.ambigu && c.rarity ? `${c.nomAffiche} · ${jolieRarete(c.rarity)}` : c.nomAffiche;
   }
   // Deuxieme passe : si le nom qualifie reste ambigu (meme nom, meme collection,
   // meme rarete), on ajoute le tirage, puis en dernier recours un rang. On veut
@@ -189,18 +304,77 @@ async function construireDataset() {
     vus.add(`${c.qualifie}|${c.series}`);
   }
 
-  candidates.sort((a, b) => b.totalPoints - a.totalPoints || String(a.name).localeCompare(String(b.name)));
-  // ENSEMBLE PUBLIE COLLANT : une fiche deja publiee (donc presente dans
-  // slugs.json) le reste. Seules les nouvelles venues sont plafonnees.
+  // ═══ CLASSEMENT ═══
+  // Departage entierement deterministe (score, puis releves, puis uuid) : deux
+  // builds successifs sur les memes donnees produisent le meme classement.
+  const parScore = (a, b) =>
+    b.score - a.score ||
+    b.totalPoints - a.totalPoints ||
+    String(a.uuid).localeCompare(String(b.uuid));
+  candidates.sort(parScore);
+
+  // ═══ SELECTION : QUOTA PAR TYPE ═══
+  // Un plafond global unique a produit un angle mort mesure en production :
+  // les comics sont 86 % du catalogue et representaient 0 % du site, parce que
+  // les collectibles (que le backfill densifie plus vite) raflaient les 400
+  // places. Chaque type recoit desormais sa part garantie.
+  // ⭐ Le quota est une TAILLE CIBLE, pas un debit : les fiches deja gelees le
+  // consomment. Sinon le site grossirait de 1 200 pages a chaque passage, sans
+  // que personne ne l'ait decide -- et c'est irreversible (ensemble collant).
+  const quotas = quotasDuManifeste(pub);
   const dejaPublie = candidates.filter((c) => pinned[c.uuid]);
   const nouvelles = candidates.filter((c) => !pinned[c.uuid]);
-  const place = MAX_ITEMS > 0 ? Math.max(0, MAX_ITEMS - dejaPublie.length) : nouvelles.length;
-  const items = [...dejaPublie, ...nouvelles.slice(0, place)];
+  const compte = (l) => l.reduce((o, c) => (o[c.type]++, o), { collectible: 0, comic: 0 });
+  const acquis = compte(dejaPublie);
+  const places = {};
+  for (const t of TYPES) places[t] = Math.max(0, quotas[t] - acquis[t]);
+
+  // Plafond de diversite par serie, applique aux SEULS entrants.
+  // Motif propre aux comics : avec /comics/<serie>/<rarete>/, une seule serie
+  // peut produire des dizaines de pages qui ne different que par la rarete et
+  // le prix. Sans plafond, une serie tres tradee mange le quota entier et la
+  // vitrine devient un mur de quasi-doublons -- exactement le profil que
+  // Google qualifie de contenu produit a grande echelle.
+  const parSerie = new Map();
+  const retenues = { collectible: [], comic: [] };
+  let recalesSerie = 0;
+  const cleSerie = (c) => `${c.type}|${slugify(c.series)}`;
+  const prendre = (c) => {
+    const k = cleSerie(c);
+    parSerie.set(k, (parSerie.get(k) || 0) + 1);
+    retenues[c.type].push(c);
+  };
+  for (const c of nouvelles) {
+    if (retenues[c.type].length >= places[c.type]) continue;
+    if (MAX_SERIE > 0 && (parSerie.get(cleSerie(c)) || 0) >= MAX_SERIE) { recalesSerie++; continue; }
+    prendre(c);
+  }
+
+  // Report du quota inutilise. Si peu de comics passent le seuil de releves,
+  // on ne retrecit pas le site pour rien : les places libres retournent au
+  // classement general. L'inverse vaut aussi.
+  let reporte = 0;
+  if (SPILL) {
+    let libre = TYPES.reduce((n, t) => n + Math.max(0, places[t] - retenues[t].length), 0);
+    if (libre > 0) {
+      const pris = new Set([...retenues.collectible, ...retenues.comic].map((c) => c.uuid));
+      for (const c of nouvelles) {
+        if (libre <= 0) break;
+        if (pris.has(c.uuid)) continue;
+        if (MAX_SERIE > 0 && (parSerie.get(cleSerie(c)) || 0) >= MAX_SERIE) continue;
+        prendre(c);
+        pris.add(c.uuid);
+        libre--; reporte++;
+      }
+    }
+  }
+
+  const items = [...dejaPublie, ...retenues.collectible, ...retenues.comic].sort(parScore);
 
   // ═══ ADRESSES ═══
-  // Hierarchie par type (decision Preda 18/07) :
-  //   collectibles : /collectible/<serie>/<nom>/
-  //   comics       : /comic/<serie>/<rarete>/   <- chez les comics le nom
+  // Hierarchie par type (decision Preda 18/07, racines au pluriel) :
+  //   collectibles : /collectibles/<serie>/<nom>/
+  //   comics       : /comics/<serie>/<rarete>/   <- chez les comics le nom
   //                  recopie souvent la serie ; la rarete est le vrai
   //                  discriminant (une serie = plusieurs couvertures).
   // L'attribution est DETERMINISTE et independante des donnees de prix : on
@@ -213,28 +387,41 @@ async function construireDataset() {
     return pa - pb || String(a.uuid).localeCompare(String(b.uuid));
   });
   const suffixeUuid = (u) => String(u).replace(/[^a-z0-9]/gi, '').slice(-6).toLowerCase();
+  let comicsSansRarete = 0;
+  let collisionsComics = 0;
   for (const i of ordreStable) {
-    i.racine = estComic(i.kind) ? 'comic' : 'collectible';
     i.serieSlug = slugify(i.series) || 'sans-collection';
     i.legacySlug = slugify(i.name);
     if (pinned[i.uuid]) { i.path = pinned[i.uuid]; seen.add(i.path); continue; }
-    // Feuille des comics : reglable au manifeste (urls.comic_leaf).
-    //  'rarity' (defaut, choix Preda) -> /comic/alias-1-2001/secret-rare/
-    //  'name'                          -> /comic/<serie>/<nom de la couverture>/
-    // Utile car certaines series de comics ont des noms de couverture tres
-    // parlants ("Bill Sienkiewicz Original Main Cover") qu'on perd avec la rarete.
-    const feuilleComic = (pub.comic_leaf || 'rarity') === 'name' ? i.legacySlug : slugify(i.rarity);
-    const principal = i.racine === 'comic' ? (feuilleComic || i.legacySlug) : i.legacySlug;
-    // Repli en cas de collision : pour un comic, ajouter le nom serait redondant
-    // (il recopie souvent la serie) -> on prend l'autre attribut, puis l'uuid.
-    // Repli en cas de collision. Pour un comic, ajouter le nom serait redondant
-    // (il recopie souvent la serie) : on prend directement l'identifiant court.
-    const secours = i.racine === 'comic'
-      ? `${principal}-${suffixeUuid(i.uuid)}`
-      : `${i.legacySlug}-${slugify(i.rarity) || 'edition'}`;
+    const rareteSlug = i.rarity ? slugify(i.rarity) : '';
+    // Ce qui distingue vraiment cette couverture, une fois retire le prefixe
+    // qui recopie la serie (chaine vide si le nom EST la serie).
+    const distinctif = sansPrefixeSerie(i.name, i.series);
+    const nomCourt = distinctif ? slugify(distinctif) : '';
+    // Feuille des comics : reglable au manifeste (publication.comic_leaf).
+    //  'rarity' (defaut, choix Preda) -> /comics/alias-1-2001/secret-rare/
+    //  'name'                         -> /comics/<serie>/<nom de la couverture>/
+    // Sans rarete ET sans nom distinctif, l'identifiant court vaut mieux que
+    // /comics/zombie-hunter-spider-man-1/zombie-hunter-spider-man-1/ : repeter
+    // la serie n'apprend rien au lecteur et ressemble a du bourrage de mots-cles.
+    const feuilleComic = (pub.comic_leaf || 'rarity') === 'name'
+      ? (nomCourt || i.legacySlug)
+      : rareteSlug;
+    if (i.type === 'comic' && !rareteSlug) comicsSansRarete++;
+    const principal = i.type === 'comic'
+      ? (feuilleComic || nomCourt || suffixeUuid(i.uuid))
+      : i.legacySlug;
+    // Repli en cas de collision. Chez un comic, deux couvertures peuvent
+    // partager la rarete dans la meme serie : on ajoute alors le NOM DE LA
+    // COUVERTURE ("...-adi-granov-main-cover"), qu'un humain comprend, plutot
+    // qu'un suffixe technique. L'identifiant court reste le dernier recours.
+    const secours = i.type === 'comic'
+      ? ((nomCourt && nomCourt !== principal) ? `${principal}-${nomCourt}` : `${principal}-${suffixeUuid(i.uuid)}`)
+      : `${i.legacySlug}-${rareteSlug || 'edition'}`;
     let feuille = principal || 'sans-nom';
-    if (seen.has(`/${i.racine}/${i.serieSlug}/${feuille}/`)) feuille = secours;
-    if (seen.has(`/${i.racine}/${i.serieSlug}/${feuille}/`)) feuille = `${principal}-${suffixeUuid(i.uuid)}`;
+    const libre = (f) => !seen.has(`/${i.racine}/${i.serieSlug}/${f}/`);
+    if (!libre(feuille)) { feuille = secours; if (i.type === 'comic') collisionsComics++; }
+    if (!libre(feuille)) feuille = `${principal}-${suffixeUuid(i.uuid)}`;
     i.path = `/${i.racine}/${i.serieSlug}/${feuille}/`;
     seen.add(i.path);
   }
@@ -261,14 +448,33 @@ async function construireDataset() {
     down: [...withChange].filter((i) => i.change7d < 0).sort((a, b) => a.change7d - b.change7d).slice(0, 20),
   };
 
-  console.log(`[site] ${items.length} fiches publiees (${dejaPublie.length} deja connues + ${items.length - dejaPublie.length} nouvelles) sur ${cat.length} items du catalogue`);
+  // ═══ DIAGNOSTIC EMBARQUE ═══
+  // Un seul deploiement doit suffire a comprendre ce que la vitrine a fait et
+  // pourquoi. C'est ce journal, pas une intuition, qui a revele que « kind »
+  // valait « Comic » avec une majuscule et que 0 comic etait publie.
+  const parTypeCat = {};
+  for (const c of cat) { const k = String(c.kind || '(vide)'); parTypeCat[k] = (parTypeCat[k] || 0) + 1; }
+  const eligibles = compte(candidates);
+  const publies = compte(items);
+  console.log(`[entrepot] valeurs du champ kind dans le catalogue : ${JSON.stringify(parTypeCat)}`);
+  console.log(`[vitrine] catalogue ${cat.length} · sous le seuil de ${MIN_POINTS} releves : ${refusesSeuil} · eligibles ${JSON.stringify(eligibles)}`);
+  console.log(`[vitrine] quotas ${JSON.stringify(quotas)} · deja geles ${JSON.stringify(acquis)} · places offertes ${JSON.stringify(places)}${SPILL ? ` · report ${reporte}` : ''}${MAX_SERIE ? ` · ecartes par le plafond de ${MAX_SERIE}/serie : ${recalesSerie}` : ''}`);
+  console.log(`[vitrine] PUBLIE ${items.length} fiches ${JSON.stringify(publies)} (${dejaPublie.length} deja gelees + ${items.length - dejaPublie.length} nouvelles)`);
+  if (comicsSansRarete) console.log(`[adresses] ATTENTION ${comicsSansRarete} comics sans rarete : adresse basee sur le nom de couverture, ou l'identifiant court s'il n'y a rien de distinctif`);
+  if (collisionsComics) console.log(`[adresses] ${collisionsComics} comics en collision de rarete : nom de couverture ajoute a l'adresse`);
+  for (const t of TYPES) {
+    if (quotas[t] > 0 && publies[t] === 0) {
+      console.log(`[vitrine] ATTENTION AUCUN ${t} publie alors que le quota est de ${quotas[t]} — eligibles : ${eligibles[t]}`);
+    }
+  }
 
-  _ds = { items, bySlug, collections, rarities, movers, catalogueSize: cat.length, windowDays: WINDOW_DAYS, maxPoints: MAX_POINTS, updatedAt: new Date().toISOString() };
-  const parType = {};
-  for (const c of cat) { const k = String(c.kind || '(vide)'); parType[k] = (parType[k] || 0) + 1; }
-  console.log(`[entrepot] valeurs du champ kind dans le catalogue : ${JSON.stringify(parType)}`);
-  const parRacine = {};
-  for (const i of items) parRacine[i.racine] = (parRacine[i.racine] || 0) + 1;
-  console.log(`[entrepot] jeu de donnees construit : ${items.length} fiches publiees ${JSON.stringify(parRacine)}`);
+  _ds = {
+    items, bySlug, collections, rarities, movers,
+    catalogueSize: cat.length,
+    windowDays: WINDOW_DAYS,
+    maxPoints: MAX_POINTS,
+    quotas, eligibles, publies,
+    updatedAt: new Date().toISOString(),
+  };
   return _ds;
 }

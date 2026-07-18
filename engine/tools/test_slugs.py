@@ -41,7 +41,7 @@ def construire():
 def carte():
     """uuid -> adresse, lu dans les donnees structurees des pages produites."""
     out = {}
-    fiches = list(DIST.glob('collectible/*/*/index.html')) + list(DIST.glob('comic/*/*/index.html'))
+    fiches = list(DIST.glob('collectibles/*/*/index.html')) + list(DIST.glob('comics/*/*/index.html'))
     for f in fiches:
         h = f.read_text(encoding='utf-8', errors='ignore')
         for bloc in re.findall(r'<script type="application/ld\+json">(.*?)</script>', h, re.S):

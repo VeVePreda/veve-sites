@@ -1,21 +1,41 @@
 // Genere un echantillon realiste pour builder hors-ligne (bac a sable, CI).
+//
+// ⭐ REGLE PAYEE DEUX FOIS LE 18/07/2026 : un jeu de test qui reprend MES
+// hypotheses ne teste rien. Ma premiere version ecrivait kind='comic' en
+// minuscules ; le catalogue reel dit « Comic » avec une majuscule, si bien que
+// mon test `kind === 'comic'` n'a jamais rien matche et que 100 % des comics
+// seraient partis sous la mauvaise racine. L'echantillon reproduit donc
+// desormais le vocabulaire REEL, mesure dans les journaux de production :
+//   kind = {"Collectible": 2690, "Comic": 16271}   (86 % de comics)
+// ainsi que les formes qui font mal :
+//   - plusieurs couvertures de MEME rarete dans une meme serie (collision) ;
+//   - des comics SANS rarete ;
+//   - des noms de collectibles en doublon dans des series differentes.
 import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 const OUT = join(dirname(fileURLToPath(import.meta.url)), 'sample');
 
 const series = [
-  { name: 'Modern Marvel S1', brand: 'Marvel', licensor: 'Disney' },
-  { name: 'DC Classics S2', brand: 'DC', licensor: 'Warner' },
-  { name: 'Cosmic Heroes', brand: 'Marvel', licensor: 'Disney' },
-  { name: 'Retro Arcade', brand: 'Capcom', licensor: 'Capcom' },
-  // Comics : plusieurs raretes (= couvertures) DANS la meme serie, et le nom
-  // recopie la serie. C'est exactement la forme reelle du catalogue VeVe, et
-  // c'est ce qui justifie /comic/<serie>/<rarete>/.
-  { name: 'The Cimmerian #1 (2020)', brand: 'Ablaze', licensor: 'Ablaze', kind: 'comic' },
-  { name: 'Alias #1 (2001)', brand: 'Marvel', licensor: 'Disney', kind: 'comic' },
+  { name: 'Modern Marvel S1', brand: 'Marvel', licensor: 'Disney', kind: 'Collectible' },
+  { name: 'DC Classics S2', brand: 'DC', licensor: 'Warner', kind: 'Collectible' },
+  { name: 'Cosmic Heroes', brand: 'Marvel', licensor: 'Disney', kind: 'Collectible' },
+  { name: 'Retro Arcade', brand: 'Capcom', licensor: 'Capcom', kind: 'Collectible' },
+  // Comics : le nom recopie souvent la serie et la rarete est le vrai
+  // discriminant -> c'est ce qui justifie /comics/<serie>/<rarete>/.
+  { name: 'The Cimmerian #1 (2020)', brand: 'Ablaze', licensor: 'Ablaze', kind: 'Comic' },
+  { name: 'Alias #1 (2001)', brand: 'Marvel', licensor: 'Disney', kind: 'Comic' },
+  { name: 'Daredevil #168 (1964)', brand: 'Marvel', licensor: 'Disney', kind: 'Comic' },
+  { name: 'Avengers vs X-Men #10 (2012)', brand: 'Marvel', licensor: 'Disney', kind: 'Comic' },
+  // Serie a COUVERTURES : plusieurs couvertures partagent la meme rarete, donc
+  // la rarete seule ne suffit pas a distinguer les adresses. C'est le cas reel
+  // observe sur « Star Wars Return of the Jedi Comic #1: Poster Series ».
+  { name: 'Return of the Jedi #1: Poster Series', brand: 'Marvel', licensor: 'Disney', kind: 'Comic', couvertures: true },
+  // Comics SANS rarete renseignee : l'adresse doit retomber sur le nom.
+  { name: 'Zombie Hunter Spider-Man #1', brand: 'Marvel', licensor: 'Disney', kind: 'Comic', sansRarete: true },
 ];
 const rarities = ['Common', 'Uncommon', 'Rare', 'Ultra Rare', 'Secret Rare'];
+const couvertures = ['Alex Ross Main Cover', 'Adi Granov Main Cover', 'Bill Sienkiewicz Original Main Cover', 'Todd McFarlane Variant'];
 const heroes = ['Spider-Man','Iron Man','Batman','Superman','Wolverine','Thor','Flash','Hulk','Venom','Mega Man','Ryu','Groot','Loki','Joker','Storm','Vision','Rocket','Gamora','Zangief','Doctor Strange'];
 
 let seed = 42;
@@ -26,11 +46,22 @@ const cat = [];
 const prices = [];
 const baselines = [];
 
-for (let i = 0; i < 40; i++) {
+// 90 items : assez pour exercer les quotas, les collisions et le plafond par
+// serie sans allonger le build hors-ligne.
+const N = 90;
+for (let i = 0; i < N; i++) {
   const uuid = `sample-${String(i).padStart(4, '0')}-${Math.floor(rnd() * 1e6)}`;
   const s = series[i % series.length];
-  const rarity = s.kind === 'comic' ? rarities[Math.floor(i / series.length) % rarities.length] : pick(rarities);
-  const name = s.kind === 'comic' ? s.name : `${heroes[i % heroes.length]} ${['','Variant','Gold','Prime'][i % 4]}`.trim();
+  const estComic = s.kind === 'Comic';
+  let rarity;
+  if (s.sansRarete) rarity = '';
+  else if (s.couvertures) rarity = rarities[Math.floor(i / series.length) % 2];  // 2 raretes seulement -> collisions
+  else if (estComic) rarity = rarities[Math.floor(i / series.length) % rarities.length];
+  else rarity = pick(rarities);
+  let name;
+  if (s.couvertures) name = `${s.name} - ${couvertures[Math.floor(i / series.length) % couvertures.length]}`;
+  else if (estComic) name = s.name;
+  else name = `${heroes[i % heroes.length]} ${['','Variant','Gold','Prime'][i % 4]}`.trim();
   const tirage = [500, 1000, 2500, 5000, 10000][i % 5];
   const store = [10, 20, 30, 60, 100][i % 5];
   const start = new Date(Date.UTC(2021, 9 + (i % 3), 1 + (i % 20)));
@@ -42,7 +73,12 @@ for (let i = 0; i < 40; i++) {
     const d = new Date(start); d.setUTCMonth(d.getUTCMonth() + m);
     if (d > new Date()) break;
     const recent = (Date.now() - d.getTime()) < 100 * 86400000;
-    const pts = recent ? 8 + Math.floor(rnd() * 8) : 1 + Math.floor(rnd() * 3);
+    // ⭐ REPRODUIT LE MODE DE PANNE REEL : le backfill a densifie les
+    // collectibles bien plus vite que les comics. C'est precisement ce
+    // desequilibre qui a fait evincer 100 % des comics par un classement au
+    // nombre de releves. Un echantillon equilibre ne l'aurait jamais montre.
+    const densite = estComic ? 1 : 4;
+    const pts = densite * (recent ? 8 + Math.floor(rnd() * 8) : 1 + Math.floor(rnd() * 3));
     for (let p = 0; p < pts; p++) {
       const day = new Date(d); day.setUTCDate(1 + Math.floor(rnd() * 27));
       const boom = m < 6 ? 1.25 : m < 14 ? 0.93 : 0.995;
@@ -57,10 +93,13 @@ for (let i = 0; i < 40; i++) {
   const q = (p) => fl[Math.min(fl.length - 1, Math.floor(fl.length * p))];
   const last = hist[hist.length - 1];
   baselines.push(`${uuid},${fl[0]},${q(0.05)},${q(0.25)},${q(0.5)},${q(0.75)},${q(0.95)},${fl[fl.length-1]},${hist.length},${last.floor},${last.listings}`);
-  cat.push([uuid,s.kind || 'collectible',name,'Standard',rarity,start.toISOString().slice(0,10),s.name,s.brand,s.licensor,tirage,store,last.floor,last.listings,fl[fl.length-1],fl[0]].join(','));
+  cat.push([uuid,s.kind,name,'Standard',rarity,start.toISOString().slice(0,10),s.name,s.brand,s.licensor,tirage,store,last.floor,last.listings,fl[fl.length-1],fl[0]].join(','));
 }
 
 writeFileSync(join(OUT, 'catalogue.csv'), 'uuid,kind,name,edition_type,rarity,release_date,series,brand,licensor,tirage,store_price,floor,listings,ath,atl\n' + cat.join('\n') + '\n');
 writeFileSync(join(OUT, 'prices.csv'), 'veve_uuid,ts_utc,floor,listings\n' + prices.join('\n') + '\n');
 writeFileSync(join(OUT, 'prices_baselines.csv'), 'veve_uuid,floor_min,p5,p25,p50,p75,p95,floor_max,n_points,last_floor,last_listings\n' + baselines.join('\n') + '\n');
-console.log(`echantillon: ${cat.length} items, ${prices.length} points de prix`);
+
+const parKind = {};
+for (const l of cat) { const k = l.split(',')[1]; parKind[k] = (parKind[k] || 0) + 1; }
+console.log(`echantillon: ${cat.length} items ${JSON.stringify(parKind)}, ${prices.length} points de prix`);

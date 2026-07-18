@@ -1,41 +1,91 @@
 uuid,kind,name,edition_type,rarity,release_date,series,brand,licensor,tirage,store_price,floor,listings,ath,atl
-sample-0000-582307,collectible,Spider-Man,Standard,Rare,2021-10-01,Modern Marvel S1,Marvel,Disney,500,10,531.6,65,1801.67,118.21
-sample-0001-161636,collectible,Iron Man Variant,Standard,Secret Rare,2021-11-02,DC Classics S2,DC,Warner,1000,20,2197.95,2,6796.38,235.81
-sample-0002-200950,collectible,Batman Gold,Standard,Uncommon,2021-12-03,Cosmic Heroes,Marvel,Disney,2500,30,709.79,3,1081.15,234.7
-sample-0003-982811,collectible,Superman Prime,Standard,Secret Rare,2021-10-04,Retro Arcade,Capcom,Capcom,5000,60,2328.72,37,4370.59,263
-sample-0004-79182,comic,The Cimmerian #1 (2020),Standard,Common,2021-11-05,The Cimmerian #1 (2020),Ablaze,Ablaze,10000,100,4455.43,31,6625.98,817.9
-sample-0005-390541,comic,Alias #1 (2001),Standard,Common,2021-12-06,Alias #1 (2001),Marvel,Disney,500,10,554.93,4,1200.87,80.15
-sample-0006-32750,collectible,Flash Gold,Standard,Secret Rare,2021-10-07,Modern Marvel S1,Marvel,Disney,1000,20,234.56,5,462.74,54.33
-sample-0007-867333,collectible,Hulk Prime,Standard,Uncommon,2021-11-08,DC Classics S2,DC,Warner,2500,30,1427.55,59,1489.88,75.34
-sample-0008-499490,collectible,Venom,Standard,Common,2021-12-09,Cosmic Heroes,Marvel,Disney,5000,60,1471.08,69,5575.38,477.86
-sample-0009-49086,collectible,Mega Man Variant,Standard,Uncommon,2021-10-10,Retro Arcade,Capcom,Capcom,10000,100,582.32,39,1380.29,260.21
-sample-0010-594059,comic,The Cimmerian #1 (2020),Standard,Uncommon,2021-11-11,The Cimmerian #1 (2020),Ablaze,Ablaze,500,10,95.42,16,1338.4,57.15
-sample-0011-421680,comic,Alias #1 (2001),Standard,Uncommon,2021-12-12,Alias #1 (2001),Marvel,Disney,1000,20,1994.44,49,5255.26,200.62
-sample-0012-756748,collectible,Loki,Standard,Ultra Rare,2021-10-13,Modern Marvel S1,Marvel,Disney,2500,30,444.76,45,856.15,118.12
-sample-0013-253097,collectible,Joker Variant,Standard,Rare,2021-11-14,DC Classics S2,DC,Warner,5000,60,228.86,33,1061.39,156.16
-sample-0014-910018,collectible,Storm Gold,Standard,Ultra Rare,2021-12-15,Cosmic Heroes,Marvel,Disney,10000,100,7796.03,64,10136.97,374.58
-sample-0015-850671,collectible,Vision Prime,Standard,Rare,2021-10-16,Retro Arcade,Capcom,Capcom,500,10,1070.01,54,1830.72,88.97
-sample-0016-732259,comic,The Cimmerian #1 (2020),Standard,Rare,2021-11-17,The Cimmerian #1 (2020),Ablaze,Ablaze,1000,20,567.67,1,798.54,146.66
-sample-0017-144913,comic,Alias #1 (2001),Standard,Rare,2021-12-18,Alias #1 (2001),Marvel,Disney,2500,30,2800.35,13,3267,293.97
-sample-0018-321336,collectible,Zangief Gold,Standard,Rare,2021-10-19,Modern Marvel S1,Marvel,Disney,5000,60,5373.58,32,17680.89,722.37
-sample-0019-490137,collectible,Doctor Strange Prime,Standard,Secret Rare,2021-11-20,DC Classics S2,DC,Warner,10000,100,8664.03,69,17781.99,918.41
-sample-0020-445566,collectible,Spider-Man,Standard,Ultra Rare,2021-12-01,Cosmic Heroes,Marvel,Disney,500,10,94.4,33,274.64,29.07
-sample-0021-169483,collectible,Iron Man Variant,Standard,Rare,2021-10-02,Retro Arcade,Capcom,Capcom,1000,20,215.01,66,2787.82,128.73
-sample-0022-288845,comic,The Cimmerian #1 (2020),Standard,Ultra Rare,2021-11-03,The Cimmerian #1 (2020),Ablaze,Ablaze,2500,30,2839.7,1,3813.11,237.41
-sample-0023-397873,comic,Alias #1 (2001),Standard,Ultra Rare,2021-12-04,Alias #1 (2001),Marvel,Disney,5000,60,2417.03,31,8263.03,720.91
-sample-0024-43643,collectible,Wolverine,Standard,Secret Rare,2021-10-05,Modern Marvel S1,Marvel,Disney,10000,100,1117.42,46,2473.22,340.93
-sample-0025-714513,collectible,Thor Variant,Standard,Common,2021-11-06,DC Classics S2,DC,Warner,500,10,430.41,37,882.39,72.31
-sample-0026-52162,collectible,Flash Gold,Standard,Ultra Rare,2021-12-07,Cosmic Heroes,Marvel,Disney,1000,20,1006.95,49,3697.22,229.3
-sample-0027-991971,collectible,Hulk Prime,Standard,Common,2021-10-08,Retro Arcade,Capcom,Capcom,2500,30,4955.52,25,5594.64,122.62
-sample-0028-76658,comic,The Cimmerian #1 (2020),Standard,Secret Rare,2021-11-09,The Cimmerian #1 (2020),Ablaze,Ablaze,5000,60,1234.78,45,4982.1,538.39
-sample-0029-810809,comic,Alias #1 (2001),Standard,Secret Rare,2021-12-10,Alias #1 (2001),Marvel,Disney,10000,100,3494.73,15,6518.49,313.46
-sample-0030-833403,collectible,Ryu Gold,Standard,Ultra Rare,2021-10-11,Modern Marvel S1,Marvel,Disney,500,10,822.6,55,1220.57,54.04
-sample-0031-913528,collectible,Groot Prime,Standard,Rare,2021-11-12,DC Classics S2,DC,Warner,1000,20,687.03,53,913.12,53.48
-sample-0032-418532,collectible,Loki,Standard,Ultra Rare,2021-12-13,Cosmic Heroes,Marvel,Disney,2500,30,3974.96,22,4314.53,214.3
-sample-0033-86228,collectible,Joker Variant,Standard,Common,2021-10-14,Retro Arcade,Capcom,Capcom,5000,60,865.5,29,3852.29,458.38
-sample-0034-952874,comic,The Cimmerian #1 (2020),Standard,Common,2021-11-15,The Cimmerian #1 (2020),Ablaze,Ablaze,10000,100,6489.7,99,8978.33,958.21
-sample-0035-546135,comic,Alias #1 (2001),Standard,Common,2021-12-16,Alias #1 (2001),Marvel,Disney,500,10,33.77,8,239.54,28.06
-sample-0036-528342,collectible,Rocket,Standard,Common,2021-10-17,Modern Marvel S1,Marvel,Disney,1000,20,2225.46,43,4076.46,169.27
-sample-0037-757810,collectible,Gamora Variant,Standard,Secret Rare,2021-11-18,DC Classics S2,DC,Warner,2500,30,8438,57,11846.62,264.02
-sample-0038-694345,collectible,Zangief Gold,Standard,Rare,2021-12-19,Cosmic Heroes,Marvel,Disney,5000,60,14125.24,49,15894.44,462.5
-sample-0039-414990,collectible,Doctor Strange Prime,Standard,Common,2021-10-20,Retro Arcade,Capcom,Capcom,10000,100,13708.23,20,16710.48,796.92
+sample-0000-582307,Collectible,Spider-Man,Standard,Rare,2021-10-01,Modern Marvel S1,Marvel,Disney,500,10,1196925.12,14,19757383.34,118.21
+sample-0001-634235,Collectible,Iron Man Variant,Standard,Rare,2021-11-02,DC Classics S2,DC,Warner,1000,20,4696.56,24,4268519.21,223.58
+sample-0002-243596,Collectible,Batman Gold,Standard,Ultra Rare,2021-12-03,Cosmic Heroes,Marvel,Disney,2500,30,785349.79,146,16898020.02,277.24
+sample-0003-541615,Collectible,Superman Prime,Standard,Secret Rare,2021-10-04,Retro Arcade,Capcom,Capcom,5000,60,343295.91,81,10429683.7,171.49
+sample-0004-382065,Comic,The Cimmerian #1 (2020),Standard,Common,2021-11-05,The Cimmerian #1 (2020),Ablaze,Ablaze,10000,100,1425.02,1,4703.49,614.27
+sample-0005-77339,Comic,Alias #1 (2001),Standard,Common,2021-12-06,Alias #1 (2001),Marvel,Disney,500,10,1077.79,8,1641.87,33.7
+sample-0006-957637,Comic,Daredevil #168 (1964),Standard,Common,2021-10-07,Daredevil #168 (1964),Marvel,Disney,1000,20,1042.05,64,2571.91,120.25
+sample-0007-991219,Comic,Avengers vs X-Men #10 (2012),Standard,Common,2021-11-08,Avengers vs X-Men #10 (2012),Marvel,Disney,2500,30,870.71,32,2669.72,260.47
+sample-0008-421584,Comic,Return of the Jedi #1: Poster Series - Alex Ross Main Cover,Standard,Common,2021-12-09,Return of the Jedi #1: Poster Series,Marvel,Disney,5000,60,2369.84,54,3048.86,309.17
+sample-0009-584585,Comic,Zombie Hunter Spider-Man #1,Standard,,2021-10-10,Zombie Hunter Spider-Man #1,Marvel,Disney,10000,100,1661.58,56,8767.23,1220.41
+sample-0010-316421,Collectible,Ryu Gold,Standard,Secret Rare,2021-11-11,Modern Marvel S1,Marvel,Disney,500,10,94029.89,5,3542852.43,25.58
+sample-0011-629330,Collectible,Groot Prime,Standard,Secret Rare,2021-12-12,DC Classics S2,DC,Warner,1000,20,6116663.5,63,175364607.82,111.34
+sample-0012-676125,Collectible,Loki,Standard,Rare,2021-10-13,Cosmic Heroes,Marvel,Disney,2500,30,2775266.39,24,43688623.82,189.94
+sample-0013-994506,Collectible,Joker Variant,Standard,Rare,2021-11-14,Retro Arcade,Capcom,Capcom,5000,60,1765684.95,36,45926035.88,220.7
+sample-0014-74568,Comic,The Cimmerian #1 (2020),Standard,Uncommon,2021-12-15,The Cimmerian #1 (2020),Ablaze,Ablaze,10000,100,937.17,57,10325.56,903.7
+sample-0015-284600,Comic,Alias #1 (2001),Standard,Uncommon,2021-10-16,Alias #1 (2001),Marvel,Disney,500,10,525.89,17,1194.1,86.58
+sample-0016-408457,Comic,Daredevil #168 (1964),Standard,Uncommon,2021-11-17,Daredevil #168 (1964),Marvel,Disney,1000,20,4360.57,32,4551.8,202.74
+sample-0017-594636,Comic,Avengers vs X-Men #10 (2012),Standard,Uncommon,2021-12-18,Avengers vs X-Men #10 (2012),Marvel,Disney,2500,30,388.14,63,630.64,142.55
+sample-0018-978441,Comic,Return of the Jedi #1: Poster Series - Adi Granov Main Cover,Standard,Uncommon,2021-10-19,Return of the Jedi #1: Poster Series,Marvel,Disney,5000,60,2397.74,5,5944.75,717.51
+sample-0019-199414,Comic,Zombie Hunter Spider-Man #1,Standard,,2021-11-20,Zombie Hunter Spider-Man #1,Marvel,Disney,10000,100,8390.49,44,39307.91,1098.41
+sample-0020-433309,Collectible,Spider-Man,Standard,Rare,2021-12-01,Modern Marvel S1,Marvel,Disney,500,10,1128720.79,70,45218861.35,48.08
+sample-0021-140138,Collectible,Iron Man Variant,Standard,Ultra Rare,2021-10-02,DC Classics S2,DC,Warner,1000,20,530418.3,57,8508896.01,97.94
+sample-0022-717803,Collectible,Batman Gold,Standard,Secret Rare,2021-11-03,Cosmic Heroes,Marvel,Disney,2500,30,314067.27,24,30797111.72,120.29
+sample-0023-427581,Collectible,Superman Prime,Standard,Secret Rare,2021-12-04,Retro Arcade,Capcom,Capcom,5000,60,23276.08,53,4916645.98,432.94
+sample-0024-126053,Comic,The Cimmerian #1 (2020),Standard,Rare,2021-10-05,The Cimmerian #1 (2020),Ablaze,Ablaze,10000,100,5841.66,16,12035.54,1053.12
+sample-0025-43811,Comic,Alias #1 (2001),Standard,Rare,2021-11-06,Alias #1 (2001),Marvel,Disney,500,10,463.35,59,1212.06,107.61
+sample-0026-583276,Comic,Daredevil #168 (1964),Standard,Rare,2021-12-07,Daredevil #168 (1964),Marvel,Disney,1000,20,155.17,21,944.16,133.94
+sample-0027-729100,Comic,Avengers vs X-Men #10 (2012),Standard,Rare,2021-10-08,Avengers vs X-Men #10 (2012),Marvel,Disney,2500,30,1068.44,16,1851.01,264.35
+sample-0028-735045,Comic,Return of the Jedi #1: Poster Series - Bill Sienkiewicz Original Main Cover,Standard,Common,2021-11-09,Return of the Jedi #1: Poster Series,Marvel,Disney,5000,60,3869.47,77,3979.3,213.87
+sample-0029-934869,Comic,Zombie Hunter Spider-Man #1,Standard,,2021-12-10,Zombie Hunter Spider-Man #1,Marvel,Disney,10000,100,2673.67,87,6965.32,880.94
+sample-0030-548092,Collectible,Ryu Gold,Standard,Ultra Rare,2021-10-11,Modern Marvel S1,Marvel,Disney,500,10,329786.17,60,114424481,117.34
+sample-0031-71174,Collectible,Groot Prime,Standard,Rare,2021-11-12,DC Classics S2,DC,Warner,1000,20,1260459.06,28,10530919.09,216.28
+sample-0032-883661,Collectible,Loki,Standard,Secret Rare,2021-12-13,Cosmic Heroes,Marvel,Disney,2500,30,306871.33,54,9124845.11,169.19
+sample-0033-570553,Collectible,Joker Variant,Standard,Ultra Rare,2021-10-14,Retro Arcade,Capcom,Capcom,5000,60,12215938.09,128,817142199.7,627.95
+sample-0034-410568,Comic,The Cimmerian #1 (2020),Standard,Ultra Rare,2021-11-15,The Cimmerian #1 (2020),Ablaze,Ablaze,10000,100,2474.22,1,4007.27,433.12
+sample-0035-833307,Comic,Alias #1 (2001),Standard,Ultra Rare,2021-12-16,Alias #1 (2001),Marvel,Disney,500,10,156.19,1,603.34,94.01
+sample-0036-966141,Comic,Daredevil #168 (1964),Standard,Ultra Rare,2021-10-17,Daredevil #168 (1964),Marvel,Disney,1000,20,271.07,73,1492.8,83.78
+sample-0037-719097,Comic,Avengers vs X-Men #10 (2012),Standard,Ultra Rare,2021-11-18,Avengers vs X-Men #10 (2012),Marvel,Disney,2500,30,1059.5,8,4877.23,290.87
+sample-0038-223608,Comic,Return of the Jedi #1: Poster Series - Todd McFarlane Variant,Standard,Uncommon,2021-12-19,Return of the Jedi #1: Poster Series,Marvel,Disney,5000,60,3393.89,54,4150.68,274.15
+sample-0039-721562,Comic,Zombie Hunter Spider-Man #1,Standard,,2021-10-20,Zombie Hunter Spider-Man #1,Marvel,Disney,10000,100,1603.53,68,4161.66,634.47
+sample-0040-753070,Collectible,Spider-Man,Standard,Common,2021-11-01,Modern Marvel S1,Marvel,Disney,500,10,30604.51,57,1321279.3,43.65
+sample-0041-384595,Collectible,Iron Man Variant,Standard,Ultra Rare,2021-12-02,DC Classics S2,DC,Warner,1000,20,262567.35,6,2337844.07,96.1
+sample-0042-772031,Collectible,Batman Gold,Standard,Secret Rare,2021-10-03,Cosmic Heroes,Marvel,Disney,2500,30,483766.22,59,4443296.34,192.54
+sample-0043-387586,Collectible,Superman Prime,Standard,Ultra Rare,2021-11-04,Retro Arcade,Capcom,Capcom,5000,60,1577760.48,28,34636691.57,426.23
+sample-0044-349059,Comic,The Cimmerian #1 (2020),Standard,Secret Rare,2021-12-05,The Cimmerian #1 (2020),Ablaze,Ablaze,10000,100,4489.51,24,7313.08,1071.2
+sample-0045-419023,Comic,Alias #1 (2001),Standard,Secret Rare,2021-10-06,Alias #1 (2001),Marvel,Disney,500,10,424.41,33,1120.34,127.48
+sample-0046-503776,Comic,Daredevil #168 (1964),Standard,Secret Rare,2021-11-07,Daredevil #168 (1964),Marvel,Disney,1000,20,1581.61,2,3922.77,206.5
+sample-0047-544517,Comic,Avengers vs X-Men #10 (2012),Standard,Secret Rare,2021-12-08,Avengers vs X-Men #10 (2012),Marvel,Disney,2500,30,3751.15,4,5392.47,324.46
+sample-0048-266393,Comic,Return of the Jedi #1: Poster Series - Alex Ross Main Cover,Standard,Common,2021-10-09,Return of the Jedi #1: Poster Series,Marvel,Disney,5000,60,7624.79,44,18211.53,825.11
+sample-0049-147205,Comic,Zombie Hunter Spider-Man #1,Standard,,2021-11-10,Zombie Hunter Spider-Man #1,Marvel,Disney,10000,100,3074.05,5,8928.4,744.37
+sample-0050-965998,Collectible,Ryu Gold,Standard,Common,2021-12-11,Modern Marvel S1,Marvel,Disney,500,10,1396.22,159,846779.57,134.75
+sample-0051-111572,Collectible,Groot Prime,Standard,Uncommon,2021-10-12,DC Classics S2,DC,Warner,1000,20,34279.84,89,6685818.35,179.79
+sample-0052-219504,Collectible,Loki,Standard,Common,2021-11-13,Cosmic Heroes,Marvel,Disney,2500,30,133002.68,34,33625939.96,278.11
+sample-0053-521127,Collectible,Joker Variant,Standard,Ultra Rare,2021-12-14,Retro Arcade,Capcom,Capcom,5000,60,2984527,62,49215991.68,727.49
+sample-0054-497867,Comic,The Cimmerian #1 (2020),Standard,Common,2021-10-15,The Cimmerian #1 (2020),Ablaze,Ablaze,10000,100,3246.22,19,8820.56,848.15
+sample-0055-56536,Comic,Alias #1 (2001),Standard,Common,2021-11-16,Alias #1 (2001),Marvel,Disney,500,10,433.94,53,462.32,72.99
+sample-0056-297387,Comic,Daredevil #168 (1964),Standard,Common,2021-12-17,Daredevil #168 (1964),Marvel,Disney,1000,20,882.68,12,1821.9,151.1
+sample-0057-410103,Comic,Avengers vs X-Men #10 (2012),Standard,Common,2021-10-18,Avengers vs X-Men #10 (2012),Marvel,Disney,2500,30,1360.82,22,1679.68,83.9
+sample-0058-394500,Comic,Return of the Jedi #1: Poster Series - Adi Granov Main Cover,Standard,Uncommon,2021-11-19,Return of the Jedi #1: Poster Series,Marvel,Disney,5000,60,852.09,21,1486.02,223.06
+sample-0059-672764,Comic,Zombie Hunter Spider-Man #1,Standard,,2021-12-20,Zombie Hunter Spider-Man #1,Marvel,Disney,10000,100,2803.97,91,4258.56,532.83
+sample-0060-369766,Collectible,Spider-Man,Standard,Uncommon,2021-10-01,Modern Marvel S1,Marvel,Disney,500,10,14504.06,118,2055319.4,32.04
+sample-0061-707111,Collectible,Iron Man Variant,Standard,Ultra Rare,2021-11-02,DC Classics S2,DC,Warner,1000,20,490737.78,57,1395334.53,106.3
+sample-0062-186881,Collectible,Batman Gold,Standard,Uncommon,2021-12-03,Cosmic Heroes,Marvel,Disney,2500,30,2941.28,10,156316.9,115.79
+sample-0063-174648,Collectible,Superman Prime,Standard,Secret Rare,2021-10-04,Retro Arcade,Capcom,Capcom,5000,60,3247472.98,20,15377150.22,615.56
+sample-0064-122053,Comic,The Cimmerian #1 (2020),Standard,Uncommon,2021-11-05,The Cimmerian #1 (2020),Ablaze,Ablaze,10000,100,12075.75,62,12075.75,810.41
+sample-0065-637436,Comic,Alias #1 (2001),Standard,Uncommon,2021-12-06,Alias #1 (2001),Marvel,Disney,500,10,186.38,64,1013.38,90.35
+sample-0066-201784,Comic,Daredevil #168 (1964),Standard,Uncommon,2021-10-07,Daredevil #168 (1964),Marvel,Disney,1000,20,842.75,3,1268.21,163.66
+sample-0067-156481,Comic,Avengers vs X-Men #10 (2012),Standard,Uncommon,2021-11-08,Avengers vs X-Men #10 (2012),Marvel,Disney,2500,30,3921.06,32,4796.89,332.98
+sample-0068-974541,Comic,Return of the Jedi #1: Poster Series - Bill Sienkiewicz Original Main Cover,Standard,Common,2021-12-09,Return of the Jedi #1: Poster Series,Marvel,Disney,5000,60,1306.02,11,2715.13,252.88
+sample-0069-268215,Comic,Zombie Hunter Spider-Man #1,Standard,,2021-10-10,Zombie Hunter Spider-Man #1,Marvel,Disney,10000,100,5546.8,21,12042.61,541.46
+sample-0070-162673,Collectible,Ryu Gold,Standard,Secret Rare,2021-11-11,Modern Marvel S1,Marvel,Disney,500,10,9291.57,12,1368275.14,28.84
+sample-0071-911430,Collectible,Groot Prime,Standard,Secret Rare,2021-12-12,DC Classics S2,DC,Warner,1000,20,13256.37,134,13518152.29,114.18
+sample-0072-111572,Collectible,Loki,Standard,Uncommon,2021-10-13,Cosmic Heroes,Marvel,Disney,2500,30,51417.42,89,10028236.14,269.68
+sample-0073-219504,Collectible,Joker Variant,Standard,Common,2021-11-14,Retro Arcade,Capcom,Capcom,5000,60,266003.25,34,67251340.69,556.21
+sample-0074-521127,Comic,The Cimmerian #1 (2020),Standard,Rare,2021-12-15,The Cimmerian #1 (2020),Ablaze,Ablaze,10000,100,6819.95,71,15592.74,937.3
+sample-0075-875240,Comic,Alias #1 (2001),Standard,Rare,2021-10-16,Alias #1 (2001),Marvel,Disney,500,10,344.99,37,839.49,100.19
+sample-0076-933990,Comic,Daredevil #168 (1964),Standard,Rare,2021-11-17,Daredevil #168 (1964),Marvel,Disney,1000,20,2794.54,20,5224.42,231.62
+sample-0077-619861,Comic,Avengers vs X-Men #10 (2012),Standard,Rare,2021-12-18,Avengers vs X-Men #10 (2012),Marvel,Disney,2500,30,2447.57,10,3455.11,205.19
+sample-0078-169525,Comic,Return of the Jedi #1: Poster Series - Todd McFarlane Variant,Standard,Uncommon,2021-10-19,Return of the Jedi #1: Poster Series,Marvel,Disney,5000,60,433.22,34,983.2,257.26
+sample-0079-193540,Comic,Zombie Hunter Spider-Man #1,Standard,,2021-11-20,Zombie Hunter Spider-Man #1,Marvel,Disney,10000,100,3466.79,61,6771.92,728.05
+sample-0080-419023,Collectible,Spider-Man,Standard,Secret Rare,2021-12-01,Modern Marvel S1,Marvel,Disney,500,10,8896.84,3,2613510.56,106.18
+sample-0081-164141,Collectible,Iron Man Variant,Standard,Secret Rare,2021-10-02,DC Classics S2,DC,Warner,1000,20,148207.56,41,40589105.44,177.53
+sample-0082-184297,Collectible,Batman Gold,Standard,Rare,2021-11-03,Cosmic Heroes,Marvel,Disney,2500,30,124806.08,30,1746507.51,368.17
+sample-0083-650332,Collectible,Superman Prime,Standard,Uncommon,2021-12-04,Retro Arcade,Capcom,Capcom,5000,60,909476.3,85,51071543.92,693.68
+sample-0084-764404,Comic,The Cimmerian #1 (2020),Standard,Ultra Rare,2021-10-05,The Cimmerian #1 (2020),Ablaze,Ablaze,10000,100,5361.46,43,10143.77,721.86
+sample-0085-986594,Comic,Alias #1 (2001),Standard,Ultra Rare,2021-11-06,Alias #1 (2001),Marvel,Disney,500,10,867.22,33,1027.33,43
+sample-0086-20203,Comic,Daredevil #168 (1964),Standard,Ultra Rare,2021-12-07,Daredevil #168 (1964),Marvel,Disney,1000,20,253.69,87,929.67,47.84
+sample-0087-806845,Comic,Avengers vs X-Men #10 (2012),Standard,Ultra Rare,2021-10-08,Avengers vs X-Men #10 (2012),Marvel,Disney,2500,30,761.86,22,1181.56,80.58
+sample-0088-242699,Comic,Return of the Jedi #1: Poster Series - Alex Ross Main Cover,Standard,Common,2021-11-09,Return of the Jedi #1: Poster Series,Marvel,Disney,5000,60,1444.7,88,7388.56,666.1
+sample-0089-436533,Comic,Zombie Hunter Spider-Man #1,Standard,,2021-12-10,Zombie Hunter Spider-Man #1,Marvel,Disney,10000,100,4843.23,11,6331.71,399.75

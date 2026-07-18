@@ -14,6 +14,9 @@ ENV NODE_OPTIONS=--max-old-space-size=3072
 # Verifie que le jeu de donnees n'est construit qu'UNE fois (sinon le build
 # lit le fichier de prix autant de fois qu'il y a de routes -> panne memoire).
 RUN WAREHOUSE_OFFLINE=1 npm run test:donnees
+# Verifie qu'aucun type n'est evince de la vitrine (le 18/07 la prod a
+# publie 400 fiches et ZERO comic sans qu'aucun controle ne s'en plaigne).
+RUN WAREHOUSE_OFFLINE=1 npm run test:quotas
 RUN npm run build
 RUN apk add --no-cache python3 >/dev/null && python3 engine/tools/audit_seo.py dist || true
 

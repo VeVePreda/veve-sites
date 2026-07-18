@@ -10,7 +10,30 @@ const ds = await dataset();
 const nf = numberLocale[lang] || 'en-GB';
 const up = ds.movers.up.slice(0, 6);
 const down = ds.movers.down.slice(0, 6);
-const featured = [...ds.items].sort((a, b) => (b.totalPoints || 0) - (a.totalPoints || 0)).slice(0, 8);
+// ⭐ La vitrine d'accueil etait classee par NOMBRE DE RELEVES — le meme proxy
+// trompeur qui avait fait disparaitre 100 % des comics du site : il mesure
+// l'avancee du backfill, pas l'interet de la fiche. Et comme les collectibles
+// sont densifies plus vite, la page la plus vue du site n'affichait qu'eux.
+// On classe donc par score d'utilite ET on garantit une place a chaque type :
+// une page d'accueil qui ignore 86 % du catalogue dit au visiteur (et a Google)
+// que le site ne couvre pas les comics.
+const parScore = (a, b) => (b.score || 0) - (a.score || 0);
+const featured = (() => {
+  const N = 8;
+  const parT = { collectible: [], comic: [] };
+  for (const i of [...ds.items].sort(parScore)) parT[i.type]?.push(i);
+  const pris = [...parT.collectible.slice(0, N / 2), ...parT.comic.slice(0, N / 2)];
+  // Un type absent ou trop maigre ne doit pas retrecir la vitrine : on complete
+  // avec le meilleur du reste.
+  if (pris.length < N) {
+    const vus = new Set(pris.map((i) => i.uuid));
+    for (const i of [...ds.items].sort(parScore)) {
+      if (pris.length >= N) break;
+      if (!vus.has(i.uuid)) { pris.push(i); vus.add(i.uuid); }
+    }
+  }
+  return pris.sort(parScore).slice(0, N);
+})();
 const collections = [...ds.collections.values()].sort((a, b) => b.items.length - a.items.length).slice(0, 8);
 const pct = (v) => (v === null || v === undefined ? '—' : `${v > 0 ? '+' : ''}${v.toFixed(1)} %`);
 const money = (v) => (v === null || v === undefined ? '—' : v.toLocaleString(nf, { maximumFractionDigits: 2 }));
