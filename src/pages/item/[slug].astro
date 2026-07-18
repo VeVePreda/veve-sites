@@ -1,0 +1,88 @@
+---
+import Base from '../../layouts/Base.astro';
+import { dataset } from '../../../engine/lib/dataset.mjs';
+import { priceChartSVG } from '../../../engine/lib/chart.mjs';
+import { productLd, breadcrumbLd } from '../../../engine/lib/seo.mjs';
+import { manifest, siteUrl } from '../../../engine/lib/manifest.mjs';
+
+export async function getStaticPaths() {
+  const ds = await dataset();
+  return ds.items.map((i) => ({ params: { slug: i.slug }, props: { item: i } }));
+}
+
+const { item } = Astro.props;
+const m = manifest();
+const root = siteUrl();
+const url = `${root}/item/${item.slug}/`;
+const svg = priceChartSVG(item.history);
+const money = (v) => (v === null || v === undefined ? '—' : v.toLocaleString('fr-FR', { maximumFractionDigits: 2 }));
+const pct = (v) => (v === null || v === undefined ? '—' : `${v > 0 ? '+' : ''}${v.toFixed(1)} %`);
+const cls = (v) => (v === null || v === undefined ? '' : v > 0 ? 'up' : v < 0 ? 'down' : '');
+const recent = [...item.history].slice(-14).reverse();
+const first = item.history[0];
+const crumbs = [{ name: 'Accueil', url: '/' }];
+if (item.series) crumbs.push({ name: item.series, url: `/collection/${item.series.toLowerCase().replace(/[^a-z0-9]+/g, '-')}/` });
+crumbs.push({ name: item.name });
+const ld = [
+  productLd(item, url, m.site.brand),
+  breadcrumbLd(crumbs.map((c) => ({ name: c.name, url: c.url ? root + c.url : url }))),
+];
+const desc = `Prix plancher, historique multi-années et nombre d'offres pour ${item.name}${item.series ? ` (${item.series})` : ''} sur VeVe.`;
+---
+<Base title={`${item.name} — prix et historique`} description={desc} crumbs={crumbs} ld={ld}>
+  <h1>{item.name}</h1>
+  <p class="lead">
+    {item.series && <span class="tag">{item.series}</span>}
+    {item.rarity && <span class="tag">{item.rarity}</span>}
+    {item.tirage && <span class="tag">Tirage {item.tirage.toLocaleString('fr-FR')}</span>}
+  </p>
+
+  <div class="stats">
+    <div class="stat"><div class="k">Prix plancher</div><div class="v">{money(item.floor)}</div></div>
+    <div class="stat"><div class="k">Offres</div><div class="v">{item.listings ?? '—'}</div></div>
+    <div class="stat"><div class="k">7 jours</div><div class={`v ${cls(item.change7d)}`}>{pct(item.change7d)}</div></div>
+    <div class="stat"><div class="k">30 jours</div><div class={`v ${cls(item.change30d)}`}>{pct(item.change30d)}</div></div>
+    <div class="stat"><div class="k">Plus haut</div><div class="v">{money(item.ath)}</div></div>
+    <div class="stat"><div class="k">Plus bas</div><div class="v">{money(item.atl)}</div></div>
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top:0">Historique du prix plancher</h2>
+    <Fragment set:html={svg} />
+    <p class="muted" style="font-size:14px;margin:6px 0 0">
+      {item.points > 0 ? `${item.points} relevés` : 'Aucun relevé'}
+      {first && ` depuis le ${new Date(first.ts).toLocaleDateString('fr-FR')}`}. Prix en gems.
+    </p>
+  </div>
+
+  {recent.length > 0 && (
+    <>
+      <h2>Derniers relevés</h2>
+      <table>
+        <thead><tr><th>Date</th><th class="num">Plancher</th><th class="num hide">Offres</th></tr></thead>
+        <tbody>
+          {recent.map((p) => (
+            <tr>
+              <td>{new Date(p.ts).toLocaleDateString('fr-FR')}</td>
+              <td class="num">{money(p.floor)}</td>
+              <td class="num hide">{p.listings}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </>
+  )}
+
+  <h2>Fiche</h2>
+  <table>
+    <tbody>
+      {item.series && <tr><th>Collection</th><td><a href={`/collection/${item.series.toLowerCase().replace(/[^a-z0-9]+/g, '-')}/`}>{item.series}</a></td></tr>}
+      {item.rarity && <tr><th>Rareté</th><td>{item.rarity}</td></tr>}
+      {item.brand && <tr><th>Marque</th><td>{item.brand}</td></tr>}
+      {item.licensor && <tr><th>Licence</th><td>{item.licensor}</td></tr>}
+      {item.tirage && <tr><th>Tirage</th><td>{item.tirage.toLocaleString('fr-FR')}</td></tr>}
+      {item.storePrice && <tr><th>Prix de sortie</th><td>{money(item.storePrice)}</td></tr>}
+      {item.releaseDate && <tr><th>Sortie</th><td>{item.releaseDate}</td></tr>}
+    </tbody>
+  </table>
+</Base>

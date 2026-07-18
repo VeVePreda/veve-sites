@@ -1,0 +1,19 @@
+---
+import Base from '../layouts/Base.astro';
+import { dataset } from '../../engine/lib/dataset.mjs';
+const ds = await dataset();
+const cols = [...ds.collections.values()].sort((a, b) => b.items.length - a.items.length);
+---
+<Base title="Collections" description="Toutes les collections VeVe suivies, avec le nombre de collectibles et leurs prix." crumbs={[{ name: 'Accueil', url: '/' }, { name: 'Collections' }]}>
+  <h1>Collections</h1>
+  <p class="lead">{cols.length} collections suivies.</p>
+  <div class="grid">
+    {cols.map((c) => (
+      <a class="item" href={`/collection/${c.slug}/`}>
+        <div class="n">{c.name}</div>
+        <div class="s">{c.brand}</div>
+        <div class="f">{c.items.length} <span style="font-size:14px" class="muted">items</span></div>
+      </a>
+    ))}
+  </div>
+</Base>

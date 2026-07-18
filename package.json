@@ -1,0 +1,17 @@
+{
+  "name": "veve-sites",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "start": "node ./dist/server/entry.mjs"
+  },
+  "dependencies": {
+    "@astrojs/node": "^11.0.2",
+    "astro": "^7.1.1",
+    "js-yaml": "^5.2.1"
+  }
+}
