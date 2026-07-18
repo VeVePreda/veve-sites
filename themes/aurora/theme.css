@@ -56,3 +56,27 @@ footer.site{border-top:1px solid #ffffff14;padding:26px 0;color:var(--muted);fon
 .prose ul,.prose ol{margin:0 0 16px 20px}
 .prose a{text-decoration:underline}
 .prose code{background:#ffffff12;padding:1px 5px;border-radius:5px;font-size:15px}
+
+/* Prix non representatif : une offre isolee tres au-dessus des niveaux
+   habituels de l'objet. Signale, jamais masque. */
+.avertis {
+  margin: 12px 0 0;
+  padding: 10px 14px;
+  border-left: 3px solid var(--danger);
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+  border-radius: 6px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--text);
+}
+.alerte {
+  display: inline-block;
+  margin-left: 6px;
+  width: 18px; height: 18px; line-height: 18px;
+  border-radius: 50%;
+  background: var(--danger);
+  color: #fff;
+  font-size: 12px; font-weight: 700; text-align: center;
+  vertical-align: middle;
+  cursor: help;
+}

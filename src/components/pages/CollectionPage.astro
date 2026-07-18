@@ -20,7 +20,7 @@ const ld = [itemListLd(items.map((i) => ({ name: i.name, url: `${root}${localize
   <table>
     <thead><tr><th>{t(lang, 'movers.item')}</th><th class="hide">{t(lang, 'item.rarity')}</th><th class="num">{t(lang, 'movers.floor')}</th><th class="num hide">{t(lang, 'item.listings')}</th></tr></thead>
     <tbody>{items.map((i) => (
-      <tr><td><a href={localize(lang, i.path)}>{i.name}</a></td><td class="hide">{i.rarity}</td><td class="num">{money(i.floor)}</td><td class="num hide">{i.listings ?? '—'}</td></tr>
+      <tr><td><a href={localize(lang, i.path)}>{i.name}</a></td><td class="hide">{i.rarity}</td><td class="num">{money(i.floor)}{i.prixAberrant && <span class="alerte" title={t(lang, 'item.outlier')}>!</span>}</td><td class="num hide">{i.listings ?? '—'}</td></tr>
     ))}</tbody>
   </table>
 </Base>

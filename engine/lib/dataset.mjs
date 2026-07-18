@@ -24,6 +24,8 @@ export const slugify = (s) =>
     .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'item';
 
 const num = (v) => { const n = Number(String(v).replace(',', '.')); return Number.isFinite(n) ? n : null; };
+// Comme num(), mais 0 et les valeurs negatives comptent pour « inconnu ».
+const pos = (v) => { const n = num(v); return n && n > 0 ? n : null; };
 
 function pctChange(hist, days, o) {
   if (hist.length < o.minPoints) return null;
@@ -90,10 +92,18 @@ function jolieRarete(r) {
 // que les gens CHERCHENT (des pieces qui valent quelque chose). Les
 // logarithmes empechent l'un des deux facteurs d'ecraser l'autre : un item a
 // 10 000 $ ne doit pas passer devant tout le reste au seul titre de son prix.
+// ⚠️ LE PRIX UTILISE ICI EST LA MEDIANE, PAS LE DERNIER FLOOR.
+// Constate en production le 18/07 : le marche VeVe contient de vraies annonces
+// farceuses (« Faces of The ADDICTION » a 42 420 420 420 420, une seule offre).
+// Un score bati sur le dernier floor les propulsait en tete du classement et
+// donc en page d'accueil — la vitrine d'un tracker de prix s'ouvrait sur un
+// prix de 42 000 milliards. Une mediane, elle, ne bouge pas pour une annonce
+// isolee. Regle generale : classer sur une statistique ROBUSTE, jamais sur la
+// derniere valeur observee.
 function scoreUtilite(c) {
   const debut = Date.parse(c.since);
   const jours = Number.isFinite(debut) ? Math.max(1, (Date.now() - debut) / DAY) : 1;
-  const valeur = Math.max(1, c.floor || 0);
+  const valeur = Math.max(1, c.prixMedian || c.floor || 0);
   return Math.log1p(jours) * Math.log1p(valeur);
 }
 
@@ -161,6 +171,7 @@ async function construireDataset() {
   const WINDOW_DAYS = pub.public_history_days ?? 90;
   const MAX_SERIE = Math.max(0, Number(pub.max_new_per_series) || 0);   // 0 = pas de plafond
   const SPILL = pub.quota_spillover !== false;
+  const FACTEUR_ABERRANT = Math.max(2, Number(pub.outlier_factor) || 10);
   const CHANGE = { minPoints: 5, minRef: 1, maxAbs: 300 };
 
   const [cat, baselines] = await Promise.all([getCatalogue(), getBaselines()]);
@@ -238,8 +249,13 @@ async function construireDataset() {
       storePrice: num(c.store_price),
       floor: num(c.floor) ?? publicHist[publicHist.length - 1].floor,
       listings: num(c.listings) ?? publicHist[publicHist.length - 1].listings,
-      ath: num(c.ath) ?? num(b.floor_max),
-      atl: num(c.atl) ?? num(b.floor_min),
+      // Un catalogue qui renvoie 0 veut dire « je ne sais pas », pas « zero ».
+      // `??` ne rattrape PAS un 0 : la fiche affichait « plus haut historique : 0 »
+      // juste au-dessus d'un prix a 42 000 milliards.
+      ath: pos(c.ath) ?? pos(b.floor_max),
+      atl: pos(c.atl) ?? pos(b.floor_min),
+      prixMedian: pos(b.p50) ?? pos(b.p25) ?? null,
+      p95: pos(b.p95) ?? null,
       history: publicHist,
       points: publicHist.length,
       totalPoints: a.n,
@@ -249,6 +265,13 @@ async function construireDataset() {
     };
     item.type = typeDe(item);
     item.racine = RACINE[item.type];
+    // PRIX NON REPRESENTATIF. On ne censure pas la donnee — elle est vraie — mais
+    // on refuse de la presenter comme un prix de marche. Le repere est le p95 de
+    // l'objet LUI-MEME : chaque piece est comparee a sa propre histoire, jamais a
+    // une echelle globale (un objet a 5 000 gems n'a rien d'anormal en soi).
+    const repere = item.p95 || item.prixMedian;
+    item.prixAberrant = !!(repere && item.floor && item.floor > repere * FACTEUR_ABERRANT);
+    item.offreUnique = (item.listings ?? 0) <= 1;
     item.score = scoreUtilite(item);
     candidates.push(item);
   }
@@ -460,6 +483,8 @@ async function construireDataset() {
   console.log(`[vitrine] catalogue ${cat.length} · sous le seuil de ${MIN_POINTS} releves : ${refusesSeuil} · eligibles ${JSON.stringify(eligibles)}`);
   console.log(`[vitrine] quotas ${JSON.stringify(quotas)} · deja geles ${JSON.stringify(acquis)} · places offertes ${JSON.stringify(places)}${SPILL ? ` · report ${reporte}` : ''}${MAX_SERIE ? ` · ecartes par le plafond de ${MAX_SERIE}/serie : ${recalesSerie}` : ''}`);
   console.log(`[vitrine] PUBLIE ${items.length} fiches ${JSON.stringify(publies)} (${dejaPublie.length} deja gelees + ${items.length - dejaPublie.length} nouvelles)`);
+  const aberrants = items.filter((i) => i.prixAberrant).length;
+  if (aberrants) console.log(`[vitrine] ${aberrants} fiches au prix non representatif (offre isolee au-dela de ${FACTEUR_ABERRANT}x leur p95) : signalees sur la fiche`);
   if (comicsSansRarete) console.log(`[adresses] ATTENTION ${comicsSansRarete} comics sans rarete : adresse basee sur le nom de couverture, ou l'identifiant court s'il n'y a rien de distinctif`);
   if (collisionsComics) console.log(`[adresses] ${collisionsComics} comics en collision de rarete : nom de couverture ajoute a l'adresse`);
   for (const t of TYPES) {

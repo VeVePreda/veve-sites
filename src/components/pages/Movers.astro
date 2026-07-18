@@ -16,14 +16,14 @@ const pct = (v) => (v === null || v === undefined ? '—' : `${v > 0 ? '+' : ''}
   <table>
     <thead><tr><th>{t(lang, 'movers.item')}</th><th class="hide">{t(lang, 'item.collection')}</th><th class="num">{t(lang, 'movers.floor')}</th><th class="num">{t(lang, 'movers.7d')}</th></tr></thead>
     <tbody>{ds.movers.up.map((i) => (
-      <tr><td><a href={localize(lang, i.path)}>{i.name}</a></td><td class="hide">{i.series}</td><td class="num">{money(i.floor)}</td><td class="num up">{pct(i.change7d)}</td></tr>
+      <tr><td><a href={localize(lang, i.path)}>{i.name}</a></td><td class="hide">{i.series}</td><td class="num">{money(i.floor)}{i.prixAberrant && <span class="alerte" title={t(lang, 'item.outlier')}>!</span>}</td><td class="num up">{pct(i.change7d)}</td></tr>
     ))}</tbody>
   </table>
   <h2>{t(lang, 'movers.down')}</h2>
   <table>
     <thead><tr><th>{t(lang, 'movers.item')}</th><th class="hide">{t(lang, 'item.collection')}</th><th class="num">{t(lang, 'movers.floor')}</th><th class="num">{t(lang, 'movers.7d')}</th></tr></thead>
     <tbody>{ds.movers.down.map((i) => (
-      <tr><td><a href={localize(lang, i.path)}>{i.name}</a></td><td class="hide">{i.series}</td><td class="num">{money(i.floor)}</td><td class="num down">{pct(i.change7d)}</td></tr>
+      <tr><td><a href={localize(lang, i.path)}>{i.name}</a></td><td class="hide">{i.series}</td><td class="num">{money(i.floor)}{i.prixAberrant && <span class="alerte" title={t(lang, 'item.outlier')}>!</span>}</td><td class="num down">{pct(i.change7d)}</td></tr>
     ))}</tbody>
   </table>
 </Base>

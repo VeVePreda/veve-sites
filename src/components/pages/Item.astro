@@ -83,13 +83,14 @@ const descItem = (item.floor && item.totalPoints && anneeDebut)
   </p>
 
   <div class="stats">
-    <div class="stat"><div class="k">{t(lang, 'item.floor')}</div><div class="v">{money(item.floor)}</div></div>
+    <div class="stat"><div class="k">{t(lang, 'item.floor')}</div><div class="v">{money(item.floor)}{item.prixAberrant && <span class="alerte" title={t(lang, 'item.outlier')}>!</span>}</div></div>
     <div class="stat"><div class="k">{t(lang, 'item.listings')}</div><div class="v">{item.listings ?? '—'}</div></div>
     <div class="stat"><div class="k">{t(lang, 'item.7d')}</div><div class={`v ${cls(item.change7d)}`}>{pct(item.change7d)}</div></div>
     <div class="stat"><div class="k">{t(lang, 'item.30d')}</div><div class={`v ${cls(item.change30d)}`}>{pct(item.change30d)}</div></div>
     <div class="stat"><div class="k">{t(lang, 'item.high')}</div><div class="v">{money(item.ath)}</div></div>
     <div class="stat"><div class="k">{t(lang, 'item.low')}</div><div class="v">{money(item.atl)}</div></div>
   </div>
+  {item.prixAberrant && <p class="avertis">{t(lang, 'item.outlier')}</p>}
 
   <div class="card">
     <h2 style="margin-top:0">{t(lang, 'item.chart')}</h2>
