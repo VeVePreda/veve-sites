@@ -88,6 +88,14 @@ export async function load(name) {
     }
   }
   if (!rows || !rows.length) {
+    // Le repli sur l'echantillon n'est autorise QUE si on l'a demande
+    // explicitement. Sinon on echoue : publier de fausses donnees serait
+    // pire que de laisser en ligne la version precedente.
+    if (!OFFLINE && process.env.ALLOW_SAMPLE !== '1') {
+      throw new Error(
+        `[entrepot] ${name} : source ET secours N-1 injoignables. ` +
+        `Build interrompu volontairement pour ne pas publier de donnees d'exemple.`);
+    }
     rows = readSample(src.sample);
     console.log(`[entrepot] ${name}: ECHANTILLON local (${rows.length} lignes)`);
   }
@@ -144,6 +152,9 @@ export async function streamPrices(onRow) {
         console.warn(`[entrepot] prix : echec ${url} (${e.message})`);
       }
     }
+  }
+  if (!OFFLINE && process.env.ALLOW_SAMPLE !== '1') {
+    throw new Error('[entrepot] prix : source ET secours N-1 injoignables. Build interrompu volontairement.');
   }
   const p = join(SAMPLE_DIR, src.sample);
   if (existsSync(p)) {

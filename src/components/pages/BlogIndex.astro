@@ -1,0 +1,26 @@
+---
+import Base from '../../layouts/Base.astro';
+import { postsFor, tagsFor } from '../../../engine/lib/blog.mjs';
+import { t, localize, dateLocale } from '../../../engine/lib/i18n.mjs';
+const { lang, updatedAt } = Astro.props;
+const posts = await postsFor(lang);
+const tags = await tagsFor(lang);
+const df = dateLocale[lang] || 'en-GB';
+---
+<Base lang={lang} path="/blog/" title={t(lang, 'blog.title')} description={t(lang, 'desc.blogIndex')} updatedAt={updatedAt} noindex={posts.length === 0}
+      crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') }, { name: t(lang, 'blog.title') }]}>
+  <h1>{t(lang, 'blog.title')}</h1>
+  {tags.length > 0 && (
+    <p>{tags.map((x) => (<a class="tag" href={localize(lang, `/blog/tag/${x.tag}/`)}>{x.tag} ({x.n})</a>))}</p>
+  )}
+  {posts.length === 0 && <p class="lead">{t(lang, 'blog.empty')}</p>}
+  <div class="grid">
+    {posts.map((p) => (
+      <a class="item" href={localize(lang, `/blog/${p.slug}/`)}>
+        <div class="n">{p.data.title}</div>
+        <div class="s">{new Date(p.data.date).toLocaleDateString(df)}</div>
+        <p class="muted" style="font-size:14px;margin:8px 0 0">{p.data.description}</p>
+      </a>
+    ))}
+  </div>
+</Base>

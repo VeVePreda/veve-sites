@@ -5,6 +5,7 @@ import { priceChartSVG } from '../../../engine/lib/chart.mjs';
 import { productLd, breadcrumbLd } from '../../../engine/lib/seo.mjs';
 import { manifest, siteUrl } from '../../../engine/lib/manifest.mjs';
 import { t, localize, numberLocale, dateLocale } from '../../../engine/lib/i18n.mjs';
+import { postsForItem } from '../../../engine/lib/blog.mjs';
 
 const { lang, item, updatedAt } = Astro.props;
 const m = manifest();
@@ -19,6 +20,7 @@ const money = (v) => (v === null || v === undefined ? '—' : v.toLocaleString(n
 const pct = (v) => (v === null || v === undefined ? '—' : `${v > 0 ? '+' : ''}${v.toFixed(1)} %`);
 const cls = (v) => (v === null || v === undefined ? '' : v > 0 ? 'up' : v < 0 ? 'down' : '');
 const recent = [...item.history].slice(-10).reverse();
+const relatedPosts = await postsForItem(lang, item.uuid);
 const sinceTxt = item.since ? new Date(item.since).toLocaleDateString(df) : null;
 const hidden = Math.max(0, (item.totalPoints || 0) - (item.points || 0));
 const colSlug = item.series ? item.series.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') : null;
@@ -26,8 +28,31 @@ const crumbs = [{ name: t(lang, 'home.crumb'), url: localize(lang, '/') }];
 if (colSlug) crumbs.push({ name: item.series, url: localize(lang, `/collection/${colSlug}/`) });
 crumbs.push({ name: item.name });
 const ld = [productLd(item, url, m.site.brand), breadcrumbLd(crumbs.map((c) => ({ name: c.name, url: c.url ? root + c.url : url })))];
+
+// Titre UNIQUE : plusieurs collectibles VeVe portent le meme nom (Batgirl, Loki,
+// C-3PO...). Sans la collection, Google voit des titres identiques et n'en
+// retient qu'un. On borne la longueur pour ne pas etre tronque dans les resultats.
+// Budget reel : Google tronque vers 60 caracteres, gabarit de marque compris.
+const budget = Math.max(24, 60 - (m.seo?.title_template || '%s').replace('%s', '').length);
+const titreItem = (() => {
+  if (!item.series) return item.qualifie || item.name;
+  const base = item.qualifie || item.name;
+  const complet = `${base} — ${item.series}`;
+  if (complet.length <= budget) return complet;
+  const place = budget - base.length - 4;   // 3 pour " — ", 1 pour l'ellipse
+  if (place <= 8) return base;
+  let bout = item.series.slice(0, place);
+  const esp = bout.lastIndexOf(' ');
+  if (esp > place * 0.5) bout = bout.slice(0, esp);
+  return `${base} — ${bout.trim()}…`;
+})();
+const anneeDebut = item.since ? new Date(item.since).getFullYear() : null;
+const serieTxt = item.series ? ` (${item.series})` : '';
+const descItem = (item.floor && item.totalPoints && anneeDebut)
+  ? t(lang, 'desc.item', { name: item.qualifie || item.name, series: serieTxt, price: money(item.floor), n: item.totalPoints.toLocaleString(nf), year: anneeDebut, brand: m.site.brand })
+  : t(lang, 'desc.itemShort', { name: item.qualifie || item.name, series: serieTxt, brand: m.site.brand });
 ---
-<Base lang={lang} path={path} title={item.name} description={`${item.name}${item.series ? ` (${item.series})` : ''} — ${t(lang, 'item.floor')}.`} crumbs={crumbs} ld={ld} updatedAt={updatedAt}>
+<Base lang={lang} path={path} title={titreItem} description={descItem} crumbs={crumbs} ld={ld} updatedAt={updatedAt}>
   <h1>{item.name}</h1>
   <p class="lead">
     {item.series && <span class="tag">{item.series}</span>}
@@ -71,6 +96,20 @@ const ld = [productLd(item, url, m.site.brand), breadcrumbLd(crumbs.map((c) => (
           <tr><td>{new Date(p.ts).toLocaleDateString(df)}</td><td class="num">{money(p.floor)}</td><td class="num hide">{p.listings}</td></tr>
         ))}</tbody>
       </table>
+    </>
+  )}
+
+  {relatedPosts.length > 0 && (
+    <>
+      <h2>{t(lang, 'blog.relatedPosts')}</h2>
+      <div class="grid">
+        {relatedPosts.map((p) => (
+          <a class="item" href={localize(lang, `/blog/${p.slug}/`)}>
+            <div class="n">{p.data.title}</div>
+            <p class="muted" style="font-size:14px;margin:6px 0 0">{p.data.description}</p>
+          </a>
+        ))}
+      </div>
     </>
   )}
 

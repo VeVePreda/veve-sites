@@ -24,15 +24,25 @@ function pctChange(hist, days, o) {
   const last = hist[hist.length - 1];
   if (!last || !last.floor) return null;
   const cutoff = Date.now() - days * DAY;
+  // Sans releve RECENT, la variation est inconnue - pas nulle. Afficher
+  // « 0,0 % » ferait croire a une stabilite qui n'a jamais ete mesuree.
+  if (new Date(last.ts).getTime() < cutoff) return null;
   let ref = null;
   for (const p of hist) { if (new Date(p.ts).getTime() <= cutoff) ref = p; }
-  if (!ref || !ref.floor || ref.floor < o.minRef) return null;
+  if (!ref || ref.ts === last.ts) return null;          // une seule et meme mesure
+  if (!ref.floor || ref.floor < o.minRef) return null;
   const v = ((last.floor - ref.floor) / ref.floor) * 100;
   if (!Number.isFinite(v) || Math.abs(v) > o.maxAbs) return null;
   return v;
 }
 
 let _ds = null;
+// SECRET_RARE -> Secret Rare
+function jolieRarete(r) {
+  return String(r).toLowerCase().split(/[_\s]+/).filter(Boolean)
+    .map((w) => w[0].toUpperCase() + w.slice(1)).join(' ');
+}
+
 export async function dataset() {
   if (_ds) return _ds;
   const m = manifest();
@@ -52,6 +62,8 @@ export async function dataset() {
   // nombre d'items (~19 000), JAMAIS de la taille du fichier de prix.
   const known = new Set();
   for (const c of cat) { const u = c.uuid || c.veve_uuid; if (u) known.add(u); }
+  const cutoffTs = Date.now() - WINDOW_DAYS * DAY;
+  const BUCKET_MS = Math.max(1, Math.floor((WINDOW_DAYS / MAX_POINTS) * DAY));
   const agg = new Map();
   await streamPrices((cols, idx) => {
     const u = cols[idx.uuid];
@@ -60,11 +72,20 @@ export async function dataset() {
     if (!Number.isFinite(f)) return;
     const ts = cols[idx.ts];
     let a = agg.get(u);
-    if (!a) { a = { n: 0, first: ts, tail: [] }; agg.set(u, a); }
+    if (!a) { a = { n: 0, first: ts, buckets: new Map(), tail: [] }; agg.set(u, a); }
     a.n++;
     if (ts < a.first) a.first = ts;
-    a.tail.push({ ts, floor: f, listings: Number(cols[idx.listings]) || 0 });
-    if (a.tail.length > TAIL) a.tail.shift();
+    const pt = { ts, floor: f, listings: Number(cols[idx.listings]) || 0 };
+    // repli : les tout derniers releves, quel que soit leur age (les prix sont
+    // enregistres AU CHANGEMENT : un item stable n'a rien de recent).
+    a.tail.push(pt);
+    if (a.tail.length > 5) a.tail.shift();
+    // courbe publique : un point par tranche, etale sur la fenetre.
+    const t = new Date(ts).getTime();
+    if (Number.isFinite(t) && t >= cutoffTs) {
+      a.buckets.set(Math.floor(t / BUCKET_MS), pt);
+      if (a.buckets.size > MAX_POINTS) a.buckets.delete(Math.min(...a.buckets.keys()));
+    }
   });
 
   const bl = new Map();
@@ -74,21 +95,15 @@ export async function dataset() {
   let pinned = {};
   if (existsSync(pinPath)) { try { pinned = JSON.parse(readFileSync(pinPath, 'utf8')); } catch {} }
 
-  const cutoff = Date.now() - WINDOW_DAYS * DAY;
-  const publicSlice = (tail) => {
-    const t = tail.slice(-MAX_POINTS);
-    const recent = t.filter((p) => new Date(p.ts).getTime() >= cutoff);
-    return recent.length >= 5 ? recent : t;
-  };
-
   const candidates = [];
   for (const c of cat) {
     const uuid = c.uuid || c.veve_uuid;
     if (!uuid) continue;
     const a = agg.get(uuid);
     if (!a || a.n < MIN_POINTS) continue;               // <<< SEUIL : pas de page creuse
-    const tail = [...a.tail].sort((x, y) => String(x.ts).localeCompare(String(y.ts)));
-    const publicHist = publicSlice(tail);
+    const byTs = (x, y) => String(x.ts).localeCompare(String(y.ts));
+    const spread = [...a.buckets.values()].sort(byTs);
+    const publicHist = spread.length >= 2 ? spread : [...a.tail].sort(byTs);
     if (publicHist.length < 2) continue;                 // courbe illisible = pas de page
     const b = bl.get(uuid) || {};
     candidates.push({
@@ -116,8 +131,52 @@ export async function dataset() {
   }
   agg.clear();                                           // on libere tout de suite
 
-  candidates.sort((a, b) => b.points - a.points || String(a.name).localeCompare(String(b.name)));
-  const items = MAX_ITEMS > 0 ? candidates.slice(0, MAX_ITEMS) : candidates;
+  // Desambiguisation des noms : on ajoute la rarete UNIQUEMENT aux collectibles
+  // dont le couple (nom, collection) est partage. Un titre doit etre unique.
+  const cles = new Map();
+  for (const c of candidates) {
+    const k = `${c.name}|${c.series}`;
+    cles.set(k, (cles.get(k) || 0) + 1);
+  }
+  for (const c of candidates) {
+    const k = `${c.name}|${c.series}`;
+    c.ambigu = cles.get(k) > 1;
+    c.qualifie = c.ambigu && c.rarity ? `${c.name} · ${jolieRarete(c.rarity)}` : c.name;
+  }
+  // Deuxieme passe : si le nom qualifie reste ambigu (meme nom, meme collection,
+  // meme rarete), on ajoute le tirage, puis en dernier recours un rang. On veut
+  // une garantie d'unicite PAR CONSTRUCTION, pas une esperance.
+  const cles2 = new Map();
+  for (const c of candidates) {
+    const k = `${c.qualifie}|${c.series}`;
+    cles2.set(k, (cles2.get(k) || 0) + 1);
+  }
+  const rangs = new Map();
+  for (const c of candidates) {
+    const k = `${c.qualifie}|${c.series}`;
+    if (cles2.get(k) <= 1) continue;
+    const r = (rangs.get(k) || 0) + 1;
+    rangs.set(k, r);
+    c.qualifie = c.tirage ? `${c.qualifie} · ${c.tirage}` : `${c.qualifie} · ${r}`;
+  }
+  // Le tirage peut lui aussi etre identique : on tranche definitivement.
+  const vus = new Set();
+  for (const c of candidates) {
+    let q = `${c.qualifie}|${c.series}`;
+    if (!vus.has(q)) { vus.add(q); continue; }
+    let i = 2;
+    while (vus.has(`${c.qualifie} (${i})|${c.series}`)) i += 1;
+    c.qualifie = `${c.qualifie} (${i})`;
+    vus.add(`${c.qualifie}|${c.series}`);
+  }
+
+  candidates.sort((a, b) => b.totalPoints - a.totalPoints || String(a.name).localeCompare(String(b.name)));
+  // ENSEMBLE PUBLIE COLLANT : une fiche deja publiee (donc presente dans
+  // slugs.json) le reste. Seules les nouvelles venues sont plafonnees.
+  const dejaPublie = candidates.filter((c) => pinned[c.uuid]);
+  const nouvelles = candidates.filter((c) => !pinned[c.uuid]);
+  const place = MAX_ITEMS > 0 ? Math.max(0, MAX_ITEMS - dejaPublie.length) : nouvelles.length;
+  const items = [...dejaPublie, ...nouvelles.slice(0, place)];
 
   const seen = new Set();
   for (const i of items) {
@@ -149,7 +208,7 @@ export async function dataset() {
     down: [...withChange].filter((i) => i.change7d < 0).sort((a, b) => a.change7d - b.change7d).slice(0, 20),
   };
 
-  console.log(`[site] ${items.length} fiches publiees sur ${cat.length} items du catalogue (seuil ${MIN_POINTS} releves, ${MAX_POINTS} exposes max)`);
+  console.log(`[site] ${items.length} fiches publiees (${dejaPublie.length} deja connues + ${items.length - dejaPublie.length} nouvelles) sur ${cat.length} items du catalogue`);
 
   _ds = { items, bySlug, collections, rarities, movers, catalogueSize: cat.length, windowDays: WINDOW_DAYS, maxPoints: MAX_POINTS, updatedAt: new Date().toISOString() };
   return _ds;

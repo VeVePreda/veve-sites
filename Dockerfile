@@ -12,6 +12,7 @@ ENV SITE=$SITE SITE_URL=$SITE_URL RENDERING=$RENDERING
 # Marge de securite : le catalogue et l'historique grandissent avec le temps.
 ENV NODE_OPTIONS=--max-old-space-size=3072
 RUN npm run build
+RUN apk add --no-cache python3 >/dev/null && python3 engine/tools/audit_seo.py dist || true
 
 # --- Etape 2 : service web ---
 FROM nginx:alpine

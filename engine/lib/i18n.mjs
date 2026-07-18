@@ -22,10 +22,11 @@ export function dict(lang) {
   return d;
 }
 
-export function t(lang, key) {
+export function t(lang, key, vars) {
   const d = dict(lang);
-  if (d[key] !== undefined) return d[key];
-  return dict(locales().def)[key] ?? key;
+  const raw = d[key] !== undefined ? d[key] : (dict(locales().def)[key] ?? key);
+  if (!vars) return raw;
+  return String(raw).replace(/\{(\w+)\}/g, (_, k) => (vars[k] !== undefined && vars[k] !== null ? String(vars[k]) : ''));
 }
 
 // Valeur de manifeste pouvant etre une chaine OU une carte { en: "...", fr: "..." }

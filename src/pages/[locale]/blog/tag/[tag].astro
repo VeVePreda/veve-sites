@@ -1,0 +1,17 @@
+---
+import BlogTag from '../../../../components/pages/BlogTag.astro';
+import { tagsFor } from '../../../../../engine/lib/blog.mjs';
+import { locales } from '../../../../../engine/lib/i18n.mjs';
+import { dataset } from '../../../../../engine/lib/dataset.mjs';
+export async function getStaticPaths() {
+  const { active, def } = locales();
+  const ds = await dataset();
+  const out = [];
+  for (const l of active.filter((x) => x !== def)) {
+    for (const x of await tagsFor(l)) out.push({ params: { locale: l, tag: x.tag }, props: { updatedAt: ds.updatedAt } });
+  }
+  return out;
+}
+const { updatedAt } = Astro.props;
+---
+<BlogTag lang={Astro.params.locale} tag={Astro.params.tag} updatedAt={updatedAt} />

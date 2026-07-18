@@ -9,7 +9,7 @@ const nf = numberLocale[lang] || 'en-GB';
 const money = (v) => (v === null || v === undefined ? '—' : v.toLocaleString(nf, { maximumFractionDigits: 2 }));
 const pct = (v) => (v === null || v === undefined ? '—' : `${v > 0 ? '+' : ''}${v.toFixed(1)} %`);
 ---
-<Base lang={lang} path="/movers/" title={t(lang, 'movers.title')} updatedAt={ds.updatedAt}
+<Base lang={lang} path="/movers/" title={t(lang, 'movers.title')} description={t(lang, 'desc.movers', { n: ds.items.length.toLocaleString(nf) })} updatedAt={ds.updatedAt}
       crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') }, { name: t(lang, 'nav.movers') }]}>
   <h1>{t(lang, 'movers.title')}</h1>
   <h2>{t(lang, 'movers.up')}</h2>

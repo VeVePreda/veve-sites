@@ -32,11 +32,12 @@ for (let i = 0; i < 40; i++) {
   let floor = Math.round((store * (2 + rnd() * 8)) * 100) / 100;
   let listings = 5 + Math.floor(rnd() * 60);
   const hist = [];
-  const months = 50;
+  const months = Math.max(12, Math.round((Date.now() - start.getTime()) / (30.44 * 86400000)));
   for (let m = 0; m < months; m++) {
     const d = new Date(start); d.setUTCMonth(d.getUTCMonth() + m);
     if (d > new Date()) break;
-    const pts = 1 + Math.floor(rnd() * 3);
+    const recent = (Date.now() - d.getTime()) < 100 * 86400000;
+    const pts = recent ? 8 + Math.floor(rnd() * 8) : 1 + Math.floor(rnd() * 3);
     for (let p = 0; p < pts; p++) {
       const day = new Date(d); day.setUTCDate(1 + Math.floor(rnd() * 27));
       const boom = m < 6 ? 1.25 : m < 14 ? 0.93 : 0.995;

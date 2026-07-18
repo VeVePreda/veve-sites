@@ -2,10 +2,12 @@
 import Base from '../../layouts/Base.astro';
 import { legalDoc } from '../../../engine/lib/legal.mjs';
 import { t, localize } from '../../../engine/lib/i18n.mjs';
+import { manifest } from '../../../engine/lib/manifest.mjs';
 const { lang, doc, updatedAt } = Astro.props;
 const { title, body } = legalDoc(lang, doc);
+const descLegal = t(lang, `legal.desc.${doc}`, { brand: manifest().site.brand });
 ---
-<Base lang={lang} path={`/legal/${doc}/`} title={title} description={title} updatedAt={updatedAt}
+<Base lang={lang} path={`/legal/${doc}/`} title={title} description={descLegal} updatedAt={updatedAt}
       crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') }, { name: title }]}>
   <h1>{title}</h1>
   <div class="legal" set:html={body} />

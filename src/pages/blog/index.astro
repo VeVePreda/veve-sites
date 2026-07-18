@@ -1,0 +1,8 @@
+---
+import BlogIndex from '../../components/pages/BlogIndex.astro';
+import { locales } from '../../../engine/lib/i18n.mjs';
+import { dataset } from '../../../engine/lib/dataset.mjs';
+const ds = await dataset();
+const lang = locales().def;
+---
+<BlogIndex lang={lang} updatedAt={ds.updatedAt} />

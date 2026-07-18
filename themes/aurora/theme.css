@@ -48,3 +48,11 @@ footer.site{border-top:1px solid #ffffff14;padding:26px 0;color:var(--muted);fon
 .legal h2{font-size:19px;margin:26px 0 8px}
 .legal p{margin:0 0 12px}
 .legal strong{font-weight:500}
+
+.post{max-width:760px}
+.prose{font-size:17px;line-height:1.75}
+.prose h2{font-size:21px;margin:30px 0 10px}
+.prose p{margin:0 0 16px}
+.prose ul,.prose ol{margin:0 0 16px 20px}
+.prose a{text-decoration:underline}
+.prose code{background:#ffffff12;padding:1px 5px;border-radius:5px;font-size:15px}

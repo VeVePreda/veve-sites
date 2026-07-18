@@ -8,7 +8,8 @@
     "build": "astro build",
     "preview": "astro preview",
     "start": "node ./dist/server/entry.mjs",
-    "slugs": "node engine/tools/freeze-slugs.mjs"
+    "slugs": "node engine/tools/freeze-slugs.mjs",
+    "audit": "python3 engine/tools/audit_seo.py dist"
   },
   "dependencies": {
     "@astrojs/node": "^11.0.2",

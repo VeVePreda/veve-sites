@@ -13,7 +13,7 @@ const money = (v) => (v === null || v === undefined ? '—' : v.toLocaleString(n
 const path = `/collection/${col.slug}/`;
 const ld = [itemListLd(items.map((i) => ({ name: i.name, url: `${root}${localize(lang, `/item/${i.slug}/`)}` })), `${root}${localize(lang, path)}`)];
 ---
-<Base lang={lang} path={path} title={col.name} ld={ld} updatedAt={updatedAt}
+<Base lang={lang} path={path} title={col.name} description={t(lang, 'desc.collection', { name: col.name, n: col.items.length })} ld={ld} updatedAt={updatedAt}
       crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') }, { name: t(lang, 'collections.title'), url: localize(lang, '/collections/') }, { name: col.name }]}>
   <h1>{col.name}</h1>
   <p class="lead">{items.length} {t(lang, 'collection.tracked')}.</p>

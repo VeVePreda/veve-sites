@@ -9,15 +9,19 @@ const m = manifest();
 const p = m.identity.palette || {};
 const f = m.identity.fonts || {};
 const links = m.links || {};
-const { lang, path = '/', title, description, crumbs = [], ld = [], updatedAt = null } = Astro.props;
+const { lang, path = '/', altPaths = null, title, description, crumbs = [], ld = [], updatedAt = null, noindex = false } = Astro.props;
 const { active, def } = locales();
 const root = siteUrl();
 
-const fullTitle = title ? (m.seo.title_template || '%s').replace('%s', title) : `${m.site.brand} — ${pick(m.site.tagline, lang)}`;
+const fullTitle = title ? (m.seo.title_template || '%s').replace('%s', title) : `${m.site.brand} — ${t(lang, 'title.home')}`;
 const desc = description || pick(m.site.description, lang) || pick(m.site.tagline, lang);
 const canon = `${root}${localize(lang, path)}`;
 // Chaque langue a SA propre adresse ; hreflang les relie. Aucune redirection auto.
-const alternates = active.map((l) => ({ lang: l, href: `${root}${localize(l, path)}` }));
+// Si altPaths est fourni (articles : slugs differents par langue), on ne
+// declare QUE les langues qui existent reellement, avec leur propre chemin.
+const alternates = (altPaths
+  ? active.filter((l) => altPaths[l]).map((l) => ({ lang: l, href: `${root}${localize(l, altPaths[l])}` }))
+  : active.map((l) => ({ lang: l, href: `${root}${localize(l, path)}` })));
 
 const themeFiles = import.meta.glob('../../themes/*/theme.css', { query: '?raw', import: 'default', eager: true });
 const themeCss = themeFiles[`../../themes/${m.identity.theme}/theme.css`] ?? Object.values(themeFiles)[0] ?? '';
@@ -42,6 +46,7 @@ const suggestData = alternates.filter((a) => a.lang !== lang).map((a) => ({ l: a
 <title>{fullTitle}</title>
 <meta name="description" content={desc} />
 <link rel="canonical" href={canon} />
+{noindex && <meta name="robots" content="noindex,follow" />}
 {alternates.map((a) => <link rel="alternate" hreflang={a.lang} href={a.href} />)}
 <link rel="alternate" hreflang="x-default" href={`${root}${localize(def, path)}`} />
 <meta property="og:type" content="website" />
@@ -69,6 +74,7 @@ const suggestData = alternates.filter((a) => a.lang !== lang).map((a) => ({ l: a
 <header class="site"><div class="wrap">
   <a class="brand" href={localize(lang, '/')}>{m.site.brand}</a>
   <nav class="main">
+    <a href={localize(lang, '/blog/')}>{t(lang, 'nav.blog')}</a>
     <a href={localize(lang, '/movers/')}>{t(lang, 'nav.movers')}</a>
     <a href={localize(lang, '/collections/')}>{t(lang, 'nav.collections')}</a>
     <a href={localize(lang, '/rarity/')}>{t(lang, 'nav.rarities')}</a>

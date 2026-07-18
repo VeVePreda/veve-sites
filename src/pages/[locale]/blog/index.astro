@@ -1,0 +1,11 @@
+---
+import BlogIndex from '../../../components/pages/BlogIndex.astro';
+import { locales } from '../../../../engine/lib/i18n.mjs';
+import { dataset } from '../../../../engine/lib/dataset.mjs';
+export function getStaticPaths() {
+  const { active, def } = locales();
+  return active.filter((l) => l !== def).map((l) => ({ params: { locale: l } }));
+}
+const ds = await dataset();
+---
+<BlogIndex lang={Astro.params.locale} updatedAt={ds.updatedAt} />

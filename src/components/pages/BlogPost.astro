@@ -1,0 +1,69 @@
+---
+import { render } from 'astro:content';
+import Base from '../../layouts/Base.astro';
+import { translationPaths, tagsFor } from '../../../engine/lib/blog.mjs';
+import { dataset } from '../../../engine/lib/dataset.mjs';
+import { manifest, siteUrl } from '../../../engine/lib/manifest.mjs';
+import { jsonld, breadcrumbLd } from '../../../engine/lib/seo.mjs';
+import { t, localize, dateLocale } from '../../../engine/lib/i18n.mjs';
+
+const { lang, post, updatedAt } = Astro.props;
+const m = manifest();
+const root = siteUrl();
+const df = dateLocale[lang] || 'en-GB';
+const { Content } = await render(post.entry);
+const path = `/blog/${post.slug}/`;
+const alt = await translationPaths(post.data.translationKey);
+
+// Maillage interne : les fiches citees par l'article
+const ds = await dataset();
+const byUuid = new Map(ds.items.map((i) => [i.uuid, i]));
+const cited = (post.data.items || []).map((u) => byUuid.get(u)).filter(Boolean);
+
+const crumbs = [
+  { name: t(lang, 'home.crumb'), url: localize(lang, '/') },
+  { name: t(lang, 'blog.title'), url: localize(lang, '/blog/') },
+  { name: post.data.title },
+];
+const articleLd = {
+  '@context': 'https://schema.org', '@type': 'Article',
+  headline: post.data.title,
+  description: post.data.description,
+  datePublished: new Date(post.data.date).toISOString(),
+  dateModified: new Date(post.data.updated || post.data.date).toISOString(),
+  inLanguage: lang,
+  author: { '@type': 'Organization', name: m.site.brand },
+  publisher: { '@type': 'Organization', name: m.site.brand },
+  mainEntityOfPage: `${root}${localize(lang, path)}`,
+};
+const ld = [articleLd, breadcrumbLd(crumbs.map((c) => ({ name: c.name, url: c.url ? root + c.url : `${root}${localize(lang, path)}` })))];
+const tagsAvecPage = new Set((await tagsFor(lang)).map((x) => x.tag));
+---
+<Base lang={lang} path={path} altPaths={alt} title={post.data.title} description={post.data.description} crumbs={crumbs} ld={ld} updatedAt={updatedAt}>
+  <article class="post">
+    <h1>{post.data.title}</h1>
+    <p class="muted" style="margin:0 0 6px">
+      {t(lang, 'blog.published')} {new Date(post.data.date).toLocaleDateString(df)}
+      {post.data.updated && ` · ${t(lang, 'blog.updated')} ${new Date(post.data.updated).toLocaleDateString(df)}`}
+    </p>
+    {post.data.tags.length > 0 && (
+      <p>{post.data.tags.map((tg) => (tagsAvecPage.has(tg) ? <a class="tag" href={localize(lang, `/blog/tag/${tg}/`)}>{tg}</a> : <span class="tag">{tg}</span>))}</p>
+    )}
+    <div class="prose"><Content /></div>
+  </article>
+
+  {cited.length > 0 && (
+    <>
+      <h2>{t(lang, 'blog.relatedItems')}</h2>
+      <div class="grid">
+        {cited.map((i) => (
+          <a class="item" href={localize(lang, `/item/${i.slug}/`)}>
+            <div class="n">{i.name}</div><div class="s">{i.series}</div>
+          </a>
+        ))}
+      </div>
+    </>
+  )}
+
+  <p style="margin-top:28px"><a href={localize(lang, '/blog/')}>← {t(lang, 'blog.backToBlog')}</a></p>
+</Base>

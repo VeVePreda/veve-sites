@@ -3,7 +3,7 @@ export const jsonld = (o) => `<script type="application/ld+json">${JSON.stringif
 
 export const productLd = (item, url, brand) => ({
   '@context': 'https://schema.org', '@type': 'Product',
-  name: item.name, sku: item.uuid, url,
+  name: item.qualifie || item.name, sku: item.uuid, url,
   brand: { '@type': 'Brand', name: item.brand || brand },
   category: item.series || undefined,
   ...(item.floor ? { offers: { '@type': 'Offer', price: item.floor, priceCurrency: 'USD', availability: (item.listings || 0) > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock', url } } : {}),

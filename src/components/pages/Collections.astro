@@ -1,13 +1,14 @@
 ---
 import Base from '../../layouts/Base.astro';
 import { dataset } from '../../../engine/lib/dataset.mjs';
-import { t, localize } from '../../../engine/lib/i18n.mjs';
+import { t, localize, numberLocale } from '../../../engine/lib/i18n.mjs';
 
 const { lang } = Astro.props;
 const ds = await dataset();
+const nf = numberLocale[lang] || 'en-GB';
 const cols = [...ds.collections.values()].sort((a, b) => b.items.length - a.items.length);
 ---
-<Base lang={lang} path="/collections/" title={t(lang, 'collections.title')} updatedAt={ds.updatedAt}
+<Base lang={lang} path="/collections/" title={t(lang, 'collections.title')} description={t(lang, 'desc.collections', { n: cols.length.toLocaleString(nf) })} updatedAt={ds.updatedAt}
       crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') }, { name: t(lang, 'collections.title') }]}>
   <h1>{t(lang, 'collections.title')}</h1>
   <p class="lead">{cols.length} {t(lang, 'collections.count')}.</p>
