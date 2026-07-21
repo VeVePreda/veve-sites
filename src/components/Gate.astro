@@ -1,0 +1,43 @@
+---
+// LA TRONCATURE QUI ANNONCE LE TOTAL.
+//
+// C'est le mecanisme de conversion du reseau : on ne cache pas, on MONTRE une
+// vraie valeur et on annonce ce qui manque. « 4 812 releves au total, vous en
+// voyez 30. » C'est la difference annoncee qui donne envie de payer — un bloc
+// vide ou un flou decoratif n'y arrivent pas, et le flou n'est de toute facon
+// pas un verrou (la donnee serait dans le HTML).
+//
+// TROIS REGLES TENUES ICI :
+//  1. le total vient de la DONNEE REELLE, jamais du plafond du manifeste ;
+//  2. la donnee cachee n'atteint jamais le HTML — la troncature est faite en
+//     amont, dans dataset.mjs, et ce composant ne recoit que des NOMBRES ;
+//  3. aucun test de palier n'est ecrit ici : la porte est lue dans la matrice.
+//
+// Ce composant ne rend RIEN si la porte est inactive (site gratuit) ou s'il
+// n'y a rien de cache. Un site 100 % gratuit n'a donc aucun appel a l'action
+// fantome, sans une ligne de code conditionnel dans les pages.
+import { t, numberLocale, dateLocale } from '../../engine/lib/i18n.mjs';
+import { porte, cibleOffre, restant } from '../../engine/lib/access.mjs';
+
+const { lang, gate, total, shown, since = null } = Astro.props;
+
+const p = porte(gate);                 // LEVE si le nom est inconnu (voulu)
+const cache = restant(total, shown);
+const visible = p.actif && cache > 0;
+
+const nf = numberLocale[lang] || 'en-GB';
+const df = dateLocale[lang] || 'en-GB';
+const offre = cibleOffre();
+const depuis = since ? new Date(since).toLocaleDateString(df) : null;
+---
+{visible && (
+  <div class="card" style="margin-top:14px;border-color:var(--primary)">
+    <strong>{Number(total).toLocaleString(nf)} {t(lang, 'offer.total')}{depuis ? `, ${t(lang, 'offer.since')} ${depuis}` : ''}.</strong>
+    <p class="muted" style="margin:6px 0 10px">
+      {t(lang, 'offer.showing')} {shown}. {cache.toLocaleString(nf)} {t(lang, 'offer.hidden')}
+    </p>
+    {offre.url
+      ? <a class="tag" style="background:var(--primary);color:#fff;font-size:14px;padding:8px 14px" href={offre.url}>{t(lang, 'offer.cta')}</a>
+      : <span class="muted" style="font-size:13px">{t(lang, 'offer.soon')}</span>}
+  </div>
+)}

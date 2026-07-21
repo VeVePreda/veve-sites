@@ -1,5 +1,6 @@
 ---
 import Base from '../../layouts/Base.astro';
+import Gate from '../Gate.astro';
 import { dataset } from '../../../engine/lib/dataset.mjs';
 import { priceChartSVG } from '../../../engine/lib/chart.mjs';
 import { productLd, breadcrumbLd } from '../../../engine/lib/seo.mjs';
@@ -9,7 +10,6 @@ import { postsForItem } from '../../../engine/lib/blog.mjs';
 
 const { lang, item, updatedAt } = Astro.props;
 const m = manifest();
-const offer = m.offer || {};
 const root = siteUrl();
 const path = item.path;
 const url = `${root}${localize(lang, path)}`;
@@ -21,8 +21,8 @@ const pct = (v) => (v === null || v === undefined ? '—' : `${v > 0 ? '+' : ''}
 const cls = (v) => (v === null || v === undefined ? '' : v > 0 ? 'up' : v < 0 ? 'down' : '');
 const recent = [...item.history].slice(-10).reverse();
 const relatedPosts = await postsForItem(lang, item.uuid);
-const sinceTxt = item.since ? new Date(item.since).toLocaleDateString(df) : null;
-const hidden = Math.max(0, (item.totalPoints || 0) - (item.points || 0));
+// L'appel a l'action (total, reste cache, lien d'offre) vit desormais dans
+// <Gate> : la page ne calcule plus rien qui touche au palier.
 const colSlug = item.series ? item.series.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') : null;
 // Chez beaucoup de comics le nom RECOPIE la serie (« Alias #1 (2001) ») :
 // repeter la serie dans le titre et le fil d'Ariane n'apprend rien.
@@ -98,17 +98,7 @@ const descItem = (item.floor && item.totalPoints && anneeDebut)
     <p class="muted" style="font-size:14px;margin:6px 0 0">{item.points} {t(lang, 'item.shown')}</p>
   </div>
 
-  {hidden > 0 && (
-    <div class="card" style="margin-top:14px;border-color:var(--primary)">
-      <strong>{item.totalPoints.toLocaleString(nf)} {t(lang, 'offer.total')}{sinceTxt ? `, ${t(lang, 'offer.since')} ${sinceTxt}` : ''}.</strong>
-      <p class="muted" style="margin:6px 0 10px">
-        {t(lang, 'offer.showing')} {item.points}. {hidden.toLocaleString(nf)} {t(lang, 'offer.hidden')}
-      </p>
-      {offer.url
-        ? <a class="tag" style="background:var(--primary);color:#fff;font-size:14px;padding:8px 14px" href={offer.url}>{t(lang, 'offer.cta')}</a>
-        : <span class="muted" style="font-size:13px">{t(lang, 'offer.soon')}</span>}
-    </div>
-  )}
+  <Gate lang={lang} gate="price_history" total={item.totalPoints} shown={item.points} since={item.since} />
 
   {recent.length > 0 && (
     <>

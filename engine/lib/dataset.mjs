@@ -9,6 +9,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { getCatalogue, getBaselines, streamPrices } from '../data/warehouse.mjs';
 import { manifest, SITE } from './manifest.mjs';
+import { porte } from './access.mjs';
 
 const ROOT = process.env.PROJECT_ROOT || process.cwd();
 const DAY = 86400000;
@@ -167,8 +168,16 @@ async function construireDataset() {
   const m = manifest();
   const pub = m.publication || {};
   const MIN_POINTS = pub.min_price_points ?? 8;
-  const MAX_POINTS = pub.public_points_max ?? 30;
-  const WINDOW_DAYS = pub.public_history_days ?? 90;
+  // ⭐ Les plafonds de l'historique public sont un REGLAGE D'ACCES, pas un
+  // reglage de publication : un quota de vitrine decide QUELLES fiches
+  // existent, un palier decide CE QU'ON MONTRE d'une fiche qui existe. Les
+  // confondre a deja produit l'angle mort des comics. Ils sont donc lus par
+  // la matrice — et par elle seule.
+  // Porte inactive (site entierement gratuit) => Infinity, c'est-a-dire
+  // « aucune troncature ». Les deux branches sont couvertes par test_access.
+  const PORTE_PRIX = porte('price_history');
+  const MAX_POINTS = PORTE_PRIX.public_max;
+  const WINDOW_DAYS = PORTE_PRIX.public_days;
   const MAX_SERIE = Math.max(0, Number(pub.max_new_per_series) || 0);   // 0 = pas de plafond
   const SPILL = pub.quota_spillover !== false;
   const FACTEUR_ABERRANT = Math.max(2, Number(pub.outlier_factor) || 10);
@@ -182,8 +191,13 @@ async function construireDataset() {
   // nombre d'items (~19 000), JAMAIS de la taille du fichier de prix.
   const known = new Set();
   for (const c of cat) { const u = c.uuid || c.veve_uuid; if (u) known.add(u); }
-  const cutoffTs = Date.now() - WINDOW_DAYS * DAY;
-  const BUCKET_MS = Math.max(1, Math.floor((WINDOW_DAYS / MAX_POINTS) * DAY));
+  // Porte inactive : pas de fenetre (on remonte a l'origine) et une tranche
+  // d'1 ms, donc un seau par releve — la courbe garde tout. Le calcul du seau
+  // ne doit JAMAIS voir un Infinity : (Inf/Inf) donne NaN, et un NaN en cle de
+  // seau ne provoque aucune erreur — il ecrase tout dans une seule tranche.
+  const BORNE = Number.isFinite(WINDOW_DAYS) && Number.isFinite(MAX_POINTS);
+  const cutoffTs = Number.isFinite(WINDOW_DAYS) ? Date.now() - WINDOW_DAYS * DAY : -Infinity;
+  const BUCKET_MS = BORNE ? Math.max(1, Math.floor((WINDOW_DAYS / MAX_POINTS) * DAY)) : 1;
   const agg = new Map();
   await streamPrices((cols, idx) => {
     const u = cols[idx.uuid];

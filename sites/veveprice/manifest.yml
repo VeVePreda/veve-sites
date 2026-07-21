@@ -33,8 +33,11 @@ publication:
   # qu'en dernier recours.
   comic_leaf: rarity
   min_price_points: 8      # relevés minimum AU TOTAL pour qu'une fiche mérite d'exister
-  public_points_max: 30    # nb de relevés RÉELLEMENT exposés (le reste = offre membre)
-  public_history_days: 90  # plafond de date supplémentaire (ignoré s'il vide la courbe)
+  # ⚠️ `public_points_max` et `public_history_days` ont MIGRÉ vers `access:`
+  # (voir plus bas) le 20/07/2026 : ce sont des réglages d'ACCÈS, pas de
+  # publication. Un quota de vitrine décide QUELLES fiches existent ; un palier
+  # décide CE QU'ON MONTRE d'une fiche qui existe. Les laisser ici en double
+  # ferait échouer le build volontairement — c'est le garde-fou.
 
   # ⭐ TAILLE DE LA VITRINE, PAR TYPE (remplace l'ancien plafond global unique).
   # Ce plafond unique avait produit un angle mort mesuré en prod : les comics
@@ -48,6 +51,24 @@ publication:
     comic: 400
   quota_spillover: true    # un type qui ne remplit pas sa part cède ses places à l'autre
   max_new_per_series: 12   # diversité : nouvelles fiches max par série (0 = pas de plafond)
+
+# --- Niveaux d'accès -------------------------------------------------------
+# ⭐ LE PALIER EST UNE DONNÉE. Aucune page ne teste un palier, aucune page ne
+# lit un plafond : tout passe par engine/lib/access.mjs. Un site 100 % gratuit,
+# 100 % payant ou mixte, c'est le MÊME code — seul ce bloc change.
+#
+# Pour un site entièrement gratuit, il suffit d'écrire :
+#     access:
+#       tiers: [visitor]
+# Les portes exigeant un palier absent se DÉSACTIVENT : plus aucune troncature,
+# plus aucun appel à l'action fantôme, et pas une ligne de code conditionnel.
+access:
+  tiers: [visitor, member]   # `free` (capture d'email) n'existe pas encore
+  gates:
+    price_history:
+      tier: member
+      public_max: 30         # nb de relevés RÉELLEMENT exposés (le reste = offre membre)
+      public_days: 90        # plafond de date supplémentaire (ignoré s'il vide la courbe)
 
 # --- Offre payante (l'historique complet, les alertes, le détail) ----------
 offer:
