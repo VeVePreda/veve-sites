@@ -11,8 +11,17 @@
 # attendue. Ca ne plantait pas : ca servait autre chose. Encore la meme famille
 # de defaut — un reglage pose a un endroit, ignore a un autre, sans erreur.
 #
-# 🔴 EN MODE SERVER, LE PORT CHANGE : 80 (nginx) -> 4321 (Node).
-#    A reporter dans Coolify, sinon le conteneur tourne et rien ne repond.
+# ⭐ DANS LES DEUX MODES, nginx RESTE LA PORTE D'ENTREE, SUR LE PORT 80.
+#    RIEN A CHANGER DANS COOLIFY : seul le build arg RENDERING bascule.
+#
+# 🔴 POURQUOI. Une premiere version remplacait nginx PAR Node en mode serveur.
+#    Or `nginx.conf` ne sert pas que des fichiers : il porte le proxy /stats/
+#    (anti-empreinte : le visiteur ne voit jamais l'adresse du serveur de
+#    statistiques), le cache `immutable` 30 j, les en-tetes de securite et gzip.
+#    Node n'en reprend RIEN. Basculer aurait tue la mesure d'audience en
+#    repondant 200 partout — « valide, seulement faux ».
+#    En mode serveur, nginx sert donc les pages pre-generees et ne delegue a
+#    Node (127.0.0.1:4321, jamais expose) que /api/ et les adresses sans fichier.
 
 # ARG global : seul un ARG declare AVANT le premier FROM est utilisable dans un
 # FROM. C'est ce qui permet de choisir l'etape finale.
@@ -62,16 +71,20 @@ COPY --from=build /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80
 
-# --- Etape 2b : service web SERVEUR (Node) ---
-# Sert les memes pages pre-generees depuis dist/client, plus les routes
-# marquees `prerender = false`.
+# --- Etape 2b : service web HYBRIDE (nginx DEVANT Node) ---
+# nginx sert les memes pages pre-generees (dist/client) avec les memes en-tetes
+# et le meme proxy /stats/ qu'en mode statique ; il ne delegue a Node que /api/
+# et les adresses qui n'ont pas de fichier.
 FROM node:22-alpine AS runtime-server
+RUN apk add --no-cache nginx && mkdir -p /run/nginx
 WORKDIR /app
 ARG SITE=veveprice
 ARG SITE_URL=https://veveprice.com
 # SITE est indispensable AU RUNTIME : sans lui, manifest() retomberait sur le
 # site par defaut et servirait la mauvaise marque — silencieusement.
-ENV NODE_ENV=production HOST=0.0.0.0 PORT=4321 \
+# ⚠️ HOST reste 127.0.0.1 : Node n'est JOIGNABLE QUE PAR nginx, jamais depuis
+# l'exterieur. Une seule porte d'entree, donc un seul jeu d'en-tetes.
+ENV NODE_ENV=production HOST=127.0.0.1 PORT=4321 \
     SITE=$SITE SITE_URL=$SITE_URL RENDERING=server
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/node_modules ./node_modules
@@ -79,8 +92,12 @@ COPY --from=build /app/package.json ./package.json
 # Le rendu a la demande relit le manifeste et le moteur : ils doivent etre la.
 COPY --from=build /app/engine ./engine
 COPY --from=build /app/sites ./sites
-EXPOSE 4321
-CMD ["node", "./dist/server/entry.mjs"]
+# Alpine inclut /etc/nginx/http.d/*.conf (et non conf.d comme l'image officielle).
+COPY nginx.server.conf /etc/nginx/http.d/default.conf
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
+EXPOSE 80
+CMD ["/docker-entrypoint.sh"]
 
 # --- Etape finale : celle que RENDERING designe ---
 FROM runtime-${RENDERING} AS final
