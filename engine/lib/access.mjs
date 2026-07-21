@@ -127,8 +127,67 @@ export function porte(nom) {
   return p;
 }
 
-// Le palier le plus eleve dont dispose un visiteur non identifie.
+// ===========================================================================
+// LE PALIER DU VISITEUR — a ne JAMAIS confondre avec le palier de la porte.
+// ===========================================================================
+//
+// 🔴 DEUX NOTIONS, DEUX CHAMPS, DEUX NOMS.
+//   · `porte(nom).tier`  = le palier EXIGE. Vient du MANIFESTE. Dit ce que le
+//     site vend. Connu au build, identique pour tout le monde.
+//   · `palierVisiteur()` = le palier OBSERVE. Vient de la SESSION. Dit ce que
+//     cette personne-ci a payé. Connu a la visite, different par visiteur.
+//
+// Les ranger dans un meme champ « tier » serait la cinquieme occurrence du
+// defaut de famille de ce projet : un reglage pose a un endroit, silencieusement
+// ecrase par un autre, sans jamais planter. On les garde separes par le nom.
+//
+// ⚠️ ETAT AU 21/07/2026 : AUCUN SYSTEME DE COMPTES N'EXISTE ENCORE. Cette
+// fonction renvoie donc toujours « visitor », et c'est VOULU — c'est ce qui
+// rend ce lot a comportement constant. Le jour ou les comptes arrivent, le
+// middleware de session posera `locals.palier` et SEUL CE FICHIER changera.
+
 export const palierParDefaut = () => 'visitor';
+
+// Un visiteur au palier `a` franchit-il une porte qui exige `requis` ?
+// Comparaison par RANG, pas par egalite : un membre franchit une porte `free`.
+export function auMoins(a, requis) {
+  const ia = PALIERS.indexOf(a);
+  const ir = PALIERS.indexOf(requis);
+  // Un palier inconnu ne « passe » jamais : en cas de doute, on ferme.
+  // L'inverse (ouvrir par defaut) transformerait une faute de frappe en fuite.
+  if (ia < 0 || ir < 0) return false;
+  return ia >= ir;
+}
+
+// Le palier de la personne qui regarde la page, maintenant.
+// `locals` = `Astro.locals`, ou le futur middleware de session deposera le
+// palier. Absent aujourd'hui => « visitor ».
+export function palierVisiteur(locals) {
+  const brut = locals && locals.palier;
+  if (!brut) return palierParDefaut();
+  if (!PALIERS.includes(brut)) {
+    // On ne se tait pas et on ne devine pas : on ferme, et on le dit.
+    console.log(`[acces] palier de session inconnu (« ${brut} ») — ramene a visitor`);
+    return palierParDefaut();
+  }
+  // Un palier que le SITE ne declare pas ne peut pas etre porte par un
+  // visiteur : sinon un vieux cookie « member » ouvrirait un site repasse en
+  // gratuit, ou l'inverse.
+  const { tiers } = acces();
+  if (!tiers.includes(brut)) {
+    console.log(`[acces] palier « ${brut} » absent de access.tiers — ramene a visitor`);
+    return palierParDefaut();
+  }
+  return brut;
+}
+
+// Ce visiteur franchit-il cette porte ? LA question que posent les composants.
+// Porte inactive (site gratuit) => tout le monde franchit.
+export function franchit(nomPorte, locals) {
+  const p = porte(nomPorte);
+  if (!p.actif) return true;
+  return auMoins(palierVisiteur(locals), p.tier);
+}
 
 // Ce vers quoi pointe l'appel a l'action d'une porte. Aujourd'hui : le lien
 // d'offre du manifeste. La page d'offre generee (lot 4) se branchera ICI, et

@@ -1,36 +1,52 @@
 ---
-// LA TRONCATURE QUI ANNONCE LE TOTAL.
+// LA PORTE : soit le visiteur passe et voit tout, soit on lui annonce ce qui
+// manque. Trois cas, jamais un de plus.
 //
-// C'est le mecanisme de conversion du reseau : on ne cache pas, on MONTRE une
-// vraie valeur et on annonce ce qui manque. « 4 812 releves au total, vous en
-// voyez 30. » C'est la difference annoncee qui donne envie de payer — un bloc
-// vide ou un flou decoratif n'y arrivent pas, et le flou n'est de toute facon
-// pas un verrou (la donnee serait dans le HTML).
+//   1. il FRANCHIT  -> on rend l'emplacement « complet » (contenu reserve)
+//   2. il ne franchit pas ET il reste quelque chose -> l'appel a l'action
+//   3. sinon (rien de cache) -> rien du tout
 //
-// TROIS REGLES TENUES ICI :
+// LE MECANISME DE CONVERSION DU RESEAU tient dans le cas 2 : on ne cache pas,
+// on MONTRE une vraie valeur et on annonce la difference. « 482 releves au
+// total, vous en voyez 15. » Un bloc vide ou un flou decoratif n'y arrivent
+// pas — et le flou n'est de toute facon pas un verrou, la donnee serait dans
+// le HTML.
+//
+// QUATRE REGLES TENUES ICI :
 //  1. le total vient de la DONNEE REELLE, jamais du plafond du manifeste ;
-//  2. la donnee cachee n'atteint jamais le HTML — la troncature est faite en
-//     amont, dans dataset.mjs, et ce composant ne recoit que des NOMBRES ;
-//  3. aucun test de palier n'est ecrit ici : la porte est lue dans la matrice.
+//  2. 🔴 la donnee cachee n'atteint JAMAIS le HTML — ce composant ne recoit que
+//     des NOMBRES, et le contenu reserve arrive par un emplacement que seule
+//     une page rendue au serveur peut remplir. Un `<Gate>` sur une page
+//     statique ne peut donc pas fuiter : il n'a rien a fuiter ;
+//  3. aucun test de palier n'est ecrit ici — [[access.mjs]] repond a tout ;
+//  4. le palier EXIGE (manifeste) et le palier OBSERVE (session) ne se
+//     touchent pas : `franchit()` est seul a les rapprocher.
 //
-// Ce composant ne rend RIEN si la porte est inactive (site gratuit) ou s'il
-// n'y a rien de cache. Un site 100 % gratuit n'a donc aucun appel a l'action
-// fantome, sans une ligne de code conditionnel dans les pages.
+// ⚠️ ETAT AU 21/07/2026 : aucun compte n'existe, `franchit()` est donc toujours
+// faux sur une porte active. Le cas 1 est ecrit, teste, et ne se declenche
+// jamais en production — c'est ce qui rend ce lot a comportement constant.
 import { t, numberLocale, dateLocale } from '../../engine/lib/i18n.mjs';
-import { porte, cibleOffre, restant } from '../../engine/lib/access.mjs';
+import { porte, cibleOffre, restant, franchit } from '../../engine/lib/access.mjs';
 
 const { lang, gate, total, shown, since = null } = Astro.props;
 
-const p = porte(gate);                 // LEVE si le nom est inconnu (voulu)
+const p = porte(gate);                          // LEVE si le nom est inconnu (voulu)
+const passe = franchit(gate, Astro.locals);
 const cache = restant(total, shown);
-const visible = p.actif && cache > 0;
+
+// Cas 2 : uniquement pour qui ne passe pas, et seulement s'il reste vraiment
+// quelque chose. Annoncer « 0 releve cache » serait une insulte, et annoncer
+// un nombre tire du manifeste serait un mensonge.
+const teaser = !passe && p.actif && cache > 0;
 
 const nf = numberLocale[lang] || 'en-GB';
 const df = dateLocale[lang] || 'en-GB';
 const offre = cibleOffre();
 const depuis = since ? new Date(since).toLocaleDateString(df) : null;
 ---
-{visible && (
+{passe && <slot name="complet" />}
+
+{teaser && (
   <div class="card" style="margin-top:14px;border-color:var(--primary)">
     <strong>{Number(total).toLocaleString(nf)} {t(lang, 'offer.total')}{depuis ? `, ${t(lang, 'offer.since')} ${depuis}` : ''}.</strong>
     <p class="muted" style="margin:6px 0 10px">

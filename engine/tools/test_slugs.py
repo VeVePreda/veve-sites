@@ -88,6 +88,16 @@ try:
     apres = carte()
 finally:
     shutil.move(sauvegarde, PRIX)
+    # 🔴 CE RECONSTRUCTION N'EST PAS UNE POLITESSE, C'EST UNE CORRECTION.
+    # Sans elle, ce test laissait `dist/` construit a partir des donnees
+    # BOUSCULEES : 12 fiches y portaient 900 releves fictifs. Les donnees, elles,
+    # etaient bien restaurees — donc rien ne signalait le probleme.
+    # Le 21/07/2026 j'ai compare un `dist/` laisse dans cet etat a un `dist/`
+    # propre et j'en ai conclu que 58 adresses avaient change d'objet toutes
+    # seules. Fausse alerte : 126 releves + 900 injectes = les 1 026 que je
+    # croyais etre une derive. ⭐ Un test qui salit un artefact partage doit le
+    # rendre PROPRE, sinon il transforme le suivant en menteur.
+    construire()
 
 communs = set(avant) & set(apres)
 deplacees = {u: (avant[u], apres[u]) for u in communs if avant[u] != apres[u]}

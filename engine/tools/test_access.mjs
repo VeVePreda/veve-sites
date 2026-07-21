@@ -42,7 +42,7 @@ function verifie(titre, ok, detail) {
 const RUNNER = join(base, 'runner.mjs');
 writeFileSync(RUNNER, `
 import { dataset } from ${JSON.stringify(join(RACINE, 'engine', 'lib', 'dataset.mjs'))};
-import { acces, porte, restant } from ${JSON.stringify(join(RACINE, 'engine', 'lib', 'access.mjs'))};
+import { acces, porte, restant, auMoins, palierVisiteur, franchit } from ${JSON.stringify(join(RACINE, 'engine', 'lib', 'access.mjs'))};
 const ds = await dataset();
 const p = porte('price_history');
 // Empreinte : tout ce qui pourrait bouger si la troncature changeait.
@@ -69,6 +69,19 @@ process.stdout.write('###' + JSON.stringify({
   paliers: acces().tiers,
   porte: { tier: p.tier, actif: p.actif, max: p.public_max, jours: p.public_days },
   premiers: ds.items.slice(0, 5).map((i) => i.path + '|' + i.points),
+  // --- Lot 2b : le palier du VISITEUR, distinct de celui de la porte -------
+  visiteur: {
+    defaut: palierVisiteur(undefined),
+    sansSession: franchit('price_history', undefined),
+    membre: franchit('price_history', { palier: 'member' }),
+    gratuit: franchit('price_history', { palier: 'free' }),
+    inconnu: franchit('price_history', { palier: 'nawak' }),
+    ordre: [auMoins('member', 'free'), auMoins('free', 'member'), auMoins('visitor', 'free'), auMoins('free', 'free')],
+  },
+  // 🔴 Preuve que la donnee cachee n'a jamais ete produite : la courbe fait
+  // exactement le nombre de points annonce, et ne depasse pas le plafond.
+  fuite: ds.items.filter((i) => (i.history || []).length !== i.points).length,
+  depassement: p.actif ? ds.items.filter((i) => i.points > p.public_max).length : 0,
 }));
 `);
 
@@ -100,6 +113,9 @@ const ANCIEN = `${ENTETE}\n  public_points_max: 30\n  public_history_days: 90\n`
 const NOUVEAU = `${ENTETE}\naccess:\n  tiers: [visitor, member]\n  gates:\n    price_history:\n      tier: member\n      public_max: 30\n      public_days: 90\n`;
 const GRATUIT = `${ENTETE}\naccess:\n  tiers: [visitor]\n`;
 const AMBIGU = `${ENTETE}\n  public_points_max: 30\naccess:\n  tiers: [visitor, member]\n`;
+// Trois paliers, porte exigeant seulement `free` : le seul scenario ou l'ORDRE
+// des paliers change quelque chose (un membre franchit une porte `free`).
+const TROIS = `${ENTETE}\naccess:\n  tiers: [visitor, free, member]\n  gates:\n    price_history:\n      tier: free\n      public_max: 30\n      public_days: 90\n`;
 
 try {
   // =========================================================================
@@ -229,6 +245,74 @@ try {
   writeFileSync(join(piege, 'src', 'Fautif.astro'), 'const n = m.publication.public_points_max ?? 30;\n');
   verifie('auto-controle : le garde-fou detecte bien une lecture en dur',
     coupables(piege).length === 1, `${coupables(piege).length} fichier(s) signale(s) (attendu 1)`);
+
+  // =========================================================================
+  // 6. LOT 2b — LE PALIER DU VISITEUR
+  //    Deux notions a ne jamais confondre : ce que le SITE exige (manifeste)
+  //    et ce que la PERSONNE porte (session). Ce bloc verifie qu'elles se
+  //    rencontrent au bon endroit, et seulement la.
+  // =========================================================================
+  console.log('\n6. le palier du visiteur (lot 2b)');
+
+  // ⚠️ L'assertion qui rend ce lot sur a livrer : sans systeme de comptes,
+  // personne ne franchit rien, donc rien ne change a l'ecran.
+  verifie('sans compte, le visiteur est « visitor » et ne franchit pas',
+    ancien.visiteur.defaut === 'visitor' && ancien.visiteur.sansSession === false,
+    `defaut=${ancien.visiteur.defaut} franchit=${ancien.visiteur.sansSession}`);
+  verifie('une session « member » franchit une porte member',
+    ancien.visiteur.membre === true, `franchit=${ancien.visiteur.membre}`);
+
+  // 🔴 Un vieux cookie « free » sur un site qui ne declare PAS ce palier ne
+  // doit rien ouvrir. En cas de doute on FERME : ouvrir par defaut
+  // transformerait une faute de frappe en fuite de donnees payantes.
+  verifie('un palier absent de access.tiers n\'ouvre rien',
+    ancien.visiteur.gratuit === false, `session « free » sur un site visitor+member : franchit=${ancien.visiteur.gratuit}`);
+  verifie('un palier inconnu n\'ouvre rien', ancien.visiteur.inconnu === false,
+    `session « nawak » : franchit=${ancien.visiteur.inconnu}`);
+
+  // L'ordre des paliers : comparaison par RANG, pas par egalite.
+  const [mSurF, fSurM, vSurF, fSurF] = ancien.visiteur.ordre;
+  verifie('l\'ordre des paliers est respecte (member > free > visitor)',
+    mSurF === true && fSurM === false && vSurF === false && fSurF === true,
+    `member/free=${mSurF} free/member=${fSurM} visitor/free=${vSurF} free/free=${fSurF}`);
+
+  // Le seul scenario ou l'ordre change vraiment quelque chose.
+  console.log('\n   trois paliers, porte exigeant seulement « free »');
+  const trois = scenario('trois', TROIS);
+  if (!trois.ok) {
+    console.error(`   ! le scenario a trois paliers a echoue :\n${trois.err.slice(-1500)}`);
+    process.exit(1);
+  }
+  verifie('un membre franchit une porte qui n\'exige que « free »',
+    trois.visiteur.membre === true, `franchit=${trois.visiteur.membre}`);
+  verifie('un inscrit gratuit la franchit aussi',
+    trois.visiteur.gratuit === true, `franchit=${trois.visiteur.gratuit}`);
+  verifie('un visiteur anonyme, non', trois.visiteur.sansSession === false,
+    `franchit=${trois.visiteur.sansSession}`);
+  // ⭐ auto-controle : ce scenario sait-il distinguer quoi que ce soit ? Si
+  // « free » passait partout, les trois lignes ci-dessus seraient vraies pour
+  // de mauvaises raisons.
+  verifie('auto-controle : le meme palier « free » NE passe PAS la porte member',
+    ancien.visiteur.gratuit === false && trois.visiteur.gratuit === true,
+    'meme session, deux manifestes, deux reponses');
+
+  // 3. Sur un site gratuit, la porte est inactive : tout le monde franchit.
+  verifie('site gratuit : tout le monde franchit, sans session',
+    gratuit.visiteur.sansSession === true, `franchit=${gratuit.visiteur.sansSession}`);
+
+  // =========================================================================
+  // 7. 🔴 LA DONNEE CACHEE N'A JAMAIS ETE PRODUITE
+  //    Le flou CSS et les blocs masques ne sont pas des verrous : la seule
+  //    protection reelle est que la donnee ne soit pas dans la page. On le
+  //    verifie au niveau du jeu de donnees, en amont du rendu.
+  // =========================================================================
+  console.log('\n7. anti-fuite : la courbe ne contient que ce qui est annonce');
+  verifie('aucune fiche ne transporte plus de points qu\'elle n\'en annonce',
+    ancien.fuite === 0, `${ancien.fuite} fiche(s) en ecart`);
+  verifie('aucune fiche ne depasse le plafond de la porte',
+    ancien.depassement === 0, `${ancien.depassement} fiche(s) au-dessus de ${ancien.porte.max}`);
+  verifie('le site gratuit non plus (plafond leve, mais pas de fuite)',
+    gratuit.fuite === 0, `${gratuit.fuite} fiche(s) en ecart`);
 
 } finally {
   console.log(`\n${echecs === 0 ? '✅ tout est vert' : `❌ ${echecs} echec(s)`}`);
