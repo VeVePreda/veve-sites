@@ -124,7 +124,31 @@ divergentes = [c for c in sorted(communes) if loc_statique[c] != loc_serveur[c]]
 verifie('aucune regle commune ne diverge', not divergentes,
         'identiques' if not divergentes else ', '.join(divergentes))
 
-print('\n4. le mode serveur delegue a Node — et seulement ou il le declare')
+# ⭐ Depuis que le lanceur pose un lien symbolique, les deux modes servent
+# depuis la MEME racine. Si elles divergeaient, un mode servirait un repertoire
+# vide — 404 partout, sans une erreur de configuration.
+def racine(payload):
+    for f in payload['config']:
+        def marche(bs):
+            for b in bs:
+                if b['directive'] == 'root':
+                    return ' '.join(b.get('args', []))
+                r = marche(b.get('block') or [])
+                if r:
+                    return r
+            return None
+        r = marche(f['parsed'])
+        if r:
+            return r
+    return None
+
+
+print('\n4. la racine servie est la meme des deux cotes')
+ra, rb = racine(analyses['nginx.conf']), racine(analyses['nginx.server.conf'])
+verifie('meme `root` dans les deux configurations', ra is not None and ra == rb,
+        f'{ra} / {rb}')
+
+print('\n5. le mode serveur delegue a Node — et seulement ou il le declare')
 api = '^~ /api/'
 verifie('le mode serveur route /api/ vers Node', api in loc_serveur
         and any('127.0.0.1:4321' in a for _, a in loc_serveur[api]),

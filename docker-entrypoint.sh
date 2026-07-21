@@ -1,75 +1,100 @@
 #!/bin/sh
-# LANCEUR DU MODE SERVEUR — nginx (port 80) devant Node (port 4321 interne).
+# LANCEUR — le MANIFESTE decide du mode, ce script l'applique et le VERIFIE.
+#
+#   static : nginx seul, sur dist/
+#   server : nginx (port 80) devant Node (127.0.0.1:4321), sur dist/client
 #
 # ⭐ CE FICHIER EST SURTOUT UN CONTROLE DE DEMARRAGE.
-# Je n'ai pas pu eprouver la configuration nginx avant livraison (pas de nginx
-# dans mon bac a sable). La verification a donc ete deplacee LA OU ELLE COMPTE :
-# a chaque demarrage du conteneur, et A TRAVERS nginx — pas a cote.
+# Je n'ai pas de nginx dans mon bac a sable : la verification a donc ete
+# deplacee LA OU ELLE COMPTE — a chaque demarrage, et A TRAVERS nginx.
 # Si quelque chose ne va pas, le conteneur REFUSE DE VIVRE au lieu de servir un
 # site « valide, seulement faux ». Coolify le montre immediatement.
 set -eu
 
+MODE=$(cat /app/.rendering 2>/dev/null || echo static)
 CONF=/etc/nginx/http.d/default.conf
-NODE=/app/dist/server/entry.mjs
+RACINE_WEB=/usr/share/nginx/html
 
 echec() { echo "[demarrage] ECHEC : $*" >&2; exit 1; }
 
-# --- 0. Garde-fou anti-divergence des deux configurations -------------------
-# nginx.conf (statique) et nginx.server.conf doivent rester jumeaux sur tout
-# sauf la regle de recherche des fichiers. Le proxy /stats/ est l'element dont
-# l'oubli couterait le plus cher : il porte l'anti-empreinte du reseau.
-grep -q "location \^~ /stats/" "$CONF" || echec "le proxy /stats/ a disparu de la configuration nginx — la mesure d'audience serait morte et l'anti-empreinte avec"
+case "$MODE" in
+  server) SOURCE=/app/nginx.server.conf; CONTENU=/app/dist/client ;;
+  static) SOURCE=/app/nginx.conf;        CONTENU=/app/dist ;;
+  *) echec "mode inconnu dans .rendering : « $MODE »" ;;
+esac
+echo "[demarrage] mode « $MODE » (lu dans le manifeste au moment du build)"
 
-# --- 1. La configuration nginx est-elle seulement valide ? ------------------
+[ -d "$CONTENU" ] || echec "$CONTENU introuvable — l'image ne correspond pas au mode annonce"
+
+# Les deux modes servent depuis la MEME racine ; seul ce lien change.
+rm -rf "$RACINE_WEB"
+ln -s "$CONTENU" "$RACINE_WEB"
+mkdir -p /etc/nginx/http.d
+cp "$SOURCE" "$CONF"
+
+# --- Garde-fou anti-divergence des deux configurations ----------------------
+# Le proxy /stats/ porte l'anti-empreinte du reseau : le visiteur ne voit jamais
+# l'adresse du serveur de statistiques. Son oubli casserait la mesure d'audience
+# SANS AUCUN SIGNAL, en repondant 200 partout.
+grep -q "location \^~ /stats/" "$CONF" || echec "le proxy /stats/ a disparu de $SOURCE — la mesure d'audience serait morte, et l'anti-empreinte avec"
+
 nginx -t || echec "configuration nginx invalide (voir ci-dessus)"
 
-# --- 2. Node d'abord, nginx ensuite -----------------------------------------
-[ -f "$NODE" ] || echec "$NODE introuvable — image construite sans RENDERING=server ?"
-node "$NODE" &
-NODE_PID=$!
+# --- Node d'abord, si le mode l'exige ---------------------------------------
+NODE_PID=""
+if [ "$MODE" = "server" ]; then
+  [ -f /app/dist/server/entry.mjs ] || echec "dist/server/entry.mjs introuvable — image construite en mode statique ?"
+  RENDERING=server node /app/dist/server/entry.mjs &
+  NODE_PID=$!
+  i=0
+  while [ "$i" -lt 30 ]; do
+    wget -q -O /dev/null "http://127.0.0.1:4321/api/sante" 2>/dev/null && break
+    i=$((i + 1)); sleep 1
+  done
+  [ "$i" -lt 30 ] || echec "Node n'a pas repondu sur 4321 en 30 s"
+  echo "[demarrage] Node repond sur 4321"
+fi
 
-i=0
-while [ "$i" -lt 30 ]; do
-  wget -q -O /dev/null "http://127.0.0.1:4321/api/sante" 2>/dev/null && break
-  i=$((i + 1))
-  sleep 1
-done
-[ "$i" -lt 30 ] || echec "Node n'a pas repondu sur 4321 en 30 s"
-echo "[demarrage] Node repond sur 4321"
-
-mkdir -p /run/nginx
 nginx -g 'daemon off;' &
 NGINX_PID=$!
 
-# --- 3. Le controle qui compte : A TRAVERS nginx, sur le port 80 ------------
+# --- Le controle qui compte : A TRAVERS nginx, sur le port 80 ---------------
 i=0
 while [ "$i" -lt 20 ]; do
   wget -q -O /dev/null "http://127.0.0.1:80/" 2>/dev/null && break
-  i=$((i + 1))
-  sleep 1
+  i=$((i + 1)); sleep 1
 done
 [ "$i" -lt 20 ] || echec "nginx ne sert pas la racine sur le port 80"
 
-# La route dynamique doit traverser nginx ET etre calculee par Node.
+# /api/sante existe dans les deux modes : fichier pre-genere en statique,
+# calcule par Node en serveur. Sa reponse doit CORRESPONDRE au mode annonce.
 SANTE=$(wget -q -O - "http://127.0.0.1:80/api/sante" 2>/dev/null || echo '')
 case "$SANTE" in
-  *'"mode":"server"'*) echo "[demarrage] /api/sante traverse nginx et repond : $SANTE" ;;
-  '')  echec "/api/sante ne repond pas a travers nginx — le proxy vers 4321 ne fonctionne pas" ;;
-  *)   echec "/api/sante repond mais pas en mode serveur : $SANTE" ;;
+  '') echec "/api/sante ne repond pas a travers nginx" ;;
+  *"\"mode\":\"$MODE\""*) echo "[demarrage] /api/sante traverse nginx et confirme le mode : $SANTE" ;;
+  *) echec "/api/sante annonce un mode different de « $MODE » : $SANTE" ;;
 esac
 
-echo "[demarrage] ✅ nginx (80) devant Node (4321), pages pre-generees servies par nginx"
+if [ "$MODE" = "server" ]; then
+  echo "[demarrage] ✅ nginx (80) devant Node (4321), pages pre-generees servies par nginx"
+else
+  echo "[demarrage] ✅ nginx (80) seul, site entierement pre-genere"
+fi
 
-# --- 4. Surveillance : si l'un meurt, tout meurt -----------------------------
+# --- Surveillance : si l'un meurt, tout meurt --------------------------------
 # 🔴 Sans ca, un Node mort passerait inapercu derriere un nginx bien vivant :
 # les pages continueraient de s'afficher et seules les routes dynamiques
 # tomberaient. C'est exactement le genre de panne qu'on ne voit pas.
-arreter() { kill -TERM "$NODE_PID" "$NGINX_PID" 2>/dev/null || true; }
+arreter() { kill -TERM $NGINX_PID ${NODE_PID:-} 2>/dev/null || true; }
 trap 'arreter; exit 0' TERM INT
 
-while kill -0 "$NODE_PID" 2>/dev/null && kill -0 "$NGINX_PID" 2>/dev/null; do
+while kill -0 "$NGINX_PID" 2>/dev/null; do
+  if [ -n "$NODE_PID" ] && ! kill -0 "$NODE_PID" 2>/dev/null; then
+    echo "[demarrage] Node s'est arrete — on coupe nginx pour que le redemarrage soit visible" >&2
+    arreter; exit 1
+  fi
   sleep 2
 done
-echo "[demarrage] un des deux processus s'est arrete — on coupe tout pour que le redemarrage soit visible" >&2
+echo "[demarrage] nginx s'est arrete — on coupe tout" >&2
 arreter
 exit 1
