@@ -17,7 +17,7 @@ languages:
   default: en
   active: [en, fr, es, de]
 
-rendering: static          # static | server
+rendering: server          # static | server
 features:
   search: internal
   comments: false
