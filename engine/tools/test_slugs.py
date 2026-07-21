@@ -78,6 +78,30 @@ def bousculer():
     return len(ajout)
 
 
+def rendre_dist_propre():
+    """Reconstruit dist/ a partir des donnees RESTAUREES.
+
+    🔴 CE N'EST PAS UNE POLITESSE, C'EST UNE CORRECTION.
+    Sans elle, ce test laissait `dist/` construit a partir des donnees
+    BOUSCULEES : 12 fiches y portaient 900 releves fictifs. Les donnees, elles,
+    etaient bien restaurees — donc rien ne signalait le probleme, et
+    `npm run audit`, qui lit `dist/`, auditait un site falsifie.
+
+    Le 21/07/2026 j'ai compare un `dist/` laisse dans cet etat a un `dist/`
+    propre et j'en ai conclu que 58 adresses avaient change d'objet toutes
+    seules. Fausse alerte : 126 releves + 900 injectes = les 1 026 que je
+    croyais etre une derive.
+
+    ⭐ Un test qui salit un artefact partage doit le rendre PROPRE, sinon il
+    transforme le suivant en menteur.
+
+    (Cette fonction porte un nom plutot que d'appeler `construire()` en ligne :
+    un correctif invisible dans le code est un correctif que les controles ne
+    savent pas verifier — ils ignorent les commentaires, a juste titre.)
+    """
+    construire()
+
+
 sauvegarde = PRIX.with_suffix('.csv.bak')
 shutil.copy(PRIX, sauvegarde)
 try:
@@ -88,16 +112,7 @@ try:
     apres = carte()
 finally:
     shutil.move(sauvegarde, PRIX)
-    # 🔴 CE RECONSTRUCTION N'EST PAS UNE POLITESSE, C'EST UNE CORRECTION.
-    # Sans elle, ce test laissait `dist/` construit a partir des donnees
-    # BOUSCULEES : 12 fiches y portaient 900 releves fictifs. Les donnees, elles,
-    # etaient bien restaurees — donc rien ne signalait le probleme.
-    # Le 21/07/2026 j'ai compare un `dist/` laisse dans cet etat a un `dist/`
-    # propre et j'en ai conclu que 58 adresses avaient change d'objet toutes
-    # seules. Fausse alerte : 126 releves + 900 injectes = les 1 026 que je
-    # croyais etre une derive. ⭐ Un test qui salit un artefact partage doit le
-    # rendre PROPRE, sinon il transforme le suivant en menteur.
-    construire()
+    rendre_dist_propre()
 
 communs = set(avant) & set(apres)
 deplacees = {u: (avant[u], apres[u]) for u in communs if avant[u] != apres[u]}

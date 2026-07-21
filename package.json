@@ -11,10 +11,11 @@
     "slugs": "node engine/tools/freeze-slugs.mjs",
     "audit": "python3 engine/tools/audit_seo.py dist",
     "test:slugs": "python3 engine/tools/test_slugs.py",
+    "test:nginx": "python3 engine/tools/test_nginx.py",
     "test:donnees": "node engine/tools/test_concurrence.mjs",
     "test:quotas": "node engine/tools/test_quotas.mjs",
     "test:acces": "node engine/tools/test_access.mjs",
-    "test": "npm run test:donnees && npm run test:quotas && npm run test:acces && npm run test:slugs"
+    "test": "npm run test:donnees && npm run test:quotas && npm run test:acces && npm run test:slugs && npm run test:nginx"
   },
   "dependencies": {
     "@astrojs/node": "^11.0.2",
