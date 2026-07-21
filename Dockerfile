@@ -78,10 +78,13 @@ RUN apk add --no-cache nginx && mkdir -p /run/nginx
 WORKDIR /app
 ARG SITE=veveprice
 ARG SITE_URL=https://veveprice.com
-# ⚠️ HOST reste 127.0.0.1 : Node n'est JOIGNABLE QUE PAR nginx, jamais depuis
-# l'exterieur. Une seule porte d'entree, donc un seul jeu d'en-tetes.
-ENV NODE_ENV=production HOST=127.0.0.1 PORT=4321 \
-    SITE=$SITE SITE_URL=$SITE_URL
+# ⚠️ NI HOST NI PORT ICI — VOLONTAIREMENT.
+# La plateforme (Coolify) injecte les siens au demarrage du conteneur et ils
+# ecrasent tout ENV pose ici. Les declarer donnerait l'illusion de les
+# controler. Le lanceur les FORCE au moment de lancer Node (127.0.0.1:4321),
+# ou personne ne peut plus les ecraser. Node n'est ainsi joignable que par
+# nginx : une seule porte d'entree, donc un seul jeu d'en-tetes.
+ENV NODE_ENV=production SITE=$SITE SITE_URL=$SITE_URL
 COPY --from=build /app/.rendering ./.rendering
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/node_modules ./node_modules

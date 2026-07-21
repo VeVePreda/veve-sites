@@ -44,14 +44,29 @@ nginx -t || echec "configuration nginx invalide (voir ci-dessus)"
 NODE_PID=""
 if [ "$MODE" = "server" ]; then
   [ -f /app/dist/server/entry.mjs ] || echec "dist/server/entry.mjs introuvable — image construite en mode statique ?"
-  RENDERING=server node /app/dist/server/entry.mjs &
+  # 🔴 HOTE ET PORT FORCES ICI, ET NON HERITES DE L'ENVIRONNEMENT.
+  # Coolify injecte ses propres HOST et PORT au demarrage du conteneur, et ils
+  # ECRASENT les ENV du Dockerfile. Constate en production le 21/07/2026 :
+  # « [@astrojs/node] Server listening on http://localhost:80 » — Node prenait
+  # le port de nginx, nginx ne demarrait pas, et le conteneur bouclait.
+  # Le port 4321 est INTERNE : il ne doit dependre de personne d'autre que de
+  # ce fichier et de nginx.server.conf, qui sont livres ensemble.
+  HOST=127.0.0.1 PORT=4321 RENDERING=server node /app/dist/server/entry.mjs &
   NODE_PID=$!
   i=0
   while [ "$i" -lt 30 ]; do
     wget -q -O /dev/null "http://127.0.0.1:4321/api/sante" 2>/dev/null && break
     i=$((i + 1)); sleep 1
   done
-  [ "$i" -lt 30 ] || echec "Node n'a pas repondu sur 4321 en 30 s"
+  if [ "$i" -ge 30 ]; then
+    # Diagnostic : si Node repond ailleurs, on le DIT au lieu de laisser
+    # chercher. Une panne qui s'explique elle-meme coute une minute ;
+    # une panne muette coute une soiree.
+    if wget -q -O /dev/null "http://127.0.0.1:80/api/sante" 2>/dev/null; then
+      echec "Node a pris le PORT 80 (celui de nginx) : HOST/PORT ont ete ecrases par la plateforme. Ils doivent etre forces au lancement, dans ce fichier."
+    fi
+    echec "Node n'a pas repondu sur 4321 en 30 s"
+  fi
   echo "[demarrage] Node repond sur 4321"
 fi
 
