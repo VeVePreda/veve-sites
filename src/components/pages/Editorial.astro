@@ -14,7 +14,7 @@
 import Base from '../../layouts/Base.astro';
 import { collection, parseSources } from '../../../engine/lib/editorial.mjs';
 import { sectionMeta, languesDeSection } from '../../../engine/lib/editorial_pages.mjs';
-import { t, localize } from '../../../engine/lib/i18n.mjs';
+import { t, localize, numberLocale } from '../../../engine/lib/i18n.mjs';
 import { fichesDe, cheminFiche } from '../../../engine/lib/editorial_entries.mjs';
 
 const { lang, section } = Astro.props;
@@ -25,6 +25,22 @@ const slug = (v) => String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g,
   .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60);
 const ancre = (r) => (r.id ? `j-${slug(r.id)}` : `j-${slug(r.date)}-${slug(r.titre)}`);
 const meta = sectionMeta(section, lang);
+// ⭐ VOCABULAIRE DE SHEET, LU PAR UN HUMAIN. Les colonnes `precision` et
+// `statut` portent un vocabulaire FERMÉ, saisi en français par l'auteur du
+// Sheet — et il était rendu TEL QUEL : la page ANGLAISE de la chronologie
+// affiche « 2020-10 (mois) » et un badge « recoupe » depuis toujours. Ce n'est
+// pas une colonne de langue (pas de `_en`/`_fr`), donc `resolveLang` ne la voit
+// pas et aucun contrôle ne pouvait la signaler. Avec ES/IT/DE, le même mot
+// français serait sorti sur cinq pages au lieu de deux.
+// ⚠️ Repli sur la valeur BRUTE si la clé n'existe pas : une valeur nouvelle dans
+//    le Sheet doit s'afficher telle quelle, jamais sous la forme d'une clé i18n.
+//    `t()` renvoie la clé quand elle manque — c'est ce qu'on teste.
+const libelle = (cle, brut) => { const v = t(lang, cle); return v === cle ? brut : v; };
+// Nombre formaté SELON LA LANGUE. ⚠️ « 8486 » en espagnol et en italien est
+// CORRECT : ces locales ne groupent qu'à partir de 5 chiffres (8486 -> 8486,
+// 18926 -> 18.926). Ne pas « corriger » ce qui n'est pas cassé.
+const nf = numberLocale[lang] || 'en-GB';
+const nombre = (v) => (Number.isFinite(Number(v)) && String(v).trim() !== '' ? Number(v).toLocaleString(nf) : null);
 // `langs` passe a Base : cette section n'est pas publiee dans toutes les langues
 // du site (cf. engine/lib/langues.mjs). Le gabarit n'annoncera donc en hreflang,
 // et n'offrira dans le selecteur de langue, que les langues ou la page existe.
@@ -137,14 +153,16 @@ const crumbs = [
           valaient qu'une seule adresse. */}
       {items.map((r) => (
         <li class="milestone" id={ancre(r)}>
-          <div class="when"><a class="lien-ancre" href={`#${ancre(r)}`}>{r.date}</a>{r.precision && r.precision !== 'jour' && <span class="muted"> ({r.precision})</span>}</div>
+          <div class="when"><a class="lien-ancre" href={`#${ancre(r)}`}>{r.date}</a>{r.precision && r.precision !== 'jour' && <span class="muted"> ({libelle(`history.precision.${r.precision}`, r.precision)})</span>}</div>
           <div class="what">
             {/* ⚠️ h2 et non h3 : ces jalons suivent directement le h1 de la
                 page. Un h1 suivi d'un h3 est un niveau sauté (WCAG 1.3.1) —
                 un lecteur d'écran annonce une sous-section qui n'existe pas.
                 Ils sont tous de même rang, ils prennent le rang juste sous
                 le titre. Le style ne change pas. */}
-            <h2>{r.titre}{r.statut && <span class={`badge s-${r.statut}`}>{r.statut}</span>}</h2>
+            <h2>{r.titre}{/* ⚠️ La CLASSE garde la valeur brute (c'est un identifiant de style), seul le
+     LIBELLÉ est traduit. Les deux ne doivent pas être confondus. */}
+{r.statut && <span class={`badge s-${r.statut}`}>{libelle(`history.statut.${r.statut}`, r.statut)}</span>}</h2>
             {r.resume && <p>{r.resume}</p>}
             {parseSources(r.sources).length > 0 && (
               <p class="sources muted">
@@ -171,7 +189,14 @@ const crumbs = [
             : (r.nom_affiche || r.licence)}</div>
           {r.note_editoriale && <div class="s">{r.note_editoriale}</div>}
           <div class="counters">
-            <span title="items"><b>{r.nb_items || '—'}</b> {t(lang, 'collections.items')}</span>
+            {/* ⭐ DEUX CORRECTIONS SUR UNE LIGNE, toutes deux visibles en ligne aujourd'hui :
+                 · `collections.items` est le mot des pages de PRIX (veveprice). En français il
+                   vaut « items », en espagnol « artículos » : /fr/brands/ affichait donc
+                   « 8486 items » et la fiche de la même licence « 8 486 objets ». C'est
+                   `fiche.items` qu'il faut ici — la même clé que la fiche, donc le même mot,
+                   et celle que le lot 7 avait corrigée sans que cet index en profite.
+                 · le nombre n'était pas formaté : « 8486 » au lieu de « 8 486 ». */}
+            <span><b>{nombre(r.nb_items) || '—'}</b> {t(lang, 'fiche.items')}</span>
             <span><b>{r.nb_series || '—'}</b> {t(lang, 'brands.series')}</span>
             {/* Une date sans son étiquette ment : « premier drop » et « première
                 frappe » ne sont pas le même fait (cf. mergeBrandCounters). */}

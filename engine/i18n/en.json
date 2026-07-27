@@ -109,5 +109,10 @@
  "sources.entrepot": "on-chain warehouse (IMX + CollectChain)",
  "fiche.desc": "{items} items (comics and collectibles) across {series} series published on VeVe under the {name} licence.",
  "fiche.descDrop": "First drop {date}.",
- "a11y.skip": "Skip to content"
+ "a11y.skip": "Skip to content",
+ "history.precision.mois": "month",
+ "history.precision.annee": "year",
+ "history.statut.recoupe": "cross-checked",
+ "history.statut.historique": "historical",
+ "history.statut.officiel": "official"
 }

@@ -158,5 +158,30 @@ console.log('\n7. Les getStaticPaths ne promettent que ce qui existe');
   dit(dehors.length === 0, 'aucune fiche dans une langue où sa section n\'est pas publiée', dehors.join(', '));
 }
 
+console.log('\n8. Le VOCABULAIRE FERMÉ du Sheet est traduit, pas recopié');
+// ⭐ Les colonnes sans suffixe de langue (`precision`, `statut`, `type`…) portent
+//    un vocabulaire saisi en français. Elles échappent à `resolveLang` : aucun
+//    contrôle de repli ne peut les voir. La page ANGLAISE affichait « (mois) »
+//    et un badge « recoupe » depuis toujours. On vérifie donc que chaque valeur
+//    RÉELLEMENT présente dans le snapshot a sa clé, dans TOUTES les langues.
+{
+  const FERME = { history: ['precision', 'statut'] };
+  for (const [page, colonnes] of Object.entries(FERME)) {
+    if (!sections.includes(page)) continue;
+    const langs = P.languesDeSection(page);
+    for (const col of colonnes) {
+      const valeurs = [...new Set(ED.records(page, { required: false })
+        .map((r) => String(r[col] ?? '').trim()).filter(Boolean))];
+      // `jour` n'est jamais affiché (c'est la précision par défaut) : rien à traduire.
+      const aTraduire = valeurs.filter((v) => !(col === 'precision' && v === 'jour'));
+      for (const l of langs) {
+        const sans = aTraduire.filter((v) => I18N.dict(l)[`${page}.${col}.${v}`] === undefined);
+        dit(sans.length === 0, `${page}.${col} en ${l} : ${aTraduire.length} valeur(s) couverte(s)`,
+          `clé(s) absente(s) pour ${sans.join(', ')}`);
+      }
+    }
+  }
+}
+
 console.log(`\n${ko === 0 ? '✅ langues : tout est vert' : `❌ ${ko} contrôle(s) en échec`} (${ok + ko} contrôles)\n`);
 process.exit(ko === 0 ? 0 : 1);
