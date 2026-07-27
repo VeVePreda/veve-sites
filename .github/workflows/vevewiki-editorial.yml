@@ -50,7 +50,9 @@ jobs:
           python-version: '3.11'
 
       - name: Dépendances (gspread, google-auth, pyyaml…)
-        run: pip install -r _scrapeur/requirements.txt
+        # PyYAML n'est PAS dans le requirements.txt de scrapeur-veve -> on l'ajoute
+        # explicitement (le récolteur lit le manifeste YAML du site).
+        run: pip install -r _scrapeur/requirements.txt pyyaml
 
       - name: Récolte -> snapshot sites/vevewiki/editorial/*.json
         env:
