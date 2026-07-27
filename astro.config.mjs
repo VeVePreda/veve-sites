@@ -1,5 +1,6 @@
 import { defineConfig } from 'astro/config';
 import node from '@astrojs/node';
+import fonctionnalitesEteintes from './engine/lib/astro_features.mjs';
 
 // Rendu HYBRIDE : chaque site choisit son mode via la variable RENDERING
 //   static  (defaut) = tout est pre-genere, aucun serveur
@@ -21,6 +22,11 @@ export default defineConfig({
   site: process.env.SITE_URL || 'https://veveprice.com',
   output: 'static',
   adapter: mode === 'server' ? node({ mode: 'standalone' }) : undefined,
+  // Retire les talons de redirection des fonctionnalites eteintes par le
+  // manifeste (un wiki n'a pas de pages de prix). Sans quoi Astro emet
+  // /movers/, /collections/ et /rarity/ en pages fantomes. Cf.
+  // engine/lib/astro_features.mjs — no-op quand la fonctionnalite est active.
+  integrations: [fonctionnalitesEteintes()],
   build: { format: 'directory' },
   compressHTML: true,
   devToolbar: { enabled: false },

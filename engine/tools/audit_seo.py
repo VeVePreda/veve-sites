@@ -6,6 +6,7 @@
 Sort en code 1 si un defaut BLOQUANT est trouve, pour pouvoir etre branche
 sur la CI. Concu pour servir a TOUS les sites du reseau, pas au seul pilote.
 """
+import html as _html
 import json
 import pathlib
 import re
@@ -28,8 +29,15 @@ if len(H) < 20:
     sys.exit(f"AUDIT INVALIDE : {len(H)} pages seulement — la construction a echoue ?")
 
 g = lambda h, pat: (re.search(pat, h, re.S).group(1).strip() if re.search(pat, h, re.S) else '')
-titles = {u: g(h, r'<title>(.*?)</title>') for u, h in H.items()}
-descs = {u: g(h, r'<meta name="description" content="(.*?)"') for u, h in H.items()}
+
+# ⭐ VERIFIER L'INSTRUMENT (27/07/2026) : le HTML est ENCODE. Mesurer la longueur
+# de la source, c'est compter « Black &amp; White » pour 17 caracteres quand le
+# lecteur — et Google — en voient 13. L'audit signalait ainsi des titres trop
+# longs qui ne l'etaient pas, et manquait ceux qui l'etaient vraiment.
+# On DECODE avant toute mesure ou comparaison de texte.
+txt = lambda s: _html.unescape(s)
+titles = {u: txt(g(h, r'<title>(.*?)</title>')) for u, h in H.items()}
+descs = {u: txt(g(h, r'<meta name="description" content="(.*?)"')) for u, h in H.items()}
 erreurs, avertissements = [], []
 
 # ── cibles existantes (pages + fichiers) ────────────────────────────────────
@@ -108,12 +116,20 @@ if dup_d:
                    + '; '.join(f'"{v[:45]}" x{n}' for v, n in dup_d[:3]))
 
 # ── 4. longueurs ────────────────────────────────────────────────────────────
+# Fenetres utiles : titre <= 60, description 70..160 (cf. DESC_MIN/DESC_MAX dans
+# engine/lib/editorial_pages.mjs). Longueurs mesurees sur le texte DECODE.
 longs = [u for u, v in titles.items() if len(v) > 60]
 courts = [u for u, v in descs.items() if v and len(v) < 70]
+bavards = [u for u, v in descs.items() if v and len(v) > 160]
 if longs:
-    avertissements.append(f"{len(longs)} titres > 60 caracteres (tronques par Google) — ex. {longs[0]}")
+    avertissements.append(f"{len(longs)} titres > 60 caracteres (tronques par Google) — "
+                          + ', '.join(f'{u} ({len(titles[u])})' for u in longs[:3]))
 if courts:
-    avertissements.append(f"{len(courts)} descriptions < 70 caracteres (trop maigres) — ex. {courts[0]}")
+    avertissements.append(f"{len(courts)} descriptions < 70 caracteres (trop maigres) — "
+                          + ', '.join(f'{u} ({len(descs[u])})' for u in courts[:3]))
+if bavards:
+    avertissements.append(f"{len(bavards)} descriptions > 160 caracteres (coupees) — "
+                          + ', '.join(f'{u} ({len(descs[u])})' for u in bavards[:3]))
 
 # ── 5. noindex vs sitemap ───────────────────────────────────────────────────
 sm_txt = (D / 'sitemap.xml').read_text(encoding='utf-8') if (D / 'sitemap.xml').exists() else ''

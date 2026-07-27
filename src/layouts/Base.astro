@@ -1,7 +1,7 @@
 ---
 import { createHash } from 'node:crypto';
 import { manifest, siteUrl } from '../../engine/lib/manifest.mjs';
-import { jsonld, websiteLd } from '../../engine/lib/seo.mjs';
+import { jsonld, websiteLd, pageTitle } from '../../engine/lib/seo.mjs';
 import { locales, t, pick, localize, localeNames, dateLocale } from '../../engine/lib/i18n.mjs';
 import { DOCS, legalTitle } from '../../engine/lib/legal.mjs';
 import { activeSections, sectionMeta } from '../../engine/lib/editorial_pages.mjs';
@@ -27,7 +27,11 @@ const wikiNav = (m.editorial && Array.isArray(m.editorial.pages) && m.editorial.
   : null;
 const root = siteUrl();
 
-const fullTitle = title ? (m.seo.title_template || '%s').replace('%s', title) : `${m.site.brand} — ${t(lang, 'title.home')}`;
+// Budget de 60 caracteres tenu A LA RACINE (engine/lib/seo.mjs) : aucune page du
+// reseau ne peut plus publier un titre que Google tronquera, et un raboutage se
+// voit dans le journal de build.
+const fullTitle = pageTitle(title, m.seo.title_template, `${m.site.brand} — ${t(lang, 'title.home')}`,
+  (msg) => console.warn(`[seo] ${path} — ${msg}`));
 const desc = description || pick(m.site.description, lang) || pick(m.site.tagline, lang);
 const canon = `${root}${localize(lang, path)}`;
 // Chaque langue a SA propre adresse ; hreflang les relie. Aucune redirection auto.

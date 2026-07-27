@@ -1,6 +1,63 @@
 // Donnees structurees JSON-LD.
 export const jsonld = (o) => `<script type="application/ld+json">${JSON.stringify(o).replace(/</g, '\\u003c')}</script>`;
 
+// =============================================================================
+//  TITRE DE PAGE — budget de 60 caracteres, applique A LA RACINE
+// -----------------------------------------------------------------------------
+//  Google tronque un <title> au-dela d'environ 60 caracteres. Le gabarit ajoute
+//  un suffixe de marque (`seo.title_template`, ex. « %s | VeVe Wiki ») : un titre
+//  d'article deja long PASSE la limite sans que personne ne le voie.
+//
+//  Regle, du moins destructif au plus destructif :
+//    1. titre + suffixe tient dans le budget       -> on garde tout ;
+//    2. sinon le titre SEUL tient                  -> on LACHE le suffixe
+//                                                     (la marque est deja dans
+//                                                      l'URL, l'og:site_name et
+//                                                      le fil d'ariane) ;
+//    3. sinon                                      -> coupe sur une FRONTIERE DE
+//                                                     MOT + ellipse.
+//  Dans les cas 2 et 3 on JOURNALISE : un titre rabote doit se voir au build,
+//  jamais se decouvrir six mois plus tard dans la Search Console.
+//
+//  ⚠️ On compte les caracteres REELS ([...s].length), pas les octets ni les
+//  entites HTML : « Black & White » fait 13 caracteres, pas 17 (`&amp;`).
+// =============================================================================
+export const TITLE_BUDGET = 60;
+
+/** Longueur en caracteres reels (paires de substitution comptees pour 1). */
+export const clen = (s) => [...String(s ?? '')].length;
+
+/** Coupe `s` a `max` caracteres sur une frontiere de mot, ellipse comprise. */
+export function couperMots(s, max) {
+  const cs = [...String(s ?? '')];
+  if (cs.length <= max) return cs.join('');
+  const dur = cs.slice(0, Math.max(1, max - 1)).join('');
+  const esp = dur.lastIndexOf(' ');
+  return (esp > max * 0.5 ? dur.slice(0, esp) : dur).replace(/[\s,;:.\u2013-]+$/, '') + '…';
+}
+
+/**
+ * Titre final d'une page.
+ * @param {string} titre     titre editorial (peut etre vide -> `secours`)
+ * @param {string} gabarit   `seo.title_template` du manifeste, ex. « %s | VeVe Wiki »
+ * @param {string} secours   titre d'accueil quand `titre` est vide
+ * @param {(msg:string)=>void} journal  ou signaler un raboutage (defaut console.warn)
+ */
+export function pageTitle(titre, gabarit = '%s', secours = '', journal = null) {
+  const brut = String(titre || '').trim();
+  if (!brut) return secours;
+  const complet = String(gabarit || '%s').replace('%s', brut);
+  if (clen(complet) <= TITLE_BUDGET) return complet;
+  const dire = journal || ((msg) => console.warn(`[seo] ${msg}`));
+  if (clen(brut) <= TITLE_BUDGET) {
+    dire(`titre > ${TITLE_BUDGET} avec le suffixe de marque, suffixe abandonne : "${brut}" (${clen(complet)})`);
+    return brut;
+  }
+  const coupe = couperMots(brut, TITLE_BUDGET);
+  dire(`titre > ${TITLE_BUDGET} caracteres, coupe : "${brut}" (${clen(brut)}) -> "${coupe}"`);
+  return coupe;
+}
+
 export const productLd = (item, url, brand) => ({
   '@context': 'https://schema.org', '@type': 'Product',
   name: item.qualifie || item.name, sku: item.uuid, url,

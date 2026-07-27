@@ -2,221 +2,309 @@
  "dc": {
   "n_series": 26,
   "n_items": 69,
-  "first_mint": "2020-10-17"
+  "first_mint": "2020-10-17",
+  "first_drop": "2020-10-14",
+  "first_drop_source": "catalogue"
  },
  "cartoon-network": {
   "n_series": 14,
   "n_items": 286,
-  "first_mint": "2020-10-18"
+  "first_mint": "2020-10-18",
+  "first_drop": "2020-10-20",
+  "first_drop_source": "catalogue"
  },
  "powerpuff": {
   "n_series": 7,
   "n_items": 88,
-  "first_mint": "2020-11-01"
+  "first_mint": "2020-11-01",
+  "first_drop": "2020-11-04",
+  "first_drop_source": "catalogue"
  },
  "tokidoki": {
   "n_series": 4,
   "n_items": 19,
-  "first_mint": "2021-01-11"
+  "first_mint": "2021-01-11",
+  "first_drop": "2021-01-14",
+  "first_drop_source": "catalogue"
  },
  "ghostbusters": {
   "n_series": 2,
   "n_items": 8,
-  "first_mint": "2021-01-26"
+  "first_mint": "2021-01-26",
+  "first_drop": "2021-01-28",
+  "first_drop_source": "catalogue"
  },
  "ultraman": {
   "n_series": 10,
   "n_items": 107,
-  "first_mint": "2021-03-25"
+  "first_mint": "2021-03-25",
+  "first_drop": "2021-03-25",
+  "first_drop_source": "catalogue"
  },
  "back-to-the-future": {
   "n_series": 2,
   "n_items": 4,
-  "first_mint": "2021-04-08"
+  "first_mint": "2021-04-08",
+  "first_drop": "2021-04-08",
+  "first_drop_source": "catalogue"
  },
  "givenchy": {
   "n_series": 2,
   "n_items": 7,
-  "first_mint": "2021-06-19"
+  "first_mint": "2021-06-19",
+  "first_drop": "2021-06-21",
+  "first_drop_source": "catalogue"
  },
  "marvel": {
   "n_series": 677,
   "n_items": 8486,
-  "first_mint": "2021-08-06"
+  "first_mint": "2021-08-06",
+  "first_drop": "2021-08-07",
+  "first_drop_source": "catalogue"
  },
  "007": {
   "n_series": 9,
   "n_items": 17,
-  "first_mint": "2021-09-30"
+  "first_mint": "2021-09-30",
+  "first_drop": "2021-10-01",
+  "first_drop_source": "catalogue"
  },
  "usps": {
   "n_series": 4,
   "n_items": 17,
-  "first_mint": "2021-11-02"
+  "first_mint": "2021-11-02",
+  "first_drop": "2021-11-02",
+  "first_drop_source": "catalogue"
  },
  "pixar": {
   "n_series": 24,
   "n_items": 92,
-  "first_mint": "2021-11-07"
+  "first_mint": "2021-11-07",
+  "first_drop": "2021-11-09",
+  "first_drop_source": "catalogue"
  },
  "disney": {
   "n_series": 59,
   "n_items": 289,
-  "first_mint": "2021-11-08"
+  "first_mint": "2021-11-08",
+  "first_drop": "2021-11-08",
+  "first_drop_source": "catalogue"
  },
  "star-wars": {
   "n_series": 100,
   "n_items": 826,
-  "first_mint": "2021-11-10"
+  "first_mint": "2021-11-10",
+  "first_drop": "2021-11-11",
+  "first_drop_source": "catalogue"
  },
  "voltron": {
   "n_series": 2,
   "n_items": 9,
-  "first_mint": "2021-12-10"
+  "first_mint": "2021-12-10",
+  "first_drop": "2021-12-11",
+  "first_drop_source": "catalogue"
  },
  "pili-fantasy": {
   "n_series": 1,
   "n_items": 4,
-  "first_mint": "2022-02-05"
+  "first_mint": "2022-02-05",
+  "first_drop": "2022-02-06",
+  "first_drop_source": "catalogue"
  },
  "coca-cola": {
   "n_series": 6,
   "n_items": 30,
-  "first_mint": "2022-04-08"
+  "first_mint": "2022-04-08",
+  "first_drop": "2022-04-10",
+  "first_drop_source": "catalogue"
  },
  "jurassic-park": {
   "n_series": 5,
   "n_items": 17,
-  "first_mint": "2022-05-25"
+  "first_mint": "2022-05-25",
+  "first_drop": "2022-06-16",
+  "first_drop_source": "catalogue"
  },
  "labyrinth": {
   "n_series": 1,
   "n_items": 4,
-  "first_mint": "2022-10-14"
+  "first_mint": "2022-10-14",
+  "first_drop": "2022-10-16",
+  "first_drop_source": "catalogue"
  },
  "chucky": {
   "n_series": 2,
   "n_items": 4,
-  "first_mint": "2022-10-27"
+  "first_mint": "2022-10-27",
+  "first_drop": "2022-10-28",
+  "first_drop_source": "catalogue"
  },
  "battlestar-galactica": {
   "n_series": 1,
   "n_items": 4,
-  "first_mint": "2022-12-01"
+  "first_mint": "2022-12-01",
+  "first_drop": "2022-12-03",
+  "first_drop_source": "catalogue"
  },
  "robocop": {
   "n_series": 3,
   "n_items": 4,
-  "first_mint": "2023-01-04"
+  "first_mint": "2023-01-04",
+  "first_drop": "2023-01-08",
+  "first_drop_source": "catalogue"
  },
  "lamborghini": {
   "n_series": 8,
   "n_items": 31,
-  "first_mint": "2023-02-17"
+  "first_mint": "2023-02-17",
+  "first_drop": "2023-02-19",
+  "first_drop_source": "catalogue"
  },
  "rambo": {
   "n_series": 2,
   "n_items": 4,
-  "first_mint": "2023-03-09"
+  "first_mint": "2023-03-09",
+  "first_drop": "2023-03-11",
+  "first_drop_source": "catalogue"
  },
  "sesame-street": {
   "n_series": 9,
   "n_items": 18,
-  "first_mint": "2023-03-16"
+  "first_mint": "2023-03-16",
+  "first_drop": "2023-03-19",
+  "first_drop_source": "catalogue"
  },
  "ubisoft": {
   "n_series": 17,
   "n_items": 84,
-  "first_mint": "2023-03-23"
+  "first_mint": "2023-03-23",
+  "first_drop": "2023-03-25",
+  "first_drop_source": "catalogue"
  },
  "capcom": {
   "n_series": 9,
   "n_items": 25,
-  "first_mint": "2023-05-19"
+  "first_mint": "2023-05-19",
+  "first_drop": "2023-05-21",
+  "first_drop_source": "catalogue"
  },
  "astro-boy": {
   "n_series": 2,
   "n_items": 2,
-  "first_mint": "2023-07-26"
+  "first_mint": "2023-07-26",
+  "first_drop": "2023-07-29",
+  "first_drop_source": "catalogue"
  },
  "the-little-prince": {
   "n_series": 3,
   "n_items": 3,
-  "first_mint": "2023-08-03"
+  "first_mint": "2023-08-03",
+  "first_drop": "2023-08-06",
+  "first_drop_source": "catalogue"
  },
  "louboutin": {
   "n_series": 1,
   "n_items": 2,
-  "first_mint": "2023-08-10"
+  "first_mint": "2023-08-10",
+  "first_drop": "2023-10-03",
+  "first_drop_source": "catalogue"
  },
  "predator": {
   "n_series": 9,
   "n_items": 108,
-  "first_mint": "2023-08-30"
+  "first_mint": "2023-08-30",
+  "first_drop": "2023-09-03",
+  "first_drop_source": "catalogue"
  },
  "pink-panther": {
   "n_series": 1,
   "n_items": 3,
-  "first_mint": "2023-09-07"
+  "first_mint": "2023-09-07",
+  "first_drop": "2023-09-10",
+  "first_drop_source": "catalogue"
  },
  "betty-boop": {
   "n_series": 1,
   "n_items": 4,
-  "first_mint": "2024-01-09"
+  "first_mint": "2024-01-09",
+  "first_drop": "2024-01-14",
+  "first_drop_source": "catalogue"
  },
  "universal": {
   "n_series": 7,
   "n_items": 32,
-  "first_mint": "2024-02-17"
+  "first_mint": "2024-02-17",
+  "first_drop": null,
+  "first_drop_source": null
  },
  "stargate": {
   "n_series": 1,
   "n_items": 3,
-  "first_mint": "2024-02-26"
+  "first_mint": "2024-02-26",
+  "first_drop": "2024-03-02",
+  "first_drop_source": "catalogue"
  },
  "blackpink": {
   "n_series": 21,
   "n_items": 77,
-  "first_mint": "2024-05-16"
+  "first_mint": "2024-05-16",
+  "first_drop": "2024-05-22",
+  "first_drop_source": "catalogue"
  },
  "kfc": {
   "n_series": 2,
   "n_items": 3,
-  "first_mint": "2024-09-07"
+  "first_mint": "2024-09-07",
+  "first_drop": "2024-10-16",
+  "first_drop_source": "catalogue"
  },
  "maserati": {
   "n_series": 3,
   "n_items": 7,
-  "first_mint": "2024-09-17"
+  "first_mint": "2024-09-17",
+  "first_drop": "2024-09-21",
+  "first_drop_source": "catalogue"
  },
  "stanley-gibbons": {
   "n_series": 3,
   "n_items": 11,
-  "first_mint": "2024-10-01"
+  "first_mint": "2024-10-01",
+  "first_drop": "2024-10-06",
+  "first_drop_source": "catalogue"
  },
  "creepshow": {
   "n_series": 3,
   "n_items": 13,
-  "first_mint": "2024-10-29"
+  "first_mint": "2024-10-29",
+  "first_drop": "2024-10-31",
+  "first_drop_source": "catalogue"
  },
  "call-of-cthulhu": {
   "n_series": 2,
   "n_items": 37,
-  "first_mint": "2025-09-21"
+  "first_mint": "2025-09-21",
+  "first_drop": null,
+  "first_drop_source": null
  },
  "tmnt": {
   "n_series": 10,
   "n_items": 24,
-  "first_mint": "2025-10-15"
+  "first_mint": "2025-10-15",
+  "first_drop": "2025-11-08",
+  "first_drop_source": "catalogue"
  },
  "avatar": {
   "n_series": 2,
   "n_items": 5,
-  "first_mint": "2026-03-03"
+  "first_mint": "2026-03-03",
+  "first_drop": "2026-03-14",
+  "first_drop_source": "catalogue"
  },
  "star-trek": {
   "n_series": 1,
   "n_items": 4,
-  "first_mint": "2026-07-02"
+  "first_mint": "2026-07-02",
+  "first_drop": "2026-07-05",
+  "first_drop_source": "catalogue"
  }
 }

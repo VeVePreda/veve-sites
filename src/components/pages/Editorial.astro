@@ -140,8 +140,15 @@ const crumbs = [
           {r.note_editoriale && <div class="s">{r.note_editoriale}</div>}
           <div class="counters">
             <span title="items"><b>{r.nb_items || '—'}</b> {t(lang, 'collections.items')}</span>
-            <span title="series"><b>{r.nb_series || '—'}</b> series</span>
-            {r.premier_drop && <span class="muted">{r.premier_drop}</span>}
+            <span><b>{r.nb_series || '—'}</b> {t(lang, 'brands.series')}</span>
+            {/* Une date sans son étiquette ment : « premier drop » et « première
+                frappe » ne sont pas le même fait (cf. mergeBrandCounters). */}
+            {r.premier_drop && (
+              <span class="muted" title={r.date_nature === 'mint' ? t(lang, 'brands.first_mint_hint') : undefined}>
+                {r.date_nature === 'mint' ? t(lang, 'brands.first_mint') : t(lang, 'brands.first_drop')}
+                {' '}<b>{r.premier_drop}</b>
+              </span>
+            )}
           </div>
         </div>
       ))}

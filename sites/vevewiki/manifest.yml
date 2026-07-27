@@ -50,9 +50,12 @@ editorial:
   labels:
     blog:
       title: { en: "Articles", fr: "Articles" }
+      # ⚠️ 70 caractères minimum (audit SEO) : en dessous, Google n'affiche pas
+      # la description et fabrique son propre extrait. Cf. DESC_MIN dans
+      # engine/lib/editorial_pages.mjs — le build journalise tout écart.
       description:
-        en: "Long-form articles on VeVe: history, brands, how the platform works."
-        fr: "Les articles de fond sur VeVe : histoire, marques, fonctionnement de la plateforme."
+        en: "Long-form articles on VeVe: the history of the platform, how drops and rarity work, the licences, and how to read the market without guessing."
+        fr: "Les articles de fond sur VeVe : l'histoire de la plateforme, le fonctionnement des drops et de la rareté, les licences, et comment lire le marché."
 
 # --- Vitrine : un wiki publie tout son contenu utile (pas de mur) -----------
 publication:
