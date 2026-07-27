@@ -7,13 +7,13 @@
     "en",
     "fr"
   ],
-  "pulled_at": "2026-07-27T09:08:03Z",
+  "pulled_at": "2026-07-27T09:59:52Z",
   "count": 40,
   "records": [
     {
       "id": "2020-10-genese",
-      "date": "2020-10-17",
-      "precision": "jour",
+      "date": "2020-10-01",
+      "precision": "mois",
       "type": "drop",
       "titre_en": "Genesis: the first-ever VeVe drop (Batman Black & White S1)",
       "titre_fr": "Genèse : le tout premier drop VeVe (Batman Black & White S1)",
@@ -27,7 +27,7 @@
       "resume_de": "",
       "entites": "dc",
       "statut": "recoupe",
-      "sources": "veve.holders; Infos VeVe.docx",
+      "sources": "VeVe (annonce officielle) https://medium.com/veve-collectibles/batman-black-white-series-1-3dd423480d9 ; DC (ligne de statues) https://www.dc.com/blog/2020/07/23/a-dramatic-display-all-100-batman-black-and-white-statues ; catalogue VeVe (release_date 14/10/2020) ; Infos VeVe.docx (17/10/2020)",
       "portee": "vevewiki",
       "publie": "VRAI"
     },
@@ -678,7 +678,7 @@
       "resume_de": "",
       "entites": "",
       "statut": "officiel",
-      "sources": "blog.veve.me 2025-04-22",
+      "sources": "https://www.veve.me/blog/veve/updates/veve-x-stackr-a-new-era-of-digital-collecting-launches-april-28/",
       "portee": "vevewiki",
       "publie": "VRAI"
     },
@@ -699,7 +699,7 @@
       "resume_de": "",
       "entites": "",
       "statut": "officiel",
-      "sources": "blog.veve.me 2025-08-19",
+      "sources": "https://www.veve.me/blog/veve/updates/omi-to-gems/",
       "portee": "vevewiki",
       "publie": "VRAI"
     },
@@ -720,7 +720,7 @@
       "resume_de": "",
       "entites": "",
       "statut": "officiel",
-      "sources": "blog.veve.me 2025-10-28",
+      "sources": "https://www.veve.me/blog/veve/updates/veve-launches-in-app-chat-product-displays-and-new-search/",
       "portee": "vevewiki",
       "publie": "VRAI"
     },
@@ -741,7 +741,7 @@
       "resume_de": "",
       "entites": "",
       "statut": "officiel",
-      "sources": "blog.veve.me 2025-11-14",
+      "sources": "https://www.veve.me/blog/veve/updates/five-years-of-veve/",
       "portee": "vevewiki",
       "publie": "VRAI"
     },
@@ -762,7 +762,7 @@
       "resume_de": "",
       "entites": "",
       "statut": "officiel",
-      "sources": "blog.veve.me 2025-11-19",
+      "sources": "https://www.veve.me/blog/veve/updates/introducing-collect-the-next-era-of-digital-collecting/",
       "portee": "vevewiki",
       "publie": "VRAI"
     },
@@ -783,7 +783,7 @@
       "resume_de": "",
       "entites": "",
       "statut": "officiel",
-      "sources": "blog.veve.me 2026-03-01",
+      "sources": "https://www.veve.me/blog/veve/updates/referral-program/",
       "portee": "vevewiki",
       "publie": "VRAI"
     },
@@ -804,7 +804,7 @@
       "resume_de": "",
       "entites": "",
       "statut": "officiel",
-      "sources": "blog.veve.me 2026-04-01",
+      "sources": "https://www.veve.me/blog/veve/updates/veve-completes-full-migration-on-collect-chain/",
       "portee": "vevewiki",
       "publie": "VRAI"
     },
@@ -825,7 +825,7 @@
       "resume_de": "",
       "entites": "",
       "statut": "officiel",
-      "sources": "blog.veve.me 2026-05-21",
+      "sources": "https://www.veve.me/blog/veve/updates/new-profile-experience/",
       "portee": "vevewiki",
       "publie": "VRAI"
     },
@@ -846,7 +846,7 @@
       "resume_de": "",
       "entites": "",
       "statut": "officiel",
-      "sources": "blog.veve.me 2026-06-04",
+      "sources": "https://www.veve.me/blog/veve/updates/welcome-to-stickerverse/",
       "portee": "vevewiki",
       "publie": "VRAI"
     }
