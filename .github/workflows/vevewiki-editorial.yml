@@ -79,13 +79,24 @@ jobs:
           pip install --quiet pillow
           SITE=vevewiki python3 engine/tools/make_article_cards.py
 
+      # ─────────────────────────────────────────────────────────────────────
+      #  Dates de dernière modification RÉELLE
+      # ─────────────────────────────────────────────────────────────────────
+      #  ⚠️ ICI, et pas ailleurs : après la récolte (le contenu est à jour) et
+      #  AVANT le commit (le fichier doit partir avec les snapshots, puisque
+      #  c'est le build Coolify qui le lira ensuite).
+      #  Sans lui, le sitemap redate ses 82 URL du jour à chaque passage — et un
+      #  lastmod qui bouge partout tous les jours, un moteur apprend à l'ignorer.
+      - name: Dates de dernière modification (lastmod)
+        run: python3 engine/tools/lastmod.py --site vevewiki
+
       - name: Committer le snapshot s'il a changé
         id: commit
         run: |
           set -euo pipefail
           git config user.name  "vevewiki-bot"
           git config user.email "actions@users.noreply.github.com"
-          git add sites/vevewiki/editorial public/og/vevewiki
+          git add sites/vevewiki/editorial public/og/vevewiki engine/data/lastmod.json
           if git diff --cached --quiet; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
             echo "Aucun changement éditorial — rien à committer."
@@ -136,22 +147,43 @@ jobs:
       #     build serait vu comme du spam. Un échec ici n'est PAS bloquant —
       #     un moteur indisponible ne doit pas faire échouer un déploiement
       #     réussi.
-      - name: Prévenir IndexNow (Bing, Yandex)
+      - name: Prévenir IndexNow des URL modifiées
         continue-on-error: true
         run: |
           set -u
+          # ⭐ CE QUI A CHANGÉ LE 27/07, ET POURQUOI.
+          # Avant, on soumettait l'URL du SITEMAP, tous les jours. Deux erreurs
+          # superposées : IndexNow attend des URL DE PAGES (le sitemap n'en est
+          # pas une), et resoumettre de l'inchangé est listé comme une faute par
+          # la documentation, avec un risque de HTTP 429.
+          # Le commentaire d'alors disait « 32 URL une par une = spam ».
+          # L'intuition était juste, la conclusion fausse : le protocole accepte
+          # 10 000 URL dans UNE requête POST. C'est l'usage prévu.
+          # ⚠️ Ce pas ne pouvait pas exister avant que les lastmod soient
+          #    honnêtes : « ce qui a changé » valait « tout », chaque jour.
           cle="a7f3c9e214d84b06b1e5c0f7d29a63b8"
-          # La clé doit être servie AVANT de la revendiquer, sinon le moteur
+          # La clé doit être servie AVANT d'être revendiquée, sinon le moteur
           # rejette la soumission — on le vérifie plutôt que de le supposer.
           code=$(curl -sS -o /dev/null -w '%{http_code}' "https://vevewiki.com/${cle}.txt" || true)
           if [ "$code" != "200" ]; then
             echo "La clé IndexNow n'est pas servie (HTTP $code) — soumission ignorée."
             exit 0
           fi
-          rep=$(curl -sS -o /tmp/indexnow.out -w '%{http_code}' \
-            "https://api.indexnow.org/indexnow?url=https%3A%2F%2Fvevewiki.com%2Fsitemap.xml&key=${cle}" || true)
-          echo "IndexNow : HTTP $rep"
-          cat /tmp/indexnow.out || true; echo
+          python3 engine/tools/indexnow.py --site vevewiki --domaine vevewiki.com --cle "${cle}"
+
+      # L'état IndexNow se commite APRÈS coup : il retient ce qui a été vu en
+      # ligne, donc il ne peut être écrit qu'une fois le site déployé.
+      - name: Committer l'état IndexNow
+        continue-on-error: true
+        run: |
+          set -u
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add engine/data/indexnow_vevewiki.json || true
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(vevewiki): état IndexNow $(date -u +%F)"
+            git pull --rebase --autostash && git push
+          fi
 
       - name: Alerter sur Discord en cas d'échec
         if: failure()
