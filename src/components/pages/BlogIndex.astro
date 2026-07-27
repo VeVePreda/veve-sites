@@ -1,15 +1,18 @@
 ---
 import Base from '../../layouts/Base.astro';
-import { postsFor, tagsFor } from '../../../engine/lib/blog.mjs';
+import { postsFor, tagsFor, blogMeta } from '../../../engine/lib/blog.mjs';
 import { t, localize, dateLocale } from '../../../engine/lib/i18n.mjs';
 const { lang, updatedAt } = Astro.props;
 const posts = await postsFor(lang);
 const tags = await tagsFor(lang);
 const df = dateLocale[lang] || 'en-GB';
+// Le libelle reseau par defaut parle de releves de prix : un wiki n'en publie pas.
+// -> surchargeable par site via manifest.editorial.labels.blog.{title,description}
+const meta = blogMeta(lang, { title: t(lang, 'blog.title'), description: t(lang, 'desc.blogIndex') });
 ---
-<Base lang={lang} path="/blog/" title={t(lang, 'blog.title')} description={t(lang, 'desc.blogIndex')} updatedAt={updatedAt} noindex={posts.length === 0}
-      crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') }, { name: t(lang, 'blog.title') }]}>
-  <h1>{t(lang, 'blog.title')}</h1>
+<Base lang={lang} path="/blog/" title={meta.title} description={meta.description} updatedAt={updatedAt} noindex={posts.length === 0}
+      crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') }, { name: meta.title }]}>
+  <h1>{meta.title}</h1>
   {tags.length > 0 && (
     <p>{tags.map((x) => (<a class="tag" href={localize(lang, `/blog/tag/${x.tag}/`)}>{x.tag} ({x.n})</a>))}</p>
   )}

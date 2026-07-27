@@ -5,6 +5,7 @@ import { jsonld, websiteLd } from '../../engine/lib/seo.mjs';
 import { locales, t, pick, localize, localeNames, dateLocale } from '../../engine/lib/i18n.mjs';
 import { DOCS, legalTitle } from '../../engine/lib/legal.mjs';
 import { activeSections, sectionMeta } from '../../engine/lib/editorial_pages.mjs';
+import { blogEnabled, blogMeta } from '../../engine/lib/blog.mjs';
 
 const m = manifest();
 const p = m.identity.palette || {};
@@ -15,8 +16,14 @@ const { active, def } = locales();
 // Nav PILOTEE PAR LE MANIFESTE : un site avec des pages editoriales (bloc
 // `editorial.pages`) montre SES sections ; sinon on garde la nav « prix »
 // historique. Zero regression : veveprice (sans bloc editorial) ne bouge pas.
+// Le BLOG n'est pas une « section » editoriale (rendu propre, engine/lib/blog.mjs) :
+// on l'ajoute en fin de nav quand le manifeste l'active (`editorial.pages: [... blog]`).
 const wikiNav = (m.editorial && Array.isArray(m.editorial.pages) && m.editorial.pages.length)
-  ? activeSections().map((sx) => sectionMeta(sx, lang))
+  ? activeSections().map((sx) => sectionMeta(sx, lang)).concat(
+      blogEnabled()
+        ? [{ section: 'blog', path: '/blog/',
+             title: blogMeta(lang, { title: t(lang, 'blog.title') }).title }]
+        : [])
   : null;
 const root = siteUrl();
 

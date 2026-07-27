@@ -11,7 +11,9 @@ const { lang, post, updatedAt } = Astro.props;
 const m = manifest();
 const root = siteUrl();
 const df = dateLocale[lang] || 'en-GB';
-const { Content } = await render(post.entry);
+// Deux sources : un .md du depot a une `entry` (pipeline Astro), une ligne de
+// Sheet arrive deja rendue en `html` (engine/lib/markdown.mjs).
+const Content = post.entry ? (await render(post.entry)).Content : null;
 const path = `/blog/${post.slug}/`;
 const alt = await translationPaths(post.data.translationKey);
 
@@ -49,7 +51,7 @@ const tagsAvecPage = new Set((await tagsFor(lang)).map((x) => x.tag));
     {post.data.tags.length > 0 && (
       <p>{post.data.tags.map((tg) => (tagsAvecPage.has(tg) ? <a class="tag" href={localize(lang, `/blog/tag/${tg}/`)}>{tg}</a> : <span class="tag">{tg}</span>))}</p>
     )}
-    <div class="prose"><Content /></div>
+    <div class="prose">{Content ? <Content /> : <Fragment set:html={post.html} />}</div>
   </article>
 
   {cited.length > 0 && (

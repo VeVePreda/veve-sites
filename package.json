@@ -15,7 +15,8 @@
     "test:donnees": "node engine/tools/test_concurrence.mjs",
     "test:quotas": "node engine/tools/test_quotas.mjs",
     "test:acces": "node engine/tools/test_access.mjs",
-    "test": "npm run test:donnees && npm run test:quotas && npm run test:acces && npm run test:slugs && npm run test:nginx"
+    "test:blog": "node engine/tools/test_blog.mjs",
+    "test": "npm run test:donnees && npm run test:quotas && npm run test:acces && npm run test:blog && npm run test:slugs && npm run test:nginx"
   },
   "dependencies": {
     "@astrojs/node": "^11.0.2",

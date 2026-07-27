@@ -35,10 +35,24 @@ features:
 # src/components/pages/Editorial.astro. Un site n'active QUE ce qu'il liste ici.
 editorial:
   sheet_id: "1TJLGK4i6a7-UPQYNdTqLPCAjyqQ5NdSxoA8gju8-DjI"   # Sheet éditorial vevewiki (27/07)
-  pages: [glossary, acronyms, annuaire, history, brands]
-  # blog & submit : à activer plus tard (blog vide dans le Sheet aujourd'hui).
+  pages: [glossary, acronyms, annuaire, history, brands, blog]
+  # BLOG ACTIVÉ le 27/07/2026. Source HYBRIDE (engine/lib/blog.mjs) :
+  #   • onglet `Blog` du Sheet  -> sites/vevewiki/editorial/blog.json (corps en
+  #     Markdown dans la colonne `body`, une LIGNE PAR LANGUE, `Publish` = date
+  #     de sortie : un article daté du futur sort tout seul le jour dit) ;
+  #   • fichiers longs          -> sites/vevewiki/blog/<langue>/<slug>.md.
+  # À (langue, slug) identique, le fichier .md du dépôt l'emporte sur le Sheet.
+  # ⚠️ `allow_empty` : tant que l'onglet Blog n'a aucune ligne, une lecture vide
+  # ne doit PAS faire échouer la récolte quotidienne (règle « vide = échec »
+  # d'editorial_pull.py). À retirer quand le blog sera durablement alimenté.
+  allow_empty: [blog]
   # publish_default: published            # défaut : publié sauf publie=FAUX
-  # labels: { glossary: { title: { en: "Glossary", fr: "Glossaire" } } }  # surcharge facultative
+  labels:
+    blog:
+      title: { en: "Articles", fr: "Articles" }
+      description:
+        en: "Long-form articles on VeVe: history, brands, how the platform works."
+        fr: "Les articles de fond sur VeVe : histoire, marques, fonctionnement de la plateforme."
 
 # --- Vitrine : un wiki publie tout son contenu utile (pas de mur) -----------
 publication:
