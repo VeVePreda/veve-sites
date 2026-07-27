@@ -34,7 +34,7 @@ features:
 # -> sites/vevewiki/editorial/*.json) puis rendues par engine/lib/editorial.mjs +
 # src/components/pages/Editorial.astro. Un site n'active QUE ce qu'il liste ici.
 editorial:
-  sheet_id: "1aj1W18e8C6bRFm8C-voy6vUZz4AwkmMmvNMHPaNQrgs"   # ⚠️ à confirmer
+  sheet_id: "1TJLGK4i6a7-UPQYNdTqLPCAjyqQ5NdSxoA8gju8-DjI"   # Sheet éditorial vevewiki (27/07)
   pages: [glossary, acronyms, annuaire, history, brands]
   # blog & submit : à activer plus tard (blog vide dans le Sheet aujourd'hui).
   # publish_default: published            # défaut : publié sauf publie=FAUX
