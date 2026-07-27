@@ -1,0 +1,58 @@
+{
+ "id": "tirages-catalogue",
+ "type": "barres",
+ "titre": {
+  "en": "How many copies sit behind a mint number",
+  "fr": "Combien d'exemplaires derrière un numéro de mint"
+ },
+ "note": {
+  "en": "18,808 catalogue entries whose supply is known (118 without).",
+  "fr": "18 808 entrées du catalogue dont le tirage est connu (118 sans)."
+ },
+ "legende": {
+  "en": "Seven objects in ten are issued in a run of exactly 1,000 — that thousand is what gives a mint number its scale. Only 278 objects have a total supply under 100.",
+  "fr": "Sept objets sur dix sortent à exactement 1 000 exemplaires : c'est ce millier qui donne son échelle à un numéro de mint. Seuls 278 objets ont un tirage total inférieur à 100."
+ },
+ "source": {
+  "en": "VeVe catalogue (all object types)",
+  "fr": "catalogue VeVe (tous types d’objets)"
+ },
+ "collecte": "2026-07-27",
+ "donnees": [
+  {
+   "label": {
+    "en": "1 – 99",
+    "fr": "1 – 99"
+   },
+   "valeur": 278
+  },
+  {
+   "label": {
+    "en": "100 – 999",
+    "fr": "100 – 999"
+   },
+   "valeur": 983
+  },
+  {
+   "label": {
+    "en": "exactly 1,000",
+    "fr": "exactement 1 000"
+   },
+   "valeur": 13381
+  },
+  {
+   "label": {
+    "en": "1,001 – 10,000",
+    "fr": "1 001 – 10 000"
+   },
+   "valeur": 3443
+  },
+  {
+   "label": {
+    "en": "> 10,000",
+    "fr": "> 10 000"
+   },
+   "valeur": 723
+  }
+ ]
+}

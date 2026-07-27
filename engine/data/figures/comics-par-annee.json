@@ -1,0 +1,43 @@
+{
+ "id": "comics-par-annee",
+ "type": "series",
+ "titre": {
+  "en": "Digital comics published on VeVe, by year",
+  "fr": "Comics numériques publiés sur VeVe, par année"
+ },
+ "note": {
+  "en": "Complete years only. 2026 is still running and is not plotted: 3,292 issues over its first 7 months.",
+  "fr": "Années complètes seulement. 2026, en cours, n’est pas tracée : 3 292 numéros sur ses 7 premiers mois."
+ },
+ "legende": {
+  "en": "2024 alone published 3 times more issues than every year before it put together.",
+  "fr": "2024 a publié à elle seule 3 fois plus de numéros que toutes les années précédentes réunies."
+ },
+ "source": {
+  "en": "VeVe catalogue (comics, release date)",
+  "fr": "catalogue VeVe (comics, date de sortie)"
+ },
+ "collecte": "2026-07-27",
+ "donnees": [
+  {
+   "label": "2021",
+   "valeur": 215
+  },
+  {
+   "label": "2022",
+   "valeur": 616
+  },
+  {
+   "label": "2023",
+   "valeur": 611
+  },
+  {
+   "label": "2024",
+   "valeur": 4327
+  },
+  {
+   "label": "2025",
+   "valeur": 7205
+  }
+ ]
+}
