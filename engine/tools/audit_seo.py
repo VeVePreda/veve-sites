@@ -167,6 +167,20 @@ if figs and sans_cartouche:
     erreurs.append(f"{len(sans_cartouche)} figure(s) sur {len(figs)} sans date de collecte "
                    "dans le SVG — une image partagee doit rester datable")
 
+# Le bouton de telechargement d'une figure ne doit pas dependre d'une recherche
+# de DOM faite au moment ou le script s'execute : servi dans le <head>, il ne
+# trouverait rien. On verifie que la reveleation passe par la classe `.js`.
+pages_fig = [u for u, h in H.items() if 'fig-dl' in h]
+if pages_fig:
+    sans_regle = [u for u in pages_fig if '.js .fig .fig-dl' not in H[u]]
+    if sans_regle:
+        erreurs.append(f"{len(sans_regle)} pages ont un bouton de figure sans la regle "
+                       "`.js .fig .fig-dl` : il resterait invisible")
+    avec_hidden = [u for u in pages_fig if re.search(r'<button[^>]*class="fig-dl"[^>]*hidden', H[u])]
+    if avec_hidden:
+        erreurs.append(f"{len(avec_hidden)} pages masquent le bouton par `hidden` — "
+                       "il faudrait du JS pour le retirer, et ce JS tourne avant le <body>")
+
 # ── 5. noindex vs sitemap ───────────────────────────────────────────────────
 sm_txt = (D / 'sitemap.xml').read_text(encoding='utf-8') if (D / 'sitemap.xml').exists() else ''
 sm = set(re.sub(r'^https?://[^/]+', '', u) for u in re.findall(r'<loc>([^<]+)</loc>', sm_txt))

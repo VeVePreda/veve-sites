@@ -29,10 +29,20 @@
     display: flex; gap: 12px; align-items: baseline; justify-content: space-between;
     margin-top: 8px; font-size: 13px; color: var(--muted);
   }
+  /* ⚠️ Le bouton est masqué PAR DÉFAUT et révélé par une CLASSE sur <html>,
+     pas par du JavaScript qui irait le chercher dans le DOM. Raison : ce script
+     est servi dans le <head> ; une recherche de boutons au moment de son
+     exécution ne trouve RIEN, le <body> n'existe pas encore. Le bouton ne
+     s'affichait donc jamais — et rien n'échouait. Une classe sur
+     documentElement, elle, n'a pas de « moment » : elle marche dans le <head>,
+     et le CSS fait le reste. Sans JavaScript, le bouton reste masqué : on ne
+     montre pas une commande qui ne ferait rien. */
   .fig .fig-dl {
+    display: none;
     flex: none; background: none; border: 1px solid var(--surface); color: var(--muted);
     border-radius: 999px; padding: 4px 12px; font: inherit; font-size: 12px; cursor: pointer;
   }
+  .js .fig .fig-dl { display: inline-block; }
   .fig .fig-dl:hover { border-color: var(--primary); color: var(--primary); }
   .fig .fig-dl[aria-busy="true"] { opacity: .6; cursor: progress; }
   @media print { .fig .fig-dl { display: none; } }
@@ -40,10 +50,9 @@
 
 <script is:inline>
   (function () {
-    var boutons = document.querySelectorAll('.fig .fig-dl');
-    if (!boutons.length) return;
-    // Le bouton n'apparaît QUE si ce script tourne : pas de bouton mort.
-    for (var i = 0; i < boutons.length; i++) boutons[i].hidden = false;
+    // Une classe sur <html> : le seul élément qui existe déjà quand un script du
+    // <head> s'exécute. C'est elle qui révèle les boutons, via le CSS.
+    document.documentElement.classList.add('js');
 
     function telecharger(bouton) {
       var bloc = bouton.closest('.fig');
@@ -76,6 +85,8 @@
       img.src = url;
     }
 
+    // Écouteur DÉLÉGUÉ sur `document`, attaché tout de suite : il n'a pas besoin
+    // que les boutons existent, seulement que le clic remonte jusqu'ici.
     document.addEventListener('click', function (e) {
       var b = e.target && e.target.closest && e.target.closest('.fig .fig-dl');
       if (b) { e.preventDefault(); telecharger(b); }

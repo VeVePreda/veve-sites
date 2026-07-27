@@ -64,7 +64,12 @@ dit(!mechant.includes('<script>'), 'un libellé contenant du HTML est échappé'
 console.log('\n6. Le téléchargement — un nom de fichier qui se comprend seul');
 const html = figureHTML(BASE, CTX);
 dit(html.includes('data-fig-nom="vevewiki.com-demo-2026-07-27"'), 'domaine + identifiant + date de collecte');
-dit(html.includes('<button') && html.includes('hidden'), 'le bouton est masqué tant que le script n\'a pas pris la main');
+// ⚠️ Le bouton NE DOIT PAS porter `hidden` : il faudrait alors du JavaScript
+// pour le retirer, et ce script est servi dans le <head> — il s'exécute avant
+// que le <body> n'existe, ne trouve aucun bouton, et sort. Le bouton
+// n'apparaissait jamais. C'est le CSS (`.js .fig .fig-dl`) qui décide.
+dit(html.includes('<button') && !/<button[^>]*hidden/.test(html),
+  'le bouton ne dépend PAS d\'un JavaScript qui irait le chercher dans le DOM');
 dit(html.includes('<figure') && html.includes('<figcaption'), 'structure sémantique figure/figcaption');
 
 console.log('\n7. Markdown — une figure seule est un BLOC, jamais dans un <p>');

@@ -197,7 +197,12 @@ export function figureHTML(fig, ctx) {
   return `<figure class="fig" data-fig="${esc(fig.id || '')}" data-fig-nom="${esc(nom)}">`
     + `<div class="fig-svg">${svg}</div>`
     + `<figcaption>${legende ? `<span>${esc(legende)}</span>` : '<span></span>'}`
-    + `<button type="button" class="fig-dl" hidden>${esc(dire(MOT.telecharger, lang))}</button>`
+    // ⚠️ PAS d'attribut `hidden` ici. Il fallait alors du JavaScript pour le
+    // retirer — et ce JavaScript, servi dans le <head>, s'exécutait AVANT que
+    // le <body> n'existe : il ne trouvait aucun bouton et sortait. Résultat, le
+    // bouton n'apparaissait JAMAIS, sans la moindre erreur. C'est le CSS qui
+    // décide maintenant (`.js .fig .fig-dl`), et il n'a pas de « moment ».
+    + `<button type="button" class="fig-dl">${esc(dire(MOT.telecharger, lang))}</button>`
     + `</figcaption></figure>`;
 }
 
