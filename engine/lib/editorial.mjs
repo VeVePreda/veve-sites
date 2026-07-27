@@ -212,6 +212,31 @@ export function resolveLang(rec, lang, missing) {
 }
 
 // -----------------------------------------------------------------------------
+// SOURCES — « toute information porte un lien vers sa source » (règle Preda,
+// 27/07/2026). La colonne `sources` d'une fiche contient des entrées séparées
+// par `;` ou par un saut de ligne. Chaque entrée est soit une URL, soit un
+// libellé (« Infos VeVe.docx »), soit « libellé <url> ». On rend les URL en
+// liens et on garde les libellés en texte : une source non cliquable reste une
+// source, et un wiki doit dire d'où il tient ce qu'il affirme.
+// -----------------------------------------------------------------------------
+export function parseSources(raw) {
+  return String(raw ?? '')
+    .split(/[;\n]+/)
+    .map((x) => x.trim())
+    .filter(Boolean)
+    .map((entree) => {
+      const m = /^(.*?)[\s<]*((?:https?:\/\/)[^\s>]+)>?$/.exec(entree);
+      if (m) {
+        const url = m[2];
+        const label = (m[1] || '').trim().replace(/[–—-]$/, '').trim()
+          || url.replace(/^https?:\/\//, '').replace(/\/$/, '');
+        return { label, href: url };
+      }
+      return { label: entree, href: null };
+    });
+}
+
+// -----------------------------------------------------------------------------
 // Compteurs Brands — depuis l'ENTREPÔT (jamais le Sheet)
 // -----------------------------------------------------------------------------
 let _agg = null;

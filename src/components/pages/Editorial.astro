@@ -12,7 +12,7 @@
 //  réutilisable ici : le composant ne fait que METTRE EN FORME.
 // =============================================================================
 import Base from '../../layouts/Base.astro';
-import { collection } from '../../../engine/lib/editorial.mjs';
+import { collection, parseSources } from '../../../engine/lib/editorial.mjs';
 import { sectionMeta } from '../../../engine/lib/editorial_pages.mjs';
 import { t, localize } from '../../../engine/lib/i18n.mjs';
 
@@ -116,6 +116,16 @@ const crumbs = [
           <div class="what">
             <h3>{r.titre}{r.statut && <span class={`badge s-${r.statut}`}>{r.statut}</span>}</h3>
             {r.resume && <p>{r.resume}</p>}
+            {parseSources(r.sources).length > 0 && (
+              <p class="sources muted">
+                {t(lang, 'sources.label')}
+                {parseSources(r.sources).map((s, i) => (
+                  <>{i > 0 && ' · '}{s.href
+                    ? <a href={s.href} rel="nofollow noopener" target="_blank">{s.label}</a>
+                    : <span>{s.label}</span>}</>
+                ))}
+              </p>
+            )}
           </div>
         </li>
       ))}

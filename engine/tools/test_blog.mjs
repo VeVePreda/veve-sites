@@ -354,6 +354,34 @@ console.log('\n9. History : la chronologie ne se melange pas');
     JSON.stringify(o.ordre) === JSON.stringify(['a', 'c', 'b', 'd', 'e']), JSON.stringify(o.ordre));
 }
 
+// ---------------------------------------------------------------------------
+console.log('\n10. Sources : « toute information porte un lien vers sa source »');
+// ---------------------------------------------------------------------------
+{
+  const root = racine('sources', { pages: ['history'], lignes: [] });
+  const r = dans(root, `
+    const { parseSources } = await import(${JSON.stringify(join(RACINE, "engine", "lib", "editorial.mjs"))});
+    console.log(JSON.stringify({
+      url:    parseSources('https://www.veve.me/blog/veve/updates/omi-to-gems/'),
+      duo:    parseSources('blog VeVe https://a.test/x ; Infos VeVe.docx'),
+      libelle:parseSources('Infos VeVe.docx'),
+      vide:   parseSources(''),
+      lignes: parseSources('https://a.test/1\\nhttps://a.test/2').length,
+    }));
+  `);
+  const o = r.code === 0 ? JSON.parse(r.out.split('\n').pop()) : {};
+  verifier('une URL seule devient un lien',
+    o.url && o.url[0].href === 'https://www.veve.me/blog/veve/updates/omi-to-gems/', JSON.stringify(o.url) + (r.err || ''));
+  verifier('« libelle url » garde son libelle',
+    o.duo && o.duo[0].label === 'blog VeVe' && o.duo[0].href === 'https://a.test/x', JSON.stringify(o.duo));
+  verifier('une source non cliquable reste une source',
+    o.duo && o.duo[1].href === null && o.duo[1].label === 'Infos VeVe.docx', JSON.stringify(o.duo));
+  verifier('un libelle seul n a pas de lien',
+    o.libelle && o.libelle.length === 1 && o.libelle[0].href === null, JSON.stringify(o.libelle));
+  verifier('aucune source -> liste vide', Array.isArray(o.vide) && o.vide.length === 0, JSON.stringify(o.vide));
+  verifier('separateur saut de ligne accepte', o.lignes === 2, String(o.lignes));
+}
+
 rmSync(base, { recursive: true, force: true });
 console.log(echecs === 0 ? '\n✅ blog hybride : tout est vert\n'
                          : `\n❌ blog hybride : ${echecs} échec(s)\n`);
