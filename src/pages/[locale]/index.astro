@@ -1,10 +1,16 @@
 ---
+// ⚠️ VeVePreda/veve-sites — src/pages/[locale]/index.astro
 import Home from '../../components/pages/Home.astro';
+import EditorialHome from '../../components/pages/EditorialHome.astro';
 import { locales } from '../../../engine/lib/i18n.mjs';
+import { manifest } from '../../../engine/lib/manifest.mjs';
 export function getStaticPaths() {
   const { active, def } = locales();
   return active.filter((l) => l !== def).map((l) => ({ params: { locale: l } }));
 }
 const lang = Astro.params.locale;
+const m = manifest();
+const wiki = (m.content?.home === 'editorial')
+  || (!!(m.editorial?.pages?.length) && !((m.content?.data_modules || []).length));
 ---
-<Home lang={lang} />
+{wiki ? <EditorialHome lang={lang} /> : <Home lang={lang} />}

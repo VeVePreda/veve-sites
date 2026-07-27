@@ -4,6 +4,7 @@ import { manifest, siteUrl } from '../../engine/lib/manifest.mjs';
 import { jsonld, websiteLd } from '../../engine/lib/seo.mjs';
 import { locales, t, pick, localize, localeNames, dateLocale } from '../../engine/lib/i18n.mjs';
 import { DOCS, legalTitle } from '../../engine/lib/legal.mjs';
+import { activeSections, sectionMeta } from '../../engine/lib/editorial_pages.mjs';
 
 const m = manifest();
 const p = m.identity.palette || {};
@@ -11,6 +12,12 @@ const f = m.identity.fonts || {};
 const links = m.links || {};
 const { lang, path = '/', altPaths = null, title, description, crumbs = [], ld = [], updatedAt = null, noindex = false } = Astro.props;
 const { active, def } = locales();
+// Nav PILOTEE PAR LE MANIFESTE : un site avec des pages editoriales (bloc
+// `editorial.pages`) montre SES sections ; sinon on garde la nav « prix »
+// historique. Zero regression : veveprice (sans bloc editorial) ne bouge pas.
+const wikiNav = (m.editorial && Array.isArray(m.editorial.pages) && m.editorial.pages.length)
+  ? activeSections().map((sx) => sectionMeta(sx, lang))
+  : null;
 const root = siteUrl();
 
 const fullTitle = title ? (m.seo.title_template || '%s').replace('%s', title) : `${m.site.brand} — ${t(lang, 'title.home')}`;
@@ -74,10 +81,14 @@ const suggestData = alternates.filter((a) => a.lang !== lang).map((a) => ({ l: a
 <header class="site"><div class="wrap">
   <a class="brand" href={localize(lang, '/')}>{m.site.brand}</a>
   <nav class="main">
-    <a href={localize(lang, '/blog/')}>{t(lang, 'nav.blog')}</a>
-    <a href={localize(lang, '/movers/')}>{t(lang, 'nav.movers')}</a>
-    <a href={localize(lang, '/collections/')}>{t(lang, 'nav.collections')}</a>
-    <a href={localize(lang, '/rarity/')}>{t(lang, 'nav.rarities')}</a>
+    {wikiNav
+      ? wikiNav.map((sx) => (<a href={localize(lang, sx.path)}>{sx.title}</a>))
+      : (<>
+          <a href={localize(lang, '/blog/')}>{t(lang, 'nav.blog')}</a>
+          <a href={localize(lang, '/movers/')}>{t(lang, 'nav.movers')}</a>
+          <a href={localize(lang, '/collections/')}>{t(lang, 'nav.collections')}</a>
+          <a href={localize(lang, '/rarity/')}>{t(lang, 'nav.rarities')}</a>
+        </>)}
     <span class="langbar">
       {alternates.map((a) => (
         <a href={a.href} hreflang={a.lang} aria-current={a.lang === lang ? 'true' : undefined}>{a.lang.toUpperCase()}</a>

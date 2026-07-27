@@ -1,0 +1,62 @@
+---
+// ⚠️ VeVePreda/veve-sites — src/components/pages/EditorialHome.astro
+// Accueil d'un site EDITORIAL (wiki) : cartes vers les sections actives (avec
+// leur nombre d'entrees) + derniers jalons. Aucune donnee de prix, aucun
+// warehouse. Active par le manifeste (content.home: editorial) — voir index.astro.
+import Base from '../../layouts/Base.astro';
+import { manifest } from '../../../engine/lib/manifest.mjs';
+import { pick, localize } from '../../../engine/lib/i18n.mjs';
+import { activeSections, sectionMeta } from '../../../engine/lib/editorial_pages.mjs';
+import { collection } from '../../../engine/lib/editorial.mjs';
+
+const { lang } = Astro.props;
+const m = manifest();
+
+const cards = [];
+for (const s of activeSections()) {
+  const meta = sectionMeta(s, lang);
+  let n = 0;
+  try { n = (await collection(s, lang)).items.length; } catch (e) { n = 0; }
+  cards.push({ ...meta, n });
+}
+
+let milestones = [];
+if (activeSections().includes('history')) {
+  try {
+    milestones = (await collection('history', lang)).items
+      .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))
+      .slice(0, 6);
+  } catch (e) { milestones = []; }
+}
+---
+<Base lang={lang} path="/" title={null}>
+  <h1>{pick(m.site.tagline, lang)}</h1>
+  <p class="lead">{pick(m.site.description, lang)}</p>
+
+  <div class="grid">
+    {cards.map((c) => (
+      <a class="item" href={localize(lang, c.path)}>
+        <div class="n">{c.title}</div>
+        <div class="s">{c.description}</div>
+        <div class="f">{c.n}</div>
+      </a>
+    ))}
+  </div>
+
+  {milestones.length > 0 && (
+    <section class="latest-wrap">
+      <h2>{sectionMeta('history', lang).title}</h2>
+      <ul class="latest">
+        {milestones.map((mst) => (
+          <li><span class="muted">{mst.date}</span> <a href={localize(lang, '/history/')}>{mst.titre}</a></li>
+        ))}
+      </ul>
+    </section>
+  )}
+</Base>
+
+<style>
+  .latest-wrap { margin-top: 32px; }
+  .latest { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+  .latest .muted { font-variant-numeric: tabular-nums; margin-right: 10px; }
+</style>
