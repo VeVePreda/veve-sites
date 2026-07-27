@@ -106,13 +106,19 @@ identity:
 
 analytics:
   provider: umami
-  # 🔴 À REMPLIR PAR PREDA — sans cet identifiant, AUCUNE mesure d'audience :
-  # on ne sait ni combien de visiteurs viennent, ni sur quelles pages, ni d'où.
-  # Où le trouver : Umami (app Coolify `umami`) → Settings → Websites →
-  # ajouter/ouvrir « vevewiki.com » → copier le « Website ID » (un UUID).
-  # Le script est servi par le domaine du site (/stats/script.js, proxy nginx) :
-  # rien d'autre à configurer, et aucun bloqueur ne le voit passer.
-  website_id: ""            # inactif tant que vide (script servi par le domaine du site)
+  # ✅ Actif depuis le 27/07/2026 — site créé dans Umami par Preda.
+  #
+  # ⚠️ SEUL L'IDENTIFIANT EST REPRIS, PAS LA BALISE QUE DONNE UMAMI.
+  # Umami propose `<script src="https://stats.veveprice.com/script.js" …>`.
+  # On ne l'utilise PAS : le script est servi par le domaine du SITE, via le
+  # proxy `location ^~ /stats/` de nginx.conf (il relaie script.js ET les envois
+  # /api/send vers stats.veveprice.com). Deux raisons, toutes deux payées :
+  #   • un domaine de statistiques tiers est bloqué par la moitié des
+  #     navigateurs — on mesurerait la moitié du trafic en croyant tout voir ;
+  #   • un seul domaine à déclarer côté vie privée.
+  # ⚠️ L'identifiant est PROPRE À CHAQUE SITE : celui de veveprice
+  #   (f5e7b44c-…) mesurerait vevewiki dans le tableau de bord de veveprice.
+  website_id: "542b16f0-5520-4120-aaf7-e6121da5c915"   # vevewiki.com
 
 seo:
   title_template: "%s | VeVe Wiki"
