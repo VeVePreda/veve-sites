@@ -1,0 +1,15 @@
+---
+// ⚠️ VeVePreda/veve-sites — src/pages/[locale]/[section].astro
+// Route générique des pages éditoriales (langues secondaires). getStaticPaths =
+// sections actives × locales ≠ défaut. Chaque langue a sa propre adresse
+// (/fr/glossary/…), reliée par hreflang dans Base ; aucune redirection auto.
+import Editorial from '../../components/pages/Editorial.astro';
+import { sectionParamsLocalized } from '../../../engine/lib/editorial_pages.mjs';
+
+export function getStaticPaths() {
+  return sectionParamsLocalized();
+}
+
+const { locale, section } = Astro.params;
+---
+<Editorial lang={locale} section={section} />

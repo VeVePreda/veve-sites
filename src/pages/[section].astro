@@ -1,0 +1,17 @@
+---
+// ⚠️ VeVePreda/veve-sites — src/pages/[section].astro
+// Route générique des pages éditoriales (langue par défaut). getStaticPaths
+// n'émet QUE les sections activées dans manifest.editorial.pages : un site qui
+// n'active rien ne génère aucune de ces adresses.
+import Editorial from '../components/pages/Editorial.astro';
+import { locales } from '../../engine/lib/i18n.mjs';
+import { sectionParamsDefault } from '../../engine/lib/editorial_pages.mjs';
+
+export function getStaticPaths() {
+  return sectionParamsDefault();
+}
+
+const lang = locales().def;
+const { section } = Astro.params;
+---
+<Editorial lang={lang} section={section} />

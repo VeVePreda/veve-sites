@@ -1,0 +1,93 @@
+# =============================================================================
+#  Manifeste du site  VEVEWIKI  — l'encyclopédie VeVe indépendante.
+#  ⚠️ VeVePreda/veve-sites — sites/vevewiki/manifest.yml
+#
+#  1er site à utiliser le CONSTRUCTEUR ÉDITORIAL générique (bloc `editorial:`).
+#  100 % GRATUIT : `access.tiers: [visitor]`, aucune porte -> aucune troncature.
+#  ⚠️ À CONFIRMER par Preda : `domain` (supposé vevewiki.com) et le `sheet_id`
+#  (repris de bible/architecture-generateur-sites.md).
+# =============================================================================
+site:
+  domain: vevewiki.com
+  brand: "VeVe Wiki"
+  tagline:
+    en: "The independent VeVe reference wiki — collectibles, comics & community knowledge."
+    fr: "Le wiki de référence indépendant de VeVe — collectibles, comics & savoir communautaire."
+  description:
+    en: "The independent VeVe encyclopedia: glossary, acronyms, brands, creators and the full timeline of VeVe history."
+    fr: "L'encyclopédie VeVe indépendante : glossaire, acronymes, marques, créateurs et toute la chronologie de VeVe."
+
+# --- Langues : EN pivot, FR en sous-dossier /fr/ (ES/DE extensibles plus tard) -
+languages:
+  default: en
+  active: [en, fr]
+
+rendering: static           # un wiki = tout pré-généré, aucun serveur
+
+features:
+  search: internal
+  comments: false
+  database: false
+
+# --- CONSTRUCTEUR ÉDITORIAL (le cœur de vevewiki) ---------------------------
+# Ces pages sont générées depuis le Sheet éditorial (récolté par editorial_pull.py
+# -> sites/vevewiki/editorial/*.json) puis rendues par engine/lib/editorial.mjs +
+# src/components/pages/Editorial.astro. Un site n'active QUE ce qu'il liste ici.
+editorial:
+  sheet_id: "1aj1W18e8C6bRFm8C-voy6vUZz4AwkmMmvNMHPaNQrgs"   # ⚠️ à confirmer
+  pages: [glossary, acronyms, annuaire, history, brands]
+  # blog & submit : à activer plus tard (blog vide dans le Sheet aujourd'hui).
+  # publish_default: published            # défaut : publié sauf publie=FAUX
+  # labels: { glossary: { title: { en: "Glossary", fr: "Glossaire" } } }  # surcharge facultative
+
+# --- Vitrine : un wiki publie tout son contenu utile (pas de mur) -----------
+publication:
+  comic_leaf: rarity
+  min_price_points: 8
+  quotas:
+    collectible: 800
+    comic: 400
+  quota_spillover: true
+  max_new_per_series: 12
+
+# --- Accès : 100 % GRATUIT. tiers=[visitor] + aucune porte => rien n'est tronqué.
+access:
+  tiers: [visitor]
+
+offer:
+  url: ""
+
+legal_info:
+  contact: "contact@vevewiki.com"     # <-- à activer (Cloudflare Email Routing, gratuit)
+  host: "Hostinger International Ltd, 61 Lordou Vironos Street, 6023 Larnaca, Chypre"
+  updated: "2026-07-27"
+
+links:
+  team: []
+  affiliate: []
+
+# --- Identité visuelle : ARGENT / OR (couleurs du logo), sur fond sombre -----
+identity:
+  theme: aurora
+  palette:
+    primary: "#d4af37"     # or
+    accent:  "#c0c5ce"     # argent
+    danger:  "#e0555b"
+    bg:      "#0c0d10"     # anthracite
+    surface: "#16181d"
+    text:    "#e7e9ee"     # argent clair
+    muted:   "#9aa0ab"
+  fonts:
+    heading: "Georgia, 'Times New Roman', serif"     # ton encyclopédique
+    body: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif"
+
+analytics:
+  provider: umami
+  website_id: ""            # inactif tant que vide (script servi par le domaine du site)
+
+seo:
+  title_template: "%s | VeVe Wiki"
+  indexnow_key: "a7f3c9e214d84b06b1e5c0f7d29a63b8"   # clé IndexNow (valeur arbitraire)
+
+content:
+  data_modules: []          # vevewiki ne publie pas de pages de prix : éditorial seul

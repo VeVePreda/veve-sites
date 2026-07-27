@@ -1,0 +1,164 @@
+---
+// =============================================================================
+//  Editorial.astro — LE rendu générique des pages éditoriales (tous sites)
+//
+//  ⚠️ CE FICHIER VA DANS LE DÉPÔT  VeVePreda/veve-sites , dans
+//     src/components/pages/  (chemin exact : src/components/pages/Editorial.astro)
+//
+//  Étape 3 du constructeur générique. UN composant pour glossary / acronyms /
+//  annuaire / history / brands. Les données arrivent déjà filtrées (publie),
+//  gatées (publication programmée) et résolues en langue par engine/lib/
+//  editorial.mjs ; les compteurs Brands viennent de l'entrepôt. Aucune logique
+//  réutilisable ici : le composant ne fait que METTRE EN FORME.
+// =============================================================================
+import Base from '../../layouts/Base.astro';
+import { collection } from '../../../engine/lib/editorial.mjs';
+import { sectionMeta } from '../../../engine/lib/editorial_pages.mjs';
+import { t, localize } from '../../../engine/lib/i18n.mjs';
+
+const { lang, section } = Astro.props;
+const meta = sectionMeta(section, lang);
+const { items } = await collection(section, lang);
+
+// --- Tris propres à chaque section -----------------------------------------
+const byText = (k) => (a, b) => String(a[k] || '').localeCompare(String(b[k] || ''));
+if (section === 'glossary') items.sort(byText('terme'));
+if (section === 'acronyms') items.sort(byText('sigle'));
+if (section === 'history')  items.sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')));
+if (section === 'brands')   items.sort((a, b) => (Number(b.nb_items) || 0) - (Number(a.nb_items) || 0));
+
+// --- Annuaire : regroupé par type, liens sociaux normalisés ----------------
+const SOCIAL = {
+  twitter: (v) => (/^https?:/.test(v) ? v : `https://twitter.com/${v.replace(/^@/, '')}`),
+  instagram: (v) => (/^https?:/.test(v) ? v : `https://instagram.com/${v.replace(/^@/, '')}`),
+  youtube: (v) => (/^https?:/.test(v) ? v : `https://youtube.com/${v.replace(/^@/, '')}`),
+  tiktok: (v) => (/^https?:/.test(v) ? v : `https://tiktok.com/@${v.replace(/^@/, '')}`),
+  facebook: (v) => (/^https?:/.test(v) ? v : `https://facebook.com/${v.replace(/^@/, '')}`),
+  reddit: (v) => (/^https?:/.test(v) ? v : `https://reddit.com/${v.replace(/^@/, '')}`),
+  discord: (v) => (/^https?:/.test(v) ? v : ''),
+  site: (v) => (/^https?:/.test(v) ? v : `https://${v}`),
+};
+const socialLinks = (rec) => Object.keys(SOCIAL)
+  .map((k) => ({ k, v: String(rec[k] || '').trim() }))
+  .filter((x) => x.v)
+  .map((x) => ({ k: x.k, href: SOCIAL[x.k](x.v) }))
+  .filter((x) => x.href);
+
+const annuaireGroups = section === 'annuaire'
+  ? [...items.reduce((m, r) => {
+      const type = String(r.type || 'autre').trim() || 'autre';
+      (m.get(type) || m.set(type, []).get(type)).push(r);
+      return m;
+    }, new Map())]
+  : [];
+
+const crumbs = [
+  { name: t(lang, 'home.crumb'), url: localize(lang, '/') },
+  { name: meta.title },
+];
+---
+<Base lang={lang} path={meta.path} title={meta.title} description={meta.description}
+      crumbs={crumbs}>
+  <h1>{meta.title}</h1>
+  <p class="lead">{meta.description}</p>
+
+  {section === 'glossary' && (
+    <dl class="glossary">
+      {items.map((r) => (
+        <div class="term" id={r.id || undefined}>
+          <dt>{r.terme}{r.categorie && <span class="tag">{r.categorie}</span>}</dt>
+          <dd>{r.definition || r.description}</dd>
+        </div>
+      ))}
+    </dl>
+  )}
+
+  {section === 'acronyms' && (
+    <dl class="glossary">
+      {items.map((r) => (
+        <div class="term" id={r.sigle || undefined}>
+          <dt>{r.sigle}{r.signification && <span class="muted"> — {r.signification}</span>}
+            {r.categorie && <span class="tag">{r.categorie}</span>}</dt>
+          {r.definition && <dd>{r.definition}</dd>}
+        </div>
+      ))}
+    </dl>
+  )}
+
+  {section === 'annuaire' && annuaireGroups.map(([type, list]) => (
+    <section class="annuaire-group">
+      <h2>{type}</h2>
+      <div class="grid">
+        {list.map((r) => (
+          <div class="item">
+            <div class="n">{r.nom}</div>
+            {r.role_specialite && <div class="s">{r.role_specialite}</div>}
+            {(r.org || r.pays) && <div class="muted">{[r.org, r.pays].filter(Boolean).join(' · ')}</div>}
+            {r.notes && <p class="notes">{r.notes}</p>}
+            {socialLinks(r).length > 0 && (
+              <div class="socials">
+                {socialLinks(r).map((s) => (
+                  <a href={s.href} rel="nofollow noopener" target="_blank">{s.k}</a>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </section>
+  ))}
+
+  {section === 'history' && (
+    <ol class="timeline">
+      {items.map((r) => (
+        <li class="milestone">
+          <div class="when">{r.date}{r.precision && r.precision !== 'jour' && <span class="muted"> ({r.precision})</span>}</div>
+          <div class="what">
+            <h3>{r.titre}{r.statut && <span class={`badge s-${r.statut}`}>{r.statut}</span>}</h3>
+            {r.resume && <p>{r.resume}</p>}
+          </div>
+        </li>
+      ))}
+    </ol>
+  )}
+
+  {section === 'brands' && (
+    <div class="grid">
+      {items.map((r) => (
+        <div class="item">
+          <div class="n">{r.nom_affiche || r.licence}</div>
+          {r.note_editoriale && <div class="s">{r.note_editoriale}</div>}
+          <div class="counters">
+            <span title="items"><b>{r.nb_items || '—'}</b> {t(lang, 'collections.items')}</span>
+            <span title="series"><b>{r.nb_series || '—'}</b> series</span>
+            {r.premier_drop && <span class="muted">{r.premier_drop}</span>}
+          </div>
+        </div>
+      ))}
+    </div>
+  )}
+</Base>
+
+<style>
+  .glossary { display: grid; gap: 14px; }
+  .glossary .term { border-bottom: 1px solid var(--surface); padding-bottom: 10px; }
+  .glossary dt { font-weight: 700; }
+  .glossary dd { margin: 4px 0 0; color: var(--muted); }
+  .tag { margin-left: 8px; font-size: 12px; padding: 1px 8px; border-radius: 999px;
+         background: var(--surface); color: var(--muted); }
+  .annuaire-group { margin-top: 24px; }
+  .annuaire-group h2 { text-transform: capitalize; }
+  .notes { margin: 6px 0 0; font-size: 14px; }
+  .socials { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 8px; }
+  .socials a { font-size: 13px; text-transform: capitalize; }
+  .timeline { list-style: none; padding: 0; margin: 0; border-left: 2px solid var(--surface); }
+  .milestone { display: grid; grid-template-columns: 120px 1fr; gap: 14px; padding: 0 0 20px 16px; position: relative; }
+  .milestone .when { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .milestone h3 { margin: 0 0 4px; font-size: 17px; }
+  .milestone p { margin: 0; color: var(--muted); }
+  .badge { margin-left: 8px; font-size: 11px; padding: 1px 8px; border-radius: 999px; background: var(--surface); }
+  .badge.s-officiel { color: var(--accent); }
+  .counters { margin-top: 8px; display: flex; gap: 14px; align-items: baseline; font-size: 14px; }
+  .counters b { font-size: 18px; }
+  @media (max-width: 560px) { .milestone { grid-template-columns: 1fr; } }
+</style>
