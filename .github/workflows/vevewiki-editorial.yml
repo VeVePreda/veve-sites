@@ -1,0 +1,118 @@
+# =============================================================================
+#  ⚠️ VeVePreda/veve-sites — .github/workflows/vevewiki-editorial.yml
+#
+#  Étape 5 du constructeur générique (bible/architecture-generateur-sites.md) :
+#  RÉCOLTER le Sheet éditorial -> committer le snapshot -> DÉCLENCHER le
+#  déploiement Coolify (qui rebâtit SITE=vevewiki). « snapshot -> git ».
+#
+#  ⏱️ PLANIFIÉ ET DÉCALÉ : tourne à 09:37 UTC, volontairement à l'écart des crons
+#  daily / réparation / moisson (⚠️ QUOTA SHEETS PARTAGÉ — ne jamais chevaucher).
+#
+#  SECRETS À CRÉER (Settings ▸ Secrets ▸ Actions du dépôt veve-sites) :
+#    GOOGLE_SERVICE_ACCOUNT_JSON   le service-account gspread (le MÊME que scrapeur-veve)
+#    SCRAPEUR_VEVE_PAT             PAT (lecture) pour cloner VeVePreda/scrapeur-veve
+#    COOLIFY_DEPLOY_URL_VEVEWIKI   URL de déploiement Coolify de l'app vevewiki
+#    COOLIFY_TOKEN                 jeton Coolify (déjà utilisé par rebuild-daily)
+#    DISCORD_WEBHOOK               webhook d'alerte (déjà utilisé par rebuild-daily)
+# =============================================================================
+name: Vevewiki — récolte éditoriale + déploiement
+
+on:
+  schedule:
+    - cron: '37 9 * * *'      # 09:37 UTC — décalé des daily/réparation/moisson
+  workflow_dispatch:
+
+# Le job committe les snapshots récoltés : il faut le droit d'écrire le dépôt.
+permissions:
+  contents: write
+
+concurrency:
+  group: vevewiki-editorial
+  cancel-in-progress: false   # une récolte ne se coupe jamais en cours (quota Sheets)
+
+jobs:
+  recolte-et-deploie:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout veve-sites
+        uses: actions/checkout@v4
+
+      - name: Checkout scrapeur-veve (le récolteur)
+        uses: actions/checkout@v4
+        with:
+          repository: VeVePreda/scrapeur-veve
+          token: ${{ secrets.SCRAPEUR_VEVE_PAT }}
+          path: _scrapeur
+
+      - name: Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Dépendances (gspread, google-auth, pyyaml…)
+        run: pip install -r _scrapeur/requirements.txt
+
+      - name: Récolte -> snapshot sites/vevewiki/editorial/*.json
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          set -euo pipefail
+          # cd dans _scrapeur pour que le paquet `scraper` soit importable ;
+          # --root pointe le dépôt veve-sites (manifeste + sortie des snapshots).
+          cd _scrapeur
+          python -m scraper.editorial_pull --site vevewiki --root "${GITHUB_WORKSPACE}"
+
+      - name: Committer le snapshot s'il a changé
+        id: commit
+        run: |
+          set -euo pipefail
+          git config user.name  "vevewiki-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add sites/vevewiki/editorial
+          if git diff --cached --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Aucun changement éditorial — rien à committer."
+          else
+            git commit -m "chore(vevewiki): snapshot éditorial $(date -u +%F)"
+            git push
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Déclencher le déploiement Coolify (vevewiki)
+        run: |
+          set -u
+          code=$(curl -sS -o /tmp/deploy.out -w '%{http_code}' \
+            -H "Authorization: Bearer ${COOLIFY_TOKEN}" \
+            "${COOLIFY_DEPLOY_URL}")
+          echo "Réponse HTTP : $code"
+          cat /tmp/deploy.out || true; echo
+          if [ "$code" != "200" ] && [ "$code" != "201" ]; then
+            echo "Le déclenchement du déploiement a échoué."; exit 1
+          fi
+        env:
+          COOLIFY_DEPLOY_URL: ${{ secrets.COOLIFY_DEPLOY_URL_VEVEWIKI }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+
+      - name: Vérifier que le site répond
+        run: |
+          set -u
+          ok=0
+          for i in $(seq 1 20); do
+            sleep 45
+            code=$(curl -sS -o /dev/null -w '%{http_code}' "https://vevewiki.com/glossary/?cb=$(date +%s)" || true)
+            echo "Tentative $i : HTTP $code"
+            if [ "$code" = "200" ]; then ok=1; break; fi
+          done
+          if [ "$ok" != "1" ]; then
+            echo "vevewiki ne répond pas (200) après ~15 min."; exit 1
+          fi
+
+      - name: Alerter sur Discord en cas d'échec
+        if: failure()
+        run: |
+          set -u
+          run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          payload=$(printf '{"content":"🔴 **VeVeWiki** : la récolte éditoriale ou le déploiement a échoué.\\n%s"}' "$run_url")
+          curl -sS -X POST -H 'Content-Type: application/json' -d "$payload" "${DISCORD_WEBHOOK}" || true
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
