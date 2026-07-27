@@ -15,6 +15,7 @@ import Base from '../../layouts/Base.astro';
 import { collection, parseSources } from '../../../engine/lib/editorial.mjs';
 import { sectionMeta } from '../../../engine/lib/editorial_pages.mjs';
 import { t, localize } from '../../../engine/lib/i18n.mjs';
+import { fichesDe, cheminFiche } from '../../../engine/lib/editorial_entries.mjs';
 
 const { lang, section } = Astro.props;
 
@@ -25,6 +26,16 @@ const slug = (v) => String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g,
 const ancre = (r) => (r.id ? `j-${slug(r.id)}` : `j-${slug(r.date)}-${slug(r.titre)}`);
 const meta = sectionMeta(section, lang);
 const { items } = await collection(section, lang);
+// Adresses des entrées qui ont VRAIMENT une fiche : une ligne d'index ne devient
+// un lien que si la page existe (cf. le seuil dans editorial_entries.mjs).
+// ⚠️ PIÈGE PAYÉ : la carte était indexée par l'OBJET de l'enregistrement — or
+// `collection()` est relu ici ET dans `fichesDe`, donc deux instances
+// différentes du même contenu. `Map.has(objet)` était toujours faux : aucun
+// lien posé, 58 fiches inatteignables, et pas la moindre erreur au build.
+// On indexe donc par une CLÉ de contenu, jamais par identité d'objet.
+const cleEntree = (x) => String(x.licence ?? x.id ?? x.terme ?? x.nom ?? '').trim();
+const fiches = new Map((await fichesDe(section, lang))
+  .map((f) => [cleEntree(f.record), cheminFiche(f.section, f.slug)]));
 
 // --- Tris propres à chaque section -----------------------------------------
 const byText = (k) => (a, b) => String(a[k] || '').localeCompare(String(b[k] || ''));
@@ -145,7 +156,9 @@ const crumbs = [
     <div class="grid">
       {items.map((r) => (
         <div class="item">
-          <div class="n">{r.nom_affiche || r.licence}</div>
+          <div class="n">{fiches.has(cleEntree(r))
+            ? <a href={localize(lang, fiches.get(cleEntree(r)))}>{r.nom_affiche || r.licence}</a>
+            : (r.nom_affiche || r.licence)}</div>
           {r.note_editoriale && <div class="s">{r.note_editoriale}</div>}
           <div class="counters">
             <span title="items"><b>{r.nb_items || '—'}</b> {t(lang, 'collections.items')}</span>

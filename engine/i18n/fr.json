@@ -92,5 +92,21 @@
  "brands.first_mint": "première frappe",
  "brands.first_mint_hint": "première frappe on-chain — la date de sortie publique n'est pas corroborée pour cette licence",
  "notfound.title": "Page introuvable",
- "notfound.desc": "Cette adresse n'existe pas, ou n'existe plus. Voici par où reprendre le fil."
+ "notfound.desc": "Cette adresse n'existe pas, ou n'existe plus. Voici par où reprendre le fil.",
+ "fiche.enBref": "En bref",
+ "fiche.series": "séries",
+ "fiche.items": "collectibles",
+ "fiche.rangPoids": "n° {n} sur {total} par taille de catalogue",
+ "fiche.part": "{p} % du catalogue publié",
+ "fiche.rangArrivee": "n° {n} sur {total} par ordre d'arrivée",
+ "fiche.jalons": "Dans la chronologie",
+ "fiche.voisines": "Arrivées à la même période",
+ "fiche.avant": "juste avant",
+ "fiche.apres": "juste après",
+ "fiche.retour": "Toutes les licences",
+ "fiche.figureTitre": "{name} face aux licences de taille comparable",
+ "fiche.figureNote": "Nombre de collectibles distincts publiés sous chaque licence.",
+ "sources.entrepot": "entrepôt on-chain (IMX + CollectChain)",
+ "fiche.desc": "{items} collectibles répartis en {series} séries publiés sur VeVe sous la licence {name}.",
+ "fiche.descDrop": "Premier drop {date}."
 }

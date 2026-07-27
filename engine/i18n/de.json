@@ -92,5 +92,21 @@
  "brands.first_mint": "erster Mint",
  "brands.first_mint_hint": "erster On-Chain-Mint — das öffentliche Drop-Datum ist für diese Lizenz nicht belegt",
  "notfound.title": "Seite nicht gefunden",
- "notfound.desc": "Diese Adresse gibt es nicht — oder nicht mehr. Hier geht es weiter."
+ "notfound.desc": "Diese Adresse gibt es nicht — oder nicht mehr. Hier geht es weiter.",
+ "fiche.enBref": "Auf einen Blick",
+ "fiche.series": "Serien",
+ "fiche.items": "Collectibles",
+ "fiche.rangPoids": "Nr. {n} von {total} nach Katalogumfang",
+ "fiche.part": "{p} % des veröffentlichten Katalogs",
+ "fiche.rangArrivee": "Nr. {n} von {total} nach Ankunftsdatum",
+ "fiche.jalons": "In der Chronik",
+ "fiche.voisines": "Etwa zur selben Zeit angekommen",
+ "fiche.avant": "kurz davor",
+ "fiche.apres": "kurz danach",
+ "fiche.retour": "Alle Lizenzen",
+ "fiche.figureTitre": "{name} neben Lizenzen vergleichbarer Größe",
+ "fiche.figureNote": "Zahl der unter jeder Lizenz veröffentlichten Collectibles.",
+ "sources.entrepot": "On-Chain-Lager (IMX + CollectChain)",
+ "fiche.desc": "{items} Collectibles in {series} Serien, auf VeVe unter der Lizenz {name} veröffentlicht.",
+ "fiche.descDrop": "Erster Drop {date}."
 }

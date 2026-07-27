@@ -1,0 +1,14 @@
+---
+// ⚠️ VeVePreda/veve-sites — src/pages/[section]/[entree].astro
+// Fiche d'une entité éditoriale, langue PAR DÉFAUT (sans préfixe).
+// Coexiste avec src/pages/[section].astro, qui rend l'INDEX de la section :
+// `/brands/` vient de l'un, `/brands/marvel/` de l'autre.
+import EditorialEntry from '../../components/pages/EditorialEntry.astro';
+import { ficheParamsDefault, fichesDe } from '../../../engine/lib/editorial_entries.mjs';
+import { locales } from '../../../engine/lib/i18n.mjs';
+export const getStaticPaths = ficheParamsDefault;
+const lang = locales().def;
+const { section, entree } = Astro.params;
+const fiche = (await fichesDe(section, lang)).find((f) => f.slug === entree);
+---
+<EditorialEntry lang={lang} fiche={fiche} voisinesPoids={fiche.voisinesPoids} />

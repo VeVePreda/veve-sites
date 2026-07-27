@@ -54,6 +54,16 @@ RUN WAREHOUSE_OFFLINE=1 npm run test:quotas
 # Verifie que les paliers d'acces sont lus par la matrice, et par elle seule.
 RUN WAREHOUSE_OFFLINE=1 npm run test:acces
 
+# ⭐ Les garde-fous qui ne tournent PAS en production ne gardent rien.
+# `test:blog`, `test:figures` et `test:fiches` protègent trois pannes 100 %
+# silencieuses : un article sans date qui passe en brouillon, une figure sans
+# date de collecte qui part se faire partager, une fiche dont la « voisine »
+# pointe vers une page non publiée. Aucune ne fait échouer un build Astro —
+# d'où leur place ici, où un échec ARRÊTE le déploiement.
+RUN WAREHOUSE_OFFLINE=1 npm run test:blog
+RUN WAREHOUSE_OFFLINE=1 npm run test:figures
+RUN WAREHOUSE_OFFLINE=1 npm run test:fiches
+
 RUN export RENDERING=$(cat /app/.rendering); npm run build
 
 # 🔴 LE GARDE-FOU : le mode annonce et la forme produite doivent coincider.

@@ -4,6 +4,7 @@ import { locales, localize } from '../../engine/lib/i18n.mjs';
 import { DOCS } from '../../engine/lib/legal.mjs';
 import { priceEnabled } from '../../engine/lib/features.mjs';
 import { activeSections, sectionMeta } from '../../engine/lib/editorial_pages.mjs';
+import { ficheSections, fichesDe, cheminFiche } from '../../engine/lib/editorial_entries.mjs';
 import { postsFor, tagsFor, translationPaths } from '../../engine/lib/blog.mjs';
 export async function GET() {
   const ds = await dataset();
@@ -14,6 +15,12 @@ export async function GET() {
   const paths = ['/'].concat(DOCS.map((d) => `/legal/${d}/`));
   // Pages editoriales (wiki) : leurs sections actives.
   for (const sec of activeSections()) paths.push(sectionMeta(sec, active[0]).path);
+  // Les FICHES : une adresse par entite qui a passe le seuil. Elles existent
+  // dans toutes les langues actives (meme slug), donc elles suivent le meme
+  // traitement d'alternates que les pages ci-dessus.
+  for (const sec of ficheSections()) {
+    for (const f of await fichesDe(sec, active[0])) paths.push(cheminFiche(sec, f.slug));
+  }
   // Pages de PRIX : uniquement si le site en publie.
   if (price) {
     paths.push('/movers/', '/collections/', '/rarity/');

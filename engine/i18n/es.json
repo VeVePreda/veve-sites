@@ -92,5 +92,21 @@
  "brands.first_mint": "primera acuñación",
  "brands.first_mint_hint": "primera acuñación on-chain — la fecha de salida pública no está corroborada para esta licencia",
  "notfound.title": "Página no encontrada",
- "notfound.desc": "Esta dirección no existe, o ya no existe. Aquí tienes por dónde retomar el hilo."
+ "notfound.desc": "Esta dirección no existe, o ya no existe. Aquí tienes por dónde retomar el hilo.",
+ "fiche.enBref": "En resumen",
+ "fiche.series": "series",
+ "fiche.items": "coleccionables",
+ "fiche.rangPoids": "n.º {n} de {total} por tamaño de catálogo",
+ "fiche.part": "{p} % del catálogo publicado",
+ "fiche.rangArrivee": "n.º {n} de {total} por fecha de llegada",
+ "fiche.jalons": "En la cronología",
+ "fiche.voisines": "Llegaron por la misma época",
+ "fiche.avant": "justo antes",
+ "fiche.apres": "justo después",
+ "fiche.retour": "Todas las licencias",
+ "fiche.figureTitre": "{name} frente a las licencias de tamaño comparable",
+ "fiche.figureNote": "Número de coleccionables distintos publicados bajo cada licencia.",
+ "sources.entrepot": "almacén on-chain (IMX + CollectChain)",
+ "fiche.desc": "{items} coleccionables en {series} series publicados en VeVe bajo la licencia {name}.",
+ "fiche.descDrop": "Primer drop {date}."
 }

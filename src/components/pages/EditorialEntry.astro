@@ -1,0 +1,137 @@
+---
+// =============================================================================
+//  EditorialEntry.astro — LA FICHE d'une entité éditoriale (aujourd'hui : une
+//  licence). ⚠️ VeVePreda/veve-sites — src/components/pages/EditorialEntry.astro
+//
+//  ⭐ CE QUE CETTE PAGE DOIT PROUVER : qu'elle méritait d'exister.
+//  La note éditoriale d'une marque fait 24 à 55 caractères. Si la page se
+//  résumait à ça, on aurait fabriqué 88 pages creuses au lieu d'une bonne — et
+//  Google pèse le contenu maigre au niveau du SITE. Toute la substance vient
+//  donc de l'ENTREPÔT, calculée au build : combien de séries, combien de
+//  collectibles, quand est tombé le premier drop, quel rang, quelle part du
+//  catalogue, quelles licences sont arrivées juste avant et juste après, quels
+//  jalons de la chronologie la citent. Rien n'est saisi à la main, donc rien ne
+//  se périme en silence.
+//  Le seuil d'admission, lui, est dans engine/lib/editorial_entries.mjs : une
+//  licence trop petite garde sa ligne d'index et n'obtient PAS de page.
+// =============================================================================
+import Base from '../../layouts/Base.astro';
+import { sectionMeta } from '../../../engine/lib/editorial_pages.mjs';
+import { cheminFiche, collecteEntrepot } from '../../../engine/lib/editorial_entries.mjs';
+import { figureHTML } from '../../../engine/lib/figures.mjs';
+import { manifest } from '../../../engine/lib/manifest.mjs';
+import { breadcrumbLd, jsonld } from '../../../engine/lib/seo.mjs';
+import { t, localize, dateLocale } from '../../../engine/lib/i18n.mjs';
+import { siteUrl } from '../../../engine/lib/manifest.mjs';
+
+const { lang, fiche, voisinesPoids = [] } = Astro.props;
+const m = manifest();
+const root = siteUrl();
+const meta = sectionMeta(fiche.section, lang);
+const chemin = cheminFiche(fiche.section, fiche.slug);
+const nf = dateLocale[lang] || 'en-GB';
+const nombre = (v) => Number(v || 0).toLocaleString(nf);
+const r = fiche.record;
+const a = fiche.agg;
+
+// La part du catalogue : sous 0,1 % on l'écrit « < 0,1 » plutôt qu'un « 0,0 % »
+// qui laisserait croire à un catalogue vide.
+const part = fiche.part === null ? null
+  : (fiche.part < 0.1 ? '< 0,1' : fiche.part.toLocaleString(nf, { maximumFractionDigits: 1 }));
+
+// Description : la note éditoriale d'abord, complétée par les compteurs pour
+// atteindre la fenêtre utile (70–160 caractères) sans jamais inventer un fait.
+const note = String(r.note_editoriale || '').trim();
+const description = (a
+  ? `${note} ${t(lang, 'fiche.desc', { items: nombre(a.n_items), series: nombre(a.n_series), name: fiche.titre })}${r.premier_drop ? ` ${t(lang, 'fiche.descDrop', { date: r.premier_drop })}` : ''}`
+  : note).trim().slice(0, 158);
+
+// La figure SITUE la licence : elle-même au milieu de celles de poids voisin.
+// Chaque fiche a donc son propre graphique, téléchargeable comme les autres.
+const collecte = collecteEntrepot();
+const figure = (voisinesPoids.length >= 2 && collecte) ? figureHTML({
+  id: `${fiche.section}-${fiche.slug}`,
+  type: 'barres',
+  titre: t(lang, 'fiche.figureTitre', { name: fiche.titre }),
+  note: t(lang, 'fiche.figureNote'),
+  source: t(lang, 'sources.entrepot'),
+  collecte,
+  donnees: voisinesPoids.map((v) => ({ label: v.titre, valeur: v.items })),
+}, { lang, marque: m.site.brand, domaine: m.site.domain, palette: m.identity?.palette || {} }) : '';
+
+const crumbs = [
+  { name: t(lang, 'home.crumb'), url: localize(lang, '/') },
+  { name: meta.title, url: localize(lang, meta.path) },
+  { name: fiche.titre },
+];
+const ld = [breadcrumbLd(crumbs.map((c) => ({ name: c.name, url: c.url ? root + c.url : `${root}${localize(lang, chemin)}` })))];
+---
+<Base lang={lang} path={chemin} title={fiche.titre} description={description} crumbs={crumbs} ld={ld}>
+  <article class="fiche">
+    <h1>{fiche.titre}</h1>
+    {note && <p class="lead">{note}</p>}
+
+    {a && (
+      <section>
+        <h2>{t(lang, 'fiche.enBref')}</h2>
+        <div class="chiffres">
+          <div><b>{nombre(a.n_items)}</b> <span>{t(lang, 'fiche.items')}</span></div>
+          <div><b>{nombre(a.n_series)}</b> <span>{t(lang, 'fiche.series')}</span></div>
+          {r.premier_drop && (
+            <div><b>{r.premier_drop}</b> <span>{r.date_nature === 'mint' ? t(lang, 'brands.first_mint') : t(lang, 'brands.first_drop')}</span></div>
+          )}
+        </div>
+        <ul class="reperes">
+          <li>{t(lang, 'fiche.rangPoids', { n: fiche.rangPoids, total: fiche.total })}</li>
+          {part !== null && <li>{t(lang, 'fiche.part', { p: part })}</li>}
+          <li>{t(lang, 'fiche.rangArrivee', { n: fiche.rangArrivee, total: fiche.total })}</li>
+        </ul>
+      </section>
+    )}
+
+    {figure && <Fragment set:html={figure} />}
+
+    {fiche.jalons.length > 0 && (
+      <section>
+        <h2>{t(lang, 'fiche.jalons')}</h2>
+        <ul class="latest">
+          {fiche.jalons.map((j) => (
+            <li><span class="muted">{j.date}</span> <a href={localize(lang, `/history/#${j.ancre}`)}>{j.titre}</a></li>
+          ))}
+        </ul>
+      </section>
+    )}
+
+    {(fiche.precedente || fiche.suivante) && (
+      <section>
+        <h2>{t(lang, 'fiche.voisines')}</h2>
+        <p class="voisines">
+          {fiche.precedente && (
+            <a href={localize(lang, cheminFiche(fiche.section, fiche.precedente.slugFiche))}>
+              ← {fiche.precedente.nom_affiche || fiche.precedente.licence} <span class="muted">({t(lang, 'fiche.avant')})</span>
+            </a>
+          )}
+          {fiche.suivante && (
+            <a href={localize(lang, cheminFiche(fiche.section, fiche.suivante.slugFiche))}>
+              {fiche.suivante.nom_affiche || fiche.suivante.licence} <span class="muted">({t(lang, 'fiche.apres')})</span> →
+            </a>
+          )}
+        </p>
+      </section>
+    )}
+
+    <p><a href={localize(lang, meta.path)}>{t(lang, 'fiche.retour')}</a></p>
+  </article>
+</Base>
+
+<style>
+  .fiche { max-width: 760px; }
+  .fiche h2 { font-size: 19px; margin: 30px 0 10px; }
+  .chiffres { display: flex; flex-wrap: wrap; gap: 26px; align-items: baseline; margin-bottom: 12px; }
+  .chiffres b { font-size: 26px; }
+  .chiffres span { color: var(--muted); font-size: 14px; }
+  .reperes { list-style: none; padding: 0; margin: 0; color: var(--muted); font-size: 14px; display: grid; gap: 4px; }
+  .latest { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+  .latest .muted { font-variant-numeric: tabular-nums; margin-right: 10px; }
+  .voisines { display: flex; flex-wrap: wrap; gap: 20px; justify-content: space-between; }
+</style>

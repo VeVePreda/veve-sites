@@ -134,3 +134,8 @@ seo:
 
 content:
   data_modules: []          # vevewiki ne publie pas de pages de prix : éditorial seul
+  # Date du RELEVÉ des données d'entrepôt (pas celle du build). Elle part dans le
+  # cartouche de toute figure générée à la volée : une image se partage sans sa
+  # page, elle doit rester datable. ⚠️ À remonter quand une nouvelle récolte est
+  # intégrée — jamais automatiquement, sinon la figure ment sur sa fraîcheur.
+  entrepot_collecte: "2026-07-27"

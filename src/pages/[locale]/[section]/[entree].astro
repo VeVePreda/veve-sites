@@ -1,0 +1,10 @@
+---
+// ⚠️ VeVePreda/veve-sites — src/pages/[locale]/[section]/[entree].astro
+// Fiche d'une entité éditoriale, langues secondaires (/fr/brands/marvel/).
+import EditorialEntry from '../../../components/pages/EditorialEntry.astro';
+import { ficheParamsLocalized, fichesDe } from '../../../../engine/lib/editorial_entries.mjs';
+export const getStaticPaths = ficheParamsLocalized;
+const { locale, section, entree } = Astro.params;
+const fiche = (await fichesDe(section, locale)).find((f) => f.slug === entree);
+---
+<EditorialEntry lang={locale} fiche={fiche} voisinesPoids={fiche.voisinesPoids} />

@@ -13,7 +13,7 @@ const m = manifest();
 const p = m.identity.palette || {};
 const f = m.identity.fonts || {};
 const links = m.links || {};
-const { lang, path = '/', altPaths = null, title, description, crumbs = [], ld = [], updatedAt = null, noindex = false } = Astro.props;
+const { lang, path = '/', altPaths = null, title, description, crumbs = [], ld = [], updatedAt = null, noindex = false, image = null } = Astro.props;
 const { active, def } = locales();
 const prixActifs = priceEnabled();
 // Nav PILOTEE PAR LE MANIFESTE : un site avec des pages editoriales (bloc
@@ -83,10 +83,12 @@ const suggestData = alternates.filter((a) => a.lang !== lang).map((a) => ({ l: a
 <meta property="og:description" content={desc} />
 <meta property="og:url" content={canon} />
 <meta name="twitter:card" content="summary_large_image" />
-<meta property="og:image" content={`${root}/og.png`} />
+{/* Carte PROPRE à la page quand elle existe (articles), vignette du site
+    sinon. Les deux font 1200x630 : les dimensions restent justes. */}
+<meta property="og:image" content={`${root}${image || '/og.png'}`} />
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="630" />
-<meta name="twitter:image" content={`${root}/og.png`} />
+<meta name="twitter:image" content={`${root}${image || '/og.png'}`} />
 <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 <meta name="generator-ref" content={canary} />
@@ -94,7 +96,7 @@ const suggestData = alternates.filter((a) => a.lang !== lang).map((a) => ({ l: a
 {statsOn && <script defer src="/stats/script.js" data-website-id={analytics.website_id}></script>}
 <style is:inline set:html={vars}></style>
 <style is:inline set:html={themeCss}></style>
-<style is:inline set:html={`.langbar{display:flex;gap:6px;margin-left:12px}.langbar a{font-size:13px;color:var(--muted);padding:2px 6px;border-radius:6px}.langbar a[aria-current]{background:#ffffff14;color:var(--text)}#langsuggest{display:none;background:var(--surface);border:1px solid var(--primary);border-radius:10px;padding:10px 14px;margin:14px 0;font-size:14px}#langsuggest a{font-weight:500}#langsuggest button{background:none;border:0;color:var(--muted);cursor:pointer;font-size:13px;text-decoration:underline}`}></style>
+<style is:inline set:html={`.legal-links{margin:0 0 10px;font-size:12.5px;line-height:1.9;color:var(--muted)}.legal-links a{color:var(--muted);text-decoration:none;border-bottom:1px solid transparent}.legal-links a:hover,.legal-links a:focus-visible{color:var(--text);border-bottom-color:var(--muted)}.langbar{display:flex;gap:6px;margin-left:12px}.langbar a{font-size:13px;color:var(--muted);padding:2px 6px;border-radius:6px}.langbar a[aria-current]{background:#ffffff14;color:var(--text)}#langsuggest{display:none;background:var(--surface);border:1px solid var(--primary);border-radius:10px;padding:10px 14px;margin:14px 0;font-size:14px}#langsuggest a{font-weight:500}#langsuggest button{background:none;border:0;color:var(--muted);cursor:pointer;font-size:13px;text-decoration:underline}`}></style>
 <Fragment set:html={jsonld(websiteLd(m.site.brand, root, searchEnabled()))} />
 {ld.map((o) => <Fragment set:html={jsonld(o)} />)}
 </head>
@@ -135,7 +137,11 @@ const suggestData = alternates.filter((a) => a.lang !== lang).map((a) => ({ l: a
     </p>
   )}
   {affiliate.length > 0 && <p style="margin:0 0 10px;font-size:13px">{t(lang, 'footer.affiliateNote')}</p>}
-  <p style="margin:0 0 10px">
+  {/* Liens légaux DISCRETS : ils doivent rester atteignables depuis chaque page
+      — c'est une obligation, pas un choix de mise en page — mais ils n'ont
+      aucune raison d'attirer l'œil autant qu'un lien de contenu. On les recule
+      visuellement (gris, plus petits), jamais on ne les cache. */}
+  <p class="legal-links">
     {DOCS.map((d, i) => (<>{i > 0 && ' · '}<a href={localize(lang, `/legal/${d}/`)}>{legalTitle(lang, d)}</a></>))}
   </p>
   <p style="margin:0 0 6px">{t(lang, 'legal.notAffiliated')}</p>
