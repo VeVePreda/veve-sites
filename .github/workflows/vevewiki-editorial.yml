@@ -64,18 +64,33 @@ jobs:
           cd _scrapeur
           python -m scraper.editorial_pull --site vevewiki --root "${GITHUB_WORKSPACE}"
 
+      # ─────────────────────────────────────────────────────────────────────
+      #  Cartes de partage par article
+      # ─────────────────────────────────────────────────────────────────────
+      #  ⚠️ ELLES SE FABRIQUENT ICI, PAS AU BUILD. Le site se construit dans une
+      #     image `node:22-alpine` : ni Python, ni PIL. Le workflow, lui, a déjà
+      #     Python pour la récolte — il produit les PNG et les committe avec les
+      #     snapshots. Le build les trouve toutes faites.
+      #  Le script est IDEMPOTENT : il ne réécrit un fichier que si ses octets
+      #  changent, sinon on committerait 26 binaires par jour pour rien.
+      - name: Cartes de partage des articles
+        run: |
+          set -e
+          pip install --quiet pillow
+          SITE=vevewiki python3 engine/tools/make_article_cards.py
+
       - name: Committer le snapshot s'il a changé
         id: commit
         run: |
           set -euo pipefail
           git config user.name  "vevewiki-bot"
           git config user.email "actions@users.noreply.github.com"
-          git add sites/vevewiki/editorial
+          git add sites/vevewiki/editorial public/og/vevewiki
           if git diff --cached --quiet; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
             echo "Aucun changement éditorial — rien à committer."
           else
-            git commit -m "chore(vevewiki): snapshot éditorial $(date -u +%F)"
+            git commit -m "chore(vevewiki): snapshot éditorial + cartes $(date -u +%F)"
             git push
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
