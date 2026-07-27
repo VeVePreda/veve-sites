@@ -77,7 +77,36 @@ export const itemListLd = (items, url) => ({
   itemListElement: items.slice(0, 50).map((it, i) => ({ '@type': 'ListItem', position: i + 1, name: it.name, url: it.url })),
 });
 
-export const websiteLd = (site, url) => ({
+// `avecRecherche` : n'annoncer un SearchAction QUE si le site rend vraiment une
+// boite de recherche alimentee (cf. searchEnabled() dans features.mjs). Une
+// donnee structuree est une promesse faite au moteur, pas un voeu.
+export const websiteLd = (site, url, avecRecherche = false) => ({
   '@context': 'https://schema.org', '@type': 'WebSite', name: site, url,
-  potentialAction: { '@type': 'SearchAction', target: `${url}/?q={search_term_string}`, 'query-input': 'required name=search_term_string' },
+  ...(avecRecherche ? { potentialAction: { '@type': 'SearchAction', target: `${url}/?q={search_term_string}`, 'query-input': 'required name=search_term_string' } } : {}),
 });
+
+// =============================================================================
+//  TITRE D'ACCUEIL — ⭐ la page la plus importante du site decrivait un AUTRE site
+// -----------------------------------------------------------------------------
+//  Constate le 27/07/2026 : vevewiki.com titrait
+//      « VeVe Wiki — VeVe price history & floor tracker »
+//  sur ses DEUX accueils. Le gabarit, faute de titre, retombait sur la cle i18n
+//  RESEAU `title.home` — ecrite pour veveprice. Un wiki qui ne publie aucun prix
+//  se vendait donc comme un tracker de prix, sur sa page d'entree.
+//
+//  ⭐ Un defaut par REPLI est le plus dur a voir : rien n'echoue, rien n'est
+//     vide, la page s'affiche parfaitement — elle dit simplement autre chose.
+//
+//  Regle : le titre d'accueil se declare dans le MANIFESTE (`seo.home_title`,
+//  par langue). Le repli reseau ne sert plus qu'aux sites de prix, et un site
+//  SANS prix qui l'utiliserait quand meme se fait journaliser au build.
+export function homeTitle({ brand, homeTitles, lang, defLang, repliReseau, sitePrix, journal }) {
+  const propre = (homeTitles && (homeTitles[lang] || homeTitles[defLang] || Object.values(homeTitles)[0])) || '';
+  if (propre) return `${brand} — ${propre}`;
+  if (!sitePrix) {
+    (journal || ((m) => console.warn(`[seo] ${m}`)))(
+      `accueil sans \`seo.home_title\` : repli sur le libelle RESEAU "${repliReseau}", ecrit pour un site de PRIX. `
+      + `Ce site n'en publie pas — son accueil annonce donc autre chose que ce qu'il est.`);
+  }
+  return `${brand} — ${repliReseau}`;
+}

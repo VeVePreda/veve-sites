@@ -1,10 +1,11 @@
 ---
 import { createHash } from 'node:crypto';
 import { manifest, siteUrl } from '../../engine/lib/manifest.mjs';
-import { jsonld, websiteLd, pageTitle } from '../../engine/lib/seo.mjs';
+import { jsonld, websiteLd, pageTitle, homeTitle } from '../../engine/lib/seo.mjs';
 import { locales, t, pick, localize, localeNames, dateLocale } from '../../engine/lib/i18n.mjs';
 import { DOCS, legalTitle } from '../../engine/lib/legal.mjs';
 import { activeSections, sectionMeta } from '../../engine/lib/editorial_pages.mjs';
+import { priceEnabled, searchEnabled } from '../../engine/lib/features.mjs';
 import { blogEnabled, blogMeta } from '../../engine/lib/blog.mjs';
 
 const m = manifest();
@@ -13,6 +14,7 @@ const f = m.identity.fonts || {};
 const links = m.links || {};
 const { lang, path = '/', altPaths = null, title, description, crumbs = [], ld = [], updatedAt = null, noindex = false } = Astro.props;
 const { active, def } = locales();
+const prixActifs = priceEnabled();
 // Nav PILOTEE PAR LE MANIFESTE : un site avec des pages editoriales (bloc
 // `editorial.pages`) montre SES sections ; sinon on garde la nav « prix »
 // historique. Zero regression : veveprice (sans bloc editorial) ne bouge pas.
@@ -30,8 +32,14 @@ const root = siteUrl();
 // Budget de 60 caracteres tenu A LA RACINE (engine/lib/seo.mjs) : aucune page du
 // reseau ne peut plus publier un titre que Google tronquera, et un raboutage se
 // voit dans le journal de build.
-const fullTitle = pageTitle(title, m.seo.title_template, `${m.site.brand} — ${t(lang, 'title.home')}`,
-  (msg) => console.warn(`[seo] ${path} — ${msg}`));
+const journalSeo = (msg) => console.warn(`[seo] ${path} — ${msg}`);
+// Accueil : titre du MANIFESTE (`seo.home_title`), jamais le libelle reseau
+// « prix » par accident. Interieur : gabarit + budget de 60 caracteres.
+const accueil = homeTitle({
+  brand: m.site.brand, homeTitles: m.seo?.home_title, lang, defLang: def,
+  repliReseau: t(lang, 'title.home'), sitePrix: prixActifs, journal: journalSeo,
+});
+const fullTitle = pageTitle(title, m.seo.title_template, accueil, journalSeo);
 const desc = description || pick(m.site.description, lang) || pick(m.site.tagline, lang);
 const canon = `${root}${localize(lang, path)}`;
 // Chaque langue a SA propre adresse ; hreflang les relie. Aucune redirection auto.
@@ -85,7 +93,7 @@ const suggestData = alternates.filter((a) => a.lang !== lang).map((a) => ({ l: a
 <style is:inline set:html={vars}></style>
 <style is:inline set:html={themeCss}></style>
 <style is:inline set:html={`.langbar{display:flex;gap:6px;margin-left:12px}.langbar a{font-size:13px;color:var(--muted);padding:2px 6px;border-radius:6px}.langbar a[aria-current]{background:#ffffff14;color:var(--text)}#langsuggest{display:none;background:var(--surface);border:1px solid var(--primary);border-radius:10px;padding:10px 14px;margin:14px 0;font-size:14px}#langsuggest a{font-weight:500}#langsuggest button{background:none;border:0;color:var(--muted);cursor:pointer;font-size:13px;text-decoration:underline}`}></style>
-<Fragment set:html={jsonld(websiteLd(m.site.brand, root))} />
+<Fragment set:html={jsonld(websiteLd(m.site.brand, root, searchEnabled()))} />
 {ld.map((o) => <Fragment set:html={jsonld(o)} />)}
 </head>
 <body>

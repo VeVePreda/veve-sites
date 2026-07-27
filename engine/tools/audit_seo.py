@@ -131,6 +131,30 @@ if bavards:
     avertissements.append(f"{len(bavards)} descriptions > 160 caracteres (coupees) — "
                           + ', '.join(f'{u} ({len(descs[u])})' for u in bavards[:3]))
 
+# ── 4bis. l'accueil parle-t-il DE CE SITE ? ─────────────────────────────────
+# ⭐ Defaut paye le 27/07/2026 : le gabarit, faute de titre d'accueil propre,
+# retombait sur le libelle RESEAU (ecrit pour un site de prix). vevewiki.com
+# titrait « VeVe Wiki — VeVe price history & floor tracker » sur ses deux
+# accueils. Rien n'echouait, rien n'etait vide : la page disait juste autre
+# chose. On verifie donc qu'un site SANS page de prix ne vend pas du prix.
+mots_prix = ('price', 'floor', 'prix', 'plancher', 'precio', 'preis')
+accueils = [u for u in H if u == '/' or re.fullmatch(r'/[a-z]{2}/', u)]
+a_des_prix = any(re.match(r'^(/[a-z]{2})?/(collectibles|comics|collection|movers|rarity)/', u) for u in H)
+if not a_des_prix:
+    ment = [u for u in accueils if any(w in titles[u].lower() for w in mots_prix)]
+    if ment:
+        erreurs.append("accueil qui annonce du PRIX sur un site sans page de prix : "
+                       + '; '.join(f'{u} -> "{titles[u]}"' for u in ment))
+
+# ── 4ter. donnees structurees tenables ──────────────────────────────────────
+# Un SearchAction est une PROMESSE : il declare a Google une boite de recherche
+# interne. Si aucune page ne rend de champ de recherche, la promesse est fausse.
+a_une_recherche = any(re.search(r'<input[^>]+type="search"', h) for h in H.values())
+declare_recherche = [u for u, h in H.items() if 'SearchAction' in h]
+if declare_recherche and not a_une_recherche:
+    erreurs.append(f"{len(declare_recherche)} pages declarent un SearchAction alors "
+                   "qu'AUCUNE page ne rend de champ de recherche")
+
 # ── 5. noindex vs sitemap ───────────────────────────────────────────────────
 sm_txt = (D / 'sitemap.xml').read_text(encoding='utf-8') if (D / 'sitemap.xml').exists() else ''
 sm = set(re.sub(r'^https?://[^/]+', '', u) for u in re.findall(r'<loc>([^<]+)</loc>', sm_txt))
@@ -182,6 +206,20 @@ while file:
 inatteignables = sorted(set(H) - set(vu) - noidx)
 if inatteignables:
     erreurs.append(f"{len(inatteignables)} pages inatteignables par lien interne : {inatteignables[:3]}")
+# ⭐ Liens ENTRANTS distincts : la profondeur de clic ne dit pas tout. Une page
+# atteignable par un seul lien, depuis une seule page, ne recoit presque rien —
+# et six liens identiques vers la meme cible n'en font qu'un.
+entrants = defaultdict(set)
+for u, h in H.items():
+    for href in set(liens_internes(h)):
+        cible = href if href.endswith('/') else href + '/'
+        if cible in H and cible != u:
+            entrants[cible].add(u)
+isoles = sorted(u for u in H if u not in noidx and u != '/' and len(entrants[u]) < 2)
+if isoles:
+    avertissements.append(f"{len(isoles)} pages avec moins de 2 pages qui y menent — "
+                          + ', '.join(isoles[:3]))
+
 profond = [u for u, d in vu.items() if d > 4]
 if profond:
     avertissements.append(f"{len(profond)} pages a plus de 4 clics de l'accueil")

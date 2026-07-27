@@ -25,7 +25,13 @@ languages:
 rendering: static           # un wiki = tout pré-généré, aucun serveur
 
 features:
-  search: internal
+  # ⚠️ `internal` ANNONÇAIT une recherche qui n'existe pas ici : l'accueil
+  # éditorial ne rend aucune boîte, et `search-index.json` renvoie `[]` tant que
+  # le site n'a pas de prix — mais les 32 pages publiaient quand même un
+  # `SearchAction` dans leurs données structurées. On ne promet plus à Google
+  # une fonction absente. À repasser à `internal` le jour où l'index couvrira le
+  # contenu éditorial (glossaire, acronymes, marques, jalons, articles).
+  search: none
   comments: false
   database: false
 
@@ -100,10 +106,24 @@ identity:
 
 analytics:
   provider: umami
+  # 🔴 À REMPLIR PAR PREDA — sans cet identifiant, AUCUNE mesure d'audience :
+  # on ne sait ni combien de visiteurs viennent, ni sur quelles pages, ni d'où.
+  # Où le trouver : Umami (app Coolify `umami`) → Settings → Websites →
+  # ajouter/ouvrir « vevewiki.com » → copier le « Website ID » (un UUID).
+  # Le script est servi par le domaine du site (/stats/script.js, proxy nginx) :
+  # rien d'autre à configurer, et aucun bloqueur ne le voit passer.
   website_id: ""            # inactif tant que vide (script servi par le domaine du site)
 
 seo:
   title_template: "%s | VeVe Wiki"
+  # ⭐ TITRE DE L'ACCUEIL — sans cette clé, le gabarit retombait sur le libellé
+  # RÉSEAU `title.home`, écrit pour veveprice : vevewiki.com titrait
+  # « VeVe Wiki — VeVe price history & floor tracker » sur ses DEUX accueils.
+  # Un wiki sans aucun prix se vendait en tracker de prix, sur sa page d'entrée.
+  # Budget : « VeVe Wiki — » + ce texte ≤ 60 caractères (le build le contrôle).
+  home_title:
+    en: "the independent VeVe encyclopedia"
+    fr: "l'encyclopédie VeVe indépendante"
   indexnow_key: "a7f3c9e214d84b06b1e5c0f7d29a63b8"   # clé IndexNow (valeur arbitraire)
 
 content:

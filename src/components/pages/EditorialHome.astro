@@ -1,16 +1,29 @@
 ---
 // ⚠️ VeVePreda/veve-sites — src/components/pages/EditorialHome.astro
 // Accueil d'un site EDITORIAL (wiki) : cartes vers les sections actives (avec
-// leur nombre d'entrees) + derniers jalons. Aucune donnee de prix, aucun
-// warehouse. Active par le manifeste (content.home: editorial) — voir index.astro.
+// leur nombre d'entrees) + derniers jalons + derniers articles. Aucune donnee de
+// prix, aucun warehouse. Active par le manifeste (content.home: editorial) —
+// voir index.astro.
+//
+// ⭐ CE QUE CETTE PAGE DOIT FAIRE, ET NE FAISAIT PAS (audit du 27/07/2026)
+// L'accueil est la page qui recoit le plus d'autorite : c'est elle qui la
+// DISTRIBUE au reste du site. Or elle n'ouvrait sur rien :
+//   • ses 6 derniers jalons pointaient TOUS vers `/history/` — six liens
+//     rigoureusement identiques, donc un seul lien utile ;
+//   • elle ne menait a AUCUN article : le blog n'existait que dans la barre de
+//     navigation, d'ou 2 liens entrants par article, tous depuis /blog/.
+// Un lien qui ne distingue pas sa cible ne transmet rien. Corrige : ancre
+// profonde par jalon (`/history/#j-…`) et bloc « derniers articles ».
 import Base from '../../layouts/Base.astro';
 import { manifest } from '../../../engine/lib/manifest.mjs';
-import { pick, localize } from '../../../engine/lib/i18n.mjs';
+import { pick, localize, t, dateLocale } from '../../../engine/lib/i18n.mjs';
 import { activeSections, sectionMeta } from '../../../engine/lib/editorial_pages.mjs';
 import { collection } from '../../../engine/lib/editorial.mjs';
+import { blogEnabled, postsFor } from '../../../engine/lib/blog.mjs';
 
 const { lang } = Astro.props;
 const m = manifest();
+const df = dateLocale[lang] || 'en-GB';
 
 const cards = [];
 for (const s of activeSections()) {
@@ -20,6 +33,12 @@ for (const s of activeSections()) {
   cards.push({ ...meta, n });
 }
 
+// Meme regle d'ancre que la page History (src/components/pages/Editorial.astro) :
+// si les deux divergent, l'accueil produit des liens morts en silence.
+const slug = (v) => String(v || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
+  .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60);
+const ancre = (r) => (r.id ? `j-${slug(r.id)}` : `j-${slug(r.date)}-${slug(r.titre)}`);
+
 let milestones = [];
 if (activeSections().includes('history')) {
   try {
@@ -27,6 +46,11 @@ if (activeSections().includes('history')) {
       .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))
       .slice(0, 6);
   } catch (e) { milestones = []; }
+}
+
+let posts = [];
+if (blogEnabled()) {
+  try { posts = (await postsFor(lang)).slice(0, 4); } catch (e) { posts = []; }
 }
 ---
 <Base lang={lang} path="/" title={null}>
@@ -43,12 +67,28 @@ if (activeSections().includes('history')) {
     ))}
   </div>
 
+  {posts.length > 0 && (
+    <section class="latest-wrap">
+      <h2>{t(lang, 'blog.title')}</h2>
+      <div class="grid">
+        {posts.map((p) => (
+          <a class="item" href={localize(lang, `/blog/${p.slug}/`)}>
+            <div class="n">{p.data.title}</div>
+            {p.data.description && <div class="s">{p.data.description}</div>}
+            <div class="f muted" style="font-size:13px">{p.data.date ? new Date(p.data.date).toLocaleDateString(df) : ''}</div>
+          </a>
+        ))}
+      </div>
+      <p style="margin-top:12px"><a href={localize(lang, '/blog/')}>{t(lang, 'blog.backToBlog')}</a></p>
+    </section>
+  )}
+
   {milestones.length > 0 && (
     <section class="latest-wrap">
       <h2>{sectionMeta('history', lang).title}</h2>
       <ul class="latest">
         {milestones.map((mst) => (
-          <li><span class="muted">{mst.date}</span> <a href={localize(lang, '/history/')}>{mst.titre}</a></li>
+          <li><span class="muted">{mst.date}</span> <a href={localize(lang, `/history/#${ancre(mst)}`)}>{mst.titre}</a></li>
         ))}
       </ul>
     </section>

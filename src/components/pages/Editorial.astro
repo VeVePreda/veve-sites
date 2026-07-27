@@ -17,6 +17,12 @@ import { sectionMeta } from '../../../engine/lib/editorial_pages.mjs';
 import { t, localize } from '../../../engine/lib/i18n.mjs';
 
 const { lang, section } = Astro.props;
+
+// Ancre stable d'un jalon : son `id` de Sheet s'il existe, sinon date + titre
+// translitteres. Stable = un lien profond ne casse pas au prochain build.
+const slug = (v) => String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60);
+const ancre = (r) => (r.id ? `j-${slug(r.id)}` : `j-${slug(r.date)}-${slug(r.titre)}`);
 const meta = sectionMeta(section, lang);
 const { items } = await collection(section, lang);
 
@@ -110,9 +116,12 @@ const crumbs = [
 
   {section === 'history' && (
     <ol class="timeline">
+      {/* ⭐ Une ancre par jalon : sans `id`, la chronologie est un BLOC — impossible
+          d'y renvoyer depuis l'accueil, un article ou l'exterieur. 40 jalons ne
+          valaient qu'une seule adresse. */}
       {items.map((r) => (
-        <li class="milestone">
-          <div class="when">{r.date}{r.precision && r.precision !== 'jour' && <span class="muted"> ({r.precision})</span>}</div>
+        <li class="milestone" id={ancre(r)}>
+          <div class="when"><a class="lien-ancre" href={`#${ancre(r)}`}>{r.date}</a>{r.precision && r.precision !== 'jour' && <span class="muted"> ({r.precision})</span>}</div>
           <div class="what">
             <h3>{r.titre}{r.statut && <span class={`badge s-${r.statut}`}>{r.statut}</span>}</h3>
             {r.resume && <p>{r.resume}</p>}
@@ -157,6 +166,9 @@ const crumbs = [
 </Base>
 
 <style>
+  .lien-ancre { color: inherit; text-decoration: none; }
+  .lien-ancre:hover { text-decoration: underline; }
+  .milestone:target .what { border-left: 2px solid var(--primary); padding-left: 12px; }
   .glossary { display: grid; gap: 14px; }
   .glossary .term { border-bottom: 1px solid var(--surface); padding-bottom: 10px; }
   .glossary dt { font-weight: 700; }

@@ -1,0 +1,31 @@
+---
+// ⚠️ VeVePreda/veve-sites — src/pages/404.astro
+// Page 404 du reseau. Sans elle, nginx sert SA page par defaut : fond blanc,
+// « 404 Not Found », aucune navigation — le visiteur quitte le site.
+// ⚠️ Elle n'existe que si nginx la designe : `error_page 404 /404.html;`
+//    (nginx.conf ET nginx.server.conf). Le fichier seul ne suffit pas.
+// `noindex` : une 404 ne doit jamais entrer dans l'index, et le sitemap
+// l'ignore deja (il ne liste que les routes connues).
+import Base from '../layouts/Base.astro';
+import { locales, t, localize } from '../../engine/lib/i18n.mjs';
+import { activeSections, sectionMeta } from '../../engine/lib/editorial_pages.mjs';
+import { blogEnabled } from '../../engine/lib/blog.mjs';
+const lang = locales().def;
+const liens = activeSections().map((s) => sectionMeta(s, lang));
+if (blogEnabled()) liens.push({ section: 'blog', path: '/blog/', title: t(lang, 'blog.title') });
+---
+{/* `altPaths={{}}` : il n'existe qu'UNE 404 (nginx n'en designe qu'une).
+    Sans ca, le gabarit annonce un /fr/404.html qui n'est jamais construit —
+    un hreflang vers le vide, et un lien mort dans le selecteur de langue. */}
+<Base lang={lang} path="/404.html" altPaths={{}} title={t(lang, 'notfound.title')} description={t(lang, 'notfound.desc')} noindex={true}>
+  <h1>{t(lang, 'notfound.title')}</h1>
+  <p class="lead">{t(lang, 'notfound.desc')}</p>
+  <p><a href={localize(lang, '/')}>{t(lang, 'home.crumb')}</a></p>
+  {liens.length > 0 && (
+    <div class="grid">
+      {liens.map((l) => (
+        <a class="item" href={localize(lang, l.path)}><div class="n">{l.title}</div></a>
+      ))}
+    </div>
+  )}
+</Base>
