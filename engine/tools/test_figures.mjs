@@ -86,5 +86,29 @@ dit(fr.includes('href="/fr/glossary/"'), 'un renvoi interne suit la langue du le
 dit(fr.includes('href="https://x.com"'), 'un lien externe n\'est JAMAIS réécrit');
 dit(renderMarkdown('[g](/glossary/)', {}).includes('href="/glossary/"'), 'sans localiser, rien ne change');
 
+console.log('\n9. Le REGISTRE RÉEL — pas un descripteur de démonstration');
+// ⭐ Les contrôles 1 à 8 valident un descripteur fabriqué pour le test. Une
+// figure DU REGISTRE pouvait donc être cassée sans qu'aucun test bronche : on
+// ne s'en apercevait qu'au build, ou pas du tout. Ici on balaie le registre.
+const { readdirSync, readFileSync } = await import('node:fs');
+const { fileURLToPath } = await import('node:url');
+const REG = fileURLToPath(new URL('../data/figures/', import.meta.url));
+const fichiers = readdirSync(REG).filter((f) => f.endsWith('.json'));
+dit(fichiers.length > 0, `le registre n'est pas vide (${fichiers.length} figures)`);
+for (const f of fichiers) {
+  const fig = JSON.parse(readFileSync(REG + f, 'utf8'));
+  dit(verifierFigure(fig, f).length === 0, `${f} : descripteur complet`,
+    verifierFigure(fig, f).join(', '));
+  // ⚠️ Une date de collecte dans le FUTUR = un copier-coller de la date du
+  // build. La figure prétendrait alors être plus fraîche que sa donnée.
+  dit(fig.collecte <= new Date().toISOString().slice(0, 10),
+    `${f} : la date de collecte n'est pas dans le futur`, fig.collecte);
+  for (const lang of ['en', 'fr']) {
+    const svg = figureSVG(fig, { lang, marque: 'T', domaine: 't.com' });
+    dit(svg.startsWith('<svg') && svg.includes('width='),
+      `${f} : tracée en ${lang}, avec une largeur explicite`);
+  }
+}
+
 console.log(`\n${ko === 0 ? '✅ figures : tout est vert' : `❌ ${ko} contrôle(s) en échec`} (${ok + ko} contrôles)\n`);
 process.exit(ko === 0 ? 0 : 1);

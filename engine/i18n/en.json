@@ -95,9 +95,9 @@
  "notfound.desc": "This address does not exist, or no longer does. Here is where to pick up the thread.",
  "fiche.enBref": "At a glance",
  "fiche.series": "series",
- "fiche.items": "collectibles",
+ "fiche.items": "items",
  "fiche.rangPoids": "No. {n} of {total} by catalogue size",
- "fiche.part": "{p} % of the published catalogue",
+ "fiche.part": "{p} % of all items tied to a licence",
  "fiche.rangArrivee": "No. {n} of {total} by arrival date",
  "fiche.jalons": "In the timeline",
  "fiche.voisines": "Arrived around the same time",
@@ -105,8 +105,8 @@
  "fiche.apres": "just after",
  "fiche.retour": "All licences",
  "fiche.figureTitre": "{name} next to the licences of comparable size",
- "fiche.figureNote": "Number of distinct collectibles published under each licence.",
+ "fiche.figureNote": "Number of distinct items published under each licence.",
  "sources.entrepot": "on-chain warehouse (IMX + CollectChain)",
- "fiche.desc": "{items} collectibles across {series} series published on VeVe under the {name} licence.",
+ "fiche.desc": "{items} items (comics and collectibles) across {series} series published on VeVe under the {name} licence.",
  "fiche.descDrop": "First drop {date}."
 }

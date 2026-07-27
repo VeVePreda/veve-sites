@@ -1,0 +1,65 @@
+{
+ "id": "catalogue-raretes",
+ "type": "barres",
+ "titre": {
+  "en": "The VeVe catalogue by rarity tier",
+  "fr": "Le catalogue VeVe par palier de rareté"
+ },
+ "note": {
+  "en": "18,926 catalogue entries, ordered by tier rather than by count.",
+  "fr": "18 926 entrées du catalogue, rangées par palier et non par effectif."
+ },
+ "legende": {
+  "en": "Secret Rare is the second most populated tier — a tier name never tells you a number.",
+  "fr": "Secret Rare est le deuxième palier le plus fourni : un nom de palier ne dit jamais un nombre."
+ },
+ "source": {
+  "en": "VeVe catalogue (all object types)",
+  "fr": "catalogue VeVe (tous types d’objets)"
+ },
+ "collecte": "2026-07-27",
+ "donnees": [
+  {
+   "label": {
+    "en": "Common",
+    "fr": "Common"
+   },
+   "valeur": 4681
+  },
+  {
+   "label": {
+    "en": "Uncommon",
+    "fr": "Uncommon"
+   },
+   "valeur": 3119
+  },
+  {
+   "label": {
+    "en": "Rare",
+    "fr": "Rare"
+   },
+   "valeur": 3204
+  },
+  {
+   "label": {
+    "en": "Ultra Rare",
+    "fr": "Ultra Rare"
+   },
+   "valeur": 3332
+  },
+  {
+   "label": {
+    "en": "Secret Rare",
+    "fr": "Secret Rare"
+   },
+   "valeur": 4480
+  },
+  {
+   "label": {
+    "en": "Artist Proof",
+    "fr": "Artist Proof"
+   },
+   "valeur": 110
+  }
+ ]
+}

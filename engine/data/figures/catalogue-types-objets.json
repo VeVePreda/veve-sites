@@ -1,0 +1,37 @@
+{
+ "id": "catalogue-types-objets",
+ "type": "barres",
+ "titre": {
+  "en": "The VeVe catalogue: comics against collectibles",
+  "fr": "Le catalogue VeVe : comics contre collectibles"
+ },
+ "note": {
+  "en": "The catalogue types only these two families; artworks are recorded as collectibles, stickers and phygitals are absent from it.",
+  "fr": "Le catalogue ne type que ces deux familles ; les artworks y sont des collectibles, stickers et phygitals en sont absents."
+ },
+ "legende": {
+  "en": "86 % of the catalogue is digital comics — by far the largest family, and the least expected.",
+  "fr": "86 % du catalogue est constitué de comics numériques — de loin la famille la plus nombreuse, et la moins attendue."
+ },
+ "source": {
+  "en": "VeVe catalogue (kind field)",
+  "fr": "catalogue VeVe (champ « kind »)"
+ },
+ "collecte": "2026-07-27",
+ "donnees": [
+  {
+   "label": {
+    "en": "Digital comics",
+    "fr": "Comics numériques"
+   },
+   "valeur": 16266
+  },
+  {
+   "label": {
+    "en": "Collectibles",
+    "fr": "Collectibles"
+   },
+   "valeur": 2660
+  }
+ ]
+}

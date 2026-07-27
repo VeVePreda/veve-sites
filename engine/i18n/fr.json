@@ -95,9 +95,9 @@
  "notfound.desc": "Cette adresse n'existe pas, ou n'existe plus. Voici par où reprendre le fil.",
  "fiche.enBref": "En bref",
  "fiche.series": "séries",
- "fiche.items": "collectibles",
+ "fiche.items": "objets",
  "fiche.rangPoids": "n° {n} sur {total} par taille de catalogue",
- "fiche.part": "{p} % du catalogue publié",
+ "fiche.part": "{p} % des objets rattachés à une licence",
  "fiche.rangArrivee": "n° {n} sur {total} par ordre d'arrivée",
  "fiche.jalons": "Dans la chronologie",
  "fiche.voisines": "Arrivées à la même période",
@@ -105,8 +105,8 @@
  "fiche.apres": "juste après",
  "fiche.retour": "Toutes les licences",
  "fiche.figureTitre": "{name} face aux licences de taille comparable",
- "fiche.figureNote": "Nombre de collectibles distincts publiés sous chaque licence.",
+ "fiche.figureNote": "Nombre d'objets distincts publiés sous chaque licence.",
  "sources.entrepot": "entrepôt on-chain (IMX + CollectChain)",
- "fiche.desc": "{items} collectibles répartis en {series} séries publiés sur VeVe sous la licence {name}.",
+ "fiche.desc": "{items} objets (comics et collectibles) répartis en {series} séries publiés sur VeVe sous la licence {name}.",
  "fiche.descDrop": "Premier drop {date}."
 }
