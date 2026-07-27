@@ -1,8 +1,10 @@
 ---
+import { priceEnabled } from '../../../../../engine/lib/features.mjs';
 import Item from '../../../../components/pages/Item.astro';
 import { dataset } from '../../../../../engine/lib/dataset.mjs';
 import { localeParams, langFromParam } from '../../../../../engine/lib/i18n.mjs';
 export async function getStaticPaths() {
+  if (!priceEnabled()) return [];
   const ds = await dataset();
   const out = [];
   for (const { param } of localeParams()) {

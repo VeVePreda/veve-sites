@@ -1,6 +1,8 @@
 ---
+import { priceEnabled } from '../../engine/lib/features.mjs';
 import Collections from '../components/pages/Collections.astro';
 import { locales } from '../../engine/lib/i18n.mjs';
 const lang = locales().def;
+if (!priceEnabled()) return Astro.redirect('/');
 ---
 <Collections lang={lang} />

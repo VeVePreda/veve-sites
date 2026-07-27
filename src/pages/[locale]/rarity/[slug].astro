@@ -1,8 +1,10 @@
 ---
+import { priceEnabled } from '../../../../engine/lib/features.mjs';
 import RarityPage from '../../../components/pages/RarityPage.astro';
 import { dataset } from '../../../../engine/lib/dataset.mjs';
 import { locales } from '../../../../engine/lib/i18n.mjs';
 export async function getStaticPaths() {
+  if (!priceEnabled()) return [];
   const ds = await dataset();
   const { active, def } = locales();
   const out = [];

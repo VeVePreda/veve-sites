@@ -2,16 +2,25 @@ import { dataset } from '../../engine/lib/dataset.mjs';
 import { siteUrl } from '../../engine/lib/manifest.mjs';
 import { locales, localize } from '../../engine/lib/i18n.mjs';
 import { DOCS } from '../../engine/lib/legal.mjs';
+import { priceEnabled } from '../../engine/lib/features.mjs';
+import { activeSections, sectionMeta } from '../../engine/lib/editorial_pages.mjs';
 import { postsFor, tagsFor, translationPaths } from '../../engine/lib/blog.mjs';
 export async function GET() {
   const ds = await dataset();
   const lastmod = new Date(ds.updatedAt).toISOString().slice(0, 10);
   const root = siteUrl();
   const { active } = locales();
-  const paths = ['/', '/movers/', '/collections/', '/rarity/'].concat(DOCS.map((d) => `/legal/${d}/`))
-    .concat(ds.items.map((i) => i.path))
-    .concat([...ds.collections.values()].map((c) => `/collection/${c.slug}/`))
-    .concat([...ds.rarities.values()].map((r) => `/rarity/${r.slug}/`));
+  const price = priceEnabled();
+  const paths = ['/'].concat(DOCS.map((d) => `/legal/${d}/`));
+  // Pages editoriales (wiki) : leurs sections actives.
+  for (const sec of activeSections()) paths.push(sectionMeta(sec, active[0]).path);
+  // Pages de PRIX : uniquement si le site en publie.
+  if (price) {
+    paths.push('/movers/', '/collections/', '/rarity/');
+    for (const i of ds.items) paths.push(i.path);
+    for (const c of ds.collections.values()) paths.push(`/collection/${c.slug}/`);
+    for (const r of ds.rarities.values()) paths.push(`/rarity/${r.slug}/`);
+  }
   const entries = [];
   for (const p of paths) {
     for (const l of active) {
