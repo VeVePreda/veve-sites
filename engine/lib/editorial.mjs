@@ -103,11 +103,45 @@ export function isPublished(rec) {
 // -----------------------------------------------------------------------------
 // Gate de publication programmée
 // -----------------------------------------------------------------------------
-function parseDay(s) {
+/**
+ * Lit une date de Sheet et renvoie son JOUR en millisecondes UTC (minuit), ou
+ * `null` si elle est illisible.
+ *
+ * POURQUOI CE N'EST PAS UN SIMPLE `new Date()` (payé le 27/07/2026).
+ * Google Sheets convertit « 2026-07-27 » en VRAIE date au moment de l'import,
+ * et `get_all_values()` renvoie ensuite la date TELLE QU'AFFICHEE — donc au
+ * format d'affichage de la cellule, qui suit la locale du classeur. Une cellule
+ * reformatee a la main (ou saisie en francais) renvoie « 27/07/2026 », que
+ * `new Date()` ne sait pas lire : la date devenait `null`, et un `null` sur un
+ * blog signifie BROUILLON. L'article disparaissait donc en silence, sans la
+ * moindre erreur de build. On accepte desormais les formats reellement produits
+ * par un Sheet, et on JOURNALISE ce qu'on n'a pas su lire.
+ */
+export function parseDay(s) {
   const v = norm(s);
   if (!v) return null;
-  const d = new Date(v.length <= 10 ? v + 'T00:00:00Z' : v);
-  return Number.isFinite(d.getTime()) ? d.getTime() : null;
+  let m;
+  // ISO : AAAA-MM-JJ / AAAA-MM / AAAA  (le format canonique du reseau)
+  if ((m = /^(\d{4})(?:-(\d{1,2}))?(?:-(\d{1,2}))?$/.exec(v))) {
+    return Date.UTC(+m[1], (+m[2] || 1) - 1, +m[3] || 1);
+  }
+  // Locale FR : JJ/MM/AAAA (ou . ou -). Sheets affiche ainsi une vraie date.
+  if ((m = /^(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{4})$/.exec(v))) {
+    return Date.UTC(+m[3], +m[2] - 1, +m[1]);
+  }
+  // Mois seul : MM/AAAA
+  if ((m = /^(\d{1,2})[/.\-](\d{4})$/.exec(v))) {
+    return Date.UTC(+m[2], +m[1] - 1, 1);
+  }
+  // Dernier recours : tout ce que le moteur JS sait lire (ISO avec heure, ...).
+  const d = new Date(v);
+  if (Number.isFinite(d.getTime())) {
+    return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+  }
+  console.warn(`[editorial] date illisible : ${JSON.stringify(v)} — l'element est `
+    + `traite comme non date (donc BROUILLON sur le blog). Formater la colonne `
+    + `en AAAA-MM-JJ dans le Sheet.`);
+  return null;
 }
 /** true si l'item DOIT être rendu vu la date du build. */
 export function passesPublishGate(rec, page, day = buildDay()) {

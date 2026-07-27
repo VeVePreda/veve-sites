@@ -35,7 +35,7 @@
 // =============================================================================
 import { locales } from './i18n.mjs';
 import { manifest } from './manifest.mjs';
-import { collection } from './editorial.mjs';
+import { collection, parseDay } from './editorial.mjs';
 import { renderMarkdown, stripMarkdown } from './markdown.mjs';
 
 let _cache = null;
@@ -91,7 +91,9 @@ async function sheetPostsFor(lang) {
     const tk = norm(r.translation_key || r.translationKey) || slugBrut;
     // `date` = date affichée ; à défaut on retombe sur `publish` (date de sortie).
     const dateBrute = norm(r.date) || norm(r.publish) || '';
-    const jour = (v) => new Date(v.length <= 10 ? v + 'T00:00:00Z' : v);
+    // MEME lecteur de date que la gate de publication : un Sheet peut afficher
+    // « 27/07/2026 » aussi bien que « 2026-07-27 » (cf. parseDay).
+    const jour = (v) => { const t = parseDay(v); return t === null ? new Date(0) : new Date(t); };
 
     out.push({
       source: 'sheet',

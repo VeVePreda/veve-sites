@@ -277,6 +277,45 @@ console.log('\n7. Onglet « COLONNES PAR LANGUE » (la vraie forme du Sheet veve
     !o.en.some((p) => p.slug === 'sans-corps'), JSON.stringify(o.en.map((p) => p.slug)));
 }
 
+// ---------------------------------------------------------------------------
+console.log('\n8. Dates telles que Google Sheets les AFFICHE');
+// ---------------------------------------------------------------------------
+// Sheets convertit une date importee en VRAIE date, et la renvoie ensuite au
+// format d'affichage de la cellule — donc « 27/07/2026 » si le classeur est en
+// francais. Avec l'ancien lecteur, cette date devenait `null` = BROUILLON, et
+// l'article disparaissait SANS erreur de build. C'est le scenario le plus
+// couteux du lot : il ne se voit pas.
+{
+  const root = racine('dates', {
+    lignes: [
+      { slug: 'iso', translation_key: 'i', lang: 'en', titre: 'ISO',
+        body: 'ok', publish: '2026-07-20', statut: 'publie' },
+      { slug: 'francais', translation_key: 'f', lang: 'en', titre: 'FR',
+        body: 'ok', publish: '20/07/2026', statut: 'publie' },
+      { slug: 'francais-futur', translation_key: 'ff', lang: 'en', titre: 'FR futur',
+        body: 'ok', publish: '01/12/2026', statut: 'publie' },
+      { slug: 'points', translation_key: 'p', lang: 'en', titre: 'Points',
+        body: 'ok', publish: '20.07.2026', statut: 'publie' },
+      { slug: 'illisible', translation_key: 'x', lang: 'en', titre: 'Illisible',
+        body: 'ok', publish: 'la semaine prochaine', statut: 'publie' },
+    ],
+  });
+  const r = dans(root, `
+    const { postsFor } = await import(${BLOG});
+    const p = await postsFor('en');
+    console.log(JSON.stringify(p.map((x) => [x.slug, new Date(x.data.date).toISOString().slice(0,10)])));
+  `);
+  const o = r.code === 0 ? JSON.parse(r.out.split('\n').pop()) : [];
+  const vus = Object.fromEntries(o);
+  verifier('« 2026-07-20 » publie', 'iso' in vus, JSON.stringify(o) + (r.err || ''));
+  verifier('« 20/07/2026 » publie AUSSI', 'francais' in vus, JSON.stringify(o));
+  verifier('« 20.07.2026 » publie aussi', 'points' in vus, JSON.stringify(o));
+  verifier('la date FR est lue au BON jour', vus.francais === '2026-07-20', vus.francais);
+  verifier('« 01/12/2026 » (futur) reste retenu', !('francais-futur' in vus), JSON.stringify(o));
+  verifier('une date illisible ne publie pas (et journalise)',
+    !('illisible' in vus) && /date illisible/.test(r.err), r.err.slice(0, 200));
+}
+
 rmSync(base, { recursive: true, force: true });
 console.log(echecs === 0 ? '\n✅ blog hybride : tout est vert\n'
                          : `\n❌ blog hybride : ${echecs} échec(s)\n`);
