@@ -1,0 +1,39 @@
+{
+ "id": "premier-drop-tirages",
+ "type": "barres",
+ "titre": {
+  "en": "Batman Black & White S1: the four pieces of the very first drop",
+  "fr": "Batman Black & White S1 : les quatre pièces du tout premier drop"
+ },
+ "note": {
+  "en": "18,000 editions in total, minted on 14 October 2020.",
+  "fr": "18 000 exemplaires au total, frappés le 14 octobre 2020."
+ },
+ "legende": {
+  "en": "The rarer the piece, the shorter the run — the rarity logic was there from day one.",
+  "fr": "Plus la pièce est rare, plus le tirage est court : la logique de rareté est là dès le premier jour."
+ },
+ "source": {
+  "en": "on-chain warehouse, mint count for the series",
+  "fr": "entrepôt on-chain, comptage des mints de la série"
+ },
+ "collecte": "2026-07-27",
+ "donnees": [
+  {
+   "label": "#01 Eduardo Risso",
+   "valeur": 1750
+  },
+  {
+   "label": "#24 Brian Bolland",
+   "valeur": 3250
+  },
+  {
+   "label": "#86 Becky Cloonan",
+   "valeur": 5500
+  },
+  {
+   "label": "#100 Todd McFarlane",
+   "valeur": 7500
+  }
+ ]
+}

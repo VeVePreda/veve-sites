@@ -1,0 +1,84 @@
+---
+// ⚠️ VeVePreda/veve-sites — src/components/Figures.astro
+// Le style des figures + le bouton « télécharger cette figure ». Inclus UNE
+// SEULE FOIS par page (depuis src/layouts/Base.astro), quoi qu'il arrive :
+// le script est délégué, il ne coûte rien tant qu'aucune figure n'est présente.
+//
+// ⭐ POURQUOI UN TÉLÉCHARGEMENT
+// Une figure de données se partage — sur X, dans un Discord, dans un article
+// tiers. Partagée, elle voyage SANS sa page : c'est pour ça que le cartouche
+// (marque, domaine, date de collecte, source) est tracé DANS le SVG et pas en
+// légende HTML. L'image doit rester attribuable une fois seule.
+//
+// ⚠️ PIÈGES PAYÉS À LA RASTÉRISATION
+//  1. le SVG doit porter `width`/`height` en plus du `viewBox`, sinon plusieurs
+//     navigateurs dessinent une image de 0 pixel ;
+//  2. il doit être AUTONOME (couleurs et police en dur) : le rendu rastérisé ne
+//     voit ni la feuille de style de la page, ni ses `@font-face` ;
+//  3. on passe par un Blob et non par `encodeURIComponent`, qui casse dès qu'un
+//     accent traîne dans un libellé ;
+//  4. ×2 : une capture à la taille d'affichage est illisible une fois repartagée.
+//
+// Sans JavaScript : la figure reste affichée et lisible (c'est du SVG dans le
+// HTML) ; seul le bouton reste masqué, puisqu'il ne ferait rien.
+---
+<style is:global>
+  .fig { margin: 26px 0; }
+  .fig .fig-svg svg { width: 100%; height: auto; display: block; border-radius: 8px; }
+  .fig figcaption {
+    display: flex; gap: 12px; align-items: baseline; justify-content: space-between;
+    margin-top: 8px; font-size: 13px; color: var(--muted);
+  }
+  .fig .fig-dl {
+    flex: none; background: none; border: 1px solid var(--surface); color: var(--muted);
+    border-radius: 999px; padding: 4px 12px; font: inherit; font-size: 12px; cursor: pointer;
+  }
+  .fig .fig-dl:hover { border-color: var(--primary); color: var(--primary); }
+  .fig .fig-dl[aria-busy="true"] { opacity: .6; cursor: progress; }
+  @media print { .fig .fig-dl { display: none; } }
+</style>
+
+<script is:inline>
+  (function () {
+    var boutons = document.querySelectorAll('.fig .fig-dl');
+    if (!boutons.length) return;
+    // Le bouton n'apparaît QUE si ce script tourne : pas de bouton mort.
+    for (var i = 0; i < boutons.length; i++) boutons[i].hidden = false;
+
+    function telecharger(bouton) {
+      var bloc = bouton.closest('.fig');
+      var svg = bloc && bloc.querySelector('svg');
+      if (!svg) return;
+      bouton.setAttribute('aria-busy', 'true');
+      var boite = svg.viewBox && svg.viewBox.baseVal;
+      var L = (boite && boite.width) || svg.clientWidth || 900;
+      var H = (boite && boite.height) || svg.clientHeight || 400;
+      var ECHELLE = 2;
+      var xml = new XMLSerializer().serializeToString(svg);
+      var url = URL.createObjectURL(new Blob([xml], { type: 'image/svg+xml;charset=utf-8' }));
+      var img = new Image();
+      img.onload = function () {
+        var c = document.createElement('canvas');
+        c.width = L * ECHELLE; c.height = H * ECHELLE;
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(url);
+        c.toBlob(function (png) {
+          bouton.removeAttribute('aria-busy');
+          if (!png) return;
+          var a = document.createElement('a');
+          a.href = URL.createObjectURL(png);
+          a.download = (bloc.getAttribute('data-fig-nom') || 'figure') + '.png';
+          document.body.appendChild(a); a.click(); a.remove();
+          setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
+        }, 'image/png');
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); bouton.removeAttribute('aria-busy'); };
+      img.src = url;
+    }
+
+    document.addEventListener('click', function (e) {
+      var b = e.target && e.target.closest && e.target.closest('.fig .fig-dl');
+      if (b) { e.preventDefault(); telecharger(b); }
+    });
+  })();
+</script>

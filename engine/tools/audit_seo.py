@@ -155,6 +155,18 @@ if declare_recherche and not a_une_recherche:
     erreurs.append(f"{len(declare_recherche)} pages declarent un SearchAction alors "
                    "qu'AUCUNE page ne rend de champ de recherche")
 
+# ── 4quater. les figures restent attribuables ───────────────────────────────
+# Une figure de donnees part se faire partager SANS sa page : son cartouche
+# (marque, domaine, source, date de COLLECTE) est trace DANS le SVG pour qu'elle
+# reste attribuable une fois seule. Si un jour un gabarit sort une figure sans
+# cartouche, ca ne casse rien — l'image circule juste anonymement avec nos
+# chiffres. On le verifie donc, plutot que d'y croire.
+figs = re.findall(r'<figure class="fig".*?</figure>', ' '.join(H.values()), re.S)
+sans_cartouche = [f for f in figs if 'collect' not in _html.unescape(f).lower()]
+if figs and sans_cartouche:
+    erreurs.append(f"{len(sans_cartouche)} figure(s) sur {len(figs)} sans date de collecte "
+                   "dans le SVG — une image partagee doit rester datable")
+
 # ── 5. noindex vs sitemap ───────────────────────────────────────────────────
 sm_txt = (D / 'sitemap.xml').read_text(encoding='utf-8') if (D / 'sitemap.xml').exists() else ''
 sm = set(re.sub(r'^https?://[^/]+', '', u) for u in re.findall(r'<loc>([^<]+)</loc>', sm_txt))

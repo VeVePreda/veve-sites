@@ -37,6 +37,8 @@ import { locales } from './i18n.mjs';
 import { manifest } from './manifest.mjs';
 import { collection, parseDay } from './editorial.mjs';
 import { renderMarkdown, stripMarkdown } from './markdown.mjs';
+import { localize } from './i18n.mjs';
+import { figureParId } from './figures.mjs';
 
 let _cache = null;
 
@@ -99,7 +101,15 @@ async function sheetPostsFor(lang) {
       source: 'sheet',
       lang,
       slug: slugBrut,
-      html: renderMarkdown(body),
+      // ⭐ Deux choses que le Markdown du Sheet ne peut pas faire seul :
+      //   • `localiser` — sans lui, un renvoi interne ecrit en dur envoie le
+      //     lecteur FRANCAIS sur la page ANGLAISE, en silence, a chaque lien ;
+      //   • `figure`    — `![legende](figure:id)` devient une figure de donnees
+      //     tracee au build, l'auteur ne recopiant AUCUN chiffre.
+      html: renderMarkdown(body, {
+        localiser: (u) => localize(lang, u),
+        figure: (id, legende) => figureParId(id, lang, legende),
+      }),
       cover: norm(r.cover || r.image),
       data: {
         title: titre,

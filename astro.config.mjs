@@ -1,6 +1,8 @@
 import { defineConfig } from 'astro/config';
 import node from '@astrojs/node';
 import fonctionnalitesEteintes from './engine/lib/astro_features.mjs';
+import { satteri } from '@astrojs/markdown-satteri';
+import figuresMarkdown from './engine/lib/figures_markdown.mjs';
 
 // Rendu HYBRIDE : chaque site choisit son mode via la variable RENDERING
 //   static  (defaut) = tout est pre-genere, aucun serveur
@@ -27,6 +29,14 @@ export default defineConfig({
   // /movers/, /collections/ et /rarity/ en pages fantomes. Cf.
   // engine/lib/astro_features.mjs — no-op quand la fonctionnalite est active.
   integrations: [fonctionnalitesEteintes()],
+  // `![legende](figure:mon-id)` dans un article .md du depot -> figure de
+  // donnees tracee AU BUILD, exactement comme pour un corps venu du Sheet.
+  // Une seule syntaxe pour les deux pipelines.
+  // ⚠️ Astro 7 rend le Markdown avec SATTERI, pas avec remark : passer un
+  //    greffon remark ici fait echouer le build en reclamant une dependance de
+  //    plus (`@astrojs/markdown-remark`). On utilise donc le systeme de
+  //    greffons de Satteri, deja installe. Cf. engine/lib/figures_markdown.mjs
+  markdown: { processor: satteri({ mdastPlugins: [figuresMarkdown] }) },
   build: { format: 'directory' },
   compressHTML: true,
   devToolbar: { enabled: false },

@@ -16,9 +16,11 @@
     "test:quotas": "node engine/tools/test_quotas.mjs",
     "test:acces": "node engine/tools/test_access.mjs",
     "test:blog": "node engine/tools/test_blog.mjs",
-    "test": "npm run test:donnees && npm run test:quotas && npm run test:acces && npm run test:blog && npm run test:slugs && npm run test:nginx"
+    "test": "npm run test:donnees && npm run test:quotas && npm run test:acces && npm run test:blog && npm run test:figures && npm run test:slugs && npm run test:nginx",
+    "test:figures": "node engine/tools/test_figures.mjs"
   },
   "dependencies": {
+    "@astrojs/markdown-satteri": "^0.3.4",
     "@astrojs/node": "^11.0.2",
     "astro": "^7.1.1",
     "js-yaml": "^5.2.1"

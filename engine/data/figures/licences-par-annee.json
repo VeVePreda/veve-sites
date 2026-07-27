@@ -1,0 +1,51 @@
+{
+ "id": "licences-par-annee",
+ "type": "series",
+ "titre": {
+  "en": "New licences arriving on VeVe, by year",
+  "fr": "Licences arrivées sur VeVe, par année"
+ },
+ "note": {
+  "en": "Counted on the date of each licence’s first public drop.",
+  "fr": "Comptées à la date du premier drop public de chaque licence."
+ },
+ "legende": {
+  "en": "2023 is the widest year: eleven licences opened in twelve months.",
+  "fr": "2023 est l'année la plus large : onze licences ouvertes en douze mois."
+ },
+ "source": {
+  "en": "warehouse + VeVe catalogue (first_drop, corroborated)",
+  "fr": "entrepôt + catalogue VeVe (first_drop, corroboré)"
+ },
+ "collecte": "2026-07-27",
+ "donnees": [
+  {
+   "label": "2020",
+   "valeur": 3
+  },
+  {
+   "label": "2021",
+   "valeur": 12
+  },
+  {
+   "label": "2022",
+   "valeur": 6
+  },
+  {
+   "label": "2023",
+   "valeur": 11
+  },
+  {
+   "label": "2024",
+   "valeur": 8
+  },
+  {
+   "label": "2025",
+   "valeur": 2
+  },
+  {
+   "label": "2026",
+   "valeur": 2
+  }
+ ]
+}

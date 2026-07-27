@@ -1,0 +1,71 @@
+{
+ "id": "licences-poids-catalogue",
+ "type": "barres",
+ "titre": {
+  "en": "The 12 heaviest licences in the VeVe catalogue",
+  "fr": "Les 12 licences les plus lourdes du catalogue VeVe"
+ },
+ "note": {
+  "en": "Number of distinct collectibles published under each licence.",
+  "fr": "Nombre de collectibles distincts publiés sous chaque licence."
+ },
+ "legende": {
+  "en": "Marvel alone weighs more than all the other licences combined.",
+  "fr": "Marvel pèse à elle seule plus que toutes les autres licences réunies."
+ },
+ "source": {
+  "en": "on-chain warehouse (IMX + CollectChain)",
+  "fr": "entrepôt on-chain (IMX + CollectChain)"
+ },
+ "collecte": "2026-07-27",
+ "donnees": [
+  {
+   "label": "Marvel",
+   "valeur": 8486
+  },
+  {
+   "label": "Star Wars",
+   "valeur": 826
+  },
+  {
+   "label": "Disney",
+   "valeur": 289
+  },
+  {
+   "label": "Cartoon Network",
+   "valeur": 286
+  },
+  {
+   "label": "Predator",
+   "valeur": 108
+  },
+  {
+   "label": "Ultraman",
+   "valeur": 107
+  },
+  {
+   "label": "Pixar",
+   "valeur": 92
+  },
+  {
+   "label": "Powerpuff",
+   "valeur": 88
+  },
+  {
+   "label": "Ubisoft",
+   "valeur": 84
+  },
+  {
+   "label": "Blackpink",
+   "valeur": 77
+  },
+  {
+   "label": "DC",
+   "valeur": 69
+  },
+  {
+   "label": "Call Of Cthulhu",
+   "valeur": 37
+  }
+ ]
+}

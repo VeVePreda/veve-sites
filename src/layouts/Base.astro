@@ -6,6 +6,7 @@ import { locales, t, pick, localize, localeNames, dateLocale } from '../../engin
 import { DOCS, legalTitle } from '../../engine/lib/legal.mjs';
 import { activeSections, sectionMeta } from '../../engine/lib/editorial_pages.mjs';
 import { priceEnabled, searchEnabled } from '../../engine/lib/features.mjs';
+import Figures from '../components/Figures.astro';
 import { blogEnabled, blogMeta } from '../../engine/lib/blog.mjs';
 
 const m = manifest();
@@ -69,6 +70,7 @@ const suggestData = alternates.filter((a) => a.lang !== lang).map((a) => ({ l: a
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
+<Figures />
 <title>{fullTitle}</title>
 <meta name="description" content={desc} />
 <link rel="canonical" href={canon} />
