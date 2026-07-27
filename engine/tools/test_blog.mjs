@@ -15,7 +15,10 @@
 //    2. le rendu Markdown du Sheet et son ÉCHAPPEMENT (une cellule n'est pas
 //       une entrée de code : `<script>` et `javascript:` sont neutralisés) ;
 //    3. le lien entre TRADUCTIONS (`translation_key`) malgré des slugs différents ;
-//    4. `blogEnabled()` : un site qui n'active pas `blog` n'a pas de lien de nav.
+//    4. `blogEnabled()` : un site qui n'active pas `blog` n'a pas de lien de nav ;
+//    5. le LECTEUR DE DATES partage avec editorial.mjs (`parseDay`/`canonDate`),
+//       parce qu'un Sheet reformate renvoie « 27/07/2026 » et non « 2026-07-27 » —
+//       et que la chronologie se trie sur cette chaine.
 //
 //  Chaque scénario tourne dans un PROCESSUS SÉPARÉ : manifeste et snapshots sont
 //  mémoïsés au premier appel (comme test_quotas.mjs), donc on ne peut pas
@@ -314,6 +317,41 @@ console.log('\n8. Dates telles que Google Sheets les AFFICHE');
   verifier('« 01/12/2026 » (futur) reste retenu', !('francais-futur' in vus), JSON.stringify(o));
   verifier('une date illisible ne publie pas (et journalise)',
     !('illisible' in vus) && /date illisible/.test(r.err), r.err.slice(0, 200));
+}
+
+// ---------------------------------------------------------------------------
+console.log('\n9. History : la chronologie ne se melange pas');
+// ---------------------------------------------------------------------------
+// Les jalons sont TRIES sur la chaine de la date. Si le Sheet affiche
+// « 01/03/2022 », un tri par chaine compare le JOUR avant l'ANNEE : la timeline
+// part dans le desordre sans qu'aucune erreur ne soit levee. `canonDate` remet
+// tout en ISO tronque a la precision AVANT que la page ne trie.
+{
+  const root = racine('histoire', { pages: ['history'], lignes: [] });
+  const fs = await import('node:fs');
+  fs.writeFileSync(join(root, 'sites', 'test', 'editorial', 'history.json'),
+    JSON.stringify([
+      { id: 'a', date: '17/10/2020', precision: 'jour', titre_en: 'Genese' },
+      { id: 'b', date: '01/03/2022', precision: 'mois', titre_en: 'Mars 2022' },
+      { id: 'c', date: '2021-05',    precision: 'mois', titre_en: 'Mai 2021' },
+      { id: 'd', date: '2026',       precision: 'annee', titre_en: 'Annee seule' },
+      { id: 'e', date: 'un jour',    precision: 'jour', titre_en: 'Illisible' },
+    ]));
+  const r = dans(root, `
+    const { collection } = await import(${JSON.stringify(join(RACINE, "engine", "lib", "editorial.mjs"))});
+    const { items } = await collection('history', 'en');
+    const tri = items.slice().sort((a, b) => String(a.date).localeCompare(String(b.date)));
+    console.log(JSON.stringify({ dates: items.map((x) => [x.id, x.date]), ordre: tri.map((x) => x.id) }));
+  `);
+  const o = r.code === 0 ? JSON.parse(r.out.split('\n').pop()) : { dates: [], ordre: [] };
+  const d = Object.fromEntries(o.dates || []);
+  verifier('« 17/10/2020 » canonise en 2020-10-17', d.a === '2020-10-17', JSON.stringify(o) + (r.err || ''));
+  verifier('« 01/03/2022 » + precision mois -> 2022-03', d.b === '2022-03', d.b);
+  verifier('une date deja ISO ne bouge pas', d.c === '2021-05', d.c);
+  verifier('une annee seule reste une annee', d.d === '2026', d.d);
+  verifier('une date illisible est conservee telle quelle', d.e === 'un jour', d.e);
+  verifier('le tri chronologique est correct',
+    JSON.stringify(o.ordre) === JSON.stringify(['a', 'c', 'b', 'd', 'e']), JSON.stringify(o.ordre));
 }
 
 rmSync(base, { recursive: true, force: true });

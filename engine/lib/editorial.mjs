@@ -143,6 +143,33 @@ export function parseDay(s) {
     + `en AAAA-MM-JJ dans le Sheet.`);
   return null;
 }
+/**
+ * Ramene une date de Sheet a l'ISO tronque a sa PRECISION :
+ *   jour -> AAAA-MM-JJ · mois -> AAAA-MM · annee -> AAAA.
+ * Renvoie la valeur brute si elle est illisible (on n'invente rien).
+ *
+ * POURQUOI (payé le 27/07/2026). La chronologie est TRIEE sur la chaine de
+ * caracteres de la date. Tant que le Sheet affiche de l'ISO, ce tri est juste.
+ * Le jour ou une cellule est reformatee et renvoie « 01/03/2022 », le tri
+ * compare des jours avant des annees : la timeline se melange ENTIEREMENT,
+ * sans la moindre erreur — et un jalon de 2020 se retrouve entre deux de 2024.
+ * On canonise donc a la lecture, une fois, pour tout le reseau.
+ */
+export function canonDate(raw, precision) {
+  const v = norm(raw);
+  if (!v) return '';
+  const t = parseDay(v);
+  if (t === null) return v;
+  const d = new Date(t);
+  const iso = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-`
+            + `${String(d.getUTCDate()).padStart(2, '0')}`;
+  const p = lower(precision) || (/^\d{4}$/.test(v) ? 'annee'
+                              : /^\d{4}-\d{1,2}$/.test(v) ? 'mois' : 'jour');
+  if (p === 'annee') return iso.slice(0, 4);
+  if (p === 'mois') return iso.slice(0, 7);
+  return iso;
+}
+
 /** true si l'item DOIT être rendu vu la date du build. */
 export function passesPublishGate(rec, page, day = buildDay()) {
   const g = PUBLISH_GATE[page];
@@ -269,6 +296,12 @@ export async function collection(page, lang, { required = true } = {}) {
   });
 
   let items = kept.map((r) => resolveLang(r, lang, missing));
+
+  // Chronologie : dates canonisees -> le tri par chaine reste juste quel que
+  // soit le format d'affichage du Sheet (cf. canonDate).
+  if (page === 'history') {
+    items = items.map((r) => ({ ...r, date: canonDate(r.date, r.precision) }));
+  }
 
   if (page === 'brands') {
     const agg = await licenceAgregats();
