@@ -109,6 +109,35 @@ jobs:
             echo "vevewiki ne répond pas (200) après ~15 min."; exit 1
           fi
 
+      # ─────────────────────────────────────────────────────────────────────
+      #  IndexNow — ⭐ la clé était servie, personne ne l'appelait
+      # ─────────────────────────────────────────────────────────────────────
+      #  Le site publie déjà sa clé à la racine (`/<clé>.txt`, cf.
+      #  src/pages/[key].txt.js), ce qui est la MOITIÉ du protocole : l'autre
+      #  moitié est de PRÉVENIR les moteurs qu'une adresse a changé. Sans ce
+      #  ping, Bing et Yandex attendent leur prochain passage — des semaines.
+      #  Avec, l'indexation tombe en heures, et c'est gratuit.
+      #  ⚠️ On ne pousse QUE le sitemap : soumettre 32 URL une par une à chaque
+      #     build serait vu comme du spam. Un échec ici n'est PAS bloquant —
+      #     un moteur indisponible ne doit pas faire échouer un déploiement
+      #     réussi.
+      - name: Prévenir IndexNow (Bing, Yandex)
+        continue-on-error: true
+        run: |
+          set -u
+          cle="a7f3c9e214d84b06b1e5c0f7d29a63b8"
+          # La clé doit être servie AVANT de la revendiquer, sinon le moteur
+          # rejette la soumission — on le vérifie plutôt que de le supposer.
+          code=$(curl -sS -o /dev/null -w '%{http_code}' "https://vevewiki.com/${cle}.txt" || true)
+          if [ "$code" != "200" ]; then
+            echo "La clé IndexNow n'est pas servie (HTTP $code) — soumission ignorée."
+            exit 0
+          fi
+          rep=$(curl -sS -o /tmp/indexnow.out -w '%{http_code}' \
+            "https://api.indexnow.org/indexnow?url=https%3A%2F%2Fvevewiki.com%2Fsitemap.xml&key=${cle}" || true)
+          echo "IndexNow : HTTP $rep"
+          cat /tmp/indexnow.out || true; echo
+
       - name: Alerter sur Discord en cas d'échec
         if: failure()
         run: |
