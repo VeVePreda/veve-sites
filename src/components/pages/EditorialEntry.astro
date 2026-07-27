@@ -16,7 +16,7 @@
 //  licence trop petite garde sa ligne d'index et n'obtient PAS de page.
 // =============================================================================
 import Base from '../../layouts/Base.astro';
-import { sectionMeta } from '../../../engine/lib/editorial_pages.mjs';
+import { sectionMeta, languesDeSection } from '../../../engine/lib/editorial_pages.mjs';
 import { cheminFiche, collecteEntrepot } from '../../../engine/lib/editorial_entries.mjs';
 import { figureHTML } from '../../../engine/lib/figures.mjs';
 import { manifest } from '../../../engine/lib/manifest.mjs';
@@ -66,7 +66,8 @@ const crumbs = [
 ];
 const ld = [breadcrumbLd(crumbs.map((c) => ({ name: c.name, url: c.url ? root + c.url : `${root}${localize(lang, chemin)}` })))];
 ---
-<Base lang={lang} path={chemin} title={fiche.titre} description={description} crumbs={crumbs} ld={ld}>
+<Base lang={lang} path={chemin} title={fiche.titre} description={description}
+      langs={languesDeSection(fiche.section)} crumbs={crumbs} ld={ld}>
   <article class="fiche">
     <h1>{fiche.titre}</h1>
     {note && <p class="lead">{note}</p>}

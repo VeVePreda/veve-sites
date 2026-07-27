@@ -16,10 +16,11 @@
     "test:quotas": "node engine/tools/test_quotas.mjs",
     "test:acces": "node engine/tools/test_access.mjs",
     "test:blog": "node engine/tools/test_blog.mjs",
-    "test": "npm run test:donnees && npm run test:quotas && npm run test:acces && npm run test:blog && npm run test:figures && npm run test:fiches && npm run test:lastmod && npm run test:slugs && npm run test:nginx",
+    "test": "npm run test:donnees && npm run test:quotas && npm run test:acces && npm run test:blog && npm run test:figures && npm run test:fiches && npm run test:lastmod && npm run test:langues && npm run test:slugs && npm run test:nginx",
     "test:figures": "node engine/tools/test_figures.mjs",
     "test:fiches": "node engine/tools/test_fiches.mjs",
-    "test:lastmod": "node engine/tools/test_lastmod.mjs"
+    "test:lastmod": "node engine/tools/test_lastmod.mjs",
+    "test:langues": "node engine/tools/test_langues.mjs"
   },
   "dependencies": {
     "@astrojs/markdown-satteri": "^0.3.4",

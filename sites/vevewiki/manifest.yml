@@ -10,17 +10,42 @@
 site:
   domain: vevewiki.com
   brand: "VeVe Wiki"
+  # ⚠️ ES / IT / DE : le wiki n'y publie AUJOURD'HUI que le glossaire et les
+  # acronymes (cf. bloc `languages`). Ces deux textes ne promettent donc PAS les
+  # marques, les créateurs ni la chronologie — annoncer dans un extrait Google
+  # une rubrique que la page ne porte pas est le meilleur moyen de faire
+  # repartir un visiteur. Ils restent vrais le jour où les autres sections
+  # arriveront : ils citent, ils n'énumèrent pas.
   tagline:
     en: "The independent VeVe reference wiki — collectibles, comics & community knowledge."
     fr: "Le wiki de référence indépendant de VeVe — collectibles, comics & savoir communautaire."
+    es: "La enciclopedia VeVe independiente — el saber de los coleccionistas, verificado y fechado."
+    it: "L'enciclopedia VeVe indipendente — il sapere dei collezionisti, verificato e datato."
+    de: "Die unabhängige VeVe-Enzyklopädie — Sammlerwissen, geprüft und mit Datum."
   description:
     en: "The independent VeVe encyclopedia: glossary, acronyms, brands, creators and the full timeline of VeVe history."
     fr: "L'encyclopédie VeVe indépendante : glossaire, acronymes, marques, créateurs et toute la chronologie de VeVe."
+    es: "La enciclopedia VeVe independiente: el glosario del coleccionista y las siglas de VeVe, definidos en claro y con su fuente."
+    it: "L'enciclopedia VeVe indipendente: il glossario del collezionista e le sigle di VeVe, spiegati in modo chiaro e con la fonte."
+    de: "Die unabhängige VeVe-Enzyklopädie: das Sammler-Glossar und die VeVe-Abkürzungen, klar erklärt und jeweils mit Quelle."
 
-# --- Langues : EN pivot, FR en sous-dossier /fr/ (ES/DE extensibles plus tard) -
+# --- Langues : EN pivot, les autres en sous-dossier (/fr/, /es/, /it/, /de/) ---
+#
+# ⭐⭐ `active` NE VEUT PAS DIRE « tout le site sort dans cette langue ».
+# C'est la liste des langues CANDIDATES. Le moteur (engine/lib/langues.mjs)
+# mesure, section par section, la part réellement traduite dans les snapshots
+# du Sheet, et ne publie que ce qui atteint `seuil_traduction`. Au 28/07/2026 :
+#     glossary  87/87  ·  acronyms  65/65   -> publiés en es, it, de
+#     brands · history · annuaire · blog     -> en/fr seulement (0 % ailleurs)
+# Il n'y a donc RIEN à changer ici le jour où une section est traduite : elle
+# apparaîtra d'elle-même au build suivant, et le journal l'annoncera.
+# ⛔ Ne PAS baisser le seuil pour « ouvrir » une langue : une page à moitié
+# traduite est une page qui ment sur son `<html lang>`, et le repli anglais est
+# invisible — c'est le défaut par repli du 27/07, en cinq langues cette fois.
 languages:
   default: en
-  active: [en, fr]
+  active: [en, fr, es, it, de]
+  seuil_traduction: 1
 
 rendering: static           # un wiki = tout pré-généré, aucun serveur
 
@@ -130,6 +155,9 @@ seo:
   home_title:
     en: "the independent VeVe encyclopedia"
     fr: "l'encyclopédie VeVe indépendante"
+    es: "la enciclopedia VeVe independiente"
+    it: "l'enciclopedia VeVe indipendente"
+    de: "die unabhängige VeVe-Enzyklopädie"
   indexnow_key: "a7f3c9e214d84b06b1e5c0f7d29a63b8"   # clé IndexNow (valeur arbitraire)
 
 content:

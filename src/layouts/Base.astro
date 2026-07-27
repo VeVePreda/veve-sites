@@ -4,16 +4,19 @@ import { manifest, siteUrl } from '../../engine/lib/manifest.mjs';
 import { jsonld, websiteLd, pageTitle, homeTitle, breadcrumbLd } from '../../engine/lib/seo.mjs';
 import { locales, t, pick, localize, localeNames, dateLocale } from '../../engine/lib/i18n.mjs';
 import { DOCS, legalTitle } from '../../engine/lib/legal.mjs';
-import { activeSections, sectionMeta } from '../../engine/lib/editorial_pages.mjs';
+import { activeSections, sectionMeta, languesDuSite } from '../../engine/lib/editorial_pages.mjs';
 import { priceEnabled, searchEnabled } from '../../engine/lib/features.mjs';
 import Figures from '../components/Figures.astro';
-import { blogEnabled, blogMeta } from '../../engine/lib/blog.mjs';
+import { blogEnabled, blogMeta, languesBlog } from '../../engine/lib/blog.mjs';
 
 const m = manifest();
 const p = m.identity.palette || {};
 const f = m.identity.fonts || {};
 const links = m.links || {};
-const { lang, path = '/', altPaths = null, title, description, crumbs = [], ld = [], updatedAt = null, noindex = false, image = null } = Astro.props;
+// `langs` : les langues où CETTE page existe vraiment. Non fourni = les langues
+// du site. C'est ce qui empêche un hreflang d'annoncer /es/brands/ quand cette
+// page n'est pas construite (cf. engine/lib/langues.mjs).
+const { lang, path = '/', altPaths = null, langs = null, title, description, crumbs = [], ld = [], updatedAt = null, noindex = false, image = null } = Astro.props;
 const { active, def } = locales();
 const prixActifs = priceEnabled();
 // Nav PILOTEE PAR LE MANIFESTE : un site avec des pages editoriales (bloc
@@ -21,9 +24,14 @@ const prixActifs = priceEnabled();
 // historique. Zero regression : veveprice (sans bloc editorial) ne bouge pas.
 // Le BLOG n'est pas une « section » editoriale (rendu propre, engine/lib/blog.mjs) :
 // on l'ajoute en fin de nav quand le manifeste l'active (`editorial.pages: [... blog]`).
+// ⚠️ La nav est calculee POUR CETTE LANGUE, pas pour le site : `activeSections(lang)`
+// ne rend que les sections dont la traduction atteint le seuil. Sans le
+// parametre, /es/ afficherait des onglets Brands / History / Directory menant a
+// des pages qui ne sont pas construites — quatre 404 sur chaque page espagnole.
+const blogDansCetteLangue = blogEnabled() && (await languesBlog()).includes(lang);
 const wikiNav = (m.editorial && Array.isArray(m.editorial.pages) && m.editorial.pages.length)
-  ? activeSections().map((sx) => sectionMeta(sx, lang)).concat(
-      blogEnabled()
+  ? activeSections(lang).map((sx) => sectionMeta(sx, lang)).concat(
+      blogDansCetteLangue
         ? [{ section: 'blog', path: '/blog/',
              title: blogMeta(lang, { title: t(lang, 'blog.title') }).title }]
         : [])
@@ -46,9 +54,19 @@ const canon = `${root}${localize(lang, path)}`;
 // Chaque langue a SA propre adresse ; hreflang les relie. Aucune redirection auto.
 // Si altPaths est fourni (articles : slugs differents par langue), on ne
 // declare QUE les langues qui existent reellement, avec leur propre chemin.
+// ⭐⭐ ON NE DECLARE QUE CE QUI EST CONSTRUIT. Avant le 28/07 cette ligne
+// parcourait `active` : toute langue listee au manifeste etait annoncee sur
+// TOUTES les pages, qu'elles existent ou non dans cette langue. Un hreflang
+// vers une URL absente est une promesse rompue faite a un moteur — et le
+// selecteur de langue, qui lit la meme liste, y envoyait le visiteur.
+// Trois etages, du plus precis au plus large :
+//   altPaths -> la page connait ses propres adresses (articles : slugs differents)
+//   langs    -> la page connait ses langues (sections : meme adresse partout)
+//   defaut   -> les langues du site
+const languesDeLaPage = langs || languesDuSite();
 const alternates = (altPaths
   ? active.filter((l) => altPaths[l]).map((l) => ({ lang: l, href: `${root}${localize(l, altPaths[l])}` }))
-  : active.map((l) => ({ lang: l, href: `${root}${localize(l, path)}` })));
+  : languesDeLaPage.map((l) => ({ lang: l, href: `${root}${localize(l, path)}` })));
 
 const themeFiles = import.meta.glob('../../themes/*/theme.css', { query: '?raw', import: 'default', eager: true });
 const themeCss = themeFiles[`../../themes/${m.identity.theme}/theme.css`] ?? Object.values(themeFiles)[0] ?? '';
@@ -141,7 +159,14 @@ const suggestData = alternates.filter((a) => a.lang !== lang).map((a) => ({ l: a
     {wikiNav
       ? wikiNav.map((sx) => (<a href={localize(lang, sx.path)}>{sx.title}</a>))
       : (<>
-          <a href={localize(lang, '/blog/')}>{t(lang, 'nav.blog')}</a>
+          {/* ⚠️ MEME CONDITION QUE LA NAV WIKI, et elle a ete payee : la nav
+              « prix » pointait vers /blog/ dans TOUTES les langues du site. Le
+              jour ou l'index d'articles a cesse d'etre emis dans les langues
+              sans article (veveprice : es, de), ce lien est devenu un 404 sur
+              chaque page espagnole et allemande — visible nulle part au build,
+              puisque c'est un lien, pas une route. Une navigation ne se decide
+              pas au niveau du SITE mais au niveau de la LANGUE. */}
+          {blogDansCetteLangue && <a href={localize(lang, '/blog/')}>{t(lang, 'nav.blog')}</a>}
           <a href={localize(lang, '/movers/')}>{t(lang, 'nav.movers')}</a>
           <a href={localize(lang, '/collections/')}>{t(lang, 'nav.collections')}</a>
           <a href={localize(lang, '/rarity/')}>{t(lang, 'nav.rarities')}</a>

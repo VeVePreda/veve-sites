@@ -35,7 +35,7 @@
 // =============================================================================
 import { locales } from './i18n.mjs';
 import { manifest } from './manifest.mjs';
-import { collection, parseDay } from './editorial.mjs';
+import { collection, parseDay, estRepli } from './editorial.mjs';
 import { renderMarkdown, stripMarkdown } from './markdown.mjs';
 import { localize } from './i18n.mjs';
 import { figureParId } from './figures.mjs';
@@ -79,10 +79,22 @@ async function sheetPostsFor(lang) {
   const out = [];
   const sansCorps = [];
 
+  const nonTraduits = [];
+
   for (const r of rows) {
     // Forme (a) : une ligne par langue -> on ne garde que la ligne de CETTE langue.
     const ligneLang = norm(r.lang || r.langue).toLowerCase();
     if (ligneLang && ligneLang !== lang) continue;
+
+    // ⭐⭐ UN ARTICLE NON TRADUIT N'EST PAS UN ARTICLE DE CETTE LANGUE.
+    // Forme (b) : `resolveLang` recopie l'anglais quand `body_es` n'existe pas.
+    // Sans ce filtre, /es/blog/ publiait deux articles ANGLAIS sous
+    // <html lang="es">, avec leur carte de partage, leur flux RSS et leur
+    // entree de sitemap — et le compte « 2 articles en espagnol » avait l'air
+    // juste. Le CORPS decide : un titre traduit sur un texte anglais reste un
+    // texte anglais. Le tri se fait ARTICLE PAR ARTICLE, pas section par
+    // section : une traduction arrive une piece a la fois.
+    if (estRepli(r, 'body')) { nonTraduits.push(norm(r.slug) || norm(r.titre)); continue; }
 
     const titre = norm(r.titre || r.title);
     const body = String(r.body ?? r.corps ?? r.contenu ?? '');
@@ -125,6 +137,10 @@ async function sheetPostsFor(lang) {
     });
   }
 
+  if (nonTraduits.length) {
+    console.log(`[blog] ${lang} : ${nonTraduits.length} article(s) non traduit(s), donc non publie(s) `
+      + `dans cette langue : ${nonTraduits.join(', ')}`);
+  }
   if (sansCorps.length && lang === def) {
     console.warn(`[blog] ${sansCorps.length} ligne(s) de l'onglet Blog sans corps, ` +
       `donc non publiée(s) : ${sansCorps.join(', ')}. Un article a besoin d'une ` +
@@ -241,6 +257,28 @@ export async function postsForItem(lang, uuid) {
 }
 
 export const allLangs = async () => [...new Set((await loadAll()).map((p) => p.lang))];
+
+/**
+ * Les langues dans lesquelles le BLOG est publiable.
+ *
+ * ⭐ Le blog ne passe PAS par la mesure de couverture d'engine/lib/langues.mjs,
+ * et c'est délibéré : ses articles viennent de DEUX sources (onglet Sheet et
+ * fichiers .md du dépôt). Mesurer le seul snapshot `blog.json` ferait tomber à
+ * zéro un site qui n'a que des .md — veveprice, dont les articles français
+ * auraient disparu sans un mot. Le fait qui compte ici n'est pas « la colonne
+ * est-elle traduite » mais « existe-t-il un article dans cette langue »,
+ * et `postsFor` le sait des deux sources à la fois.
+ * ⚠️ La langue pivot est toujours retenue : c'est elle qui porte l'index même
+ * quand il est vide, et le sitemap la traite déjà à part (`langsAvecArticles`).
+ */
+export async function languesBlog() {
+  const { active, def } = locales();
+  const out = [];
+  for (const l of active) {
+    if (l === def || (await postsFor(l)).length) out.push(l);
+  }
+  return out;
+}
 
 /**
  * Titre + description de l'INDEX des articles. Le libellé réseau par défaut

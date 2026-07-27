@@ -187,7 +187,15 @@ const LANG_SUFFIX = /^(.*)_(en|fr|es|it|de)$/;
 
 /** Résout les familles de colonnes `base_en/base_fr/…` vers `base` dans `lang`,
  *  avec repli sur la langue par défaut (EN). Les colonnes non suffixées sont
- *  recopiées telles quelles. Alimente `missing` (champs retombés sur le repli).*/
+ *  recopiées telles quelles. Alimente `missing` (champs retombés sur le repli).
+ *
+ *  ⭐⭐ L'ITEM PORTE DÉSORMAIS SA PROPRE MARQUE DE REPLI : `__repli` liste les
+ *  familles qui n'existaient PAS dans la langue demandée. Sans elle, un appelant
+ *  ne peut pas faire la différence entre « traduit » et « anglais recopié » —
+ *  et c'est ainsi que 2 articles anglais sont sortis sous /es/blog/ au premier
+ *  essai de cette couche : `postsFor('es')` renvoyait 2 articles, donc l'espagnol
+ *  « avait un blog ». Le journal `missing` ne servait qu'à écrire une ligne dans
+ *  la console ; il fallait que la donnée elle-même le dise. */
 export function resolveLang(rec, lang, missing) {
   const def = locales().def;
   const families = new Set();
@@ -199,17 +207,24 @@ export function resolveLang(rec, lang, missing) {
   for (const [k, v] of Object.entries(rec)) {
     if (!LANG_SUFFIX.test(k)) out[k] = v;          // colonne « unique » -> recopiée
   }
+  const repli = [];
   for (const base of families) {
     const want = norm(rec[`${base}_${lang}`]);
     if (want) { out[base] = rec[`${base}_${lang}`]; continue; }
     const fb = rec[`${base}_${def}`];
     out[base] = fb ?? '';
     if (lang !== def && norm(fb)) {
+      repli.push(base);
       if (missing) missing.push({ base, lang });   // journal « à traduire »
     }
   }
+  out.__repli = repli;
   return out;
 }
+
+/** Ce champ de cet item a-t-il été RECOPIÉ de la langue pivot ? */
+export const estRepli = (item, base) =>
+  Array.isArray(item && item.__repli) && item.__repli.includes(base);
 
 // -----------------------------------------------------------------------------
 // SOURCES — « toute information porte un lien vers sa source » (règle Preda,

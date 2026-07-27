@@ -1,6 +1,6 @@
 ---
 import Base from '../../layouts/Base.astro';
-import { postsFor, tagsFor, blogMeta } from '../../../engine/lib/blog.mjs';
+import { postsFor, tagsFor, blogMeta, languesBlog } from '../../../engine/lib/blog.mjs';
 import { t, localize, dateLocale } from '../../../engine/lib/i18n.mjs';
 const { lang, updatedAt } = Astro.props;
 const posts = await postsFor(lang);
@@ -9,8 +9,10 @@ const df = dateLocale[lang] || 'en-GB';
 // Le libelle reseau par defaut parle de releves de prix : un wiki n'en publie pas.
 // -> surchargeable par site via manifest.editorial.labels.blog.{title,description}
 const meta = blogMeta(lang, { title: t(lang, 'blog.title'), description: t(lang, 'desc.blogIndex') });
+const languesArticles = await languesBlog();
 ---
 <Base lang={lang} path="/blog/" title={meta.title} description={meta.description} updatedAt={updatedAt} noindex={posts.length === 0}
+      langs={languesArticles}
       crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') }, { name: meta.title }]}>
   <h1>{meta.title}</h1>
   {tags.length > 0 && (

@@ -60,7 +60,13 @@ SURVEILLE = {
     # aussi quand les agrégats ou les figures changent.
     'donnees':  ['engine/data/licence_agregats.json', 'engine/data/figures'],
     # Le texte légal vit dans le code, pas dans le Sheet.
-    'legal':    ['engine/lib/legal.mjs'],
+    # ⚠️ CORRIGÉ le 28/07 : seul `legal.mjs` était surveillé — le MOTEUR, pas les
+    # TEXTES. Conséquence exacte : ajouter `engine/legal/it.json` (des mentions
+    # légales entières, dans une langue de plus) ne changeait pas la date, tandis
+    # qu'un simple remaniement de code la changeait. Le défaut s'est vu parce que
+    # les deux sont arrivés le même jour et que la date a bougé pour la MAUVAISE
+    # raison. On surveille désormais les deux : le gabarit et ce qu'il rend.
+    'legal':    ['engine/lib/legal.mjs', 'engine/legal'],
 }
 
 

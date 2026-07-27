@@ -50,6 +50,12 @@ export const langFromParam = (param) => {
   return l && active.includes(l) ? l : def;
 };
 
-export const localeNames = { en: 'English', fr: 'Français', es: 'Español', de: 'Deutsch' };
-export const dateLocale = { en: 'en-GB', fr: 'fr-FR', es: 'es-ES', de: 'de-DE' };
+// ⚠️ TOUTE LANGUE AJOUTEE A UN MANIFESTE DOIT ETRE ICI. Ces deux tables n'ont
+// pas de repli visible : une langue absente se retrouve annoncee par son CODE
+// (« it » au lieu de « Italiano ») dans la banniere de suggestion, et ses dates
+// se formatent en anglais sous un <html lang="it">. Rien n'echoue, rien n'est
+// vide — encore un defaut par repli. `test:langues` refuse desormais une langue
+// active absente de ces tables.
+export const localeNames = { en: 'English', fr: 'Français', es: 'Español', it: 'Italiano', de: 'Deutsch' };
+export const dateLocale = { en: 'en-GB', fr: 'fr-FR', es: 'es-ES', it: 'it-IT', de: 'de-DE' };
 export const numberLocale = dateLocale;

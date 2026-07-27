@@ -120,7 +120,14 @@ def articles(manifeste) -> dict[tuple[str, str], dict]:
                 continue
             for lg in langues:
                 titre = str(r.get(f'titre_{lg}') or r.get('titre') or '').strip()
-                if titre:
+                # ⚠️ MÊME RÈGLE QUE engine/lib/blog.mjs : c'est le CORPS qui fait
+                # l'article, pas le titre. Sans cette condition, une colonne
+                # `titre_es` remplie avant sa traduction ferait fabriquer — et
+                # committer chaque jour — une carte de partage pour une page qui
+                # n'est pas construite. Un binaire orphelin par langue et par
+                # article, que rien ne signalerait.
+                corps = str(r.get(f'body_{lg}') or r.get('body') or '').strip()
+                if titre and corps:
                     out[(lg, slug)] = {'titre': titre,
                                        'categorie': str(r.get('categorie') or r.get('etiquette') or '').strip()}
 

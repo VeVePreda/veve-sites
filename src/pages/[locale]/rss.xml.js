@@ -1,12 +1,15 @@
 import { postsFor } from '../../../engine/lib/blog.mjs';
 import { manifest, siteUrl } from '../../../engine/lib/manifest.mjs';
 import { locales, localize, pick } from '../../../engine/lib/i18n.mjs';
+import { languesBlog } from '../../../engine/lib/blog.mjs';
 
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-export function getStaticPaths() {
-  const { active, def } = locales();
-  return active.filter((l) => l !== def).map((l) => ({ params: { locale: l } }));
+// Un flux RSS sans le moindre article est un fichier que des lecteurs vont
+// interroger tous les jours pour rien. Meme regle que l'index.
+export async function getStaticPaths() {
+  const { def } = locales();
+  return (await languesBlog()).filter((l) => l !== def).map((l) => ({ params: { locale: l } }));
 }
 
 export async function GET({ params }) {

@@ -1,13 +1,17 @@
 ---
 import LegalPage from '../../../components/pages/LegalPage.astro';
-import { DOCS } from '../../../../engine/lib/legal.mjs';
+import { DOCS, languesLegales } from '../../../../engine/lib/legal.mjs';
 import { locales } from '../../../../engine/lib/i18n.mjs';
+import { languesDuSite } from '../../../../engine/lib/editorial_pages.mjs';
 import { dataset } from '../../../../engine/lib/dataset.mjs';
 export async function getStaticPaths() {
   const ds = await dataset();
-  const { active, def } = locales();
+  const { def } = locales();
   const out = [];
-  for (const l of active.filter((x) => x !== def)) {
+  // Deux conditions, pas une : la langue doit exister sur le site ET porter un
+  // jeu de textes legaux (engine/legal/<lang>.json). Sans la seconde, la page
+  // sortait en anglais sous un <html lang="it">.
+  for (const l of languesLegales(languesDuSite()).filter((x) => x !== def)) {
     for (const doc of DOCS) out.push({ params: { locale: l, doc }, props: { updatedAt: ds.updatedAt } });
   }
   return out;

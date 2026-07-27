@@ -1,0 +1,162 @@
+// =============================================================================
+//  test_langues.mjs — le garde-fou d'« UNE SECTION PAR LANGUE »
+//  ⚠️ VeVePreda/veve-sites — engine/tools/test_langues.mjs
+//      SITE=vevewiki npm run test:langues
+//
+//  CE QU'IL PROTÈGE, ET POURQUOI AUCUN BUILD NE LE VERRAIT
+//  --------------------------------------------------------------------------
+//  `resolveLang()` recopie la langue pivot dès qu'une traduction manque. Une
+//  page ainsi remplie a son titre, sa description, son canonical, ses hreflang,
+//  son poids : elle est PARFAITE pour tous les autres contrôles, et dit autre
+//  chose que ce que son `<html lang>` promet. C'est le « défaut par repli » du
+//  27/07, transposé au multilingue.
+//
+//  ⭐ CE TEST INTERROGE LE MOTEUR, PAS LE HTML. J'ai d'abord essayé de
+//  l'attraper dans `audit_seo.py`, en comparant les corps de page : une
+//  comparaison exacte ne voyait RIEN (le titre d'une section vient de la table
+//  réseau, donc traduit), et un seuil de similitude réglé sur vevewiki
+//  produisait 43 fausses alertes sur veveprice (ses tableaux de chiffres et de
+//  titres d'objets sont identiques dans toutes les langues, et c'est correct).
+//  Ici, aucun seuil n'est nécessaire : `__repli` dit exactement, champ par
+//  champ, ce qui est retombé sur l'anglais.
+// =============================================================================
+import process from 'node:process';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+process.env.SITE = process.env.SITE || 'vevewiki';
+
+const ROOT = process.env.PROJECT_ROOT || process.cwd();
+const I18N = await import('../lib/i18n.mjs');
+const P = await import('../lib/editorial_pages.mjs');
+const L = await import('../lib/langues.mjs');
+const ED = await import('../lib/editorial.mjs');
+const BLOG = await import('../lib/blog.mjs');
+
+let ok = 0, ko = 0;
+const dit = (b, quoi, detail = '') => {
+  if (b) { ok += 1; console.log(`  ✅ ${quoi}`); }
+  else { ko += 1; console.log(`  ❌ ${quoi}${detail ? ` — ${detail}` : ''}`); }
+};
+
+const { active, def } = I18N.locales();
+const secondes = active.filter((l) => l !== def);
+
+// ---------------------------------------------------------------------------
+console.log('\n1. Les tables du réseau connaissent TOUTES les langues actives');
+// Sans ceci : « it » au lieu de « Italiano » dans la bannière de suggestion, et
+// des dates formatées en anglais sous un <html lang="it">. Payé le 28/07.
+for (const l of active) {
+  dit(Boolean(I18N.localeNames[l]), `localeNames.${l} = ${I18N.localeNames[l] || '(MANQUANT)'}`);
+  dit(Boolean(I18N.dateLocale[l]), `dateLocale.${l} = ${I18N.dateLocale[l] || '(MANQUANT)'}`);
+}
+
+console.log('\n2. Chaque langue active a son dictionnaire, COMPLET');
+const clesDef = Object.keys(I18N.dict(def));
+dit(clesDef.length > 20, `${clesDef.length} clés dans ${def}.json`);
+for (const l of active) {
+  const p = join(ROOT, 'engine', 'i18n', `${l}.json`);
+  const existe = existsSync(p);
+  dit(existe, `engine/i18n/${l}.json existe`);
+  if (!existe) continue;
+  // ⚠️ Une clé manquante retombe silencieusement sur la langue pivot : un mot
+  // anglais isolé au milieu d'une page italienne, que personne ne remarque.
+  const manquantes = clesDef.filter((k) => I18N.dict(l)[k] === undefined);
+  dit(manquantes.length === 0, `${l}.json : aucune clé manquante`, manquantes.slice(0, 5).join(', '));
+}
+
+console.log('\n3. Une langue publiée a des textes légaux DANS cette langue');
+const LEGAL = await import('../lib/legal.mjs');
+const langsSite = P.languesDuSite();
+const langsLegales = LEGAL.languesLegales(langsSite);
+for (const l of langsSite) {
+  const a = existsSync(join(ROOT, 'engine', 'legal', `${l}.json`));
+  dit(a === langsLegales.includes(l),
+    `${l} : pages légales ${langsLegales.includes(l) ? 'publiées' : 'retenues'} — cohérent avec le fichier`);
+}
+// ⛔ Une langue du site sans mentions légales est tolérée par le moteur (les
+//    pages ne sortent pas) mais c'est un trou : on le DIT, fort.
+const sansLegal = langsSite.filter((l) => !langsLegales.includes(l));
+dit(sansLegal.length === 0, 'toutes les langues du site ont leurs textes légaux', sansLegal.join(', '));
+
+// ---------------------------------------------------------------------------
+console.log('\n4. Le cœur : AUCUNE section publiée ne contient de repli');
+const sections = P.activeSections();
+if (!sections.length) {
+  console.log('   (site sans bloc éditorial — rien à mesurer)');
+} else {
+  for (const s of sections) {
+    const langs = P.languesDeSection(s);
+    dit(langs.includes(def), `${s} : la langue pivot « ${def} » est toujours publiée`);
+    dit(langs.every((l) => active.includes(l)), `${s} : aucune langue hors du manifeste`);
+    for (const l of langs) {
+      if (l === def) continue;
+      // ⭐ LE CONTRÔLE EXACT : on rend vraiment la section dans cette langue et
+      //    on compte les champs recopiés. Zéro, ou la page ment.
+      const { items } = await ED.collection(s, l);
+      const replis = items.flatMap((r) => (r.__repli || []).map((b) => `${b}`));
+      dit(replis.length === 0, `${s}/${l} : ${items.length} entrées, 0 champ recopié de ${def}`,
+        `${replis.length} replis (${[...new Set(replis)].join(', ')})`);
+    }
+    // Et l'inverse : une section RETENUE doit l'être pour une vraie raison.
+    for (const l of secondes.filter((x) => !langs.includes(x))) {
+      const c = L.couverture(s, l);
+      dit(c.taux < L.seuilTraduction(),
+        `${s}/${l} : retenue à juste titre (${Math.round(c.taux * 100)} % < ${Math.round(L.seuilTraduction() * 100)} %)`);
+    }
+  }
+}
+
+console.log('\n5. La mesure de couverture réagit — vérifié PAR L\'ÉCHEC');
+// ⚠️ Un test qui ne rougit jamais ne prouve rien (leçon de test:figures, lot 7).
+// On fabrique ici deux enregistrements et on vérifie que la mesure les sépare.
+{
+  const faux = [{ publie: 'VRAI', titre_en: 'A', titre_es: 'A-es' },
+                { publie: 'VRAI', titre_en: 'B', titre_es: '' }];
+  const manque = [];
+  const r0 = ED.resolveLang(faux[0], 'es', manque);
+  const r1 = ED.resolveLang(faux[1], 'es', manque);
+  dit((r0.__repli || []).length === 0, 'un champ traduit n\'est PAS marqué comme repli');
+  dit((r1.__repli || []).includes('titre'), 'un champ vide EST marqué comme repli');
+  dit(r1.titre === 'B', 'et il porte bien la valeur de la langue pivot');
+  dit(ED.estRepli(r1, 'titre') && !ED.estRepli(r0, 'titre'), 'estRepli() distingue les deux');
+}
+
+console.log('\n6. Le blog se décide ARTICLE par article, pas section par section');
+// ℹ️ HORS BUILD, la source `.md` du dépôt est invisible : `getCollection` d'Astro
+//    n'existe qu'à l'intérieur d'un build. Sur veveprice (articles en .md), ce
+//    bloc affiche donc « fr : aucun article » alors que le build en produit un.
+//    Ce n'est pas une contradiction : les deux côtés du contrôle lisent la MÊME
+//    source, ils restent cohérents. Ce que ce bloc garde vraiment, c'est le
+//    piège du Sheet — un article recopié qui se fait passer pour traduit.
+{
+  const langsBlog = await BLOG.languesBlog();
+  dit(langsBlog.includes(def), `la langue pivot est toujours dans les langues du blog`);
+  dit(langsBlog.every((l) => active.includes(l)), 'aucune langue de blog hors du manifeste');
+  for (const l of langsBlog) {
+    const posts = await BLOG.postsFor(l);
+    dit(l === def || posts.length > 0, `${l} : ${posts.length} article(s) — une langue de blog en a au moins un`);
+  }
+  // ⭐ Le piège payé le 28/07 : `postsFor('es')` renvoyait 2 articles ANGLAIS,
+  //    parce que resolveLang avait recopié `body_en`. L'espagnol « avait un blog ».
+  for (const l of secondes.filter((x) => !langsBlog.includes(x))) {
+    dit((await BLOG.postsFor(l)).length === 0, `${l} : aucun article, donc aucune page de blog`);
+  }
+}
+
+console.log('\n7. Les getStaticPaths ne promettent que ce qui existe');
+{
+  const params = P.sectionParamsLocalized();
+  const attendu = sections.flatMap((s) => P.languesDeSection(s).filter((l) => l !== def).map((l) => `${l}/${s}`));
+  const obtenu = params.map((p) => `${p.params.locale}/${p.params.section}`);
+  dit(obtenu.length === attendu.length && attendu.every((x) => obtenu.includes(x)),
+    `${obtenu.length} routes de section localisées, exactement les publiables`);
+  const E2 = await import('../lib/editorial_entries.mjs');
+  const fparams = await E2.ficheParamsLocalized();
+  const langsFiches = new Set(fparams.map((p) => p.params.locale));
+  const dehors = [...langsFiches].filter((l) => E2.ficheSections()
+    .every((s) => !P.languesDeSection(s).includes(l)));
+  dit(dehors.length === 0, 'aucune fiche dans une langue où sa section n\'est pas publiée', dehors.join(', '));
+}
+
+console.log(`\n${ko === 0 ? '✅ langues : tout est vert' : `❌ ${ko} contrôle(s) en échec`} (${ok + ko} contrôles)\n`);
+process.exit(ko === 0 ? 0 : 1);

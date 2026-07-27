@@ -13,7 +13,7 @@
 // =============================================================================
 import Base from '../../layouts/Base.astro';
 import { collection, parseSources } from '../../../engine/lib/editorial.mjs';
-import { sectionMeta } from '../../../engine/lib/editorial_pages.mjs';
+import { sectionMeta, languesDeSection } from '../../../engine/lib/editorial_pages.mjs';
 import { t, localize } from '../../../engine/lib/i18n.mjs';
 import { fichesDe, cheminFiche } from '../../../engine/lib/editorial_entries.mjs';
 
@@ -25,6 +25,11 @@ const slug = (v) => String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g,
   .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60);
 const ancre = (r) => (r.id ? `j-${slug(r.id)}` : `j-${slug(r.date)}-${slug(r.titre)}`);
 const meta = sectionMeta(section, lang);
+// `langs` passe a Base : cette section n'est pas publiee dans toutes les langues
+// du site (cf. engine/lib/langues.mjs). Le gabarit n'annoncera donc en hreflang,
+// et n'offrira dans le selecteur de langue, que les langues ou la page existe.
+// ⚠️ En commentaire JS, pas en {/* */} : un commentaire JSX en tete de gabarit
+// sort dans le HTML comme un blanc avant <html>.
 const { items } = await collection(section, lang);
 // Adresses des entrées qui ont VRAIMENT une fiche : une ligne d'index ne devient
 // un lien que si la page existe (cf. le seuil dans editorial_entries.mjs).
@@ -75,7 +80,7 @@ const crumbs = [
 ];
 ---
 <Base lang={lang} path={meta.path} title={meta.title} description={meta.description}
-      crumbs={crumbs}>
+      langs={languesDeSection(section)} crumbs={crumbs}>
   <h1>{meta.title}</h1>
   <p class="lead">{meta.description}</p>
 

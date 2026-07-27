@@ -262,6 +262,32 @@ for u, h in H.items():
         for node in (data if isinstance(data, list) else [data]):
             types[node.get('@type', '?')] += 1
 
+# ── 8bis. « PAGE RECOPIEE » — CONTROLE TENTE, MESURE, ET REFUSE (28/07/2026) ─
+# ⚠️ NE PAS LE REECRIRE ICI SANS LIRE CECI. Le defaut est reel : `resolveLang()`
+# recopie la langue pivot des qu'une traduction manque, et la page obtenue passe
+# TOUS les autres controles — titre, description, canonical, hreflang, poids.
+# Elle dit simplement autre chose que ce que son <html lang> promet.
+# J'ai essaye de l'attraper ici, en comparant le <main> d'une page localisee a
+# celui de son pivot. Deux versions, deux echecs, tous deux MESURES :
+#   1. comparaison a l'IDENTIQUE  -> ne voit RIEN. Verifie par l'echec : garde-fou
+#      desarme, 205 pages construites dont /es/brands/ en anglais, audit vert.
+#      Motif : le titre et le chapeau d'une section viennent de la table reseau
+#      (traduite). Une page recopiee ne lui est jamais EGALE, elle lui RESSEMBLE.
+#   2. seuil de SIMILITUDE (0.85, choisi dans le fosse mesure sur vevewiki :
+#      pages vraiment traduites 0.40-0.72, pages recopiees 0.88-0.98)
+#      -> 43 FAUSSES ALERTES sur veveprice. Ses pages de collection et de rarete
+#      sont des tableaux de chiffres et de titres d'objets (« Return of the Jedi
+#      #1: Poster Series - Alex Ross Main Cover ») : identiques dans toutes les
+#      langues PAR NATURE, et c'est correct. Restreindre aux longues phrases n'y
+#      change rien — ces titres FONT de longues phrases.
+# ➡️ Un seuil regle sur un site editorial ne transporte pas sur un site de
+#    donnees, et cet audit sert les 15 sites. Un controle qui crie au loup sur un
+#    site entier finit desarme, et ne garde alors plus rien (cf. test_slugs).
+# ➡️ LE CONTROLE VIT DONC LA OU IL EST EXACT, PAS APPROXIMATIF : `test:langues`
+#    interroge le MOTEUR, qui sait champ par champ ce qui est retombe sur le
+#    repli (`__repli`, engine/lib/editorial.mjs). Mesurer le HTML obligeait a
+#    deviner ; interroger la source ne demande aucun seuil.
+
 # ── 9. fuite de donnees ─────────────────────────────────────────────────────
 idx = D / 'search-index.json'
 if idx.exists():

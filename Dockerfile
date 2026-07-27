@@ -68,6 +68,14 @@ RUN WAREHOUSE_OFFLINE=1 npm run test:fiches
 #    ses URL du jour du build — rien n'échoue, et le signal meurt.
 #    Un garde-fou qui ne tourne pas en production ne garde rien.
 RUN WAREHOUSE_OFFLINE=1 npm run test:lastmod
+# ⭐⭐ `test:langues` garde LA panne la plus silencieuse du réseau : une page
+#    publiée dans une langue mais RECOPIÉE de la langue pivot. Elle a son titre,
+#    sa description, son canonical, ses hreflang et son poids — elle dit
+#    simplement autre chose que ce que son <html lang> promet. Aucun build
+#    n'échoue, et l'audit du HTML ne peut pas la distinguer sans un seuil qui
+#    produit des fausses alertes (essayé, mesuré, retiré : voir audit_seo.py).
+#    Ici on interroge le moteur, qui sait champ par champ ce qui est retombé.
+RUN WAREHOUSE_OFFLINE=1 npm run test:langues
 
 RUN export RENDERING=$(cat /app/.rendering); npm run build
 

@@ -15,6 +15,7 @@
 // =============================================================================
 import { manifest } from './manifest.mjs';
 import { locales } from './i18n.mjs';
+import { languesPour, journalLangues, siteEditorial } from './langues.mjs';
 
 // Sections « index » que ce module sait rendre (ordre = ordre du menu).
 export const SECTIONS = ['glossary', 'acronyms', 'annuaire', 'history', 'brands'];
@@ -90,10 +91,45 @@ const editorialCfg = () => manifest().editorial || {};
 
 /** Sections réellement actives pour ce site = intersection de
  *  `manifest.editorial.pages` avec les sections rendables ici, dans l'ordre
- *  canonique. */
-export function activeSections() {
+ *  canonique.
+ *
+ *  ⭐ AVEC UNE LANGUE, la liste se RESSERRE : on ne garde que les sections dont
+ *  la traduction atteint le seuil (engine/lib/langues.mjs). Sans langue, on
+ *  renvoie la liste du site — c'est ce que veulent le sitemap, la 404 et tout
+ *  ce qui raisonne « sections de ce site », pas « sections de cette page ».
+ *  ⚠️ Appeler `activeSections()` sans langue dans un rendu de PAGE republierait
+ *  la nav complète en espagnol : passer la langue partout où il y en a une. */
+export function activeSections(lang) {
   const declared = new Set((editorialCfg().pages || []).map((p) => String(p).trim()));
-  return SECTIONS.filter((s) => declared.has(s));
+  const toutes = SECTIONS.filter((s) => declared.has(s));
+  if (!lang || lang === locales().def) return toutes;
+  return toutes.filter((s) => languesPour(s, [locales().def, lang]).includes(lang));
+}
+
+/** Les langues dans lesquelles CETTE section est publiable (parmi les langues
+ *  candidates du manifeste). Sert aux `getStaticPaths`, aux `hreflang` et au
+ *  sélecteur de langue : les trois doivent dire la même chose, sinon on annonce
+ *  une page qui n'existe pas. */
+export function languesDeSection(section) {
+  return languesPour(section, locales().active);
+}
+
+/**
+ * Les langues où ce SITE a quelque chose à dire.
+ *
+ * ⛔ Une langue sans une seule section publiable ne doit pas exister du tout :
+ * ni accueil, ni mentions légales, ni entrée de sitemap. Une page émise EXISTE
+ * (leçon des routes `/collections/` du 27/07) — la retirer de la nav ne suffit
+ * pas, il faut ne pas l'émettre.
+ * Un site sans bloc éditorial n'est pas concerné : ses langues sont celles de
+ * son manifeste, inchangées.
+ */
+export function languesDuSite() {
+  const { active, def } = locales();
+  if (!siteEditorial()) return active;
+  const toutes = activeSections();
+  journalLangues([...toutes, 'blog']);
+  return active.filter((l) => l === def || toutes.some((s) => languesDeSection(s).includes(l)));
 }
 
 const pickLang = (map, lang) =>
@@ -130,7 +166,7 @@ export function sectionMeta(section, lang) {
 /** Le menu éditorial (sections actives) résolu pour une langue — pour un header
  *  ou un plan de site. */
 export function editorialMenu(lang) {
-  return activeSections().map((s) => sectionMeta(s, lang));
+  return activeSections(lang).map((s) => sectionMeta(s, lang));
 }
 
 /** getStaticPaths — langue par défaut : une entrée par section active. */
@@ -138,12 +174,15 @@ export function sectionParamsDefault() {
   return activeSections().map((section) => ({ params: { section } }));
 }
 
-/** getStaticPaths — langues secondaires : sections actives × locales ≠ défaut. */
+/** getStaticPaths — langues secondaires. ⭐ Plus « sections × langues » mais
+ *  section PAR section : /es/glossary/ est émis, /es/brands/ ne l'est pas tant
+ *  que les notes de marque ne sont pas traduites. */
 export function sectionParamsLocalized() {
-  const { active, def } = locales();
+  const { def } = locales();
   const out = [];
-  for (const locale of active.filter((l) => l !== def)) {
-    for (const section of activeSections()) {
+  for (const section of activeSections()) {
+    for (const locale of languesDeSection(section)) {
+      if (locale === def) continue;
       out.push({ params: { locale, section } });
     }
   }

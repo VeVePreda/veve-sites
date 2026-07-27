@@ -1,9 +1,9 @@
 import { dataset } from '../../engine/lib/dataset.mjs';
 import { siteUrl } from '../../engine/lib/manifest.mjs';
 import { locales, localize } from '../../engine/lib/i18n.mjs';
-import { DOCS } from '../../engine/lib/legal.mjs';
+import { DOCS, languesLegales } from '../../engine/lib/legal.mjs';
 import { priceEnabled } from '../../engine/lib/features.mjs';
-import { activeSections, sectionMeta } from '../../engine/lib/editorial_pages.mjs';
+import { activeSections, sectionMeta, languesDeSection, languesDuSite } from '../../engine/lib/editorial_pages.mjs';
 import { ficheSections, fichesDe, cheminFiche } from '../../engine/lib/editorial_entries.mjs';
 import { postsFor, tagsFor, translationPaths } from '../../engine/lib/blog.mjs';
 // ⭐⭐ LE `lastmod` NE PEUT PAS ÊTRE « AUJOURD'HUI » POUR TOUT LE MONDE.
@@ -62,26 +62,40 @@ export async function GET() {
   const root = siteUrl();
   const { active } = locales();
   const price = priceEnabled();
-  const paths = ['/'].concat(DOCS.map((d) => `/legal/${d}/`));
+  // ⭐⭐ CHAQUE ADRESSE PORTE SES LANGUES. Avant le 28/07 le sitemap croisait
+  // toutes les adresses avec `active` : le jour ou une langue etait ajoutee au
+  // manifeste, il declarait /es/brands/ et /es/history/ — des URL qui ne sont
+  // pas construites. Un sitemap qui liste des 404 est pire qu'un sitemap
+  // incomplet : il apprend au moteur a se mefier de TOUT le fichier.
+  // Une section n'est publiee que dans les langues ou elle est traduite
+  // (engine/lib/langues.mjs) ; la liste vient de la MEME fonction que les
+  // routes et que les hreflang du gabarit, donc les trois ne peuvent pas
+  // diverger.
+  const langsSite = languesDuSite();
+  const paths = [{ p: '/', langs: langsSite }];
+  for (const d of DOCS) paths.push({ p: `/legal/${d}/`, langs: languesLegales(langsSite) });
   // Pages editoriales (wiki) : leurs sections actives.
-  for (const sec of activeSections()) paths.push(sectionMeta(sec, active[0]).path);
-  // Les FICHES : une adresse par entite qui a passe le seuil. Elles existent
-  // dans toutes les langues actives (meme slug), donc elles suivent le meme
-  // traitement d'alternates que les pages ci-dessus.
-  for (const sec of ficheSections()) {
-    for (const f of await fichesDe(sec, active[0])) paths.push(cheminFiche(sec, f.slug));
+  for (const sec of activeSections()) {
+    paths.push({ p: sectionMeta(sec, active[0]).path, langs: languesDeSection(sec) });
   }
-  // Pages de PRIX : uniquement si le site en publie.
+  // Les FICHES : une adresse par entite qui a passe le seuil, dans les langues
+  // de LEUR section (meme slug partout).
+  for (const sec of ficheSections()) {
+    const langs = languesDeSection(sec);
+    for (const f of await fichesDe(sec, active[0])) paths.push({ p: cheminFiche(sec, f.slug), langs });
+  }
+  // Pages de PRIX : uniquement si le site en publie. Leur texte vient de
+  // engine/i18n (pas d'un Sheet) : elles existent dans toutes les langues du site.
   if (price) {
-    paths.push('/movers/', '/collections/', '/rarity/');
-    for (const i of ds.items) paths.push(i.path);
-    for (const c of ds.collections.values()) paths.push(`/collection/${c.slug}/`);
-    for (const r of ds.rarities.values()) paths.push(`/rarity/${r.slug}/`);
+    for (const p of ['/movers/', '/collections/', '/rarity/']) paths.push({ p, langs: langsSite });
+    for (const i of ds.items) paths.push({ p: i.path, langs: langsSite });
+    for (const c of ds.collections.values()) paths.push({ p: `/collection/${c.slug}/`, langs: langsSite });
+    for (const r of ds.rarities.values()) paths.push({ p: `/rarity/${r.slug}/`, langs: langsSite });
   }
   const entries = [];
-  for (const p of paths) {
-    for (const l of active) {
-      const alts = active.map((a) => `<xhtml:link rel="alternate" hreflang="${a}" href="${root}${localize(a, p)}"/>`).join('');
+  for (const { p, langs } of paths) {
+    const alts = langs.map((a) => `<xhtml:link rel="alternate" hreflang="${a}" href="${root}${localize(a, p)}"/>`).join('');
+    for (const l of langs) {
       entries.push(`<url><loc>${root}${localize(l, p)}</loc><lastmod>${dateDe(p)}</lastmod>${alts}</url>`);
     }
   }

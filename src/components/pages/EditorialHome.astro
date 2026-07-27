@@ -26,7 +26,7 @@ const m = manifest();
 const df = dateLocale[lang] || 'en-GB';
 
 const cards = [];
-for (const s of activeSections()) {
+for (const s of activeSections(lang)) {
   const meta = sectionMeta(s, lang);
   let n = 0;
   try { n = (await collection(s, lang)).items.length; } catch (e) { n = 0; }
@@ -40,7 +40,7 @@ const slug = (v) => String(v || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
 const ancre = (r) => (r.id ? `j-${slug(r.id)}` : `j-${slug(r.date)}-${slug(r.titre)}`);
 
 let milestones = [];
-if (activeSections().includes('history')) {
+if (activeSections(lang).includes('history')) {
   try {
     milestones = (await collection('history', lang)).items
       .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))

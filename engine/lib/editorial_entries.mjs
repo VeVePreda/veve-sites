@@ -29,7 +29,7 @@
 import { manifest } from './manifest.mjs';
 import { locales } from './i18n.mjs';
 import { collection, licenceAgregats } from './editorial.mjs';
-import { activeSections } from './editorial_pages.mjs';
+import { activeSections, languesDeSection } from './editorial_pages.mjs';
 
 const norm = (s) => String(s ?? '').trim();
 export const slugifier = (v) => norm(v).normalize('NFD').replace(/[̀-ͯ]/g, '')
@@ -158,12 +158,18 @@ export async function ficheParamsDefault() {
   return out;
 }
 
-/** getStaticPaths — langues secondaires. */
+/** getStaticPaths — langues secondaires.
+ *  ⭐ Une fiche vit dans les langues de SA SECTION, jamais dans plus : sa
+ *  substance est calculée, mais son titre et sa note viennent du Sheet. Si
+ *  /es/brands/ n'existe pas, /es/brands/marvel/ ne doit pas exister non plus —
+ *  sinon on publie 29 pages orphelines, sans index qui y mène, en espagnol
+ *  de façade. */
 export async function ficheParamsLocalized() {
-  const { active, def } = locales();
+  const { def } = locales();
   const out = [];
-  for (const locale of active.filter((l) => l !== def)) {
-    for (const s of ficheSections()) {
+  for (const s of ficheSections()) {
+    for (const locale of languesDeSection(s)) {
+      if (locale === def) continue;
       for (const f of await fichesDe(s, locale)) out.push({ params: { locale, section: s, entree: f.slug } });
     }
   }
