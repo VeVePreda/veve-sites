@@ -41,8 +41,12 @@
     display: none;
     flex: none; background: none; border: 1px solid var(--surface); color: var(--muted);
     border-radius: 999px; padding: 4px 12px; font: inherit; font-size: 12px; cursor: pointer;
+    /* ⭐ 24 px est le plancher de WCAG 2.5.8. Mesuré le 27/07, ce bouton
+       tombait à ~22 px : assez pour paraître correct, pas assez pour être
+       visé au pouce. La police reste à 12 px — c'est la ZONE qui compte. */
+    min-height: 24px; align-items: center;
   }
-  .js .fig .fig-dl { display: inline-block; }
+  .js .fig .fig-dl { display: inline-flex; }
   .fig .fig-dl:hover { border-color: var(--primary); color: var(--primary); }
   .fig .fig-dl[aria-busy="true"] { opacity: .6; cursor: progress; }
   @media print { .fig .fig-dl { display: none; } }

@@ -72,11 +72,17 @@ const META = {
   brands: {
     title: { en: 'Brands', fr: 'Marques', es: 'Marcas', it: 'Marchi', de: 'Marken' },
     description: {
-      en: 'Every licence published on VeVe, listed by arrival: how many series and how many collectibles each one weighs, and the date of its very first drop.',
-      fr: 'Toutes les licences publiées sur VeVe, classées par arrivée : combien de séries et de collectibles chacune pèse, et la date de son tout premier drop.',
-      es: 'Todas las licencias publicadas en VeVe, ordenadas por llegada: cuántas series y cuántos coleccionables pesa cada una, y la fecha de su primer drop.',
-      it: 'Tutte le licenze pubblicate su VeVe, ordinate per arrivo: quante serie e quanti collezionabili pesa ciascuna, e la data del suo primo drop.',
-      de: 'Alle auf VeVe veröffentlichten Lizenzen, nach Ankunft sortiert: wie viele Serien und Collectibles jede umfasst und das Datum ihres ersten Drops.' },
+      // ⚠️ « objets », pas « collectibles » : ces compteurs mêlent comics et
+      // collectibles. Même défaut que les fiches — celui-ci vit ici et non dans
+      // engine/i18n, il avait survécu au lot 7.
+      // ⚠️ Reformulé une seconde fois : la première version disait « objets
+      //    (comics et collectibles) » et passait à 166 caractères, donc coupée
+      //    dans les résultats. Exact ET dans la limite, pas l'un sans l'autre.
+      en: 'Every licence published on VeVe, listed by arrival: how many series and how many items — comics and collectibles — each one weighs, and its first drop.',
+      fr: 'Toutes les licences publiées sur VeVe, classées par arrivée : séries et objets — comics et collectibles — que chacune pèse, et son tout premier drop.',
+      es: 'Todas las licencias publicadas en VeVe, por llegada: cuántas series y objetos — cómics y coleccionables — pesa cada una, y su primer drop.',
+      it: 'Tutte le licenze pubblicate su VeVe, per arrivo: quante serie e oggetti — fumetti e collezionabili — pesa ciascuna, e il suo primo drop.',
+      de: 'Alle auf VeVe veröffentlichten Lizenzen, nach Ankunft: wie viele Serien und Objekte — Comics und Collectibles — jede umfasst, und ihr erster Drop.' },
   },
 };
 
