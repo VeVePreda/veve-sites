@@ -76,6 +76,15 @@ RUN WAREHOUSE_OFFLINE=1 npm run test:lastmod
 #    produit des fausses alertes (essayé, mesuré, retiré : voir audit_seo.py).
 #    Ici on interroge le moteur, qui sait champ par champ ce qui est retombé.
 RUN WAREHOUSE_OFFLINE=1 npm run test:langues
+# ⭐⭐ `test:renommage` garde LE mode de panne du chantier d'identite.
+#    `test:slugs` prouve qu'une adresse ne bouge pas quand le CLASSEMENT
+#    change ; il ne dit RIEN du RENOMMAGE. Or migrer l'identite vers
+#    CollectChain change slug(serie) sur 16 266 comics sur 16 266 (mesure du
+#    28/07/2026) — et `sites/<SITE>/slugs.json` n'existe dans AUCUN site.
+#    Ce test chiffre le deplacement sans gel, prouve qu'avec gel il est nul,
+#    et fait ECHOUER un site qui declare `adresses_gelees: true` sans la table.
+#    (`test:slugs` reste hors du build : il enchaine trois `npm run build`.)
+RUN WAREHOUSE_OFFLINE=1 npm run test:renommage
 
 RUN export RENDERING=$(cat /app/.rendering); npm run build
 
