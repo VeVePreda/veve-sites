@@ -2,34 +2,82 @@ name: Geler les adresses des fiches
 
 # Une fiche publiee doit garder son URL a vie. Ce job ajoute les nouvelles
 # fiches a la table et la committe : les adresses existantes ne bougent jamais.
+#
+# 🔴 DEFAUT CORRIGE LE 28/07/2026 — ce workflow ne posait AUCUNE variable
+# `SITE`. Or `engine/lib/manifest.mjs` fait `SITE = process.env.SITE ||
+# 'veveprice'` : le gel ne couvrait donc QU'UN SEUL site sur les 15, et rien ne
+# le disait. Les autres sites croyaient leurs adresses gelees ; elles ne
+# l'etaient pas. On decouvre la liste des sites depuis `sites/` — un site
+# nouveau est gele sans qu'on ait a toucher a ce fichier.
+
 on:
   schedule:
     - cron: '23 6 * * 0'
   workflow_dispatch:
+    inputs:
+      site:
+        description: "Un seul site (vide = tous les sites de sites/)"
+        required: false
+        default: ""
 
 jobs:
+  # Etape 1 : la liste des sites, lue sur le disque, pas ecrite en dur.
+  sites:
+    runs-on: ubuntu-latest
+    outputs:
+      liste: ${{ steps.trouver.outputs.liste }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: trouver
+        run: |
+          set -euo pipefail
+          if [ -n "${{ github.event.inputs.site }}" ]; then
+            liste=$(printf '["%s"]' "${{ github.event.inputs.site }}")
+          else
+            liste=$(ls -1 sites | jq -R . | jq -s -c .)
+          fi
+          echo "Sites a geler : $liste"
+          # Garde-fou : une liste vide passerait en silence et ne gelerait RIEN.
+          [ "$liste" != "[]" ] || { echo "Aucun site trouve dans sites/."; exit 1; }
+          echo "liste=$liste" >> "$GITHUB_OUTPUT"
+
   freeze:
+    needs: sites
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    strategy:
+      # ⚠️ Un seul job a la fois : chaque site committe dans le MEME depot.
+      # En parallele, les push se marchent dessus et des gels sont perdus.
+      max-parallel: 1
+      fail-fast: false
+      matrix:
+        site: ${{ fromJson(needs.sites.outputs.liste) }}
     steps:
       - uses: actions/checkout@v4
+      - name: Etat le plus recent (anti-checkout perime)
+        run: git pull --rebase origin main
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
       - name: Installer les dependances
         run: npm ci --no-audit --no-fund || npm install --no-audit --no-fund
-      - name: Mettre a jour la table des adresses
+      - name: "Mettre a jour la table des adresses — ${{ matrix.site }}"
+        env:
+          SITE: ${{ matrix.site }}
         run: npm run slugs
       - name: Committer si la table a change
         run: |
           set -u
           if git diff --quiet -- sites/; then
-            echo "Aucune nouvelle adresse a figer."
+            echo "Aucune nouvelle adresse a figer pour ${{ matrix.site }}."
             exit 0
           fi
           git config user.name "github-actions"
           git config user.email "github-actions@users.noreply.github.com"
           git add sites/
-          git commit -m "Gel des adresses : nouvelles fiches"
-          git push
+          git commit -m "Gel des adresses (${{ matrix.site }}) : nouvelles fiches"
+          for i in 1 2 3; do
+            git pull --rebase origin main && git push && break
+            sleep $((i * 5))
+          done
