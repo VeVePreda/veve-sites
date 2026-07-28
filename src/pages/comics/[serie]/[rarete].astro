@@ -1,4 +1,14 @@
 ---
+// ⚠️ DEPOT : VeVePreda/veve-sites
+// CHEMIN : src/pages/comics/[serie]/[rarete].astro
+//
+// Feuille des comics a DEUX niveaux (`comic_leaf: rarity` ou `name`).
+// ⭐ Le filtre de PROFONDEUR (28/07/2026) : sans lui, une adresse a trois
+// niveaux /comics/<serie>/<numero>/<rarete>/ serait decoupee ici en
+// `serie` + `numero`, et cette route publierait /comics/<serie>/<numero>/ —
+// une page en double, servie par une route qui n'a pas compris ce qu'elle
+// servait. Elle ne prend donc QUE ce qui a sa profondeur, et les deux routes
+// coexistent sans qu'il faille SUPPRIMER quoi que ce soit a la main.
 import { priceEnabled } from '../../../../engine/lib/features.mjs';
 import Item from '../../../components/pages/Item.astro';
 import { dataset } from '../../../../engine/lib/dataset.mjs';
@@ -6,10 +16,14 @@ import { locales } from '../../../../engine/lib/i18n.mjs';
 export async function getStaticPaths() {
   if (!priceEnabled()) return [];
   const ds = await dataset();
-  return ds.items.filter((e) => e.type === 'comic').map((e) => {
-    const [, , serie, feuille] = e.path.split('/');
-    return { params: { serie, rarete: feuille }, props: { item: e, updatedAt: ds.updatedAt } };
-  });
+  return ds.items
+    .filter((e) => e.type === 'comic')
+    .map((e) => ({ e, p: e.path.split('/').filter(Boolean) }))
+    .filter(({ p }) => p.length === 3)                   // 2 niveaux seulement
+    .map(({ e, p }) => ({
+      params: { serie: p[1], rarete: p[2] },
+      props: { item: e, updatedAt: ds.updatedAt },
+    }));
 }
 const { item, updatedAt } = Astro.props;
 const lang = locales().def;

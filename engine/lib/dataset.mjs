@@ -262,6 +262,11 @@ async function construireDataset() {
       name: c.name || 'Sans nom',
       kind: c.kind || 'collectible',
       rarity: c.rarity || '',
+      // Le NUMERO du fascicule. Chez un comic, `edition_type` porte le
+      // `comicNumber` on-chain — c'est le niveau intermediaire de la hierarchie
+      // serie -> numero -> rarete (cf. ADRESSES plus bas). Present dans
+      // catalogue.csv.gz depuis toujours ; il n'etait simplement pas remonte.
+      edition_type: c.edition_type || '',
       series: c.series || '',
       brand: c.brand || '',
       licensor: c.licensor || '',
@@ -433,6 +438,25 @@ async function construireDataset() {
   //   comics       : /comics/<serie>/<rarete>/   <- chez les comics le nom
   //                  recopie souvent la serie ; la rarete est le vrai
   //                  discriminant (une serie = plusieurs couvertures).
+  //
+  // ⭐⭐ TROISIEME NIVEAU (28/07/2026, decision Preda) — `comic_leaf:
+  // issue-rarity` : /comics/<serie>/<numero>/<rarete>/. C'est la hierarchie de
+  // VeVe lui-meme, celle que CollectScan et StackR affichent : une SERIE
+  // contient des NUMEROS, un numero existe en plusieurs RARETES.
+  //
+  // Pourquoi il a fallu un 3e niveau, mesure sur les 16 536 comics reels une
+  // fois la vraie serie on-chain adoptee :
+  //
+  //   serie + rarete   (l'ancien defaut)   4 738 cles · 14 452 uuid en collision
+  //   nom seul         (comic_leaf: name)  4 253 cles · 16 142 en collision
+  //   serie + numero + rarete             16 119 cles ·    726 en collision
+  //
+  // Les deux modes a DEUX niveaux s'effondrent pour la meme raison : avec une
+  // vraie serie, une serie porte des dizaines de couvertures, et les 4 raretes
+  // d'une meme couverture portent le MEME nom (16 536 comics pour 4 253 noms
+  // distincts). Aucun des deux ne peut donc etre la feuille a lui seul.
+  // Les 726 restants sont les couvertures VARIANTES d'un meme numero : le
+  // repli `nomCourt` ci-dessous les nomme ("...-adi-granov-main-cover").
   // L'attribution est DETERMINISTE et independante des donnees de prix : on
   // parcourt par uuid (immuable), jamais par classement. Sinon l'adresse
   // /item/batgirl/ change d'objet d'un jour a l'autre (constate en prod).
@@ -455,18 +479,29 @@ async function construireDataset() {
     const distinctif = sansPrefixeSerie(i.name, i.series);
     const nomCourt = distinctif ? slugify(distinctif) : '';
     // Feuille des comics : reglable au manifeste (publication.comic_leaf).
-    //  'rarity' (defaut, choix Preda) -> /comics/alias-1-2001/secret-rare/
-    //  'name'                         -> /comics/<serie>/<nom de la couverture>/
+    //  'rarity' (defaut historique) -> /comics/alias-1-2001/secret-rare/
+    //  'name'                       -> /comics/<serie>/<nom de la couverture>/
+    //  'issue-rarity'               -> /comics/<serie>/<numero>/<rarete>/
     // Sans rarete ET sans nom distinctif, l'identifiant court vaut mieux que
     // /comics/zombie-hunter-spider-man-1/zombie-hunter-spider-man-1/ : repeter
     // la serie n'apprend rien au lecteur et ressemble a du bourrage de mots-cles.
-    const feuilleComic = (pub.comic_leaf || 'rarity') === 'name'
-      ? (nomCourt || i.legacySlug)
-      : rareteSlug;
+    const mode = pub.comic_leaf || 'rarity';
+    const troisNiveaux = i.type === 'comic' && mode === 'issue-rarity';
+    const feuilleComic = mode === 'name' ? (nomCourt || i.legacySlug) : rareteSlug;
     if (i.type === 'comic' && !rareteSlug) comicsSansRarete++;
     const principal = i.type === 'comic'
       ? (feuilleComic || nomCourt || suffixeUuid(i.uuid))
       : i.legacySlug;
+    // Le NUMERO, niveau intermediaire. ⛔ Pas `slugify(x) || 'sans-numero'` :
+    // `slugify` rend deja 'item' pour une entree vide, donc le repli ne se
+    // declencherait JAMAIS et 76 comics sans numero atterriraient tous sur
+    // /<serie>/item/. Le defaut par repli, encore.
+    const numeroSlug = troisNiveaux
+      ? (String(i.edition_type || '').trim() ? slugify(i.edition_type) : 'sans-numero')
+      : '';
+    const prefixe = troisNiveaux
+      ? `/${i.racine}/${i.serieSlug}/${numeroSlug}`
+      : `/${i.racine}/${i.serieSlug}`;
     // Repli en cas de collision. Chez un comic, deux couvertures peuvent
     // partager la rarete dans la meme serie : on ajoute alors le NOM DE LA
     // COUVERTURE ("...-adi-granov-main-cover"), qu'un humain comprend, plutot
@@ -475,10 +510,10 @@ async function construireDataset() {
       ? ((nomCourt && nomCourt !== principal) ? `${principal}-${nomCourt}` : `${principal}-${suffixeUuid(i.uuid)}`)
       : `${i.legacySlug}-${rareteSlug || 'edition'}`;
     let feuille = principal || 'sans-nom';
-    const libre = (f) => !seen.has(`/${i.racine}/${i.serieSlug}/${f}/`);
+    const libre = (f) => !seen.has(`${prefixe}/${f}/`);
     if (!libre(feuille)) { feuille = secours; if (i.type === 'comic') collisionsComics++; }
     if (!libre(feuille)) feuille = `${principal}-${suffixeUuid(i.uuid)}`;
-    i.path = `/${i.racine}/${i.serieSlug}/${feuille}/`;
+    i.path = `${prefixe}/${feuille}/`;
     seen.add(i.path);
   }
 

@@ -1,0 +1,34 @@
+---
+// ⚠️ DEPOT : VeVePreda/veve-sites
+// CHEMIN : src/pages/comics/[serie]/[numero]/[rarete].astro
+//
+// La feuille des comics a TROIS niveaux : /comics/<serie>/<numero>/<rarete>/,
+// la hierarchie de VeVe lui-meme (celle que CollectScan et StackR affichent).
+// Active par `publication.comic_leaf: issue-rarity` au manifeste.
+//
+// ⭐ CETTE ROUTE ET L'ANCIENNE COEXISTENT, et c'est VOULU. Chacune ne prend
+// QUE les items dont l'adresse a SA profondeur. Un site reste donc en
+// `comic_leaf: rarity` sans rien casser, et surtout : basculer ne demande de
+// SUPPRIMER aucun fichier. L'upload web de GitHub n'efface rien — une route
+// orpheline laissee derriere reclamerait un parametre disparu et casserait le
+// build alors que l'arbre local passe. C'est arrive le 18/07/2026.
+import { priceEnabled } from '../../../../../engine/lib/features.mjs';
+import Item from '../../../../components/pages/Item.astro';
+import { dataset } from '../../../../../engine/lib/dataset.mjs';
+import { locales } from '../../../../../engine/lib/i18n.mjs';
+export async function getStaticPaths() {
+  if (!priceEnabled()) return [];
+  const ds = await dataset();
+  return ds.items
+    .filter((e) => e.type === 'comic')
+    .map((e) => ({ e, p: e.path.split('/').filter(Boolean) }))   // [comics, serie, ...]
+    .filter(({ p }) => p.length === 4)                            // 3 niveaux seulement
+    .map(({ e, p }) => ({
+      params: { serie: p[1], numero: p[2], rarete: p[3] },
+      props: { item: e, updatedAt: ds.updatedAt },
+    }));
+}
+const { item, updatedAt } = Astro.props;
+const lang = locales().def;
+---
+<Item lang={lang} item={item} updatedAt={updatedAt} />
