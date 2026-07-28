@@ -90,7 +90,20 @@ editorial:
 
 # --- Vitrine : un wiki publie tout son contenu utile (pas de mur) -----------
 publication:
-  comic_leaf: rarity
+  # Feuille des adresses de comics : rarity | name | issue-rarity
+  #   rarity       -> /comics/alias-1-2001/secret-rare/
+  #   name         -> /comics/<serie>/<nom de la couverture>/
+  #   issue-rarity -> /comics/<serie>/<numero>/<rarete>/     <-- 28/07/2026
+  # ⭐ `issue-rarity` est la hierarchie de VeVe lui-meme (celle qu'affichent
+  # CollectScan et StackR) : une SERIE contient des NUMEROS, un numero existe
+  # en plusieurs RARETES. Les deux modes a DEUX niveaux s'effondrent des que la
+  # serie devient une vraie serie — mesure sur les 16 536 comics reels :
+  #   serie + rarete          4 738 cles · 14 452 uuid en collision
+  #   nom seul                4 253 cles · 16 142 en collision
+  #   serie + numero + rarete 16 119 cles ·    726 en collision
+  # En cas de collision (couvertures VARIANTES d'un meme numero), le nom de la
+  # couverture est ajoute ; l'identifiant court n'arrive qu'en dernier recours.
+  comic_leaf: issue-rarity
   min_price_points: 8
   quotas:
     collectible: 800

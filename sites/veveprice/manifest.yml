@@ -25,13 +25,20 @@ features:
 
 # --- Vitrine publique : on ne publie QUE des pages utiles -------------------
 publication:
-  # Feuille des adresses de comics : rarity (defaut) ou name
-  #   rarity -> /comics/alias-1-2001/secret-rare/
-  #   name   -> /comics/<serie>/<nom de la couverture>/
-  # En cas de collision (deux couvertures de meme rarete dans une serie), le
-  # nom de la couverture est ajoute a l'adresse ; l'identifiant court n'arrive
-  # qu'en dernier recours.
-  comic_leaf: rarity
+  # Feuille des adresses de comics : rarity | name | issue-rarity
+  #   rarity       -> /comics/alias-1-2001/secret-rare/
+  #   name         -> /comics/<serie>/<nom de la couverture>/
+  #   issue-rarity -> /comics/<serie>/<numero>/<rarete>/     <-- 28/07/2026
+  # ⭐ `issue-rarity` est la hierarchie de VeVe lui-meme (celle qu'affichent
+  # CollectScan et StackR) : une SERIE contient des NUMEROS, un numero existe
+  # en plusieurs RARETES. Les deux modes a DEUX niveaux s'effondrent des que la
+  # serie devient une vraie serie — mesure sur les 16 536 comics reels :
+  #   serie + rarete          4 738 cles · 14 452 uuid en collision
+  #   nom seul                4 253 cles · 16 142 en collision
+  #   serie + numero + rarete 16 119 cles ·    726 en collision
+  # En cas de collision (couvertures VARIANTES d'un meme numero), le nom de la
+  # couverture est ajoute ; l'identifiant court n'arrive qu'en dernier recours.
+  comic_leaf: issue-rarity
   min_price_points: 8      # relevés minimum AU TOTAL pour qu'une fiche mérite d'exister
   # ⚠️ `public_points_max` et `public_history_days` ont MIGRÉ vers `access:`
   # (voir plus bas) le 20/07/2026 : ce sont des réglages d'ACCÈS, pas de
