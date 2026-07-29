@@ -1,3 +1,32 @@
+# ⚠️ DEPOT : VeVePreda/veve-sites  ·  CHEMIN : .github/workflows/rebuild-daily.yml
+#
+# Reconstruction quotidienne de VEVEPRICE.
+#
+# ==========================================================================
+# ⭐⭐ CE QUI A CHANGE LE 29/07/2026, ET POURQUOI C'ETAIT GRAVE
+# ==========================================================================
+# Ce workflow ne faisait qu'appeler Coolify. `lastmod.py` et `indexnow.py`
+# n'etaient lances QUE par `vevewiki-editorial.yml`. Consequences mesurees :
+#
+#   - `engine/data/lastmod.json` ne contenait que les sections du WIKI ;
+#   - les ~4 800 URL de veveprice retombaient donc soit sur la date du build,
+#     soit sur la cle `donnees` — ECRITE PAR LE WORKFLOW DE L'AUTRE SITE ;
+#   - `test:lastmod` ne le voyait pas : il n'exigeait de date que pour
+#     `activeSections()`, vide sur un site sans bloc `editorial` ;
+#   - la cle IndexNow de veveprice existait au manifeste et etait SERVIE en
+#     ligne : personne ne s'en servait.
+#
+# ⭐ La lecon, au-dela de ce fichier : dans un reseau de sites qui partagent un
+#    moteur, « corrige » veut dire « corrige sur un site ». Un correctif se
+#    verifie site par site, comme un deploiement.
+#
+# ⚠️ L'ORDRE DES ETAPES EST LE CŒUR DU FICHIER :
+#      calculer -> COMMITTER -> deployer -> attendre -> prevenir IndexNow
+#    Committer apres le declenchement ferait construire a Coolify le commit
+#    PRECEDENT : le sitemap partirait avec les dates de la veille, et le
+#    fichier commite ne servirait qu'au lendemain. Un decalage d'un jour,
+#    permanent, et rigoureusement invisible.
+
 name: Reconstruction quotidienne
 
 on:
@@ -5,10 +34,98 @@ on:
     - cron: '41 7 * * *'
   workflow_dispatch:
 
+# Le job committe le journal des dates : il faut le droit d'ecrire le depot.
+permissions:
+  contents: write
+
+concurrency:
+  group: rebuild-daily
+  cancel-in-progress: false
+
 jobs:
   rebuild:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout veve-sites
+        uses: actions/checkout@v4
+
+      - name: Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Dependances
+        run: npm ci --no-audit --no-fund
+
+      - name: Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # Familles dont la source vit dans le depot (mentions legales, agregats,
+      # figures). Les familles editoriales n'existent pas sur veveprice : elles
+      # ne sont pas datees, plutot que datees sur le hachage de rien.
+      - name: Dates des familles hors prix
+        id: lastmod
+        continue-on-error: true
+        run: python3 engine/tools/lastmod.py --site veveprice
+
+      # ⭐⭐ LES DATES PAR FICHE. Sans cette etape, les ~1 200 fiches partagent
+      # la date de leur famille, qui bouge des qu'UN SEUL prix du catalogue
+      # bouge : « tout a change aujourd'hui », tous les jours, ce qu'un moteur
+      # apprend a ignorer.
+      #
+      # ⚠️ Cet outil lit les MEMES releases que le build (`warehouse.mjs`), donc
+      #    le meme jeu de donnees a deux minutes pres. Si une release change
+      #    entre les deux, une poignee de fiches sera datee du lendemain — un
+      #    decalage d'un jour sur quelques fiches, pas une date fausse.
+      # ⚠️ Si la source ET son secours N-1 sont injoignables, `warehouse.mjs`
+      #    ECHOUE (il ne se replie sur l'echantillon que si ALLOW_SAMPLE=1).
+      #    C'est voulu : dater 1 200 fiches sur 90 lignes d'exemple serait pire
+      #    que ne pas les dater.
+      - name: Dates par fiche (prix)
+        id: lastmod_prix
+        continue-on-error: true
+        env:
+          SITE: veveprice
+          NODE_OPTIONS: --max-old-space-size=3072
+        run: node engine/tools/lastmod-prix.mjs --site veveprice
+
+      # ⭐ UN REPLI QUI CRIE. Les deux etapes ci-dessus sont `continue-on-error`
+      # parce qu'un journal de dates absent ne doit pas empecher le site d'etre
+      # reconstruit : sans elles, les dates de la veille sont CONSERVEES, ce qui
+      # est le bon comportement degrade. Mais un repli muet est exactement ce
+      # qui a cree le defaut qu'on repare — alors il parle.
+      - name: Dire si le journal des dates n'a pas pu etre calcule
+        if: steps.lastmod.outcome == 'failure' || steps.lastmod_prix.outcome == 'failure'
+        run: |
+          set -u
+          run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          msg="🟠 **VeVePrice** : le journal des dates (lastmod) n'a pas pu être calculé.\\nLe site sera reconstruit avec les dates de la veille — elles ne sont pas fausses, elles vieillissent.\\n${run_url}"
+          payload=$(printf '{"content":"%s"}' "$msg")
+          curl -sS -X POST -H 'Content-Type: application/json' -d "$payload" "${DISCORD_WEBHOOK}" || true
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+
+      # ⚠️ AVANT le declenchement : c'est ce commit que Coolify va construire.
+      - name: Committer le journal des dates s'il a change
+        run: |
+          set -euo pipefail
+          git config user.name  "veveprice-bot"
+          git config user.email "actions@users.noreply.github.com"
+          # ⚠️ `|| true` : les deux etapes de calcul sont `continue-on-error`.
+          #    Si elles ont echoue, le fichier peut ne pas exister — et un
+          #    `git add` sur un chemin absent fait echouer l'etape, donc le
+          #    deploiement, pour une raison qui n'a rien a voir avec lui.
+          git add engine/data/lastmod.veveprice.json || true
+          if git diff --cached --quiet; then
+            echo "Journal des dates inchange — rien a committer."
+          else
+            git commit -m "chore(veveprice): journal des dates $(date -u +%F)"
+            git pull --rebase --autostash && git push
+          fi
+
       - name: Declencher le deploiement Coolify
         run: |
           set -u
@@ -45,6 +162,41 @@ jobs:
           if [ "$ok" != "1" ]; then
             echo "Le site n'affiche toujours pas la date du jour apres 15 minutes."
             exit 1
+          fi
+
+      # IndexNow lit le sitemap TEL QU'IL EST SERVI et ne soumet que les URL
+      # dont le `lastmod` a bouge depuis le passage precedent. Il ne pouvait pas
+      # exister ici tant que ces dates n'etaient pas honnetes : « ce qui a
+      # change » aurait valu « tout », chaque jour — ce que la documentation
+      # range parmi les fautes, avec un risque de HTTP 429.
+      # ⚠️ Le PREMIER passage ne soumet rien : sans etat anterieur, tout
+      #    paraitrait neuf. Il memorise, et parlera le lendemain.
+      - name: Prevenir IndexNow des URL modifiees
+        continue-on-error: true
+        run: |
+          set -u
+          cle="8f3c1b7a92d54e6fa0c7b5e214d83f60"
+          # La cle doit etre SERVIE avant d'etre revendiquee, sinon le moteur
+          # rejette la soumission — on le verifie plutot que de le supposer.
+          code=$(curl -sS -o /dev/null -w '%{http_code}' "https://veveprice.com/${cle}.txt" || true)
+          if [ "$code" != "200" ]; then
+            echo "La cle IndexNow n'est pas servie (HTTP $code) — soumission ignoree."
+            exit 0
+          fi
+          python3 engine/tools/indexnow.py --site veveprice --domaine veveprice.com --cle "${cle}"
+
+      # L'etat IndexNow retient ce qui a ete vu EN LIGNE : il ne peut donc etre
+      # ecrit qu'une fois le site deploye, d'ou ce second commit.
+      - name: Committer l'etat IndexNow
+        continue-on-error: true
+        run: |
+          set -u
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add engine/data/indexnow_veveprice.json || true
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(veveprice): etat IndexNow $(date -u +%F)"
+            git pull --rebase --autostash && git push
           fi
 
       - name: Alerter sur Discord en cas d'echec

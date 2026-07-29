@@ -96,7 +96,12 @@ jobs:
           set -euo pipefail
           git config user.name  "vevewiki-bot"
           git config user.email "actions@users.noreply.github.com"
-          git add sites/vevewiki/editorial public/og/vevewiki engine/data/lastmod.json
+          # ⚠️ RENOMME LE 29/07/2026 : un fichier de dates PAR SITE. L'ancien
+          #    `lastmod.json` etait commun a tout le depot ; le jour ou un
+          #    deuxieme site aurait lance l'outil, il aurait ecrase les dates
+          #    d'ici. Oublier cette ligne, c'est committer un fichier qui
+          #    n'existe plus : rien n'echoue, et le wiki cesse d'etre date.
+          git add sites/vevewiki/editorial public/og/vevewiki engine/data/lastmod.vevewiki.json
           if git diff --cached --quiet; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
             echo "Aucun changement éditorial — rien à committer."
