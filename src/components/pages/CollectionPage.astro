@@ -12,8 +12,39 @@ const items = [...col.items].sort((a, b) => (b.floor ?? 0) - (a.floor ?? 0));
 const money = (v) => (v === null || v === undefined ? '—' : v.toLocaleString(nf, { maximumFractionDigits: 2 }));
 const path = `/collection/${col.slug}/`;
 const ld = [itemListLd(items.map((i) => ({ name: i.name, url: `${root}${localize(lang, i.path)}` })), `${root}${localize(lang, path)}`)];
+
+// ⭐⭐ LE TITRE PORTE SON ETIQUETTE — CORRIGE LE 29/07/2026 (344 pages).
+// Le titre valait `col.name`, c'est-a-dire le nom BRUT de la serie. Or une
+// fiche dont le nom EGALE sa serie (« Thor - Marvel Metallic Red »,
+// « Metropolis II », « BB-8 »…) lache la serie dans son propre titre
+// (`serieRedondante`, Item.astro l.32/46) et retombe donc sur le meme texte.
+// Deux pages differentes, un seul titre, et Google n'en retient qu'une.
+//
+// ⭐ LA PREUVE ETAIT DANS LE JOURNAL D'AUDIT, EN DEUX LIGNES :
+//     titres uniques      : 1969/7877
+//     descriptions uniques: 7877/7877
+// Les descriptions sont uniques a 100 % — et la SEULE difference, c'est que
+// `desc.collection` porte le nom de la serie ET son compte d'items, la ou le
+// titre ne portait que le nom. Meme page, memes donnees : ce qui garde le
+// discriminant survit, ce qui le jette collisionne.
+//
+// ⭐ `RarityPage.astro` l.11 faisait DEJA exactement ca
+// (`${t(lang,'rarity.title')} ${rar.name}`). La convention existait dans le
+// meme dossier ; elle n'avait simplement pas ete appliquee aux collections.
+// `item.collection` est deja traduit dans les 5 langues : aucune cle a ajouter.
+//
+// ⚠️ MESURE, PAS INTUITION (catalogue complet, 5 068 series) :
+//     avant           fiche<->collection 2 309   collection<->collection  3
+//     avec etiquette  fiche<->collection     0   collection<->collection 16
+// ⛔ Une variante « si ca depasse 60, on lache l'etiquette » a ete ECRITE,
+//    MESUREE, et REJETEE : elle remonte a 123 collisions fiche<->collection,
+//    car les series longues sont justement celles dont un item peut porter le
+//    meme nom. Plus elegante, deux fois pire. On garde la version simple.
+// ⚠️ Les 16 restantes sont la famille deja connue : des comics dont le numero
+//    (« #3 (2025) ») est en FIN de titre, la ou `couperMots` coupe.
+const titreCollection = `${t(lang, 'item.collection')} : ${col.name}`;
 ---
-<Base lang={lang} path={path} title={col.name} description={t(lang, 'desc.collection', { name: col.name, n: col.items.length })} ld={ld} updatedAt={updatedAt}
+<Base lang={lang} path={path} title={titreCollection} description={t(lang, 'desc.collection', { name: col.name, n: col.items.length })} ld={ld} updatedAt={updatedAt}
       crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') }, { name: t(lang, 'collections.title'), url: localize(lang, '/collections/') }, { name: col.name }]}>
   <h1>{col.name}</h1>
   <p class="lead">{items.length} {t(lang, 'collection.tracked')}.</p>
