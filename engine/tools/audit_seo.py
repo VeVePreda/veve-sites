@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""Audit SEO du site construit (dossier dist/).
+# ⚠️ CE FICHIER VA DANS LE DEPOT VeVePreda/veve-sites, dans engine/tools/
+"""Audit SEO du site construit.
+
+RACINE A PASSER EN ARGUMENT : `dist` en mode static, `dist/client` en mode
+serveur (cf. `rendering:` dans sites/<SITE>/manifest.yml). Se tromper de
+racine ne provoquait aucune erreur jusqu'au 29/07/2026 : voir le controle
+de l'accueil plus bas.
 
     python3 engine/tools/audit_seo.py [dist]
 
@@ -27,6 +33,22 @@ for f in D.rglob('*.html'):
 # Un controle qui passe sur zero page est un FAUX NEGATIF, pas une reussite.
 if len(H) < 20:
     sys.exit(f"AUDIT INVALIDE : {len(H)} pages seulement — la construction a echoue ?")
+
+# ⭐⭐ VERIFIER L'INSTRUMENT (29/07/2026) — LE CONTROLE QUI MANQUAIT.
+# Vecu en production : le Dockerfile lancait cet audit sur `dist` alors que le
+# mode serveur pose les pages dans `dist/client`. Toutes les cles prenaient un
+# prefixe `/client/`, et l'audit n'a pas bronche : il a lu 7 805 pages, donc il
+# s'est cru valide. Il a ensuite imprime `profondeur max : 0 clics` — plausible,
+# faux — et qualifie de « casses » 7 933 liens parfaitement valides.
+# ➡️ Trois choses ne peuvent PAS etre vraies sur un site construit : pas de page
+#    d'accueil, aucun lien interne qui joigne sa cible, aucune URL sous `/xx/`
+#    alors que le site est multilingue. Chacune signe une racine mal choisie,
+#    AUCUNE ne demande de seuil. On refuse de produire des chiffres plutot que
+#    d'en produire des faux — un audit muet se remarque, un audit qui ment, non.
+if '/' not in H:
+    sys.exit("AUDIT INVALIDE : aucune page d'accueil '/' dans "
+             f"{D} — mauvaise racine ? En mode serveur, les pages sont dans "
+             f"dist/client, pas dist. Cles lues : {sorted(H)[:3]}")
 
 g = lambda h, pat: (re.search(pat, h, re.S).group(1).strip() if re.search(pat, h, re.S) else '')
 
