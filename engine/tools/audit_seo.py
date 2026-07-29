@@ -70,31 +70,61 @@ for f in D.rglob('*'):
 
 # Les liens internes peuvent etre relatifs (/fr/) OU absolus
 # (https://veveprice.com/fr/) : le selecteur de langue utilise la forme absolue.
-HOTE = ''
-for h in H.values():
-    m = re.search(r'<link rel="canonical" href="(https?://[^/]+)', h)
-    if m:
-        HOTE = m.group(1)
-        break
+# ⭐⭐ VERIFIER L'INSTRUMENT (29/07/2026) : l'hote etait pris sur le PREMIER
+# canonical rencontre. Un seul canonical fautif — vers un autre domaine, ou
+# vers un domaine de recette — et TOUS les liens absolus du site passaient pour
+# externes, donc n'etaient plus verifies du tout. L'outil dependait de la
+# donnee qu'il mesure. On prend desormais l'hote MAJORITAIRE : une anomalie
+# isolee ne peut plus desarmer le controle, elle se fait au contraire attraper
+# par le controle du canonical, plus bas.
+hotes = Counter(m.group(1) for h in H.values()
+                for m in [re.search(r'<link rel="canonical" href="(https?://[^/]+)', h)] if m)
+HOTE = hotes.most_common(1)[0][0] if hotes else ''
+if len(hotes) > 1:
+    erreurs.append(f"canonicals vers {len(hotes)} hotes differents : {dict(hotes)}")
 
-def liens_internes(h):
+def _internes(paires):
     out = []
-    for href in re.findall(r'href="([^"#?]+)"', h):
+    for href in paires:
         if HOTE and href.startswith(HOTE):
             href = href[len(HOTE):] or '/'
         if href.startswith('/'):
             out.append(href)
     return out
 
+
+def liens_internes(h):
+    """TOUS les href internes — pour le maillage et la profondeur de clic."""
+    return _internes(re.findall(r'href="([^"#?]+)"', h))
+
+
+# ⭐⭐ SEPARER LES <a> DES <link> (29/07/2026) — ET C'EST CE MELANGE QUI A COUTE
+# UNE JOURNEE. `href="..."` attrape aussi bien un lien de navigation qu'un
+# <link rel="canonical"> ou un <link rel="alternate">. Le 29/07 l'audit a donc
+# annonce « 1 252 liens internes casses » pour un defaut de CANONICAL, et on a
+# cherche des <a> fautifs dans les gabarits pendant des heures.
+# ⭐ Ce ne sont pas les memes degats, donc ce ne sont pas les memes lignes :
+#   · un <a> casse est un cul-de-sac pour le LECTEUR ;
+#   · un <link> casse fait abandonner la page par le MOTEUR.
+def liens_ancres(h):
+    """Uniquement les <a href> — ce qu'un lecteur peut reellement suivre."""
+    return _internes(re.findall(r'<a[^>]+href="([^"#?]+)"', h))
+
 # ── 1. liens internes ───────────────────────────────────────────────────────
-casses = Counter()
+casses, casses_meta = Counter(), Counter()
 for u, h in H.items():
+    ancres = set(liens_ancres(h))
     for href in liens_internes(h):
         cible = href if href.endswith('/') else href + '/'
         if cible not in targets and href not in targets:
-            casses[href] += 1
+            (casses if href in ancres else casses_meta)[href] += 1
 if casses:
-    erreurs.append(f"{len(casses)} liens internes casses : {dict(list(casses.items())[:5])}")
+    erreurs.append(f"{len(casses)} liens <a> casses (cul-de-sac pour le lecteur) : "
+                   f"{dict(list(casses.items())[:5])}")
+if casses_meta:
+    erreurs.append(f"{len(casses_meta)} href de <link> vers une page absente "
+                   f"(canonical / hreflang — la page se saborde) : "
+                   f"{dict(list(casses_meta.items())[:5])}")
 
 # ── 2. balises indispensables ───────────────────────────────────────────────
 manque = Counter()
@@ -183,8 +213,20 @@ if declare_recherche and not a_une_recherche:
 # reste attribuable une fois seule. Si un jour un gabarit sort une figure sans
 # cartouche, ca ne casse rien — l'image circule juste anonymement avec nos
 # chiffres. On le verifie donc, plutot que d'y croire.
+# 🔴 FAUX POSITIF CORRIGE LE 29/07/2026 — ON CHERCHAIT UN MOT *ANGLAIS*.
+# Le test etait `'collect' not in figure`. Or le cartouche est TRADUIT
+# (engine/lib/figures.mjs, MOT.collecte) : « data collected on » et « donnees
+# collectees le » contiennent bien « collect », mais « datos recogidos el »,
+# « Daten erhoben am » et « dati raccolti il » ne le contiennent pas. Toute
+# figure espagnole, allemande ou italienne etait donc declaree fautive alors
+# qu'elle etait parfaitement conforme — 9 fausses alertes sur vevewiki.
+# ⭐ Et le defaut ne pouvait meme pas exister : figures.mjs l.76-77 REFUSE un
+# descripteur sans `collecte`. L'audit contredisait un garde-fou en amont.
+# ➡️ On cherche desormais la DATE elle-meme, qui ne se traduit pas. Elle est
+# presente deux fois : dans le texte du cartouche et dans `data-fig-nom`
+# (figures.mjs l.196-197, suffixe `-AAAA-MM-JJ`).
 figs = re.findall(r'<figure class="fig".*?</figure>', ' '.join(H.values()), re.S)
-sans_cartouche = [f for f in figs if 'collect' not in _html.unescape(f).lower()]
+sans_cartouche = [f for f in figs if not re.search(r'\d{4}-\d{2}-\d{2}', _html.unescape(f))]
 if figs and sans_cartouche:
     erreurs.append(f"{len(sans_cartouche)} figure(s) sur {len(figs)} sans date de collecte "
                    "dans le SVG — une image partagee doit rester datable")
@@ -215,6 +257,35 @@ orphelines = set(H) - sm - noidx
 if sm and orphelines:
     avertissements.append(f"{len(orphelines)} pages absentes du sitemap : {sorted(orphelines)[:3]}")
 
+# ── 5bis. LE CANONICAL POINTE-T-IL SUR LUI-MEME ? ───────────────────────────
+# ⭐⭐ LE CONTROLE QUI MANQUAIT, ET QUI AURAIT TOUT ATTRAPE EN UNE LIGNE.
+# Jusqu'ici on verifiait seulement que `rel="canonical"` etait PRESENT (§2),
+# jamais ou il pointait. Le defaut du 29/07/2026 se decrit pourtant exactement
+# comme ca : « 1 128 fiches construites a une adresse et declarees a une autre »
+# (cf. l'en-tete de src/pages/[locale]/comics/[serie]/[numero]/[rarete].astro).
+# Il a fallu le deduire de TROIS symptomes indirects — URL de sitemap sans page,
+# hreflang sans retour, pages inatteignables. Le voici mesure directement.
+# ⭐ Aucun seuil : `Base.astro` l.53 construit `canon = root + localize(lang,
+# path)`. Le canonical est auto-referent PAR CONSTRUCTION. Toute deviation
+# signifie que la page n'est pas la ou elle se declare — jamais un choix
+# editorial. Un canonical vers un 404 fait abandonner la page qui le porte.
+canon_absent, canon_fantome, canon_ailleurs = [], [], []
+for u, h in H.items():
+    m = re.search(r'<link rel="canonical" href="([^"]+)"', h)
+    if not m:
+        canon_absent.append(u)
+        continue
+    cible = re.sub(r'^https?://[^/]+', '', _html.unescape(m.group(1))) or '/'
+    if cible == u:
+        continue
+    (canon_fantome if cible not in H else canon_ailleurs).append(f"{u} -> {cible}")
+if canon_fantome:
+    erreurs.append(f"{len(canon_fantome)} canonical(s) vers une page INEXISTANTE "
+                   f"— la page se saborde : {canon_fantome[:3]}")
+if canon_ailleurs:
+    erreurs.append(f"{len(canon_ailleurs)} canonical(s) vers une AUTRE page du site "
+                   f"— construite ici, declaree ailleurs : {canon_ailleurs[:3]}")
+
 # ── 6. reciprocite hreflang ─────────────────────────────────────────────────
 def alternates(h):
     out = {}
@@ -229,6 +300,14 @@ anomalies = []
 for u, h in H.items():
     for lg, cible in alternates(h).items():
         if lg == 'x-default':
+            # ⭐ AVANT LE 29/07/2026 ON SAUTAIT PUREMENT ET SIMPLEMENT x-default.
+            # Or `Base.astro` l.114 l'emet SANS CONDITION vers la langue pivot :
+            # une page qui n'existe pas dans le pivot pointait donc vers un 404,
+            # et l'audit ne pouvait pas le voir. Il n'a pas de reciproque a
+            # verifier (c'est un repli, pas une paire), mais sa cible doit
+            # exister comme n'importe quelle autre.
+            if cible not in H:
+                anomalies.append(f"{u} -> {cible} (x-default inexistant)")
             continue
         if cible not in H:
             anomalies.append(f"{u} -> {cible} (inexistante)")
