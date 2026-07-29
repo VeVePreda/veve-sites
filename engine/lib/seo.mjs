@@ -77,6 +77,81 @@ export const itemListLd = (items, url) => ({
   itemListElement: items.slice(0, 50).map((it, i) => ({ '@type': 'ListItem', position: i + 1, name: it.name, url: it.url })),
 });
 
+// =============================================================================
+//  DONNEES STRUCTUREES DES PAGES EDITORIALES — ajoutees le 29/07/2026
+// -----------------------------------------------------------------------------
+//  Jusqu'ici, la plus grande surface editoriale du reseau — glossaire, sigles,
+//  annuaire, chronologie, marques — n'emettait QUE le fil d'Ariane. Des
+//  centaines d'entrees parfaitement structurees dans le HTML, et rien qui les
+//  declare a un moteur.
+//
+//  ⭐ REGLE DE CE FICHIER, ET ELLE VAUT POUR TOUT CE QUI SUIT :
+//     « une donnee structuree est une PROMESSE faite au moteur, pas un vœu ».
+//     On ne declare donc que ce que la page porte VRAIMENT :
+//       - pas de `datePublished` inventee ;
+//       - pas d'`Article` sur une page qui n'est pas un article ;
+//       - une entree sans definition ne devient pas un `DefinedTerm` vide ;
+//       - une date imprecise (« 2020-10 ») reste imprecise, elle n'est pas
+//         completee en « 2020-10-01 ».
+// =============================================================================
+
+// Retire les cles vides d'un objet — un `"description": null` dans un JSON-LD
+// est une promesse vide, pas une absence.
+const net = (o) => Object.fromEntries(
+  Object.entries(o).filter(([, v]) => v !== undefined && v !== null && v !== ''));
+
+/**
+ * Un GLOSSAIRE ou une liste de SIGLES.
+ * `termes` : [{ name, description, url }] — `url` est l'ancre de l'entree.
+ * ⚠️ Une entree sans definition est ECARTEE : `DefinedTerm` sans `description`
+ *    n'apprend rien et gonfle la promesse.
+ */
+export const definedTermSetLd = ({ name, description, url, termes }) => {
+  const retenus = (termes || []).filter((x) => x && x.name && x.description);
+  return net({
+    '@context': 'https://schema.org', '@type': 'DefinedTermSet',
+    name, description: description || undefined, url,
+    hasDefinedTerm: retenus.length ? retenus.map((x) => net({
+      '@type': 'DefinedTerm', name: x.name, description: x.description,
+      url: x.url || undefined, inDefinedTermSet: url,
+    })) : undefined,
+  });
+};
+
+/**
+ * Une CHRONOLOGIE : une liste ordonnee de jalons dates.
+ * ⚠️ `startDate` n'est pose QUE si la date est une date ISO reconnaissable
+ *    (AAAA, AAAA-MM ou AAAA-MM-JJ). Le Sheet porte des precisions variables ;
+ *    inventer un jour ferait dire au moteur ce que la page ne dit pas.
+ */
+const DATE_ISO = /^\d{4}(-\d{2}(-\d{2})?)?$/;
+export const chronologieLd = (jalons, url) => net({
+  '@context': 'https://schema.org', '@type': 'ItemList', url,
+  numberOfItems: jalons.length,
+  itemListElement: jalons.slice(0, 100).map((j, i) => net({
+    '@type': 'ListItem', position: i + 1,
+    item: net({
+      '@type': 'Event', name: j.name,
+      startDate: DATE_ISO.test(String(j.date || '')) ? j.date : undefined,
+      description: j.description || undefined,
+      url: j.url || undefined,
+    }),
+  })),
+});
+
+/**
+ * Une page QUI PARLE D'UNE ENTITE (fiche de marque / licence).
+ * ⭐ Volontairement `WebPage` + `about`, PAS `Article`. Une fiche de marque est
+ *    faite d'une note de 30 caracteres et de chiffres calcules : la declarer
+ *    comme un article serait une promesse que la page ne tient pas, et Google
+ *    pese le contenu maigre au niveau du SITE.
+ */
+export const pageAProposLd = ({ name, description, url, type = 'Brand', aPropos }) => net({
+  '@context': 'https://schema.org', '@type': 'WebPage',
+  name, description: description || undefined, url,
+  about: net({ '@type': type, name: aPropos || name }),
+});
+
 // `avecRecherche` : n'annoncer un SearchAction QUE si le site rend vraiment une
 // boite de recherche alimentee (cf. searchEnabled() dans features.mjs). Une
 // donnee structuree est une promesse faite au moteur, pas un voeu.

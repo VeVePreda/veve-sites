@@ -102,22 +102,45 @@ if (dates.size === 1) {
   dit(true, `${dates.size} dates distinctes — les sections vivent leur propre vie`);
 }
 
-// ⭐ MÊME QUESTION POUR LES FICHES, ET C'EST LÀ QU'ELLE MORD. Si les ~1 200
-// fiches partagent une date unique alors que l'outil est déjà passé plusieurs
-// fois, c'est que l'empreinte ne discrimine rien — autrement dit qu'on a
-// reconstruit « tout a changé aujourd'hui » avec plus de code. `passages`
-// distingue le premier jour (où une date unique est normale) de la suite.
+// ⭐⭐ MÊME QUESTION POUR LES FICHES — ET UN CONTRÔLE QUE J'AI DÛ DÉSARMER.
+//
+// Première version (29/07, matin) : « si les ~1 200 fiches partagent une seule
+// date alors que l'outil est passé plus d'une fois, l'empreinte ne discrimine
+// rien » — et ÉCHEC, donc build bloqué.
+// C'est faux, et la copie neuve l'a montré le jour même : sur un site dont
+// aucun prix n'a bougé entre deux passages, toutes les fiches gardent
+// légitimement la date du premier jour. Une date unique n'est PAS un défaut,
+// c'est ce qu'on voit sur un marché calme. Le contrôle aurait arrêté un
+// déploiement pour un site en parfaite santé.
+//
+// ⭐ La leçon, et elle vaut plus que ce test : UNE HEURISTIQUE STATISTIQUE N'A
+//    RIEN À FAIRE DANS UN GARDE-FOU BLOQUANT. Elle ne sait pas distinguer
+//    « rien n'a changé » de « je ne vois plus rien changer ». Elle parle, elle
+//    n'arrête pas.
+//
+// Ce qui SÉPARE vraiment les deux lectures est dans le journal du workflow :
+//     lastmod-prix : N fiche(s) — M avec un contenu modifié
+//   M = 0        -> marché calme, tout va bien ;
+//   M = N, tous les jours -> l'empreinte ne discrimine rien, il faut regarder.
 if (priceEnabled() && Object.keys(I).length) {
   const datesFiches = new Set(Object.values(I).map((v) => v.d));
   const passages = etat.passages || 0;
-  if (passages <= 1) {
-    console.log(`  ⚠️  ${datesFiches.size} date(s) sur les fiches au passage ${passages} — `
-      + 'normal : le premier passage date tout du jour. Le prochain dira vrai.');
+  const jourDit = new Date().toISOString().slice(0, 10);
+  const uniqueEtDuJour = datesFiches.size === 1 && [...datesFiches][0] === jourDit;
+  if (datesFiches.size > 1) {
+    dit(true, `${datesFiches.size} dates distinctes sur les fiches (passage ${passages})`);
+  } else if (passages <= 1) {
+    console.log(`  ⚠️  une seule date au passage ${passages} — normal : le premier `
+      + 'passage date tout du jour. Le prochain dira vrai.');
+  } else if (uniqueEtDuJour) {
+    console.log(`  ⚠️  les ${Object.keys(I).length} fiches sont TOUTES datées d'aujourd'hui `
+      + `au passage ${passages}. Deux lectures possibles : tout le catalogue a `
+      + 'bougé, ou l\'empreinte ne discrimine rien. Trancher avec la ligne '
+      + '« lastmod-prix : N fiche(s) — M avec un contenu modifié » du workflow.');
   } else {
-    dit(datesFiches.size > 1,
-      `${datesFiches.size} dates distinctes sur les fiches (passage ${passages})`,
-      'toutes les fiches portent la même date alors que l\'outil est passé '
-      + `${passages} fois : l'empreinte ne discrimine rien`);
+    console.log(`  ⚠️  une seule date (${[...datesFiches][0]}), plus ancienne qu'aujourd'hui `
+      + '— c\'est la signature d\'un marché calme : aucun prix n\'a bougé depuis. '
+      + 'Rien à corriger.');
   }
 }
 

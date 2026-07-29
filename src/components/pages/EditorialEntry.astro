@@ -20,7 +20,7 @@ import { sectionMeta, languesDeSection } from '../../../engine/lib/editorial_pag
 import { cheminFiche, collecteEntrepot } from '../../../engine/lib/editorial_entries.mjs';
 import { figureHTML } from '../../../engine/lib/figures.mjs';
 import { manifest } from '../../../engine/lib/manifest.mjs';
-import { breadcrumbLd, jsonld } from '../../../engine/lib/seo.mjs';
+import { breadcrumbLd, jsonld, pageAProposLd } from '../../../engine/lib/seo.mjs';
 import { t, localize, dateLocale } from '../../../engine/lib/i18n.mjs';
 import { siteUrl } from '../../../engine/lib/manifest.mjs';
 
@@ -64,7 +64,20 @@ const crumbs = [
   { name: meta.title, url: localize(lang, meta.path) },
   { name: fiche.titre },
 ];
-const ld = [breadcrumbLd(crumbs.map((c) => ({ name: c.name, url: c.url ? root + c.url : `${root}${localize(lang, chemin)}` })))];
+// ⭐ LA FICHE DIT DE QUOI ELLE PARLE. Jusqu'au 29/07/2026 elle n'emettait que
+// son fil d'Ariane : un moteur voyait une page, jamais l'entite.
+// ⚠️ `WebPage` + `about`, et surtout PAS `Article` : cette page est faite d'une
+//    note de 30 caracteres et de chiffres calcules. La declarer comme un
+//    article serait une promesse qu'elle ne tient pas — et Google pese le
+//    contenu maigre au niveau du SITE, donc le mensonge couterait aux BONNES
+//    pages, pas seulement a celle-ci.
+const ld = [
+  pageAProposLd({
+    name: fiche.titre, description, url: `${root}${localize(lang, chemin)}`,
+    type: 'Brand', aPropos: fiche.titre,
+  }),
+  breadcrumbLd(crumbs.map((c) => ({ name: c.name, url: c.url ? root + c.url : `${root}${localize(lang, chemin)}` }))),
+];
 ---
 <Base lang={lang} path={chemin} title={fiche.titre} description={description}
       langs={languesDeSection(fiche.section)} crumbs={crumbs} ld={ld}>

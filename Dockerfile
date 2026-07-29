@@ -84,6 +84,13 @@ RUN WAREHOUSE_OFFLINE=1 npm run test:langues
 #    Ce test chiffre le deplacement sans gel, prouve qu'avec gel il est nul,
 #    et fait ECHOUER un site qui declare `adresses_gelees: true` sans la table.
 #    (`test:slugs` reste hors du build : il enchaine trois `npm run build`.)
+# ⭐ Les donnees structurees ont deux facons de mal tourner, et aucune ne fait
+# echouer un build Astro : elles DISPARAISSENT (quelqu'un retire le `ld={...}`
+# d'un gabarit — 87 termes definis cessent d'exister pour un moteur, la page
+# reste parfaitement valide), ou elles MENTENT (un DefinedTerm sans definition,
+# un Event avec une date inventee). D'ou leur place ici, ou un echec ARRETE le
+# deploiement.
+RUN npm run test:schema
 RUN WAREHOUSE_OFFLINE=1 npm run test:renommage
 
 RUN export RENDERING=$(cat /app/.rendering); npm run build

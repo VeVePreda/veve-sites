@@ -16,6 +16,8 @@ import { collection, parseSources } from '../../../engine/lib/editorial.mjs';
 import { sectionMeta, languesDeSection } from '../../../engine/lib/editorial_pages.mjs';
 import { t, localize, numberLocale } from '../../../engine/lib/i18n.mjs';
 import { fichesDe, cheminFiche } from '../../../engine/lib/editorial_entries.mjs';
+import { siteUrl } from '../../../engine/lib/manifest.mjs';
+import { definedTermSetLd, chronologieLd, itemListLd } from '../../../engine/lib/seo.mjs';
 
 const { lang, section } = Astro.props;
 
@@ -94,9 +96,62 @@ const crumbs = [
   { name: t(lang, 'home.crumb'), url: localize(lang, '/') },
   { name: meta.title },
 ];
+
+// -----------------------------------------------------------------------------
+//  DONNEES STRUCTUREES — ⭐ la plus grande surface editoriale du reseau
+//  n'emettait QUE son fil d'Ariane (constate le 29/07/2026). Des centaines
+//  d'entrees parfaitement structurees dans le HTML, et rien qui les declare.
+//
+//  ⚠️ CHAQUE SECTION RECOIT LE TYPE QUI LUI CORRESPOND, ET AUCUN AUTRE :
+//     glossaire et sigles sont des ensembles de TERMES DEFINIS — c'est
+//     litteralement le type prevu pour ca ; la chronologie est une liste de
+//     jalons DATES ; l'annuaire est une liste. Les marques n'en recoivent pas
+//     ici : chaque marque a sa propre fiche, qui declare la sienne
+//     (cf. EditorialEntry.astro). Declarer deux fois la meme entite, une fois
+//     sur l'index et une fois sur la fiche, brouille ce qu'on veut dire.
+//
+//  ⚠️ Les ancres : une entree ne recoit une `url` QUE si elle porte vraiment un
+//     `id` dans le HTML. Renvoyer vers une ancre qui n'existe pas serait la
+//     meme faute que les hreflang vers des pages non construites.
+const urlPage = `${siteUrl()}${localize(lang, meta.path)}`;
+const ldSection = (() => {
+  if (section === 'glossary') {
+    return [definedTermSetLd({
+      name: meta.title, description: meta.description, url: urlPage,
+      termes: items.map((r) => ({
+        name: r.terme,
+        description: r.definition || r.description,
+        url: r.id ? `${urlPage}#${r.id}` : undefined,
+      })),
+    })];
+  }
+  if (section === 'acronyms') {
+    return [definedTermSetLd({
+      name: meta.title, description: meta.description, url: urlPage,
+      termes: items.map((r) => ({
+        name: r.sigle,
+        // ⭐ Pour un sigle, ce que le lecteur cherche d'abord est ce qu'il VEUT
+        //    DIRE. La signification passe donc devant la definition longue.
+        description: r.signification || r.definition,
+        url: r.sigle ? `${urlPage}#${r.sigle}` : undefined,
+      })),
+    })];
+  }
+  if (section === 'history') {
+    return [chronologieLd(items.map((r) => ({
+      name: r.titre, date: r.date, description: r.description || r.quoi,
+      url: `${urlPage}#${ancre(r)}`,
+    })), urlPage)];
+  }
+  if (section === 'annuaire') {
+    return [itemListLd(items.map((r) => ({ name: r.nom })), urlPage)];
+  }
+  return [];
+})();
+
 ---
 <Base lang={lang} path={meta.path} title={meta.title} description={meta.description}
-      langs={languesDeSection(section)} crumbs={crumbs}>
+      langs={languesDeSection(section)} crumbs={crumbs} ld={ldSection}>
   <h1>{meta.title}</h1>
   <p class="lead">{meta.description}</p>
 
