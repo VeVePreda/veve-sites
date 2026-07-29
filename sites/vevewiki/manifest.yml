@@ -104,6 +104,13 @@ publication:
   # En cas de collision (couvertures VARIANTES d'un meme numero), le nom de la
   # couverture est ajoute ; l'identifiant court n'arrive qu'en dernier recours.
   comic_leaf: issue-rarity
+  # ⭐⭐ ARME LE 29/07/2026 — sites/vevewiki/slugs.json existe (1 200 fiches,
+  # gelees le 29/07/2026). ⚠️ A LIRE AVANT DE S'EN ETONNER : vevewiki ne publie
+  # AUCUNE page de prix (content.data_modules vide, cf. priceEnabled() dans
+  # engine/lib/features.mjs), donc cette table ne sert AUJOURD'HUI a rien. Elle
+  # est armee quand meme pour le jour ou le wiki publiera des fiches : les
+  # adresses seront alors deja fixees, et identiques a celles de veveprice.
+  adresses_gelees: true
   min_price_points: 8
   quotas:
     collectible: 800
