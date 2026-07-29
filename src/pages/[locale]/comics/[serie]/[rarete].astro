@@ -1,4 +1,15 @@
 ---
+// ⚠️ DEPOT : VeVePreda/veve-sites
+// CHEMIN : src/pages/[locale]/comics/[serie]/[rarete].astro
+//
+// LA JUMELLE LOCALISEE DE src/pages/comics/[serie]/[rarete].astro.
+// Elle ne prend QUE les comics a DEUX niveaux (/comics/<serie>/<rarete>/).
+// Les comics a trois niveaux sont servis par sa voisine
+// [locale]/comics/[serie]/[numero]/[rarete].astro, qui porte le recit du
+// defaut du 29/07/2026 : sans le filtre `p.length === 3` ci-dessous, cette
+// route attrapait AUSSI les comics a trois niveaux et prenait leur NUMERO
+// pour leur rarete, publiant 1 128 fiches a une adresse que leur propre
+// canonical declarait ailleurs.
 import { priceEnabled } from '../../../../../engine/lib/features.mjs';
 import Item from '../../../../components/pages/Item.astro';
 import { dataset } from '../../../../../engine/lib/dataset.mjs';
@@ -6,13 +17,18 @@ import { localeParams, langFromParam } from '../../../../../engine/lib/i18n.mjs'
 export async function getStaticPaths() {
   if (!priceEnabled()) return [];
   const ds = await dataset();
+  const comics = ds.items
+    .filter((e) => e.type === 'comic')
+    .map((e) => ({ e, p: e.path.split('/').filter(Boolean) }))   // [comics, serie, feuille]
+    .filter(({ p }) => p.length === 3);                          // 2 niveaux seulement
   const out = [];
   for (const { param } of localeParams()) {
     if (param === undefined) continue;
-    for (const e of ds.items) {
-      if (e.type !== 'comic') continue;
-      const [, , serie, feuille] = e.path.split('/');
-      out.push({ params: { locale: param, serie, rarete: feuille }, props: { item: e, updatedAt: ds.updatedAt } });
+    for (const { e, p } of comics) {
+      out.push({
+        params: { locale: param, serie: p[1], rarete: p[2] },
+        props: { item: e, updatedAt: ds.updatedAt },
+      });
     }
   }
   return out;
