@@ -126,6 +126,12 @@ jobs:
             git pull --rebase --autostash && git push
           fi
 
+      # ⭐ L'HEURE DE DEPART EST LA REFERENCE DU CONTROLE DE FRAICHEUR.
+      # Elle se prend AVANT le declenchement : une page construite apres cet
+      # instant ne peut venir que de CE deploiement.
+      - name: Horodater le depart
+        run: echo "DEPART=$(date -u +%s)" >> "$GITHUB_ENV"
+
       - name: Declencher le deploiement Coolify
         run: |
           set -u
@@ -143,24 +149,48 @@ jobs:
           COOLIFY_DEPLOY_URL: ${{ secrets.COOLIFY_DEPLOY_URL }}
           COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
 
-      - name: Attendre puis verifier que le site est frais
+      # ⭐⭐ ON COMPARE LE `build-time` DE LA PAGE A L'HEURE DE DEPART.
+      #
+      # L'ancienne version cherchait la date du jour (« 29/07/2026 ») dans la
+      # page d'accueil. Le 29/07/2026 elle a repondu « Site a jour (tentative
+      # 1) » 45 secondes apres le declenchement — alors que le nouveau build ne
+      # s'est termine que deux minutes plus tard. Elle a donc valide L'ANCIEN
+      # build, et elle l'aurait fait meme si le deploiement avait echoue :
+      # le site affichait deja cette date depuis le matin.
+      #
+      # ⭐ La lecon, elle, depasse ce fichier : un controle qui interroge une
+      #    valeur que le systeme portait DEJA avant l'action ne prouve rien.
+      #    `build-time` change a chaque construction — c'est la seule valeur
+      #    de cette page qui distingue un build d'un autre.
+      #
+      # ⚠️ Si la balise disparaissait du gabarit, ce controle deviendrait
+      #    aveugle : il ECHOUE alors au lieu de passer, et il le dit.
+      - name: Attendre puis verifier que le site est VRAIMENT reconstruit
         run: |
           set -u
-          today=$(date -u +%d/%m/%Y)
-          echo "Date attendue sur le site : $today"
+          echo "Le build doit etre posterieur a : $(date -u -d "@${DEPART}" +%FT%TZ)"
           ok=0
           for i in $(seq 1 20); do
             sleep 45
             html=$(curl -sS "https://veveprice.com/?cb=$(date +%s)" || true)
-            if printf '%s' "$html" | grep -q "$today"; then
-              echo "Site a jour (tentative $i)."
+            bt=$(printf '%s' "$html" \
+              | grep -o 'name="build-time" content="[^"]*"' \
+              | head -1 | sed 's/.*content="//; s/"$//')
+            if [ -z "$bt" ]; then
+              echo "Tentative $i : aucune balise build-time dans la page."
+              continue
+            fi
+            ts=$(date -u -d "$bt" +%s 2>/dev/null || echo 0)
+            if [ "$ts" -ge "$DEPART" ]; then
+              echo "Build frais : $bt (tentative $i)."
               ok=1
               break
             fi
-            echo "Pas encore a jour (tentative $i)..."
+            echo "Tentative $i : le site sert encore le build du $bt."
           done
           if [ "$ok" != "1" ]; then
-            echo "Le site n'affiche toujours pas la date du jour apres 15 minutes."
+            echo "Apres 15 minutes, le site sert toujours un build anterieur au declenchement."
+            echo "Soit le deploiement a echoue, soit la balise build-time a disparu du gabarit."
             exit 1
           fi
 

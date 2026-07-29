@@ -111,6 +111,11 @@ jobs:
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
 
+      # ⭐ L'HEURE DE DÉPART EST LA RÉFÉRENCE DU CONTRÔLE DE FRAÎCHEUR : une
+      # page construite après cet instant ne peut venir que de CE déploiement.
+      - name: Horodater le départ
+        run: echo "DEPART=$(date -u +%s)" >> "$GITHUB_ENV"
+
       - name: Déclencher le déploiement Coolify (vevewiki)
         run: |
           set -u
@@ -126,18 +131,42 @@ jobs:
           COOLIFY_DEPLOY_URL: ${{ secrets.COOLIFY_DEPLOY_URL_VEVEWIKI }}
           COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
 
-      - name: Vérifier que le site répond
+      # ⭐⭐ « RÉPONDRE » N'EST PAS « AVOIR ÉTÉ RECONSTRUIT ».
+      # Cette étape se contentait d'un HTTP 200 sur /glossary/ — vrai même si
+      # aucun déploiement n'avait eu lieu, puisque l'ancien conteneur répond
+      # parfaitement. Elle validait donc n'importe quoi, et IndexNow partait
+      # juste après, sur le sitemap d'AVANT.
+      # Le même défaut a été mesuré sur veveprice le 29/07/2026 : « Site à jour
+      # (tentative 1) » 45 s après le déclenchement, alors que le nouveau build
+      # s'est terminé deux minutes plus tard.
+      # ⭐ Un contrôle qui interroge une valeur que le système portait DÉJÀ
+      #    avant l'action ne prouve rien. `build-time` change à chaque
+      #    construction : c'est la seule qui distingue un build d'un autre.
+      - name: Vérifier que le site est VRAIMENT reconstruit
         run: |
           set -u
+          echo "Le build doit être postérieur à : $(date -u -d "@${DEPART}" +%FT%TZ)"
           ok=0
           for i in $(seq 1 20); do
             sleep 45
-            code=$(curl -sS -o /dev/null -w '%{http_code}' "https://vevewiki.com/glossary/?cb=$(date +%s)" || true)
-            echo "Tentative $i : HTTP $code"
-            if [ "$code" = "200" ]; then ok=1; break; fi
+            html=$(curl -sS "https://vevewiki.com/glossary/?cb=$(date +%s)" || true)
+            bt=$(printf '%s' "$html" \
+              | grep -o 'name="build-time" content="[^"]*"' \
+              | head -1 | sed 's/.*content="//; s/"$//')
+            if [ -z "$bt" ]; then
+              echo "Tentative $i : aucune balise build-time dans la page."
+              continue
+            fi
+            ts=$(date -u -d "$bt" +%s 2>/dev/null || echo 0)
+            if [ "$ts" -ge "$DEPART" ]; then
+              echo "Build frais : $bt (tentative $i)."
+              ok=1; break
+            fi
+            echo "Tentative $i : le site sert encore le build du $bt."
           done
           if [ "$ok" != "1" ]; then
-            echo "vevewiki ne répond pas (200) après ~15 min."; exit 1
+            echo "Après 15 minutes, vevewiki sert toujours un build antérieur au déclenchement."
+            exit 1
           fi
 
       # ─────────────────────────────────────────────────────────────────────
@@ -148,10 +177,13 @@ jobs:
       #  moitié est de PRÉVENIR les moteurs qu'une adresse a changé. Sans ce
       #  ping, Bing et Yandex attendent leur prochain passage — des semaines.
       #  Avec, l'indexation tombe en heures, et c'est gratuit.
-      #  ⚠️ On ne pousse QUE le sitemap : soumettre 32 URL une par une à chaque
-      #     build serait vu comme du spam. Un échec ici n'est PAS bloquant —
-      #     un moteur indisponible ne doit pas faire échouer un déploiement
-      #     réussi.
+      #  ⛔ COMMENTAIRE CORRIGÉ LE 29/07/2026 — il disait « on ne pousse QUE le
+      #     sitemap, soumettre 32 URL une par une serait vu comme du spam ».
+      #     C'est faux depuis le 27/07 : le protocole accepte 10 000 URL dans
+      #     UNE requête, et c'est l'usage prévu. Un commentaire qui contredit
+      #     le code juste en dessous est un piège pour le prochain lecteur.
+      #  ⚠️ Un échec ici n'est PAS bloquant : un moteur indisponible ne doit
+      #     pas faire échouer un déploiement par ailleurs réussi.
       - name: Prévenir IndexNow des URL modifiées
         continue-on-error: true
         run: |
