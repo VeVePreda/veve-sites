@@ -1,3 +1,5 @@
+// ⚠️ DEPOT : VeVePreda/veve-sites  ·  CHEMIN : engine/data/warehouse.mjs
+//
 // Accès à l'entrepôt de données jetonveve.
 // Lit les releases publiques (CSV.gz par URL). Repli automatique sur la
 // release N-1 (`-prev`), puis sur un échantillon local (build hors-ligne).
@@ -28,6 +30,53 @@ const SOURCES = {
     sample: 'prices_baselines.csv',
   },
 };
+
+// ===========================================================================
+// ⭐⭐ LE REPLI N-1 NE PASSE PLUS EN SILENCE  (A3, 29/07/2026)
+// ===========================================================================
+// Il y avait DEUX replis muets dans ce fichier, pas un : `load()` (catalogue,
+// baselines) et `streamPrices` (prix). Tous deux parcourent `[url, prev]` et
+// se contentaient d'un `console.warn` sur l'echec de la fraiche : la lecture
+// sur la release N-1 reussissait, le build restait VERT, et rien ne disait
+// que le site venait d'etre construit sur l'identite de la veille.
+//
+// ⭐ La nuance qui fait tout : ce repli n'est PAS un defaut partout.
+//    · `rebuild-daily`  -> reconstruire sur des donnees d'hier est un
+//      comportement degrade ACCEPTABLE : demain rattrape.
+//    · `freeze-slugs`   -> le gel est IRREVERSIBLE. Geler les adresses sur
+//      `catalogue-prev` grave A VIE l'identite d'AVANT l'uniformisation.
+//      Ce n'est pas degrade, c'est definitif.
+//
+// D'ou la forme : le repli CRIE toujours, et il n'est FATAL que la ou
+// l'appelant le demande (`WAREHOUSE_REFUSE_PREV=1`). Un garde-fou qui casse
+// tout casse aussi ce qu'il fallait laisser passer, et on finit par le
+// desarmer -- voir D3 du plan.
+const REFUSE_PREV = process.env.WAREHOUSE_REFUSE_PREV === '1';
+
+// ⭐ Un marqueur LITTERAL et unique. `freeze-slugs.yml` greppait
+// `catalogue-prev`, c'est-a-dire un fragment d'URL : ca ne couvrait ni les
+// prix ni les baselines, et ca cassait au premier renommage de release.
+export const MARQUEUR_REPLI = '[entrepot][REPLI-N-1]';
+
+const REPLIS = [];
+/** Les replis N-1 subis depuis le demarrage du process. */
+export const getReplis = () => REPLIS.slice();
+/** Remise a zero — pour les bancs de test uniquement. */
+export const _resetReplis = () => { REPLIS.length = 0; };
+
+function noterRepli(name, url) {
+  if (!REPLIS.some((r) => r.source === name)) REPLIS.push({ source: name, url });
+  console.warn(`${MARQUEUR_REPLI} ${name} : source fraiche injoignable, LU SUR LA RELEASE N-1 ${url}`);
+  // Annotation GitHub Actions : visible dans le resume du run, pas seulement
+  // noyee dans 3 000 lignes de log.
+  console.warn(`::warning title=Entrepot en repli N-1::${name} a ete lu sur la release N-1 (${url}). Les donnees ont un jour de retard.`);
+  if (REFUSE_PREV) {
+    throw new Error(
+      `${MARQUEUR_REPLI} ${name} : repli sur la release N-1 REFUSE (WAREHOUSE_REFUSE_PREV=1). ` +
+      `Cette etape ecrit quelque chose d'irreversible : elle exige la source fraiche. ` +
+      `Relancer quand ${SOURCES[name] ? SOURCES[name].url : name} sera de nouveau joignable.`);
+  }
+}
 
 export function parseCSV(text) {
   const rows = [];
@@ -76,16 +125,31 @@ export async function load(name) {
   const src = SOURCES[name];
   if (!src) throw new Error(`source inconnue: ${name}`);
   let rows = null;
+  // ⭐ On retient le RANG lu, pas l'URL : `CATALOGUE_URL` peut surcharger la
+  // fraiche, et comparer deux chaines aurait rate le cas ou la surcharge
+  // pointe deja la release N-1.
+  let rangLu = -1;
   if (!OFFLINE) {
-    for (const url of [src.url, src.prev]) {
+    const urls = [src.url, src.prev];
+    for (let i = 0; i < urls.length; i++) {
+      const url = urls[i];
       try {
         rows = await fetchTable(url);
-        if (rows.length) { console.log(`[entrepot] ${name}: ${rows.length} lignes depuis ${url}`); break; }
+        if (rows.length) {
+          rangLu = i;
+          console.log(`[entrepot] ${name}: ${rows.length} lignes depuis ${url}`);
+          break;
+        }
       } catch (e) {
         console.warn(`[entrepot] ${name}: echec ${url} (${e.message})`);
         rows = null;
       }
     }
+    // ⛔⛔ HORS du try/catch, et c'est le cœur du correctif. Appele a
+    // l'interieur, le `throw` de `noterRepli()` serait avale par le `catch`
+    // ci-dessus, relu comme « echec de la release N-1 » — et le refus se
+    // serait transforme en un repli de plus, silencieux lui aussi.
+    if (rangLu > 0) noterRepli(name, urls[rangLu]);
   }
   if (!rows || !rows.length) {
     // Le repli sur l'echantillon n'est autorise QUE si on l'a demande
@@ -139,18 +203,29 @@ async function consumeStream(stream, onRow) {
 export async function streamPrices(onRow) {
   const src = SOURCES.prices;
   if (!OFFLINE) {
-    for (const url of [src.url, src.prev]) {
+    const urls = [src.url, src.prev];
+    let rangLu = -1;
+    let lues = 0;
+    for (let i = 0; i < urls.length; i++) {
+      const url = urls[i];
       try {
         const res = await fetch(url, { redirect: 'follow' });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         let stream = Readable.fromWeb(res.body);
         if (url.endsWith('.gz')) stream = stream.pipe(createGunzip());
-        const n = await consumeStream(stream, onRow);
-        console.log(`[entrepot] prix : ${n} lignes lues EN FLUX depuis ${url}`);
-        return n;
+        lues = await consumeStream(stream, onRow);
+        rangLu = i;
+        console.log(`[entrepot] prix : ${lues} lignes lues EN FLUX depuis ${url}`);
+        break;
       } catch (e) {
         console.warn(`[entrepot] prix : echec ${url} (${e.message})`);
       }
+    }
+    // ⛔ Meme piege qu'au-dessus : le `return` etait DANS le `try`, donc toute
+    // annonce posee la aurait ete avalee par le `catch`. On sort d'abord.
+    if (rangLu >= 0) {
+      if (rangLu > 0) noterRepli('prices', urls[rangLu]);
+      return lues;
     }
   }
   if (!OFFLINE && process.env.ALLOW_SAMPLE !== '1') {
