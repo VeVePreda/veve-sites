@@ -145,13 +145,47 @@ jobs:
       #    ECHOUE (il ne se replie sur l'echantillon que si ALLOW_SAMPLE=1).
       #    C'est voulu : dater 1 200 fiches sur 90 lignes d'exemple serait pire
       #    que ne pas les dater.
+      # ⚠️ Le log est CAPTURE : c'est lui qui porte la preuve d'un repli N-1
+      #    (etape suivante). `pipefail` est indispensable, sinon le code de
+      #    sortie serait celui de `tee` (0) et `outcome` vaudrait toujours
+      #    `success` — l'alerte du journal des dates ne tirerait plus jamais.
       - name: Dates par fiche (prix)
         id: lastmod_prix
         continue-on-error: true
         env:
           SITE: veveprice
           NODE_OPTIONS: --max-old-space-size=3072
-        run: node engine/tools/lastmod-prix.mjs --site veveprice
+        run: |
+          set -o pipefail
+          node engine/tools/lastmod-prix.mjs --site veveprice 2>&1 | tee entrepot.log
+
+      # ==================================================================
+      # ⭐⭐ A3 — LE REPLI N-1 N'EST PLUS MUET  (29/07/2026)
+      # ==================================================================
+      # `lastmod-prix.mjs` lit les MEMES releases que le build Coolify qui
+      # suivra dans quelques minutes. S'il s'est replie sur `catalogue-prev` /
+      # `prices-full-prev`, le site va etre reconstruit sur les donnees de la
+      # VEILLE — avec un run vert de bout en bout.
+      #
+      # ⭐ Ici, contrairement a `freeze-slugs`, on ne pose PAS
+      #    `WAREHOUSE_REFUSE_PREV=1` : reconstruire sur les donnees d'hier est
+      #    un comportement degrade acceptable, demain rattrape. Casser le
+      #    rebuild quotidien sur un 404 passager de release coûterait plus que
+      #    le retard qu'il evite. Ce qui n'etait pas acceptable, c'est de ne
+      #    pas le SAVOIR.
+      - name: Dire si l'entrepot s'est replie sur la release N-1
+        if: always()
+        run: |
+          set -u
+          test -f entrepot.log || exit 0
+          grep '\[REPLI-N-1\]' entrepot.log || exit 0
+          sources=$(grep -o '\[entrepot\]\[REPLI-N-1\] [a-z]*' entrepot.log | awk '{print $2}' | sort -u | tr '\n' ' ')
+          run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          msg="🟠 **VeVePrice** : l'entrepôt s'est replié sur la release **N-1** (${sources}).\\nLe site est reconstruit sur les données de la VEILLE — elles ne sont pas fausses, elles ont un jour de retard.\\nSi ça se reproduit demain, c'est la publication amont qui est cassée, pas le réseau.\\n${run_url}"
+          payload=$(printf '{"content":"%s"}' "$msg")
+          curl -sS -X POST -H 'Content-Type: application/json' -d "$payload" "${DISCORD_WEBHOOK}" || true
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
 
       # ⭐ UN REPLI QUI CRIE. Les deux etapes ci-dessus sont `continue-on-error`
       # parce qu'un journal de dates absent ne doit pas empecher le site d'etre

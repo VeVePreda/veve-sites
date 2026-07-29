@@ -68,9 +68,24 @@ jobs:
           node-version: '22'
       - name: Installer les dependances
         run: npm ci --no-audit --no-fund || npm install --no-audit --no-fund
+      # 🔴 LE GEL EST IRREVERSIBLE : il fixe A VIE l'identite presente au moment
+      # ou il s'execute. Si `warehouse.mjs` se replie sur la release N-1
+      # `catalogue-prev`, il grave l'identite d'AVANT l'uniformisation.
+      #
+      # ⭐⭐ 29/07/2026 — LE GARDE-FOU EST PASSE EN AMONT (A3). Il vivait ici,
+      # en aval, sous la forme d'un `grep 'catalogue-prev' gel.log` : il
+      # refusait bien, mais APRES avoir laisse tourner tout le calcul, et il
+      # dependait d'un fragment d'URL — il n'aurait rien vu si la release
+      # avait ete renommee, et il ne couvrait ni les prix ni les baselines.
+      # Desormais `WAREHOUSE_REFUSE_PREV=1` fait echouer `warehouse.mjs` a la
+      # seconde ou il se replie, sur N'IMPORTE laquelle des trois sources.
       - name: "Mettre a jour la table des adresses — ${{ matrix.site }}"
         env:
           SITE: ${{ matrix.site }}
+          # ⛔ NE PAS RETIRER. Sans lui, un repli N-1 gele a vie les mauvaises
+          #    adresses avec un run VERT. C'est la seule etape du depot qui
+          #    ecrit quelque chose d'irreversible.
+          WAREHOUSE_REFUSE_PREV: '1'
         # ⚠️ `pipefail` est INDISPENSABLE : sans lui, le code de sortie du
         # pipeline est celui de `tee` (0), et un `npm run slugs` en echec
         # (entrepot injoignable, table vide refusee) passerait pour un succes.
@@ -78,17 +93,20 @@ jobs:
           set -euo pipefail
           npm run slugs 2>&1 | tee gel.log
 
-      # 🔴 DEFAUT CORRIGE LE 29/07/2026 — le gel est IRREVERSIBLE : il fixe a vie
-      # l'identite presente au moment ou il s'execute. Or `warehouse.mjs` (l. 80)
-      # se replie EN SILENCE sur la release N-1 `catalogue-prev` si la release
-      # `catalogue` est injoignable — et `catalogue-prev` porte l'identite
-      # d'AVANT l'uniformisation. Un repli non vu gelerait donc a vie les
-      # anciennes adresses, avec un run vert. On refuse de commiter dans ce cas.
-      - name: "Refuser de geler sur le catalogue N-1"
+      # ⭐ La SECONDE moitie du garde-fou. Le refus ci-dessus doit suffire :
+      # cette etape existe pour le cas ou il aurait ete desarme sans qu'on le
+      # remarque (variable retiree, `continue-on-error` ajoute plus tard). Un
+      # garde-fou en un seul point se desarme sans laisser de trace.
+      # ⚠️ Pas de `if: always()` ici, exprès. Si l'etape ci-dessus a echoue, le
+      # job est deja rouge et le refus a fonctionne ; annoncer « desarme »
+      # serait un message FAUX. On ne s'execute donc que sur un calcul VERT —
+      # ce qui inclut le cas d'un `continue-on-error` ajoute par megarde.
+      - name: "Refuser de geler sur un catalogue N-1 (seconde moitie)"
         run: |
           set -u
-          if grep -q 'catalogue-prev' gel.log; then
-            echo "::error::Le catalogue frais etait injoignable : les adresses ont ete calculees sur catalogue-prev (identite d'AVANT l'uniformisation). On ne gele PAS."
+          test -f gel.log || { echo "::error::gel.log absent : l'etape de calcul n'a pas tourne."; exit 1; }
+          if grep -q '\[REPLI-N-1\]' gel.log; then
+            echo "::error::Un repli sur release N-1 a eu lieu ET n'a pas ete refuse en amont : WAREHOUSE_REFUSE_PREV a ete desarme. On ne gele PAS."
             exit 1
           fi
           grep -E '^\[entrepot\] catalogue:' gel.log || true
