@@ -1,6 +1,6 @@
 ---
 import Base from '../../layouts/Base.astro';
-import { postsByTag } from '../../../engine/lib/blog.mjs';
+import { postsByTag, SEUIL_INDEX_TAG } from '../../../engine/lib/blog.mjs';
 import { t, localize, dateLocale } from '../../../engine/lib/i18n.mjs';
 const { lang, tag, updatedAt } = Astro.props;
 const posts = await postsByTag(lang, tag);
@@ -9,8 +9,10 @@ const df = dateLocale[lang] || 'en-GB';
 // NAVIGATION, pas du contenu. Indexee, elle dilue le site et fait concurrence
 // aux articles eux-memes. On la garde pour le lecteur, on la retire de l'index
 // tant qu'elle n'a pas de quoi exister seule — et le sitemap la suit.
-const SEUIL_INDEX = 4;
-const maigre = posts.length < SEUIL_INDEX;
+// ⭐ Le seuil vit dans engine/lib/blog.mjs et n'est plus recopie ici : le
+// sitemap lit LE MEME. Avant le 29/07/2026 il valait 4 de ce cote et rien du
+// cote sitemap, d'ou 10 pages en noindex qui etaient quand meme annoncees.
+const maigre = posts.length < SEUIL_INDEX_TAG;
 ---
 <Base lang={lang} path={`/blog/tag/${tag}/`} title={`${t(lang, 'blog.tag')} : ${tag}`} description={t(lang, 'desc.blogTag', { name: tag })} updatedAt={updatedAt} noindex={maigre}
       crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') }, { name: t(lang, 'blog.title'), url: localize(lang, '/blog/') }, { name: tag }]}>

@@ -235,10 +235,29 @@ export async function translationPaths(key) {
   return out;
 }
 
+// ⭐⭐ SEUIL D'INDEXATION D'UNE ETIQUETTE — UNE SEULE SOURCE, LUE PAR TOUS.
+// Corrige le 29/07/2026. Il y avait TROIS regles pour la meme page :
+//   · blog.mjs        TAG_MIN_POSTS = 2   -> CREE la page ;
+//   · BlogTag.astro   SEUIL_INDEX   = 4   -> la met en NOINDEX ;
+//   · sitemap.xml.js  (aucun seuil)       -> l'ANNONCE quand meme.
+// Mesure sur vevewiki : 10 pages (2 etiquettes x 5 langues) a la fois en
+// noindex ET dans le sitemap. On demandait a Google d'aller voir une page
+// qu'on lui interdisait d'indexer — une contradiction qu'aucun build ne signale.
+// ⭐ Le commentaire de BlogTag.astro promettait deja « et le sitemap la suit ».
+// La promesse etait ecrite dans le code, jamais tenue : le sitemap ne
+// connaissait pas le seuil. Il vit donc ICI, et les deux autres le LISENT.
+// ⛔ Ne PAS le recopier ailleurs : c'est exactement comme ca qu'on en est
+// arrive a trois seuils pour une seule decision.
+export const SEUIL_INDEX_TAG = Number(process.env.TAG_MIN_INDEX || 4);
+
 export async function tagsFor(lang) {
   const counts = new Map();
   for (const p of await postsFor(lang)) {
-    for (const t of p.data.tags || []) counts.set(t, (counts.get(t) || 0) + 1);
+    // ⚠️ `new Set` : un article qui liste DEUX FOIS la meme etiquette comptait
+    // double ici, alors que `postsByTag` compte des ARTICLES. Les deux doivent
+    // rendre le meme nombre, sinon le seuil se lit differemment des deux cotes
+    // — et on recree en silence le defaut que ce correctif vient de fermer.
+    for (const t of new Set(p.data.tags || [])) counts.set(t, (counts.get(t) || 0) + 1);
   }
   // Un theme a un seul article ne serait qu'un doublon de l'index :
   // on ne lui cree pas de page tant qu'il n'a pas au moins 2 articles.

@@ -5,7 +5,7 @@ import { DOCS, languesLegales } from '../../engine/lib/legal.mjs';
 import { priceEnabled } from '../../engine/lib/features.mjs';
 import { activeSections, sectionMeta, languesDeSection, languesDuSite } from '../../engine/lib/editorial_pages.mjs';
 import { ficheSections, fichesDe, cheminFiche } from '../../engine/lib/editorial_entries.mjs';
-import { postsFor, tagsFor, translationPaths } from '../../engine/lib/blog.mjs';
+import { postsFor, tagsFor, translationPaths, SEUIL_INDEX_TAG } from '../../engine/lib/blog.mjs';
 // ⭐⭐ LE `lastmod` NE PEUT PAS ÊTRE « AUJOURD'HUI » POUR TOUT LE MONDE.
 // Avant le 27/07 les 82 URL portaient la date du build : les mentions légales,
 // inchangées depuis des mois, se déclaraient modifiées chaque matin. Un moteur
@@ -150,6 +150,13 @@ export async function GET() {
       entries.push(`<url><loc>${root}${localize(l, `/blog/${p.slug}/`)}</loc><lastmod>${new Date(p.data.updated || p.data.date).toISOString().slice(0,10)}</lastmod>${alts}</url>`);
     }
     for (const x of await tagsFor(l)) {
+      // ⭐⭐ MEME SEUIL QUE BlogTag.astro, ET IL EST *LU*, PAS RECOPIE.
+      // Une etiquette sous le seuil est rendue en `noindex` : l'annoncer au
+      // sitemap revient a demander a Google de visiter une page qu'on lui
+      // interdit d'indexer. C'est le defaut mesure le 29/07/2026 (10 pages).
+      // ⭐ `tagsFor` rend deja le compte (`x.n`) : aucun recalcul ici, on lit
+      // la valeur d'amont. La page, elle, continue d'exister pour le lecteur.
+      if (x.n < SEUIL_INDEX_TAG) continue;
       entries.push(`<url><loc>${root}${localize(l, `/blog/tag/${x.tag}/`)}</loc><lastmod>${lastmod}</lastmod></url>`);
     }
   }
