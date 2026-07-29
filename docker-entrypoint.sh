@@ -38,6 +38,21 @@ cp "$SOURCE" "$CONF"
 # SANS AUCUN SIGNAL, en repondant 200 partout.
 grep -q "location \^~ /stats/" "$CONF" || echec "le proxy /stats/ a disparu de $SOURCE — la mesure d'audience serait morte, et l'anti-empreinte avec"
 
+# --- Garde-fou anti-precompression morte ------------------------------------
+# ⭐ « UN GARDE-FOU QUI NE TOURNE PAS EN PRODUCTION NE GARDE RIEN » — c'est
+# ecrit dans le Dockerfile, et ca s'applique a ce controle-la aussi.
+# `npm run test:nginx` verifie que `gzip_static` est present des deux cotes,
+# mais il ne tourne PAS pendant le build (il demande crossplane). Le controle
+# vit donc ici, ou il tourne a chaque demarrage, en production.
+#
+# Deux moities, et il faut les deux : la directive SANS les fichiers ne sert
+# rien de precompresse, les fichiers SANS la directive dorment sur le disque.
+# Dans les deux cas le site reste parfaitement valide, simplement plus lent —
+# et rien, nulle part, ne le dirait.
+grep -q "gzip_static on;" "$CONF" || echec "gzip_static a disparu de $SOURCE — les .gz produits au build ne seraient jamais servis"
+[ -n "$(find "$CONTENU" -name '*.gz' -type f 2>/dev/null | head -1)" ] || echec "aucun fichier precompresse dans $CONTENU — l'etape de precompression du Dockerfile n'a rien produit"
+echo "[demarrage] precompression : $(find "$CONTENU" -name '*.gz' -type f | wc -l) fichier(s) .gz servis par gzip_static"
+
 nginx -t || echec "configuration nginx invalide (voir ci-dessus)"
 
 # --- Node d'abord, si le mode l'exige ---------------------------------------

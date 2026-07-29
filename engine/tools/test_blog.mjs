@@ -24,7 +24,7 @@
 //  mémoïsés au premier appel (comme test_quotas.mjs), donc on ne peut pas
 //  évaluer deux manifestes différents dans le même processus.
 // =============================================================================
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -380,6 +380,25 @@ console.log('\n10. Sources : « toute information porte un lien vers sa source �
     o.libelle && o.libelle.length === 1 && o.libelle[0].href === null, JSON.stringify(o.libelle));
   verifier('aucune source -> liste vide', Array.isArray(o.vide) && o.vide.length === 0, JSON.stringify(o.vide));
   verifier('separateur saut de ligne accepte', o.lignes === 2, String(o.lignes));
+}
+
+// ── Le flux RSS est-il DECLARE, et seulement ou il existe ? ────────────────
+// ⭐ Les routes /rss.xml et /<langue>/rss.xml sont construites depuis toujours ;
+//   jusqu'au 29/07/2026 rien ne les declarait dans le <head>. Un flux que
+//   personne ne peut decouvrir est un fichier qu'on genere pour rien.
+// ⚠️ ET IL NE DOIT PAS ETRE DECLARE PARTOUT. `[locale]/rss.xml.js` ne construit
+//   le flux que dans les langues qui ont des articles. L'annoncer dans les
+//   autres enverrait les lecteurs sur un 404 — la meme faute que les hreflang
+//   vers des pages non construites, payee le 28/07. La condition doit donc
+//   etre `blogDansCetteLangue`, celle-la meme qui pilote la navigation.
+{
+  const BASE = readFileSync(new URL('../../src/layouts/Base.astro', import.meta.url), 'utf8');
+  const bloc = BASE.match(/\{blogDansCetteLangue && \([^}]*rss\+xml[\s\S]{0,400}?\)\}/);
+  verifier('le <head> declare le flux RSS', /application\/rss\+xml/.test(BASE),
+    'aucun <link rel="alternate" type="application/rss+xml"> dans Base.astro');
+  verifier('il ne le declare QUE dans les langues qui ont un flux', Boolean(bloc),
+    'la declaration doit etre conditionnee par `blogDansCetteLangue`, sinon elle '
+    + 'annonce un flux inexistant dans les langues sans article');
 }
 
 rmSync(base, { recursive: true, force: true });

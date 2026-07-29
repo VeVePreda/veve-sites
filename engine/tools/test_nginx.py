@@ -143,6 +143,41 @@ def racine(payload):
     return None
 
 
+def directives_serveur(payload):
+    """{ directive : arguments } au niveau `server`, hors blocs `location`."""
+    out = {}
+
+    def marche(blocs, dans_location=False):
+        for b in blocs:
+            if b['directive'] == 'location':
+                marche(b.get('block') or [], True)
+                continue
+            if not dans_location:
+                out[b['directive']] = ' '.join(b.get('args', []))
+            marche(b.get('block') or [], dans_location)
+
+    for f in payload['config']:
+        marche(f['parsed'])
+    return out
+
+
+print('\n3 bis. la compression est PRECOMPRESSEE, et des deux cotes')
+# ⭐ `gzip on` seul compresse a la volee au niveau 1 — le defaut, qu'on ne
+#    declarait nulle part — a chaque requete et sur chacune des ~8 500 pages.
+#    Le Dockerfile produit desormais les `.gz` niveau 9 ; sans `gzip_static`,
+#    ils dorment sur le disque et le site reste exactement aussi lent qu'avant.
+#    C'est encore le motif « depose mais pas actif » : rien n'echoue.
+# ⭐ Le controle porte sur les DEUX fichiers, parce que le mode d'un site se
+#    change en editant une ligne de manifeste : un site bascule en `server`
+#    perdrait silencieusement la precompression si seul nginx.conf l'avait.
+ds = directives_serveur(analyses['nginx.conf'])
+dv = directives_serveur(analyses['nginx.server.conf'])
+for cle, pourquoi in (('gzip_static', 'sert les .gz produits au build'),
+                      ('gzip_vary', 'dit aux caches que la reponse depend d\'Accept-Encoding')):
+    verifie(f'`{cle} on` dans les deux configurations',
+            ds.get(cle) == 'on' and dv.get(cle) == 'on',
+            f"statique={ds.get(cle) or 'absent'} serveur={dv.get(cle) or 'absent'} — {pourquoi}")
+
 print('\n4. la racine servie est la meme des deux cotes')
 ra, rb = racine(analyses['nginx.conf']), racine(analyses['nginx.server.conf'])
 verifie('meme `root` dans les deux configurations', ra is not None and ra == rb,

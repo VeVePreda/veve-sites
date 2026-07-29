@@ -102,6 +102,45 @@ RUN set -e; MODE=$(cat /app/.rendering); \
       echo "mode static : $(find dist -name index.html | wc -l) pages"; \
     fi
 
+# --- Precompression : le seul gain de vitesse qui restait ------------------
+# ⭐⭐ POURQUOI PRECOMPRESSER, PLUTOT QUE DE MONTER LE NIVEAU DE gzip.
+# `nginx.conf` declarait `gzip on` sans `gzip_comp_level` : nginx compressait
+# donc AU NIVEAU 1, a la volee, a chaque requete, sur chacune des ~8 500 pages.
+# Precompresser au build donne les deux a la fois : le niveau 9 (fichiers plus
+# petits) ET zero seconde de CPU par requete. `gzip_static on` sert le `.gz`
+# quand il existe ; `gzip on` reste en second rideau pour le reste.
+#
+# ⚠️ On ne compresse QUE ce qui se compresse. Un .png ou un .woff2 sont deja
+#    compresses : produire leur `.gz` gaspillerait du disque pour un fichier
+#    plus GROS que l'original.
+# ⚠️ En mode serveur on ne touche qu'a dist/client : dist/server est du code
+#    que Node execute, nginx ne le sert jamais.
+# ⚠️ Le seuil de 512 octets est le MEME que `gzip_min_length` : en dessous,
+#    l'en-tete de compression coute plus que ce qu'elle economise.
+#
+# 🔴 UN GARDE-FOU QUI NE TOURNE PAS NE GARDE RIEN — d'ou le controle `n > 0` a
+#    la fin de cette etape. Sans lui, une precompression qui ne produit rien
+#    laisserait `gzip_static` sans fichier a servir : le site resterait
+#    parfaitement valide, simplement plus lent, et rien ne le dirait.
+# ⚠️ AUCUN COMMENTAIRE A L'INTERIEUR DE CE `RUN` : dans une continuation de
+#    ligne, un `#` est lu par le parseur Dockerfile, pas par le shell.
+# ⚠️ NI `find -printf` NI `stat -c` : ce sont des extensions GNU, et l'image est
+#    une ALPINE (busybox). Elles rendraient une erreur au build, pas un zero.
+RUN set -e; \
+    MODE=$(cat /app/.rendering); \
+    if [ "$MODE" = "server" ]; then RACINE=dist/client; else RACINE=dist; fi; \
+    avant=$(find "$RACINE" -type f \( -name '*.html' -o -name '*.css' -o -name '*.js' \
+        -o -name '*.mjs' -o -name '*.xml' -o -name '*.json' -o -name '*.svg' \
+        -o -name '*.txt' \) -size +512c -exec cat {} + | wc -c); \
+    find "$RACINE" -type f \( -name '*.html' -o -name '*.css' -o -name '*.js' \
+        -o -name '*.mjs' -o -name '*.xml' -o -name '*.json' -o -name '*.svg' \
+        -o -name '*.txt' \) -size +512c \
+      -exec sh -c 'gzip -9 -c "$1" > "$1.gz"' _ {} \; ; \
+    n=$(find "$RACINE" -name '*.gz' -type f | wc -l); \
+    apres=$(find "$RACINE" -name '*.gz' -type f -exec cat {} + | wc -c); \
+    [ "$n" -gt 0 ] || { echo "ERREUR: aucune ressource precompressee"; exit 1; }; \
+    echo "precompression : $n fichier(s), $avant -> $apres octets"
+
 RUN apk add --no-cache python3 >/dev/null && python3 engine/tools/audit_seo.py dist || true
 
 # --- Etape 2 : service web (les deux modes) ---

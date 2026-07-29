@@ -124,6 +124,19 @@ const suggestData = alternates.filter((a) => a.lang !== lang).map((a) => ({ l: a
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="630" />
 <meta name="twitter:image" content={`${root}${image || '/og.png'}`} />
+{/* ⭐ LE FLUX EXISTE DEPUIS TOUJOURS, RIEN NE LE DECLARAIT. Les routes
+    /rss.xml et /<langue>/rss.xml sont construites, mais aucun lecteur, aucun
+    agregateur, aucun robot ne pouvait les decouvrir autrement qu'en devinant
+    l'adresse.
+    ⚠️ MEME REGLE QUE LA NAV, ET ELLE A DEJA ETE PAYEE : on ne declare le flux
+    QUE dans les langues ou il est vraiment construit (`languesBlog()`).
+    L'annoncer partout enverrait les lecteurs sur un 404 dans les langues sans
+    article — invisible au build, puisque c'est un lien, pas une route. */}
+{blogDansCetteLangue && (
+  <link rel="alternate" type="application/rss+xml"
+        title={`${m.site.brand} — ${t(lang, 'blog.title')}`}
+        href={`${root}${localize(lang, '/rss.xml')}`} />
+)}
 <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 <meta name="generator-ref" content={canary} />
