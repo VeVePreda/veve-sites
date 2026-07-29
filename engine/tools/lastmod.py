@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Tient à jour `engine/data/lastmod.json` — la date de dernier CHANGEMENT
+"""Tient à jour `engine/data/lastmod.<site>.json` — la date de dernier CHANGEMENT
 RÉEL de chaque famille de pages.
 
     python3 engine/tools/lastmod.py --site vevewiki
@@ -42,7 +42,26 @@ import sys
 from datetime import date
 
 RACINE = pathlib.Path(__file__).resolve().parent.parent.parent
-SORTIE = RACINE / 'engine' / 'data' / 'lastmod.json'
+
+# 🔴🔴 UN FICHIER PAR SITE, ET CE N'EST PAS UN DETAIL DE RANGEMENT.
+# Jusqu'au 29/07/2026 il n'existait qu'un seul `engine/data/lastmod.json` pour
+# TOUT le depot, alors que `SURVEILLE` pointe des chemins `sites/{site}/...`.
+# Tant qu'un seul site lancait cet outil, personne ne pouvait s'en apercevoir.
+# Le jour ou on l'aurait lance pour un DEUXIEME site, voici ce qui serait
+# arrive, sans une ligne d'erreur :
+#   - les chemins `sites/veveprice/editorial/*.json` n'existent pas ;
+#   - `empreinte()` rend '' pour chacun -> une empreinte parfaitement valide ;
+#   - elle differe de celle de vevewiki -> « la section a change » ;
+#   - toutes les dates de vevewiki sont REECRITES a aujourd'hui.
+# Le correctif aurait detruit ce qu'il venait reparer, et le seul symptome
+# aurait ete un sitemap qui redate tout — exactement le defaut d'origine.
+# ➡️ La sortie porte donc le nom du site, et le fichier declare a QUI il
+#    appartient (cle `site`) : lire celui d'un autre est refuse, bruyamment.
+LEGACY = RACINE / 'engine' / 'data' / 'lastmod.json'
+
+
+def sortie(site: str) -> pathlib.Path:
+    return RACINE / 'engine' / 'data' / f'lastmod.{site}.json'
 
 # Les champs que la RÉCOLTE ajoute, et qui ne disent rien du contenu.
 # ⚠️ Oublier d'en exclure un suffit à faire « changer » le contenu chaque jour.
@@ -91,6 +110,35 @@ def empreinte(chemin: pathlib.Path) -> str:
     return hashlib.sha256(brut).hexdigest()
 
 
+def charger(site: str) -> dict:
+    """Lit le fichier du site, avec reprise unique de l'ancien fichier commun.
+
+    ⚠️ La reprise ne vaut QUE pour vevewiki : c'est le seul site qui ait jamais
+    lance cet outil, donc le seul dont l'ancien `lastmod.json` porte vraiment
+    les dates. Reprendre ce fichier pour un autre site lui attribuerait des
+    dates qui ne sont pas les siennes — un mensonge plus difficile a voir que
+    l'absence de dates.
+    """
+    f = sortie(site)
+    if f.exists():
+        d = json.loads(f.read_text(encoding='utf-8'))
+        proprio = d.get('site')
+        if proprio and proprio != site:
+            sys.exit(f"ABANDON : {f.name} appartient a « {proprio} », pas a "
+                     f"« {site} ». Ecrire dedans effacerait les dates d'un autre site.")
+        return d
+    if site == 'vevewiki' and LEGACY.exists():
+        print(f'reprise de {LEGACY.name} (ancien fichier commun) -> {f.name}')
+        return json.loads(LEGACY.read_text(encoding='utf-8'))
+    return {}
+
+
+NOTE = ("Date du dernier changement REEL de chaque famille de pages, et de "
+        "chaque fiche pour un site a prix. Produit par engine/tools/lastmod.py "
+        "et engine/tools/lastmod-prix.mjs, lu par src/pages/sitemap.xml.js. "
+        "Ne pas editer a la main : la date suivrait le fichier, pas le contenu.")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument('--site', required=True)
@@ -98,34 +146,49 @@ def main() -> int:
                     help='pour les tests : force la date du jour')
     a = ap.parse_args()
 
-    etat = {}
-    if SORTIE.exists():
-        etat = json.loads(SORTIE.read_text(encoding='utf-8')).get('sections', {})
+    fichier = charger(a.site)
+    etat = fichier.get('sections', {})
 
-    neuf, change = {}, []
+    neuf, change, absentes = dict(etat), [], []
     for cle, motifs in SURVEILLE.items():
-        h = hashlib.sha256('|'.join(
-            empreinte(RACINE / m.format(site=a.site)) for m in motifs
-        ).encode()).hexdigest()
+        parts = [empreinte(RACINE / m.format(site=a.site)) for m in motifs]
+        # ⭐ UNE FAMILLE DONT AUCUNE SOURCE N'EXISTE N'A PAS D'ETAT — elle n'a
+        #   pas « change ». Sans cette porte, un site sans pages editoriales
+        #   (veveprice) recevrait une entree `glossary` datee d'aujourd'hui,
+        #   calculee sur le hachage de RIEN. Une date parfaitement formee,
+        #   parfaitement fausse, et que rien ne distingue d'une vraie.
+        if not any(parts):
+            absentes.append(cle)
+            neuf.pop(cle, None)
+            continue
+        h = hashlib.sha256('|'.join(parts).encode()).hexdigest()
         ancien = etat.get(cle) or {}
         if ancien.get('h') == h:
-            neuf[cle] = ancien                      # inchangé : on GARDE la date
+            neuf[cle] = ancien                      # inchange : on GARDE la date
         else:
             neuf[cle] = {'h': h, 'd': a.jour}
             change.append(cle)
 
-    SORTIE.parent.mkdir(parents=True, exist_ok=True)
-    SORTIE.write_text(json.dumps({
-        '_note': ("Date du dernier changement RÉEL de chaque famille de pages. "
-                  "Produit par engine/tools/lastmod.py, lu par src/pages/sitemap.xml.js. "
-                  "Ne pas éditer à la main : la date suivrait le fichier, pas le contenu."),
+    f = sortie(a.site)
+    f.parent.mkdir(parents=True, exist_ok=True)
+    # ⭐ On REECRIT le fichier entier mais on ne POSSEDE que `sections` : la
+    #   carte `items` est tenue par lastmod-prix.mjs. Les deux outils ecrivent
+    #   dans le meme fichier ; chacun preserve ce qui ne lui appartient pas.
+    f.write_text(json.dumps({
+        '_note': NOTE,
+        'site': a.site,
+        'passages': fichier.get('passages', 0),
         'sections': neuf,
+        'items': fichier.get('items', {}),
     }, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
 
     if change:
-        print(f"lastmod : {len(change)} section(s) modifiée(s) -> {', '.join(sorted(change))}")
+        print(f"lastmod : {len(change)} section(s) modifiee(s) -> {', '.join(sorted(change))}")
     else:
-        print("lastmod : aucun changement de contenu — toutes les dates sont conservées.")
+        print("lastmod : aucun changement de contenu — toutes les dates sont conservees.")
+    if absentes:
+        print(f"lastmod : {len(absentes)} famille(s) sans source sur ce site, "
+              f"non datee(s) -> {', '.join(sorted(absentes))}")
     return 0
 
 

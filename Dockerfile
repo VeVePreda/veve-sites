@@ -63,7 +63,7 @@ RUN WAREHOUSE_OFFLINE=1 npm run test:acces
 RUN WAREHOUSE_OFFLINE=1 npm run test:blog
 RUN WAREHOUSE_OFFLINE=1 npm run test:figures
 RUN WAREHOUSE_OFFLINE=1 npm run test:fiches
-# ⭐ `test:lastmod` garde une panne muette : si engine/data/lastmod.json
+# ⭐ `test:lastmod` garde une panne muette : si engine/data/lastmod.<site>.json
 #    manque ou ne couvre plus une section publiée, le sitemap redate TOUTES
 #    ses URL du jour du build — rien n'échoue, et le signal meurt.
 #    Un garde-fou qui ne tourne pas en production ne garde rien.

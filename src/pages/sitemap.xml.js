@@ -1,5 +1,5 @@
 import { dataset } from '../../engine/lib/dataset.mjs';
-import { siteUrl } from '../../engine/lib/manifest.mjs';
+import { siteUrl, SITE } from '../../engine/lib/manifest.mjs';
 import { locales, localize } from '../../engine/lib/i18n.mjs';
 import { DOCS, languesLegales } from '../../engine/lib/legal.mjs';
 import { priceEnabled } from '../../engine/lib/features.mjs';
@@ -11,7 +11,8 @@ import { postsFor, tagsFor, translationPaths } from '../../engine/lib/blog.mjs';
 // inchangées depuis des mois, se déclaraient modifiées chaque matin. Un moteur
 // apprend à ignorer un `lastmod` qui bouge partout tous les jours — et il ne
 // vaut alors plus rien le jour où il dit vrai.
-// `engine/data/lastmod.json` est tenu par `engine/tools/lastmod.py`, qui date
+// `engine/data/lastmod.<site>.json` est tenu par `engine/tools/lastmod.py` (familles
+// éditoriales) et `engine/tools/lastmod-prix.mjs` (fiches de prix), qui datent
 // par EMPREINTE DU CONTENU et non par date de récolte.
 // ⚠️ Repli volontaire sur la date du jeu de données si le fichier manque ou si
 //    une clé est absente : un sitemap doit sortir, même dégradé. Le test
@@ -30,27 +31,51 @@ import { join } from 'node:path';
 // survit au bundling (import.meta.url non) ». On fait comme tout le moteur.
 const RACINE = process.env.PROJECT_ROOT || process.cwd();
 
-function datesParSection() {
-  const p = join(RACINE, 'engine', 'data', 'lastmod.json');
+function journalDesDates() {
+  // 🔴 UN FICHIER PAR SITE. Avant le 29/07/2026 il n'y en avait qu'un pour tout
+  // le depot : veveprice lisait donc les dates ECRITES PAR LE WORKFLOW DE
+  // VEVEWIKI. Ses fiches portaient la date d'un autre site, et ses index
+  // retombaient sur la date du build — le defaut d'origine, intact, sur le plus
+  // gros site du reseau. Le nom du fichier porte desormais celui du site.
+  const p = join(RACINE, 'engine', 'data', `lastmod.${SITE}.json`);
   if (!existsSync(p)) {
     // ⭐ Bruyant, pas silencieux : le repli reste permis, mais il se voit dans
-    //    le journal de build. Un repli muet est ce qui a créé le défaut.
-    console.warn('[sitemap] engine/data/lastmod.json absent — toutes les URL '
-      + 'vont porter la date du build. Lancer engine/tools/lastmod.py.');
-    return {};
+    //    le journal de build. Un repli muet est ce qui a cree le defaut.
+    console.warn(`[sitemap] engine/data/lastmod.${SITE}.json absent — toutes les URL `
+      + 'vont porter la date du build. Lancer engine/tools/lastmod.py '
+      + 'et/ou engine/tools/lastmod-prix.mjs.');
+    return { sections: {}, items: {} };
   }
-  const d = JSON.parse(readFileSync(p, 'utf8')).sections || {};
-  return Object.fromEntries(Object.entries(d).map(([k, v]) => [k, v.d]));
+  const d = JSON.parse(readFileSync(p, 'utf8'));
+  if (d.site && d.site !== SITE) {
+    // Ne peut arriver qu'en cas de fichier renomme a la main. On le dit fort :
+    // publier les dates d'un autre site est pire que ne pas en publier.
+    console.warn(`[sitemap] lastmod.${SITE}.json se declare appartenir a `
+      + `« ${d.site} » — dates ignorees.`);
+    return { sections: {}, items: {} };
+  }
+  const sections = Object.fromEntries(
+    Object.entries(d.sections || {}).map(([k, v]) => [k, v.d]));
+  const items = Object.fromEntries(
+    Object.entries(d.items || {}).map(([k, v]) => [k, v.d]));
+  return { sections, items };
 }
 
 export async function GET() {
   const ds = await dataset();
   const lastmod = new Date(ds.updatedAt).toISOString().slice(0, 10);
-  const S = datesParSection();
+  const { sections: S, items: I } = journalDesDates();
   const recent = (...c) => c.filter(Boolean).sort().pop() || lastmod;
 
   // Chaque famille d'URL est datée par ce qui la fait VRAIMENT changer.
   const dateDe = (p) => {
+    // ⭐⭐ LA DATE PROPRE À LA FICHE D'ABORD. Sans elle, les ~1 200 fiches de prix
+    // partagent une seule date de famille, qui bouge dès qu'un seul prix du
+    // catalogue bouge : autant dire « tout a changé aujourd'hui », tous les
+    // jours. `engine/tools/lastmod-prix.mjs` en tient une PAR ADRESSE, datée
+    // par ce que le visiteur verrait changer — et pas par la courbe, qui
+    // gagne un point chaque jour sans que rien ne change pour lui.
+    if (I[p]) return I[p];
     if (p === '/') return recent(...Object.values(S));          // l'accueil bouge dès que quoi que ce soit bouge
     if (p.startsWith('/legal/')) return recent(S.legal);
     const sec = p.split('/')[1];
