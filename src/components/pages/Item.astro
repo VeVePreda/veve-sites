@@ -23,7 +23,23 @@ const recent = [...item.history].slice(-10).reverse();
 const relatedPosts = await postsForItem(lang, item.uuid);
 // L'appel a l'action (total, reste cache, lien d'offre) vit desormais dans
 // <Gate> : la page ne calcule plus rien qui touche au palier.
-const colSlug = item.series ? item.series.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') : null;
+// ⭐⭐ ADRESSE DE LA COLLECTION : ON LIT `serieSlug`, ON NE LE RECALCULE PAS.
+// Corrige le 29/07/2026 — cette ligne re-slugifiait `item.series` a la main, et
+// il lui manquait DEUX choses que `slugify` (engine/lib/dataset.mjs:23) fait :
+//   · le `.normalize('NFD')`  -> « ROSE » devenait `ros-`, pas `rose` ;
+//   · le `.slice(0, 60)`      -> l'adresse n'etait pas tronquee du meme cote.
+// Mesure sur catalogue.csv.gz (5 067 series) : 35 series divergeaient —
+// 20 par la TRONCATURE, 15 par les accents. D'ou 52 liens internes casses.
+//
+// ⛔ NE PAS ECRIRE `item.serieSlug || null`. `slugify` se termine par
+// `|| 'item'` : il ne rend JAMAIS de chaine vide, donc ce repli serait mort et
+// une serie vide produirait un lien vers /collection/item/ — page que
+// dataset.mjs:522 (`if (!i.series) continue;`) ne construit pas. Ce serait un
+// NOUVEAU lien casse. La garde porte donc sur `item.series`, comme avant.
+//
+// ⭐ Meme motif que le `dist` en dur du Dockerfile, corrige le meme jour : une
+// valeur juste, calculee en amont, recopiee en aval sans reverification.
+const colSlug = item.series ? item.serieSlug : null;
 // Chez beaucoup de comics le nom RECOPIE la serie (« Alias #1 (2001) ») :
 // repeter la serie dans le titre et le fil d'Ariane n'apprend rien.
 const norm = (v) => String(v || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
