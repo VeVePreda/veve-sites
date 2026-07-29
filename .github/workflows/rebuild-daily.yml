@@ -31,7 +31,18 @@ name: Reconstruction quotidienne
 
 on:
   schedule:
-    - cron: '41 7 * * *'
+    # ⭐ CE CRON N'EST PLUS LE DECLENCHEUR PRINCIPAL, C'EST LE FILET.
+    # Le declencheur normal est l'evenement `prix-prets`, envoye par
+    # price-history (fanablefrance/jetonveve) des que la release `prices-full`
+    # est publiee. Sans ce chainage, les 30 minutes d'ecart entre 07:11 et
+    # 07:41 suffisaient a faire reconstruire les sites sur les prix de la
+    # veille des que l'ordonnanceur derivait — et rien ne le signalait.
+    - cron: '41 7 * * *'        # filet, si `prix-prets` n'est pas venu
+  # ⚠️ repository_dispatch et non workflow_run : ce maillon franchit une
+  #    frontiere de depot (jetonveve -> veve-sites), ce que workflow_run ne
+  #    sait pas faire.
+  repository_dispatch:
+    types: [prix-prets]
   workflow_dispatch:
 
 # Le job committe le journal des dates : il faut le droit d'ecrire le depot.
@@ -43,7 +54,57 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # ===========================================================================
+  #  ⭐⭐ LA PORTE — sans elle, le chainage DOUBLERAIT les deploiements
+  # ===========================================================================
+  #  Deux declencheurs peuvent allumer ce workflow le meme jour : l'evenement
+  #  `prix-prets` (vers 07:15) et le cron de 07:41, garde comme filet. Sans
+  #  porte, on ferait deux constructions Coolify, deux commits du journal des
+  #  dates et deux passages IndexNow par jour.
+  #
+  #  ⚠️ LE MARQUEUR EST L'HISTORIQUE DES RUNS, PAS UN FICHIER. Les autres portes
+  #     de la chaine lisent la fraicheur d'une release ; ici il n'y en a pas :
+  #     ce workflow ne PRODUIT rien, il declenche. On lui demande donc s'il a
+  #     deja reussi aujourd'hui.
+  #  ⚠️ Un run arrete par la porte compte lui aussi comme une reussite — c'est
+  #     voulu : le premier run du jour a fait le travail, les suivants n'ont
+  #     rien a faire. En revanche un run EN ECHEC ne compte pas, donc le filet
+  #     joue toujours son role apres une panne.
+  #  ⚠️ UN LANCEMENT MANUEL PASSE TOUJOURS : une porte qui bloque une relance a
+  #     la main est une porte qui empeche de reparer.
+  porte:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+    outputs:
+      continuer: ${{ steps.v.outputs.continuer }}
+    steps:
+      - name: "Ce workflow a-t-il deja reussi aujourd'hui ?"
+        id: v
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -u
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "Lancement manuel — la porte ne s'applique pas."
+            echo "continuer=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          jour=$(date -u +%F)
+          n=$(gh run list -R "$GITHUB_REPOSITORY" \
+                --workflow=rebuild-daily.yml --status=success \
+                --created="$jour" --json databaseId -q 'length' 2>/dev/null || echo 0)
+          echo "Runs reussis aujourd'hui ($jour) : $n"
+          if [ "${n:-0}" -gt 0 ]; then
+            echo "Deja reconstruit aujourd'hui (declencheur : ${{ github.event_name }}) — on s'arrete."
+            echo "continuer=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Rien reussi aujourd'hui — on reconstruit."
+            echo "continuer=true" >> "$GITHUB_OUTPUT"
+          fi
+
   rebuild:
+    needs: porte
+    if: needs.porte.outputs.continuer == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout veve-sites
