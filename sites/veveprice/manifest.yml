@@ -1,3 +1,4 @@
+# ⚠️ VeVePreda/veve-sites — sites/veveprice/manifest.yml
 site:
   domain: veveprice.com
   brand: "VeVe Price"
@@ -39,6 +40,13 @@ publication:
   # En cas de collision (couvertures VARIANTES d'un meme numero), le nom de la
   # couverture est ajoute ; l'identifiant court n'arrive qu'en dernier recours.
   comic_leaf: issue-rarity
+  # ⭐⭐ ARME LE 29/07/2026 — les adresses de ce site sont GELEES par
+  # sites/veveprice/slugs.json (1 200 fiches, gelees le 29/07/2026). A partir
+  # d'ici, un build qui PERDRAIT la table echoue au lieu de republier en
+  # silence des adresses recalculees (engine/tools/test_renommage.mjs, appele
+  # par le Dockerfile). Ne jamais repasser a false : ce serait rendre a
+  # nouveau flottantes les 1 200 URL deja publiees.
+  adresses_gelees: true
   min_price_points: 8      # relevés minimum AU TOTAL pour qu'une fiche mérite d'exister
   # ⚠️ `public_points_max` et `public_history_days` ont MIGRÉ vers `access:`
   # (voir plus bas) le 20/07/2026 : ce sont des réglages d'ACCÈS, pas de
