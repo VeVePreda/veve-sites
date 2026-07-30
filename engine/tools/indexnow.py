@@ -82,18 +82,48 @@ def main() -> int:
     actuel = sitemap_servi(domaine)
     changees = sorted(u for u, d in actuel.items() if ancien.get(u) != d)
 
-    etat_f.parent.mkdir(parents=True, exist_ok=True)
-    etat_f.write_text(json.dumps({
-        '_note': ("Dernier lastmod vu sur le sitemap servi. Sert à ne soumettre "
-                  "à IndexNow que ce qui a bougé. Produit par engine/tools/indexnow.py."),
-        'urls': actuel,
-    }, ensure_ascii=False, indent=1, sort_keys=True) + '\n', encoding='utf-8')
+    # ⭐⭐ L'ÉTAT N'ENREGISTRE QUE CE QUI A VRAIMENT ÉTÉ SOUMIS.
+    #
+    # LE DÉFAUT CORRIGÉ ICI (constaté en production le 30/07/2026). L'écriture
+    # de l'état était UNIQUE, INCONDITIONNELLE, et placée AVANT l'envoi. Trois
+    # conséquences, toutes silencieuses, toutes avec un run vert :
+    #
+    #  1. `IndexNow : échec (403)` — et l'état committé quand même, les 7 864 URL
+    #     du premier vrai passage marquées « soumises » sans l'avoir été. Le
+    #     lendemain `changees` est vide : elles ne repartent JAMAIS.
+    #  2. `--essai` annonçait « rien n'a été envoyé » APRÈS avoir déjà avancé
+    #     l'état : une simulation détruisait le différentiel qu'elle prétendait
+    #     seulement observer.
+    #  3. En cas de troncature au plafond, on soumettait les N premières et on
+    #     enregistrait les 7 864 : la queue passait pour envoyée.
+    #
+    # ⭐ La règle : un checkpoint ne doit jamais avancer plus loin que ce qui a
+    # réussi. Ici il suffisait de déplacer l'écriture APRÈS l'envoi et de ne lui
+    # donner que les URL réellement acceptées.
+    # ⭐ Effet de bord voulu : le 403 devient AUTO-RÉPARABLE. Le jour où il cesse,
+    # l'arriéré repart tout seul — sans avoir eu besoin d'en comprendre la cause.
+    def ecrire_etat(urls: dict[str, str]) -> None:
+        etat_f.parent.mkdir(parents=True, exist_ok=True)
+        etat_f.write_text(json.dumps({
+            '_note': ("lastmod des URL SOUMISES AVEC SUCCÈS à IndexNow (pas "
+                      "« vues » : une soumission échouée ne s'enregistre pas, "
+                      "sinon l'URL ne repartirait jamais). Produit par "
+                      "engine/tools/indexnow.py."),
+            'urls': urls,
+        }, ensure_ascii=False, indent=1, sort_keys=True) + '\n', encoding='utf-8')
+
+    # Périmètre = le sitemap tel qu'il est servi (les URL disparues sortent de
+    # l'état), mais chaque URL garde sa valeur CONNUE tant qu'elle n'a pas été
+    # soumise avec succès. Une URL neuve reste donc absente, donc « changée ».
+    retenu = {u: ancien[u] for u in actuel if u in ancien}
 
     if premier:
+        ecrire_etat(actuel)
         print(f'Premier passage : {len(actuel)} URL mémorisées, rien soumis '
               f'(tout paraîtrait neuf). La prochaine fois dira vrai.')
         return 0
     if not changees:
+        ecrire_etat(retenu)
         print('Aucune URL modifiée — rien à soumettre. '
               'Resoumettre de l’inchangé gaspille le quota d’exploration.')
         return 0
@@ -107,7 +137,9 @@ def main() -> int:
     if len(changees) > 20:
         print(f'   … et {len(changees) - 20} autres')
     if a.essai:
-        print('(--essai : rien n’a été envoyé)')
+        # ⛔ AUCUNE écriture : un essai qui consomme le différentiel n'est pas un
+        #    essai. C'était le cas avant le 30/07/2026.
+        print('(--essai : rien n’a été envoyé, l’état n’a pas bougé)')
         return 0
 
     charge = json.dumps({
@@ -124,9 +156,22 @@ def main() -> int:
     except Exception as e:                        # noqa: BLE001
         # ⚠️ Un moteur indisponible ne doit JAMAIS faire échouer un déploiement
         #    par ailleurs réussi. On le dit, et on sort proprement.
+        # ⛔ MAIS ON N'AVANCE PAS L'ÉTAT : sinon « on réessaiera demain » est une
+        #    promesse que le fichier qu'on vient d'écrire rend impossible.
         code = getattr(e, 'code', None)
         print(f'IndexNow : échec ({code or e}). '
               f'{"429 = quota, on réessaiera demain." if code == 429 else ""}')
+        print(f'⛔ état NON avancé — les {len(changees)} URL repartiront au '
+              f'prochain passage. C’est voulu : rien ne les rattraperait sinon.')
+        return 0
+
+    # Succès (urlopen ne lève pas pour un 2xx) : SEULES les URL envoyées entrent
+    # dans l'état. Celles écartées par le plafond restent « changées ».
+    for u in changees:
+        retenu[u] = actuel[u]
+    ecrire_etat(retenu)
+    print(f'état : {len(changees)} URL enregistrée(s) comme soumise(s) '
+          f'({len(actuel) - len(retenu)} encore en attente).')
     return 0
 
 
