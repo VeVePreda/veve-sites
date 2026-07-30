@@ -391,10 +391,29 @@ for u, h in H.items():
 
 # ── 9. fuite de donnees ─────────────────────────────────────────────────────
 idx = D / 'search-index.json'
+# ⭐ CHAMPS AUTORISES DANS L'INDEX — liste blanche, pas liste noire.
+#   s = adresse    n = libelle affiche
+#   t = section d'origine (glossary, brands, blog…)   ⟵ ajoute le 30/07/2026
+#   l = langue de l'entree                           ⟵ ajoute le 30/07/2026
+# ⚠️ CE CONTROLE A FAIT SON TRAVAIL : en indexant l'editorial de vevewiki,
+# `search-index.json.js` a commence a emettre `t` et `l`, et cet audit l'a
+# signale comme une fuite. Il avait raison de crier — c'est la liste qui devait
+# etre etendue, DELIBEREMENT, et non le controle contourne.
+# Pourquoi ces deux champs ne sont pas une fuite : ni l'un ni l'autre n'est une
+# donnee. `t` est le premier segment de l'adresse deja presente dans `s`, `l`
+# est le prefixe de langue de cette meme adresse. Ils ne font que rendre lisible
+# ce que `s` contient deja — et ils sont indispensables cote client : `t` pour
+# distinguer deux homonymes de sections differentes, `l` pour ne pas proposer a
+# un lecteur francais une entree qui n'existe qu'en anglais.
+# 🔴 TOUT AUTRE CHAMP RESTE UN DEFAUT. En particulier : jamais de prix, jamais
+# de definition, jamais de corps d'article — l'index doit rester pauvre.
+CHAMPS_INDEX = {'s', 'n', 't', 'l'}
 if idx.exists():
     ech = json.loads(idx.read_text(encoding='utf-8'))
-    if ech and set(ech[0]) - {'s', 'n'}:
-        erreurs.append(f"l'index de recherche expose des champs en trop : {sorted(set(ech[0]))}")
+    if ech and set(ech[0]) - CHAMPS_INDEX:
+        erreurs.append(f"l'index de recherche expose des champs en trop : "
+                       f"{sorted(set(ech[0]) - CHAMPS_INDEX)} "
+                       f"(autorises : {sorted(CHAMPS_INDEX)})")
 
 # ── rapport ─────────────────────────────────────────────────────────────────
 print(f"AUDIT SEO — {len(H)} pages, {len(sm)} URL au sitemap")

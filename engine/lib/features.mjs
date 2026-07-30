@@ -25,13 +25,41 @@ export function priceEnabled() {
 //     décrire ce que la page fait vraiment, pas ce que le manifeste espère.
 //
 //  D'où : la recherche n'est réelle que si elle est demandée ET alimentée.
-//  Aujourd'hui l'index de recherche ne contient que des fiches de prix, donc
-//  `searchEnabled()` exige aussi `priceEnabled()`. Le jour où l'index couvrira
-//  le contenu éditorial (glossaire, acronymes, marques, jalons, articles),
-//  c'est CETTE ligne qu'il faudra desserrer — et rien d'autre dans le réseau.
+//
+//  ─────────────────────────────────────────────────────────────────────────
+//  DESSERRÉ LE 30/07/2026 — et c'est très exactement la ligne que le
+//  commentaire d'origine désignait :
+//      « Le jour où l'index couvrira le contenu éditorial (glossaire,
+//        acronymes, marques, jalons, articles), c'est CETTE ligne qu'il
+//        faudra desserrer — et rien d'autre dans le réseau. »
+//  `src/pages/search-index.json.js` indexe désormais l'éditorial. La condition
+//  devient donc : la recherche est réelle si l'index est alimenté par les prix
+//  OU par l'éditorial.
+//
+//  ⚠️ LA FORME DU DESSERRAGE COMPTE. On n'écrit pas `return true` : ce qui
+//  était garanti reste garanti. Un site qui n'a NI prix NI page éditoriale
+//  mais qui écrirait `search: internal` par optimisme continue de rendre
+//  `false` — donc pas de boîte, et surtout pas de `SearchAction` promis à
+//  Google. La promesse reste adossée à une source, seulement il y en a deux.
+//
+//  ⛔ Ne PAS remplacer par `editorial.pages` non vide sans vérifier la LANGUE :
+//  une section peut être déclarée au manifeste et non publiée dans une langue
+//  (es/it/de n'ont que le glossaire et les acronymes). C'est l'index qui gère
+//  ce détail, page par page et langue par langue ; ici on ne décide que de
+//  l'existence de la fonction pour le SITE.
+//  ─────────────────────────────────────────────────────────────────────────
+
+/** Le site a-t-il des pages éditoriales susceptibles d'alimenter l'index ?
+ *  Lecture du seul manifeste : aucune E/S, aucun await — cette fonction est
+ *  appelée depuis le gabarit de CHAQUE page. */
+export function editorialEnabled() {
+  const m = manifest();
+  return Array.isArray(m.editorial?.pages) && m.editorial.pages.length > 0;
+}
+
 export function searchEnabled() {
   const m = manifest();
   const mode = String(m.features?.search || 'none').trim().toLowerCase();
   if (mode === 'none' || mode === 'false' || mode === '') return false;
-  return priceEnabled();
+  return priceEnabled() || editorialEnabled();
 }

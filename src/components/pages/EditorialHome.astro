@@ -1,9 +1,9 @@
 ---
 // ⚠️ VeVePreda/veve-sites — src/components/pages/EditorialHome.astro
-// Accueil d'un site EDITORIAL (wiki) : cartes vers les sections actives (avec
-// leur nombre d'entrees) + derniers jalons + derniers articles. Aucune donnee de
-// prix, aucun warehouse. Active par le manifeste (content.home: editorial) —
-// voir index.astro.
+// Accueil d'un site EDITORIAL (wiki) : boite de recherche + cartes vers les
+// sections actives (avec leur nombre d'entrees) + derniers jalons + derniers
+// articles. Aucune donnee de prix, aucun warehouse. Active par le manifeste
+// (content.home: editorial) — voir index.astro.
 //
 // ⭐ CE QUE CETTE PAGE DOIT FAIRE, ET NE FAISAIT PAS (audit du 27/07/2026)
 // L'accueil est la page qui recoit le plus d'autorite : c'est elle qui la
@@ -14,16 +14,33 @@
 //     navigation, d'ou 2 liens entrants par article, tous depuis /blog/.
 // Un lien qui ne distingue pas sa cible ne transmet rien. Corrige : ancre
 // profonde par jalon (`/history/#j-…`) et bloc « derniers articles ».
+//
+// ⭐ AJOUT DU 30/07/2026 — LA RECHERCHE
+// L'audit du 27/07 avait retire `features.search: internal` du manifeste parce
+// que cette page ne rendait AUCUNE boite : on promettait a Google un
+// `SearchAction` inexistant. La boite existe maintenant, l'index couvre
+// l'editorial (`src/pages/search-index.json.js`), et `searchEnabled()` accepte
+// une source editoriale. La promesse et la fonction sont enfin la meme chose.
+//
+// ⚠️ La boite n'est rendue QUE si `searchEnabled()` — donc jamais sur un site
+// qui n'a pas d'index. Une boite de recherche qui ne trouve rien est pire
+// qu'une absence de boite : elle fait conclure au visiteur que le site est vide.
 import Base from '../../layouts/Base.astro';
 import { manifest } from '../../../engine/lib/manifest.mjs';
 import { pick, localize, t, dateLocale } from '../../../engine/lib/i18n.mjs';
 import { activeSections, sectionMeta } from '../../../engine/lib/editorial_pages.mjs';
 import { collection } from '../../../engine/lib/editorial.mjs';
 import { blogEnabled, postsFor } from '../../../engine/lib/blog.mjs';
+import { searchEnabled } from '../../../engine/lib/features.mjs';
 
 const { lang } = Astro.props;
 const m = manifest();
 const df = dateLocale[lang] || 'en-GB';
+const rechercheActive = searchEnabled();
+
+// La devise, traduite (cle `site.devise` du manifeste). Absente = rien n'est
+// rendu : on n'invente pas une devise anglaise pour les langues manquantes.
+const devise = pick(m.site.devise, lang) || '';
 
 const cards = [];
 for (const s of activeSections(lang)) {
@@ -52,10 +69,37 @@ let posts = [];
 if (blogEnabled()) {
   try { posts = (await postsFor(lang)).slice(0, 4); } catch (e) { posts = []; }
 }
+
+// Libelles des types, pour que chaque resultat dise D'OU il vient : deux
+// homonymes (« Floor Price » au glossaire et l'article « …prix plancher »)
+// sont indiscernables sans cette etiquette.
+const libellesType = {};
+for (const s of activeSections(lang)) libellesType[s] = sectionMeta(s, lang).title;
+if (blogEnabled()) libellesType.blog = t(lang, 'blog.title');
 ---
 <Base lang={lang} path="/" title={null}>
   <h1>{pick(m.site.tagline, lang)}</h1>
+  {devise && <p class="devise">{devise}</p>}
   <p class="lead">{pick(m.site.description, lang)}</p>
+
+  {rechercheActive && (
+    <div class="searchwrap">
+      <label class="hide" for="q">{t(lang, 'search.placeholderWiki')}</label>
+      <input id="q" class="searchbox" type="search" autocomplete="off"
+             placeholder={t(lang, 'search.placeholderWiki')}
+             aria-label={t(lang, 'search.placeholderWiki')}
+             aria-describedby="qhint" aria-controls="results" />
+      <p id="qhint" class="searchhint">{t(lang, 'search.hint')}</p>
+      {/* ⚠️ PAS de role="listbox" ici, ni de role="option" sur les resultats.
+          Le motif ARIA « combobox » complet exige la gestion clavier de
+          aria-activedescendant ; a moitie implemente, il est PIRE que rien :
+          un lecteur d'ecran annonce « option » au lieu de « lien », et
+          n'annonce plus qu'on peut l'ouvrir. Un role faux ne degrade pas, il
+          remplace. Ici les resultats restent de VRAIS liens, et aria-live
+          suffit a annoncer leur apparition. */}
+      <div id="results" class="results" aria-live="polite"></div>
+    </div>
+  )}
 
   <div class="grid">
     {cards.map((c) => (
@@ -92,6 +136,117 @@ if (blogEnabled()) {
         ))}
       </ul>
     </section>
+  )}
+
+  {rechercheActive && (
+    <script is:inline define:vars={{
+      LANG: lang,
+      PREFIXE: localize(lang, '/').replace(/\/$/, ''),
+      TYPES: libellesType,
+      RIEN: t(lang, 'search.noResult'),
+    }}>
+      (function () {
+        var q = document.getElementById('q');
+        var out = document.getElementById('results');
+        if (!q || !out) return;
+        var idx = null, enCours = false, dernier = '';
+
+        // ⚠️ L'index n'est PAS charge au chargement de la page : il l'est a la
+        // premiere frappe. Mesure : 4,4 Ko gzippes pour les cinq langues — mais
+        // un visiteur qui ne cherche rien ne doit rien payer, surtout en 3G.
+        function charger(cb) {
+          if (idx) { cb(); return; }
+          if (enCours) return;
+          enCours = true;
+          fetch('/search-index.json')
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+              // Filtre par LANGUE. Sans lui, un lecteur francais recevrait les
+              // entrees anglaises et espagnoles : des resultats qui existent
+              // dans l'index mais pas dans SA langue.
+              idx = (Array.isArray(d) ? d : []).filter(function (x) {
+                return !x.l || x.l === LANG;
+              });
+              enCours = false;
+              cb();
+            })
+            .catch(function () {
+              enCours = false;
+              out.innerHTML = '';
+            });
+        }
+
+        function echappe(s) {
+          return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        // Normalisation sans accents : « genese » doit trouver « Genèse », et
+        // « ATH » doit trouver « All-Time High (ATH) ».
+        function norme(s) {
+          return String(s).toLowerCase().normalize('NFD')
+            .replace(/[̀-ͯ]/g, '');
+        }
+
+        function rendre(v) {
+          var n = norme(v);
+          if (!n) { out.innerHTML = ''; return; }
+          var vus = {}, res = [];
+          for (var i = 0; i < idx.length && res.length < 12; i++) {
+            var e = idx[i];
+            if (norme(e.n).indexOf(n) === -1) continue;
+            var cle = e.s + '|' + e.n;
+            if (vus[cle]) continue;
+            vus[cle] = 1;
+            res.push(e);
+          }
+          if (!res.length) {
+            out.innerHTML = '<p class="searchvide">' + echappe(RIEN) + '</p>';
+            return;
+          }
+          var h = '';
+          for (var j = 0; j < res.length; j++) {
+            var r = res[j];
+            h += '<a class="result" href="' + echappe(PREFIXE + r.s) + '">'
+              +  '<span class="rn">' + echappe(r.n) + '</span>'
+              +  '<span class="rt">' + echappe(TYPES[r.t] || r.t || '') + '</span>'
+              +  '</a>';
+          }
+          out.innerHTML = h;
+        }
+
+        function chercher() {
+          var v = q.value.trim();
+          if (v === dernier) return;
+          dernier = v;
+          if (!v) { out.innerHTML = ''; return; }
+          charger(function () { rendre(v); });
+        }
+
+        q.addEventListener('input', chercher);
+        // Le chargement demarre au FOCUS : au moment ou l'utilisateur frappe
+        // sa premiere lettre, l'index est deja la. Sans ca, la premiere frappe
+        // semble sans effet.
+        q.addEventListener('focus', function () { charger(function () {}); });
+        q.addEventListener('keydown', function (e) {
+          if (e.key === 'Escape') { q.value = ''; dernier = ''; out.innerHTML = ''; }
+          // Flèche bas : on entre dans la liste au clavier.
+          if (e.key === 'ArrowDown') {
+            var p = out.querySelector('.result');
+            if (p) { e.preventDefault(); p.focus(); }
+          }
+        });
+        // Raccourci « / » (convention des wikis et des forges). Ignore quand on
+        // est deja dans un champ, sinon on ne peut plus taper une barre oblique.
+        document.addEventListener('keydown', function (e) {
+          if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey) return;
+          var a = document.activeElement, tag = a && a.tagName;
+          if (tag === 'INPUT' || tag === 'TEXTAREA' || (a && a.isContentEditable)) return;
+          e.preventDefault();
+          q.focus();
+        });
+      })();
+    </script>
   )}
 </Base>
 

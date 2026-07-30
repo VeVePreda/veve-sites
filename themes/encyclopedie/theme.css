@@ -1,0 +1,410 @@
+/* =============================================================================
+   THÈME  ENCYCLOPEDIE  —  vevewiki
+   VeVePreda/veve-sites — themes/encyclopedie/theme.css
+   -----------------------------------------------------------------------------
+   ⛔ NE PAS MODIFIER `themes/aurora/theme.css` POUR VEVEWIKI.
+   aurora n'est pas « sombre par sa palette », il est sombre PAR SA STRUCTURE :
+   il code en dur des filets et des fonds en BLANC SEMI-TRANSPARENT
+   (#ffffff14, #ffffff12, #ffffff10). Sur un fond blanc, un filet blanc à 8 %
+   d'opacité n'est pas « discret », il est ABSENT — la page perd toutes ses
+   séparations sans qu'aucun build ne s'en plaigne. D'où un fichier séparé.
+   Corollaire : ce thème n'utilise aucune couleur en alpha-blanc.
+
+   CONTRAT AVEC LE MOTEUR (src/layouts/Base.astro, ligne 86) — le moteur
+   n'émet QUE ces neuf variables, depuis `identity.palette` du manifeste :
+       --primary --accent --danger --bg --surface --text --muted
+       --font-heading --font-body
+   ⚠️ `--primary` est câblé sur la couleur des LIENS (`a{color:var(--primary)}`).
+   La palette jour met donc le BLEU DE LIEN dans `primary`, pas l'or : l'or du
+   logo à #d4af37 sur blanc ne fait que 2,10:1, il est illisible en texte. L'or
+   vit dans `accent`, et sert de DÉCOR (filets, puces, cadres) — jamais de
+   texte fin. Voir la table de contraste en fin de fichier.
+
+   Tous les autres jetons sont déclarés ICI et non au manifeste : un thème est
+   propre à un site, il a le droit d'avoir son vocabulaire. Ce qui doit rester
+   au manifeste, c'est ce que le MOTEUR lit (les neuf ci-dessus) et ce que
+   d'autres modules relisent (`figures.mjs` lit `identity.palette`).
+   ============================================================================= */
+
+:root{
+  /* --- Structure ---
+     ⚠️ Pas d'alias décoratif : on écrit var(--bg) et var(--surface), jamais un
+     --paper qui les double. Un jeton qui en aliase un autre sans être utilisé
+     fait croire à un vocabulaire canonique qui n'existe pas — et le prochain
+     lecteur écrit la moitié du fichier avec le mauvais nom. */
+  --shell-2:#eaecf0;      /* séparateur de bloc            */
+  --th-bg:#f2f4f6;        /* en-tête de tableau            */
+  --rule:#c8ccd1;         /* filet fin                     */
+  --rule-strong:#a2a9b1;  /* bordure de cadre, de tableau  */
+
+  /* --- Encre : mesurée sur --bg ET sur --surface ET sur --shell-2 ---
+     `text` (#202122) et `muted` (#666b71) viennent du manifeste ; seul le
+     niveau intermédiaire est propre au thème. */
+  --ink-soft:#54595d;      /* 7,09:1 blanc / 6,72:1 surface / 6,30:1 shell-2 */
+  --ink-faint:var(--muted);/* #666b71 — 5,38:1 / 5,10:1 / 4,54:1 */
+
+  /* --- Or : DEUX rôles, DEUX valeurs, et un seul est du texte ---
+     Le texte doré est `accent` (#7a5f10, 6,05:1), fourni par le manifeste.
+     `--gold` ci-dessous est l'or DE MARQUE, réservé au décor : filets, puces,
+     cadres. À 2,10:1 sur blanc il ne peut porter aucun caractère. */
+  --gold:#d4af37;
+  --gold-wash:#fdf8e8;
+  --gold-hair:#e6dcb8;
+
+  --link-visited:#795cb2;  /* 5,27:1 — savoir ce qu'on a déjà lu */
+  --tap:44px;              /* cible tactile minimale             */
+}
+
+/* =============================================================================
+   1. SOCLE
+   ============================================================================= */
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font-body);
+  line-height:1.65;font-size:16px}
+
+a{color:var(--primary);text-decoration:none}
+a:hover{text-decoration:underline}
+/* Un lien visité n'est pas un détail sur une encyclopédie : savoir ce qu'on a
+   déjà lu est la moitié de la navigation dans un glossaire de 87 entrées.
+   ⚠️ Restreint au CONTENU : dans une navigation, un lien visité grisé donne
+   l'impression d'un menu à moitié désactivé. */
+main a:visited{color:var(--link-visited)}
+main nav a:visited,.crumbs a:visited,a.tag:visited{color:var(--primary)}
+
+/* Le focus clavier n'était pas stylé : à la tabulation on ne savait pas où on
+   était. Le contour est posé sur tout ce qui prend le focus, y compris les
+   `summary` (sections pliables) et les champs. */
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,
+summary:focus-visible,[tabindex]:focus-visible{
+  outline:2px solid var(--primary);outline-offset:2px;border-radius:2px}
+main:focus{outline:none}   /* main[tabindex=-1] reçoit le focus du lien d'évitement */
+
+.wrap{max-width:1080px;margin:0 auto;padding:0 20px}
+.hide{display:none}
+
+/* =============================================================================
+   2. EN-TÊTE / NAVIGATION / PIED
+   ============================================================================= */
+header.site{border-bottom:1px solid var(--rule);position:sticky;top:0;
+  background:var(--bg);z-index:10}
+/* Le filet doré sous l'en-tête : le seul endroit où l'or est franc. Il tient le
+   rôle que jouait la lueur dorée du fond sombre. */
+header.site::after{content:"";display:block;height:2px;
+  background:linear-gradient(90deg,var(--gold) 0%,var(--gold-hair) 58%,transparent 100%)}
+header.site .wrap{display:flex;align-items:center;gap:18px;min-height:56px;flex-wrap:wrap}
+
+.brand{font-family:var(--font-heading);font-weight:400;font-size:20px;
+  color:var(--text);letter-spacing:-.01em;display:inline-flex;align-items:center;gap:9px}
+.brand:hover{text-decoration:none}
+/* Emplacement du logo (PNG à fournir). Tant que le fichier n'est pas là, rien
+   ne s'affiche — pas de cadre en pointillés en production. */
+.brand img{width:30px;height:30px;flex:0 0 auto}
+.brand span{color:var(--accent)}   /* prêt pour « VeVe<span>Wiki</span> » */
+
+nav.main{display:flex;gap:4px;margin-left:auto;flex-wrap:wrap;align-items:center}
+nav.main a{color:var(--primary);font-size:14.5px;padding:9px;border-radius:3px;
+  min-height:var(--tap);display:inline-flex;align-items:center}
+nav.main a:hover{background:var(--surface);text-decoration:none}
+nav.main a[aria-current]{color:var(--text);font-weight:600;
+  box-shadow:inset 0 -2.5px 0 var(--gold)}
+
+footer.site{border-top:1px solid var(--rule);background:var(--surface);
+  margin-top:44px;padding:20px 0 30px;font-size:13.5px;color:var(--ink-soft)}
+footer.site p{margin:0 0 9px}
+
+/* -----------------------------------------------------------------------------
+   ⚠️⚠️ SURCHARGES À SPÉCIFICITÉ RENFORCÉE — LIRE AVANT DE SIMPLIFIER
+   Base.astro contient un TROISIÈME bloc <style> (ligne 147) injecté APRÈS ce
+   fichier, qui code en dur des règles pour .langbar / .legal-links / .crumbs /
+   .saut / #langsuggest — dont `background:#ffffff14`, invisible sur blanc.
+   Ordre réel : vars (145) → CE FICHIER (146) → bloc en dur (147).
+   À spécificité égale, c'est le bloc en dur qui gagne. Les sélecteurs ci-dessous
+   sont donc VOLONTAIREMENT plus spécifiques. ⛔ Ne pas les « nettoyer » :
+   l'indicateur de langue courante redeviendrait invisible, sans erreur de build.
+   ----------------------------------------------------------------------------- */
+nav.main .langbar{display:flex;gap:4px;margin-left:8px}
+nav.main .langbar a{font-size:12.5px;color:var(--ink-faint);padding:0 7px;
+  border-radius:2px;min-height:30px;min-width:30px;border:1px solid transparent}
+nav.main .langbar a[aria-current]{background:var(--surface);color:var(--text);
+  border-color:var(--rule-strong);font-weight:600;box-shadow:none}
+
+footer.site .legal-links{margin:0 0 10px;font-size:12.5px;line-height:1.9;
+  color:var(--ink-faint)}
+footer.site .legal-links a{color:var(--ink-faint);border-bottom:1px solid transparent}
+footer.site .legal-links a:hover,footer.site .legal-links a:focus-visible{
+  color:var(--text);border-bottom-color:var(--rule-strong)}
+
+main .crumbs{font-size:12.5px;color:var(--ink-faint);margin:14px 0 2px}
+main .crumbs a{color:var(--primary);display:inline-block;padding:3px 0;min-height:24px}
+
+/* Le lien d'évitement existe déjà côté moteur (WCAG 2.4.1). Il utilisait
+   `border:1px solid var(--primary)` sur `var(--surface)` : correct de jour dès
+   lors que primary est le bleu et non l'or. On renforce juste le contraste. */
+body .saut{background:var(--bg);color:var(--primary);border:2px solid var(--primary);
+  border-radius:0 0 4px 0}
+
+main #langsuggest{background:var(--gold-wash);border:1px solid var(--rule-strong);
+  border-left:3px solid var(--gold);border-radius:0;padding:11px 14px}
+main #langsuggest button{color:var(--ink-faint)}
+
+/* =============================================================================
+   3. TITRES & TEXTE COURANT
+   ============================================================================= */
+h1{font-family:var(--font-heading);font-size:clamp(25px,4vw,33px);line-height:1.2;
+  margin:6px 0 8px;font-weight:400;padding-bottom:9px;
+  border-bottom:1px solid var(--rule-strong)}
+h2{font-family:var(--font-heading);font-size:clamp(19px,3vw,22px);margin:30px 0 10px;
+  font-weight:400;padding-bottom:5px;border-bottom:1px solid var(--rule)}
+h3{font-family:var(--font-heading);font-size:17.5px;margin:22px 0 7px;font-weight:400}
+
+/* 68ch : sur .wrap (1080 px) la ligne dépassait 90 caractères, très au-delà de
+   la plage confortable (65–75). Une mesure trop longue fait perdre la ligne au
+   retour à la marge — c'est une fatigue, pas un défaut visible. */
+main p,main li{max-width:68ch}
+main{padding:0 0 20px}
+
+.lead{color:var(--ink-soft);margin:0 0 24px;font-size:16.5px;max-width:68ch}
+.muted{color:var(--ink-faint)}
+.prose p,.post p{font-size:16px;line-height:1.72}
+.prose h2,.post h2{max-width:68ch}
+.prose blockquote{margin:0 0 14px;padding:9px 14px;border-left:3px solid var(--gold);
+  background:var(--gold-wash);color:var(--ink-soft);font-size:14.5px}
+.prose code,.post code{background:var(--surface);border:1px solid var(--rule);
+  border-radius:2px;padding:1px 4px;font-size:14px}
+
+/* La devise, traduite par langue (clé `devise` du manifeste). Filets haut/bas :
+   la seule ornementation du site, et elle reste en or lisible. */
+.devise{display:inline-block;font-family:var(--font-heading);font-style:italic;
+  font-size:14.5px;color:var(--accent);border-top:1px solid var(--gold-hair);
+  border-bottom:1px solid var(--gold-hair);padding:5px 0;margin:0 0 18px}
+
+/* =============================================================================
+   4. BLOCS GÉNÉRIQUES — cartes, grilles, statistiques, étiquettes
+   Densité assumée : filets 1 px et fonds gris très clairs. Pas d'ombre, pas de
+   coin arrondi à 12 px : un wiki n'est pas un tableau de bord.
+   ============================================================================= */
+.card{background:var(--surface);border:1px solid var(--rule);border-radius:0;padding:15px}
+
+.grid{display:grid;gap:1px;background:var(--rule);border:1px solid var(--rule);
+  grid-template-columns:repeat(auto-fill,minmax(230px,1fr))}
+.item{display:block;background:var(--bg);border:0;border-radius:0;padding:13px 14px;
+  color:var(--text);min-height:var(--tap)}
+.item:hover{background:var(--surface);text-decoration:none}
+.item .n{font-family:var(--font-heading);font-size:15.5px;font-weight:400;
+  color:var(--primary);margin-bottom:3px}
+.item .s{font-size:12px;color:var(--ink-faint);line-height:1.45}
+.item .f{margin-top:9px;font-size:17px;font-weight:500;color:var(--text)}
+.item .f.muted{color:var(--ink-faint)}
+
+.tag{display:inline-block;font-size:11.5px;padding:2px 7px;border-radius:2px;
+  background:var(--surface);border:1px solid var(--rule);color:var(--ink-soft);
+  margin-right:5px}
+a.tag:hover{border-color:var(--rule-strong);text-decoration:none}
+
+.stats{display:grid;gap:1px;background:var(--rule);border:1px solid var(--rule);
+  grid-template-columns:repeat(auto-fit,minmax(125px,1fr));margin:18px 0}
+.stat{background:var(--bg);border:0;border-radius:0;padding:11px 13px}
+.stat .k{font-size:10.5px;color:var(--ink-faint);text-transform:uppercase;
+  letter-spacing:.06em}
+.stat .v{font-family:var(--font-heading);font-size:20px;font-weight:400;
+  font-variant-numeric:tabular-nums;margin-top:2px}
+
+.up{color:var(--accent)}
+.down{color:var(--danger)}
+
+.alerte,.avertis{border:1px solid var(--rule-strong);border-left:3px solid var(--gold);
+  background:var(--gold-wash);padding:10px 13px;margin:0 0 16px;font-size:14px;
+  color:var(--ink-soft);max-width:68ch}
+.alerte b,.avertis b{color:var(--text)}
+
+/* =============================================================================
+   5. TABLEAUX
+   ============================================================================= */
+table{width:100%;border-collapse:collapse;font-size:14.5px;
+  border:1px solid var(--rule-strong)}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--rule);
+  vertical-align:top}
+th{background:var(--th-bg);color:var(--ink-soft);font-weight:600;font-size:12.5px;
+  text-transform:none;letter-spacing:0}
+tbody tr:last-child td{border-bottom:0}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+
+/* =============================================================================
+   6. PAGES ÉDITORIALES  (engine/lib/editorial*.mjs — le cœur de vevewiki)
+   ============================================================================= */
+
+/* --- Glossaire & sigles : une liste de définitions, pas des cartes --- */
+.glossary{margin:16px 0 0}
+.glossary .term{padding:12px 0;border-top:1px solid var(--shell-2);max-width:none}
+.glossary .term:first-child{border-top:1px solid var(--rule-strong)}
+.glossary .term dt,.glossary .term>b,.glossary .term .n{
+  font-family:var(--font-heading);font-size:15.5px;font-weight:400}
+.glossary .term .s,.glossary .term dd{margin:3px 0 0;font-size:14px;
+  color:var(--text);max-width:68ch}
+.glossary .term .sources,.glossary .term .muted{font-size:11.5px;color:var(--ink-faint)}
+
+/* Le sigle : cadre doré, TEXTE en or lisible. Le cadre porte la couleur vive,
+   pas les lettres — c'est la règle qui vaut partout dans ce fichier. */
+.glossary .tag,.term .tag{font-family:var(--font-body);font-size:10.5px;
+  font-weight:700;letter-spacing:.06em;color:var(--accent);
+  border:1px solid var(--gold);background:var(--gold-wash)}
+
+/* --- Chronologie : une frise, pas une liste --- */
+.timeline{margin:16px 0 0;padding-left:15px;border-left:2px solid var(--shell-2)}
+.milestone{position:relative;padding:0 0 15px;max-width:none}
+.milestone::before{content:"";position:absolute;left:-21px;top:6px;width:7px;height:7px;
+  border-radius:50%;background:var(--gold);border:1.5px solid var(--bg)}
+.milestone .when{font-size:11.5px;color:var(--ink-faint);
+  font-variant-numeric:tabular-nums}
+.milestone .what{font-family:var(--font-heading);font-size:15px;line-height:1.35;
+  margin-top:2px;max-width:68ch}
+.milestone .tag{margin-left:6px}
+
+/* --- Fiche (marque, créateur, entrée détaillée) --- */
+.fiche{margin:16px 0 0}
+.reperes{display:grid;gap:1px;background:var(--rule);
+  border:1px solid var(--rule-strong);
+  grid-template-columns:repeat(auto-fit,minmax(110px,1fr));margin:0 0 18px}
+.reperes>*{background:var(--bg);padding:9px 11px;text-align:center}
+.chiffres{display:grid;gap:1px;background:var(--gold-hair);
+  grid-template-columns:repeat(auto-fit,minmax(90px,1fr));
+  border-top:1px solid var(--gold-hair);margin-top:9px}
+.chiffres>*{background:var(--gold-wash);padding:8px 4px;text-align:center;font-size:11px;
+  color:var(--ink-soft)}
+.chiffres b{display:block;font-family:var(--font-heading);font-size:16px;
+  color:var(--text);font-weight:400}
+
+.counters{font-size:12.5px;color:var(--ink-faint);margin:0 0 14px}
+.sources{font-size:12.5px;color:var(--ink-faint);line-height:1.75}
+.sources a{color:var(--primary)}
+.notes{font-size:13.5px;color:var(--ink-soft);max-width:68ch}
+.voisines{margin:22px 0 0;padding-top:14px;border-top:1px solid var(--rule);
+  font-size:13.5px}
+.socials{display:flex;gap:7px;flex-wrap:wrap;margin:10px 0 0}
+.annuaire-group{margin:22px 0 0}
+.latest-wrap{margin:22px 0 0}
+.latest{margin:0}
+
+/* L'ancre de section : visible au survol ET au focus clavier (sinon elle
+   n'existe que pour la souris). */
+.lien-ancre{color:var(--ink-faint);text-decoration:none;opacity:0;padding:0 6px;
+  font-weight:400}
+h2:hover .lien-ancre,h3:hover .lien-ancre,.lien-ancre:focus-visible{opacity:1}
+
+/* --- Pages légales (LegalPage.astro : `.legal`, corps injecté en HTML) ---
+   Obligatoires et lues rarement, mais lues en entier quand elles le sont :
+   même mesure de ligne que le reste, aucune fantaisie. */
+.legal{max-width:68ch;font-size:15px}
+.legal h2{font-size:19px;margin:26px 0 8px}
+.legal ul,.legal ol{padding-left:22px}
+.legal table{font-size:13.5px;margin:12px 0}
+
+/* --- RECHERCHE (features.search: internal, index éditorial) ---------------
+   La liste de résultats est en flux NORMAL, pas en survol absolu : sur mobile
+   un menu flottant se fait recouvrir par le clavier virtuel, et l'utilisateur
+   ne voit jamais ses résultats. Elle pousse le contenu, c'est voulu. */
+.searchwrap{margin:0 0 26px;max-width:520px}
+.searchbox{width:100%;height:var(--tap);padding:0 12px;font-size:15px;
+  border:1px solid var(--rule-strong);border-radius:2px;background:var(--bg);
+  color:var(--text);font-family:var(--font-body)}
+.searchbox::placeholder{color:var(--ink-faint)}
+.searchhint{margin:5px 2px 0;font-size:11.5px;color:var(--ink-faint)}
+
+.results:not(:empty){border:1px solid var(--rule-strong);border-top:0;
+  background:var(--bg);margin-top:-1px}
+.result{display:flex;align-items:baseline;gap:10px;padding:9px 12px;
+  min-height:var(--tap);border-top:1px solid var(--shell-2);text-decoration:none}
+.result:first-child{border-top:0}
+.result:hover,.result:focus-visible{background:var(--surface);text-decoration:none}
+.result .rn{font-family:var(--font-heading);font-size:14.5px;color:var(--primary);
+  flex:1;min-width:0}
+/* Le TYPE de chaque résultat, à droite. Sans lui, « Floor Price » du glossaire
+   et l'article « Ce qu'est vraiment un prix plancher » sont indiscernables :
+   deux lignes, deux destinations, aucun moyen de choisir. */
+.result .rt{font-size:10.5px;color:var(--ink-faint);text-transform:uppercase;
+  letter-spacing:.05em;white-space:nowrap;flex:0 0 auto}
+.searchvide{margin:0;padding:11px 12px;font-size:13px;color:var(--ink-faint)}
+
+/* =============================================================================
+   7. FIGURES / GRAPHIQUES
+   ⚠️ Les figures générées côté serveur (engine/lib/figures.mjs) relisent
+   `identity.palette` et portent leur propre cartouche : elles suivront la
+   palette jour d'elles-mêmes. Ici on ne traite que le SVG inline.
+   ============================================================================= */
+.chart{width:100%;height:auto;margin:8px 0 4px}
+.chart .line{stroke:var(--primary);stroke-width:2;stroke-linejoin:round;
+  stroke-linecap:round}
+.chart .area{fill:color-mix(in srgb,var(--primary) 12%,transparent);stroke:none}
+/* ⚠️ COLLISION DE NOMS PRÉSENTE DANS LE MOTEUR, pas introduite ici : `.grid`
+   sert à la fois de grille de mise en page (§4) et de quadrillage de graphique.
+   Sans les annulations ci-dessous, le quadrillage d'un graphique hérite
+   `display:grid`, `background` et `border` — et disparaît du tracé. */
+.chart .grid{stroke:var(--rule);stroke-width:1;display:initial;background:none;
+  border:0;gap:0}
+.chart .axis{fill:var(--ink-faint);font-size:11px}
+
+/* =============================================================================
+   8. MOBILE — vevewiki est lu au pouce avant d'être lu au clavier
+   ============================================================================= */
+@media (max-width:640px){
+  body{font-size:15.5px}
+  .wrap{padding:0 16px}
+  header.site .wrap{min-height:50px;gap:0}
+  .brand{font-size:17px;flex:1;min-width:0}
+  nav.main{gap:0;margin-left:0;width:100%;overflow-x:auto;
+    -ms-overflow-style:none;scrollbar-width:none;
+    border-top:1px solid var(--shell-2);flex-wrap:nowrap}
+  nav.main::-webkit-scrollbar{display:none}
+  nav.main a{font-size:13.5px;padding:0 10px;white-space:nowrap}
+  nav.main .langbar{margin-left:auto;padding-right:2px}
+  h1{font-size:23px}
+  .grid,.stats{grid-template-columns:1fr}
+  .reperes,.chiffres{grid-template-columns:1fr 1fr}
+  main p,main li,.lead,.notes,.milestone .what{max-width:none}
+  table{font-size:13.5px}
+  th,td{padding:7px 8px}
+}
+
+/* =============================================================================
+   9. IMPRESSION & MOUVEMENT RÉDUIT
+   Un article d'encyclopédie s'imprime et se convertit en PDF. Sans l'adresse
+   des liens externes, un article imprimé n'est plus sourçable — or « toute
+   info porte un lien » est la règle du site.
+   ============================================================================= */
+@media print{
+  header.site,footer.site .legal-links,nav.main,.saut,#langsuggest,.lien-ancre{display:none}
+  body{background:#fff;color:#000;font-size:11pt}
+  a{color:#000;text-decoration:underline}
+  main a[href^="http"]::after{content:" (" attr(href) ")";font-size:8.5pt;color:#444;
+    word-break:break-all}
+  .card,.item,table,.alerte,.avertis{break-inside:avoid}
+  h1,h2,h3{break-after:avoid}
+  details{display:block!important}
+}
+@media (prefers-reduced-motion:reduce){
+  *{transition:none!important;animation:none!important;scroll-behavior:auto!important}
+}
+
+/* =============================================================================
+   CONTRASTES — mesurés, pas estimés. Seuil WCAG AA = 4,5:1 (texte courant).
+   -----------------------------------------------------------------------------
+     rôle              couleur    sur #ffffff   sur #f8f9fa   sur #eaecf0
+     texte courant     #202122      16,13:1       15,40:1       15,00:1   AAA
+     texte secondaire  #54595d       7,09:1        6,72:1        6,30:1   AAA
+     méta / dates      #666b71       5,38:1        5,10:1        4,54:1   AA
+     lien              #3366cc       5,37:1        5,09:1        4,54:1   AA
+     lien visité       #795cb2       5,27:1           —             —     AA
+     or — texte        #7a5f10       6,05:1        5,49:1           —     AA
+     danger            #b32424       6,57:1           —             —     AA
+     or — DÉCOR SEUL   #d4af37       2,10:1  ⛔ INTERDIT EN TEXTE
+   -----------------------------------------------------------------------------
+   ⚠️ LA PAIRE LA PLUS JUSTE : lien #3366cc sur le séparateur #eaecf0 —
+   4,54:1 pour un seuil de 4,50. Aucune marge. Si `--shell-2` s'éclaircit d'un
+   cran, les liens posés dessus deviennent non conformes et RIEN ne le signale.
+   Ne pas éclaircir --shell-2 sans remesurer.
+   ⚠️ Le gris de méta de Wikipédia, #72777d, a été écarté : il passe sur blanc
+   (4,52:1) mais ÉCHOUE sur --surface (4,28:1) — or les méta vivent justement
+   dans les encadrés gris. Un contraste se valide contre le fond RÉEL du bloc,
+   jamais contre le blanc.
+   ============================================================================= */
