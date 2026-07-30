@@ -1,7 +1,7 @@
 {
  "_note": "Date du dernier changement REEL de chaque famille de pages, et de chaque fiche pour un site a prix. Produit par engine/tools/lastmod.py et engine/tools/lastmod-prix.mjs, lu par src/pages/sitemap.xml.js. Ne pas editer a la main : la date suivrait le fichier, pas le contenu.",
  "site": "veveprice",
- "passages": 2,
+ "passages": 3,
  "sections": {
   "donnees": {
    "h": "2f6eaaeadfff86f5f8315957ee03a5acc6c1507926c3b88e1652c5d3235a075b",
@@ -1181,20 +1181,20 @@
    "h": "25a98ca05f61d7fbd4ac25011c66e606f5a08039e8f896835e14486acfe738cc",
    "d": "2026-07-30"
   },
-  "/comics/star-wars-jango-fett/1/secret-rare/": {
-   "h": "ad9b0dbb1a5f10270ed7ea89fe9a65f810902fa78add782e8c483c3906f4106a",
-   "d": "2026-07-29"
-  },
   "/comics/spider-man-94/1/secret-rare/": {
    "h": "3a7445a1a2d2bfd5c35c07fd3bf4acd3e32ea41529e9bec154d20b0338d3b4d2",
    "d": "2026-07-29"
   },
-  "/collectibles/veve-logo-gold-silver-v2/veve-logo-gold-silver-v2/": {
-   "h": "4ebd9f7b0ccdbe5839010df7c9ff52ae6e379d48d070896b4d901e3357fbf1c6",
-   "d": "2026-07-30"
+  "/comics/star-wars-jango-fett/1/secret-rare/": {
+   "h": "ad9b0dbb1a5f10270ed7ea89fe9a65f810902fa78add782e8c483c3906f4106a",
+   "d": "2026-07-29"
   },
   "/collectibles/gambit/gambit-trenchcoat-tactician-special-edition/": {
    "h": "0072ae28b4d9b6acc06dd93938e4d4d46160379c020f400374d4a3a280beac24",
+   "d": "2026-07-30"
+  },
+  "/collectibles/veve-logo-gold-silver-v2/veve-logo-gold-silver-v2/": {
+   "h": "4ebd9f7b0ccdbe5839010df7c9ff52ae6e379d48d070896b4d901e3357fbf1c6",
    "d": "2026-07-30"
   },
   "/comics/x-force-vol-6/50/secret-rare/": {
@@ -1457,13 +1457,13 @@
    "h": "1276a8ffec7aef8ea9b2b5f6da0adc0d5da18cc5b580213b080da499c2dd2fe8",
    "d": "2026-07-29"
   },
-  "/collectibles/golden-surprise-tricky/tricky-the-obese-bunny-gold/": {
-   "h": "ae1e93bf2da93c4c616ab729c8c414720533b02000edc055860943913689918f",
-   "d": "2026-07-30"
-  },
   "/collectibles/marvel-mightys-fantastic-four-series-2/she-hulk-fantastic-four-outfit/": {
    "h": "bcaae1c622bb283947917d1fc73c1fb790cf4a7b1ef4ae04137f4fbb38cac345",
    "d": "2026-07-29"
+  },
+  "/collectibles/golden-surprise-tricky/tricky-the-obese-bunny-gold/": {
+   "h": "ae1e93bf2da93c4c616ab729c8c414720533b02000edc055860943913689918f",
+   "d": "2026-07-30"
   },
   "/comics/fantastic-four-vol-1/5/ultra-rare/": {
    "h": "ab649025454f021f00d5970b18938a7f85dd1f036cad7bdc005335089531bc45",
@@ -1493,12 +1493,12 @@
    "h": "4c01358a04f5eecaa3b01487270815690d6692b9192643cd804c6ddbf63b6050",
    "d": "2026-07-29"
   },
-  "/comics/tales-of-suspense-vol-1/57/secret-rare/": {
-   "h": "f314c093bba5aad6aa652332392c144bad971ba2abd45018b3f40b6269508e4a",
-   "d": "2026-07-29"
-  },
   "/comics/the-ultimates-vol-3/1/secret-rare/": {
    "h": "06de1d3cf374e0503866a09ee6872c66686c7817d2c50b0eb8b60db7368070e2",
+   "d": "2026-07-29"
+  },
+  "/comics/tales-of-suspense-vol-1/57/secret-rare/": {
+   "h": "f314c093bba5aad6aa652332392c144bad971ba2abd45018b3f40b6269508e4a",
    "d": "2026-07-29"
   },
   "/comics/amazing-fantasy-vol-1/15/uncommon/": {
@@ -1621,13 +1621,13 @@
    "h": "6aef13fce31ce0886030c6c7d04d7d977bd91154d6d4dadb9ad15134a64077bf",
    "d": "2026-07-29"
   },
-  "/collectibles/tara-mcpherson/wayob/": {
-   "h": "8dd7325742d36566846b2e1457cff180377586da51f4fcd80ca2cb24b43a0082",
-   "d": "2026-07-30"
-  },
   "/comics/moon-girl-and-devil-dinosaur/1/secret-rare/": {
    "h": "2f0d2ae53e432b16a1c5ef7ef1bf3e2612e6d26482c01bb49af325905bf91868",
    "d": "2026-07-29"
+  },
+  "/collectibles/tara-mcpherson/wayob/": {
+   "h": "8dd7325742d36566846b2e1457cff180377586da51f4fcd80ca2cb24b43a0082",
+   "d": "2026-07-30"
   },
   "/comics/ultimate-comics-spider-man/1/secret-rare/": {
    "h": "74f4c5b4bc0af62d8bb90722087a01fdd803fdfdeee9042734ea1cae4a8c8827",
@@ -1777,13 +1777,13 @@
    "h": "973b467b156e3096dd151a5f040d8096bae4ebe3287e42c94a27864f098f7def",
    "d": "2026-07-29"
   },
-  "/comics/spider-boy/13/secret-rare/": {
-   "h": "c063a4ddff1424c4df7d3cffd2dbdf1ec5f3703c2a96439c7b0416fbb404c8d7",
-   "d": "2026-07-29"
-  },
   "/collectibles/star-wars-vehicles-series-8-millennium-falcon/millennium-falcon-holodisk/": {
    "h": "67b131e6a6f37a1a2cbffd65855bf27771a8b631a21844ce167b5a3dff254654",
    "d": "2026-07-30"
+  },
+  "/comics/spider-boy/13/secret-rare/": {
+   "h": "c063a4ddff1424c4df7d3cffd2dbdf1ec5f3703c2a96439c7b0416fbb404c8d7",
+   "d": "2026-07-29"
   },
   "/comics/black-panther-vol-3/1/secret-rare/": {
    "h": "985e5020d919a95376a9db53bd79cfda9596a22ab3fa1a2d444dfe2e4984fc8e",
@@ -1877,12 +1877,12 @@
    "h": "2db52332b32ef3e99e3b52f814a7804c0964f62cefdbc0d36a5b30fae0985f85",
    "d": "2026-07-30"
   },
-  "/comics/vengeance-of-the-moon-knight-vol-2/6/secret-rare/": {
-   "h": "82f5bf110e149f80a08ea5c54f50f0beca3b9f102e0e12e8178a903188f11d64",
-   "d": "2026-07-29"
-  },
   "/comics/deadpool-vol-4/6/secret-rare/": {
    "h": "26ab02772d453799d24ecbc9c0443f753430cf3a4653479e880952d521dae34b",
+   "d": "2026-07-29"
+  },
+  "/comics/vengeance-of-the-moon-knight-vol-2/6/secret-rare/": {
+   "h": "82f5bf110e149f80a08ea5c54f50f0beca3b9f102e0e12e8178a903188f11d64",
    "d": "2026-07-29"
   },
   "/comics/miles-morales-spider-man-vol-2/13/secret-rare/": {
@@ -2353,12 +2353,12 @@
    "h": "8556e26356e965b68fd1e26a15100c0b018aef17cfaf815a9032cbe80ccc8893",
    "d": "2026-07-29"
   },
-  "/comics/wolverine-madripoor-knights/2/secret-rare/": {
-   "h": "4b6f072c0f8fa0b41de531c71883c7860101e97021d302bec85f2756e8cd10d3",
-   "d": "2026-07-29"
-  },
   "/collectibles/feeshmas-2024/the-aquatic-double-can/": {
    "h": "14e28ca118dc5bfa9cf24fc6391140aeeb7b081dcda0c222ed2dd3de42777999",
+   "d": "2026-07-29"
+  },
+  "/comics/wolverine-madripoor-knights/2/secret-rare/": {
+   "h": "4b6f072c0f8fa0b41de531c71883c7860101e97021d302bec85f2756e8cd10d3",
    "d": "2026-07-29"
   },
   "/collectibles/vinyl-gold-18-marvel-iron-man/marvel-iron-man-18-superior/": {
@@ -2397,12 +2397,12 @@
    "h": "578a8f7969e18c1024694e8647ebd035591a1ef2ed5e2e011f11f352fab48455",
    "d": "2026-07-29"
   },
-  "/collectibles/cars-characters-series-1/flo/": {
-   "h": "7566d2eacf96fc4d82a398a405f49dda19be29719425cbb6acda0cf36fdf8e0a",
-   "d": "2026-07-29"
-  },
   "/comics/x-force-vol-1/1/secret-rare/": {
    "h": "883d907fa778cb074570dde33c9d7604d6aecb8138aec1c63b2173b65bd3ea5e",
+   "d": "2026-07-29"
+  },
+  "/collectibles/cars-characters-series-1/flo/": {
+   "h": "7566d2eacf96fc4d82a398a405f49dda19be29719425cbb6acda0cf36fdf8e0a",
    "d": "2026-07-29"
   },
   "/comics/hulk-vol-2/1/secret-rare/": {
@@ -2529,12 +2529,12 @@
    "h": "660e7fef25874d6da9b1ba39dfdb69844333a1f4dfd826f6e497cb87552f926a",
    "d": "2026-07-29"
   },
-  "/collectibles/lunar-new-year-pane-art/year-of-the-rat/": {
-   "h": "81db725edb7e513dcab22933ea76b0a1732931ee56ed57307f301dce0f7ae912",
-   "d": "2026-07-30"
-  },
   "/collectibles/sesame-street-bert-ernie/bert-special-edition/": {
    "h": "1568c9255abe9a01bc45342e79993c23469a4100765ff50954ec8fe75c5658a6",
+   "d": "2026-07-30"
+  },
+  "/collectibles/lunar-new-year-pane-art/year-of-the-rat/": {
+   "h": "81db725edb7e513dcab22933ea76b0a1732931ee56ed57307f301dce0f7ae912",
    "d": "2026-07-30"
   },
   "/collectibles/patrick-hughes-series-1/contemplating-venice-2021/": {
@@ -2577,12 +2577,12 @@
    "h": "37e739c301560f55629da631f607a6aae614cb8e3022d749a1dc7bc9fbaf3416",
    "d": "2026-07-29"
   },
-  "/collectibles/marvel-dogs-series-1/ms-lion/": {
-   "h": "abb8732b3087e00e1387278fb638c94b63f5786bdbf3f1533e9febfd6fc5af4e",
-   "d": "2026-07-29"
-  },
   "/collectibles/assassin-s-creed-valhalla/male-eivor-wrath-unleashed/": {
    "h": "4306df56b387933cd6cb3c653fd32dcb6adaf98774a70f36af4ba4ce520b7406",
+   "d": "2026-07-29"
+  },
+  "/collectibles/marvel-dogs-series-1/ms-lion/": {
+   "h": "abb8732b3087e00e1387278fb638c94b63f5786bdbf3f1533e9febfd6fc5af4e",
    "d": "2026-07-29"
   },
   "/collectibles/she-hulk/she-hulk-prosecutor-punch/": {
@@ -2997,13 +2997,13 @@
    "h": "821c71357fd0145ce8de59a018ea4faa1db4171e21c2062db72b44ff2cf71377",
    "d": "2026-07-29"
   },
-  "/collectibles/lamborghini-huracan-sto/huracan-sto-rosso-epona-grigio-adamas/": {
-   "h": "9a18a1ea59b640fda04283e979d0c398701bd5ac7d355ad08a9439fe82916383",
-   "d": "2026-07-30"
-  },
   "/collectibles/ultraman-rising-kaiju-monsters/neronga/": {
    "h": "bfe8e230c5958c15e24e24bee4f7fc013403a89489e8f96ecfec17022496eb40",
    "d": "2026-07-29"
+  },
+  "/collectibles/lamborghini-huracan-sto/huracan-sto-rosso-epona-grigio-adamas/": {
+   "h": "9a18a1ea59b640fda04283e979d0c398701bd5ac7d355ad08a9439fe82916383",
+   "d": "2026-07-30"
   },
   "/collectibles/brian-viveros-bullheaded-dirtytrooper/bullheaded-dirtytrooper-brian-viveros/": {
    "h": "1fc9401d7bee1ae347376783985083fbde9d95eefa0c8bebea60ad8c414bb483",
@@ -3153,12 +3153,12 @@
    "h": "d0106176ecdd32fcc4b1a25a74f913ef95a89853d1c94abbe180d1497b2180ea",
    "d": "2026-07-30"
   },
-  "/collectibles/disney-stitch-unleashed-series/blaster-ready/": {
-   "h": "816d6abddbd47e4f080a72d8f00f8d1547f75d26f6452a5a5b2cf66e9aca5d0a",
-   "d": "2026-07-29"
-  },
   "/collectibles/the-mandalorian-ig-11/ig-11-assassin-droid/": {
    "h": "b708199241d0281d69309313c48c885c476ddad6f47ef03b00d2197440ec735b",
+   "d": "2026-07-29"
+  },
+  "/collectibles/disney-stitch-unleashed-series/blaster-ready/": {
+   "h": "816d6abddbd47e4f080a72d8f00f8d1547f75d26f6452a5a5b2cf66e9aca5d0a",
    "d": "2026-07-29"
   },
   "/collectibles/the-art-of-disneyland-paris-series/sleeping-beauty-castle/": {
@@ -3665,12 +3665,12 @@
    "h": "7a53a1b5d7da930188e17d49bdf1046025ee7d7fbd5c623f76f1ff266364cd20",
    "d": "2026-07-30"
   },
-  "/collectibles/blackpink-shut-down-lisa/lisa-face-my-katana/": {
-   "h": "45a1d57932f3c7e90ac88e63fa29bf51c9d3ca34da8cfdf6e691911b88ec0ce0",
-   "d": "2026-07-29"
-  },
   "/collectibles/phoenix-five-magik/magik-new-mutants-2009/": {
    "h": "0a37f8fbd34de1e51cacef3630841a848a72df488897305102bd487723f9e47b",
+   "d": "2026-07-29"
+  },
+  "/collectibles/blackpink-shut-down-lisa/lisa-face-my-katana/": {
+   "h": "45a1d57932f3c7e90ac88e63fa29bf51c9d3ca34da8cfdf6e691911b88ec0ce0",
    "d": "2026-07-29"
   },
   "/collectibles/disney100-platinum-moments-walt-disney-animation-studios-ser/tinker-bell-poster/": {
@@ -3833,12 +3833,12 @@
    "h": "7ed11e984381eba092df2a5e0a122294a45df3564c81143224055ba0ca8dcdee",
    "d": "2026-07-30"
   },
-  "/collectibles/the-five-lions-and-pilots-of-voltron/hunk-yellow-lion/": {
-   "h": "a6cabfb9fa92c4d7f404beec477380ee3c1666bfe1636e75fbb91113fd90c8db",
-   "d": "2026-07-29"
-  },
   "/collectibles/star-wars-troopers-series-2/crimson-trooper-shooting/": {
    "h": "6cd032d45c629d70d6eddb9e59b0ee06f863e6dd7adc2e291497e97c967b2cdc",
+   "d": "2026-07-29"
+  },
+  "/collectibles/the-five-lions-and-pilots-of-voltron/hunk-yellow-lion/": {
+   "h": "a6cabfb9fa92c4d7f404beec477380ee3c1666bfe1636e75fbb91113fd90c8db",
    "d": "2026-07-29"
   },
   "/collectibles/elektra/elektra-ultimate-animated/": {
@@ -4069,12 +4069,12 @@
    "h": "0589a208ae227535f1007a955dd4896b978980fe2a817ee1839ca01c29ff930e",
    "d": "2026-07-30"
   },
-  "/collectibles/action-classicism-in-delusionville/action-classicism-in-delusionville/": {
-   "h": "bc9ca55855bd2b9d2259e606edd3bef5427913b381197edd9b4dd3ee003b6377",
-   "d": "2026-07-29"
-  },
   "/collectibles/star-wars-death-troopers-series-2/death-trooper-dlt-19d-prone/": {
    "h": "cb0eb9ac8ce627afad7228b20e89e95fc03fc29a6d9e3ca8687a60fd20e560c8",
+   "d": "2026-07-29"
+  },
+  "/collectibles/action-classicism-in-delusionville/action-classicism-in-delusionville/": {
+   "h": "bc9ca55855bd2b9d2259e606edd3bef5427913b381197edd9b4dd3ee003b6377",
    "d": "2026-07-29"
   },
   "/collectibles/disney100-platinum-moments-pixar-series-boo-s-activated-door/miguel-poster/": {
@@ -4261,12 +4261,12 @@
    "h": "fc0216c3dae32762f53419c67b7fd2abcf9a0c228a48ef9bd2195658931df493",
    "d": "2026-07-29"
   },
-  "/collectibles/voltron-legendary-defender-s1/battle-mode/": {
-   "h": "12e353b8b076cba062dfc58791c271740a0cc8c527abb4f2704303f43730bbf8",
-   "d": "2026-07-29"
-  },
   "/collectibles/imperial-royal-guard/edo-imperial-royal-guard-lunging-press/": {
    "h": "d04f88ad9a6b422368669b0b4417cb3b01b194aef72b9e1fa7001f49c210b871",
+   "d": "2026-07-29"
+  },
+  "/collectibles/voltron-legendary-defender-s1/battle-mode/": {
+   "h": "12e353b8b076cba062dfc58791c271740a0cc8c527abb4f2704303f43730bbf8",
    "d": "2026-07-29"
   },
   "/collectibles/p-series-1/frozen-vanilla/": {
@@ -4357,6 +4357,10 @@
    "h": "11a4fc6e8459b1a538263dd56a12a53b66d119af17265a60fda697db1026996f",
    "d": "2026-07-30"
   },
+  "/collectibles/on-the-prinsengracht-in-amsterdam/on-the-prinsengracht-in-amsterdam/": {
+   "h": "51a04cb7d33ef6567af253449552fe4eae7f780177dafb55c0a85270965c650f",
+   "d": "2026-07-29"
+  },
   "/collectibles/handle-with-care-series-1/grenade-orange/": {
    "h": "37bfc96eaa021c5af57999366fa93d6259a4885cad6a1c18bd7647fa80cadb9c",
    "d": "2026-07-30"
@@ -4364,10 +4368,6 @@
   "/collectibles/lamborghini-diablo/diablo-orange/": {
    "h": "0d02d8bceb2652f926331aaf21705c741c7ddc025ffd296880feafbf83b5aa96",
    "d": "2026-07-30"
-  },
-  "/collectibles/on-the-prinsengracht-in-amsterdam/on-the-prinsengracht-in-amsterdam/": {
-   "h": "51a04cb7d33ef6567af253449552fe4eae7f780177dafb55c0a85270965c650f",
-   "d": "2026-07-29"
   },
   "/collectibles/tristan-eaton/og-devil-bunny-gold/": {
    "h": "b10053d17e2ca0bd5cbfb9de8420ce8cdacc42636c6c36dbee97823710d18225",
@@ -4397,6 +4397,10 @@
    "h": "1ab0e6d4431b0c94e49fbbe95fb3033b5a4fcce1de5e2c8c97a7025ee512c77b",
    "d": "2026-07-30"
   },
+  "/collectibles/the-golden-lad/the-golden-lad/": {
+   "h": "72ae5adb3499de3a1bc3c389a487daec680649913bc8eb090b43a23f2357e58d",
+   "d": "2026-07-30"
+  },
   "/collectibles/disney100-platinum-moments-pixar-series-boo-s-activated-door/woody-poster/": {
    "h": "d72b17670a259e4c39333cdbae06e2d77a2504f5ee8825373011f8cf9fcbc1f7",
    "d": "2026-07-29"
@@ -4408,10 +4412,6 @@
   "/collectibles/predator-movie-poster-series/face-your-fear/": {
    "h": "b098059040d31f63602346789264dfef3da55917e372f45d0d8a65e866bed922",
    "d": "2026-07-29"
-  },
-  "/collectibles/the-golden-lad/the-golden-lad/": {
-   "h": "72ae5adb3499de3a1bc3c389a487daec680649913bc8eb090b43a23f2357e58d",
-   "d": "2026-07-30"
   },
   "/collectibles/veve-logos/veve-logo-white-green/": {
    "h": "bb34fc7207e4a76d09bdb14b667be67ca2029de98f54c4f0b3905e6bf11f6b43",
@@ -4541,16 +4541,16 @@
    "h": "d5e9fdf24c2ac9d40c8f784af8a39494c0869972cf1547684f89a4acea0eac7f",
    "d": "2026-07-30"
   },
+  "/collectibles/myo-gold-silver/myo-og-gold-silver/": {
+   "h": "8e3b662e1c8a7d616d8d433bacae4d1b39d6732bb0a4c9b5e931ad13122a9f24",
+   "d": "2026-07-29"
+  },
   "/collectibles/marvel-mightys-avengers-series-1/winter-soldier/": {
    "h": "b66a5dfcc7cf76d32b283e8f730cf78eba580801abfd5c40e7bb61785121a7aa",
    "d": "2026-07-30"
   },
   "/collectibles/rabbids-series-3/rabbid-roadblock/": {
    "h": "fe0aa94977be3fcf2c495d2cbb4153874eb1aad0f40fde6b9dc53ca1e8c46769",
-   "d": "2026-07-29"
-  },
-  "/collectibles/myo-gold-silver/myo-og-gold-silver/": {
-   "h": "8e3b662e1c8a7d616d8d433bacae4d1b39d6732bb0a4c9b5e931ad13122a9f24",
    "d": "2026-07-29"
   },
   "/collectibles/kawaii-princess-warriors/lumi/": {
@@ -4693,12 +4693,12 @@
    "h": "be0a8328d5d7652e9083a1472a0ba96713586ba43a40579093f266d48c7d14e9",
    "d": "2026-07-29"
   },
-  "/collectibles/daredevil/daredevil/": {
-   "h": "3749c4f2b6a369cdfc5dc352d0106eea616c316fd2d2ccc762eab1768e01670a",
-   "d": "2026-07-30"
-  },
   "/collectibles/hellfire-gala-series-1/diamond-emma-frost-marauders-21-2021/": {
    "h": "63fa3bfced695c1b371fb9d7d341d1015f0a5a7742fba3f533df0510fb4bc474",
+   "d": "2026-07-30"
+  },
+  "/collectibles/daredevil/daredevil/": {
+   "h": "3749c4f2b6a369cdfc5dc352d0106eea616c316fd2d2ccc762eab1768e01670a",
    "d": "2026-07-30"
   },
   "/collectibles/delorean-time-machine-hovering-version/delorean-time-machine-hovering-version/": {
@@ -4749,12 +4749,12 @@
    "h": "faa35ee89569320e9c861b90ecfbec6d6d767d969cc9c60cfc814b375b0fbd08",
    "d": "2026-07-29"
   },
-  "/collectibles/professor-x-and-magneto/professor-x/": {
-   "h": "65c544bf12179264ec936201795897384094b42aa2830990416e14497828c369",
-   "d": "2026-07-30"
-  },
   "/collectibles/edo-scout-trooper/edo-scout-trooper-take-aim/": {
    "h": "b09680b224f11a4ba2ba665043211d071245b51093e8f2b80e6cdd90085a3e81",
+   "d": "2026-07-30"
+  },
+  "/collectibles/professor-x-and-magneto/professor-x/": {
+   "h": "65c544bf12179264ec936201795897384094b42aa2830990416e14497828c369",
    "d": "2026-07-30"
   },
   "/collectibles/blackpink-lisa-pink-venom-statues/lisa-pink-silver/": {
