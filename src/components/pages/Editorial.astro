@@ -15,7 +15,7 @@ import Base from '../../layouts/Base.astro';
 import { collection, parseSources } from '../../../engine/lib/editorial.mjs';
 import { sectionMeta, languesDeSection } from '../../../engine/lib/editorial_pages.mjs';
 import { t, localize, numberLocale } from '../../../engine/lib/i18n.mjs';
-import { fichesDe, cheminFiche } from '../../../engine/lib/editorial_entries.mjs';
+import { fichesDe, cheminFiche, ancreJalon, ancreTerme, ancresAnnuaire } from '../../../engine/lib/editorial_entries.mjs';
 import { siteUrl } from '../../../engine/lib/manifest.mjs';
 import { definedTermSetLd, chronologieLd, itemListLd } from '../../../engine/lib/seo.mjs';
 
@@ -23,9 +23,16 @@ const { lang, section } = Astro.props;
 
 // Ancre stable d'un jalon : son `id` de Sheet s'il existe, sinon date + titre
 // translitteres. Stable = un lien profond ne casse pas au prochain build.
-const slug = (v) => String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-  .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60);
-const ancre = (r) => (r.id ? `j-${slug(r.id)}` : `j-${slug(r.date)}-${slug(r.titre)}`);
+// ⚠️ RÈGLE D'ANCRE IMPORTÉE, PLUS RECOPIÉE (30/07/2026).
+// Ce fichier portait sa propre copie, et elle avait DÉJÀ divergé de celle
+// d'`editorial_entries.mjs` : `slice(0, 60)` ici, `slice(0, 70)` là-bas. Sans
+// conséquence à ce jour — le plus long identifiant de jalon fait 29 caractères,
+// mesuré sur les 41 — et parfaitement silencieux le jour où un titre dépasse :
+// la fiche pointerait vers une ancre que la page n'émet pas.
+// Le commentaire d'`editorial_entries.mjs` annonçait exactement ce risque
+// (« si les deux divergent, ces liens pointent dans le vide »). Il avait raison ;
+// deux copies suffisent à diverger, il n'en reste plus qu'une.
+const ancre = ancreJalon;
 const meta = sectionMeta(section, lang);
 // ⭐ VOCABULAIRE DE SHEET, LU PAR UN HUMAIN. Les colonnes `precision` et
 // `statut` portent un vocabulaire FERMÉ, saisi en français par l'auteur du
@@ -57,6 +64,9 @@ const { items } = await collection(section, lang);
 // lien posé, 58 fiches inatteignables, et pas la moindre erreur au build.
 // On indexe donc par une CLÉ de contenu, jamais par identité d'objet.
 const cleEntree = (x) => String(x.licence ?? x.id ?? x.terme ?? x.nom ?? '').trim();
+// Verdict d'unicité calculé sur CETTE liste : le même que celui de l'index,
+// qui part de la même `collection(section, lang)`.
+const ancreAnnuaire = ancresAnnuaire(items);
 const fiches = new Map((await fichesDe(section, lang))
   .map((f) => [cleEntree(f.record), cheminFiche(f.section, f.slug)]));
 
@@ -121,7 +131,10 @@ const ldSection = (() => {
       termes: items.map((r) => ({
         name: r.terme,
         description: r.definition || r.description,
-        url: r.id ? `${urlPage}#${r.id}` : undefined,
+        // ⚠️ MÊME fonction que l'attribut `id` rendu plus bas. Une donnée
+        // structurée qui pointe vers une ancre que la page n'émet pas est une
+        // promesse fausse faite à Google.
+        url: ancreTerme(r) ? `${urlPage}#${ancreTerme(r)}` : undefined,
       })),
     })];
   }
@@ -133,7 +146,7 @@ const ldSection = (() => {
         // ⭐ Pour un sigle, ce que le lecteur cherche d'abord est ce qu'il VEUT
         //    DIRE. La signification passe donc devant la definition longue.
         description: r.signification || r.definition,
-        url: r.sigle ? `${urlPage}#${r.sigle}` : undefined,
+        url: ancreTerme(r) ? `${urlPage}#${ancreTerme(r)}` : undefined,
       })),
     })];
   }
@@ -158,7 +171,7 @@ const ldSection = (() => {
   {section === 'glossary' && (
     <dl class="glossary">
       {items.map((r) => (
-        <div class="term" id={r.id || undefined}>
+        <div class="term" id={ancreTerme(r) || undefined}>
           <dt>{r.terme}{r.categorie && <span class="tag">{r.categorie}</span>}</dt>
           <dd>{r.definition || r.description}</dd>
         </div>
@@ -169,7 +182,9 @@ const ldSection = (() => {
   {section === 'acronyms' && (
     <dl class="glossary">
       {items.map((r) => (
-        <div class="term" id={r.sigle || undefined}>
+        {/* ⚠️ PAS `id={r.sigle}` : 8 sigles sur 65 contiennent une espace,
+            ce qui rend l'identifiant invalide et l'ancre inatteignable. */}
+        <div class="term" id={ancreTerme(r) || undefined}>
           <dt>{r.sigle}{r.signification && <span class="muted"> — {r.signification}</span>}
             {r.categorie && <span class="tag">{r.categorie}</span>}</dt>
           {r.definition && <dd>{r.definition}</dd>}
@@ -182,8 +197,13 @@ const ldSection = (() => {
     <section class="annuaire-group">
       <h2>{type}</h2>
       <div class="grid">
+        {/* ⭐ Une ancre par entrée : sans `id`, l'annuaire est un BLOC de 59
+            fiches et un résultat de recherche ne peut que renvoyer en haut.
+            `ancreAnnuaire` rend '' pour un nom en double (deux « VaultValue »
+            existent) — et `undefined` n'émet alors aucun attribut : on ne pose
+            jamais deux fois le même id. */}
         {list.map((r) => (
-          <div class="item">
+          <div class="item" id={ancreAnnuaire(r) || undefined}>
             <div class="n">{r.nom}</div>
             {r.role_specialite && <div class="s">{r.role_specialite}</div>}
             {(r.org || r.pays) && <div class="muted">{[r.org, r.pays].filter(Boolean).join(' · ')}</div>}

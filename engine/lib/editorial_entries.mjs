@@ -66,6 +66,67 @@ export function ficheSections() {
 // divergent, ces liens pointent dans le vide sans que rien n'échoue.
 export const ancreJalon = (r) => (r.id ? `j-${slugifier(r.id)}` : `j-${slugifier(r.date)}-${slugifier(r.titre)}`);
 
+// -----------------------------------------------------------------------------
+//  ANCRES DE L'ANNUAIRE — ajouté le 30/07/2026
+// -----------------------------------------------------------------------------
+//  L'annuaire ne portait AUCUN `id` : un résultat de recherche « VeVe Officiel »
+//  ramenait en haut d'une page de 59 fiches. On en pose un — mais pas n'importe
+//  comment.
+//
+//  ⚠️ LE PIÈGE, MESURÉ : sur les 59 entrées, deux portent le même nom
+//  (« VaultValue »). Deux `id` identiques dans une page, c'est du HTML invalide
+//  et surtout une ancre qui n'atteindra JAMAIS la seconde. Le navigateur ne
+//  proteste pas, il saute sur la première.
+//
+//  ⭐ La règle appliquée est celle qu'`Editorial.astro` écrit déjà pour les
+//  autres sections : **on n'émet une ancre que si elle est vraie**. Un nom en
+//  double n'en reçoit donc aucune, et ses deux entrées restent atteignables par
+//  la page. Mieux vaut renvoyer haut d'une page que renvoyer faux.
+//
+//  ⛔ Pourquoi PAS un suffixe `-2`, qui aurait « réglé » le doublon : il dépend
+//  de l'ORDRE de la liste. Le rendu et l'index lisent `collection()` séparément ;
+//  le jour où un tri change d'un côté, `-2` désigne l'autre entrée et l'ancre
+//  ment sans que rien n'échoue. Une fonction du seul CONTENU ne peut pas dériver.
+//
+//  ⛔ Et pas non plus `type + nom` : le type est éditorial, il change au gré du
+//  Sheet — l'adresse d'une ancre ne doit pas dépendre d'un champ qu'on édite.
+//
+//  Usage : `const ancre = ancresAnnuaire(items); ancre(r)` -> slug ou '' .
+//  Les deux appelants (le gabarit et l'index) partent de la MÊME liste, donc du
+//  même verdict d'unicité.
+// -----------------------------------------------------------------------------
+//  ANCRE D'UN TERME (glossaire, sigles) — ajouté le 30/07/2026
+// -----------------------------------------------------------------------------
+//  🔴 DÉFAUT TROUVÉ EN POSANT LES ANCRES DE RECHERCHE : le gabarit émettait
+//  `id={r.sigle}` tel quel, et **8 des 65 sigles contiennent une espace**
+//  (« Align Gate », « Blind Box », « Diamond Hands »…), dont un un croisillon
+//  (« Low # »). Or :
+//    • un `id` HTML **ne doit contenir aucune espace** — ces 8 sont invalides ;
+//    • le croisillon coupe le fragment : `#Low #` ne désigne plus rien ;
+//    • et `definedTermSetLd` publiait déjà ces adresses à Google, non encodées.
+//  Rien n'échouait : une ancre invalide ne fait que ne pas fonctionner.
+//
+//  ⭐ Le correctif n'est pas d'encoder au moment du lien — ce serait réparer le
+//  symptôme à chaque appelant, et en oublier un. C'est de n'émettre QU'UN
+//  identifiant sûr, au moment où il est écrit dans la page, et de le calculer
+//  ici pour que le gabarit, les données structurées et l'index disent la MÊME
+//  chose. Mesuré : les 87 identifiants du glossaire sont déjà des slugs, ils ne
+//  bougent pas ; les 65 sigles passent en minuscules (`AF15` -> `af15`), sans
+//  aucune collision.
+export const ancreTerme = (r) => slugifier((r && (r.id || r.sigle)) || '');
+
+export function ancresAnnuaire(items) {
+  const compte = new Map();
+  for (const r of items || []) {
+    const k = slugifier(r && r.nom);
+    if (k) compte.set(k, (compte.get(k) || 0) + 1);
+  }
+  return (r) => {
+    const k = slugifier(r && r.nom);
+    return k && compte.get(k) === 1 ? k : '';
+  };
+}
+
 async function jalonsCitant(lang, cle) {
   let items = [];
   try { items = (await collection('history', lang)).items; } catch { return []; }

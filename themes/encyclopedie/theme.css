@@ -99,7 +99,7 @@ header.site .wrap{display:flex;align-items:center;gap:18px;min-height:56px;flex-
 .brand:hover{text-decoration:none}
 /* Emplacement du logo (PNG à fournir). Tant que le fichier n'est pas là, rien
    ne s'affiche — pas de cadre en pointillés en production. */
-.brand img{width:30px;height:30px;flex:0 0 auto}
+.brand img{width:30px;height:30px;flex:0 0 auto;vertical-align:middle}
 .brand span{color:var(--accent)}   /* prêt pour « VeVe<span>Wiki</span> » */
 
 nav.main{display:flex;gap:4px;margin-left:auto;flex-wrap:wrap;align-items:center}
@@ -147,6 +147,31 @@ body .saut{background:var(--bg);color:var(--primary);border:2px solid var(--prim
 main #langsuggest{background:var(--gold-wash);border:1px solid var(--rule-strong);
   border-left:3px solid var(--gold);border-radius:0;padding:11px 14px}
 main #langsuggest button{color:var(--ink-faint)}
+
+/* -----------------------------------------------------------------------------
+   ⚠️⚠️ L'ANCRE DOIT ATTERRIR SOUS L'EN-TÊTE, PAS DESSOUS AU SENS PROPRE
+   L'en-tête est COLLANT. Sans `scroll-margin-top`, le navigateur amène la cible
+   à y = 0 — c'est-à-dire EXACTEMENT derrière l'en-tête, qui la recouvre. Le
+   lecteur clique « Floor Price », la page bouge, et il ne voit pas le terme :
+   le symptôme est rigoureusement le même que celui d'une ancre absente.
+   ⭐ Poser des ancres sans cette règle, c'est livrer un correctif qui a l'air
+   d'un correctif. Hauteurs réelles : 56 + 2 px de filet au bureau ; 50 (titre)
+   + 44 (rubriques) + 3 px sur mobile, où l'en-tête porte DEUX lignes.
+   ----------------------------------------------------------------------------- */
+:target{scroll-margin-top:72px}
+.term,.milestone,.item[id],.fiche,h2[id],h3[id]{scroll-margin-top:72px}
+
+/* Et une fois arrivé, on doit VOIR lequel c'est. Une page de 87 définitions se
+   ressemble d'une ligne à l'autre : sans marque, il faut relire pour trouver ce
+   qu'on cherchait déjà. Le repère s'efface au premier clic ailleurs — il aide,
+   il ne décore pas. */
+.term:target,.milestone:target{
+  background:var(--gold-wash);box-shadow:inset 3px 0 0 var(--gold);
+  padding-left:11px;margin-left:-14px;border-radius:0 2px 2px 0}
+/* ⚠️ L'annuaire est une GRILLE : une marge négative y ferait déborder la
+   cellule sur sa voisine. Le repère est donc posé sans toucher à la boîte. */
+.item[id]:target{background:var(--gold-wash);box-shadow:inset 3px 0 0 var(--gold)}
+.term:target dt,.milestone:target .what,.item[id]:target .n{font-weight:700}
 
 /* =============================================================================
    3. TITRES & TEXTE COURANT
@@ -350,14 +375,41 @@ h2:hover .lien-ancre,h3:hover .lien-ancre,.lien-ancre:focus-visible{opacity:1}
 @media (max-width:640px){
   body{font-size:15.5px}
   .wrap{padding:0 16px}
-  header.site .wrap{min-height:50px;gap:0}
-  .brand{font-size:17px;flex:1;min-width:0}
-  nav.main{gap:0;margin-left:0;width:100%;overflow-x:auto;
+
+  /* ⚠️⚠️ TROIS DÉFAUTS MOBILES CONSTATÉS EN PRODUCTION LE 30/07, UNE SEULE CAUSE.
+     `.brand{flex:1}` donne au titre une base de 0 : la ligne calcule donc
+     « 0 % + 100 % = 100 %, ça tient », la nav NE PASSE PAS à la ligne, et le
+     titre déborde par-dessus « Glossaire ». Comme la nav se retrouve coincée à
+     côté du titre, tout son contenu part dans le défilement horizontal — d'où
+     le sélecteur de langue invisible tant qu'on ne fait pas glisser la barre.
+     ⭐ La leçon : `flex:1` n'est pas « prends la place restante », c'est
+     « base 0, puis grandis ». Pour forcer un retour à la ligne il faut une
+     base réelle : `flex:0 0 100%`. */
+  header.site .wrap{min-height:50px;gap:0;position:relative;flex-wrap:wrap}
+  .brand{font-size:17px;flex:1 1 auto;min-width:0;max-width:calc(100% - 158px);
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;
+    line-height:50px}
+
+  /* Le sélecteur de langue SORT du défilement : il vit sur la ligne du titre,
+     toujours visible. Enterré dans la barre qui défile, il n'existait que pour
+     qui pense à faire glisser une barre horizontale — c'est-à-dire personne. */
+  nav.main .langbar{position:absolute;top:11px;right:0;margin:0;gap:2px}
+  nav.main .langbar a{font-size:11.5px;min-width:26px;padding:0 4px;min-height:28px}
+
+  nav.main{flex:0 0 100%;width:100%;gap:0;margin-left:0;overflow-x:auto;
     -ms-overflow-style:none;scrollbar-width:none;
-    border-top:1px solid var(--shell-2);flex-wrap:nowrap}
+    border-top:1px solid var(--shell-2);flex-wrap:nowrap;
+    /* Le dégradé de droite DIT que le menu continue. Il est posé sur la boîte,
+       pas sur le contenu : il reste au bord pendant qu'on fait défiler.
+       Sans lui, six rubriques sur un écran de 360 px se terminent visuellement
+       à « Articles » et le reste n'existe pas. */
+    -webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 26px),transparent);
+    mask-image:linear-gradient(90deg,#000 calc(100% - 26px),transparent)}
   nav.main::-webkit-scrollbar{display:none}
   nav.main a{font-size:13.5px;padding:0 10px;white-space:nowrap}
-  nav.main .langbar{margin-left:auto;padding-right:2px}
+
+  /* En-tête à deux lignes sur mobile : 50 (titre) + 44 (rubriques) + filets. */
+  :target,.term,.milestone,.item[id],.fiche,h2[id],h3[id]{scroll-margin-top:108px}
   h1{font-size:23px}
   .grid,.stats{grid-template-columns:1fr}
   .reperes,.chiffres{grid-template-columns:1fr 1fr}

@@ -31,6 +31,7 @@ import { pick, localize, t, dateLocale } from '../../../engine/lib/i18n.mjs';
 import { activeSections, sectionMeta } from '../../../engine/lib/editorial_pages.mjs';
 import { collection } from '../../../engine/lib/editorial.mjs';
 import { blogEnabled, postsFor } from '../../../engine/lib/blog.mjs';
+import { ancreJalon } from '../../../engine/lib/editorial_entries.mjs';
 import { searchEnabled } from '../../../engine/lib/features.mjs';
 
 const { lang } = Astro.props;
@@ -50,11 +51,11 @@ for (const s of activeSections(lang)) {
   cards.push({ ...meta, n });
 }
 
-// Meme regle d'ancre que la page History (src/components/pages/Editorial.astro) :
-// si les deux divergent, l'accueil produit des liens morts en silence.
-const slug = (v) => String(v || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
-  .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60);
-const ancre = (r) => (r.id ? `j-${slug(r.id)}` : `j-${slug(r.date)}-${slug(r.titre)}`);
+// ⚠️ TROISIEME copie de la regle d'ancre, supprimee le 30/07/2026. Le
+// commentaire d'origine disait deja « si les deux divergent, l'accueil produit
+// des liens morts en silence » — et elles avaient diverge (slice 60 contre 70).
+// Une regle recopiee trois fois est une regle qui a trois chances de mentir.
+const ancre = ancreJalon;
 
 let milestones = [];
 if (activeSections(lang).includes('history')) {

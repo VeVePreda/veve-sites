@@ -47,6 +47,7 @@ import { dataset } from '../../engine/lib/dataset.mjs';
 import { locales } from '../../engine/lib/i18n.mjs';
 import { activeSections } from '../../engine/lib/editorial_pages.mjs';
 import { collection } from '../../engine/lib/editorial.mjs';
+import { fichesDe, cheminFiche, ancreJalon, ancreTerme, ancresAnnuaire } from '../../engine/lib/editorial_entries.mjs';
 import { blogEnabled, postsFor, languesBlog } from '../../engine/lib/blog.mjs';
 
 /** Le libellé d'une entrée, selon sa section. Une entrée sans libellé n'est pas
@@ -60,12 +61,66 @@ const LIBELLE = {
   annuaire: (r) => r.nom,
 };
 
+// -----------------------------------------------------------------------------
+//  L'ANCRE — corrigé le 30/07/2026 après essai en production
+// -----------------------------------------------------------------------------
+//  ⚠️ DÉFAUT CONSTATÉ : l'index renvoyait `/glossary/` pour les 87 termes. On
+//  cherchait « Floor Price », on cliquait, on atterrissait en HAUT d'une page de
+//  87 définitions — à charge de retrouver le mot soi-même. Une recherche qui
+//  amène sur la bonne PAGE mais pas au bon ENDROIT ne fait que la moitié du
+//  travail, et c'est la moitié facile.
+//
+//  ⛔ LA RÈGLE QUE `Editorial.astro` ÉCRIT DÉJÀ, ET QU'ON SUIT ICI :
+//     « une entrée ne reçoit une url QUE si elle porte vraiment un `id` dans le
+//       HTML. Renvoyer vers une ancre qui n'existe pas serait la même faute que
+//       les hreflang vers des pages non construites. »
+//  D'où le tableau ci-dessous, écrit en regardant le gabarit, pas en devinant :
+//     glossary  <div class="term" id={ancreTerme(r)}>  -> #<slug>
+//     acronyms  <div class="term" id={ancreTerme(r)}>  -> #<slug>
+//               ⚠️ PAS le sigle brut : 8 sur 65 portent une espace, donc un
+//               identifiant HTML invalide et une ancre inatteignable.
+//     history   <li class="milestone" id={ancre}> -> #j-…
+//     annuaire  <div class="item">                -> id AJOUTÉ dans le même lot
+//     brands    aucun id sur l'index, mais 29 licences sur 44 ont leur PROPRE
+//               fiche : on envoie vers la fiche, pas vers l'index + ancre.
+//
+//  ⭐ `ancreJalon` et `slugifier` sont IMPORTÉS, jamais recopiés. Le dépôt
+//  portait déjà trois copies de la règle d'ancre (Editorial.astro,
+//  EditorialHome.astro, editorial_entries.mjs) — et elles avaient DÉJÀ divergé :
+//  `slice(0, 60)` d'un côté, `slice(0, 70)` de l'autre. Sans effet aujourd'hui
+//  (le plus long identifiant de jalon fait 29 caractères, mesuré sur les 41), et
+//  parfaitement silencieux le jour où un titre dépasse. Une quatrième copie
+//  aurait été une quatrième occasion.
+const ancreDe = {
+  glossary: (r) => (ancreTerme(r) ? `#${ancreTerme(r)}` : ''),
+  acronyms: (r) => (ancreTerme(r) ? `#${ancreTerme(r)}` : ''),
+  history: (r) => `#${ancreJalon(r)}`,
+  // ⚠️ remplacé plus bas par `ancresAnnuaire(items)` : l'unicité d'un nom ne
+  // se juge pas sur une entrée seule, mais sur la liste entière.
+  annuaire: null,
+  brands: () => '',   // traité à part : la fiche l'emporte sur l'ancre
+};
+
 async function indexEditorial() {
   const out = [];
   const { active } = locales();
   const languesDuBlog = blogEnabled() ? await languesBlog() : [];
 
   for (const lang of active) {
+    // Les licences qui ont VRAIMENT une fiche à elles (seuil dans
+    // editorial_entries.mjs). Même clé de contenu que Editorial.astro : on
+    // n'indexe pas par identité d'objet, `collection()` étant relu ici et dans
+    // `fichesDe` — deux instances du même contenu, `Map.has(objet)` toujours
+    // faux. Ce piège a déjà coûté 58 fiches inatteignables.
+    const fiches = new Map();
+    if (activeSections(lang).includes('brands')) {
+      try {
+        for (const f of await fichesDe('brands', lang)) {
+          fiches.set(String(f.record.licence ?? '').trim(), cheminFiche(f.section, f.slug));
+        }
+      } catch (e) { /* section muette : traitée plus bas */ }
+    }
+
     // ⚠️ `activeSections(lang)` et non les sections du manifeste : c'est la
     // liste de ce qui est RÉELLEMENT construit dans cette langue.
     for (const section of activeSections(lang)) {
@@ -80,10 +135,21 @@ async function indexEditorial() {
         console.warn(`[index] ${section}/${lang} illisible : ${e && e.message}`);
         continue;
       }
+      // Même verdict d'unicité que le gabarit, calculé sur la même liste.
+      const ancreAnnuaire = section === 'annuaire' ? ancresAnnuaire(items) : null;
       for (const r of items) {
         const n = String(libelle(r) || '').trim();
         if (!n) continue;
-        out.push({ s: `/${section}/`, n, t: section, l: lang });
+        // Une licence qui a sa fiche y va directement ; sinon elle reste sur
+        // l'index, sans ancre — l'index des marques n'en porte aucune.
+        const versFiche = section === 'brands'
+          ? fiches.get(String(r.licence ?? '').trim())
+          : null;
+        const anc = section === 'annuaire'
+          ? (ancreAnnuaire(r) ? `#${ancreAnnuaire(r)}` : '')
+          : (ancreDe[section] ? ancreDe[section](r) : '');
+        const s = versFiche || `/${section}/${anc}`;
+        out.push({ s, n, t: section, l: lang });
       }
     }
 
@@ -122,7 +188,13 @@ export async function GET() {
                    'la recherche sera rendue et restera muette.');
     } else {
       const parLangue = idx.reduce((m, x) => ((m[x.l] = (m[x.l] || 0) + 1), m), {});
-      console.log(`[index] ${idx.length} entrées éditoriales ${JSON.stringify(parLangue)}`);
+      // ⭐ On journalise le taux d'ancrage, pas seulement le total : une entrée
+      // sans ancre atterrit en haut d'une page de 87 lignes. Si ce taux chute,
+      // c'est qu'un gabarit a cessé d'émettre ses `id` — et rien d'autre ne le
+      // dirait.
+      const ancrees = idx.filter((x) => x.s.includes('#')).length;
+      console.log(`[index] ${idx.length} entrées éditoriales ${JSON.stringify(parLangue)} — `
+                + `${ancrees} ancrées (${Math.round((ancrees / idx.length) * 100)} %)`);
     }
     return json(idx);
   }
