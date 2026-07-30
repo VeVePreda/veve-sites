@@ -22,6 +22,16 @@ site:
     es: "La enciclopedia VeVe independiente — el saber de los coleccionistas, verificado y fechado."
     it: "L'enciclopedia VeVe indipendente — il sapere dei collezionisti, verificato e datato."
     de: "Die unabhängige VeVe-Enzyklopädie — Sammlerwissen, geprüft und mit Datum."
+  # --- DEVISE, traduite. Rendue par EditorialHome.astro sous le titre. -------
+  # ⚠️ Volontairement ABSENTE de la barre du haut : sur un écran de 360 px elle
+  # serait tronquée, et l'accueil est le seul endroit où une devise se lit.
+  # Une langue sans devise n'affiche rien : on n'invente pas un repli anglais.
+  devise:
+    en: "Knowledge, connected"
+    fr: "Le savoir, relié"
+    es: "El saber, conectado"
+    it: "Il sapere, collegato"
+    de: "Wissen, verbunden"
   description:
     en: "The independent VeVe encyclopedia: glossary, acronyms, brands, creators and the full timeline of VeVe history."
     fr: "L'encyclopédie VeVe indépendante : glossaire, acronymes, marques, créateurs et toute la chronologie de VeVe."
@@ -50,13 +60,27 @@ languages:
 rendering: static           # un wiki = tout pré-généré, aucun serveur
 
 features:
-  # ⚠️ `internal` ANNONÇAIT une recherche qui n'existe pas ici : l'accueil
-  # éditorial ne rend aucune boîte, et `search-index.json` renvoie `[]` tant que
-  # le site n'a pas de prix — mais les 32 pages publiaient quand même un
-  # `SearchAction` dans leurs données structurées. On ne promet plus à Google
-  # une fonction absente. À repasser à `internal` le jour où l'index couvrira le
-  # contenu éditorial (glossaire, acronymes, marques, jalons, articles).
-  search: none
+  # ✅ REPASSÉ À `internal` LE 30/07/2026 — exactement à la condition posée par
+  # le commentaire d'origine, conservé ci-dessous parce qu'il dit POURQUOI la
+  # valeur avait été mise à `none` :
+  #
+  #   « `internal` ANNONÇAIT une recherche qui n'existe pas ici : l'accueil
+  #     éditorial ne rend aucune boîte, et `search-index.json` renvoie `[]` tant
+  #     que le site n'a pas de prix — mais les 32 pages publiaient quand même un
+  #     `SearchAction` dans leurs données structurées. On ne promet plus à Google
+  #     une fonction absente. À repasser à `internal` le jour où l'index couvrira
+  #     le contenu éditorial (glossaire, acronymes, marques, jalons, articles). »
+  #
+  # L'index couvre désormais l'éditorial : 1 074 entrées
+  # (en 309 · fr 309 · es/it/de 152), 4,4 Ko gzippés.
+  # ⛔ CETTE LIGNE NE TIENT PAS SEULE. Elle suppose quatre choses déjà posées :
+  #   • src/pages/search-index.json.js indexe l'éditorial ;
+  #   • engine/lib/features.mjs accepte une source éditoriale ;
+  #   • src/components/pages/EditorialHome.astro rend la boîte ;
+  #   • engine/i18n/*.json portent search.placeholderWiki / hint / noResult.
+  # La remettre à `none` sans retirer la boîte est sans danger ; l'inverse
+  # recrée le défaut du 27/07.
+  search: internal
   comments: false
   database: false
 
@@ -134,17 +158,38 @@ links:
   team: []
   affiliate: []
 
-# --- Identité visuelle : ARGENT / OR (couleurs du logo), sur fond sombre -----
+# --- Identité visuelle : THÈME CLAIR ENCYCLOPÉDIQUE, l'or en ACCENT ---------
+# ⚠️ Bascule du 30/07/2026. La palette sombre argent/or n'est pas perdue : elle
+# devient le thème NUIT, qui exige d'émettre deux palettes depuis Base.astro
+# (une seule y est écrite, ligne 86) et donc de toucher les 15 sites. Lot à part.
 identity:
-  theme: aurora
+  # ⛔ PAS `aurora`. aurora code en dur des filets en blanc semi-transparent
+  # (#ffffff14) : sur fond clair ils sont ABSENTS, pas discrets — la page perd
+  # toutes ses séparations sans qu'aucun build ne s'en plaigne. Le thème clair
+  # est un fichier séparé, `themes/encyclopedie/theme.css`. aurora reste intact,
+  # donc veveprice ne bouge pas.
+  # 🔴 Une faute de frappe ici ne lève AUCUNE erreur : `themeFiles[…] ??
+  # Object.values(themeFiles)[0]` retombe sur le premier thème du glob, donc sur
+  # aurora. Build vert, site resté sombre. Signature à chercher dans dist/ :
+  # `#ffffff14` n'existe que dans aurora.
+  theme: encyclopedie
   palette:
-    primary: "#d4af37"     # or
-    accent:  "#c0c5ce"     # argent
-    danger:  "#e0555b"
-    bg:      "#0c0d10"     # anthracite
-    surface: "#16181d"
-    text:    "#e7e9ee"     # argent clair
-    muted:   "#9aa0ab"
+    # ⚠️⚠️ `primary` N'EST PAS LA COULEUR DE MARQUE, C'EST CELLE DES LIENS.
+    # Base.astro ligne 86 émet ces sept clés en variables CSS, et le thème fait
+    # `a{color:var(--primary)}`. Y laisser l'or #d4af37 donnerait des liens à
+    # 2,10:1 sur blanc — illisibles, sur toutes les pages, sans qu'aucun test ne
+    # le voie. L'or descend dans `accent`, assombri pour être lisible.
+    primary: "#3366cc"     # bleu de lien   — 5,37:1 sur blanc
+    accent:  "#7a5f10"     # or LISIBLE     — 6,05:1
+    danger:  "#b32424"     # rouge          — 6,57:1
+    bg:      "#ffffff"     # papier
+    surface: "#f8f9fa"     # encadrés, infobox, pied
+    text:    "#202122"     # encre          — 16,13:1
+    muted:   "#666b71"     # méta, dates    — 5,38:1 papier / 5,10:1 surface
+    # ⚠️ `muted` n'est PAS #72777d (le gris de Wikipédia) : celui-là passe sur
+    # blanc (4,52:1) mais ÉCHOUE sur `surface` (4,28:1) — or les méta vivent
+    # justement dans les encadrés gris. Un contraste se valide contre le fond
+    # RÉEL du bloc, jamais contre le blanc.
   fonts:
     heading: "Georgia, 'Times New Roman', serif"     # ton encyclopédique
     body: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif"
