@@ -12,11 +12,12 @@
     "audit": "python3 engine/tools/audit_seo.py dist",
     "test:slugs": "python3 engine/tools/test_slugs.py",
     "test:nginx": "python3 engine/tools/test_nginx.py",
+    "test:dockerfile": "node engine/tools/test_dockerfile.mjs",
     "test:donnees": "node engine/tools/test_concurrence.mjs",
     "test:quotas": "node engine/tools/test_quotas.mjs",
     "test:acces": "node engine/tools/test_access.mjs",
     "test:blog": "node engine/tools/test_blog.mjs",
-    "test": "npm run test:donnees && npm run test:entrepot && npm run test:quotas && npm run test:acces && npm run test:blog && npm run test:figures && npm run test:fiches && npm run test:lastmod && npm run test:langues && npm run test:renommage && npm run test:schema && npm run test:adresses && npm run test:slugs && npm run test:nginx",
+    "test": "npm run test:dockerfile && npm run test:donnees && npm run test:entrepot && npm run test:quotas && npm run test:acces && npm run test:blog && npm run test:figures && npm run test:fiches && npm run test:lastmod && npm run test:langues && npm run test:renommage && npm run test:schema && npm run test:adresses && npm run test:slugs && npm run test:nginx",
     "test:entrepot": "node engine/tools/test_entrepot.mjs",
     "test:figures": "node engine/tools/test_figures.mjs",
     "test:fiches": "node engine/tools/test_fiches.mjs",
@@ -30,6 +31,6 @@
     "@astrojs/markdown-satteri": "^0.3.4",
     "@astrojs/node": "^11.0.2",
     "astro": "^7.1.1",
-    "js-yaml": "^5.2.1"
+    "js-yaml": "^5.2.2"
   }
 }
