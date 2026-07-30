@@ -115,9 +115,17 @@ if (blogEnabled()) libellesType.blog = t(lang, 'blog.title');
   {posts.length > 0 && (
     <section class="latest-wrap">
       <h2>{t(lang, 'blog.title')}</h2>
+      {/* ⚠️ La couverture n'est rendue QUE si l'article en declare une. Pas de
+          cadre gris par defaut : une image absente ne doit pas devenir un trou
+          visible sur chaque carte. `width`/`height` sont poses pour reserver la
+          place et eviter que le texte saute quand l'image arrive. */}
       <div class="grid">
         {posts.map((p) => (
           <a class="item" href={localize(lang, `/blog/${p.slug}/`)}>
+            {p.data.cover && (
+              <img class="cover" src={p.data.cover} alt="" loading="lazy"
+                   decoding="async" width="480" height="270" />
+            )}
             <div class="n">{p.data.title}</div>
             {p.data.description && <div class="s">{p.data.description}</div>}
             <div class="f muted" style="font-size:13px">{p.data.date ? new Date(p.data.date).toLocaleDateString(df) : ''}</div>

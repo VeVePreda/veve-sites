@@ -275,11 +275,15 @@ const ldSection = (() => {
             <span><b>{nombre(r.nb_items) || '—'}</b> {t(lang, 'fiche.items')}</span>
             <span><b>{r.nb_series || '—'}</b> {t(lang, 'brands.series')}</span>
             {/* Une date sans son étiquette ment : « premier drop » et « première
-                frappe » ne sont pas le même fait (cf. mergeBrandCounters). */}
+                frappe » ne sont pas le même fait (cf. mergeBrandCounters).
+                ⚠️ ORDRE INVERSÉ le 30/07/2026 : la valeur d'abord, l'étiquette
+                ensuite — comme les deux compteurs ci-dessus. Les trois chiffres
+                d'une même ligne se lisent en colonne ; un seul qui commence par
+                son libellé casse le balayage et se fait relire. */}
             {r.premier_drop && (
               <span class="muted" title={r.date_nature === 'mint' ? t(lang, 'brands.first_mint_hint') : undefined}>
-                {r.date_nature === 'mint' ? t(lang, 'brands.first_mint') : t(lang, 'brands.first_drop')}
-                {' '}<b>{r.premier_drop}</b>
+                <b>{r.premier_drop}</b>
+                {' '}{r.date_nature === 'mint' ? t(lang, 'brands.first_mint') : t(lang, 'brands.first_drop')}
               </span>
             )}
           </div>

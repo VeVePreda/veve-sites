@@ -88,6 +88,7 @@ main:focus{outline:none}   /* main[tabindex=-1] reçoit le focus du lien d'évit
    ============================================================================= */
 header.site{border-bottom:1px solid var(--rule);position:sticky;top:0;
   background:var(--bg);z-index:10}
+/* `sticky` positionne déjà l'élément : les enfants absolus s'y accrochent. */
 /* Le filet doré sous l'en-tête : le seul endroit où l'or est franc. Il tient le
    rôle que jouait la lueur dorée du fond sombre. */
 header.site::after{content:"";display:block;height:2px;
@@ -110,8 +111,19 @@ nav.main a[aria-current]{color:var(--text);font-weight:600;
   box-shadow:inset 0 -2.5px 0 var(--gold)}
 
 footer.site{border-top:1px solid var(--rule);background:var(--surface);
-  margin-top:44px;padding:20px 0 30px;font-size:13.5px;color:var(--ink-soft)}
-footer.site p{margin:0 0 9px}
+  margin-top:44px;padding:20px 0 30px;font-size:12.5px;color:var(--ink-faint)}
+/* ⚠️ UN SEUL NIVEAU DANS LE PIED. « Site indépendant, non affilié » et « ceci
+   n'est pas un conseil » sont des mentions obligatoires : elles doivent être
+   ATTEIGNABLES, pas visibles de loin. Elles sortaient plus grosses et plus
+   sombres que les liens légaux — donc c'est elles que l'œil attrapait en bas
+   de chaque page.
+   ⚠️ Le `!important` n'est pas un caprice : `Base.astro` écrit
+   `style="font-size:13px"` EN LIGNE sur la dernière ligne, et un style en ligne
+   bat n'importe quelle feuille. Le retirer demanderait de toucher un fichier qui
+   sert les 15 sites — pour trois caractères. À supprimer le jour où l'on ouvrira
+   `Base.astro` (lot 2). */
+footer.site p{margin:0 0 7px;font-size:12.5px!important;color:var(--ink-faint);
+  line-height:1.7}
 
 /* -----------------------------------------------------------------------------
    ⚠️⚠️ SURCHARGES À SPÉCIFICITÉ RENFORCÉE — LIRE AVANT DE SIMPLIFIER
@@ -276,7 +288,12 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
   border:1px solid var(--gold);background:var(--gold-wash)}
 
 /* --- Chronologie : une frise, pas une liste --- */
-.timeline{margin:16px 0 0;padding-left:15px;border-left:2px solid var(--shell-2)}
+/* ⚠️ `<ol class="timeline">` : sans `list-style:none`, les numéros du navigateur
+   (1. 2. 3.) s'ajoutent aux puces dorées de la frise — deux repères pour la même
+   chose. Et `padding-left` doit écraser le retrait par défaut de 40 px, sinon le
+   filet vertical et le texte ne sont plus alignés. */
+.timeline{margin:16px 0 0;padding-left:15px;border-left:2px solid var(--shell-2);
+  list-style:none}
 .milestone{position:relative;padding:0 0 15px;max-width:none}
 .milestone::before{content:"";position:absolute;left:-21px;top:6px;width:7px;height:7px;
   border-radius:50%;background:var(--gold);border:1.5px solid var(--bg)}
@@ -311,11 +328,45 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 .latest-wrap{margin:22px 0 0}
 .latest{margin:0}
 
-/* L'ancre de section : visible au survol ET au focus clavier (sinon elle
-   n'existe que pour la souris). */
-.lien-ancre{color:var(--ink-faint);text-decoration:none;opacity:0;padding:0 6px;
-  font-weight:400}
-h2:hover .lien-ancre,h3:hover .lien-ancre,.lien-ancre:focus-visible{opacity:1}
+/* --- Cartes d'ARTICLES : elles respirent, contrairement aux grilles denses ---
+   Une grille de rubriques est un index : on la balaie, les filets de 1 px
+   suffisent. Une liste d'articles se REGARDE une carte à la fois — d'où de
+   vraies gouttières et une bordure par carte. */
+.latest-wrap .grid{gap:14px;background:none;border:0;
+  grid-template-columns:repeat(auto-fill,minmax(240px,1fr))}
+.latest-wrap .grid .item{border:1px solid var(--rule);padding:0;overflow:hidden;
+  display:flex;flex-direction:column}
+.latest-wrap .grid .item:hover{border-color:var(--rule-strong);background:var(--bg)}
+.latest-wrap .grid .item .n,
+.latest-wrap .grid .item .s,
+.latest-wrap .grid .item .f{padding:0 13px}
+.latest-wrap .grid .item .n{padding-top:12px;font-size:16px}
+.latest-wrap .grid .item .f{padding-bottom:12px;margin-top:auto}
+
+/* La couverture : rendue SEULEMENT si l'article en déclare une. Pas de cadre
+   gris par défaut — une image absente ne doit pas devenir un trou visible.
+   ⚠️ La colonne `cover` du Sheet est vide pour les 13 articles : rien ne
+   s'affichera tant qu'elle ne sera pas remplie. */
+.latest-wrap .grid .item .cover{display:block;width:100%;aspect-ratio:16/9;
+  object-fit:cover;background:var(--surface);border-bottom:1px solid var(--rule);
+  margin:0 0 2px}
+
+/* ⚠️⚠️ DÉFAUT QUE J'AI CRÉÉ, VU EN PRODUCTION : `.lien-ancre` n'est pas
+   seulement le petit lien discret à côté d'un titre. Dans la chronologie, c'est
+   la balise qui entoure **LA DATE ELLE-MÊME** :
+       <div class="when"><a class="lien-ancre" href="#j-…">{r.date}</a>
+   Un `opacity:0` global a donc rendu les 41 dates invisibles. La frise
+   paraissait sans dates, et sans repère de lecture.
+   ⭐ La leçon : une classe nommée d'après son RÔLE SUPPOSÉ (« le lien d'ancre »)
+   peut recouvrir deux usages. On style le rôle DANS SON CONTEXTE, jamais la
+   classe seule. */
+h2 .lien-ancre,h3 .lien-ancre{color:var(--ink-faint);text-decoration:none;
+  opacity:0;padding:0 6px;font-weight:400}
+h2:hover .lien-ancre,h3:hover .lien-ancre,
+h2 .lien-ancre:focus-visible,h3 .lien-ancre:focus-visible{opacity:1}
+/* Dans la frise, l'ancre EST la date : pleinement visible, et cliquable. */
+.milestone .when .lien-ancre{color:var(--ink-faint);text-decoration:none;opacity:1}
+.milestone .when .lien-ancre:hover{color:var(--primary);text-decoration:underline}
 
 /* --- Pages légales (LegalPage.astro : `.legal`, corps injecté en HTML) ---
    Obligatoires et lues rarement, mais lues en entier quand elles le sont :
@@ -393,18 +444,30 @@ h2:hover .lien-ancre,h3:hover .lien-ancre,.lien-ancre:focus-visible{opacity:1}
   /* Le sélecteur de langue SORT du défilement : il vit sur la ligne du titre,
      toujours visible. Enterré dans la barre qui défile, il n'existait que pour
      qui pense à faire glisser une barre horizontale — c'est-à-dire personne. */
-  nav.main .langbar{position:absolute;top:11px;right:0;margin:0;gap:2px}
-  nav.main .langbar a{font-size:11.5px;min-width:26px;padding:0 4px;min-height:28px}
+  nav.main .langbar{position:absolute;top:10px;right:0;margin:0;gap:3px;z-index:5}
+  /* Une pastille encadrée, pas un mot gris posé sur du blanc : sur la ligne du
+     titre, sans fond ni bordure, elle se lisait « blanc sur blanc ». */
+  nav.main .langbar a{font-size:11.5px;min-width:28px;padding:0 5px;min-height:30px;
+    color:var(--ink-soft);background:var(--surface);
+    border:1px solid var(--rule);border-radius:2px}
+  nav.main .langbar a[aria-current]{background:var(--bg);color:var(--text);
+    border-color:var(--gold);font-weight:700}
 
+  /* ⚠️⚠️ LE MASQUE A ÉTÉ RETIRÉ — il effaçait le sélecteur de langue.
+     J'avais posé `mask-image` sur `nav.main` pour faire un dégradé à droite. Or
+     `.langbar` est un ENFANT de `nav.main` : un masque s'applique à tout le
+     sous-arbre, et la langbar était placée pile dans la zone transparente du
+     dégradé. Résultat : des boutons présents, cliquables, et **invisibles**.
+     ⭐ Deux corrections posées le même jour se sont annulées : le repère de
+     défilement a effacé ce qu'il devait rendre atteignable. Le dégradé vit
+     maintenant sur un pseudo-élément de l'EN-TÊTE, qui n'est pas le conteneur
+     de défilement — il ne peut donc plus rien masquer de son contenu. */
   nav.main{flex:0 0 100%;width:100%;gap:0;margin-left:0;overflow-x:auto;
     -ms-overflow-style:none;scrollbar-width:none;
-    border-top:1px solid var(--shell-2);flex-wrap:nowrap;
-    /* Le dégradé de droite DIT que le menu continue. Il est posé sur la boîte,
-       pas sur le contenu : il reste au bord pendant qu'on fait défiler.
-       Sans lui, six rubriques sur un écran de 360 px se terminent visuellement
-       à « Articles » et le reste n'existe pas. */
-    -webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 26px),transparent);
-    mask-image:linear-gradient(90deg,#000 calc(100% - 26px),transparent)}
+    border-top:1px solid var(--shell-2);flex-wrap:nowrap;padding-right:26px}
+  header.site::before{content:"";position:absolute;right:0;bottom:2px;
+    width:30px;height:44px;pointer-events:none;z-index:3;
+    background:linear-gradient(90deg,transparent,var(--bg) 78%)}
   nav.main::-webkit-scrollbar{display:none}
   nav.main a{font-size:13.5px;padding:0 10px;white-space:nowrap}
 
