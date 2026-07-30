@@ -181,9 +181,10 @@ const ldSection = (() => {
 
   {section === 'acronyms' && (
     <dl class="glossary">
+      {/* ⚠️ PAS `id={r.sigle}` : 8 sigles sur 65 contiennent une espace, ce qui
+          rend l'identifiant HTML invalide et l'ancre inatteignable. `ancreTerme`
+          est la seule fabrique d'ancre — la meme que le JSON-LD ci-dessus. */}
       {items.map((r) => (
-        {/* ⚠️ PAS `id={r.sigle}` : 8 sigles sur 65 contiennent une espace,
-            ce qui rend l'identifiant invalide et l'ancre inatteignable. */}
         <div class="term" id={ancreTerme(r) || undefined}>
           <dt>{r.sigle}{r.signification && <span class="muted"> — {r.signification}</span>}
             {r.categorie && <span class="tag">{r.categorie}</span>}</dt>
