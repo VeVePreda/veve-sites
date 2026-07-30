@@ -92,6 +92,15 @@ RUN WAREHOUSE_OFFLINE=1 npm run test:langues
 # un Event avec une date inventee). D'ou leur place ici, ou un echec ARRETE le
 # deploiement.
 RUN npm run test:schema
+# ⭐ AJOUTÉ LE 30/07/2026 — APRÈS UN BUILD DE PRODUCTION CASSÉ PAR UNE FAUTE DE
+# FORME. Un commentaire JSX mal placé dans un .astro a fait tomber le
+# déploiement à l'étape 17/20, après 12 bancs verts et 3 minutes de build.
+# Ce banc lit les 48 gabarits en quelques millisecondes, sans dépendance.
+# ⚠️ IL EST PLACÉ JUSTE AVANT `npm run build`, ET C'EST VOULU : il coûte
+# 40 ms, le compilateur coûte 3 minutes. Un défaut de forme doit être vu par le
+# moins cher des deux. ⛔ Il ne REMPLACE pas le compilateur, il le précède.
+RUN npm run test:gabarits
+
 RUN WAREHOUSE_OFFLINE=1 npm run test:renommage
 
 RUN export RENDERING=$(cat /app/.rendering); npm run build

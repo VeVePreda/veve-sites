@@ -69,7 +69,22 @@ const alternates = (altPaths
   : languesDeLaPage.map((l) => ({ lang: l, href: `${root}${localize(l, path)}` })));
 
 const themeFiles = import.meta.glob('../../themes/*/theme.css', { query: '?raw', import: 'default', eager: true });
-const themeCss = themeFiles[`../../themes/${m.identity.theme}/theme.css`] ?? Object.values(themeFiles)[0] ?? '';
+// ⭐⭐ GARDE-FOU (30/07/2026) — LE REPLI SILENCIEUX EST MORT.
+// Cette ligne s'écrivait `?? Object.values(themeFiles)[0]` : une faute de frappe
+// dans `identity.theme` ne levait AUCUNE erreur, le moteur retombait sur le
+// PREMIER thème du glob (aurora, par ordre alphabétique) et le site sortait
+// entièrement construit… dans le mauvais thème. Build vert, 344 pages, site
+// resté sombre — un symptôme rigoureusement identique à « le lot n'a pas été
+// déployé ». On ne devine plus : on s'arrête, et on dit quoi faire.
+const cleTheme = `../../themes/${m.identity.theme}/theme.css`;
+if (!themeFiles[cleTheme]) {
+  const dispo = Object.keys(themeFiles).map((k) => k.split('/')[3]).join(', ');
+  throw new Error(
+    `[theme] identity.theme = « ${m.identity.theme} » ne désigne aucun dossier. `
+    + `Thèmes disponibles : ${dispo}. `
+    + `Corriger sites/${process.env.SITE || '<site>'}/manifest.yml, ou créer themes/${m.identity.theme}/theme.css.`);
+}
+const themeCss = themeFiles[cleTheme];
 // ⭐ `color-scheme` DÉDUIT de la palette, jamais écrit en dur : ce dépôt sert
 // plusieurs sites et en servira d'autres. Sans cette déclaration, le navigateur
 // rend SES propres pièces — barres de défilement, champs, menus natifs — en
@@ -82,8 +97,31 @@ const luminance = (hex) => {
     .map((x) => (x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4));
   return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2];
 };
-const colorScheme = luminance(p.bg) < 0.18 ? 'dark' : 'light';
-const vars = `:root{color-scheme:${colorScheme};--primary:${p.primary};--accent:${p.accent};--danger:${p.danger};--bg:${p.bg};--surface:${p.surface};--text:${p.text};--muted:${p.muted};--font-heading:${f.heading};--font-body:${f.body}}`;
+const colorScheme = (pal) => (luminance(pal.bg) < 0.18 ? 'dark' : 'light');
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  DEUX PALETTES — ajouté le 30/07/2026, RÉTROCOMPATIBLE PAR CONSTRUCTION
+// ─────────────────────────────────────────────────────────────────────────────
+//  Un site déclare `identity.palette` comme avant : rien ne change pour lui, pas
+//  de second bloc, pas de bouton. C'est le cas des 14 sites autres que vevewiki,
+//  et la chaîne produite est identique au caractère près.
+//  Un site qui déclare EN PLUS `identity.palette_nuit` obtient les deux jeux de
+//  variables et le bouton de bascule.
+//
+//  ⚠️ CE QUI FAIT MARCHER LA BASCULE N'EST PAS ICI, C'EST LE FICHIER DE THÈME.
+//  `aurora` code en dur des filets en blanc semi-transparent (#ffffff14) : ils
+//  existent sur fond sombre et DISPARAISSENT sur fond clair. Un thème qui
+//  suppose son fond ne peut pas basculer. Un thème qui n'utilise que ses
+//  variables le peut. C'est la règle à tenir pour les 13 sites à venir.
+const varsDe = (pal) => `--primary:${pal.primary};--accent:${pal.accent};`
+  + `--danger:${pal.danger};--bg:${pal.bg};--surface:${pal.surface};`
+  + `--text:${pal.text};--muted:${pal.muted};`
+  + `--font-heading:${f.heading};--font-body:${f.body}`;
+const pNuit = m.identity.palette_nuit || null;
+const vars = pNuit
+  ? `:root{color-scheme:${colorScheme(p)};${varsDe(p)}}`
+    + `:root[data-theme="nuit"]{color-scheme:${colorScheme(pNuit)};${varsDe(pNuit)}}`
+  : `:root{color-scheme:${colorScheme(p)};${varsDe(p)}}`;
 
 const canary = createHash('sha256')
   .update((process.env.CANARY_SALT || m.site.domain) + Astro.url.pathname)
@@ -105,6 +143,9 @@ const suggestData = alternates.filter((a) => a.lang !== lang).map((a) => ({ l: a
     claire au-dessus d'une page sombre — le premier écran d'un visiteur
     mobile. Elle suit la palette du site, elle n'est pas écrite en dur. */}
 <meta name="theme-color" content={p.bg} />
+{/* ⚠️ `theme-color` ne sait pas suivre un attribut : c'est le script de bascule
+    qui le réécrit. Sans ça, la barre d'adresse d'Android reste claire au-dessus
+    d'une page passée en nuit — le premier écran d'un visiteur mobile. */}
 <Figures />
 <title>{fullTitle}</title>
 <meta name="description" content={desc} />
@@ -142,6 +183,16 @@ const suggestData = alternates.filter((a) => a.lang !== lang).map((a) => ({ l: a
 <meta name="generator-ref" content={canary} />
 <meta name="build-time" content={updatedAt || new Date().toISOString()} />
 {statsOn && <script defer src="/stats/script.js" data-website-id={analytics.website_id}></script>}
+{/* ⭐⭐ AVANT LES STYLES, ET C'EST LE POINT. Ce script pose l'attribut AVANT que
+    la page ne soit peinte. Placé plus bas (ou en fin de body), un lecteur en
+    mode nuit verrait un éclair blanc à chaque chargement — visible une fois sur
+    deux, donc jamais reproduit en test.
+    ⚠️ Le défaut est JOUR, décidé, pas déduit de `prefers-color-scheme` : c'est
+    le choix de Preda, et un site d'encyclopédie se lit clair par défaut. */}
+{pNuit && (
+  <script is:inline>{`(function(){try{var t=localStorage.getItem('veve-theme');
+if(t==='nuit')document.documentElement.setAttribute('data-theme','nuit');}catch(e){}})();`}</script>
+)}
 <style is:inline set:html={vars}></style>
 <style is:inline set:html={themeCss}></style>
 <style is:inline set:html={`.legal-links{margin:0 0 10px;font-size:12.5px;line-height:1.9;color:var(--muted)}.legal-links a{color:var(--muted);text-decoration:none;border-bottom:1px solid transparent}.legal-links a:hover,.legal-links a:focus-visible{color:var(--text);border-bottom-color:var(--muted)}.langbar{display:flex;gap:6px;margin-left:12px}.langbar a{font-size:13px;color:var(--muted);padding:2px 6px;border-radius:6px;min-height:24px;min-width:24px;display:inline-flex;align-items:center;justify-content:center}.langbar a[aria-current]{background:#ffffff14;color:var(--text)}.crumbs a{display:inline-block;padding:3px 0;min-height:24px}.legal-links a{display:inline-block;padding:3px 0;min-height:24px}.saut{position:absolute;left:-9999px;top:0;z-index:100;background:var(--surface);color:var(--text);border:1px solid var(--primary);border-radius:0 0 8px 0;padding:10px 16px;text-decoration:none}.saut:focus{left:0}#langsuggest{display:none;background:var(--surface);border:1px solid var(--primary);border-radius:10px;padding:10px 14px;margin:14px 0;font-size:14px}#langsuggest a{font-weight:500}#langsuggest button{background:none;border:0;color:var(--muted);cursor:pointer;font-size:13px;text-decoration:underline}`}></style>
@@ -184,6 +235,11 @@ const suggestData = alternates.filter((a) => a.lang !== lang).map((a) => ({ l: a
           <a href={localize(lang, '/collections/')}>{t(lang, 'nav.collections')}</a>
           <a href={localize(lang, '/rarity/')}>{t(lang, 'nav.rarities')}</a>
         </>)}
+    {pNuit && (
+      <button type="button" id="bascule-theme" class="bascule"
+              aria-label={t(lang, 'theme.toggle')} title={t(lang, 'theme.toggle')}
+              aria-pressed="false"></button>
+    )}
     <span class="langbar">
       {alternates.map((a) => (
         <a href={a.href} hreflang={a.lang} aria-current={a.lang === lang ? 'true' : undefined}>{a.lang.toUpperCase()}</a>
@@ -219,6 +275,30 @@ const suggestData = alternates.filter((a) => a.lang !== lang).map((a) => ({ l: a
   <p style="margin:0 0 6px">{t(lang, 'legal.notAffiliated')}</p>
   <p style="margin:0;font-size:13px">{t(lang, 'legal.notFinancialAdvice')}</p>
 </div></footer>
+{pNuit && (
+  <script is:inline define:vars={{ BG_JOUR: p.bg, BG_NUIT: pNuit.bg }}>
+    (function () {
+      var b = document.getElementById('bascule-theme');
+      if (!b) return;
+      var racine = document.documentElement;
+      var meta = document.querySelector('meta[name="theme-color"]');
+      function poser(nuit) {
+        if (nuit) racine.setAttribute('data-theme', 'nuit');
+        else racine.removeAttribute('data-theme');
+        b.setAttribute('aria-pressed', String(nuit));
+        // La barre d'adresse d'Android suit, sinon elle reste claire au-dessus
+        // d'une page sombre.
+        if (meta) meta.setAttribute('content', nuit ? BG_NUIT : BG_JOUR);
+      }
+      poser(racine.getAttribute('data-theme') === 'nuit');
+      b.addEventListener('click', function () {
+        var nuit = racine.getAttribute('data-theme') !== 'nuit';
+        poser(nuit);
+        try { localStorage.setItem('veve-theme', nuit ? 'nuit' : 'jour'); } catch (e) {}
+      });
+    })();
+  </script>
+)}
 <script is:inline>
   // Reassemble les adresses de contact cote navigateur (anti-aspirateur).
   (function () {

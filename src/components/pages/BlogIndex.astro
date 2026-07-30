@@ -19,9 +19,17 @@ const languesArticles = await languesBlog();
     <p>{tags.map((x) => (<a class="tag" href={localize(lang, `/blog/tag/${x.tag}/`)}>{x.tag} ({x.n})</a>))}</p>
   )}
   {posts.length === 0 && <p class="lead">{t(lang, 'blog.empty')}</p>}
-  <div class="grid">
+  {/* ⭐ `cartes` : la MÊME classe que le bloc « articles » de l'accueil. Cette
+      page gardait la grille dense des index (filets de 1 px, aucune gouttière)
+      parce que le style visait un ENDROIT (`.latest-wrap .grid`) et non une
+      nature de contenu. C'est pourtant ici qu'on parcourt les articles. */}
+  <div class="grid cartes">
     {posts.map((p) => (
       <a class="item" href={localize(lang, `/blog/${p.slug}/`)}>
+        {p.data.cover && (
+          <img class="cover" src={p.data.cover} alt="" loading="lazy"
+               decoding="async" width="480" height="270" />
+        )}
         <div class="n">{p.data.title}</div>
         <div class="s">{new Date(p.data.date).toLocaleDateString(df)}</div>
         <p class="muted" style="font-size:14px;margin:8px 0 0">{p.data.description}</p>

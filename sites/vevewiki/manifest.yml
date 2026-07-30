@@ -190,6 +190,25 @@ identity:
     # blanc (4,52:1) mais ÉCHOUE sur `surface` (4,28:1) — or les méta vivent
     # justement dans les encadrés gris. Un contraste se valide contre le fond
     # RÉEL du bloc, jamais contre le blanc.
+  # --- PALETTE NUIT : c'est EXACTEMENT la palette sombre d'origine ------------
+  # Rien n'a été inventé ici. Ce sont les couleurs argent/or sur anthracite que
+  # portait `identity.palette` jusqu'au 30/07 au matin — elles ne sont pas
+  # jetées, elles deviennent le second thème.
+  # ⚠️ MÊME RÈGLE QU'EN JOUR, INVERSÉE : `primary` est la couleur des LIENS.
+  # #3366cc ne fait que 3,62:1 sur #0c0d10 — il échoue. Et symétriquement l'or
+  # #d4af37, illisible de jour (2,10:1), atteint 9,24:1 la nuit : l'or A BESOIN
+  # du fond sombre, c'est pour ça que la DA d'origine était sombre.
+  # ⭐ Chaque encre existe donc en DEUX valeurs, et `accent` s'ÉCLAIRCIT la nuit
+  # au lieu de s'assombrir. Une palette nuit qui garde les encres du jour passe
+  # tous les builds et ne se lit pas.
+  palette_nuit:
+    primary: "#6699ff"     # bleu de lien     — 7,00:1 sur #0c0d10
+    accent:  "#e2c65c"     # or LISIBLE       — 11,54:1
+    danger:  "#e0555b"     # rouge d'origine
+    bg:      "#0c0d10"     # anthracite
+    surface: "#16181d"
+    text:    "#e7e9ee"     # argent clair     — 16,00:1
+    muted:   "#9aa0ab"     # méta             —  7,39:1
   fonts:
     heading: "Georgia, 'Times New Roman', serif"     # ton encyclopédique
     body: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif"

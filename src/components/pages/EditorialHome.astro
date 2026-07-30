@@ -119,7 +119,7 @@ if (blogEnabled()) libellesType.blog = t(lang, 'blog.title');
           cadre gris par defaut : une image absente ne doit pas devenir un trou
           visible sur chaque carte. `width`/`height` sont poses pour reserver la
           place et eviter que le texte saute quand l'image arrive. */}
-      <div class="grid">
+      <div class="grid cartes">
         {posts.map((p) => (
           <a class="item" href={localize(lang, `/blog/${p.slug}/`)}>
             {p.data.cover && (

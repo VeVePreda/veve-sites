@@ -56,6 +56,35 @@
 }
 
 /* =============================================================================
+   THÈME NUIT — `data-theme="nuit"` posé par Base.astro AVANT la peinture
+   -----------------------------------------------------------------------------
+   ⚠️⚠️ LE MANIFESTE NE SUFFIT PAS. Il retourne les 7 couleurs du moteur
+   (`bg`, `text`, `primary`…), mais TOUS les jetons déclarés ici — filets, fonds
+   de bloc, encre intermédiaire, or de décor — sont écrits en dur pour le fond
+   clair. Sans ce bloc, la nuit sortirait avec des filets #c8ccd1 sur de
+   l'anthracite : des traits plus CLAIRS que le texte, sur une page sombre.
+   ⭐ La règle, valable pour les 13 sites à venir : un thème bascule si — et
+   seulement si — CHAQUE valeur en dur qu'il déclare a son pendant nuit.
+   ============================================================================= */
+:root[data-theme="nuit"]{
+  --shell-2:#1e2127;      /* séparateur                      */
+  --th-bg:#1a1d22;        /* en-tête de tableau              */
+  --rule:#2a2d34;         /* filet fin — 1,41:1, décor pur   */
+  --rule-strong:#3a3f47;
+
+  --ink-soft:#b0b6c0;     /* 9,53:1 sur bg · 8,71:1 sur surface */
+  /* --ink-faint suit `muted` du manifeste : #9aa0ab, 7,39:1 */
+
+  --gold:#d4af37;         /* ⭐ l'or BRUT devient lisible la nuit : 9,24:1.
+                             C'est l'inverse exact du jour, où il tombe à 2,10:1
+                             et ne peut porter aucun caractère. */
+  --gold-wash:#211d12;
+  --gold-hair:#4a3f1e;
+
+  --link-visited:#a397db; /* 7,41:1 — #795cb2 n'y ferait que 2,4:1 */
+}
+
+/* =============================================================================
    1. SOCLE
    ============================================================================= */
 *,*::before,*::after{box-sizing:border-box}
@@ -109,6 +138,18 @@ nav.main a{color:var(--primary);font-size:14.5px;padding:9px;border-radius:3px;
 nav.main a:hover{background:var(--surface);text-decoration:none}
 nav.main a[aria-current]{color:var(--text);font-weight:600;
   box-shadow:inset 0 -2.5px 0 var(--gold)}
+
+/* --- Bascule jour / nuit ---------------------------------------------------
+   Un bouton sans libellé : le glyphe dit l'ACTION à venir (lune = passer en
+   nuit), et `aria-label` porte le texte pour qui ne voit pas le glyphe.
+   ⚠️ Rendu uniquement si le manifeste déclare `palette_nuit` : un interrupteur
+   qui n'allume rien est pire qu'une absence d'interrupteur. */
+.bascule{width:34px;height:34px;flex:0 0 auto;cursor:pointer;
+  border:1px solid var(--rule-strong);border-radius:2px;background:var(--surface);
+  color:var(--ink-soft);font-size:15px;line-height:1;padding:0;margin-left:6px}
+.bascule::before{content:"☾"}
+:root[data-theme="nuit"] .bascule::before{content:"☀"}
+.bascule:hover{border-color:var(--gold);color:var(--text)}
 
 footer.site{border-top:1px solid var(--rule);background:var(--surface);
   margin-top:44px;padding:20px 0 30px;font-size:12.5px;color:var(--ink-faint)}
@@ -331,23 +372,32 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 /* --- Cartes d'ARTICLES : elles respirent, contrairement aux grilles denses ---
    Une grille de rubriques est un index : on la balaie, les filets de 1 px
    suffisent. Une liste d'articles se REGARDE une carte à la fois — d'où de
-   vraies gouttières et une bordure par carte. */
-.latest-wrap .grid{gap:14px;background:none;border:0;
+   vraies gouttières et une bordure par carte.
+
+   ⚠️ CORRIGÉ LE 30/07 : la règle s'écrivait `.latest-wrap .grid`, un sélecteur
+   de POSITION. Il ne valait donc que pour le bloc « articles » de l'accueil —
+   et `/blog/`, qui est LA page où l'on parcourt les articles, gardait la grille
+   dense. Le style suivait l'endroit au lieu de suivre la nature de la chose.
+   ⭐ Une classe explicite (`cartes`) dit ce que c'est, et se pose partout où
+   c'en est. */
+.grid.cartes{gap:14px;background:none;border:0;
   grid-template-columns:repeat(auto-fill,minmax(240px,1fr))}
-.latest-wrap .grid .item{border:1px solid var(--rule);padding:0;overflow:hidden;
+.grid.cartes .item{border:1px solid var(--rule);padding:0;overflow:hidden;
   display:flex;flex-direction:column}
-.latest-wrap .grid .item:hover{border-color:var(--rule-strong);background:var(--bg)}
-.latest-wrap .grid .item .n,
-.latest-wrap .grid .item .s,
-.latest-wrap .grid .item .f{padding:0 13px}
-.latest-wrap .grid .item .n{padding-top:12px;font-size:16px}
-.latest-wrap .grid .item .f{padding-bottom:12px;margin-top:auto}
+.grid.cartes .item:hover{border-color:var(--rule-strong);background:var(--surface)}
+.grid.cartes .item .n,
+.grid.cartes .item .s,
+.grid.cartes .item .f,
+.grid.cartes .item > p{padding-left:13px;padding-right:13px}
+.grid.cartes .item .n{padding-top:12px;font-size:16px}
+.grid.cartes .item > p:last-child{padding-bottom:12px;margin-bottom:0}
+.grid.cartes .item .f{padding-bottom:12px;margin-top:auto}
 
 /* La couverture : rendue SEULEMENT si l'article en déclare une. Pas de cadre
    gris par défaut — une image absente ne doit pas devenir un trou visible.
    ⚠️ La colonne `cover` du Sheet est vide pour les 13 articles : rien ne
    s'affichera tant qu'elle ne sera pas remplie. */
-.latest-wrap .grid .item .cover{display:block;width:100%;aspect-ratio:16/9;
+.grid.cartes .item .cover{display:block;width:100%;aspect-ratio:16/9;
   object-fit:cover;background:var(--surface);border-bottom:1px solid var(--rule);
   margin:0 0 2px}
 
