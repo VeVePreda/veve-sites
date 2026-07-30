@@ -77,6 +77,26 @@ jobs:
         with:
           python-version: '3.11'
 
+      # ⭐⭐ CORRIGE APRES LE PREMIER RUN (30/07/2026) — et c'est le workflow
+      # lui-meme qui a trouve le trou, a son premier passage.
+      #
+      # `test:nginx` importe `crossplane` (l'analyseur officiel de NGINX Inc.).
+      # J'avais installe les dependances Node (`npm ci`) et OUBLIE celles de
+      # Python : `crossplane est absent : pip install crossplane` -> exit 1, et
+      # la chaine s'est arretee la, sans jamais atteindre `test:indexnow`.
+      #
+      # ⭐ Pourquoi personne ne l'avait vu : ce banc n'avait JAMAIS ete joue par
+      # une automatisation. Le Dockerfile installe `python3` mais ne lance pas
+      # `test:nginx`. Une dependance manquante reste invisible aussi longtemps
+      # que rien n'execute le banc — c'est exactement la raison d'etre d'A7bis,
+      # et ca s'est demontre en un run.
+      #
+      # ⭐ A saluer : `test_nginx.py` fait `sys.exit("crossplane est absent")`
+      # au lieu de sauter le controle. Un banc qui refuse de tourner vaut mille
+      # fois mieux qu'un banc qui se declare vert sans rien verifier.
+      - name: Dependances Python des bancs (crossplane pour test:nginx)
+        run: pip install crossplane
+
       # ⭐ WAREHOUSE_OFFLINE=1 : les bancs ne doivent joindre AUCUNE source.
       # Un banc qui appelle le reseau ne prouve rien le jour ou le reseau tombe,
       # c'est-a-dire le seul jour ou le code de repli sert.
