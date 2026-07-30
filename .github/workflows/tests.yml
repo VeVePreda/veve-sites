@@ -1,0 +1,104 @@
+# ⚠️ DEPOT : VeVePreda/veve-sites
+#
+# A7 BIS — LES 17 BANCS TOURNENT ENFIN QUELQUE PART (30/07/2026).
+#
+# LE DEFAUT. `npm test` enchaine 17 bancs, tous verts, et AUCUN des trois
+# workflows du depot ne l'appelait : ni `rebuild-daily`, ni `freeze-slugs`, ni
+# `vevewiki-editorial`. Le Dockerfile joue bien quelques bancs un par un, mais
+# pas `test:dockerfile`, `test:gabarits`, `test:slugs`, `test:nginx`,
+# `test:entrepot`, `test:adresses` ni `test:indexnow`.
+# ⭐ Meme forme que chez jetonveve (« aucun workflow n'appelle pytest ») : un
+# banc vert que RIEN ne declenche. Ecrire le banc est la moitie du travail.
+#
+# ⭐⭐ POURQUOI UN WORKFLOW SEPARE, ET PAS DANS `rebuild-daily` (choix de Preda,
+# 30/07). Mettre les 17 bancs devant le deploiement quotidien, c'est donner a
+# chacun le pouvoir d'empecher le site de se reconstruire. On a deja vu un banc
+# devenir capricieux : `test:lastmod` echouait si toutes les fiches partageaient
+# une date — faux sur un site dont aucun prix n'a bouge, et il a fallu le
+# desarmer le jour meme. Un banc statistique n'a rien a faire devant une porte
+# bloquante.
+# ➡️ Ici les bancs gardent le CODE (a chaque push), pas la PRODUCTION. Un banc
+# rouge arrete une livraison, jamais la reconstruction du site.
+#
+# ⛔ CE WORKFLOW NE DEPLOIE RIEN, N'ECRIT RIEN, NE TOUCHE AUCUNE RELEASE.
+#    Il lit le depot et lance des bancs hors reseau. Il ne peut rien casser.
+
+name: Bancs (npm test)
+
+on:
+  push:
+    branches: [main]
+    # ⭐ On ne relance pas les 17 bancs pour un README ou une image. Ce filtre
+    # n'est PAS une optimisation : un workflow qui tourne pour rien finit par
+    # etre ignore, et un banc qu'on ignore ne protege plus.
+    paths:
+      - 'engine/**'
+      - 'src/**'
+      - 'sites/**'
+      - 'themes/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'Dockerfile'
+      - 'nginx*.conf'
+      - 'astro.config.mjs'
+      - '.github/workflows/tests.yml'
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bancs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  bancs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      # ⭐ `npm ci` STRICT, sans `|| npm install`. Le repli est precisement ce
+      # qui a masque un lock desaccorde pendant des jours : `npm ci` refusait de
+      # tourner, `npm install` reparait en silence, et le verrou de versions ne
+      # verrouillait plus rien en CI sans que rien ne le dise.
+      # Un `npm ci` strict est un CAPTEUR.
+      - name: Installer (npm ci strict — c'est un capteur)
+        run: npm ci --no-audit --no-fund
+
+      # `test:slugs`, `test:nginx` et `test:indexnow` sont en Python.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # ⭐ WAREHOUSE_OFFLINE=1 : les bancs ne doivent joindre AUCUNE source.
+      # Un banc qui appelle le reseau ne prouve rien le jour ou le reseau tombe,
+      # c'est-a-dire le seul jour ou le code de repli sert.
+      - name: npm test (17 bancs, hors reseau)
+        env:
+          WAREHOUSE_OFFLINE: '1'
+        run: npm test
+
+      # ⭐⭐ LE GARDE-FOU DU GARDE-FOU, ET IL VIT DEHORS DE CE QU'IL SURVEILLE.
+      # Sans lui, retirer une etape de la chaine `test` rendrait ce workflow
+      # VERT plus vite — un controle qui se croit arme parce qu'il ne dit rien.
+      # C'est exactement la forme du build rouge du 29/07 (un garde-fou loge
+      # dans le `RUN` qui ne parse pas).
+      - name: La chaine `test` n'a pas maigri
+        if: always()
+        run: |
+          set -u
+          n=$(node -e "process.stdout.write(String(require('./package.json').scripts.test.split(' && ').length))")
+          echo "chaine test : $n banc(s)"
+          [ "$n" -ge 17 ] || {
+            echo "ERREUR: la chaine est tombee a $n bancs (plancher 17)."
+            echo "Un banc retire de \`npm test\` disparait SANS RIEN CASSER :"
+            echo "ce plancher est la seule chose qui s'en plaigne."
+            exit 1
+          }
