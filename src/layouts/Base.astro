@@ -190,8 +190,26 @@ const suggestData = alternates.filter((a) => a.lang !== lang).map((a) => ({ l: a
     ⚠️ Le défaut est JOUR, décidé, pas déduit de `prefers-color-scheme` : c'est
     le choix de Preda, et un site d'encyclopédie se lit clair par défaut. */}
 {pNuit && (
-  <script is:inline>{`(function(){try{var t=localStorage.getItem('veve-theme');
-if(t==='nuit')document.documentElement.setAttribute('data-theme','nuit');}catch(e){}})();`}</script>
+  <script is:inline>
+    /* ⚠️⚠️ CE SCRIPT PASSE SON CODE EN ENFANTS BRUTS.
+       Il était écrit avec son contenu en littéral de gabarit, donc comme une
+       EXPRESSION : Astro l'échappe, les apostrophes deviennent des entités
+       HTML, et le script ne s'exécute pas — silencieusement.
+       Symptôme mesuré en production le 30/07 : la bascule fonctionnait DANS la
+       page (ce script-là est en enfants bruts) mais le choix était perdu à
+       chaque changement de page, puisque c'est CE script-ci qui restaure
+       l'attribut au chargement.
+       ⭐ C'était la seule anomalie de forme du dépôt : les six autres
+       script is:inline de src/ passent tous leur code en enfants bruts.
+       La maison avait déjà la bonne forme, je ne l'avais pas suivie. */
+    (function () {
+      try {
+        if (localStorage.getItem('veve-theme') === 'nuit') {
+          document.documentElement.setAttribute('data-theme', 'nuit');
+        }
+      } catch (e) { /* navigation privée : on reste en jour, sans bruit */ }
+    })();
+  </script>
 )}
 <style is:inline set:html={vars}></style>
 <style is:inline set:html={themeCss}></style>
