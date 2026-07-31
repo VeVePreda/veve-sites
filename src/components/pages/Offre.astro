@@ -20,7 +20,7 @@
 import Base from '../../layouts/Base.astro';
 import { manifest } from '../../../engine/lib/manifest.mjs';
 import { acces, porte } from '../../../engine/lib/access.mjs';
-import { forme } from '../../../engine/lib/vitrine.mjs';
+import { forme, iconePalier } from '../../../engine/lib/vitrine.mjs';
 const MODULES = ['modules', 'extremes', 'price_history', 'alerts', 'wallet_watch'];
 
 // Un module est « ouvert » quand il ne demande rien de plus qu'un visiteur.
@@ -100,7 +100,15 @@ const an = (v) => (v === 0 ? '—' : t(lang, 'offer.peryear', { v: Math.round(v 
         {/* ⛔ `p.nom` etait une chaine NUE : « Membre » s'affichait sur la page
             anglaise. Comme `p.d`, c'est desormais une carte par langue — et on
             se replie sur la langue pivot plutot que d'afficher un objet. */}
-        <h2 class="etiq">{pick(p.nom, lang)}</h2>
+        {/* ⭐ L'ICONE DU PALIER — demande de Preda. En SVG, jamais en emoji :
+            un emoji impose sa couleur (il ignore la palette et casse le mode
+            nuit), change de dessin d'un systeme a l'autre, et sort en carre
+            vide sur une machine sans fonte a symboles. Troisieme fois
+            aujourd'hui qu'on evite ce piege — cf. le bouton jour/nuit. */}
+        <h2 class="etiq" style="display:flex;align-items:center;gap:8px">
+          <span style="color:var(--sect-a);display:inline-flex"><Fragment set:html={iconePalier(p.cle)} /></span>
+          {pick(p.nom, lang)}
+        </h2>
         <p class="tarif__b"><span class="tarif__p">{eur(p.prix)}</span><span class="prix__u">{an(p.prix)}</span></p>
         {/* ⭐ `pick` : `d` est une CARTE PAR LANGUE, comme site.tagline. */}
         <p class="respire">{pick(p.d, lang)}</p>

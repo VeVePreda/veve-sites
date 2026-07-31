@@ -1195,3 +1195,25 @@ body > footer.site{ margin-bottom:var(--cadre-marge); }
 
 /* Les compteurs sous les quatre boîtes : ils étaient collés au bloc. */
 .boites + .stats{ margin-top:var(--s5); }
+
+/* ⛔⛔ `.n` ET `.s` N'AVAIENT AUCUNE REGLE — DANS LES TROIS THEMES (31/07/2026).
+   Ce sont le TITRE et la LIGNE SECONDAIRE des cartes generiques du moteur :
+   la liste des articles, les resultats de recherche, les listes d'entrees.
+   Sans regle, l'article sortait en texte nu dans une boite — « un probleme de
+   design, pas de contenu » (Preda). J'avais conclu l'inverse la veille : la
+   page etait vide, j'ai cru que le CONTENU manquait alors que c'est
+   l'HABILLAGE qui manquait. ⭐ Une page pauvre ne dit pas d'elle-meme laquelle
+   des deux moities manque.
+   ⭐ Les listes de `css-mort.mjs` ne les contenaient pas : le socle y est ECRIT
+   A LA MAIN, donc il ne couvre que ce qu'on a pense a y mettre. Corrige. */
+.item .n{
+  display:block;font-family:var(--font-heading,var(--geo));font-weight:700;
+  font-size:var(--t-lg);line-height:1.3;letter-spacing:var(--ls-titre);
+  color:var(--text);margin:0 0 6px;
+}
+.item .s{
+  display:block;font-family:var(--tech);font-size:var(--t-2xs);
+  letter-spacing:var(--ls-etiq);text-transform:uppercase;color:var(--muted);
+}
+.item .lead{font-size:var(--t-sm);margin:10px 0 0;color:var(--text-2)}
+.item:hover .n{color:var(--sect-a)}

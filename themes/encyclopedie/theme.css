@@ -583,3 +583,25 @@ h2 .lien-ancre:focus-visible,h3 .lien-ancre:focus-visible{opacity:1}
    ⭐ Corrige AVANT le symptome, parce que le controle l'a trouve — c'est la
    premiere fois aujourd'hui que l'ordre est dans ce sens-la. */
 [hidden]{ display:none !important; }
+
+/* ⛔⛔ `.n` ET `.s` N'AVAIENT AUCUNE REGLE — DANS LES TROIS THEMES (31/07/2026).
+   Ce sont le TITRE et la LIGNE SECONDAIRE des cartes generiques du moteur :
+   la liste des articles, les resultats de recherche, les listes d'entrees.
+   Sans regle, l'article sortait en texte nu dans une boite — « un probleme de
+   design, pas de contenu » (Preda). J'avais conclu l'inverse la veille : la
+   page etait vide, j'ai cru que le CONTENU manquait alors que c'est
+   l'HABILLAGE qui manquait. ⭐ Une page pauvre ne dit pas d'elle-meme laquelle
+   des deux moities manque.
+   ⭐ Les listes de `css-mort.mjs` ne les contenaient pas : le socle y est ECRIT
+   A LA MAIN, donc il ne couvre que ce qu'on a pense a y mettre. Corrige. */
+.item .n{
+  display:block;font-family:var(--font-heading,system-ui);font-weight:700;
+  font-size:1.05rem;line-height:1.3;
+  color:var(--text);margin:0 0 6px;
+}
+.item .s{
+  display:block;font-family:var(--font-body,system-ui);font-size:.72rem;
+  letter-spacing:.08em;text-transform:uppercase;color:var(--muted);
+}
+.item .lead{font-size:.9rem;margin:10px 0 0;color:var(--muted)}
+.item:hover .n{color:var(--primary)}

@@ -19,7 +19,7 @@ import Base from '../../layouts/Base.astro';
 import BarreAcces from '../BarreAcces.astro';
 import { dataset } from '../../../engine/lib/dataset.mjs';
 import { t, localize, numberLocale } from '../../../engine/lib/i18n.mjs';
-import { rar, forme, delta, gemsM, RAR } from '../../../engine/lib/vitrine.mjs';
+import { rar, forme, delta, gemsM, RAR, sparkline } from '../../../engine/lib/vitrine.mjs';
 
 const { lang } = Astro.props;
 const ds = await dataset();
@@ -29,16 +29,29 @@ const money = (v) => (v === null || v === undefined ? '—' : v.toLocaleString(n
 // ⚠️ Les fiches SANS variation ne sont pas jetées, elles vont en fin de liste.
 // Une fiche neuve n'a pas sept jours d'historique ; la faire disparaître
 // donnerait un site qui cache ses nouveautés.
-const lignes = [...ds.items]
+// ⛔⛔ PLAFOND — demande de Preda : « on ne doit pas charger les 1 200 lignes ».
+// Le tableau les rendait TOUTES (les tuiles, elles, étaient plafonnées à 120
+// depuis le début : deux vues du même écran, deux politiques, une seule
+// documentée). 1 200 <tr> de 9 cellules = ~11 000 nœuds pour une page dont
+// l'intérêt décroît après la 50ᵉ ligne — c'est un classement par variation.
+// ⭐ 200 et pas 1 200 : au-delà, la « plus forte variation » ne dit plus rien.
+// ⛔ PAS DE NOUVELLES ADRESSES. Une vraie pagination `/movers/2/` créerait des
+// URL, or les 1 200 adresses du site sont GELÉES et le gel est ce qui protège
+// le SEO d'un renommage. Ajouter des pages de liste est une décision à part.
+// Ici : plafond au rendu, puis dévoilement par tranches côté client.
+const PLAFOND = 200;
+const PAR_PAGE = 50;
+const toutes = [...ds.items]
   .filter((i) => i.floor !== null && i.floor !== undefined)
   .sort((a, b) => (b.change7d ?? -Infinity) - (a.change7d ?? -Infinity));
 
 // ⭐ Les raretés dans l'ORDRE CANONIQUE DE VEVE, jamais alphabétique :
 // « Artist Proof, Common, Rare, Secret… » ne veut rien dire pour un collectionneur.
-const presentes = new Set(lignes.map((i) => i.rarity).filter(Boolean));
+const lignes = toutes.slice(0, PLAFOND);
+const presentes = new Set(toutes.map((i) => i.rarity).filter(Boolean));
 const rarete = Object.keys(RAR).filter((r) => presentes.has(r));
-const nbColl = lignes.filter((i) => i.type === 'collectible').length;
-const nbComic = lignes.length - nbColl;
+const nbColl = toutes.filter((i) => i.type === 'collectible').length;
+const nbComic = toutes.length - nbColl;
 ---
 <Base lang={lang} path="/movers/" title={t(lang, 'movers.title')}
       description={t(lang, 'desc.movers', { n: ds.items.length.toLocaleString(nf) })}
@@ -63,7 +76,7 @@ const nbComic = lignes.length - nbColl;
     <span class="barre-f__t">{t(lang, 'movers.filters')}</span>
     <div class="barre-f__l">
       <div class="seg-p" role="group" aria-label={t(lang, 'movers.type')}>
-        <button type="button" data-corpus="" aria-pressed="true">{t(lang, 'movers.all')} <span class="etiq" style="opacity:.7">{lignes.length}</span></button>
+        <button type="button" data-corpus="" aria-pressed="true">{t(lang, 'movers.all')} <span class="etiq" style="opacity:.7">{toutes.length}</span></button>
         <button type="button" data-corpus="collectible" aria-pressed="false">Collectibles <span class="etiq" style="opacity:.7">{nbColl}</span></button>
         <button type="button" data-corpus="comic" aria-pressed="false">Comics <span class="etiq" style="opacity:.7">{nbComic}</span></button>
       </div>
@@ -127,6 +140,10 @@ const nbComic = lignes.length - nbColl;
         <th scope="col" class="tri">{t(lang, 'movers.item')}</th>
         <th scope="col" class="c-3">{t(lang, 'item.rarity')}</th>
         <th scope="col" class="n">{t(lang, 'movers.floor')}</th>
+        {/* ⭐ LA COURBE, entre le plancher et la variation — c'est la place
+            qu'elle occupe dans la maquette, et ce n'est pas anodin : elle se
+            lit comme le CHEMIN entre les deux chiffres qui l'encadrent. */}
+        <th scope="col" class="c-5" style="width:88px"><span class="sr-only">{t(lang, 'movers.trend')}</span></th>
         <th scope="col" class="n">{t(lang, 'movers.7d')}</th>
         <th scope="col" class="n c-4">{t(lang, 'item.supply')}</th>
         <th scope="col" class="n c-4">{t(lang, 'item.listings')}</th>
@@ -142,6 +159,9 @@ const nbComic = lignes.length - nbColl;
           <td class="c-3"><Fragment set:html={rar(i.rarity)} /></td>
           <td class="n"><span class="num"><Fragment set:html={gemsM()} /> {money(i.floor)}</span>
             {i.listings <= 1 && <span class="alerte" title={t(lang, 'item.outlier')}>!</span>}</td>
+          {/* ⚠️ Moins de 2 relevés => AUCUNE courbe, jamais une ligne plate :
+              une ligne plate AFFIRME une stabilité qu'on n'a pas observée. */}
+          <td class="c-5" style="width:88px"><Fragment set:html={sparkline(i.history, i.change7d)} /></td>
           <td class:list={['n', i.change7d > 0 ? 'up' : i.change7d < 0 ? 'down' : 'flat']}><Fragment set:html={delta(i.change7d)} /></td>
           <td class="n c-4 muted">{i.tirage ? i.tirage.toLocaleString(nf) : '—'}</td>
           <td class="n c-4 muted">{i.listings ?? '—'}</td>
@@ -154,6 +174,22 @@ const nbComic = lignes.length - nbColl;
   {/* ⛔ 120 tuiles seulement : rendre 1 200 vignettes coûterait 1 200 décodages
       d'image sur un téléphone. Le filtre sert à descendre en dessous, il n'a
       pas à être précédé d'une avalanche. */}
+  {/* ⭐ DIRE QU'ON PLAFONNE. Un classement tronqué sans le dire laisse croire
+      que le catalogue fait 200 pièces. Le nombre réel est déjà sur le filtre,
+      mais il faut que la TRONCATURE soit énoncée là où elle s'applique —
+      c'est la même règle que « une donnée masquée est une donnée livrée ». */}
+  {toutes.length > PLAFOND && (
+    <p class="etiq" style="margin:var(--s4) 0 0;color:var(--muted)">
+      {t(lang, 'movers.capped').replace('%s', toutes.length.toLocaleString(nf))}
+    </p>
+  )}
+  {lignes.length > PAR_PAGE && (
+    <p style="margin:var(--s4) 0 0;text-align:center">
+      <button type="button" id="plus" class="btn btn--sm"
+              data-pas={PAR_PAGE} data-total={lignes.length}>{t(lang, 'movers.more')}</button>
+      <span class="etiq" id="plus-cpt" style="display:block;margin-top:8px;color:var(--muted)"></span>
+    </p>
+  )}
   <div id="vue-tui" class="tuiles" hidden>{lignes.slice(0, 120).map((i, k) => (
     <a class="tuile revele" href={localize(lang, i.path)} style={`--i:${k}`}
        data-type={i.type} data-rar={i.rarity} data-n={i.name.toLowerCase()}
@@ -198,6 +234,27 @@ const nbComic = lignes.length - nbColl;
     (function () {
       var f = document.getElementById('filtres'); if (!f) return;
       var L = [].slice.call(document.querySelectorAll('#vue-tbl tbody tr'));
+      // ⭐ Le dévoilement par tranches s'applique APRÈS les filtres : on ne
+      // compte que les lignes que le filtre a laissées passer. Sinon « voir
+      // plus » révélerait des lignes cachées par le filtre — le bouton
+      // travaillerait contre l'utilisateur.
+      var bPlus = document.getElementById('plus');
+      var cPlus = document.getElementById('plus-cpt');
+      var pas = bPlus ? parseInt(bPlus.dataset.pas, 10) : 0;
+      var montre = pas;
+      function tranche(visibles) {
+        if (!bPlus) return;
+        var n = 0;
+        for (var i = 0; i < visibles.length; i++) {
+          visibles[i].hidden = n >= montre; n++;
+        }
+        var reste = Math.max(0, visibles.length - montre);
+        bPlus.hidden = reste === 0;
+        if (cPlus) cPlus.textContent = Math.min(montre, visibles.length) + ' / ' + visibles.length;
+      }
+      if (bPlus) bPlus.addEventListener('click', function () {
+        montre += pas; appliquer();
+      });
       var T = [].slice.call(document.querySelectorAll('#vue-tui .tuile'));
       var cpt = document.getElementById('cpt'), vide = document.getElementById('vide');
       var CLE = 'vp-filtres', corpus = '', vue = 'tbl';

@@ -214,6 +214,14 @@ identity:
   # ⚠️ vevewiki ne déclare rien et garde donc sa barre dans l'en-tête, que son
   # thème `encyclopedie` style depuis toujours (8 règles).
   langues_dans: pied
+  # ✏️ L'ACCROCHE DE L'EN-TÊTE (sous le nom). Courte, une carte par langue.
+  # ⛔ Ce n'est PAS `site.tagline` — celle-là est la description SEO.
+  # ⭐ Sans chiffre : « 1 200 pièces » se périmerait en silence.
+  accroche:
+    fr: "Le relevé, toutes les 30 minutes"
+    en: "The record, every 30 minutes"
+    es: "El registro, cada 30 minutos"
+    de: "Der Nachweis, alle 30 Minuten"
 
   # ⭐ LA PALETTE DE BASE EST LA SOMBRE — c'est l'identité de VeVe Price, et
   # c'est celle qui a été dessinée, mesurée et validée. Les gris viennent de

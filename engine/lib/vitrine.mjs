@@ -78,3 +78,96 @@ export const omiM = (g) => `<span class="omi-m${g ? ' omi-m--g' : ''}" aria-hidd
 
 export const esc = (t) => String(t ?? '').replace(/[&<>"]/g,
   (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LES ICONES DE PALIER — demande de Preda (31/07/2026)
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐⭐ EN SVG, PAS EN EMOJI. 🦐🦞🐋 sont tentants et gratuits, mais :
+//   · ils sortent en COULEUR imposee par le systeme — ils ignorent la palette
+//     et cassent le mode nuit, sur lequel tout le theme est bati ;
+//   · ils changent de DESSIN d'un systeme a l'autre (le meme point de code
+//     est une crevette grise chez l'un, rose chez l'autre) ;
+//   · ils sont HORS du sous-ensemble latin d'Archivo : repli glyphe par
+//     glyphe, et carre vide sur une machine sans fonte a emoji — c'est le
+//     defaut qu'on a deja paye deux fois aujourd'hui (le bouton jour/nuit,
+//     le cadenas des modules).
+// Un SVG herite de `currentColor`, pese ~200 octets, et se dessine pareil
+// partout. ⭐ Les formes restent LISIBLES a 18 px : on ne dessine pas un
+// crustace, on dessine sa silhouette.
+// ⚠️ La cle est celle du plan (`offer.plans[].cle`), pas son nom : le nom est
+// traduit, la cle non. Un palier inconnu ne rend RIEN plutot qu'une icone
+// par defaut — une icone generique ferait croire que le palier est habille.
+const _ICONES_PALIER = {
+  member:    '<circle cx="12" cy="8" r="3.4"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/>',
+  crevette:  '<path d="M20 8c-4.2 0-7 2.2-8.6 4.6C10 15 8 16.4 5.4 16.4"/>'
+             + '<path d="M5.4 16.4c-1.6 0-2.6-1-2.6-2.3 0-1.6 1.5-2.6 3.3-2.6 3.6 0 5.6 2.2 8.1 2.2"/>'
+             + '<path d="M20 8c1 .7 1.6 1.7 1.6 2.7"/><circle cx="18.4" cy="9.6" r=".9" fill="currentColor" stroke="none"/>',
+  langouste: '<path d="M12 4.2v5"/><path d="M9 3.2 12 6l3-2.8"/>'
+             + '<path d="M12 9.2c-2.6 0-4.4 1.7-4.4 4.1 0 2.8 2 6.5 4.4 6.5s4.4-3.7 4.4-6.5c0-2.4-1.8-4.1-4.4-4.1Z"/>'
+             + '<path d="M7.6 12.6 4 11m12.4 1.6L20 11M7.8 16 4.6 15.4m11.6.6 3.2-.6"/>',
+  whale:     '<path d="M2.6 13.4c2.6 0 3.6-1.6 5.4-1.6 1.5 0 2.2 1 4 1 3.6 0 6-3.4 9.4-3.4"/>'
+             + '<path d="M2.6 13.4c0 3.2 2.8 5.6 6.6 5.6 5 0 8.6-3.4 10-7.4"/>'
+             + '<path d="M19.2 9.4c.8-1.6.6-3.2-.4-4.4"/>'
+             + '<circle cx="7" cy="14.6" r=".9" fill="currentColor" stroke="none"/>',
+};
+
+/** Le pictogramme d'un palier, ou '' si le plan n'en a pas. */
+export const iconePalier = (cle, t = 18) => {
+  const d = _ICONES_PALIER[cle];
+  return d ? `<svg viewBox="0 0 24 24" width="${t}" height="${t}" fill="none" `
+    + `stroke="currentColor" stroke-width="1.7" stroke-linecap="round" `
+    + `stroke-linejoin="round" aria-hidden="true">${d}</svg>` : '';
+};
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LA COURBE MINIATURE DES TABLEAUX (31/07/2026)
+// ═══════════════════════════════════════════════════════════════════════════
+// ⛔⛔ LA MAQUETTE FABRIQUE SA COURBE. Son `serieJours()` est un generateur
+// PSEUDO-ALEATOIRE amorce sur le NOM de la piece : il produit une jolie ligne
+// qui ne decrit rien. C'est legitime dans une maquette — c'est du remplissage
+// visuel — et ce serait une FAUTE GRAVE ici : le site publie des releves, et
+// une courbe inventee au milieu de chiffres observes est indiscernable des
+// vrais. On porte donc la GEOMETRIE de la maquette, jamais sa donnee.
+// ⭐ Regle generale en portant une maquette : distinguer ce qui est une
+// DECISION DE DESSIN de ce qui n'est qu'un BOUCHON. Les deux se ressemblent
+// dans le code source ; seul le second doit disparaitre a la traduction.
+//
+// ⚠️ MOINS DE 2 POINTS => RIEN. Pas une ligne plate : une ligne plate AFFIRME
+// une stabilite qu'on n'a pas observee. L'absence de courbe dit « pas assez
+// de releves », ce qui est vrai.
+export function sparkline(history, change, { w = 100, h = 26, max = 26 } = {}) {
+  if (!Array.isArray(history) || history.length < 2) return '';
+  const pts = history.slice(-max).map((p) => Number(p.floor)).filter((v) => Number.isFinite(v) && v > 0);
+  if (pts.length < 2) return '';
+  const mn = Math.min(...pts), mx = Math.max(...pts), sp = (mx - mn) || 1;
+  const d = pts.map((v, i) => {
+    const a = (i / (pts.length - 1)) * w;
+    const b = h - 2 - ((v - mn) / sp) * (h - 6);
+    return (i ? 'L' : 'M') + a.toFixed(1) + ',' + b.toFixed(1);
+  }).join('');
+  const sens = change == null ? '' : (change > 0 ? ' up' : change < 0 ? ' down' : '');
+  return `<svg class="spark${sens}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" `
+    + `aria-hidden="true"><path class="a" d="${d}L${w},${h}L0,${h}Z"/><path class="l" d="${d}"/></svg>`;
+}
+
+// Les degrades que `.spark path.a{fill:url(#gU)}` reclame. ⛔ Ils n'etaient
+// emis NULLE PART : la reference `url(#gU)` vers un id inexistant est ignoree
+// EN SILENCE — l'aire sous la courbe n'aurait simplement pas ete peinte, sans
+// une erreur. Meme famille que `var(--x)` non defini, sur les SVG cette fois.
+// ⚠️ Les couleurs sont EN DUR et c'est assume : un `<stop>` ne lit pas les
+// variables CSS de facon fiable selon les moteurs, et ces deux teintes sont
+// celles de `--up`/`--down`, qui ne basculent pas entre jour et nuit.
+export const degradesSpark = () =>
+  '<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>'
+  + '<linearGradient id="gU" x1="0" y1="0" x2="0" y2="1">'
+  + '<stop offset="0%" stop-color="#3EC875" stop-opacity=".3"/>'
+  + '<stop offset="100%" stop-color="#3EC875" stop-opacity="0"/></linearGradient>'
+  + '<linearGradient id="gD" x1="0" y1="0" x2="0" y2="1">'
+  + '<stop offset="0%" stop-color="#ED9BA6" stop-opacity=".3"/>'
+  + '<stop offset="100%" stop-color="#ED9BA6" stop-opacity="0"/></linearGradient>'
+  + '<linearGradient id="gAire" x1="0" y1="0" x2="0" y2="1">'
+  + '<stop offset="0%" stop-color="#10CEF2" stop-opacity=".28"/>'
+  + '<stop offset="100%" stop-color="#10CEF2" stop-opacity="0"/></linearGradient>'
+  + '</defs></svg>';

@@ -23,7 +23,11 @@ const languesArticles = await languesBlog();
       page gardait la grille dense des index (filets de 1 px, aucune gouttière)
       parce que le style visait un ENDROIT (`.latest-wrap .grid`) et non une
       nature de contenu. C'est pourtant ici qu'on parcourt les articles. */}
-  <div class="grid cartes">
+  {/* ⛔ « grid cartes » posait DEUX grilles concurrentes sur le même élément :
+      `.grid` (minmax 196px) et `.cartes` (minmax clamp(240px,26vw,…)). La
+      dernière déclarée gagnait, l'autre ne servait qu'à tromper le lecteur.
+      ⭐ On garde `.cartes` — c'est la grille de la maquette. */}
+  <div class="cartes">
     {posts.map((p) => (
       <a class="item" href={localize(lang, `/blog/${p.slug}/`)}>
         {p.data.cover && (

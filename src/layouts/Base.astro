@@ -4,6 +4,7 @@ import { manifest, siteUrl } from '../../engine/lib/manifest.mjs';
 import { acces } from '../../engine/lib/access.mjs';
 import { jsonld, websiteLd, pageTitle, homeTitle, breadcrumbLd } from '../../engine/lib/seo.mjs';
 import { locales, t, pick, localize, localeNames, dateLocale } from '../../engine/lib/i18n.mjs';
+import { degradesSpark } from '../../engine/lib/vitrine.mjs';
 import { DOCS, legalTitle } from '../../engine/lib/legal.mjs';
 import { activeSections, sectionMeta, languesDuSite } from '../../engine/lib/editorial_pages.mjs';
 import { priceEnabled, searchEnabled } from '../../engine/lib/features.mjs';
@@ -279,6 +280,12 @@ const suggestData = alternates.filter((a) => a.lang !== lang).map((a) => ({ l: a
     À CHAQUE PAGE avant d'atteindre le contenu. Il reste hors de l'écran tant
     qu'il n'a pas le focus : rien ne change pour qui utilise une souris. */}
 <a class="saut" href="#contenu">{t(lang, 'a11y.skip')}</a>
+{/* ⛔ Les degrades des courbes miniatures, poses UNE fois par page et
+    AVANT tout le reste. `.spark path.a{fill:url(#gU)}` les reclame ; ils
+    n'etaient emis nulle part, et une reference `url(#id)` vers un id
+    inexistant est ignoree EN SILENCE — l'aire sous la courbe n'aurait
+    simplement pas ete peinte. Meme famille que `var(--x)` non defini. */}
+<Fragment set:html={degradesSpark()} />
 <header class="site site-h"><div class="wrap site-h__in">
   {/* ⭐ La marque de la maquette : logotype + nom + sous-titre. Le nom passe
       en capitales par le CSS, jamais dans le HTML — la source reste lisible,
@@ -286,7 +293,19 @@ const suggestData = alternates.filter((a) => a.lang !== lang).map((a) => ({ l: a
       plutôt que « V-E-V-E ». */}
   <a class="marque" href={localize(lang, '/')}>
     <span class="logo logo--sm" aria-hidden="true">VP</span>
-    <span class="marque__t" set:html={m.site.brand.replace(/^Ve(Ve)/, 'Ve<em>$1</em>')}></span>
+    {/* ⭐ L'ACCROCHE SOUS LE LOGO, comme la maquette. Elle dit en cinq mots ce
+        que le site fait et a quelle cadence — c'est la seule ligne que lit un
+        visiteur qui ne descend pas.
+        ⛔ PAS `site.tagline` : celle-la est la description SEO, une phrase
+        entiere. Posee dans un en-tete elle le fait deborder et n'y dit rien de
+        plus que le nom. Deux emplacements, deux textes — les confondre est ce
+        qui produit les en-tetes qui recitent la balise <meta>.
+        ⚠️ Carte par langue, jamais une chaine nue. Absente => rien s'affiche,
+        et vevewiki (qui ne la declare pas) garde exactement son en-tete.
+        ⭐ AUCUN CHIFFRE DEDANS : « 1 200 pieces » se perimerait en silence le
+        jour ou le catalogue bouge, et personne ne relit un sous-titre. */}
+    <span class="marque__t" set:html={m.site.brand.replace(/^Ve(Ve)/, 'Ve<em>$1</em>')
+      + (m.identity.accroche ? `<small>${pick(m.identity.accroche, lang)}</small>` : '')}></span>
   </a>
   <nav class="nav main" aria-label={t(lang, 'a11y.nav')}>
     <span class="nav__liens">
