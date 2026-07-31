@@ -7,6 +7,12 @@ import { productLd, breadcrumbLd } from '../../../engine/lib/seo.mjs';
 import { manifest, siteUrl } from '../../../engine/lib/manifest.mjs';
 import { t, localize, numberLocale, dateLocale } from '../../../engine/lib/i18n.mjs';
 import { postsForItem } from '../../../engine/lib/blog.mjs';
+import { formeRarete, motRarete, GEMS, variation } from '../../../engine/lib/vitrine.mjs';
+// ⭐ AJOUT SEUL. ⛔ Le reste du frontmatter n'est PAS retouché : il porte des
+// correctifs coûteux (serieSlug lu et non recalculé — 35 séries divergentes,
+// 52 liens cassés le 29/07 ; le titre qui garde la série au lieu de
+// l'amputer ; la délégation de l'appel à l'action à <Gate>). Réécrire ce
+// bloc de mémoire, c'est signer pour redécouvrir ces trois bugs.
 
 const { lang, item, updatedAt } = Astro.props;
 const m = manifest();
@@ -91,21 +97,95 @@ const descItem = (item.floor && item.totalPoints && anneeDebut)
   : t(lang, 'desc.itemShort', { name: item.qualifie || item.name, series: serieTxt, brand: m.site.brand });
 ---
 <Base lang={lang} path={path} title={titreItem} description={descItem} crumbs={crumbs} ld={ld} updatedAt={updatedAt}>
-  <h1>{item.name}</h1>
-  <p class="lead">
-    {item.series && <span class="tag">{item.series}</span>}
-    {item.rarity && <span class="tag">{item.rarity}</span>}
-    {item.tirage && <span class="tag">{t(lang, 'item.supply')} {item.tirage.toLocaleString(nf)}</span>}
-  </p>
+  {/* ═══ LA TÊTE DE FICHE — la pièce, puis ce qu'on en sait ═══
+      ⭐ La maquette pose l'objet À GAUCHE et le chiffre à droite : c'est
+      l'ordre de lecture d'une vitrine, pas d'un tableur. Le plancher est la
+      SEULE chose grande de l'écran ; tout le reste descend d'un cran. */}
+  <div class="fiche">
+    <div class="fiche__viz">
+      <span class="socle socle--fiche">
+        {item.image ? (
+          <>
+            <img class="socle__fond" src={item.image} alt="" aria-hidden="true" loading="eager" decoding="async" />
+            <span class="socle__voile" aria-hidden="true"></span>
+            <img class="socle__net" src={item.image} alt={item.name} loading="eager" fetchpriority="high" decoding="async" />
+          </>
+        ) : (
+          <>
+            <span class="socle__voile" aria-hidden="true"></span>
+            <span class="socle__gemme" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.1">
+                <path d="M12 2.9 19.9 7.5v9L12 21.1 4.1 16.5v-9Z" />
+              </svg>
+            </span>
+          </>
+        )}
+      </span>
+      {/* ⛔ PAS de bandeau ATL/ATH sur cette image : les blocs Extrêmes le
+          disent déjà, en 38 px. Le même composant, deux contextes, deux
+          verdicts — sur une vignette ce bandeau est la seule information
+          disponible ; ici il répète en petit ce qui est dit en grand. */}
+    </div>
 
-  <div class="stats">
-    <div class="stat"><div class="k">{t(lang, 'item.floor')}</div><div class="v">{money(item.floor)}{item.prixAberrant && <span class="alerte" title={t(lang, 'item.outlier')}>!</span>}</div></div>
-    <div class="stat"><div class="k">{t(lang, 'item.listings')}</div><div class="v">{item.listings ?? '—'}</div></div>
-    <div class="stat"><div class="k">{t(lang, 'item.7d')}</div><div class={`v ${cls(item.change7d)}`}>{pct(item.change7d)}</div></div>
-    <div class="stat"><div class="k">{t(lang, 'item.30d')}</div><div class={`v ${cls(item.change30d)}`}>{pct(item.change30d)}</div></div>
-    <div class="stat"><div class="k">{t(lang, 'item.high')}</div><div class="v">{money(item.ath)}</div></div>
-    <div class="stat"><div class="k">{t(lang, 'item.low')}</div><div class="v">{money(item.atl)}</div></div>
+    <div class="fiche__txt">
+      <h1>{item.name}</h1>
+      <p class="fiche__meta">
+        {item.rarity && (
+          <span class={`rar rar--${(item.rarity || '').toLowerCase()}`}>
+            <Fragment set:html={formeRarete(item.rarity, 15)} />
+            <span class="rar__m">{motRarete(item.rarity)}</span>
+          </span>
+        )}
+        {colSlug && <a class="tag" href={localize(lang, `/collection/${colSlug}/`)}>{item.series}</a>}
+        {item.tirage && <span class="tag">{t(lang, 'item.supply')} {item.tirage.toLocaleString(nf)}</span>}
+      </p>
+
+      {/* LE CHIFFRE QUI COMPTE. Une seule chose est grande par écran. */}
+      <div class="plancher">
+        <span class="plancher__k">{t(lang, 'item.floor')}</span>
+        <span class="plancher__v">
+          <Fragment set:html={GEMS} />
+          <b>{money(item.floor)}</b>
+          {item.prixAberrant && <span class="alerte" title={t(lang, 'item.outlier')}>!</span>}
+        </span>
+        <span class="plancher__d">
+          {(() => { const v = variation(item.change7d); return (
+            <span class={v.cl}><i aria-hidden="true">{v.fleche}</i> {v.txt} · {t(lang, 'item.7d')}</span>
+          ); })()}
+          <span class="muted"> · {item.listings ?? '—'} {t(lang, 'item.listings')}</span>
+        </span>
+      </div>
+
+      {/* ═══ LES EXTRÊMES ═══
+          ⭐ Deux blocs qui se font face, avec la position du prix du jour ENTRE
+          eux. Un plus-haut et un plus-bas alignés dans une grille de six
+          statistiques identiques ne disent rien ; opposés, ils dessinent une
+          amplitude — et c'est l'amplitude qui intéresse un collectionneur. */}
+      <div class="extremes">
+        <div class="extreme extreme--bas">
+          <span class="extreme__k">{t(lang, 'item.low')}</span>
+          <span class="extreme__v"><Fragment set:html={GEMS} /><b>{money(item.atl)}</b></span>
+        </div>
+        <div class="extreme__jauge" aria-hidden="true">
+          <span class="extreme__b"></span>
+          {item.atl != null && item.ath != null && item.ath > item.atl && item.floor != null && (
+            <span class="extreme__p" style={`left:${Math.min(100, Math.max(0, ((item.floor - item.atl) / (item.ath - item.atl)) * 100)).toFixed(1)}%`}></span>
+          )}
+        </div>
+        <div class="extreme extreme--haut">
+          <span class="extreme__k">{t(lang, 'item.high')}</span>
+          <span class="extreme__v"><Fragment set:html={GEMS} /><b>{money(item.ath)}</b></span>
+        </div>
+      </div>
+
+      <div class="stats stats--fiche">
+        <div class="stat"><div class="k">{t(lang, 'item.30d')}</div><div class={`v ${cls(item.change30d)}`}>{pct(item.change30d)}</div></div>
+        {item.storePrice && <div class="stat"><div class="k">{t(lang, 'item.storePrice')}</div><div class="v">{money(item.storePrice)}</div></div>}
+        {item.tirage && <div class="stat"><div class="k">{t(lang, 'item.supply')}</div><div class="v">{item.tirage.toLocaleString(nf)}</div></div>}
+      </div>
+    </div>
   </div>
+
   {item.prixAberrant && <p class="avertis">{t(lang, 'item.outlier')}</p>}
 
   <div class="card">
@@ -131,11 +211,12 @@ const descItem = (item.floor && item.totalPoints && anneeDebut)
   {relatedPosts.length > 0 && (
     <>
       <h2>{t(lang, 'blog.relatedPosts')}</h2>
-      <div class="grid">
-        {relatedPosts.map((p) => (
-          <a class="item" href={localize(lang, `/blog/${p.slug}/`)}>
-            <div class="n">{p.data.title}</div>
-            <p class="muted" style="font-size:14px;margin:6px 0 0">{p.data.description}</p>
+      <div class="boites">
+        {relatedPosts.map((p, k) => (
+          <a class="boite" href={localize(lang, `/blog/${p.slug}/`)}>
+            <span class="boite__n">{String(k + 1).padStart(3, '0')}</span>
+            <span class="boite__t">{p.data.title}</span>
+            <span class="boite__d">{p.data.description}</span>
           </a>
         ))}
       </div>
@@ -145,7 +226,7 @@ const descItem = (item.floor && item.totalPoints && anneeDebut)
   <h2>{t(lang, 'item.sheet')}</h2>
   <table><tbody>
     {colSlug && <tr><th>{t(lang, 'item.collection')}</th><td><a href={localize(lang, `/collection/${colSlug}/`)}>{item.series}</a></td></tr>}
-    {item.rarity && <tr><th>{t(lang, 'item.rarity')}</th><td>{item.rarity}</td></tr>}
+    {item.rarity && <tr><th>{t(lang, 'item.rarity')}</th><td><span class={`rar rar--${(item.rarity || '').toLowerCase()}`}><Fragment set:html={formeRarete(item.rarity, 13)} /><span class="rar__m">{motRarete(item.rarity)}</span></span></td></tr>}
     {item.brand && <tr><th>{t(lang, 'item.brand')}</th><td>{item.brand}</td></tr>}
     {item.licensor && <tr><th>{t(lang, 'item.licensor')}</th><td>{item.licensor}</td></tr>}
     {item.tirage && <tr><th>{t(lang, 'item.supply')}</th><td>{item.tirage.toLocaleString(nf)}</td></tr>}

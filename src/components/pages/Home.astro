@@ -1,21 +1,19 @@
 ---
 // ⚠️ VeVePreda/veve-sites — src/components/pages/Home.astro
-// ═══════════════════════════════════════════════════════════════════════════
-// L'ACCUEIL DE VEVE PRICE — la plaque éditoriale, puis les chapitres.
-// ═══════════════════════════════════════════════════════════════════════════
-// ⛔ CE COMPOSANT EST PROPRE À VEVEPRICE. vevewiki passe par EditorialHome.astro
-// (cf. src/pages/index.astro) et n'a AUCUN module de prix — vérifié avant
-// réécriture : `content.data_modules` vide donc `priceEnabled()` faux.
+// ⛔ PROPRE À VEVEPRICE : vevewiki passe par EditorialHome.astro et n'a aucun
+// module de prix (`content.data_modules` vide → `priceEnabled()` faux).
 //
-// ⭐ LA LOGIQUE DE SÉLECTION N'A PAS BOUGÉ D'UN IOTA. Le classement par score
+// ⭐⭐ LA LOGIQUE DE SÉLECTION N'A PAS BOUGÉ D'UN IOTA. Le classement par score
 // avec quota par type est un correctif payé cher : 100 % des comics avaient
 // disparu de l'accueil parce qu'on classait par nombre de relevés, qui mesure
 // l'avancée du backfill et non l'intérêt de la fiche. On ne redessine que la
 // PRÉSENTATION. ⛔ Ne pas « simplifier » ce bloc en le retouchant au passage.
 import Base from '../../layouts/Base.astro';
+import Piece from '../Piece.astro';
 import { dataset } from '../../../engine/lib/dataset.mjs';
 import { manifest } from '../../../engine/lib/manifest.mjs';
 import { t, pick, localize, numberLocale } from '../../../engine/lib/i18n.mjs';
+import { GEMS } from '../../../engine/lib/vitrine.mjs';
 
 const { lang } = Astro.props;
 const m = manifest();
@@ -43,54 +41,56 @@ const featured = (() => {
 const collections = [...ds.collections.values()]
   .sort((a, b) => b.items.length - a.items.length).slice(0, 8);
 
-const pct = (v) => (v === null || v === undefined ? '—' : `${v > 0 ? '+' : ''}${v.toFixed(1)} %`);
-const money = (v) => (v === null || v === undefined ? '—' : v.toLocaleString(nf, { maximumFractionDigits: 2 }));
-
-// ⚠️⚠️ LES IMAGES N'EXISTENT PAS ENCORE DANS LE JEU DE DONNÉES.
-// `image_url` est dans le Sheet (scraper/sheets.py L.58) mais absent de
-// COLD_MAP (scraper/catalog_export.py L.44) : il ne traverse pas l'export.
-// ⭐ Le gabarit ne doit PAS s'écrouler pour autant — un composant qui exige une
-// donnée absente bloque son propre déploiement. La pièce d'en-tête est
-// FACULTATIVE, son emplacement se referme proprement, et le jour où le champ
-// arrive elle s'allume sans qu'on retouche ce fichier.
+// Le bandeau défilant : les six plus fortes hausses, en continu.
+// ⭐ Il n'est pas décoratif — c'est la seule chose de la page qui BOUGE, donc
+// la seule qui dit « ce site est vivant » avant qu'on ait lu une ligne.
+const ticker = [...up, ...down].slice(0, 10);
 const piece = featured.find((i) => i.image) || null;
 const aPiece = Boolean(piece && piece.image);
 ---
 <Base lang={lang} path="/" title={null} updatedAt={ds.updatedAt}>
 
-  {/* ═══ LA PLAQUE — champ noir débordant à droite, panneau os décalé ═══
+  {/* ═══ LA PLAQUE — champ noir débordant, panneau os décalé ═══
       ⭐ Ce qui fait la composition n'est pas un effet, c'est un DÉCALAGE :
-      trois surfaces larges qui se chevauchent, dont une qui sort du cadre.
-      Empiler des ombres et des dégradés sur un bloc centré ne produit jamais
-      cet effet — il a fallu quatre tentatives pour l'admettre. */}
+      trois surfaces larges qui se chevauchent, dont une qui SORT du cadre. */}
   <section class={aPiece ? 'plaque' : 'plaque plaque--nue'} aria-labelledby="plaque-t">
     <div class="plaque__champ" aria-hidden="true"></div>
-
     {aPiece && (
       <span class="plaque__piece" aria-hidden="true">
-        <img src={piece.image} alt="" width="520" height="650"
-             loading="eager" fetchpriority="high" decoding="async" />
+        <img src={piece.image} alt="" width="520" height="650" loading="eager" fetchpriority="high" decoding="async" />
       </span>
     )}
-
     <span class="plaque__ref" aria-hidden="true">VEVE PRICE</span>
-
     <div class="plaque__os">
       <span class="num-s">// 001</span>
       {/* ⭐ L'accroche porte un CHIFFRE, pas un adjectif. Un adjectif se
-          conteste, un relevé se vérifie — et il se vérifie sur cette page. */}
+          conteste ; un relevé se vérifie, et il se vérifie sur cette page. */}
       <h1 id="plaque-t" class="plaque__t">
-        {ds.items.length.toLocaleString(nf)} {t(lang, 'home.pieces')}<br />
-        <em>{t(lang, 'home.tracked')}</em>
+        {ds.items.length.toLocaleString(nf)} {t(lang, 'home.pieces')}<br /><em>{t(lang, 'home.tracked')}</em>
       </h1>
       <p class="lead">{pick(m.site.description, lang)}</p>
-
-      <input id="q" class="searchbox plaque__rech" type="search"
-             placeholder={t(lang, 'search.placeholder')} autocomplete="off"
-             aria-label={t(lang, 'search.placeholder')} />
+      <input id="q" class="searchbox plaque__rech" type="search" placeholder={t(lang, 'search.placeholder')}
+             autocomplete="off" aria-label={t(lang, 'search.placeholder')} />
       <div id="results" class="grid" style="margin-top:14px"></div>
     </div>
   </section>
+
+  {/* Le bandeau. `aria-hidden` : son contenu est répété juste en dessous, et un
+      lecteur d'écran n'a pas à entendre deux fois la même liste. */}
+  <div class="ticker" aria-hidden="true">
+    <div class="ticker__p">
+      {[0, 1].map(() => (
+        <span class="ticker__g">{ticker.map((i) => (
+          <span class="ticker__i">
+            <span class="ticker__n">{i.name}</span>
+            <Fragment set:html={GEMS} />
+            <b>{(i.floor ?? 0).toLocaleString(nf, { maximumFractionDigits: 2 })}</b>
+            <span class={i.change7d > 0 ? 'up' : 'down'}>{i.change7d > 0 ? '▲' : '▼'}</span>
+          </span>
+        ))}</span>
+      ))}
+    </div>
+  </div>
 
   <div class="stats">
     <div class="stat"><div class="k">{t(lang, 'stats.tracked')}</div><div class="v">{ds.items.length.toLocaleString(nf)}</div></div>
@@ -102,40 +102,24 @@ const aPiece = Boolean(piece && piece.image);
       l'exception assumée : c'est un sommaire, ses chapitres sont séparés par
       des écrans entiers de défilement et ne se voient jamais ensemble. */}
   <h2 class="titre-affiche">{t(lang, 'home.up')}</h2>
-  <div class="grid">
-    {up.map((i) => (
-      <a class="item" href={localize(lang, i.path)}>
-        <div class="n">{i.name}</div><div class="s">{i.series} · {i.rarity}</div>
-        <div class="f">{money(i.floor)}{i.prixAberrant && <span class="alerte" title={t(lang, 'item.outlier')}>!</span>} <span class="up" style="font-size:14px">▲ {pct(i.change7d)}</span></div>
-      </a>
-    ))}
-  </div>
+  <div class="grille">{up.map((i) => (
+    <Piece item={i} href={localize(lang, i.path)} lang={lang} nf={nf} montrerVariation />
+  ))}</div>
 
   <h2>{t(lang, 'home.down')}</h2>
-  <div class="grid">
-    {down.map((i) => (
-      <a class="item" href={localize(lang, i.path)}>
-        <div class="n">{i.name}</div><div class="s">{i.series} · {i.rarity}</div>
-        {/* ⚠️ La flèche est OBLIGATOIRE (WCAG 1.4.1) : un deutan ne distingue
-            pas ce vert de ce rouge. La couleur seule ne peut porter aucune
-            information — elle la renforce, elle ne la remplace jamais. */}
-        <div class="f">{money(i.floor)}{i.prixAberrant && <span class="alerte" title={t(lang, 'item.outlier')}>!</span>} <span class="down" style="font-size:14px">▼ {pct(i.change7d)}</span></div>
-      </a>
-    ))}
-  </div>
+  <div class="grille">{down.map((i) => (
+    <Piece item={i} href={localize(lang, i.path)} lang={lang} nf={nf} montrerVariation />
+  ))}</div>
 
   <h2 class="titre-affiche">{t(lang, 'home.documented')}</h2>
-  <div class="grid">
-    {featured.map((i) => (
-      <a class="item" href={localize(lang, i.path)}>
-        <div class="n">{i.name}</div><div class="s">{i.totalPoints.toLocaleString(nf)} {t(lang, 'home.points')}</div>
-        <div class="f">{money(i.floor)}{i.prixAberrant && <span class="alerte" title={t(lang, 'item.outlier')}>!</span>}</div>
-      </a>
-    ))}
-  </div>
+  <div class="grille">{featured.map((i) => (
+    <Piece item={i} href={localize(lang, i.path)} lang={lang} nf={nf} ed />
+  ))}</div>
 
   <h2>{t(lang, 'home.collections')}</h2>
-  <p>{collections.map((c) => (<a class="tag" href={localize(lang, `/collection/${c.slug}/`)}>{c.name} ({c.items.length})</a>))}</p>
+  <p class="jetons">{collections.map((c) => (
+    <a class="tag" href={localize(lang, `/collection/${c.slug}/`)}>{c.name} <b>{c.items.length}</b></a>
+  ))}</p>
 
   <script is:inline define:vars={{ prefixe: localize(lang, '') }}>
     (function () {

@@ -1,4 +1,6 @@
 ---
+// ⚠️ VeVePreda/veve-sites — src/components/pages/Collections.astro
+// ⛔ Propre à veveprice (aucune page de prix chez vevewiki).
 import Base from '../../layouts/Base.astro';
 import { dataset } from '../../../engine/lib/dataset.mjs';
 import { t, localize, numberLocale } from '../../../engine/lib/i18n.mjs';
@@ -7,16 +9,36 @@ const { lang } = Astro.props;
 const ds = await dataset();
 const nf = numberLocale[lang] || 'en-GB';
 const cols = [...ds.collections.values()].sort((a, b) => b.items.length - a.items.length);
+
+// ⭐ LA PILE : trois pièces de la série, décalées et décroissantes. C'est la
+// seule façon de dire « ceci est un ENSEMBLE » sans écrire le mot — et ça
+// distingue d'un coup d'œil une collection d'une pièce, ce que trois lignes de
+// texte identiques ne faisaient pas.
+const pile = (c) => [...c.items].sort((a, b) => (b.floor ?? 0) - (a.floor ?? 0)).slice(0, 3);
 ---
-<Base lang={lang} path="/collections/" title={t(lang, 'collections.title')} description={t(lang, 'desc.collections', { n: cols.length.toLocaleString(nf) })} updatedAt={ds.updatedAt}
+<Base lang={lang} path="/collections/" title={t(lang, 'collections.title')}
+      description={t(lang, 'desc.collections', { n: cols.length.toLocaleString(nf) })} updatedAt={ds.updatedAt}
       crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') }, { name: t(lang, 'collections.title') }]}>
   <h1>{t(lang, 'collections.title')}</h1>
-  <p class="lead">{cols.length} {t(lang, 'collections.count')}.</p>
-  <div class="grid">
+  <p class="lead">{cols.length.toLocaleString(nf)} {t(lang, 'collections.count')}.</p>
+
+  <div class="grille grille--series">
     {cols.map((c) => (
-      <a class="item" href={localize(lang, `/collection/${c.slug}/`)}>
-        <div class="n">{c.name}</div><div class="s">{c.brand}</div>
-        <div class="f">{c.items.length} <span style="font-size:14px" class="muted">{t(lang, 'collections.items')}</span></div>
+      <a class="serie" href={localize(lang, `/collection/${c.slug}/`)}>
+        <span class="serie__pile" aria-hidden="true">
+          {pile(c).map(() => (
+            <span class="serie__l"><span class="serie__g">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+                <path d="M12 2.9 19.9 7.5v9L12 21.1 4.1 16.5v-9Z" />
+              </svg>
+            </span></span>
+          ))}
+        </span>
+        <span class="serie__t">
+          <span class="serie__n">{c.name}</span>
+          {c.brand && <span class="serie__b">{c.brand}</span>}
+          <span class="serie__c"><b>{c.items.length}</b> {t(lang, 'collections.items')}</span>
+        </span>
       </a>
     ))}
   </div>

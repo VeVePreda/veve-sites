@@ -87,12 +87,15 @@ access:
       public_days: 3       # ⭐ 3 jours, pas 90 : c'est la profondeur qui se vend
     # Les extrêmes et les modules d'analyse.
     extremes:
+      binaire: true   # ouvre ou non — ni troncature ni plafond
       tier: crevette
     modules:
+      binaire: true   # ouvre ou non — ni troncature ni plafond
       tier: crevette
     # Les alertes, avec leurs plafonds. 0 pour un membre : il voit le NOM du
     # module, jamais son contenu.
     alerts:
+      binaire: true   # ouvre ou non — ni troncature ni plafond
       tier: crevette
       caps:
         member:    0
@@ -101,6 +104,7 @@ access:
         whale:     -1     # -1 = illimité
     # Suivre le portefeuille de QUELQU'UN D'AUTRE — réservé au dernier palier.
     wallet_watch:
+      binaire: true   # ouvre ou non — ni troncature ni plafond
       tier: whale
 
 
@@ -125,29 +129,51 @@ offer:
   # palier n'existe pas serait vendu pour une porte qui ne s'ouvrira jamais :
   # /offre/ filtre donc sur `tiers`, et un plan orphelin disparaît en silence.
   # ⭐ C'est le bon comportement — mieux vaut ne pas vendre que mal vendre.
+  # ⚠️ `d` EST UNE CARTE PAR LANGUE, comme `site.tagline` et `site.description`.
+  # Une chaîne nue ici sortait du FRANÇAIS sur la page anglaise, en production,
+  # et aucun banc ne le voyait. ⭐ Dans un dépôt multilingue, tout texte destiné
+  # à être lu est soit une clé i18n, soit une carte par langue — jamais une
+  # chaîne nue. ⭐ `nom` reste une chaîne : « Crevette » est un nom de MARQUE,
+  # il ne se traduit pas. La distinction est éditoriale, pas grammaticale.
   plans:
     - cle: member
       nom: "Membre"
       prix: 0
       alertes: 0
-      d: "Le nom de chaque module, la vitrine libre, les trois derniers jours."
+      d:
+        fr: "Le nom de chaque module, la vitrine libre, les trois derniers jours."
+        en: "Every module by name, the free showcase, the last three days."
+        es: "El nombre de cada módulo, el escaparate libre, los últimos tres días."
+        de: "Jedes Modul beim Namen, die freie Auswahl, die letzten drei Tage."
     - cle: crevette
       nom: "Crevette"
       prix: 15
       alertes: 2
-      d: "L'historique complet, les extrêmes, les modules d'analyse."
+      d:
+        fr: "L'historique complet, les extrêmes, les modules d'analyse."
+        en: "The full history, the extremes, the analysis modules."
+        es: "El historial completo, los extremos, los módulos de análisis."
+        de: "Die volle Historie, die Extreme, die Analysemodule."
     - cle: langouste
       nom: "Langouste"
       prix: 35
       alertes: 10
-      d: "Tout Crevette, plus dix alertes et les exports."
+      d:
+        fr: "Tout Crevette, plus dix alertes et les exports."
+        en: "Everything in Crevette, plus ten alerts and exports."
+        es: "Todo Crevette, más diez alertas y las exportaciones."
+        de: "Alles aus Crevette, plus zehn Warnungen und Exporte."
     - cle: whale
       nom: "Whale"
       prix: 50
       alertes: -1        # ⚠️ -1 = ILLIMITÉ. Les gabarits le traduisent en « ∞ » :
                          # afficher « -1 alerte » sur une page de tarifs est le
                          # genre de bug qui se voit depuis la rue.
-      d: "Alertes illimitées et suivi de portefeuilles tiers."
+      d:
+        fr: "Alertes illimitées et suivi de portefeuilles tiers."
+        en: "Unlimited alerts and third-party wallet watching."
+        es: "Alertas ilimitadas y seguimiento de carteras ajenas."
+        de: "Unbegrenzte Warnungen und Beobachtung fremder Wallets."
 
 legal_info:
   contact: "contact@veveprice.com"   # <-- à activer via Cloudflare Email Routing (gratuit)

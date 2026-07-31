@@ -20,7 +20,7 @@
 import Base from '../../layouts/Base.astro';
 import { manifest } from '../../../engine/lib/manifest.mjs';
 import { acces } from '../../../engine/lib/access.mjs';
-import { t, localize } from '../../../engine/lib/i18n.mjs';
+import { t, localize, pick } from '../../../engine/lib/i18n.mjs';
 
 // ⭐ LA LANGUE ARRIVE EN PROP, ELLE NE SE DEVINE PLUS.
 // La version précédente faisait `locales().def` : la page n'existait donc qu'en
@@ -37,23 +37,32 @@ const { tiers } = acces();
 // gabarit est un tarif qu'on oubliera de changer — et deux tarifs différents
 // sur deux pages est la faute qui coûte un litige, pas seulement une correction.
 // Repli lisible si le bloc `offer.plans` n'existe pas encore.
+// ⚠️ Le repli sert quand `offer.plans` n'existe pas encore. Ses textes sont
+// donc aussi des cartes par langue — un repli qui ment est pire qu'un repli
+// absent, parce qu'il a l'air de marcher.
 const PLANS = m.offer?.plans || [
   { cle: 'member',    nom: 'Membre',    prix: 0,  alertes: 0,
-    d: 'Le nom de chaque module, la vitrine libre, les trois derniers jours.' },
+    d: { fr: 'Le nom de chaque module, la vitrine libre, les trois derniers jours.',
+         en: 'Every module by name, the free showcase, the last three days.' } },
   { cle: 'crevette',  nom: 'Crevette',  prix: 15, alertes: 2,
-    d: "L'historique complet, les extrêmes, les modules d'analyse." },
+    d: { fr: "L'historique complet, les extrêmes, les modules d'analyse.",
+         en: 'The full history, the extremes, the analysis modules.' } },
   { cle: 'langouste', nom: 'Langouste', prix: 35, alertes: 10,
-    d: 'Tout Crevette, plus dix alertes et les exports.' },
+    d: { fr: 'Tout Crevette, plus dix alertes et les exports.',
+         en: 'Everything in Crevette, plus ten alerts and exports.' } },
   { cle: 'whale',     nom: 'Whale',     prix: 50, alertes: -1,
-    d: 'Alertes illimitées et suivi de portefeuilles tiers.' },
+    d: { fr: 'Alertes illimitées et suivi de portefeuilles tiers.',
+         en: 'Unlimited alerts and third-party wallet watching.' } },
 ];
 const REMISE_AN = m.offer?.annual_discount ?? 0.20;
 
 // ⚠️ On n'affiche QUE les paliers que le site déclare. Vendre un palier que le
 // moteur ne connaît pas, c'est encaisser pour une porte qui ne s'ouvrira pas.
 const visibles = PLANS.filter((p) => tiers.includes(p.cle));
-const eur = (v) => (v === 0 ? 'Gratuit' : `${v} $ / mois`);
-const an = (v) => (v === 0 ? '—' : `${Math.round(v * 12 * (1 - REMISE_AN))} $ / an`);
+// ⚠️ « Gratuit » ÉTAIT ÉCRIT EN DUR — donc en français sur la page anglaise.
+// Un texte destiné à être lu ne s'écrit jamais dans un gabarit multilingue.
+const eur = (v) => (v === 0 ? t(lang, 'offer.free.price') : t(lang, 'offer.permonth', { v }));
+const an = (v) => (v === 0 ? '—' : t(lang, 'offer.peryear', { v: Math.round(v * 12 * (1 - REMISE_AN)) }));
 ---
 <Base lang={lang} path="/offre/" title={t(lang, 'offer.title')}
       description={t(lang, 'offer.desc')}
@@ -75,7 +84,8 @@ const an = (v) => (v === 0 ? '—' : `${Math.round(v * 12 * (1 - REMISE_AN))} $ 
         <h2 class="tarif__n">{p.nom}</h2>
         <p class="tarif__p">{eur(p.prix)}</p>
         <p class="tarif__a">{an(p.prix)}</p>
-        <p class="tarif__d">{p.d}</p>
+        {/* ⭐ `pick` : `d` est une CARTE PAR LANGUE, comme site.tagline. */}
+        <p class="tarif__d">{pick(p.d, lang)}</p>
         <p class="tarif__al">
           {/* ⚠️ `-1` veut dire ILLIMITÉ. Afficher « -1 alerte » sur une page de
               tarifs est le genre de bug qui se voit depuis la rue. */}

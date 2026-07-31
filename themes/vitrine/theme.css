@@ -74,6 +74,25 @@
      10 % ne survit pas au thème clair : du blanc posé sur du blanc, c'est du
      blanc. Le voile doit changer de signe, pas seulement d'opacité. */
   --vp-survol:color-mix(in srgb,var(--text) 8%,transparent);
+
+  /* Encre secondaire — le cran juste sous `--text`. */
+  --text-2:color-mix(in srgb,var(--text) 82%,var(--bg));
+
+  /* ═══ LE VOILE DU SOCLE — lumière rasante en haut, vignetage en bas ═══
+     ⚠️ CES DEUX-LÀ ÉTAIENT UTILISÉES SANS ÊTRE DÉFINIES. Une `var()` sans
+     définition ni repli ne lève AUCUNE erreur : la propriété devient invalide
+     et disparaît. Le socle aurait perdu sa lumière et son ombre en silence —
+     et personne n'aurait su dire pourquoi les pièces avaient l'air « collées ».
+     ⭐ Le contrôle qui les a trouvées vaut plus que le correctif : il compare
+     les `var()` employées aux jetons déclarés, et c'est deux lignes de script.
+
+     ⭐⭐ LE VIGNETAGE SE DÉRIVE DU FOND, PAS DU NOIR. Un noir à 45 % écrase un
+     thème clair. En mélangeant vers `--bg`, il fonce sur sombre et s'efface
+     sur clair — la bascule est correcte PAR CONSTRUCTION, sans second jeu de
+     valeurs à tenir à jour. C'est la règle du dépôt : un thème ne suppose
+     jamais son fond. */
+  --voile-haut:#FFFFFF26;
+  --voile-bas:color-mix(in srgb,var(--bg) 62%,transparent);
 }
 
 /* ─── 2 · SOCLE ──────────────────────────────────────────────────────────── */
@@ -424,3 +443,210 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;
 .promesses li{position:relative;padding-left:26px;font-size:15px;line-height:1.55}
 .promesses li::before{content:"—";position:absolute;left:0;top:0;
   color:var(--primary);font-weight:700}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   18 · LA PIÈCE — socle + cartouche
+   ═══════════════════════════════════════════════════════════════════════════
+   ⭐⭐ C'EST CE QUI MANQUAIT. Les sections 1 à 17 habillaient un `.item`, donc
+   trois lignes de texte : le site avait les COULEURS de la maquette et pas sa
+   FORME. Un thème habille ce qui existe ; il ne crée pas d'élément. */
+.grille{display:grid;gap:var(--s3);grid-template-columns:repeat(auto-fill,minmax(196px,1fr))}
+.grille--tete{grid-template-columns:repeat(auto-fill,minmax(168px,1fr));margin:var(--s5) 0 var(--s6)}
+.grille--series{grid-template-columns:repeat(auto-fill,minmax(268px,1fr))}
+
+.piece{display:block;background:var(--surface);border:1px solid var(--vp-rule);
+  border-radius:var(--r-lg);overflow:hidden;color:var(--text);
+  transition:border-color var(--d-fast),transform var(--d-base) var(--e-out),
+             box-shadow var(--d-base) var(--e-soft)}
+.piece:hover{border-color:var(--primary);text-decoration:none;
+  transform:translateY(-2px);box-shadow:var(--sh-2)}
+
+/* ⭐ 4:5 ET NON 2:3 — c'est un calcul, pas un goût. Le catalogue mêle des
+   collectibles à peu près carrés et des comics en 2:3. Sur la matrice des
+   bandes vides, 4:5 plafonne le pire cas à 20 % ; 2:3 le laisse monter à 33 %.
+   On choisit le rapport qui minimise le PIRE cas, pas le cas moyen. */
+.socle{position:relative;display:block;aspect-ratio:4/5;overflow:hidden;
+  background:linear-gradient(178deg,var(--vp-s3),var(--surface) 70%);isolation:isolate}
+.socle__fond{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;
+  filter:blur(var(--foc-fond)) saturate(1.45) brightness(.5);transform:scale(1.3)}
+/* La lumière rasante en haut, le vignetage en bas. Deux gestes qui ne se voient
+   pas séparément, et dont l'absence se voit immédiatement. */
+.socle__voile{position:absolute;inset:0;z-index:1;pointer-events:none;
+  background:radial-gradient(78% 52% at 50% 6%, var(--voile-haut), transparent 64%),
+             radial-gradient(120% 78% at 50% 108%, var(--voile-bas), transparent 62%)}
+/* ⭐ `scale(1.06)` : l'objet TOUCHE le cadre au lieu d'y flotter. Le
+   débordement est clippé, et il ne peut porter que du fond — les visuels VeVe
+   ont tous une marge autour du sujet. */
+.socle__net{position:relative;z-index:2;width:100%;height:100%;object-fit:contain;
+  transform:scale(1.06);transition:transform var(--d-slow) var(--e-out)}
+.piece:hover .socle__net{transform:scale(1.1)}
+/* Le repli quand il n'y a pas d'image : une gemme. ⭐ Elle dit « pièce » sans
+   prétendre montrer laquelle — un cadre vide, lui, dit « c'est cassé ». */
+.socle__gemme{position:absolute;inset:0;z-index:2;display:grid;place-items:center;
+  color:var(--vp-rule-2)}
+.socle__gemme svg{width:44%;height:auto;max-width:96px}
+.socle--fiche{aspect-ratio:4/5;border-radius:var(--r-lg);border:1px solid var(--vp-rule);
+  box-shadow:var(--sh-2)}
+.socle--fiche .socle__gemme svg{max-width:150px}
+
+/* LE CARTOUCHE — le seul vrai blanc de la carte, et le seul endroit où l'œil
+   est autorisé à s'arrêter net. ⛔ Un accent qui apparaît deux fois n'est plus
+   un accent : ne pas le réutiliser ailleurs sur la même page. */
+.cartouche{display:block;background:var(--vp-carte);color:var(--vp-carte-ink);
+  padding:10px 11px 11px}
+.cartouche__n{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+  overflow:hidden;font-family:var(--font-heading);font-weight:600;font-size:13.5px;
+  line-height:1.28;letter-spacing:-.01em;min-height:2.56em}
+.cartouche__l{display:flex;align-items:center;justify-content:space-between;gap:8px;
+  margin-top:7px;padding-top:7px;border-top:1px solid #D5D4CD}
+.cartouche__s{font-family:var(--font-heading);font-size:10px;color:var(--vp-carte-ink-2);
+  text-transform:uppercase;letter-spacing:var(--ls-etiq);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:11ch}
+.cartouche__l--prix{border-top:0;padding-top:0;margin-top:6px}
+
+/* ═══ 19 · LA RARETÉ EST UNE FORME ════════════════════════════════════════
+   ⭐⭐ AUCUNE couleur de rareté VeVe ne passe 4,5:1 en TEXTE sur ces gris (le
+   rouge secret plafonne à 1,96:1). La couleur ne peut donc vivre que sur un
+   TRACÉ. D'où : la forme porte la teinte, le MOT reste neutre.
+   ⛔ Ne jamais colorer le mot. Ce n'est pas une élégance, c'est la seule
+   solution physiquement lisible — et c'est ce que VeVe fait lui-même. */
+.rar{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.rar__f{flex:0 0 auto}
+.rar__m{font-family:var(--font-heading);font-size:10px;font-weight:600;
+  text-transform:uppercase;letter-spacing:var(--ls-etiq);color:var(--muted)}
+/* Dans le cartouche (fond clair) le mot prend l'encre du cartouche. */
+.cartouche .rar__m{color:var(--vp-carte-ink-2)}
+
+/* ═══ 20 · LES DEUX MONNAIES ══════════════════════════════════════════════
+   Diamant PLEIN pour les gems, cercle CREUX pour l'OMI. ⭐ Plein contre creux
+   se distingue en noir et blanc, à 10 px, et pour un daltonien — là où deux
+   couleurs échouent aux trois. */
+.mon{flex:0 0 auto;vertical-align:-1px}
+.prix{display:inline-flex;align-items:center;gap:5px;
+  font-family:var(--font-heading);font-variant-numeric:tabular-nums}
+.prix b{font-weight:700;font-size:15px;letter-spacing:-.02em}
+.cartouche .prix b{font-size:16px;color:var(--vp-carte-ink)}
+.delta{display:inline-flex;align-items:center;gap:3px;font-family:var(--font-heading);
+  font-size:11.5px;font-weight:700;font-variant-numeric:tabular-nums}
+.delta i{font-style:normal;font-size:9px}
+/* ⚠️ La flèche est OBLIGATOIRE (WCAG 1.4.1) : un deutan ne distingue pas ce
+   vert de ce rouge. La couleur renforce, elle ne remplace jamais. */
+.cartouche .up{color:#0A7A3E}
+.cartouche .down{color:#B01F32}
+
+/* ═══ 21 · LA SÉRIE — une pile, pas une ligne ═════════════════════════════
+   ⭐ Trois pièces décalées et décroissantes disent « ENSEMBLE » sans écrire le
+   mot, et distinguent d'un coup d'œil une collection d'une pièce — ce que
+   trois lignes de texte identiques ne faisaient pas. */
+.serie{display:flex;gap:var(--s4);align-items:center;background:var(--surface);
+  border:1px solid var(--vp-rule);border-radius:var(--r-lg);padding:var(--s3);
+  color:var(--text);transition:border-color var(--d-fast),transform var(--d-base) var(--e-out)}
+.serie:hover{border-color:var(--primary);text-decoration:none;transform:translateY(-2px)}
+.serie__pile{display:flex;flex:0 0 auto;align-items:flex-start}
+.serie__l{width:52px;aspect-ratio:4/5;border-radius:var(--r-md);overflow:hidden;
+  background:linear-gradient(178deg,var(--vp-s3),var(--surface) 70%);
+  border:1px solid var(--vp-rule);display:grid;place-items:center;color:var(--vp-rule-2)}
+.serie__l:nth-child(2){width:44px;margin-left:-16px;opacity:.82}
+.serie__l:nth-child(3){width:36px;margin-left:-14px;opacity:.6}
+.serie__g svg{width:22px;height:22px}
+.serie__t{display:flex;flex-direction:column;gap:3px;min-width:0}
+.serie__n{font-family:var(--font-heading);font-weight:600;font-size:14px;line-height:1.3;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.serie__b{font-size:11.5px;color:var(--muted)}
+.serie__c{font-family:var(--font-heading);font-size:10px;text-transform:uppercase;
+  letter-spacing:var(--ls-etiq);color:var(--muted);margin-top:3px}
+.serie__c b{color:var(--primary);font-size:13px}
+
+/* ═══ 22 · LE BANDEAU DÉFILANT ════════════════════════════════════════════
+   ⭐ La seule chose qui BOUGE sur la page, donc la seule qui dit « ce site est
+   vivant » avant qu'on ait lu une ligne. ⛔ Il ne doit jamais devenir deux :
+   deux mouvements simultanés ne font pas deux fois plus vivant, ils font
+   illisible. */
+.ticker{position:relative;overflow:hidden;margin:var(--s5) 0;padding:9px 0;
+  border-top:1px solid var(--vp-rule);border-bottom:1px solid var(--vp-rule);
+  mask-image:linear-gradient(90deg,transparent,#000 4%,#000 96%,transparent)}
+.ticker__p{display:flex;width:max-content;animation:defile 48s linear infinite}
+.ticker:hover .ticker__p{animation-play-state:paused}
+.ticker__g{display:flex;gap:var(--s6);padding-right:var(--s6)}
+.ticker__i{display:inline-flex;align-items:center;gap:6px;
+  font-family:var(--font-heading);font-size:12px;white-space:nowrap;color:var(--muted)}
+.ticker__n{color:var(--text-2,var(--text));max-width:26ch;overflow:hidden;text-overflow:ellipsis}
+.ticker__i b{font-variant-numeric:tabular-nums;color:var(--text)}
+@keyframes defile{from{transform:translate3d(0,0,0)}to{transform:translate3d(-50%,0,0)}}
+/* ⛔ Le mouvement s'arrête pour qui l'a demandé. Une préférence
+   d'accessibilité ne se négocie pas contre un effet. */
+@media (prefers-reduced-motion: reduce){ .ticker__p{animation:none} }
+
+/* ═══ 23 · LA FICHE ═══════════════════════════════════════════════════════ */
+.fiche{display:grid;grid-template-columns:300px 1fr;gap:var(--s6);
+  align-items:start;margin-bottom:var(--s6)}
+.fiche__viz{position:sticky;top:88px}
+.fiche h1{margin-top:0}
+.fiche__meta{display:flex;flex-wrap:wrap;align-items:center;gap:9px;margin:0 0 var(--s5)}
+@media (max-width:820px){
+  .fiche{grid-template-columns:1fr;gap:var(--s5)}
+  .fiche__viz{position:static;max-width:250px}
+}
+/* LE CHIFFRE QUI COMPTE. Une seule chose est grande par écran. */
+.plancher{display:flex;flex-direction:column;gap:4px;margin-bottom:var(--s5)}
+.plancher__k{font-family:var(--font-heading);font-size:10px;text-transform:uppercase;
+  letter-spacing:var(--ls-etiq);color:var(--muted)}
+.plancher__v{display:flex;align-items:center;gap:9px;font-family:var(--font-heading);
+  font-size:clamp(38px,6vw,64px);font-weight:700;letter-spacing:-.04em;line-height:1;
+  font-variant-numeric:tabular-nums}
+.plancher__v .mon{width:20px;height:20px}
+.plancher__d{font-family:var(--font-heading);font-size:12.5px;font-weight:600}
+.plancher__d i{font-style:normal;font-size:10px}
+
+/* ⭐ Les extrêmes SE FONT FACE, avec la position du jour entre eux. Alignés
+   dans une grille de six statistiques identiques ils ne disaient rien ;
+   opposés, ils dessinent une AMPLITUDE — et c'est l'amplitude qui intéresse
+   un collectionneur. */
+.extremes{display:grid;grid-template-columns:1fr 84px 1fr;gap:var(--s3);
+  align-items:center;background:var(--surface);border:1px solid var(--vp-rule);
+  border-radius:var(--r-lg);padding:var(--s4);margin-bottom:var(--s5)}
+.extreme{display:flex;flex-direction:column;gap:5px}
+.extreme--haut{text-align:right;align-items:flex-end}
+.extreme__k{font-family:var(--font-heading);font-size:10px;text-transform:uppercase;
+  letter-spacing:var(--ls-etiq);color:var(--muted)}
+.extreme__v{display:flex;align-items:center;gap:6px;font-family:var(--font-heading);
+  font-size:clamp(18px,2.4vw,26px);font-weight:700;letter-spacing:-.03em;
+  font-variant-numeric:tabular-nums}
+.extreme__jauge{position:relative;height:3px}
+.extreme__b{position:absolute;inset:0;border-radius:var(--r-full);
+  background:linear-gradient(90deg,var(--accent),var(--vp-rule-2),var(--danger))}
+.extreme__p{position:absolute;top:50%;width:9px;height:9px;border-radius:var(--r-full);
+  background:var(--text);border:2px solid var(--bg);transform:translate(-50%,-50%)}
+@media (max-width:560px){
+  .extremes{grid-template-columns:1fr 1fr;gap:var(--s4)}
+  .extreme__jauge{display:none}
+}
+.stats--fiche{margin:0}
+
+/* ═══ 24 · LES ENCARTS D'ARTICLE ══════════════════════════════════════════ */
+.boites{display:grid;gap:var(--s3);grid-template-columns:repeat(auto-fit,minmax(232px,1fr))}
+.boite{display:flex;flex-direction:column;gap:7px;background:var(--surface);
+  border:1px solid var(--vp-rule);border-radius:var(--r-lg);padding:var(--s4);
+  color:var(--text);transition:border-color var(--d-fast),transform var(--d-base) var(--e-out)}
+.boite:hover{border-color:var(--primary);text-decoration:none;transform:translateY(-2px)}
+.boite__n{font-family:var(--font-heading);font-size:11px;font-weight:700;
+  letter-spacing:var(--ls-etiq);color:var(--primary)}
+.boite__t{font-family:var(--font-heading);font-weight:600;font-size:15px;line-height:1.3}
+.boite__d{font-size:13px;color:var(--muted);line-height:1.5;
+  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+
+/* ═══ 25 · COMPLÉMENTS DU MARCHÉ ══════════════════════════════════════════ */
+.sep-v{width:1px;align-self:stretch;background:var(--vp-rule-2);margin:0 4px}
+.seg-v{display:inline-flex;border:1px solid var(--vp-rule-2);border-radius:var(--r-full);
+  overflow:hidden}
+.seg-v__b{min-height:var(--tap-min);padding:0 13px;border:0;background:transparent;
+  color:var(--muted);cursor:pointer;font-family:var(--font-heading);font-size:12.5px;
+  font-weight:600}
+.seg-v__b[aria-pressed="true"]{background:var(--primary);color:var(--bg)}
+/* ⭐ Le bouton de rareté prend SA couleur, en trait et en voile — jamais en
+   aplat plein, qui crierait plus fort que les prix. */
+.f-r{gap:8px}
+.f-r:has(input:checked){background:color-mix(in srgb,currentColor 14%,transparent)}
+.f-r span{font-family:var(--font-heading);font-size:12.5px}
+.jetons{display:flex;flex-wrap:wrap;gap:7px}
+.jetons .tag b{color:var(--primary);margin-left:5px}

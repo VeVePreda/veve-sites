@@ -37,7 +37,17 @@ const idBase = process.env.VEVEID_URL || '';
 const retour = new URL('/compte/', Astro.site || 'https://veveprice.com').href;
 const lien = idBase ? `${idBase}/oauth/start?retour=${encodeURIComponent(retour)}` : '';
 ---
-<Base lang={lang} path="/connexion/" title={t(lang, 'login.title')}
+      {/* ⛔ UNE SEULE LANGUE DÉCLARÉE, ET C'EST LE CORRECTIF DU 404.
+          `/compte/` et `/connexion/` sont rendues À LA DEMANDE et lisent
+          `Accept-Language` : elles n'ont qu'UNE adresse, sans préfixe. Sans
+          `langs`, la barre de langues et les `hreflang` proposaient
+          `/fr/compte/`, `/es/compte/`, `/de/compte/` — trois 404.
+          ⭐ Le mécanisme existait déjà : Base.astro le porte depuis le 28/07,
+          posé pour exactement cette raison — « un hreflang vers une URL absente
+          est une promesse rompue faite à un moteur, et le sélecteur de langue,
+          qui lit la même liste, y envoyait le visiteur ». Je l'ai recommis en
+          créant deux pages neuves sans lire ce que le gabarit savait déjà. */}
+<Base langs={[def]} lang={lang} path="/connexion/" title={t(lang, 'login.title')}
       crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') }, { name: t(lang, 'login.title') }]}>
 
   <h1>{t(lang, 'login.title')}</h1>

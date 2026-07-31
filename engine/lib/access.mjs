@@ -34,10 +34,10 @@ export const PALIERS = ['visitor', 'free', 'member', 'crevette', 'langouste', 'w
 const DEFAUTS_PORTES = {
   price_history: { tier: 'member', public_max: 30, public_days: 90 },
   // ⭐ Ces portes ne se TRONQUENT pas : elles s'ouvrent ou non, pas de plafond.
-  extremes:     { tier: 'crevette' },
-  modules:      { tier: 'crevette' },
-  alerts:       { tier: 'crevette', caps: { member: 0, crevette: 2, langouste: 10, whale: -1 } },
-  wallet_watch: { tier: 'whale' },
+  extremes:     { binaire: true, tier: 'crevette' },
+  modules:      { binaire: true, tier: 'crevette' },
+  alerts:       { binaire: true, tier: 'crevette', caps: { member: 0, crevette: 2, langouste: 10, whale: -1 } },
+  wallet_watch: { binaire: true, tier: 'whale' },
 };
 
 // Ce que le moteur sait faire. Une porte inconnue est une faute de frappe,
@@ -117,8 +117,17 @@ export function acces() {
       nom,
       tier,
       actif,
-      public_max: actif ? Number(dit.public_max ?? heritePlafond ?? def.public_max) : Infinity,
-      public_days: actif ? Number(dit.public_days ?? heriteFenetre ?? def.public_days) : Infinity,
+      // ⚠️ `binaire` : une porte qui OUVRE OU NON, sans troncature. Sans ce
+      // drapeau, `Number(undefined)` valait NaN et le journal affichait
+      // « NaN pts / NaN j ». ⛔ Un NaN dans une configuration d'acces est une
+      // mine : toute comparaison `points > NaN` est fausse POUR TOUJOURS. Et
+      // un journal qui affiche NaN entraine a ne plus lire le journal — or
+      // c'est le journal qui sert d'instrument.
+      binaire: Boolean(dit.binaire ?? def.binaire),
+      public_max: (dit.binaire ?? def.binaire) ? Infinity
+        : (actif ? Number(dit.public_max ?? heritePlafond ?? def.public_max) : Infinity),
+      public_days: (dit.binaire ?? def.binaire) ? Infinity
+        : (actif ? Number(dit.public_days ?? heriteFenetre ?? def.public_days) : Infinity),
       // ⚠️ `-1` = illimite, et il faut le DIRE : `Infinity` ne survit pas a un
       // aller-retour JSON, il en revient en `null`. Le sentinelle entier est le
       // seul qui traverse une serialisation sans se faire effacer.
@@ -130,7 +139,9 @@ export function acces() {
   // ⭐ On ne DEVINE pas la configuration, on l'ECRIT dans le log. C'est ce qui
   // manquait aux quatre reglages ecrases : rien ne les affichait.
   const resume = Object.values(portes)
-    .map((p) => `${p.nom}=${p.actif ? `${p.tier} (${p.public_max} pts / ${p.public_days} j)` : 'public'}`)
+    .map((p) => `${p.nom}=${!p.actif ? 'public'
+      : p.binaire ? p.tier
+      : `${p.tier} (${p.public_max} pts / ${p.public_days} j)`}`)
     .join(' · ');
   const origine = m.access ? 'manifeste (access)' : 'retro-compat (publication)';
   console.log(`[acces] paliers : ${tiers.join(' < ')} — portes : ${resume} — source : ${origine}`);

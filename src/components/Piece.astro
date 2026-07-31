@@ -1,0 +1,78 @@
+---
+// ⚠️ VeVePreda/veve-sites — src/components/Piece.astro   (FICHIER NEUF)
+// ═══════════════════════════════════════════════════════════════════════════
+// LA CARTE — socle (la pièce posée) + cartouche (ce qu'on en sait).
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐⭐ C'EST LA BRIQUE QUI MANQUAIT, ET C'EST POURQUOI LE SITE NE RESSEMBLAIT
+// PAS À LA MAQUETTE. Le moteur émettait `<a class="item"><div class="n">…`,
+// c'est-à-dire trois lignes de texte. Aucune feuille de style ne peut en faire
+// une pièce posée dans une vitrine : il manquait les ÉLÉMENTS.
+// ⛔ La leçon générale : un thème habille ce qui existe. Quand la maquette
+// demande une STRUCTURE, il faut changer le gabarit — s'en tenir au CSS produit
+// un site aux bonnes couleurs et à la mauvaise forme.
+//
+// Trois gestes font « posé » plutôt que « collé », et aucun ne se voit seul :
+//   1. le fond diffus  — la pièce baigne dans sa propre couleur ;
+//   2. la lumière rasante en haut + le vignetage en bas ;
+//   3. l'échelle 1.06 — l'objet TOUCHE son cadre au lieu d'y flotter.
+// Leur absence, elle, se voit immédiatement.
+import { formeRarete, motRarete, GEMS, variation } from '../../engine/lib/vitrine.mjs';
+
+const { item, href, lang, nf, montrerVariation = false, ed = false } = Astro.props;
+const money = (v) => (v === null || v === undefined ? '—' : v.toLocaleString(nf, { maximumFractionDigits: 2 }));
+const v = montrerVariation ? variation(item.change7d) : null;
+
+// ⚠️ PAS D'IMAGE DANS LE JEU DE DONNÉES AUJOURD'HUI (`image_url` est dans le
+// Sheet mais absent de COLD_MAP, autre dépôt). ⭐ Le composant ne s'écroule pas
+// pour autant : sans image il pose une GEMME, qui est un repli honnête — elle
+// dit « pièce » sans prétendre montrer laquelle. Le jour où le champ arrive,
+// rien à retoucher ici.
+const img = item.image || null;
+---
+<a class="piece" href={href}>
+  <span class="socle">
+    {img ? (
+      <>
+        {/* Deux <img>, UNE SEULE URL : même requête, même cache. Le fond
+            diffus remplit le cadre, l'image nette se pose dessus. */}
+        <img class="socle__fond" src={img} alt="" aria-hidden="true" loading="lazy" decoding="async" />
+        <span class="socle__voile" aria-hidden="true"></span>
+        <img class="socle__net" src={img} alt={item.name} loading="lazy" decoding="async" />
+      </>
+    ) : (
+      <>
+        <span class="socle__voile" aria-hidden="true"></span>
+        <span class="socle__gemme" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+            <path d="M12 2.9 19.9 7.5v9L12 21.1 4.1 16.5v-9Z" />
+          </svg>
+        </span>
+      </>
+    )}
+  </span>
+
+  {/* LE CARTOUCHE — le seul vrai blanc de la carte. C'est le seul endroit où
+      l'œil est autorisé à s'arrêter net. */}
+  <span class="cartouche">
+    <span class="cartouche__n">{item.name}</span>
+    <span class="cartouche__l">
+      {item.rarity && (
+        // ⭐ La COULEUR est sur la FORME, le MOT reste neutre — aucune couleur
+        // de rareté VeVe ne passe 4,5:1 en texte sur ces gris.
+        <span class={`rar rar--${(item.rarity || '').toLowerCase()}`}>
+          <Fragment set:html={formeRarete(item.rarity)} />
+          <span class="rar__m">{motRarete(item.rarity)}</span>
+        </span>
+      )}
+      {ed && item.series && <span class="cartouche__s">{item.series}</span>}
+    </span>
+    <span class="cartouche__l cartouche__l--prix">
+      <span class="prix">
+        <Fragment set:html={GEMS} />
+        <b>{money(item.floor)}</b>
+        {item.prixAberrant && <span class="alerte" title="Prix non représentatif">!</span>}
+      </span>
+      {v && <span class={`delta ${v.cl}`}><i aria-hidden="true">{v.fleche}</i>{v.txt}</span>}
+    </span>
+  </span>
+</a>

@@ -35,15 +35,25 @@ const connecte = palier !== 'visitor';
 // voit le NOM et la promesse de chaque module, jamais son contenu. C'est la
 // différence entre « il n'y a rien ici » et « il y a quelque chose ici, et
 // c'est à vous » — et c'est ce qui fait qu'un mur vend au lieu de frustrer.
-const MODULES = [
-  { cle: 'price_history', nom: 'Historique complet',   d: 'Toute la courbe, pas les trois derniers jours.' },
-  { cle: 'extremes',      nom: 'Plus haut / plus bas', d: 'Les extrêmes historiques et leur date.' },
-  { cle: 'modules',       nom: "Modules d'analyse",    d: 'Détenteurs, activité, offres en vente.' },
-  { cle: 'alerts',        nom: 'Alertes de seuil',     d: 'Être prévenu quand un plancher franchit un prix.' },
-  { cle: 'wallet_watch',  nom: 'Suivi de portefeuille',d: "Surveiller un portefeuille qui n'est pas le sien." },
-];
+// ⚠️ CE TABLEAU ÉTAIT EN FRANÇAIS, EN DUR — donc en français sur la page
+// anglaise, en production. ⭐ Dans un dépôt multilingue, tout texte destiné à
+// être lu est soit une clé i18n, soit une carte par langue. Jamais une chaîne
+// nue dans un gabarit : c'est invisible au build, et `test:langues` ne le voit
+// pas non plus (il mesure la couverture éditoriale, pas le code).
+const MODULES = ['price_history', 'extremes', 'modules', 'alerts', 'wallet_watch']
+  .map((cle) => ({ cle, nom: t(lang, `mod.${cle}`), d: t(lang, `mod.${cle}.d`) }));
 ---
-<Base lang={lang} path="/compte/" title={t(lang, 'account.title')}
+      {/* ⛔ UNE SEULE LANGUE DÉCLARÉE, ET C'EST LE CORRECTIF DU 404.
+          `/compte/` et `/connexion/` sont rendues À LA DEMANDE et lisent
+          `Accept-Language` : elles n'ont qu'UNE adresse, sans préfixe. Sans
+          `langs`, la barre de langues et les `hreflang` proposaient
+          `/fr/compte/`, `/es/compte/`, `/de/compte/` — trois 404.
+          ⭐ Le mécanisme existait déjà : Base.astro le porte depuis le 28/07,
+          posé pour exactement cette raison — « un hreflang vers une URL absente
+          est une promesse rompue faite à un moteur, et le sélecteur de langue,
+          qui lit la même liste, y envoyait le visiteur ». Je l'ai recommis en
+          créant deux pages neuves sans lire ce que le gabarit savait déjà. */}
+<Base langs={[def]} lang={lang} path="/compte/" title={t(lang, 'account.title')}
       crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') }, { name: t(lang, 'account.title') }]}>
 
   <h1>{t(lang, 'account.title')}</h1>

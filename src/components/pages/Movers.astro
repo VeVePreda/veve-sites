@@ -1,45 +1,43 @@
 ---
 // ⚠️ VeVePreda/veve-sites — src/components/pages/Movers.astro
 // ═══════════════════════════════════════════════════════════════════════════
-// LE MARCHÉ — un seul tableau filtrable, deux vues, tri client.
+// LE MARCHÉ — un corpus filtrable, DEUX VUES, tri client.
 // ═══════════════════════════════════════════════════════════════════════════
-// ⭐ CHANGEMENT DE FOND : l'ancien écran affichait DEUX tableaux figés (hausses
-// puis baisses), donc douze lignes en tout et aucun moyen de chercher. On sert
-// désormais le corpus entier, filtrable. Le tri « variation » reproduit
-// exactement les deux anciennes listes — rien n'est perdu, tout est atteignable.
-//
 // ⛔ TOUT LE FILTRAGE EST CLIENT, SUR UN CORPUS DÉJÀ RENDU. Aucune requête,
-// aucun état serveur : le tableau est dans le HTML, le script ne fait que
-// masquer des lignes. C'est ce qui permet de garder « 0 JS bloquant » —
-// si le script ne part pas, la page reste un tableau complet et lisible.
+// aucun état serveur : le script ne fait que masquer des lignes. Si le script
+// ne part pas, la page reste un tableau complet et lisible — c'est ce qui
+// préserve le « 0 JS bloquant » du réseau.
 import Base from '../../layouts/Base.astro';
+import Piece from '../Piece.astro';
 import { dataset } from '../../../engine/lib/dataset.mjs';
 import { t, localize, numberLocale } from '../../../engine/lib/i18n.mjs';
+import { formeRarete, motRarete, GEMS, variation, RARETES } from '../../../engine/lib/vitrine.mjs';
 
 const { lang } = Astro.props;
 const ds = await dataset();
 const nf = numberLocale[lang] || 'en-GB';
 const money = (v) => (v === null || v === undefined ? '—' : v.toLocaleString(nf, { maximumFractionDigits: 2 }));
-const pct = (v) => (v === null || v === undefined ? '—' : `${v > 0 ? '+' : ''}${v.toFixed(1)} %`);
 
-// Le corpus : tout ce qui a un plancher, trié par variation décroissante.
-// ⚠️ Les fiches SANS variation ne sont pas jetées — elles vont en fin de liste.
+// ⚠️ Les fiches SANS variation ne sont pas jetées, elles vont en fin de liste.
 // Une fiche neuve n'a pas encore sept jours d'historique ; la faire disparaître
 // donnerait un site qui cache ses nouveautés.
 const lignes = [...ds.items]
   .filter((i) => i.floor !== null && i.floor !== undefined)
   .sort((a, b) => (b.change7d ?? -Infinity) - (a.change7d ?? -Infinity));
 
-const rarete = [...new Set(lignes.map((i) => i.rarity).filter(Boolean))].sort();
+// ⭐ On n'offre QUE les raretés réellement présentes, dans l'ordre canonique de
+// VeVe (commun → artist proof), jamais dans l'ordre alphabétique : « Artist
+// Proof, Common, Rare, Secret… » ne veut rien dire pour un collectionneur.
+const presentes = new Set(lignes.map((i) => i.rarity).filter(Boolean));
+const rarete = Object.keys(RARETES).filter((r) => presentes.has(r));
+const vedette = lignes.slice(0, 5);
 ---
 <Base lang={lang} path="/movers/" title={t(lang, 'movers.title')}
-      description={t(lang, 'desc.movers', { n: ds.items.length.toLocaleString(nf) })}
-      updatedAt={ds.updatedAt}
+      description={t(lang, 'desc.movers', { n: ds.items.length.toLocaleString(nf) })} updatedAt={ds.updatedAt}
       crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') }, { name: t(lang, 'nav.movers') }]}>
 
-  {/* ⭐ LIEN D'ÉVITEMENT — mesuré sur la maquette : 46 arrêts de tabulation
-      avant le premier résultat, contre 15 souhaitables. Il ne réduit pas la
-      densité, il la CONTOURNE, et c'est le geste le moins cher du lot.
+  {/* ⭐ LIEN D'ÉVITEMENT — mesuré : 46 arrêts de tabulation avant le premier
+      résultat. Il ne réduit pas la densité, il la CONTOURNE.
       ⛔ Il se cache par la GÉOMÉTRIE, jamais par `display:none` : un élément
       masqué sort de l'ordre de focus, donc un lien d'évitement invisible au
       clavier est un lien mort — inutile pour ceux à qui il s'adresse. */}
@@ -47,17 +45,17 @@ const rarete = [...new Set(lignes.map((i) => i.rarity).filter(Boolean))].sort();
 
   <h1>{t(lang, 'movers.title')}</h1>
 
-  {/* ═══ LA BARRE DE FILTRES ═══════════════════════════════════════════════
-      ⭐ Un bouton par GROUPE, un seul panneau ouvert à la fois, et chaque
-      groupe replié par défaut. Un `<details>` fermé sort ses enfants de
-      l'ordre de tabulation : le repli n'est pas cosmétique, il est la moitié
-      du gain d'accessibilité. */}
+  {/* La rangée de tête : les cinq plus fortes variations, en pièces.
+      ⭐ Une page de marché doit MONTRER son marché avant de le tabuler. */}
+  <div class="grille grille--tete">{vedette.map((i) => (
+    <Piece item={i} href={localize(lang, i.path)} lang={lang} nf={nf} montrerVariation />
+  ))}</div>
+
   <form class="barre-f" id="filtres" role="search" aria-label={t(lang, 'movers.filters')}>
     <div class="barre-f__l">
       <label class="champ-r">
         <span class="sr">{t(lang, 'search.placeholder')}</span>
-        <input type="search" id="f-q" class="searchbox" autocomplete="off"
-               placeholder={t(lang, 'search.placeholder')} />
+        <input type="search" id="f-q" class="searchbox" autocomplete="off" placeholder={t(lang, 'search.placeholder')} />
       </label>
 
       <details class="f-g"><summary>{t(lang, 'movers.type')}</summary>
@@ -71,7 +69,11 @@ const rarete = [...new Set(lignes.map((i) => i.rarity).filter(Boolean))].sort();
       <details class="f-g"><summary>{t(lang, 'item.rarity')}</summary>
         <div class="f-p">
           {rarete.map((r) => (
-            <label><input type="checkbox" name="f-rar" value={r} /> {r}</label>
+            <label class={`f-r rar--${r.toLowerCase()}`}>
+              <input type="checkbox" name="f-rar" value={r} />
+              <Fragment set:html={formeRarete(r, 13)} />
+              <span>{motRarete(r)}</span>
+            </label>
           ))}
         </div>
       </details>
@@ -84,42 +86,64 @@ const rarete = [...new Set(lignes.map((i) => i.rarity).filter(Boolean))].sort();
         </div>
       </details>
 
+      <span class="sep-v" aria-hidden="true"></span>
+      {/* Deux vues, une seule dans le DOM à la fois côté visuel.
+          ⭐ Tu voulais « aussi un affichage comme MyNFTTracker » : le tableau
+          compare, les tuiles montrent. Ce ne sont pas deux goûts, ce sont deux
+          tâches. */}
+      <div class="seg-v" role="group" aria-label={t(lang, 'movers.view')}>
+        <button type="button" class="seg-v__b" data-vue="tbl" aria-pressed="true">{t(lang, 'movers.table')}</button>
+        <button type="button" class="seg-v__b" data-vue="tui" aria-pressed="false">{t(lang, 'movers.tiles')}</button>
+      </div>
       <button type="reset" class="f-raz">{t(lang, 'movers.reset')}</button>
     </div>
 
-    {/* ⭐ LA LIGNE DE RAPPEL. Sans elle, on ne sait jamais si un filtre a mordu
-        ou si le résultat est vide par erreur. `aria-live` pour que le compte
-        soit annoncé — un compteur muet ne sert qu'aux voyants. */}
+    {/* ⭐ Sans cette ligne, on ne sait jamais si un filtre a mordu ou si le
+        résultat est vide par erreur. `aria-live` : un compteur muet ne sert
+        qu'aux voyants. */}
     <p class="f-cpt" id="cpt" aria-live="polite" role="status"></p>
   </form>
 
   <h2 id="resultats" tabindex="-1" class="titre-affiche">{t(lang, 'movers.title')}</h2>
 
-  <table id="tbl">
-    <thead>
-      <tr>
+  <div id="vue-tbl">
+    <table id="tbl">
+      <thead><tr>
         <th scope="col" class="num">#</th>
         <th scope="col">{t(lang, 'movers.item')}</th>
         <th scope="col" class="hide">{t(lang, 'item.collection')}</th>
         <th scope="col" class="hide">{t(lang, 'item.rarity')}</th>
         <th scope="col" class="num">{t(lang, 'movers.floor')}</th>
         <th scope="col" class="num">{t(lang, 'movers.7d')}</th>
-      </tr>
-    </thead>
-    <tbody>{lignes.map((i, k) => (
-      <tr data-type={i.type} data-rar={i.rarity} data-n={i.name.toLowerCase()}
-          data-var={i.change7d > 0 ? 'up' : i.change7d < 0 ? 'down' : ''}>
-        <td class="num rang">{String(k + 1).padStart(3, '0')}</td>
-        <td><a href={localize(lang, i.path)}>{i.name}</a></td>
-        <td class="hide">{i.series}</td>
-        <td class="hide"><span class="tag">{i.rarity}</span></td>
-        <td class="num">{money(i.floor)}{i.prixAberrant && <span class="alerte" title={t(lang, 'item.outlier')}>!</span>}</td>
-        <td class={i.change7d > 0 ? 'num up' : i.change7d < 0 ? 'num down' : 'num muted'}>
-          {i.change7d > 0 ? '▲ ' : i.change7d < 0 ? '▼ ' : ''}{pct(i.change7d)}
-        </td>
-      </tr>
-    ))}</tbody>
-  </table>
+      </tr></thead>
+      <tbody>{lignes.map((i, k) => {
+        const v = variation(i.change7d);
+        return (
+          <tr data-type={i.type} data-rar={i.rarity} data-n={i.name.toLowerCase()}
+              data-var={i.change7d > 0 ? 'up' : i.change7d < 0 ? 'down' : ''}>
+            <td class="num rang">{String(k + 1).padStart(3, '0')}</td>
+            <td><a href={localize(lang, i.path)}>{i.name}</a></td>
+            <td class="hide muted">{i.series}</td>
+            <td class="hide">{i.rarity && (
+              <span class={`rar rar--${(i.rarity || '').toLowerCase()}`}>
+                <Fragment set:html={formeRarete(i.rarity, 12)} />
+                <span class="rar__m">{motRarete(i.rarity)}</span>
+              </span>
+            )}</td>
+            <td class="num"><span class="prix"><Fragment set:html={GEMS} /><b>{money(i.floor)}</b>{i.prixAberrant && <span class="alerte" title={t(lang, 'item.outlier')}>!</span>}</span></td>
+            <td class={`num ${v.cl}`}><i aria-hidden="true">{v.fleche}</i> {v.txt}</td>
+          </tr>
+        );
+      })}</tbody>
+    </table>
+  </div>
+
+  {/* La vue tuiles : les 120 premières seulement. ⛔ Rendre 1 200 vignettes
+      coûterait 1 200 décodages d'image sur un téléphone — le filtre sert à
+      descendre en dessous, il n'a pas à être précédé d'une avalanche. */}
+  <div id="vue-tui" class="grille" hidden>{lignes.slice(0, 120).map((i) => (
+    <Piece item={i} href={localize(lang, i.path)} lang={lang} nf={nf} montrerVariation />
+  ))}</div>
 
   <p class="f-vide" id="vide" hidden>{t(lang, 'movers.empty')}</p>
 
@@ -128,11 +152,9 @@ const rarete = [...new Set(lignes.map((i) => i.rarity).filter(Boolean))].sort();
       var f = document.getElementById('filtres');
       if (!f) return;
       var lignes = [].slice.call(document.querySelectorAll('#tbl tbody tr'));
+      var tuiles = [].slice.call(document.querySelectorAll('#vue-tui .piece'));
       var cpt = document.getElementById('cpt'), vide = document.getElementById('vide');
       var total = lignes.length;
-
-      // ⭐ Les réglages SURVIVENT au rechargement. Un filtre qu'il faut reposer
-      // à chaque visite finit par ne plus être utilisé du tout.
       var CLE = 'vp-filtres';
       function lire() { try { return JSON.parse(localStorage.getItem(CLE)) || {}; } catch (e) { return {}; } }
       function ecrire(o) { try { localStorage.setItem(CLE, JSON.stringify(o)); } catch (e) {} }
@@ -143,33 +165,51 @@ const rarete = [...new Set(lignes.map((i) => i.rarity).filter(Boolean))].sort();
           q: (document.getElementById('f-q').value || '').trim().toLowerCase(),
           type: (f.querySelector('input[name=f-type]:checked') || {}).value || '',
           vari: (f.querySelector('input[name=f-var]:checked') || {}).value || '',
-          rar: rar
+          rar: rar,
+          vue: (f.querySelector('.seg-v__b[aria-pressed=true]') || {}).dataset ?
+               f.querySelector('.seg-v__b[aria-pressed=true]').dataset.vue : 'tbl'
         };
+      }
+      function garde(e, l) {
+        if (e.q && l.dataset.n.indexOf(e.q) === -1) return false;
+        if (e.type && l.dataset.type !== e.type) return false;
+        if (e.vari && l.dataset.var !== e.vari) return false;
+        if (e.rar.length && e.rar.indexOf(l.dataset.rar) === -1) return false;
+        return true;
       }
       function appliquer() {
         var e = etat(), n = 0;
         for (var k = 0; k < lignes.length; k++) {
-          var l = lignes[k], ok = true;
-          if (e.q && l.dataset.n.indexOf(e.q) === -1) ok = false;
-          if (ok && e.type && l.dataset.type !== e.type) ok = false;
-          if (ok && e.vari && l.dataset.var !== e.vari) ok = false;
-          if (ok && e.rar.length && e.rar.indexOf(l.dataset.rar) === -1) ok = false;
-          l.hidden = !ok;
+          var ok = garde(e, lignes[k]);
+          lignes[k].hidden = !ok;
+          if (tuiles[k]) tuiles[k].hidden = !ok;
           if (ok) n++;
         }
         cpt.textContent = n + ' / ' + total;
         vide.hidden = n !== 0;
+        document.getElementById('vue-tbl').hidden = e.vue !== 'tbl';
+        document.getElementById('vue-tui').hidden = e.vue !== 'tui';
         ecrire(e);
       }
-      // Restauration
       var s = lire();
       if (s.q) document.getElementById('f-q').value = s.q;
       if (s.type) { var r = f.querySelector('input[name=f-type][value="' + s.type + '"]'); if (r) r.checked = true; }
-      if (s.vari) { var v = f.querySelector('input[name=f-var][value="' + s.vari + '"]'); if (v) v.checked = true; }
+      if (s.vari) { var vv = f.querySelector('input[name=f-var][value="' + s.vari + '"]'); if (vv) vv.checked = true; }
       (s.rar || []).forEach(function (x) {
         var c = f.querySelector('input[name=f-rar][value="' + x + '"]'); if (c) c.checked = true;
       });
+      if (s.vue) [].slice.call(f.querySelectorAll('.seg-v__b')).forEach(function (b) {
+        b.setAttribute('aria-pressed', b.dataset.vue === s.vue ? 'true' : 'false');
+      });
 
+      [].slice.call(f.querySelectorAll('.seg-v__b')).forEach(function (b) {
+        b.addEventListener('click', function () {
+          [].slice.call(f.querySelectorAll('.seg-v__b')).forEach(function (o) {
+            o.setAttribute('aria-pressed', o === b ? 'true' : 'false');
+          });
+          appliquer();
+        });
+      });
       f.addEventListener('input', appliquer);
       f.addEventListener('reset', function () { setTimeout(appliquer, 0); });
       // ⚠️ Un seul panneau ouvert à la fois : sinon la barre pousse le tableau
