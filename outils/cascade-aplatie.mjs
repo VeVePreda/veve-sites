@@ -3,6 +3,8 @@
    ═══════════════════════════════════════════════════════════════════════════
    ⭐⭐ ÉCRIT LE 31/07/2026, APRÈS AVOIR LIVRÉ UN SITE QUI AFFICHAIT SA
    DISPOSITION LA PLUS ÉTROITE À TOUTES LES LARGEURS.
+   ⭐⭐ ÉLARGI LE MÊME JOUR : la v1 ne comparait qu'aux `@media (max-width)`,
+   trouvait 46 règles et EN LAISSAIT 24 (reduced-motion, @supports, @keyframes).
 
    LE DÉFAUT. En portant le CSS de la maquette vers le thème, le contenu des
    blocs `@media (max-width:…)` a été RECOPIÉ à la racine, en plus d'y rester.
@@ -74,17 +76,29 @@ let griefs = 0;
 for (const f of themes) {
   const rs = regles(fs.readFileSync(f, 'utf8'));
   const nom = path.relative(R, f);
-  const sousMedia = new Set();
+  // ⛔⛔ NE PAS RESTREINDRE A `max-width` — C'ETAIT MA PROPRE FAUTE, LE 31/07.
+  // La premiere version de ce fichier ne comparait qu'aux `@media (max-width)`.
+  // Elle a trouve 46 regles et EN A LAISSE 24, recopiees depuis
+  // `prefers-reduced-motion`, `@supports` et des `@keyframes`. La plus grave :
+  // le bloc `*,*::before,*::after{animation-duration:.01ms!important;…}` de
+  // `prefers-reduced-motion: reduce`, pose A LA RACINE avec ses `!important` —
+  // toutes les animations et transitions du site mortes, pour tout le monde.
+  // ⭐⭐ J'AI ECRIT UN OUTIL CONTRE UN APLATISSEMENT ET NE L'AI CHERCHE QUE LA
+  // OU JE VENAIS DE LE VOIR. Un controle calibre sur l'exemplaire qu'on tient
+  // en main ne couvre que lui : la question n'est pas « est-ce que j'attrape ce
+  // defaut-ci ? » mais « quelle FRACTION de sa famille j'attrape ? ».
+  const sousAt = new Map();          // "sel|corps" -> la @-regle d'origine
   for (const r of rs)
-    if (r.ctx.some((c) => c.includes('max-width'))) sousMedia.add(`${r.sel}|${r.corps}`);
-  const fautives = rs.filter((r) => !r.ctx.length && sousMedia.has(`${r.sel}|${r.corps}`));
+    if (r.ctx.length) sousAt.set(`${r.sel}|${r.corps}`, r.ctx[0]);
+  const fautives = rs.filter((r) => !r.ctx.length && sousAt.has(`${r.sel}|${r.corps}`));
   if (fautives.length) {
     griefs += fautives.length;
     console.log(`⛔ ${nom}`);
     console.log(`   ${fautives.length} regle(s) presentes A LA RACINE **et** a l'identique dans un @media (max-width).`);
     console.log(`   → la valeur mobile s'applique a TOUTES les largeurs ; le media query ne fait que la repeter.`);
     for (const r of fautives.slice(0, 12))
-      console.log(`     · ${r.sel}  {${r.corps.slice(0, 62)}${r.corps.length > 62 ? '…' : ''}}`);
+      console.log(`     · ${r.sel}  {${r.corps.slice(0, 52)}${r.corps.length > 52 ? '…' : ''}}`
+        + `   ← ${sousAt.get(`${r.sel}|${r.corps}`).slice(0, 34)}`);
     if (fautives.length > 12) console.log(`     … et ${fautives.length - 12} autre(s).`);
   }
 }
