@@ -109,7 +109,87 @@ for (const t of themes) {
   }
 }
 
+// ── 4 · une FAMILLE nommee que rien ne charge ─────────────────────────────
+// ⭐⭐ AJOUTE LE 31/07/2026, APRES AVOIR LIVRE TOUS LES PRIX DU SITE EN
+// CHASSE FIXE. Le theme declarait `--tech:'Space Grotesk',ui-monospace,…` et
+// 58 regles s'en servaient — `.prix`, `.num`, `.stat__v`, `.rang`, `.tarif__p`,
+// `thead th` : tous les chiffres d'un site de prix. Le manifeste ne listait
+// qu'Archivo dans `fonts.files`. Les 58 regles descendaient jusqu'a
+// `ui-monospace` et s'affichaient dans la fonte a chasse fixe du systeme.
+// ⛔ AUCUN DES TROIS CONTROLES CI-DESSUS NE POUVAIT LE VOIR : la variable
+// EXISTE, les regles EXISTENT, la classe EXISTE. Une pile de replis qui
+// aboutit est du CSS parfaitement valide. C'est la meme signature que les
+// trois autres — le navigateur fait ce qu'on a ecrit, donc rien n'echoue —
+// mais sur un axe que je n'avais pas pense a regarder : le CONTRAT ENTRE LE
+// THEME ET LE MANIFESTE, pas le contrat entre le theme et le gabarit.
+// ⭐ On ne juge QUE la premiere famille de la pile : les suivantes SONT le
+// repli, les nommer est leur role. Et on ignore les familles generiques et les
+// piles `ui-*` / `system-ui`, que le systeme fournit par definition.
+const GENERIQUES = new Set(['inherit','initial','unset','revert','currentcolor','none',
+  'serif','sans-serif','monospace','cursive','fantasy','system-ui','ui-serif',
+  'ui-sans-serif','ui-monospace','ui-rounded','math','emoji','fangsong']);
+
+// ce que le site charge REELLEMENT : @font-face du theme + fonts.files du manifeste
+const chargees = new Set();
+for (const t of themes)
+  for (const m of sansCommentaires(lire(t)).matchAll(/@font-face[\s\S]*?font-family\s*:\s*['"]?([^;'"}]+)/g))
+    chargees.add(m[1].trim().toLowerCase());
+for (const mf of fichiers(path.join(R, 'sites'), /^manifest\.ya?ml$/))
+  for (const m of lire(mf).matchAll(/^\s*-?\s*famille\s*:\s*['"]?([^'"\n#]+)/gm))
+    chargees.add(m[1].trim().toLowerCase());
+
+for (const t of themes) {
+  const css = sansCommentaires(lire(t));
+  const nom = path.relative(R, t);
+  const manquantes = new Map();
+  // les deux formes : `font-family: X, …` et `--v: X, …` lue par font-family
+  // ⭐ ON COMPTE LES REGLES TOUCHEES, PAS LES DECLARATIONS DE LA PILE. Une
+  // variable definie deux fois (jour + nuit) et lue par 58 regles annoncait
+  // « 2 regle(s) ». Un grief qui sous-estime son ampleur d'un facteur 29 se
+  // fait ranger dans les details — et c'est ainsi qu'un vrai defaut survit a
+  // sa propre detection.
+  const piles = [];
+  for (const m of css.matchAll(/font-family\s*:\s*([^;}]+)/g)) piles.push([m[1], 1]);
+  const vues = new Set();
+  for (const m of css.matchAll(/(--[\w-]+)\s*:\s*((?:'[^']+'|"[^"]+")[^;}]*)/g)) {
+    if (vues.has(m[1])) continue;
+    const lectures = [...css.matchAll(new RegExp(`font-family\\s*:\\s*var\\(\\s*${m[1]}\\s*[,)]`, 'g'))].length;
+    if (lectures) { piles.push([m[2], lectures]); vues.add(m[1]); }
+  }
+  for (const [pile, poids] of piles) {
+    const first = pile.split(',')[0].trim().replace(/^['"]|['"]$/g, '');
+    if (!first || first.startsWith('var(') || GENERIQUES.has(first.toLowerCase())) continue;
+    if (!chargees.has(first.toLowerCase()))
+      manquantes.set(first, (manquantes.get(first) || 0) + poids);
+  }
+  for (const [fam, n] of manquantes) {
+    griefs++;
+    console.log(`⛔ ${nom}`);
+    console.log(`   « ${fam} » est nommee en tete de ${n} pile(s) — RIEN ne la charge`);
+    console.log(`   (ni @font-face dans un theme, ni « famille: » dans un manifeste).`);
+    console.log(`   → ces ${n} regle(s) tombent dans le repli. Aucune erreur, aucun build rouge.`);
+  }
+}
+
+// ── 0 · L'INSTRUMENT SE MESURE LUI-MEME ───────────────────────────────────
+// ⛔⛔ CE BLOC EXISTE PARCE QUE CET OUTIL A DIT « ✅ 0 theme(s) » ET SORTI EN 0.
+// `node css-mort.mjs --verbose` : le drapeau etait pris pour `argv[2]`, donc
+// pour une racine, donc introuvable, donc zero theme lu, donc zero grief,
+// donc feu vert. Le controle ecrit pour attraper le CSS qui ne crie pas ne
+// criait pas lui-meme. Cable dans un Dockerfile avec un chemin qui bouge un
+// jour, il aurait rendu un vert a vie — pire que pas de controle du tout,
+// parce qu'un vert a vie a l'air d'etre une preuve.
+// ⭐ LA REGLE : un controle qui n'a rien inspecte n'a rien prouve. Il doit
+// echouer, jamais rassurer.
+if (themes.length === 0) {
+  console.log(`⛔ AUCUN theme lu sous « ${path.resolve(R, 'themes')} ».`);
+  console.log(`   Racine invalide, ou drapeau pris pour un chemin (l'argument EST la racine).`);
+  console.log(`   → un controle qui n'inspecte rien ne prouve rien : c'est un echec, pas un succes.`);
+  process.exit(2);
+}
+
 console.log(griefs
   ? `\n⛔ ${griefs} grief(s) — du CSS qui ne s'appliquera jamais et ne le dira pas.`
-  : `\n✅ ${themes.length} theme(s) : aucun @container orphelin, aucune variable fantome, socle complet.`);
+  : `\n✅ ${themes.length} theme(s), ${gabarits.length} gabarit(s) : aucun @container orphelin, `
+    + `aucune variable fantome, socle complet, aucune famille non chargee.`);
 process.exit(griefs ? 1 : 0);

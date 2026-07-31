@@ -100,6 +100,33 @@ RUN npm run test:schema
 # 40 ms, le compilateur coûte 3 minutes. Un défaut de forme doit être vu par le
 # moins cher des deux. ⛔ Il ne REMPLACE pas le compilateur, il le précède.
 RUN npm run test:gabarits
+# ⭐⭐ LES DEUX CONTROLES DU 31/07/2026 — ECRITS APRES DEUX PANNES DE PROD,
+# CABLES ICI POUR QU'ILS N'AIENT PAS A ETRE RELANCES A LA MAIN.
+#   · `css-mort` : du CSS parfaitement VALIDE qui ne s'appliquera jamais —
+#     `@container` sans conteneur, `var(--x)` sans `--x`, une classe du socle
+#     sans regle, et une FAMILLE nommee que rien ne charge. Ce dernier cas a
+#     sorti 58 regles de prix en chasse fixe pendant toute la refonte.
+#   · `imports-orphelins` : un fichier supprime se supprime DEUX FOIS — le
+#     fichier, et ceux qui le nomment. `Piece.astro` retire a juste titre a
+#     casse le build en prod a l'etape 18/21, APRES 17 bancs verts.
+# ⚠️ PLACES AVANT `npm run build`, comme `test:gabarits`, et pour la meme
+# raison : ils coutent 40 ms chacun la ou le compilateur coute 3 minutes.
+# ⛔ NE PAS les deplacer apres le build « pour gagner du temps » : leur valeur
+# vient entierement du fait qu'ils parlent AVANT que quoi que ce soit soit long.
+# ⭐ `css-mort` sort en rc=2 s'il n'a lu AUCUN theme : une racine fausse fait
+# echouer l'etape au lieu de rendre un vert a vie. Un controle qui n'a rien
+# inspecte n'a rien prouve.
+RUN node outils/css-mort.mjs
+RUN node outils/imports-orphelins.mjs
+# ⭐⭐ `cascade-aplatie` — LE CONTROLE QUI MANQUAIT VRAIMENT (31/07, au soir).
+# Les deux au-dessus demandent « cette regle EXISTE-T-ELLE ? ». La reponse
+# etait OUI partout, pendant que le site servait sa disposition MOBILE a
+# toutes les largeurs : 46 regles de `@media (max-width:…)` avaient ete
+# RECOPIEES a la racine, et la copie racine gagnait la cascade.
+# Navigation invisible, 4 paliers empiles en 1 colonne, fiche sans colonne
+# laterale, barre de recherche reduite a un carre de 44 px.
+# ⭐⭐ « EST-CE LA ? » ET « EST-CE CE QUI GAGNE ? » SONT DEUX QUESTIONS.
+RUN node outils/cascade-aplatie.mjs
 
 RUN WAREHOUSE_OFFLINE=1 npm run test:renommage
 

@@ -253,6 +253,26 @@ identity:
       - famille: "Archivo"
         fichier: "/fonts/archivo-latin-wght.woff2"
         graisses: "100 900"     # plage variable, pas une valeur unique
+      # ⛔⛔ LA DEUXIÈME FONTE, OUBLIÉE PENDANT TOUTE LA REFONTE — 31/07/2026.
+      # Le thème déclare `--tech:'Space Grotesk',ui-monospace,…` et 58 règles
+      # s'en servent : `.prix`, `.num`, `.stat__v`, `.rang`, `.delta`,
+      # `.tarif__p`, `thead th`, `.hero__ref`, `.jauge__v`, `.holder__v`…
+      # autrement dit TOUS LES CHIFFRES d'un site de prix. Rien ne l'apportait :
+      # `fonts.files` ne listait qu'Archivo. Les 58 règles descendaient donc
+      # jusqu'à `ui-monospace`, et le site affichait ses prix dans la fonte à
+      # chasse fixe du système là où la maquette montre une grotesque.
+      # ⭐ MÊME SIGNATURE QUE LE DÉFAUT D'ARCHIVO, À UN LOT D'ÉCART : on a
+      # corrigé la fonte du CORPS et laissé celle des CHIFFRES derrière, parce
+      # qu'on a vérifié « la fonte est-elle servie ? » au singulier. Une pile de
+      # replis qui aboutit ne lève aucune erreur — c'est ce qui rend ce défaut
+      # invisible au build ET à `css-mort.mjs`, qui ne cherchait que les
+      # variables fantômes, jamais les familles jamais chargées. Garde-fou ajouté.
+      # ⭐ Plage 300..700 et non 100..900 : c'est ce que le fichier contient
+      # réellement. Annoncer 100..900 ferait synthétiser au navigateur des
+      # graisses absentes, et les étiquettes en 800 sortiraient en faux-gras.
+      - famille: "Space Grotesk"
+        fichier: "/fonts/space-grotesk-latin-wght.woff2"
+        graisses: "300 700"     # plage réelle du fichier variable (SIL OFL 1.1)
 
 analytics:
   provider: umami
