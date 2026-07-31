@@ -137,7 +137,11 @@ offer:
   # il ne se traduit pas. La distinction est éditoriale, pas grammaticale.
   plans:
     - cle: member
-      nom: "Membre"
+      nom:
+        fr: "Membre"
+        en: "Member"
+        es: "Miembro"
+        de: "Mitglied"
       prix: 0
       alertes: 0
       d:
@@ -146,7 +150,11 @@ offer:
         es: "El nombre de cada módulo, el escaparate libre, los últimos tres días."
         de: "Jedes Modul beim Namen, die freie Auswahl, die letzten drei Tage."
     - cle: crevette
-      nom: "Crevette"
+      nom:
+        fr: "Crevette"
+        en: "Shrimp"
+        es: "Gamba"
+        de: "Garnele"
       prix: 15
       alertes: 2
       d:
@@ -155,7 +163,11 @@ offer:
         es: "El historial completo, los extremos, los módulos de análisis."
         de: "Die volle Historie, die Extreme, die Analysemodule."
     - cle: langouste
-      nom: "Langouste"
+      nom:
+        fr: "Langouste"
+        en: "Lobster"
+        es: "Langosta"
+        de: "Languste"
       prix: 35
       alertes: 10
       d:
@@ -164,7 +176,11 @@ offer:
         es: "Todo Crevette, más diez alertas y las exportaciones."
         de: "Alles aus Crevette, plus zehn Warnungen und Exporte."
     - cle: whale
-      nom: "Whale"
+      nom:
+        fr: "Whale"
+        en: "Whale"
+        es: "Ballena"
+        de: "Wal"
       prix: 50
       alertes: -1        # ⚠️ -1 = ILLIMITÉ. Les gabarits le traduisent en « ∞ » :
                          # afficher « -1 alerte » sur une page de tarifs est le

@@ -525,6 +525,11 @@ h3{font-size:var(--t-lg)}
 to{background-position:-220% 0}
 .socle__ext{position:absolute;left:0;right:0;bottom:0;z-index:4;padding:5px 7px; display:flex;align-items:center;justify-content:space-between;gap:8px; font-family:var(--tech);font-size:8.5px;letter-spacing:.05em; background:linear-gradient(to top,#000000CC,transparent);pointer-events:none}
 .socle__ext b{display:block;font-size:10px;font-weight:700;font-variant-numeric:tabular-nums; letter-spacing:-.01em;color:#FFFFFFE6}
+/* ⭐ `.b` n'avait aucune regle : la maquette ne stylait que `.h`, et `.b`
+   vivait du defaut. Ca MARCHE, mais ca ne se relit pas — le jour ou quelqu'un
+   change la direction du conteneur, l'un des deux bouge et pas l'autre.
+   Une paire se declare en paire. */
+.socle__ext .b{text-align:left}
 .socle__ext .h{text-align:right}
 .socle__ext i{font-style:normal;color:#FFFFFF80;display:block;font-size:var(--t-3xs);letter-spacing:.1em}
 .socle__droit{position:absolute;left:0;right:0;bottom:0;z-index:4;padding:3px 6px; font-family:var(--tech);font-size:var(--t-3xs);letter-spacing:.06em;color:#FFFFFFB3; background:linear-gradient(to top,#000000A6,transparent);pointer-events:none;text-align:right}
@@ -835,7 +840,13 @@ dl.fiche-tbl dt:last-of-type,dl.fiche-tbl dd:last-of-type{border-bottom:0}
 .tarifs{grid-template-columns:1fr}
 .tarif{background:var(--surface);border:1px solid var(--rule);border-radius:var(--r-lg);padding:var(--s5) var(--s4); display:grid;gap:var(--s3);align-content:start;position:relative}
 .tarif--phare{border-color:var(--lock-pur);background:var(--lock-1v)}
-.tarif--phare::before{content:"LE PLUS CHOISI";position:absolute;top:0;left:50%;transform:translate(-50%,-50%); background:var(--lock-pur);color:#FFFFFF;font-family:var(--tech);font-size:9px;letter-spacing:.12em; padding:4px 11px;border-radius:var(--r-full);font-weight:700;white-space:nowrap}
+/* ⛔⛔ IL Y AVAIT `content:"LE PLUS CHOISI"` ICI — du francais en dur dans une
+   feuille de style, servi tel quel sur les pages anglaise, espagnole et
+   allemande. ⭐⭐ DU TEXTE DANS DU CSS NE SERA JAMAIS TRADUIT : aucun controle
+   i18n ne lit les feuilles de style, et `test:langues` mesure la couverture
+   editoriale, pas le contenu d'un `content:`.
+   Le gabarit fournit desormais la chaine traduite via `data-phare`. */
+.tarif--phare::before{content:attr(data-phare);position:absolute;top:0;left:50%;transform:translate(-50%,-50%); background:var(--lock-pur);color:#FFFFFF;font-family:var(--tech);font-size:9px;letter-spacing:.12em; padding:4px 11px;border-radius:var(--r-full);font-weight:700;white-space:nowrap}
 .tarif__p{font-family:var(--tech);font-size:var(--t-2xl);font-weight:700;font-variant-numeric:tabular-nums; line-height:1;letter-spacing:-.03em}
 .tarif ul{list-style:none;margin:0;padding:0;display:grid;gap:9px;font-size:var(--t-sm)}
 .tarif li{display:flex;gap:9px;align-items:flex-start;color:var(--text-2)}
@@ -1058,3 +1069,87 @@ to{opacity:1;transform:none}
 @media (max-width:560px){ .boites{grid-template-columns:repeat(2,1fr);grid-auto-rows:104px;gap:8px} }
 @media (prefers-reduced-motion: no-preference){ .revele{animation:monte linear both;animation-timeline:view();animation-range:entry 0% entry 40%} }
 @keyframes monte{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CLASSES ÉMISES PAR LES GABARITS ET QUE RIEN N'HABILLAIT — 31/07/2026
+   ═══════════════════════════════════════════════════════════════════════════
+   ⛔⛔ Ces classes sortaient du moteur depuis le premier jour SANS AUCUNE
+   RÈGLE, ni dans la maquette ni dans aucun thème. Conséquences vues en ligne :
+   la page Articles servait UNE carte de 220 px au milieu du vide, et les
+   paliers s'empilaient en pleine largeur au lieu de former une grille.
+   ⭐⭐ MON COMPARATEUR LES COMPTAIT COMME « PRÉSENTES » : elles étaient bien
+   dans le gabarit. Il vérifiait le mauvais côté du contrat — une classe émise
+   sans règle est exactement aussi cassée qu'une classe absente, et elle coûte
+   plus cher parce qu'elle a l'air d'être là.
+   ⛔ Avant d'ajouter une classe dans un gabarit : lui écrire sa règle, ou ne
+   pas l'ajouter. `node outils/css-mort.mjs` refuse désormais l'oubli.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ─── La grille d'articles (Articles, accueil éditorial) ─────────────────── */
+/* ⭐ `auto-fill` et non `auto-fit` : avec UN seul article, `auto-fit` fait
+   s'étirer la carte sur toute la largeur — un article de 1 180 px de large.
+   `auto-fill` garde les colonnes vides et la carte conserve sa taille. C'est
+   exactement le cas du site aujourd'hui : le blog n'a qu'un article. */
+.cartes{display:grid;gap:var(--s4);
+  grid-template-columns:repeat(auto-fill,minmax(clamp(240px,26vw,300px),1fr));
+  margin:var(--s5) 0}
+.cartes .item{display:flex;flex-direction:column;gap:var(--s2)}
+.cover{width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:var(--r-md);
+  background:var(--vp-s2);display:block}
+/* Un article sans visuel ne laisse pas un trou : la carte se referme. */
+.cover:not([src]),.cover[src=""]{display:none}
+
+/* ─── La grille de séries (accueil, Collections) ─────────────────────────── */
+.grille--series{display:grid;gap:var(--s4);
+  grid-template-columns:repeat(auto-fill,minmax(clamp(190px,20vw,240px),1fr))}
+
+/* ─── La fiche : le socle et son repli ───────────────────────────────────── */
+.socle--fiche{aspect-ratio:4/5;width:100%;border-radius:var(--r-lg);overflow:hidden;
+  position:relative;display:grid;place-items:center;background:var(--vp-s2)}
+/* La gemme n'est PAS une image manquante : c'est la marque explicite qu'aucun
+   visuel n'existe pour cette pièce. Elle doit se lire comme un choix. */
+.socle__gemme{display:grid;place-items:center;width:46%;color:var(--vp-rule-2)}
+.socle__gemme svg{width:100%;height:auto}
+.fiche__txt{display:flex;flex-direction:column;gap:var(--s3);min-width:0}
+
+/* ─── Le Marché : le bouton de vue ───────────────────────────────────────── */
+.v-b{display:inline-flex;align-items:center;gap:6px;min-height:var(--tap-min);
+  padding:0 12px;border:1px solid var(--vp-rule);border-radius:var(--r-full);
+  background:none;color:var(--muted);font-family:var(--font-heading);
+  font-size:12.5px;font-weight:500;cursor:pointer;
+  transition:color var(--d-fast),border-color var(--d-fast),background var(--d-fast)}
+.v-b:hover,.v-b:focus-visible{color:var(--text);background:var(--vp-survol)}
+.v-b[aria-pressed="true"]{color:var(--primary);border-color:var(--primary);
+  background:color-mix(in srgb,var(--primary) 12%,transparent)}
+
+/* ─── Repris du lot 1, supprimées à tort le 31/07 ─────────────────────────
+   ⛔ Je les avais classées « noms v3 abandonnés » DE MÉMOIRE. Offre.astro et
+   Movers.astro les émettent toujours. ⭐ On ne décide pas qu'un sélecteur est
+   mort en se souvenant : on le demande aux gabarits. */
+.f-g{position:relative}
+.f-g>summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;gap:7px;
+  min-height:var(--tap-min);padding:0 13px;border-radius:var(--r-full);
+  border:1px solid var(--vp-rule-2);background:transparent;color:var(--muted);
+  font-family:var(--font-heading);font-size:13px;font-weight:600}
+.f-g>summary::-webkit-details-marker{display:none}
+.f-g>summary::after{content:"▾";font-size:10px}
+.f-g[open]>summary{border-color:var(--primary);color:var(--primary);
+  background:color-mix(in srgb,var(--primary) 12%,transparent)}
+.f-p{position:absolute;z-index:20;top:calc(100% + 6px);left:0;min-width:230px;
+  max-height:min(58vh,380px);overflow:auto;
+  background:var(--surface);border:1px solid var(--vp-rule-2);
+  border-radius:var(--r-lg);box-shadow:var(--sh-2);padding:var(--s3);
+  display:grid;gap:2px}
+.f-p label{display:flex;align-items:center;gap:9px;min-height:var(--tap-min);
+  padding:0 var(--s2);border-radius:var(--r-md);font-size:13.5px;cursor:pointer}
+.f-p label:hover{background:var(--vp-survol)}
+.f-raz{min-height:var(--tap-min);padding:0 13px;border:0;background:transparent;
+  color:var(--muted);cursor:pointer;font-family:var(--font-heading);font-size:13px;
+  text-decoration:underline;text-underline-offset:3px}
+.f-cpt{margin:var(--s3) 0 0;font-family:var(--font-heading);font-size:11px;
+  font-weight:600;letter-spacing:var(--ls-etiq);text-transform:uppercase;color:var(--muted)}
+.f-vide{padding:var(--s6) 0;text-align:center;color:var(--muted)}
+.promesses{list-style:none;padding:0;margin:0;display:grid;gap:var(--s3);max-width:70ch}
+.promesses li{position:relative;padding-left:26px;font-size:15px;line-height:1.55}
+.promesses li::before{content:"—";position:absolute;left:0;top:0;
+  color:var(--primary);font-weight:700}

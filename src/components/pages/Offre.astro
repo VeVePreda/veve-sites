@@ -81,8 +81,11 @@ const an = (v) => (v === 0 ? '—' : t(lang, 'offer.peryear', { v: Math.round(v 
 
   <div class="tarifs">
     {visibles.map((p) => (
-      <div class:list={['tarif', p.cle === 'crevette' ? 'tarif--phare' : '']}>
-        <h2 class="etiq">{p.nom}</h2>
+      <div class:list={['tarif', p.cle === 'crevette' ? 'tarif--phare' : '']} data-phare={t(lang, 'offer.mostChosen')}>
+        {/* ⛔ `p.nom` etait une chaine NUE : « Membre » s'affichait sur la page
+            anglaise. Comme `p.d`, c'est desormais une carte par langue — et on
+            se replie sur la langue pivot plutot que d'afficher un objet. */}
+        <h2 class="etiq">{pick(p.nom, lang)}</h2>
         <p class="tarif__b"><span class="tarif__p">{eur(p.prix)}</span><span class="prix__u">{an(p.prix)}</span></p>
         {/* ⭐ `pick` : `d` est une CARTE PAR LANGUE, comme site.tagline. */}
         <p class="respire">{pick(p.d, lang)}</p>

@@ -82,7 +82,9 @@ const MODULES = ['price_history', 'extremes', 'modules', 'alerts', 'wallet_watch
     </div>
   )}
 
-  <h2 class="titre-affiche">{t(lang, 'account.modules')}</h2>
+  {/* ⛔ `titre-affiche` etait un nom v3 : le theme ne l'habille plus.
+      Le vocabulaire de la maquette dit `sect-t sect-t--gd`. */}
+  <div class="sect-t sect-t--gd"><h2>{t(lang, 'account.modules')}</h2></div>
   <div class="modules">
     {MODULES.map((mo) => {
       const ouvert = franchit(mo.cle, Astro.locals);
