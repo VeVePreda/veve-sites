@@ -1,7 +1,7 @@
 {
  "_note": "Date du dernier changement REEL de chaque famille de pages, et de chaque fiche pour un site a prix. Produit par engine/tools/lastmod.py et engine/tools/lastmod-prix.mjs, lu par src/pages/sitemap.xml.js. Ne pas editer a la main : la date suivrait le fichier, pas le contenu.",
  "site": "veveprice",
- "passages": 5,
+ "passages": 6,
  "sections": {
   "donnees": {
    "h": "2f6eaaeadfff86f5f8315957ee03a5acc6c1507926c3b88e1652c5d3235a075b",
@@ -1733,13 +1733,13 @@
    "h": "0b2e845fee7b49f53a1023610fc06e1c5f14ceea1fbc38dc21e98d8798ed10f3",
    "d": "2026-07-29"
   },
-  "/comics/marvels/1/secret-rare/": {
-   "h": "be41b9f8bba9e557e4b2931b150875fb4bb3d2d6265f907a5274044eb929b8b5",
-   "d": "2026-07-30"
-  },
   "/comics/the-amazing-spider-man-vol-6/45/secret-rare/": {
    "h": "8069ce528a19cf8aeff76a383e550755804523def3da37cc0b5c5701c7d0222a",
    "d": "2026-07-29"
+  },
+  "/comics/marvels/1/secret-rare/": {
+   "h": "be41b9f8bba9e557e4b2931b150875fb4bb3d2d6265f907a5274044eb929b8b5",
+   "d": "2026-07-30"
   },
   "/comics/ultimate-spider-man-vol-3/3/secret-rare/": {
    "h": "6df51eb3885740bd929fce1537c9d7a73396057c0a55d1810e3c914b80266e13",
@@ -1957,12 +1957,12 @@
    "h": "a7ae269bbdecb7eadfe5c06a4967c7de0937a22532857f79d75b0c31a45d0356",
    "d": "2026-07-29"
   },
-  "/comics/luke-cage-gang-war/1/secret-rare/": {
-   "h": "86c0379e0019a72a379f3c6ba95ad99466ba4e8076f939f6264abb9877a7fc6c",
-   "d": "2026-07-29"
-  },
   "/collectibles/myo-veve-exclusive-art-edition/myo-veve-exclusive-art-edition/": {
    "h": "b785fdd4e6cbd3c6859fe24889c3d78f720c7909bcc7873c5ec7d0c7cb627fca",
+   "d": "2026-07-29"
+  },
+  "/comics/luke-cage-gang-war/1/secret-rare/": {
+   "h": "86c0379e0019a72a379f3c6ba95ad99466ba4e8076f939f6264abb9877a7fc6c",
    "d": "2026-07-29"
   },
   "/comics/captain-marvel-vol-11/6/ultra-rare/": {
@@ -3241,13 +3241,13 @@
    "h": "2e1f735f316454b1937190ac0638629f836bdb9a3a2d289fb294ff4948933c24",
    "d": "2026-07-29"
   },
-  "/collectibles/disney-oswald-the-lucky-rabbit-jump-for-joy-character-series/the-lucky-side-of-the-street/": {
-   "h": "6bb28a776856318656421febeb6d6af9a13efb94c84adb43cfe49387896f354b",
-   "d": "2026-07-31"
-  },
   "/collectibles/ducobi-mother-of-pearl/magnolia/": {
    "h": "39622bab3e64e18b6a2a454f8cd474598514bf7d97f9934728715f476d3145b2",
    "d": "2026-07-30"
+  },
+  "/collectibles/disney-oswald-the-lucky-rabbit-jump-for-joy-character-series/the-lucky-side-of-the-street/": {
+   "h": "6bb28a776856318656421febeb6d6af9a13efb94c84adb43cfe49387896f354b",
+   "d": "2026-07-31"
   },
   "/collectibles/david-and-dan-christmas/en-garde-gold/": {
    "h": "177e0cb9452b0e70bd2b68d4f9d6fa6f5608ee703ba693e8a069f61e807e28d9",
@@ -3301,13 +3301,13 @@
    "h": "00f94d5188c7317fcbdca7ffbbb24c7125273b46c80580b6baa052b818588b6b",
    "d": "2026-07-29"
   },
-  "/collectibles/alien-creatures-series-1/chestburster/": {
-   "h": "3a16f56d66f74984ac10ae83030e636f2ca3e9624d6c55724a9293afd6a32aec",
-   "d": "2026-07-29"
-  },
   "/collectibles/blackpink-diorama-series/blackpink-lightbox-midnight-mode/": {
    "h": "b821ee29b628291073c3e11dc0d7fce5abd41cf6ca56f534ab3673ee488e7b07",
    "d": "2026-07-30"
+  },
+  "/collectibles/alien-creatures-series-1/chestburster/": {
+   "h": "3a16f56d66f74984ac10ae83030e636f2ca3e9624d6c55724a9293afd6a32aec",
+   "d": "2026-07-29"
   },
   "/collectibles/jermaine-rogers/creeping-dero/": {
    "h": "07e38f927e3cb1949365ec1f4c2dd4f0c6aa4660bd57fb9efa39cd3ca358b32a",
