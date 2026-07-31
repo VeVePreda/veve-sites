@@ -1,6 +1,7 @@
 import { defineConfig } from 'astro/config';
 import node from '@astrojs/node';
 import fonctionnalitesEteintes from './engine/lib/astro_features.mjs';
+import routesCompte from './engine/lib/astro_routes_compte.mjs';
 import { satteri } from '@astrojs/markdown-satteri';
 import figuresMarkdown from './engine/lib/figures_markdown.mjs';
 
@@ -28,7 +29,12 @@ export default defineConfig({
   // manifeste (un wiki n'a pas de pages de prix). Sans quoi Astro emet
   // /movers/, /collections/ et /rarity/ en pages fantomes. Cf.
   // engine/lib/astro_features.mjs — no-op quand la fonctionnalite est active.
-  integrations: [fonctionnalitesEteintes()],
+  // ⛔⛔ `routesCompte(mode)` — arbitrage du 31/07. Les 4 routes de compte
+  // deviennent « a la demande » UNIQUEMENT en mode server. C'est ce qui fait
+  // enfin tourner le middleware de session : Astro ne l'appelle que pour les
+  // routes rendues a la demande, et elles etaient toutes pre-generees en
+  // silence (`prerender` ecrit en EXPRESSION, jamais evaluee).
+  integrations: [fonctionnalitesEteintes(), routesCompte(mode)],
   // `![legende](figure:mon-id)` dans un article .md du depot -> figure de
   // donnees tracee AU BUILD, exactement comme pour un corps venu du Sheet.
   // Une seule syntaxe pour les deux pipelines.

@@ -3,7 +3,13 @@
 // Un GET destructeur est déclenchable par un simple <img src="…">, et les
 // préchargeurs de liens du navigateur le suivent d'eux-mêmes : on déconnecterait
 // les gens sans qu'ils aient rien cliqué.
-export const prerender = process.env.RENDERING !== 'server';
+// ⭐ LITTERAL, ET C'EST LE POINT. Astro exige que `prerender` soit
+// statiquement analysable ; une EXPRESSION n'est pas evaluee et retombe
+// silencieusement sur `true`. La valeur reelle est posee par l'integration
+// `veve:routes-compte` (engine/lib/astro_routes_compte.mjs) selon le mode du
+// manifeste. `true` ici est le defaut SUR : sans adaptateur, un build static
+// ne peut pas rendre cette route a la demande.
+export const prerender = true;
 
 export const POST = ({ cookies, redirect }) => {
   // ⚠️ Les attributs doivent être IDENTIQUES à ceux de la pose, sinon le

@@ -9,7 +9,13 @@
 // ⛔ Conséquence à connaître : en mode static, cette page est PRÉ-GÉNÉRÉE, donc
 // elle affichera toujours l'état « visiteur ». Ce n'est pas un bug, c'est ce
 // que « statique » veut dire. veveprice tourne en `rendering: server`.
-export const prerender = process.env.RENDERING !== 'server';
+// ⭐ LITTERAL, ET C'EST LE POINT. Astro exige que `prerender` soit
+// statiquement analysable ; une EXPRESSION n'est pas evaluee et retombe
+// silencieusement sur `true`. La valeur reelle est posee par l'integration
+// `veve:routes-compte` (engine/lib/astro_routes_compte.mjs) selon le mode du
+// manifeste. `true` ici est le defaut SUR : sans adaptateur, un build static
+// ne peut pas rendre cette route a la demande.
+export const prerender = true;
 
 import Base from '../../layouts/Base.astro';
 import { manifest } from '../../../engine/lib/manifest.mjs';

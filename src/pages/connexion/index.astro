@@ -12,7 +12,13 @@
 // Ici on DÉLÈGUE à `veveid`, qui existe déjà, qui tourne déjà sur Coolify, et
 // qui porte déjà la notion d'identité VeVe. Cette page ne fait qu'envoyer la
 // personne au bon endroit et l'y ramener.
-export const prerender = process.env.RENDERING !== 'server';
+// ⭐ LITTERAL, ET C'EST LE POINT. Astro exige que `prerender` soit
+// statiquement analysable ; une EXPRESSION n'est pas evaluee et retombe
+// silencieusement sur `true`. La valeur reelle est posee par l'integration
+// `veve:routes-compte` (engine/lib/astro_routes_compte.mjs) selon le mode du
+// manifeste. `true` ici est le defaut SUR : sans adaptateur, un build static
+// ne peut pas rendre cette route a la demande.
+export const prerender = true;
 
 import Base from '../../layouts/Base.astro';
 import { palierVisiteur } from '../../../engine/lib/access.mjs';
