@@ -1,17 +1,25 @@
 ---
 // ⚠️ VeVePreda/veve-sites — src/components/pages/Movers.astro
 // ═══════════════════════════════════════════════════════════════════════════
-// LE MARCHÉ — un corpus filtrable, DEUX VUES, tri client.
+// LE MARCHÉ — balisage porté de la maquette par `outils/porter.mjs`
 // ═══════════════════════════════════════════════════════════════════════════
-// ⛔ TOUT LE FILTRAGE EST CLIENT, SUR UN CORPUS DÉJÀ RENDU. Aucune requête,
-// aucun état serveur : le script ne fait que masquer des lignes. Si le script
-// ne part pas, la page reste un tableau complet et lisible — c'est ce qui
-// préserve le « 0 JS bloquant » du réseau.
+// ⭐⭐⭐ CE FICHIER N'A PAS ÉTÉ ÉCRIT « DANS L'ESPRIT » DE LA MAQUETTE, il en
+// a été TRANSPILÉ. `tbl-hote`, `tbl-obj`, `rang`, `c-2`…`c-5`, `f-onglets`,
+// `f-b`, `cpt-f`, `seg-p`, `tuiles`, `tuile__hd/__off/__b/__n` : ce sont les
+// noms de `maquette-veveprice.html`, et le thème ne connaît qu'eux.
+//
+// ⛔ TROIS COLONNES DE LA MAQUETTE ONT ÉTÉ RETIRÉES, PAS REMPLIES :
+//    · plancher StackR (OMI) — aucun collecteur ne le remonte ;
+//    · $ par MCP            — aucun taux de conversion dans le moteur ;
+//    · bouton favori        — demande un compte.
+// ⭐ Le transpileur les a signalées et a REFUSÉ de les traduire. Sur un site
+// de cotes, une valeur fabriquée est la seule faute qu'on ne rattrape jamais —
+// mieux vaut une colonne de moins qu'une colonne qui ment.
 import Base from '../../layouts/Base.astro';
-import Piece from '../Piece.astro';
+import BarreAcces from '../BarreAcces.astro';
 import { dataset } from '../../../engine/lib/dataset.mjs';
 import { t, localize, numberLocale } from '../../../engine/lib/i18n.mjs';
-import { formeRarete, motRarete, GEMS, variation, RARETES } from '../../../engine/lib/vitrine.mjs';
+import { rar, forme, delta, gemsM, RAR } from '../../../engine/lib/vitrine.mjs';
 
 const { lang } = Astro.props;
 const ds = await dataset();
@@ -19,208 +27,248 @@ const nf = numberLocale[lang] || 'en-GB';
 const money = (v) => (v === null || v === undefined ? '—' : v.toLocaleString(nf, { maximumFractionDigits: 2 }));
 
 // ⚠️ Les fiches SANS variation ne sont pas jetées, elles vont en fin de liste.
-// Une fiche neuve n'a pas encore sept jours d'historique ; la faire disparaître
+// Une fiche neuve n'a pas sept jours d'historique ; la faire disparaître
 // donnerait un site qui cache ses nouveautés.
 const lignes = [...ds.items]
   .filter((i) => i.floor !== null && i.floor !== undefined)
   .sort((a, b) => (b.change7d ?? -Infinity) - (a.change7d ?? -Infinity));
 
-// ⭐ On n'offre QUE les raretés réellement présentes, dans l'ordre canonique de
-// VeVe (commun → artist proof), jamais dans l'ordre alphabétique : « Artist
-// Proof, Common, Rare, Secret… » ne veut rien dire pour un collectionneur.
+// ⭐ Les raretés dans l'ORDRE CANONIQUE DE VEVE, jamais alphabétique :
+// « Artist Proof, Common, Rare, Secret… » ne veut rien dire pour un collectionneur.
 const presentes = new Set(lignes.map((i) => i.rarity).filter(Boolean));
-const rarete = Object.keys(RARETES).filter((r) => presentes.has(r));
-const vedette = lignes.slice(0, 5);
+const rarete = Object.keys(RAR).filter((r) => presentes.has(r));
+const nbColl = lignes.filter((i) => i.type === 'collectible').length;
+const nbComic = lignes.length - nbColl;
 ---
 <Base lang={lang} path="/movers/" title={t(lang, 'movers.title')}
-      description={t(lang, 'desc.movers', { n: ds.items.length.toLocaleString(nf) })} updatedAt={ds.updatedAt}
+      description={t(lang, 'desc.movers', { n: ds.items.length.toLocaleString(nf) })}
+      updatedAt={ds.updatedAt}
       crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') }, { name: t(lang, 'nav.movers') }]}>
 
-  {/* ⭐ LIEN D'ÉVITEMENT — mesuré : 46 arrêts de tabulation avant le premier
+  {/* ⭐ Lien d'évitement — mesuré : 46 arrêts de tabulation avant le premier
       résultat. Il ne réduit pas la densité, il la CONTOURNE.
       ⛔ Il se cache par la GÉOMÉTRIE, jamais par `display:none` : un élément
       masqué sort de l'ordre de focus, donc un lien d'évitement invisible au
       clavier est un lien mort — inutile pour ceux à qui il s'adresse. */}
-  <a href="#resultats" class="evitement">{t(lang, 'movers.skip')}</a>
+  <a href="#resultats" class="saut evitement">{t(lang, 'movers.skip')}</a>
 
-  <h1>{t(lang, 'movers.title')}</h1>
-
-  {/* La rangée de tête : les cinq plus fortes variations, en pièces.
-      ⭐ Une page de marché doit MONTRER son marché avant de le tabuler. */}
-  <div class="grille grille--tete">{vedette.map((i) => (
-    <Piece item={i} href={localize(lang, i.path)} lang={lang} nf={nf} montrerVariation />
-  ))}</div>
+  <BarreAcces lang={lang} />
+  <h1 class="mono-t">{t(lang, 'movers.title')}</h1>
+  <p class="respire">{t(lang, 'desc.movers', { n: ds.items.length.toLocaleString(nf) })}</p>
 
   <form class="barre-f" id="filtres" role="search" aria-label={t(lang, 'movers.filters')}>
+    {/* ⭐ Le CORPUS avant les filtres : « Tout / Collectibles / Comics » n'est
+        pas un filtre parmi d'autres, c'est l'ensemble sur lequel les autres
+        s'appliquent. Les mettre au même rang embrouillait la barre. */}
+    <span class="barre-f__t">{t(lang, 'movers.filters')}</span>
     <div class="barre-f__l">
-      <label class="champ-r">
-        <span class="sr">{t(lang, 'search.placeholder')}</span>
-        <input type="search" id="f-q" class="searchbox" autocomplete="off" placeholder={t(lang, 'search.placeholder')} />
-      </label>
-
-      <details class="f-g"><summary>{t(lang, 'movers.type')}</summary>
-        <div class="f-p">
-          <label><input type="radio" name="f-type" value="" checked /> {t(lang, 'movers.all')}</label>
-          <label><input type="radio" name="f-type" value="collectible" /> Collectibles</label>
-          <label><input type="radio" name="f-type" value="comic" /> Comics</label>
-        </div>
-      </details>
-
-      <details class="f-g"><summary>{t(lang, 'item.rarity')}</summary>
-        <div class="f-p">
-          {rarete.map((r) => (
-            <label class={`f-r rar--${r.toLowerCase()}`}>
-              <input type="checkbox" name="f-rar" value={r} />
-              <Fragment set:html={formeRarete(r, 13)} />
-              <span>{motRarete(r)}</span>
-            </label>
-          ))}
-        </div>
-      </details>
-
-      <details class="f-g"><summary>{t(lang, 'movers.7d')}</summary>
-        <div class="f-p">
-          <label><input type="radio" name="f-var" value="" checked /> {t(lang, 'movers.all')}</label>
-          <label><input type="radio" name="f-var" value="up" /> ▲ {t(lang, 'movers.up')}</label>
-          <label><input type="radio" name="f-var" value="down" /> ▼ {t(lang, 'movers.down')}</label>
-        </div>
-      </details>
-
-      <span class="sep-v" aria-hidden="true"></span>
-      {/* Deux vues, une seule dans le DOM à la fois côté visuel.
-          ⭐ Tu voulais « aussi un affichage comme MyNFTTracker » : le tableau
-          compare, les tuiles montrent. Ce ne sont pas deux goûts, ce sont deux
-          tâches. */}
-      <div class="seg-v" role="group" aria-label={t(lang, 'movers.view')}>
-        <button type="button" class="seg-v__b" data-vue="tbl" aria-pressed="true">{t(lang, 'movers.table')}</button>
-        <button type="button" class="seg-v__b" data-vue="tui" aria-pressed="false">{t(lang, 'movers.tiles')}</button>
+      <div class="seg-p" role="group" aria-label={t(lang, 'movers.type')}>
+        <button type="button" data-corpus="" aria-pressed="true">{t(lang, 'movers.all')} <span class="etiq" style="opacity:.7">{lignes.length}</span></button>
+        <button type="button" data-corpus="collectible" aria-pressed="false">Collectibles <span class="etiq" style="opacity:.7">{nbColl}</span></button>
+        <button type="button" data-corpus="comic" aria-pressed="false">Comics <span class="etiq" style="opacity:.7">{nbComic}</span></button>
       </div>
-      <button type="reset" class="f-raz">{t(lang, 'movers.reset')}</button>
+      <span class="sep-v"></span>
+      <div class="champ champ--sm" style="flex:1;min-width:180px;max-width:280px">
+        <label class="sr-only" for="f-q">{t(lang, 'search.placeholder')}</label>
+        <input type="search" id="f-q" placeholder={t(lang, 'search.placeholder')} autocomplete="off" />
+      </div>
+      <span class="sep-v"></span>
+      <div class="seg-p" role="group" aria-label={t(lang, 'movers.view')}>
+        <button type="button" class="v-b" data-vue="tbl" aria-pressed="true">{t(lang, 'movers.table')}</button>
+        <button type="button" class="v-b" data-vue="tui" aria-pressed="false">{t(lang, 'movers.tiles')}</button>
+      </div>
+    </div>
+
+    {/* Un bouton par GROUPE, un seul panneau ouvert à la fois. ⭐ Un `<details>`
+        fermé sort ses enfants de l'ordre de tabulation : le repli n'est pas
+        cosmétique, il est la moitié du gain d'accessibilité. */}
+    <div class="f-onglets" role="group" aria-label={t(lang, 'movers.filters')}>
+      <details class="f-g"><summary class="f-b">{t(lang, 'item.rarity')}<span class="cpt-f" hidden>0</span></summary>
+        <div class="f-panneau" id="fp-rar">
+          <div class="f-panneau__t">{t(lang, 'item.rarity')}</div>
+          <div class="cols-l">
+            {rarete.map((r) => (
+              <label class={`puce puce--rar ${RAR[r].cl}`}>
+                <input type="checkbox" name="f-rar" value={r} />
+                <Fragment set:html={forme(r)} />{RAR[r].l}
+              </label>
+            ))}
+          </div>
+        </div>
+      </details>
+      <details class="f-g"><summary class="f-b">{t(lang, 'movers.7d')}</summary>
+        <div class="f-panneau" id="fp-var">
+          <div class="cols-l">
+            <label class="puce"><input type="radio" name="f-var" value="" checked /> {t(lang, 'movers.all')}</label>
+            <label class="puce"><input type="radio" name="f-var" value="up" /> ▲ {t(lang, 'movers.up')}</label>
+            <label class="puce"><input type="radio" name="f-var" value="down" /> ▼ {t(lang, 'movers.down')}</label>
+          </div>
+        </div>
+      </details>
+      <button type="reset" class="f-b">{t(lang, 'movers.reset')}</button>
     </div>
 
     {/* ⭐ Sans cette ligne, on ne sait jamais si un filtre a mordu ou si le
         résultat est vide par erreur. `aria-live` : un compteur muet ne sert
         qu'aux voyants. */}
-    <p class="f-cpt" id="cpt" aria-live="polite" role="status"></p>
+    {/* ⭐ Les filtres actifs deviennent des JETONS retirables : sans eux, on
+        ne sait pas ce qui est appliqué sans rouvrir chaque panneau. */}
+    <div class="actifs" id="actifs" aria-live="polite"></div>
+    <p class="etiq" id="cpt" role="status"></p>
   </form>
 
-  <h2 id="resultats" tabindex="-1" class="titre-affiche">{t(lang, 'movers.title')}</h2>
+  <div class="sect-t sect-t--gd"><h2 id="resultats" tabindex="-1" class="mono-t">{t(lang, 'movers.title')}</h2>
+    <span class="etiq">{t(lang, 'movers.sorted7d')}</span></div>
 
-  <div id="vue-tbl">
-    <table id="tbl">
+  <div id="vue-tbl" class="tbl-hote">
+    <table>
       <thead><tr>
-        <th scope="col" class="num">#</th>
-        <th scope="col">{t(lang, 'movers.item')}</th>
-        <th scope="col" class="hide">{t(lang, 'item.collection')}</th>
-        <th scope="col" class="hide">{t(lang, 'item.rarity')}</th>
-        <th scope="col" class="num">{t(lang, 'movers.floor')}</th>
-        <th scope="col" class="num">{t(lang, 'movers.7d')}</th>
+        <th scope="col" class="rang">#</th>
+        <th scope="col" class="tri">{t(lang, 'movers.item')}</th>
+        <th scope="col" class="c-3">{t(lang, 'item.rarity')}</th>
+        <th scope="col" class="n">{t(lang, 'movers.floor')}</th>
+        <th scope="col" class="n">{t(lang, 'movers.7d')}</th>
+        <th scope="col" class="n c-4">{t(lang, 'item.supply')}</th>
+        <th scope="col" class="n c-4">{t(lang, 'item.listings')}</th>
+        <th scope="col" class="c-5">{t(lang, 'item.release')}</th>
       </tr></thead>
-      <tbody>{lignes.map((i, k) => {
-        const v = variation(i.change7d);
-        return (
-          <tr data-type={i.type} data-rar={i.rarity} data-n={i.name.toLowerCase()}
-              data-var={i.change7d > 0 ? 'up' : i.change7d < 0 ? 'down' : ''}>
-            <td class="num rang">{String(k + 1).padStart(3, '0')}</td>
-            <td><a href={localize(lang, i.path)}>{i.name}</a></td>
-            <td class="hide muted">{i.series}</td>
-            <td class="hide">{i.rarity && (
-              <span class={`rar rar--${(i.rarity || '').toLowerCase()}`}>
-                <Fragment set:html={formeRarete(i.rarity, 12)} />
-                <span class="rar__m">{motRarete(i.rarity)}</span>
-              </span>
-            )}</td>
-            <td class="num"><span class="prix"><Fragment set:html={GEMS} /><b>{money(i.floor)}</b>{i.prixAberrant && <span class="alerte" title={t(lang, 'item.outlier')}>!</span>}</span></td>
-            <td class={`num ${v.cl}`}><i aria-hidden="true">{v.fleche}</i> {v.txt}</td>
-          </tr>
-        );
-      })}</tbody>
+      <tbody>{lignes.map((i, k) => (
+        <tr data-type={i.type} data-rar={i.rarity} data-n={i.name.toLowerCase()}
+            data-var={i.change7d > 0 ? 'up' : i.change7d < 0 ? 'down' : ''}>
+          <td class="rang">{String(k + 1).padStart(3, '0')}</td>
+          <td><a class="tbl-obj" href={localize(lang, i.path)}>
+            <span><span class="tbl-obj__n">{i.name}</span><span class="tbl-obj__s">{i.series}</span></span>
+          </a></td>
+          <td class="c-3"><Fragment set:html={rar(i.rarity)} /></td>
+          <td class="n"><span class="num"><Fragment set:html={gemsM()} /> {money(i.floor)}</span>
+            {i.listings <= 1 && <span class="alerte" title={t(lang, 'item.outlier')}>!</span>}</td>
+          <td class:list={['n', i.change7d > 0 ? 'up' : i.change7d < 0 ? 'down' : 'flat']}><Fragment set:html={delta(i.change7d)} /></td>
+          <td class="n c-4 muted">{i.tirage ? i.tirage.toLocaleString(nf) : '—'}</td>
+          <td class="n c-4 muted">{i.listings ?? '—'}</td>
+          <td class="c-5 muted">{i.releaseDate || '—'}</td>
+        </tr>
+      ))}</tbody>
     </table>
   </div>
 
-  {/* La vue tuiles : les 120 premières seulement. ⛔ Rendre 1 200 vignettes
-      coûterait 1 200 décodages d'image sur un téléphone — le filtre sert à
-      descendre en dessous, il n'a pas à être précédé d'une avalanche. */}
-  <div id="vue-tui" class="grille" hidden>{lignes.slice(0, 120).map((i) => (
-    <Piece item={i} href={localize(lang, i.path)} lang={lang} nf={nf} montrerVariation />
+  {/* ⛔ 120 tuiles seulement : rendre 1 200 vignettes coûterait 1 200 décodages
+      d'image sur un téléphone. Le filtre sert à descendre en dessous, il n'a
+      pas à être précédé d'une avalanche. */}
+  <div id="vue-tui" class="tuiles" hidden>{lignes.slice(0, 120).map((i, k) => (
+    <a class="tuile revele" href={localize(lang, i.path)} style={`--i:${k}`}
+       data-type={i.type} data-rar={i.rarity} data-n={i.name.toLowerCase()}
+       data-var={i.change7d > 0 ? 'up' : i.change7d < 0 ? 'down' : ''}>
+      <span class="tuile__hd">
+        <span class="tuile__s">{i.series}</span>
+        <span class="tuile__off">{i.listings ?? 0} {t(lang, 'item.listings')}</span>
+      </span>
+      <div class="socle">
+        {i.image ? (
+          <>
+            <img class="socle__fond ok" src={i.image} alt="" aria-hidden="true" width="400" height="600" loading="lazy" decoding="async" />
+            <span class="socle__voile"></span>
+            <img class="socle__net ok" src={i.image} alt={i.name} width="400" height="600" loading="lazy" decoding="async" />
+          </>
+        ) : (
+          <>
+            <span class="socle__voile"></span>
+            <span style="position:absolute;inset:0;display:grid;place-items:center;z-index:3">
+              <span class="forme forme--xl" style="--c-a:var(--rule-2)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4">
+                  <path d="M12 2.9 19.9 7.5v9L12 21.1 4.1 16.5v-9Z" /></svg>
+            </span></span>
+          </>
+        )}
+      </div>
+      <span class="tuile__b">
+        {/* ⭐ Le symbole SUIT le titre au lieu de flotter sur l'image : la
+            rareté qualifie la pièce, elle ne la surmonte pas — et le titre
+            gagne toute la largeur de la vignette. */}
+        <span class="tuile__n">{i.name}<span class={RAR[i.rarity]?.cl || RAR.COMMON.cl}
+          style="display:inline-flex;margin-left:5px"><Fragment set:html={forme(i.rarity)} /></span></span>
+        <span class="tuile__p"><span class="num"><Fragment set:html={gemsM()} /> {money(i.floor)}</span>
+          <Fragment set:html={delta(i.change7d)} /></span>
+      </span>
+    </a>
   ))}</div>
 
-  <p class="f-vide" id="vide" hidden>{t(lang, 'movers.empty')}</p>
+  <p class="respire" id="vide" hidden>{t(lang, 'movers.empty')}</p>
 
   <script is:inline>
     (function () {
-      var f = document.getElementById('filtres');
-      if (!f) return;
-      var lignes = [].slice.call(document.querySelectorAll('#tbl tbody tr'));
-      var tuiles = [].slice.call(document.querySelectorAll('#vue-tui .piece'));
+      var f = document.getElementById('filtres'); if (!f) return;
+      var L = [].slice.call(document.querySelectorAll('#vue-tbl tbody tr'));
+      var T = [].slice.call(document.querySelectorAll('#vue-tui .tuile'));
       var cpt = document.getElementById('cpt'), vide = document.getElementById('vide');
-      var total = lignes.length;
-      var CLE = 'vp-filtres';
-      function lire() { try { return JSON.parse(localStorage.getItem(CLE)) || {}; } catch (e) { return {}; } }
-      function ecrire(o) { try { localStorage.setItem(CLE, JSON.stringify(o)); } catch (e) {} }
-
-      function etat() {
-        var rar = [].slice.call(f.querySelectorAll('input[name=f-rar]:checked')).map(function (i) { return i.value; });
-        return {
-          q: (document.getElementById('f-q').value || '').trim().toLowerCase(),
-          type: (f.querySelector('input[name=f-type]:checked') || {}).value || '',
-          vari: (f.querySelector('input[name=f-var]:checked') || {}).value || '',
-          rar: rar,
-          vue: (f.querySelector('.seg-v__b[aria-pressed=true]') || {}).dataset ?
-               f.querySelector('.seg-v__b[aria-pressed=true]').dataset.vue : 'tbl'
-        };
+      var CLE = 'vp-filtres', corpus = '', vue = 'tbl';
+      function lire(){ try { return JSON.parse(localStorage.getItem(CLE)) || {}; } catch(e){ return {}; } }
+      function ecrire(o){ try { localStorage.setItem(CLE, JSON.stringify(o)); } catch(e){} }
+      function etat(){
+        return { q:(document.getElementById('f-q').value||'').trim().toLowerCase(),
+          corpus: corpus, vue: vue,
+          vari:(f.querySelector('input[name=f-var]:checked')||{}).value||'',
+          rar:[].slice.call(f.querySelectorAll('input[name=f-rar]:checked')).map(function(x){return x.value;}) };
       }
-      function garde(e, l) {
-        if (e.q && l.dataset.n.indexOf(e.q) === -1) return false;
-        if (e.type && l.dataset.type !== e.type) return false;
-        if (e.vari && l.dataset.var !== e.vari) return false;
-        if (e.rar.length && e.rar.indexOf(l.dataset.rar) === -1) return false;
+      function garde(e,l){
+        if (e.q && l.dataset.n.indexOf(e.q)===-1) return false;
+        if (e.corpus && l.dataset.type!==e.corpus) return false;
+        if (e.vari && l.dataset.var!==e.vari) return false;
+        if (e.rar.length && e.rar.indexOf(l.dataset.rar)===-1) return false;
         return true;
       }
-      function appliquer() {
+      function appliquer(){
         var e = etat(), n = 0;
-        for (var k = 0; k < lignes.length; k++) {
-          var ok = garde(e, lignes[k]);
-          lignes[k].hidden = !ok;
-          if (tuiles[k]) tuiles[k].hidden = !ok;
-          if (ok) n++;
-        }
-        cpt.textContent = n + ' / ' + total;
+        L.forEach(function(l){ var ok = garde(e,l); l.hidden = !ok; if (ok) n++; });
+        T.forEach(function(t){ t.hidden = !garde(e,t); });
+        cpt.textContent = n + ' / ' + L.length;
+        // Les jetons : un par filtre actif, cliquable pour le retirer.
+        var j = document.getElementById('actifs'); j.innerHTML = '';
+        e.rar.forEach(function(r){
+          var b = document.createElement('button'); b.type='button'; b.className='jeton';
+          b.innerHTML = r + ' <span aria-hidden="true">×</span>';
+          b.setAttribute('aria-label','Retirer ' + r);
+          b.onclick = function(){ var c=f.querySelector('input[name=f-rar][value="'+r+'"]'); if(c){c.checked=false;appliquer();} };
+          j.appendChild(b);
+        });
         vide.hidden = n !== 0;
         document.getElementById('vue-tbl').hidden = e.vue !== 'tbl';
         document.getElementById('vue-tui').hidden = e.vue !== 'tui';
+        // le compteur de chaque groupe de filtres
+        var nr = f.querySelectorAll('input[name=f-rar]:checked').length;
+        var c = f.querySelector('.cpt-f'); if (c){ c.textContent = nr; c.hidden = !nr; }
         ecrire(e);
       }
       var s = lire();
       if (s.q) document.getElementById('f-q').value = s.q;
-      if (s.type) { var r = f.querySelector('input[name=f-type][value="' + s.type + '"]'); if (r) r.checked = true; }
-      if (s.vari) { var vv = f.querySelector('input[name=f-var][value="' + s.vari + '"]'); if (vv) vv.checked = true; }
-      (s.rar || []).forEach(function (x) {
-        var c = f.querySelector('input[name=f-rar][value="' + x + '"]'); if (c) c.checked = true;
-      });
-      if (s.vue) [].slice.call(f.querySelectorAll('.seg-v__b')).forEach(function (b) {
-        b.setAttribute('aria-pressed', b.dataset.vue === s.vue ? 'true' : 'false');
-      });
-
-      [].slice.call(f.querySelectorAll('.seg-v__b')).forEach(function (b) {
-        b.addEventListener('click', function () {
-          [].slice.call(f.querySelectorAll('.seg-v__b')).forEach(function (o) {
-            o.setAttribute('aria-pressed', o === b ? 'true' : 'false');
-          });
-          appliquer();
+      if (s.corpus) corpus = s.corpus;
+      if (s.vue) vue = s.vue;
+      if (s.vari){ var v = f.querySelector('input[name=f-var][value="'+s.vari+'"]'); if (v) v.checked = true; }
+      (s.rar||[]).forEach(function(x){ var c = f.querySelector('input[name=f-rar][value="'+x+'"]'); if (c) c.checked = true; });
+      function seg(sel, get, set){
+        [].slice.call(f.querySelectorAll(sel)).forEach(function(b){
+          b.setAttribute('aria-pressed', get(b) ? 'true' : 'false');
+          b.addEventListener('click', function(){ set(b);
+            [].slice.call(f.querySelectorAll(sel)).forEach(function(o){ o.setAttribute('aria-pressed', o===b?'true':'false'); });
+            appliquer(); });
         });
-      });
+      }
+      seg('[data-corpus]', function(b){ return b.dataset.corpus === corpus; }, function(b){ corpus = b.dataset.corpus; });
+      seg('.v-b',          function(b){ return b.dataset.vue === vue; },       function(b){ vue = b.dataset.vue; });
       f.addEventListener('input', appliquer);
-      f.addEventListener('reset', function () { setTimeout(appliquer, 0); });
-      // ⚠️ Un seul panneau ouvert à la fois : sinon la barre pousse le tableau
-      // hors de l'écran et on filtre à l'aveugle.
-      [].slice.call(f.querySelectorAll('details.f-g')).forEach(function (d) {
-        d.addEventListener('toggle', function () {
-          if (!d.open) return;
-          [].slice.call(f.querySelectorAll('details.f-g')).forEach(function (o) { if (o !== d) o.open = false; });
-        });
+      f.addEventListener('reset', function(){ setTimeout(function(){ corpus=''; appliquer(); }, 0); });
+      // ⚠️ Un seul panneau ouvert : sinon la barre pousse le tableau hors de
+      // l'écran et on filtre à l'aveugle.
+      [].slice.call(f.querySelectorAll('details.f-g')).forEach(function(d){
+        d.addEventListener('toggle', function(){ if (!d.open) return;
+          [].slice.call(f.querySelectorAll('details.f-g')).forEach(function(o){ if (o!==d) o.open=false; }); });
       });
       appliquer();
     })();
   </script>
+  <div class="sceau">
+    <div class="sceau__in">
+      <span class="etiq etiq--bleu">{t(lang, 'home.independent')}</span>
+      <p class="respire">{t(lang, 'offer.p2')}</p>
+    </div>
+  </div>
 </Base>

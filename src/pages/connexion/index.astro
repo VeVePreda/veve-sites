@@ -50,25 +50,26 @@ const lien = idBase ? `${idBase}/oauth/start?retour=${encodeURIComponent(retour)
 <Base langs={[def]} lang={lang} path="/connexion/" title={t(lang, 'login.title')}
       crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') }, { name: t(lang, 'login.title') }]}>
 
-  <h1>{t(lang, 'login.title')}</h1>
+  <span class="logo logo--xl" aria-hidden="true">VP</span>
+  <h1 class="mono-t">{t(lang, 'login.title')}</h1>
 
   {palier !== 'visitor' ? (
-    <section class="card">
+    <section class="panneau">
       <p>{t(lang, 'login.already')}</p>
-      <a class="btn-p" href={localize(lang, '/compte/')}>{t(lang, 'account.title')}</a>
+      <a class="btn btn--principal btn--sm" href={localize(lang, '/compte/')}>{t(lang, 'account.title')}</a>
       {/* ⚠️ La déconnexion est un POST, pas un lien. Un GET destructeur est
           déclenchable par un simple <img src>, et les préchargeurs de liens du
           navigateur le suivent tout seuls : on déconnecterait les gens sans
           qu'ils aient rien cliqué. */}
-      <form method="POST" action="/api/deconnexion" style="margin-top:var(--s4)">
-        <button type="submit" class="f-raz">{t(lang, 'login.out')}</button>
+      <form class="champ" method="POST" action="/api/deconnexion" style="margin-top:var(--s4)">
+        <button type="submit" class="btn btn--fantome btn--sm">{t(lang, 'login.out')}</button>
       </form>
     </section>
   ) : (
-    <section class="card">
-      <p class="lead">{t(lang, 'login.lead')}</p>
+    <section class="panneau">
+      <p class="respire">{t(lang, 'login.lead')}</p>
       {lien
-        ? <a class="btn-p" href={lien} rel="nofollow">{t(lang, 'login.veveid')}</a>
+        ? <a class="btn btn--principal btn--sm" href={lien} rel="nofollow">{t(lang, 'login.veveid')}</a>
         : /* ⛔ Pas de service d'identité configuré : on le DIT. Un bouton mort
              ferait croire à une panne du site plutôt qu'à une étape à venir. */
           <p class="muted">{t(lang, 'login.nosvc')}</p>}

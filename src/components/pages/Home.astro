@@ -1,24 +1,32 @@
 ---
 // ⚠️ VeVePreda/veve-sites — src/components/pages/Home.astro
-// ⛔ PROPRE À VEVEPRICE : vevewiki passe par EditorialHome.astro et n'a aucun
-// module de prix (`content.data_modules` vide → `priceEnabled()` faux).
+// ⛔ PROPRE À VEVEPRICE : vevewiki passe par EditorialHome.astro.
 //
-// ⭐⭐ LA LOGIQUE DE SÉLECTION N'A PAS BOUGÉ D'UN IOTA. Le classement par score
-// avec quota par type est un correctif payé cher : 100 % des comics avaient
-// disparu de l'accueil parce qu'on classait par nombre de relevés, qui mesure
-// l'avancée du backfill et non l'intérêt de la fiche. On ne redessine que la
-// PRÉSENTATION. ⛔ Ne pas « simplifier » ce bloc en le retouchant au passage.
+// ⭐⭐⭐ BALISAGE PORTÉ DE LA MAQUETTE, CLASSE PAR CLASSE.
+// `hero`, `hero__champ`, `hero__os`, `hero__ref`, `mono-t`, `respire`,
+// `ticker__piste`, `tick`, `sect-t sect-t--gd`, `carte`, `col-carte` : ce sont
+// les noms de `maquette-veveprice.html`, et le thème ne connaît qu'eux.
+// ⛔ Mes versions précédentes disaient `plaque__champ`, `titre-affiche`,
+// `piece` — des noms que le CSS porté ne visait pas. Le nom EST le contrat.
+//
+// ⭐⭐ LA LOGIQUE DE SÉLECTION N'A PAS BOUGÉ. Le classement par score avec
+// quota par type est un correctif payé cher : 100 % des comics avaient disparu
+// de l'accueil parce qu'on classait par nombre de relevés — qui mesure
+// l'avancée du backfill, pas l'intérêt de la fiche. ⛔ Ne pas y toucher.
 import Base from '../../layouts/Base.astro';
-import Piece from '../Piece.astro';
+import Carte from '../Carte.astro';
+import BarreAcces from '../BarreAcces.astro';
 import { dataset } from '../../../engine/lib/dataset.mjs';
 import { manifest } from '../../../engine/lib/manifest.mjs';
 import { t, pick, localize, numberLocale } from '../../../engine/lib/i18n.mjs';
-import { GEMS } from '../../../engine/lib/vitrine.mjs';
+import { pli, delta, gemsM } from '../../../engine/lib/vitrine.mjs';
 
 const { lang } = Astro.props;
 const m = manifest();
+const V = m.vitrine || {};
 const ds = await dataset();
 const nf = numberLocale[lang] || 'en-GB';
+const money = (v) => (v === null || v === undefined ? '—' : v.toLocaleString(nf, { maximumFractionDigits: 2 }));
 const up = ds.movers.up.slice(0, 6);
 const down = ds.movers.down.slice(0, 6);
 
@@ -37,96 +45,153 @@ const featured = (() => {
   }
   return pris.sort(parScore).slice(0, N);
 })();
-
-const collections = [...ds.collections.values()]
-  .sort((a, b) => b.items.length - a.items.length).slice(0, 8);
-
-// Le bandeau défilant : les six plus fortes hausses, en continu.
-// ⭐ Il n'est pas décoratif — c'est la seule chose de la page qui BOUGE, donc
-// la seule qui dit « ce site est vivant » avant qu'on ait lu une ligne.
-const ticker = [...up, ...down].slice(0, 10);
+const cols = [...ds.collections.values()].sort((a, b) => b.items.length - a.items.length).slice(0, 6);
+const tick = [...up, ...down];
 const piece = featured.find((i) => i.image) || null;
-const aPiece = Boolean(piece && piece.image);
+const maj = ds.updatedAt ? new Date(ds.updatedAt) : null;
+const horo = maj ? `${String(maj.getUTCDate()).padStart(2,'0')}.${String(maj.getUTCMonth()+1).padStart(2,'0')}.${maj.getUTCFullYear()} — ${String(maj.getUTCHours()).padStart(2,'0')}:${String(maj.getUTCMinutes()).padStart(2,'0')} UTC` : '';
 ---
 <Base lang={lang} path="/" title={null} updatedAt={ds.updatedAt}>
+  {/* ⭐ `editorial` : la classe que la maquette pose sur l'accueil — elle
+      autorise les blocs à déborder de la colonne de texte. */}
+  <div class="editorial">
 
-  {/* ═══ LA PLAQUE — champ noir débordant, panneau os décalé ═══
-      ⭐ Ce qui fait la composition n'est pas un effet, c'est un DÉCALAGE :
-      trois surfaces larges qui se chevauchent, dont une qui SORT du cadre. */}
-  <section class={aPiece ? 'plaque' : 'plaque plaque--nue'} aria-labelledby="plaque-t">
-    <div class="plaque__champ" aria-hidden="true"></div>
-    {aPiece && (
-      <span class="plaque__piece" aria-hidden="true">
-        <img src={piece.image} alt="" width="520" height="650" loading="eager" fetchpriority="high" decoding="async" />
+  {/* ═══ LE PREMIER ÉCRAN ═══
+      ⭐ Trois surfaces GRANDES, DÉCALÉES, qui se chevauchent, et rien d'autre :
+      un champ noir qui déborde à droite, un panneau os décalé vers le bas qui
+      le chevauche, une pièce qui casse le bord haut. La force vient du
+      DÉCALAGE, pas de l'accumulation — il a fallu quatre essais pour l'admettre. */}
+  <div class="hero">
+    <span class="hero__champ" aria-hidden="true"></span>
+    <span class="hero__ref ref--tg">{`// VEVE PRICE\n${t(lang, 'home.independent')}\n`}<b>{ds.items.length.toLocaleString(nf)} {t(lang, 'home.pieces')}</b></span>
+    <span class="hero__ref ref--bd">{`// CH.VEVE\n${t(lang, 'home.every30')}\n${horo}`}</span>
+    {piece && (
+      <span class="hero__piece" aria-hidden="true">
+        <img class="ok" src={piece.image} alt="" width="520" height="650"
+             loading="eager" fetchpriority="high" decoding="async" />
       </span>
     )}
-    <span class="plaque__ref" aria-hidden="true">VEVE PRICE</span>
-    <div class="plaque__os">
-      <span class="num-s">// 001</span>
-      {/* ⭐ L'accroche porte un CHIFFRE, pas un adjectif. Un adjectif se
-          conteste ; un relevé se vérifie, et il se vérifie sur cette page. */}
-      <h1 id="plaque-t" class="plaque__t">
-        {ds.items.length.toLocaleString(nf)} {t(lang, 'home.pieces')}<br /><em>{t(lang, 'home.tracked')}</em>
-      </h1>
-      <p class="lead">{pick(m.site.description, lang)}</p>
-      <input id="q" class="searchbox plaque__rech" type="search" placeholder={t(lang, 'search.placeholder')}
-             autocomplete="off" aria-label={t(lang, 'search.placeholder')} />
-      <div id="results" class="grid" style="margin-top:14px"></div>
+    <div class="hero__os">
+      <span class="num-s">// 001 — {t(lang, 'home.record')}</span>
+      {/* ⭐ L'accroche porte un CHIFFRE, pas un adjectif : un adjectif se
+          conteste, un relevé se vérifie — et il se vérifie sur cette page. */}
+      <h1 class="mono-t">{ds.items.length.toLocaleString(nf)} {t(lang, 'home.pieces')}<br /><em>{t(lang, 'home.tracked')}</em></h1>
+      <p class="respire" style="margin:var(--s5) 0 0;color:var(--carte-ink-2);max-width:38ch">{pick(m.site.description, lang)}</p>
+      <button class="h-rech hero__rech" type="button" onclick="document.getElementById('q').focus()">
+        <span style="font-size:var(--t-md)">{t(lang, 'search.placeholder')}</span><span class="kbd">⌘K</span>
+      </button>
+      <div class="marq" style="margin-top:var(--s5)">
+        <i></i><span style="color:var(--carte-ink-2)">GEMS / {t(lang, 'movers.floor')} / {t(lang, 'item.high')} / {t(lang, 'item.low')}</span>
+      </div>
     </div>
-  </section>
+  </div>
 
-  {/* Le bandeau. `aria-hidden` : son contenu est répété juste en dessous, et un
-      lecteur d'écran n'a pas à entendre deux fois la même liste. */}
-  <div class="ticker" aria-hidden="true">
-    <div class="ticker__p">
+  {/* Le bandeau : la seule chose qui BOUGE, donc la seule qui dit « ce site est
+      vivant » avant qu'on ait lu une ligne. ⛔ Il ne doit jamais devenir deux. */}
+  <div class="ticker" tabindex="0" role="region" aria-label={t(lang, 'home.live')}>
+    <div class="ticker__piste">
       {[0, 1].map(() => (
-        <span class="ticker__g">{ticker.map((i) => (
-          <span class="ticker__i">
-            <span class="ticker__n">{i.name}</span>
-            <Fragment set:html={GEMS} />
-            <b>{(i.floor ?? 0).toLocaleString(nf, { maximumFractionDigits: 2 })}</b>
-            <span class={i.change7d > 0 ? 'up' : 'down'}>{i.change7d > 0 ? '▲' : '▼'}</span>
-          </span>
-        ))}</span>
+        <>{tick.map((i) => (
+          <a class="tick" href={localize(lang, i.path)}>
+            <Fragment set:html={pli(i.rarity)} />
+            <b>{i.name.slice(0, 26)}</b>
+            <span class="num"><Fragment set:html={gemsM()} /> {money(i.floor)}</span>
+            <Fragment set:html={delta(i.change7d)} />
+          </a>
+        ))}</>
       ))}
     </div>
   </div>
 
-  <div class="stats">
-    <div class="stat"><div class="k">{t(lang, 'stats.tracked')}</div><div class="v">{ds.items.length.toLocaleString(nf)}</div></div>
-    <div class="stat"><div class="k">{t(lang, 'stats.catalogue')}</div><div class="v">{ds.catalogueSize.toLocaleString(nf)}</div></div>
-    <div class="stat"><div class="k">{t(lang, 'stats.collections')}</div><div class="v">{ds.collections.size}</div></div>
+  <BarreAcces lang={lang} />
+
+  <div class="wrap">
+    <input id="q" class="searchbox" type="search" placeholder={t(lang, 'search.placeholder')}
+           autocomplete="off" aria-label={t(lang, 'search.placeholder')} />
+    <div id="results" class="grille" style="margin-top:14px"></div>
+
+    {V.boites?.length > 0 && (
+      <>
+        <div class="sect-t sect-t--gd"><h2 class="mono-t">{t(lang, 'home.what')}</h2></div>
+        <div class="boites">
+          {V.boites.map((b) => (
+            <a href={localize(lang, '/movers/')}
+               style={`grid-column:span ${b.span || 6};grid-row:span ${b.rang || 1}`}
+               class:list={['boite', 'revele', b.n === '001' ? 'boite--sect' : b.n === '002' ? 'boite--os' : b.n === '004' ? 'boite--damier damier' : '']}>
+              <span class="boite__n">{b.n}</span>
+              <span class="boite__t" set:html={pick(b.t, lang)} />
+              <span class="boite__d">{pick(b.d, lang)}</span>
+            </a>
+          ))}
+        </div>
+      </>
+    )}
+
+    <div class="stats">
+      <div class="stat stat--bleu"><div class="etiq">{t(lang, 'stats.tracked')}</div><div class="stat__v">{ds.items.length.toLocaleString(nf)}</div></div>
+      <div class="stat"><div class="etiq">{t(lang, 'stats.catalogue')}</div><div class="stat__v">{ds.catalogueSize.toLocaleString(nf)}</div></div>
+      <div class="stat"><div class="etiq">{t(lang, 'stats.collections')}</div><div class="stat__v">{ds.collections.size}</div></div>
+    </div>
+
+    <div class="sect-t sect-t--gd"><h2 class="mono-t">{t(lang, 'home.up')}</h2><a href={localize(lang, '/movers/')}>{t(lang, 'home.allMarket')} →</a></div>
+    <div class="grille">{up.map((i, k) => <Carte item={i} href={localize(lang, i.path)} nf={nf} i={k} />)}</div>
+
+    <div class="sect-t"><h2>{t(lang, 'home.down')}</h2></div>
+    <div class="grille">{down.map((i, k) => <Carte item={i} href={localize(lang, i.path)} nf={nf} i={k} />)}</div>
+
+    <div class="sect-t sect-t--gd"><h2 class="mono-t">{t(lang, 'home.documented')}</h2></div>
+    <div class="grille">{featured.map((i, k) => <Carte item={i} href={localize(lang, i.path)} nf={nf} i={k} ed />)}</div>
+
+    {/* ⭐ LA PILE de trois pièces décalées dit « ENSEMBLE » sans écrire le mot,
+        et distingue d'un coup d'œil une collection d'une pièce. */}
+    <div class="sect-t"><h2>{t(lang, 'home.collections')}</h2><a href={localize(lang, '/collections/')}>{t(lang, 'home.allSeries')} →</a></div>
+    <div class="grille grille--series">
+      {cols.map((c) => (
+        <a class="col-carte revele" href={localize(lang, `/collection/${c.slug}/`)}>
+          <span class="col-carte__pile" aria-hidden="true">
+            {[0, 1, 2].map(() => (
+              <span class="socle">
+                <span class="socle__voile"></span><span class="socle__droit">© ECOMI</span>
+                <span class="forme forme--xl" style="--c-a:var(--rule-2)">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4">
+                    <path d="M12 2.9 19.9 7.5v9L12 21.1 4.1 16.5v-9Z" />
+                  </svg>
+                </span>
+              </span>
+            ))}
+          </span>
+          <div>
+            <div class="cartouche__n">{c.name}</div>
+            <div class="etiq">{c.items.length} {t(lang, 'collections.items')}</div>
+          </div>
+        </a>
+      ))}
+    </div>
+
+    {V.faq?.length > 0 && (
+      <>
+        <div class="sect-t sect-t--gd"><h2 class="mono-t">{t(lang, 'home.faq')}</h2></div>
+        {/* ⭐ `<details>` natif : zéro JS. Une FAQ pilotée par JavaScript est une
+            FAQ qui disparaît au moment où on en a le plus besoin. */}
+        <div class="faq">
+          {V.faq.map((f, k) => (
+            <details>
+              <summary><span class="faq__n">{String(k + 1).padStart(3, '0')}</span>{pick(f.q, lang)}</summary>
+              <div class="faq__c">{pick(f.r, lang)}</div>
+            </details>
+          ))}
+        </div>
+      </>
+    )}
   </div>
-
-  {/* ⭐ UN SEUL titre au rang d'affiche par coup d'œil. L'accueil est
-      l'exception assumée : c'est un sommaire, ses chapitres sont séparés par
-      des écrans entiers de défilement et ne se voient jamais ensemble. */}
-  <h2 class="titre-affiche">{t(lang, 'home.up')}</h2>
-  <div class="grille">{up.map((i) => (
-    <Piece item={i} href={localize(lang, i.path)} lang={lang} nf={nf} montrerVariation />
-  ))}</div>
-
-  <h2>{t(lang, 'home.down')}</h2>
-  <div class="grille">{down.map((i) => (
-    <Piece item={i} href={localize(lang, i.path)} lang={lang} nf={nf} montrerVariation />
-  ))}</div>
-
-  <h2 class="titre-affiche">{t(lang, 'home.documented')}</h2>
-  <div class="grille">{featured.map((i) => (
-    <Piece item={i} href={localize(lang, i.path)} lang={lang} nf={nf} ed />
-  ))}</div>
-
-  <h2>{t(lang, 'home.collections')}</h2>
-  <p class="jetons">{collections.map((c) => (
-    <a class="tag" href={localize(lang, `/collection/${c.slug}/`)}>{c.name} <b>{c.items.length}</b></a>
-  ))}</p>
+  </div>
 
   <script is:inline define:vars={{ prefixe: localize(lang, '') }}>
     (function () {
       var q = document.getElementById('q'), out = document.getElementById('results'), idx = null;
       function render(list) {
         out.innerHTML = list.slice(0, 24).map(function (i) {
-          return '<a class="item" href="' + prefixe + i.s + '"><div class="n">' + i.n + '</div></a>';
+          return '<a class="carte" href="' + prefixe + i.s + '"><div class="cartouche"><div class="cartouche__n">' + i.n + '</div></div></a>';
         }).join('');
       }
       function filter(v) { if (idx) render(idx.filter(function (i) { return i.n.toLowerCase().indexOf(v) !== -1; })); }
@@ -135,6 +200,11 @@ const aPiece = Boolean(piece && piece.image);
         if (!v) { out.innerHTML = ''; return; }
         if (!idx) { fetch('/search-index.json').then(function (r) { return r.json(); }).then(function (d) { idx = d; filter(v); }); }
         else filter(v);
+      });
+      // ⌘K / Ctrl+K — le raccourci que la maquette annonce dans le bouton.
+      // ⛔ Annoncer un raccourci sans le câbler est une promesse rompue.
+      document.addEventListener('keydown', function (e) {
+        if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); q.focus(); }
       });
     })();
   </script>

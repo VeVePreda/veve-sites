@@ -255,3 +255,83 @@ seo:
 
 content:
   data_modules: [item_price_pages, collection_index, movers, rarity_index]
+
+# ═══════════════════════════════════════════════════════════════════════════
+# VITRINE ÉDITORIALE — les blocs d'accueil
+# ═══════════════════════════════════════════════════════════════════════════
+# ⭐⭐ CE TEXTE VIT ICI, PAS DANS LE GABARIT. La maquette l'écrivait en dur dans
+# la fonction de rendu — et c'est exactement la faute qui a sorti du français
+# sur les pages anglaises pour les descriptions de paliers. Dans un dépôt
+# multilingue, tout texte destiné à être lu est une carte par langue.
+# ⭐ Bénéfice secondaire, et il compte : tu peux réécrire une réponse de FAQ
+# sans qu'un développeur touche un fichier .astro.
+vitrine:
+  # Les quatre encarts « Ce que fait ce site ». `span` = colonnes sur 12.
+  # ⚠️ Les hauteurs INÉGALES font la composition : quatre boîtes identiques
+  # forment un tableau, pas une plaque.
+  boites:
+    - n: "001"
+      span: 7
+      rang: 3
+      t: { fr: "Le plancher,<br>toutes les 30 min", en: "The floor,<br>every 30 minutes",
+           es: "El mínimo,<br>cada 30 minutos", de: "Der Bodenpreis,<br>alle 30 Minuten" }
+      d: { fr: "Relevé et horodaté. Aucune estimation, aucun modèle : ce que vous lisez a été constaté à une heure précise.",
+           en: "Recorded and timestamped. No estimate, no model: what you read was observed at a precise time.",
+           es: "Registrado y con hora. Sin estimaciones ni modelos: lo que lees fue observado a una hora precisa.",
+           de: "Erfasst und mit Zeitstempel. Keine Schätzung, kein Modell: Was du liest, wurde zu einer genauen Zeit beobachtet." }
+    - n: "002"
+      span: 5
+      rang: 2
+      t: { fr: "1 200 fiches<br>publiées", en: "1,200 pages<br>published",
+           es: "1200 fichas<br>publicadas", de: "1.200 Seiten<br>veröffentlicht" }
+      d: { fr: "Choisies sur la densité de leur historique, avec une part garantie aux comics — 86 % du catalogue.",
+           en: "Chosen on the density of their history, with a guaranteed share for comics — 86 % of the catalogue.",
+           es: "Elegidas por la densidad de su historial, con una parte garantizada a los cómics: 86 % del catálogo.",
+           de: "Nach der Dichte ihrer Historie gewählt, mit garantiertem Anteil für Comics — 86 % des Katalogs." }
+    - n: "003"
+      span: 5
+      rang: 1
+      t: { fr: "Les extrêmes", en: "The extremes", es: "Los extremos", de: "Die Extreme" }
+      d: { fr: "Plus haut et plus bas historiques, et où se situe le prix du jour entre les deux.",
+           en: "All-time high and low, and where today's price sits between them.",
+           es: "Máximo y mínimo históricos, y dónde se sitúa el precio de hoy.",
+           de: "Allzeithoch und -tief, und wo der heutige Preis dazwischen liegt." }
+    - n: "004"
+      span: 12
+      rang: 2
+      t: { fr: "Ce que la<br>courbe cache", en: "What the<br>curve hides",
+           es: "Lo que la<br>curva oculta", de: "Was die<br>Kurve verbirgt" }
+      d: { fr: "Une offre isolée peut porter un plancher à elle seule. Quand c'est le cas, la fiche le dit — elle ne le masque jamais.",
+           en: "A single listing can carry a floor on its own. When it does, the page says so — it never hides it.",
+           es: "Una sola oferta puede sostener un mínimo. Cuando ocurre, la ficha lo dice: nunca lo oculta.",
+           de: "Ein einzelnes Angebot kann einen Bodenpreis allein tragen. Dann sagt die Seite es — sie verbirgt es nie." }
+
+  # ⛔ CHAQUE RÉPONSE DOIT ÊTRE VRAIE AUJOURD'HUI. La maquette parlait de StackR
+  # et d'OMI — que ce site ne collecte pas encore. Une FAQ qui décrit une
+  # fonctionnalité absente est un mensonge signé, et c'est la seule chose qu'un
+  # site de cotes ne peut pas se permettre.
+  faq:
+    - q: { fr: "D'où viennent les prix ?", en: "Where do the prices come from?",
+           es: "¿De dónde vienen los precios?", de: "Woher kommen die Preise?" }
+      r: { fr: "Du marché VeVe : le plancher, c'est-à-dire l'offre la plus basse en vente, relevé toutes les trente minutes et horodaté. Aucune estimation, aucun modèle.",
+           en: "From the VeVe market: the floor — the lowest active listing — recorded every thirty minutes and timestamped. No estimate, no model.",
+           es: "Del mercado VeVe: el mínimo, es decir la oferta más baja activa, registrado cada treinta minutos y con hora.",
+           de: "Vom VeVe-Markt: der Bodenpreis, also das niedrigste aktive Angebot, alle dreißig Minuten erfasst und mit Zeitstempel." }
+    - q: { fr: "Le prix affiché est-il un prix de vente ?", en: "Is the price shown a sale price?",
+           es: "¿El precio mostrado es un precio de venta?", de: "Ist der gezeigte Preis ein Verkaufspreis?" }
+      r: { fr: "Non, et la nuance est essentielle. C'est le prix de l'offre la plus basse EN VENTE. Personne ne l'a forcément payé.",
+           en: "No, and the distinction matters. It is the price of the lowest ACTIVE listing. Nobody has necessarily paid it.",
+           es: "No, y el matiz es esencial. Es el precio de la oferta más baja ACTIVA. Nadie lo ha pagado necesariamente.",
+           de: "Nein, und der Unterschied zählt. Es ist der Preis des niedrigsten AKTIVEN Angebots. Niemand hat ihn zwangsläufig bezahlt." }
+    - q: { fr: "Que se passe-t-il quand une seule offre porte le plancher ?", en: "What if a single listing carries the floor?",
+           es: "¿Y si una sola oferta sostiene el mínimo?", de: "Was, wenn ein einzelnes Angebot den Bodenpreis trägt?" }
+      r: { fr: "La fiche le signale. Ce chiffre décrit alors un vendeur, pas un marché — et le dire vaut mieux que le masquer.",
+           en: "The page flags it. That number then describes a seller, not a market — and saying so beats hiding it.",
+           es: "La ficha lo señala. Ese número describe entonces a un vendedor, no a un mercado.",
+           de: "Die Seite markiert es. Diese Zahl beschreibt dann einen Verkäufer, keinen Markt." }
+    - q: { fr: "Faut-il connecter un portefeuille ?", en: "Do I need to connect a wallet?",
+           es: "¿Hay que conectar una cartera?", de: "Muss ich eine Wallet verbinden?" }
+      r: { fr: "Jamais. Ce site ne demande aucune clé, ne signe aucune transaction et n'a rien à connecter.",
+           en: "Never. This site asks for no key, signs no transaction, and has nothing to connect.",
+           es: "Nunca. Este sitio no pide ninguna clave, no firma ninguna transacción.",
+           de: "Nie. Diese Website verlangt keinen Schlüssel und signiert keine Transaktion." }

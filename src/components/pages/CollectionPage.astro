@@ -5,7 +5,7 @@ import Piece from '../Piece.astro';
 import { itemListLd } from '../../../engine/lib/seo.mjs';
 import { siteUrl } from '../../../engine/lib/manifest.mjs';
 import { t, localize, numberLocale } from '../../../engine/lib/i18n.mjs';
-import { formeRarete, motRarete, GEMS } from '../../../engine/lib/vitrine.mjs';
+import { rar, gemsM } from '../../../engine/lib/vitrine.mjs';
 
 const { lang, col, updatedAt } = Astro.props;
 const root = siteUrl();
@@ -30,8 +30,16 @@ const titreCollection = `${t(lang, 'item.collection')} : ${col.name}`;
 <Base lang={lang} path={path} title={titreCollection}
       description={t(lang, 'desc.collection', { name: col.name, n: col.items.length })} ld={ld} updatedAt={updatedAt}
       crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') }, { name: t(lang, 'collections.title'), url: localize(lang, '/collections/') }, { name: col.name }]}>
-  <h1>{col.name}</h1>
-  <p class="lead">{items.length} {t(lang, 'collection.tracked')}.</p>
+  <div class="h-page">
+    <div><h1 class="mono-t">{col.name}</h1>
+      <p class="respire muted">{items.length} {t(lang, 'collection.tracked')}.</p></div>
+  </div>
+  {/* ⭐ Les trois chiffres de la série, au format `stats` de la maquette. */}
+  <div class="stats">
+    <div class="stat stat--bleu"><div class="etiq">{t(lang, 'collections.items')}</div><div class="stat__v">{items.length}</div></div>
+    <div class="stat"><div class="etiq">{t(lang, 'movers.floor')}</div><div class="stat__v">{money(Math.min(...items.map((i) => i.floor ?? Infinity)))}</div></div>
+    <div class="stat"><div class="etiq">{t(lang, 'item.high')}</div><div class="stat__v">{money(Math.max(...items.map((i) => i.ath ?? 0)))}</div></div>
+  </div>
 
   {/* ⭐ LA SÉRIE SE REGARDE AVANT DE SE LIRE. Un tableau compare des chiffres ;
       une grille montre un ENSEMBLE. Sur une page dont le sujet EST l'ensemble,
@@ -44,27 +52,26 @@ const titreCollection = `${t(lang, 'item.collection')} : ${col.name}`;
   {items.length > 24 && (
     <>
       <h2>{t(lang, 'movers.item')}</h2>
-      <table>
+      <div class="tbl-hote"><table>
         <thead><tr>
-          <th scope="col">{t(lang, 'movers.item')}</th>
-          <th scope="col" class="hide">{t(lang, 'item.rarity')}</th>
-          <th scope="col" class="num">{t(lang, 'movers.floor')}</th>
-          <th scope="col" class="num hide">{t(lang, 'item.listings')}</th>
+          <th scope="col" class="tri">{t(lang, 'movers.item')}</th>
+          <th scope="col" class="c-2">{t(lang, 'item.rarity')}</th>
+          <th scope="col" class="n">{t(lang, 'movers.floor')}</th>
+          <th scope="col" class="n c-4">{t(lang, 'item.listings')}</th>
         </tr></thead>
         <tbody>{items.slice(24).map((i) => (
           <tr>
-            <td><a href={localize(lang, i.path)}>{i.name}</a></td>
-            <td class="hide">{i.rarity && (
-              <span class={`rar rar--${(i.rarity || '').toLowerCase()}`}>
-                <Fragment set:html={formeRarete(i.rarity, 12)} />
-                <span class="rar__m">{motRarete(i.rarity)}</span>
-              </span>
-            )}</td>
-            <td class="num"><span class="prix"><Fragment set:html={GEMS} /><b>{money(i.floor)}</b>{i.prixAberrant && <span class="alerte" title={t(lang, 'item.outlier')}>!</span>}</span></td>
-            <td class="num hide">{i.listings ?? '—'}</td>
+            <td><a class="tbl-obj" href={localize(lang, i.path)}>
+              <span><span class="tbl-obj__n">{i.name}</span><span class="tbl-obj__s">{i.series}</span></span>
+            </a></td>
+            <td class="c-2"><span class="puce puce--rar">
+              {i.rarity && <Fragment set:html={rar(i.rarity)} />}
+            </span></td>
+            <td class="n c-5"><span class="prix"><Fragment set:html={gemsM()} /><b>{money(i.floor)}</b>{i.prixAberrant && <span class="alerte" title={t(lang, 'item.outlier')}>!</span>}</span></td>
+            <td class="n c-4">{i.listings ?? '—'}</td>
           </tr>
         ))}</tbody>
-      </table>
+      </table></div>
     </>
   )}
 </Base>

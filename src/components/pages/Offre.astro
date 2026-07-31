@@ -19,7 +19,9 @@
 // qu'un bouton absent.
 import Base from '../../layouts/Base.astro';
 import { manifest } from '../../../engine/lib/manifest.mjs';
-import { acces } from '../../../engine/lib/access.mjs';
+import { acces, porte } from '../../../engine/lib/access.mjs';
+import { forme } from '../../../engine/lib/vitrine.mjs';
+const MODULES = ['modules', 'extremes', 'price_history', 'alerts', 'wallet_watch'];
 import { t, localize, pick } from '../../../engine/lib/i18n.mjs';
 
 // ⭐ LA LANGUE ARRIVE EN PROP, ELLE NE SE DEVINE PLUS.
@@ -68,8 +70,8 @@ const an = (v) => (v === 0 ? '—' : t(lang, 'offer.peryear', { v: Math.round(v 
       description={t(lang, 'offer.desc')}
       crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') }, { name: t(lang, 'offer.title') }]}>
 
-  <h1>{t(lang, 'offer.title')}</h1>
-  <p class="lead">{t(lang, 'offer.lead')}</p>
+  <h1 class="mono-t">{t(lang, 'offer.title')}</h1>
+  <p class="respire">{t(lang, 'offer.lead')}</p>
 
   {visibles.length === 0 && (
     /* ⭐ Le cas « aucun palier déclaré » n'est pas une erreur : c'est un site
@@ -77,23 +79,21 @@ const an = (v) => (v === 0 ? '—' : t(lang, 'offer.peryear', { v: Math.round(v 
     <p class="muted">{t(lang, 'offer.free')}</p>
   )}
 
-  <div class="grid grid--tarifs">
+  <div class="tarifs">
     {visibles.map((p) => (
-      <div class={p.cle === 'crevette' ? 'card tarif tarif--phare' : 'card tarif'}>
-        {p.cle === 'crevette' && <span class="tarif__ruban">{t(lang, 'offer.popular')}</span>}
-        <h2 class="tarif__n">{p.nom}</h2>
-        <p class="tarif__p">{eur(p.prix)}</p>
-        <p class="tarif__a">{an(p.prix)}</p>
+      <div class:list={['tarif', p.cle === 'crevette' ? 'tarif--phare' : '']}>
+        <h2 class="etiq">{p.nom}</h2>
+        <p class="tarif__b"><span class="tarif__p">{eur(p.prix)}</span><span class="prix__u">{an(p.prix)}</span></p>
         {/* ⭐ `pick` : `d` est une CARTE PAR LANGUE, comme site.tagline. */}
-        <p class="tarif__d">{pick(p.d, lang)}</p>
-        <p class="tarif__al">
+        <p class="respire">{pick(p.d, lang)}</p>
+        <p class="etiq etiq--bleu">
           {/* ⚠️ `-1` veut dire ILLIMITÉ. Afficher « -1 alerte » sur une page de
               tarifs est le genre de bug qui se voit depuis la rue. */}
           {p.alertes === -1 ? '∞' : p.alertes} {t(lang, 'offer.alerts')}
         </p>
         {m.offer?.url
-          ? <a class="btn-p" href={m.offer.url}>{t(lang, 'offer.cta')}</a>
-          : <span class="muted tarif__soon">{t(lang, 'account.soon')}</span>}
+          ? <a class="btn btn--principal btn--sm" href={m.offer.url}>{t(lang, 'offer.cta')}</a>
+          : <span class="btn btn--verrou btn--sm" aria-disabled="true">{t(lang, 'account.soon')}</span>}
       </div>
     ))}
   </div>
@@ -101,12 +101,32 @@ const an = (v) => (v === 0 ? '—' : t(lang, 'offer.peryear', { v: Math.round(v 
   {/* ⭐ CE QUE LE SITE NE FERA PAS EST UN ARGUMENT DE VENTE, pas une clause en
       petits caractères. Sur un marché où les données de prix se manipulent, la
       seule chose qui se vend durablement est la raison de faire confiance. */}
-  <h2 class="titre-affiche">{t(lang, 'offer.promise')}</h2>
+  {/* LE COMPARATIF — les modules, et pour chacun le palier qui l'ouvre.
+      La maquette l'appelle `compa` : un tableau qui dit ce qu'on ACHETE,
+      module par module, plutot qu'une liste de promesses. */}
+  <div class="sect-t sect-t--gd"><h2 class="mono-t">{t(lang, 'account.modules')}</h2></div>
+  <span class="sep-v" aria-hidden="true"></span>
+  <div class="modules compa">
+    {MODULES.map((mo) => (
+      <div class="module">
+        <span class="module__i"><Fragment set:html={forme('ULTRA_RARE')} /></span>
+        <span class="module__c">
+          <span class="module__n">{t(lang, `mod.${mo}`)}</span>
+          <span class="module__d">{t(lang, `mod.${mo}.d`)}</span>
+        </span>
+        <span class="puce">{porte(mo).tier}</span>
+      </div>
+    ))}
+  </div>
+
+  <div class="panneau">
+  <h2 class="mono-t">{t(lang, 'offer.promise')}</h2>
   <ul class="promesses">
     <li>{t(lang, 'offer.p1')}</li>
     <li>{t(lang, 'offer.p2')}</li>
     <li>{t(lang, 'offer.p3')}</li>
   </ul>
 
-  <p class="muted" style="font-size:13px;margin-top:var(--s6)">{t(lang, 'offer.legal')}</p>
+  </div>
+  <p class="etiq" style="margin-top:var(--s6)">{t(lang, 'offer.legal')}</p>
 </Base>

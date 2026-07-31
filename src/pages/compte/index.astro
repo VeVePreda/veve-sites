@@ -56,17 +56,18 @@ const MODULES = ['price_history', 'extremes', 'modules', 'alerts', 'wallet_watch
 <Base langs={[def]} lang={lang} path="/compte/" title={t(lang, 'account.title')}
       crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') }, { name: t(lang, 'account.title') }]}>
 
-  <h1>{t(lang, 'account.title')}</h1>
+  <span class="logo logo--xl" aria-hidden="true">VP</span>
+  <h1 class="mono-t">{t(lang, 'account.title')}</h1>
 
   {!connecte && (
-    <section class="card" style="margin-bottom:var(--s5)">
+    <section class="panneau champ" style="margin-bottom:var(--s5)">
       <h2 style="margin-top:0">{t(lang, 'account.signedout')}</h2>
-      <p class="lead" style="margin-bottom:var(--s4)">{t(lang, 'account.signedout.d')}</p>
+      <p class="respire" style="margin-bottom:var(--s4)">{t(lang, 'account.signedout.d')}</p>
       {/* ⛔ UN BOUTON QUI NE MÈNE NULLE PART COÛTE PLUS CHER EN CONFIANCE QU'IL
           NE RAPPORTE EN PROMESSE. Tant que `offer.url` est vide, on n'affiche
           PAS d'appel à l'action — on affiche ce qui existe, et rien de plus. */}
       {m.offer?.url
-        ? <a class="btn-p" href={m.offer.url}>{t(lang, 'account.subscribe')}</a>
+        ? <a class="btn btn--principal btn--sm" href={m.offer.url}>{t(lang, 'account.subscribe')}</a>
         : <p class="muted">{t(lang, 'account.soon')}</p>}
     </section>
   )}
@@ -82,13 +83,13 @@ const MODULES = ['price_history', 'extremes', 'modules', 'alerts', 'wallet_watch
   )}
 
   <h2 class="titre-affiche">{t(lang, 'account.modules')}</h2>
-  <div class="grid">
+  <div class="modules">
     {MODULES.map((mo) => {
       const ouvert = franchit(mo.cle, Astro.locals);
       return (
-        <div class={ouvert ? 'item module module--ouvert' : 'item module'}>
-          <div class="n">{mo.nom}</div>
-          <div class="s">{mo.d}</div>
+        <div class={ouvert ? 'module module--ouvert' : 'module'}>
+          <span class="module__n">{mo.nom}</span>
+          <span class="module__d">{mo.d}</span>
           <div class="f" style="font-size:12px">
             {ouvert
               ? <span class="up">✓ {t(lang, 'account.open')}</span>
@@ -102,7 +103,7 @@ const MODULES = ['price_history', 'extremes', 'modules', 'alerts', 'wallet_watch
   {/* ⭐ LA TRANSPARENCE EST UN ARGUMENT DE VENTE, PAS UNE CONCESSION. Dire quels
       paliers existent, y compris ceux qu'on n'a pas, est ce qui rend crédible
       la promesse de celui qu'on vend. */}
-  <p class="muted" style="margin-top:var(--s5);font-size:13px">
+  <p class="etiq" style="margin-top:var(--s5)">
     {t(lang, 'account.tiers')} : {tiers.join(' · ')}
   </p>
 </Base>

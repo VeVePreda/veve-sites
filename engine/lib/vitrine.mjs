@@ -1,79 +1,80 @@
-// ⚠️ VeVePreda/veve-sites — engine/lib/vitrine.mjs   (FICHIER NEUF)
+// ⚠️ VeVePreda/veve-sites — engine/lib/vitrine.mjs
 // ═══════════════════════════════════════════════════════════════════════════
-// LA GRAMMAIRE VISUELLE DE VEVE PRICE — formes, monnaies, variations.
+// LES ATOMES DE LA MAQUETTE — portés, pas réécrits
 // ═══════════════════════════════════════════════════════════════════════════
-// ⭐⭐ POURQUOI CE FICHIER EXISTE.
-// La maquette repose sur une idee que le CSS seul ne peut pas produire : la
-// RARETE EST UNE FORME, pas un mot. Un theme habille des elements ; il n'en
-// cree pas. Tant que le gabarit ecrivait « SECRET_RARE » en texte brut, aucune
-// feuille de style au monde n'en aurait fait un losange rouge.
-//
-// ⭐ ET LA SEPARATION EST FORCEE PAR LA MESURE, PAS PAR LE GOUT.
-// AUCUNE couleur de rarete VeVe ne passe 4,5:1 en TEXTE sur ces gris (le rouge
-// secret plafonne a 1,96:1). La couleur ne peut donc vivre que sur un APLAT ou
-// un TRACE. D'ou : la couleur va sur la FORME, le mot reste neutre. Ce n'est
-// pas une elegance, c'est la seule solution physiquement lisible — et c'est
-// d'ailleurs ce que VeVe fait lui-meme.
-//
-// ⛔ NE JAMAIS colorer le MOT de la rarete. Et ne jamais faire porter par la
-// couleur SEULE une information (WCAG 1.4.1) : la forme differe autant que la
-// teinte, un daltonien lit la geometrie.
+// ⭐⭐⭐ CHAQUE FONCTION ICI REND LE BALISAGE EXACT DE `maquette-veveprice.html`.
+// Ce n'est pas un détail de méthode, c'est LA cause des sept passes ratées :
+// je réécrivais des composants « dans l'esprit » de la maquette, avec mes
+// propres noms de classes. Le CSS porté visait `.carte`, mon HTML disait
+// `.piece` — donc les règles ne s'appliquaient à RIEN, en silence.
+// Un comparateur l'a chiffré : 18,3 % de fidélité structurelle.
+// ⛔ NE JAMAIS RENOMMER UNE CLASSE ICI. Le nom EST le contrat avec le thème.
 
-// Les six raretes VeVe. `c` = la couleur du trace, `f` = la geometrie.
-//   commun croissant · uncommon triangle · rare CARRE · ultra hexagone
-//   secret etoile · artist proof cercle
-export const RARETES = {
-  COMMON:       { cle: 'common',   c: '#0EBA52', f: 'croissant' },
-  UNCOMMON:     { cle: 'uncommon', c: '#D157FC', f: 'triangle'  },
-  RARE:         { cle: 'rare',     c: '#1F91FB', f: 'carre'     },
-  ULTRA_RARE:   { cle: 'ultra',    c: '#ED8E00', f: 'hexagone'  },
-  SECRET_RARE:  { cle: 'secret',   c: '#E36777', f: 'etoile'    },
-  ARTIST_PROOF: { cle: 'proof',    c: '#CACACA', f: 'cercle'    },
+// ⚠️ Les CLÉS de classe sont abrégées (`rar--secret`, pas `rar--secret_rare`) :
+// c'est le vocabulaire du thème. Émettre `rarity.toLowerCase()` produisait
+// `rar--secret_rare`, qui n'existe dans aucune feuille — les six couleurs de
+// rareté étaient donc absentes du site depuis le début.
+export const RAR = {
+  COMMON:       { cl: 'rar--common',   l: 'Common',       mcp: 0.25 },
+  UNCOMMON:     { cl: 'rar--uncommon', l: 'Uncommon',     mcp: 0.50 },
+  RARE:         { cl: 'rar--rare',     l: 'Rare',         mcp: 2.00 },
+  ULTRA_RARE:   { cl: 'rar--ultra',    l: 'Ultra Rare',   mcp: 3.00 },
+  SECRET_RARE:  { cl: 'rar--secret',   l: 'Secret Rare',  mcp: 6.00 },
+  ARTIST_PROOF: { cl: 'rar--proof',    l: 'Artist Proof', mcp: 6.00 },
 };
 
-const TRACES = {
-  croissant: '<path d="M15.5 3.6a8.4 8.4 0 1 0 0 16.8 9.6 9.6 0 0 1 0-16.8Z"/>',
-  triangle:  '<path d="M12 3.4 21 20.2H3Z"/>',
-  carre:     '<rect x="4" y="4" width="16" height="16" rx="1"/>',
-  hexagone:  '<path d="M12 2.9 19.9 7.5v9L12 21.1 4.1 16.5v-9Z"/>',
-  etoile:    '<path d="m12 2.8 2.9 6 6.6.9-4.8 4.6 1.2 6.5-5.9-3.2-5.9 3.2 1.2-6.5L2.5 9.7l6.6-.9Z"/>',
-  cercle:    '<circle cx="12" cy="12" r="8.6"/>',
+// Les six géométries, en 24×24, CREUSES.
+// ⭐ Creuses et non pleines : une forme pleine devient une pastille de couleur
+// et crie plus fort que le prix, qui est le sujet de la page.
+const FORMES = {
+  COMMON:       '<path d="M15.8 4.3a8.6 8.6 0 1 0 0 15.4 10 10 0 0 1 0-15.4Z"/>',
+  UNCOMMON:     '<path d="M12 3.6 21 20H3Z"/>',
+  RARE:         '<rect x="4.4" y="4.4" width="15.2" height="15.2"/>',
+  ULTRA_RARE:   '<path d="M12 2.9 19.9 7.5v9L12 21.1 4.1 16.5v-9Z"/>',
+  SECRET_RARE:  '<path d="m12 2.8 2.85 6.05 6.55.85-4.8 4.6 1.2 6.6L12 17.75 6.2 20.9l1.2-6.6-4.8-4.6 6.55-.85Z"/>',
+  ARTIST_PROOF: '<circle cx="12" cy="12" r="8.4"/>',
 };
 
-// ⭐ FORME CREUSE, JAMAIS PLEINE. Une forme pleine devient une pastille de
-// couleur : elle crie plus fort que le prix, qui est le sujet de la page.
-// Le trace dit la rarete sans jamais prendre le pas sur le chiffre.
-export function formeRarete(rarity, taille = 14) {
-  const r = RARETES[rarity];
-  if (!r) return '';
-  return `<svg class="rar__f" viewBox="0 0 24 24" width="${taille}" height="${taille}" `
-       + `aria-hidden="true" fill="none" stroke="${r.c}" stroke-width="1.7" `
-       + `stroke-linejoin="round">${TRACES[r.f]}</svg>`;
+export const forme = (r, t) =>
+  `<span class="forme${t ? ' forme--' + t : ''}" aria-hidden="true">`
+  + `<svg viewBox="0 0 24 24">${FORMES[r] || FORMES.COMMON}</svg></span>`;
+
+// ⭐ LA COULEUR VIT SUR LA FORME, LE MOT RESTE NEUTRE. Ce n'est pas une
+// élégance : AUCUNE couleur de rareté VeVe ne passe 4,5:1 en texte sur ces
+// gris (le rouge secret plafonne à 1,96:1). La séparation est forcée par la
+// mesure — et c'est d'ailleurs ce que VeVe fait lui-même.
+export function rar(r, o) {
+  o = o || {};
+  const x = RAR[r] || RAR.COMMON;
+  return `<span class="rar ${x.cl}${o.pilule ? ' rar--pilule' : ''}`
+    + `${o.blanc ? ' rar--sur-blanc' : ''}">${forme(r, o.g ? 'g' : '')}${x.l}</span>`;
+}
+export const pli = (r, t) =>
+  `<span class="${(RAR[r] || RAR.COMMON).cl}" style="display:inline-flex">${forme(r, t)}</span>`;
+
+// ⚠️ LA FLÈCHE EST DANS LE SVG, PAS DANS LA COULEUR (WCAG 1.4.1) : un deutan
+// ne distingue pas ce vert de ce rouge. Trois tracés — montant, descendant,
+// plat — pour que la géométrie porte l'information à elle seule.
+const dcls = (v) => (v === null || v === undefined ? 'flat' : v > 0 ? 'up' : v < 0 ? 'down' : 'flat');
+const pct = (v) => (v === null || v === undefined ? '—' : `${v > 0 ? '+' : ''}${v.toFixed(1)} %`);
+export function delta(v, o) {
+  o = o || {};
+  const s = v > 0 ? 'M6 2 11 9H1z' : v < 0 ? 'M6 10 1 3h10z' : 'M2 6h8';
+  return `<span class="delta delta--${dcls(v)}${o.plein ? ' delta--plein' : ''}`
+    + `${o.blanc ? ' delta--sur-blanc' : ''}">`
+    + `${o.k ? `<span class="delta__k">${o.k}</span>` : ''}`
+    + `<svg viewBox="0 0 12 12" aria-hidden="true"><path d="${s}"/></svg>${pct(v)}</span>`;
 }
 
-// Le mot, en clair et LISIBLE. `ARTIST_PROOF` -> `Artist Proof`.
-export function motRarete(rarity) {
-  if (!rarity) return '';
-  return String(rarity).toLowerCase().split('_')
-    .map((m) => m.charAt(0).toUpperCase() + m.slice(1)).join(' ');
-}
+// ⭐ DEUX MONNAIES, DEUX SIGNES : diamant taillé PLEIN pour les gems, cercle
+// CREUX pour l'OMI. Plein contre creux se distingue en noir et blanc, à 10 px,
+// et pour un daltonien — là où deux couleurs échouent aux trois.
+export const gemsM = (g) =>
+  `<span class="gems-m${g ? ' gems-m--g' : ''}" aria-hidden="true"><svg viewBox="0 0 24 24">`
+  + '<path fill="currentColor" d="M6.4 3.6h11.2l4.4 5.4L12 21.4 2 9Z"/>'
+  + '<g stroke="var(--surface)" stroke-width="1.1" fill="none" stroke-linejoin="round" vector-effect="non-scaling-stroke">'
+  + '<path d="M2 9h20"/><path d="M6.4 3.6 8.6 9 12 21.4 15.4 9l2.2-5.4"/></g></svg></span>';
+export const omiM = (g) => `<span class="omi-m${g ? ' omi-m--g' : ''}" aria-hidden="true"></span>`;
 
-// ⭐ DEUX MONNAIES, DEUX SIGNES : diamant PLEIN pour les gems, cercle CREUX
-// pour l'OMI. Plein contre creux se distingue meme en noir et blanc, meme a
-// 10 px, meme pour un daltonien — la ou deux couleurs echouent aux trois.
-export const GEMS = '<svg class="mon mon--gems" viewBox="0 0 24 24" width="11" height="11" '
-  + 'aria-hidden="true"><path d="M12 2.6 21 9.4 12 21.4 3 9.4Z" fill="#10CEF2"/></svg>';
-export const OMI = '<svg class="mon mon--omi" viewBox="0 0 24 24" width="11" height="11" '
-  + 'aria-hidden="true" fill="none" stroke="#E36777" stroke-width="2.4">'
-  + '<circle cx="12" cy="12" r="8.4"/></svg>';
-
-// ⚠️ LA FLECHE EST OBLIGATOIRE, PAS DECORATIVE (WCAG 1.4.1).
-// Un daltonien deutan ne distingue pas ce vert de ce rouge. La couleur
-// RENFORCE l'information, elle ne la porte jamais seule.
-export function variation(v, nf) {
-  if (v === null || v === undefined) return { cl: 'muted', txt: '—', fleche: '' };
-  const s = `${v > 0 ? '+' : ''}${v.toFixed(1)} %`;
-  if (v > 0) return { cl: 'up',   txt: s, fleche: '▲' };
-  if (v < 0) return { cl: 'down', txt: s, fleche: '▼' };
-  return { cl: 'muted', txt: s, fleche: '' };
-}
+export const esc = (t) => String(t ?? '').replace(/[&<>"]/g,
+  (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));

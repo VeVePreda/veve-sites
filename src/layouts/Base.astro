@@ -236,9 +236,17 @@ const suggestData = alternates.filter((a) => a.lang !== lang).map((a) => ({ l: a
     À CHAQUE PAGE avant d'atteindre le contenu. Il reste hors de l'écran tant
     qu'il n'a pas le focus : rien ne change pour qui utilise une souris. */}
 <a class="saut" href="#contenu">{t(lang, 'a11y.skip')}</a>
-<header class="site"><div class="wrap">
-  <a class="brand" href={localize(lang, '/')}>{m.site.brand}</a>
-  <nav class="main">
+<header class="site site-h"><div class="wrap site-h__in">
+  {/* ⭐ La marque de la maquette : logotype + nom + sous-titre. Le nom passe
+      en capitales par le CSS, jamais dans le HTML — la source reste lisible,
+      le copier-coller correct, et un lecteur d'écran énonce « VeVe Price »
+      plutôt que « V-E-V-E ». */}
+  <a class="marque" href={localize(lang, '/')}>
+    <span class="logo logo--sm" aria-hidden="true">VP</span>
+    <span class="marque__t" set:html={m.site.brand.replace(/^Ve(Ve)/, 'Ve<em>$1</em>')}></span>
+  </a>
+  <nav class="nav main" aria-label={t(lang, 'a11y.nav')}>
+    <span class="nav__liens">
     {wikiNav
       ? wikiNav.map((sx) => (<a href={localize(lang, sx.path)}>{sx.title}</a>))
       : (<>
@@ -268,11 +276,22 @@ const suggestData = alternates.filter((a) => a.lang !== lang).map((a) => ({ l: a
           {acces().tiers.length > 1 && <a href={localize(lang, '/offre/')}>{t(lang, 'nav.offer')}</a>}
           {acces().tiers.length > 1 && <a href="/compte/">{t(lang, 'account.title')}</a>}
         </>)}
-    {pNuit && (
+    </span>
+    <div class="h-outils filtres">
+      {/* ⭐ La barre de recherche de la maquette : un BOUTON, pas un champ.
+          Il annonce le raccourci `⌘K` et donne le focus au vrai champ.
+          ⛔ Annoncer un raccourci sans le câbler est une promesse rompue —
+          le script de l'accueil l'écoute réellement. */}
+      <button class="h-rech" type="button" aria-label={t(lang, 'search.placeholder')}
+              onclick="var q=document.getElementById('q');if(q){q.focus()}else{location.href='/'}">
+        <span>{t(lang, 'search.placeholder')}</span><span class="kbd">⌘K</span>
+      </button>
+      {pNuit && (
       <button type="button" id="bascule-theme" class="bascule"
               aria-label={t(lang, 'theme.toggle')} title={t(lang, 'theme.toggle')}
               aria-pressed="false"></button>
     )}
+    </div>
     <span class="langbar">
       {alternates.map((a) => (
         <a href={a.href} hreflang={a.lang} aria-current={a.lang === lang ? 'true' : undefined}>{a.lang.toUpperCase()}</a>
@@ -280,6 +299,14 @@ const suggestData = alternates.filter((a) => a.lang !== lang).map((a) => ({ l: a
     </span>
   </nav>
 </div></header>
+{acces().tiers.length > 1 && (
+  <nav class="onglets" aria-label={t(lang, 'a11y.nav')}>
+    <a href={localize(lang, '/')}>{t(lang, 'home.crumb')}</a>
+    <a href={localize(lang, '/movers/')}>{t(lang, 'nav.movers')}</a>
+    <a href={localize(lang, '/collections/')}>{t(lang, 'nav.collections')}</a>
+    <a href="/compte/">{t(lang, 'account.title')}</a>
+  </nav>
+)}
 <main class="wrap" id="contenu" tabindex="-1">
   <div id="langsuggest"></div>
   {crumbs.length > 0 && (
@@ -289,7 +316,7 @@ const suggestData = alternates.filter((a) => a.lang !== lang).map((a) => ({ l: a
   )}
   <slot />
 </main>
-<footer class="site"><div class="wrap">
+<footer class="site site-f"><div class="wrap site-f__cols">
   {fresh && <p style="margin:0 0 10px">{t(lang, 'footer.updated')} {fresh}.</p>}
   {(team.length > 0 || affiliate.length > 0) && (
     <p style="margin:0 0 10px">
@@ -302,7 +329,7 @@ const suggestData = alternates.filter((a) => a.lang !== lang).map((a) => ({ l: a
       — c'est une obligation, pas un choix de mise en page — mais ils n'ont
       aucune raison d'attirer l'œil autant qu'un lien de contenu. On les recule
       visuellement (gris, plus petits), jamais on ne les cache. */}
-  <p class="legal-links">
+  <p class="legal-links f-legal">
     {DOCS.map((d, i) => (<>{i > 0 && ' · '}<a href={localize(lang, `/legal/${d}/`)}>{legalTitle(lang, d)}</a></>))}
   </p>
   <p style="margin:0 0 6px">{t(lang, 'legal.notAffiliated')}</p>

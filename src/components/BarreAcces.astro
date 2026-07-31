@@ -1,0 +1,34 @@
+---
+// ⚠️ VeVePreda/veve-sites — src/components/BarreAcces.astro   (FICHIER NEUF)
+// ═══════════════════════════════════════════════════════════════════════════
+// LA BARRE D'ACCÈS — « huit fiches libres, le reste demande un compte »
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐ Elle apparaît sur l'accueil, le Marché et la fiche : c'est le seul endroit
+// où le site DIT ce qu'il vend, au moment où on en voit la valeur. La mettre
+// une fois dans un composant évite qu'elle diverge entre les trois écrans —
+// et trois formulations différentes de la même offre valent moins qu'une.
+//
+// ⛔ ELLE NE S'AFFICHE PAS SI `offer.url` EST VIDE. Un bouton qui ne mène nulle
+// part coûte plus cher en confiance qu'il ne rapporte en promesse.
+import { manifest } from '../../engine/lib/manifest.mjs';
+import { acces, palierVisiteur } from '../../engine/lib/access.mjs';
+import { t, localize } from '../../engine/lib/i18n.mjs';
+
+const { lang } = Astro.props;
+const m = manifest();
+const montrer = acces().tiers.length > 1 && palierVisiteur(Astro.locals) === 'visitor';
+---
+{montrer && (
+  <div class="barre-acces">
+    <span class="cadenas" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+        <rect x="4.5" y="10.5" width="15" height="10" rx="2" /><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5" />
+      </svg>
+    </span>
+    <p>{t(lang, 'access.free')}</p>
+    {m.offer?.url
+      ? <a class="btn btn--principal btn--sm" href={m.offer.url}>{t(lang, 'account.subscribe')}</a>
+      : <a class="btn btn--fantome btn--sm" href={localize(lang, '/offre/')}>{t(lang, 'nav.offer')}</a>}
+    <a class="btn btn--fantome btn--sm" href="/connexion/">{t(lang, 'login.title')}</a>
+  </div>
+)}

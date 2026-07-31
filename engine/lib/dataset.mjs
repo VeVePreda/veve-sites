@@ -291,6 +291,13 @@ async function construireDataset() {
       // juste au-dessus d'un prix a 42 000 milliards.
       ath: pos(c.ath) ?? pos(b.floor_max),
       atl: pos(c.atl) ?? pos(b.floor_min),
+      // 📅 Les dates des extrêmes. ⭐ Sans elles, « plus haut : 1 750 » ne dit
+      // pas QUAND — et c'est la date qui transforme un nombre en information.
+      // ⚠️ Repli sur les bornes de la baseline si le catalogue ne les a pas :
+      // `first_ts`/`last_ts` ne sont PAS les dates des extrêmes, donc on ne s'y
+      // rabat pas. Mieux vaut pas de date qu'une date fausse.
+      athDate: String(c.ath_date || '').trim() || null,
+      atlDate: String(c.atl_date || '').trim() || null,
       // ⚠️ NOMS REELS DES COLONNES (verifies dans scraper/price_baseline.py) :
       // floor_min, floor_p5, floor_p25, floor_p50, floor_p75, floor_p95,
       // floor_max, listings_p50... — les percentiles sont PREFIXES.

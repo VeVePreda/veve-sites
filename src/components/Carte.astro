@@ -1,0 +1,74 @@
+---
+// ⚠️ VeVePreda/veve-sites — src/components/Carte.astro   (remplace Piece.astro)
+// ═══════════════════════════════════════════════════════════════════════════
+// LA CARTE — socle + cartouche, au balisage EXACT de la maquette
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐⭐ LE NOM DU FICHIER A CHANGÉ, ET C'EST LE POINT. Il s'appelait
+// `Piece.astro` et émettait `class="piece"` ; la maquette dit `carte`. Le CSS
+// porté visait donc une classe que le HTML n'écrivait jamais — 95 règles
+// appliquées à rien, sans la moindre erreur pour le dire.
+// ⛔ SUPPRIMER `src/components/Piece.astro` après dépôt.
+import { rar, delta, gemsM, esc } from '../../engine/lib/vitrine.mjs';
+
+const { item, href, nf, i = 0, ed = false, libre = false } = Astro.props;
+const money = (v) => (v === null || v === undefined ? '—' : v.toLocaleString(nf, { maximumFractionDigits: 2 }));
+
+// ⚠️ `--i` porte le rang dans la grille : le thème s'en sert pour décaler
+// l'apparition. Sans lui, les cartes surgissent toutes en même temps — et une
+// apparition simultanée n'est pas une animation, c'est un clignotement.
+---
+<a class="carte revele" href={href} style={`--i:${i}`}>
+  <div class="socle">
+    {item.image ? (
+      <>
+        {/* Deux <img>, UNE SEULE URL : même requête, même cache. Le fond diffus
+            remplit le cadre, l'image nette se pose dessus. */}
+        <img class="socle__fond ok" src={item.image} alt="" aria-hidden="true"
+             width="400" height="600" loading="lazy" decoding="async" />
+        <span class="socle__voile"></span>
+        <img class="socle__net ok" src={item.image} alt={item.name}
+             width="400" height="600" loading="lazy" decoding="async"
+             onerror="this.closest('.socle').classList.add('socle--casse')" />
+      </>
+    ) : (
+      <>
+        <span class="socle__voile"></span>
+        {/* ⭐ Le repli EST celui de la maquette : la gemme `forme--xl`, dans le
+            gris des filets. Il dit « pièce » sans prétendre montrer laquelle —
+            un cadre vide, lui, dit « ce site est cassé ». */}
+        <span style="position:absolute;inset:0;display:grid;place-items:center;z-index:3">
+          <span class="forme forme--xl" style="--c-a:var(--rule-2)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4">
+              <path d="M12 2.9 19.9 7.5v9L12 21.1 4.1 16.5v-9Z" />
+            </svg>
+          </span>
+        </span>
+      </>
+    )}
+    {/* Le bandeau ATL/ATH sur la vignette. ⭐ Sur une CARTE il est la seule
+        information d'amplitude disponible ; sur la FICHE il serait redondant —
+        le même composant, deux contextes, deux verdicts. */}
+    {item.atl != null && item.ath != null && (
+      <span class="socle__ext" aria-hidden="true">
+        <span class="b"><i>ATL</i><b>{money(item.atl)}</b></span>
+        <span class="h"><i>ATH</i><b>{money(item.ath)}</b></span>
+      </span>
+    )}
+    {libre && <span class="socle__coin etiq">Libre</span>}
+  </div>
+
+  <div class="cartouche">
+    <div class="cartouche__n">{item.name}</div>
+    <div class="cartouche__l">
+      {/* ⚠️ `rar--sur-blanc` est OBLIGATOIRE ici : le cartouche est le seul vrai
+          blanc de la page, et la forme y bascule sur son encre foncée. Sans
+          cette classe, le tracé clair sur blanc tombe à 1,22:1 — invisible. */}
+      <Fragment set:html={rar(item.rarity, { blanc: true })} />
+      <span class="cartouche__s">{ed && item.edition_type ? item.edition_type : ''}</span>
+    </div>
+    <div class="cartouche__l" style="border:0;padding-top:0">
+      <span class="prix"><Fragment set:html={gemsM()} />{money(item.floor)}</span>
+      <Fragment set:html={delta(item.change7d, { blanc: true })} />
+    </div>
+  </div>
+</a>

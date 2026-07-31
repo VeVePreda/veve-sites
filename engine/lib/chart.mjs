@@ -15,8 +15,8 @@ export function priceChartSVG(history, opts = {}) {
   const d = pts.map((p, i) => `${i ? 'L' : 'M'}${px(new Date(p.ts).getTime()).toFixed(1)},${py(p.floor).toFixed(1)}`).join('');
   const area = `${d}L${px(x1).toFixed(1)},${(h - pad.b).toFixed(1)}L${px(x0).toFixed(1)},${(h - pad.b).toFixed(1)}Z`;
   const fmt = (n) => n >= 1000 ? Math.round(n).toLocaleString('fr-FR') : n.toFixed(2);
-  const yTicks = [y0, y0 + spanY / 2, y1].map((v) => `<line x1="${pad.l}" y1="${py(v).toFixed(1)}" x2="${w - pad.r}" y2="${py(v).toFixed(1)}" class="grid"/><text x="${pad.l - 8}" y="${(py(v) + 4).toFixed(1)}" class="axis" text-anchor="end">${fmt(v)}</text>`).join('');
+  const yTicks = [y0, y0 + spanY / 2, y1].map((v) => `<line x1="${pad.l}" y1="${py(v).toFixed(1)}" x2="${w - pad.r}" y2="${py(v).toFixed(1)}" class="grille-l"/><text x="${pad.l - 8}" y="${(py(v) + 4).toFixed(1)}" class="axe" text-anchor="end">${fmt(v)}</text>`).join('');
   const year = (t) => new Date(t).getUTCFullYear();
-  const xTicks = [x0, x0 + spanX / 2, x1].map((t) => `<text x="${px(t).toFixed(1)}" y="${h - 8}" class="axis" text-anchor="middle">${year(t)}</text>`).join('');
-  return `<svg class="chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="${label}"><title>${label}</title>${yTicks}<path d="${area}" class="area"/><path d="${d}" class="line" fill="none"/>${xTicks}</svg>`;
+  const xTicks = [x0, x0 + spanX / 2, x1].map((t) => `<text x="${px(t).toFixed(1)}" y="${h - 8}" class="axe" text-anchor="middle">${year(t)}</text>`).join('');
+  return `<svg class="graph" viewBox="0 0 ${w} ${h}" role="img" aria-label="${label}"><title>${label}</title>${yTicks}<path d="${area}" class="aire"/><path d="${d}" class="ligne" fill="none"/>${xTicks}</svg>`;
 }

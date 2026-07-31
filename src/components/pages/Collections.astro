@@ -19,27 +19,54 @@ const pile = (c) => [...c.items].sort((a, b) => (b.floor ?? 0) - (a.floor ?? 0))
 <Base lang={lang} path="/collections/" title={t(lang, 'collections.title')}
       description={t(lang, 'desc.collections', { n: cols.length.toLocaleString(nf) })} updatedAt={ds.updatedAt}
       crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') }, { name: t(lang, 'collections.title') }]}>
-  <h1>{t(lang, 'collections.title')}</h1>
-  <p class="lead">{cols.length.toLocaleString(nf)} {t(lang, 'collections.count')}.</p>
+  {/* ⭐ LA TÊTE DE PAGE de la maquette : titre à gauche, pile de vignettes à
+      droite. Elle dit de quoi parle l'écran AVANT qu'on lise le titre. */}
+  <div class="tete-p">
+    <div>
+      <h1 class="mono-t">{t(lang, 'collections.title')}</h1>
+      <p class="respire">{cols.length.toLocaleString(nf)} {t(lang, 'collections.count')}.</p>
+    </div>
+    <span class="tete-p__viz" aria-hidden="true">
+      {[0, 1, 2].map(() => (
+        <span class="socle">
+          <span class="socle__voile"></span>
+          <span class="forme forme--xl" style="--c-a:var(--rule-2)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4">
+              <path d="M12 2.9 19.9 7.5v9L12 21.1 4.1 16.5v-9Z" /></svg>
+          </span>
+        </span>
+      ))}
+    </span>
+  </div>
 
+  {/* ⭐ LE SCEAU : la promesse du site, posée une fois en bas de page. La
+      maquette le met sur les écrans de parcours — c'est là qu'on décide de
+      rester ou pas. */}
+  <span class="sep-v" aria-hidden="true"></span>
   <div class="grille grille--series">
     {cols.map((c) => (
-      <a class="serie" href={localize(lang, `/collection/${c.slug}/`)}>
-        <span class="serie__pile" aria-hidden="true">
+      <a class="col-carte revele" href={localize(lang, `/collection/${c.slug}/`)}>
+        <span class="col-carte__pile" aria-hidden="true">
           {pile(c).map(() => (
-            <span class="serie__l"><span class="serie__g">
+            <span class="socle"><span class="forme forme--xl" style="--c-a:var(--rule-2)">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
                 <path d="M12 2.9 19.9 7.5v9L12 21.1 4.1 16.5v-9Z" />
               </svg>
             </span></span>
           ))}
         </span>
-        <span class="serie__t">
-          <span class="serie__n">{c.name}</span>
-          {c.brand && <span class="serie__b">{c.brand}</span>}
-          <span class="serie__c"><b>{c.items.length}</b> {t(lang, 'collections.items')}</span>
+        <span class="cartouche">
+          <span class="cartouche__n">{c.name}</span>
+          {c.brand && <span class="etiq">{c.brand}</span>}
+          <span class="etiq etiq--bleu"><b>{c.items.length}</b> {t(lang, 'collections.items')}</span>
         </span>
       </a>
     ))}
+  </div>
+  <div class="sceau">
+    <div class="sceau__in">
+      <span class="puce">{t(lang, 'home.independent')}</span>
+      <p class="respire">{t(lang, 'offer.p1')}</p>
+    </div>
   </div>
 </Base>

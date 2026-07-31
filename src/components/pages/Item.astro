@@ -7,7 +7,11 @@ import { productLd, breadcrumbLd } from '../../../engine/lib/seo.mjs';
 import { manifest, siteUrl } from '../../../engine/lib/manifest.mjs';
 import { t, localize, numberLocale, dateLocale } from '../../../engine/lib/i18n.mjs';
 import { postsForItem } from '../../../engine/lib/blog.mjs';
-import { formeRarete, motRarete, GEMS, variation } from '../../../engine/lib/vitrine.mjs';
+import { rar, forme, delta, gemsM, RAR } from '../../../engine/lib/vitrine.mjs';
+import { franchit } from '../../../engine/lib/access.mjs';
+import BarreAcces from '../BarreAcces.astro';
+// Les cinq modules d'analyse, dans l'ordre de la maquette.
+const MODULES = ['modules', 'extremes', 'price_history', 'alerts', 'wallet_watch'];
 // ⭐ AJOUT SEUL. ⛔ Le reste du frontmatter n'est PAS retouché : il porte des
 // correctifs coûteux (serieSlug lu et non recalculé — 35 séries divergentes,
 // 52 liens cassés le 29/07 ; le titre qui garde la série au lieu de
@@ -97,114 +101,210 @@ const descItem = (item.floor && item.totalPoints && anneeDebut)
   : t(lang, 'desc.itemShort', { name: item.qualifie || item.name, series: serieTxt, brand: m.site.brand });
 ---
 <Base lang={lang} path={path} title={titreItem} description={descItem} crumbs={crumbs} ld={ld} updatedAt={updatedAt}>
-  {/* ═══ LA TÊTE DE FICHE — la pièce, puis ce qu'on en sait ═══
-      ⭐ La maquette pose l'objet À GAUCHE et le chiffre à droite : c'est
-      l'ordre de lecture d'une vitrine, pas d'un tableur. Le plancher est la
-      SEULE chose grande de l'écran ; tout le reste descend d'un cran. */}
+  <BarreAcces lang={lang} />
+
+  {/* ═══ LA FICHE — structure de la maquette, à la classe près ═══
+      ⭐⭐ CE BLOC N'EST PAS INSPIRÉ DE LA MAQUETTE, IL EN REPREND LES CLASSES.
+      Mes versions précédentes retrouvaient l'intention et perdaient les
+      valeurs : c'est ce qui produisait « ça y ressemble mais ce n'est pas ça ».
+      Ici `.fiche`, `.murs`, `.jauge`, `.onglets-m` sont les noms de la maquette,
+      et le CSS porté les habille sans traduction intermédiaire. */}
   <div class="fiche">
     <div class="fiche__viz">
-      <span class="socle socle--fiche">
-        {item.image ? (
-          <>
-            <img class="socle__fond" src={item.image} alt="" aria-hidden="true" loading="eager" decoding="async" />
-            <span class="socle__voile" aria-hidden="true"></span>
-            <img class="socle__net" src={item.image} alt={item.name} loading="eager" fetchpriority="high" decoding="async" />
-          </>
-        ) : (
-          <>
-            <span class="socle__voile" aria-hidden="true"></span>
-            <span class="socle__gemme" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.1">
-                <path d="M12 2.9 19.9 7.5v9L12 21.1 4.1 16.5v-9Z" />
-              </svg>
-            </span>
-          </>
-        )}
-      </span>
-      {/* ⛔ PAS de bandeau ATL/ATH sur cette image : les blocs Extrêmes le
-          disent déjà, en 38 px. Le même composant, deux contextes, deux
-          verdicts — sur une vignette ce bandeau est la seule information
-          disponible ; ici il répète en petit ce qui est dit en grand. */}
+      <div class="fiche__socle">
+        <span class="socle socle--fiche">
+          {item.image ? (
+            <>
+              <img class="socle__fond" src={item.image} alt="" aria-hidden="true"
+                   width="400" height="500" loading="eager" decoding="async" />
+              <span class="socle__voile" aria-hidden="true"></span>
+              <img class="socle__net" src={item.image} alt={item.name}
+                   width="400" height="500" loading="eager" fetchpriority="high" decoding="async"
+                   onerror="this.closest('.socle').classList.add('socle--casse')" />
+            </>
+          ) : (
+            <>
+              <span class="socle__voile" aria-hidden="true"></span>
+              <span class="socle__gemme" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.1">
+                  <path d="M12 2.9 19.9 7.5v9L12 21.1 4.1 16.5v-9Z" />
+                </svg>
+              </span>
+            </>
+          )}
+        </span>
+      </div>
+      {/* La fiche technique sous la pièce, comme dans la maquette. */}
+      <table class="fiche-tbl"><tbody>
+        {item.edition_type && <tr><th>{t(lang, 'item.edition')}</th><td>{item.edition_type}</td></tr>}
+        {item.brand && <tr><th>{t(lang, 'item.brand')}</th><td>{item.brand}</td></tr>}
+        {item.licensor && <tr><th>{t(lang, 'item.licensor')}</th><td>{item.licensor}</td></tr>}
+        {item.releaseDate && <tr><th>{t(lang, 'item.release')}</th><td>{item.releaseDate}</td></tr>}
+        {item.storePrice && <tr><th>{t(lang, 'item.storePrice')}</th><td>{money(item.storePrice)}</td></tr>}
+      </tbody></table>
     </div>
 
     <div class="fiche__txt">
-      <h1>{item.name}</h1>
-      <p class="fiche__meta">
-        {item.rarity && (
-          <span class={`rar rar--${(item.rarity || '').toLowerCase()}`}>
-            <Fragment set:html={formeRarete(item.rarity, 15)} />
-            <span class="rar__m">{motRarete(item.rarity)}</span>
-          </span>
-        )}
+      <h1 class="mono-t">{item.name}</h1>
+      <p class="respire">
+        {item.rarity && <Fragment set:html={rar(item.rarity)} />}
         {colSlug && <a class="tag" href={localize(lang, `/collection/${colSlug}/`)}>{item.series}</a>}
         {item.tirage && <span class="tag">{t(lang, 'item.supply')} {item.tirage.toLocaleString(nf)}</span>}
       </p>
 
-      {/* LE CHIFFRE QUI COMPTE. Une seule chose est grande par écran. */}
-      <div class="plancher">
-        <span class="plancher__k">{t(lang, 'item.floor')}</span>
-        <span class="plancher__v">
-          <Fragment set:html={GEMS} />
-          <b>{money(item.floor)}</b>
-          {item.prixAberrant && <span class="alerte" title={t(lang, 'item.outlier')}>!</span>}
-        </span>
-        <span class="plancher__d">
-          {(() => { const v = variation(item.change7d); return (
-            <span class={v.cl}><i aria-hidden="true">{v.fleche}</i> {v.txt} · {t(lang, 'item.7d')}</span>
-          ); })()}
-          <span class="muted"> · {item.listings ?? '—'} {t(lang, 'item.listings')}</span>
-        </span>
-      </div>
-
-      {/* ═══ LES EXTRÊMES ═══
-          ⭐ Deux blocs qui se font face, avec la position du prix du jour ENTRE
-          eux. Un plus-haut et un plus-bas alignés dans une grille de six
-          statistiques identiques ne disent rien ; opposés, ils dessinent une
-          amplitude — et c'est l'amplitude qui intéresse un collectionneur. */}
-      <div class="extremes">
-        <div class="extreme extreme--bas">
-          <span class="extreme__k">{t(lang, 'item.low')}</span>
-          <span class="extreme__v"><Fragment set:html={GEMS} /><b>{money(item.atl)}</b></span>
+      {/* ═══ LES DEUX MURS ═══
+          ⚠️ La maquette oppose « Plancher VeVe » (gems) et « Plancher StackR »
+          (OMI). Le second n'existe PAS dans le jeu de données — aucun collecteur
+          ne le remonte aujourd'hui. ⛔ Je ne fabrique pas un chiffre pour
+          remplir un cadre : sur un site de cotes, une valeur inventée est la
+          seule faute qu'on ne rattrape jamais.
+          ⭐ Le second mur porte donc une donnée RÉELLE et de même nature : le
+          PRIX MÉDIAN, celui-là même qui pilote le classement et l'avertissement
+          de prix non représentatif. Le jour où StackR est collecté, ce bloc
+          change de source sans changer de forme. */}
+      <div class="murs">
+        <div>
+          <div class="mur__k"><Fragment set:html={gemsM()} /> {t(lang, 'item.floor')}</div>
+          <div class="mur__v">{money(item.floor)}<span class="mur__u">gems</span></div>
+          <div class="mur__eq">{item.listings ?? '—'} {t(lang, 'item.listings')}</div>
+          <div class="mur__d">
+            {[['item.7d', item.change7d], ['item.30d', item.change30d]].map(([k, v]) => (
+              <Fragment set:html={delta(v, { plein: true, k: t(lang, k) })} />
+            ))}
+          </div>
         </div>
-        <div class="extreme__jauge" aria-hidden="true">
-          <span class="extreme__b"></span>
-          {item.atl != null && item.ath != null && item.ath > item.atl && item.floor != null && (
-            <span class="extreme__p" style={`left:${Math.min(100, Math.max(0, ((item.floor - item.atl) / (item.ath - item.atl)) * 100)).toFixed(1)}%`}></span>
-          )}
-        </div>
-        <div class="extreme extreme--haut">
-          <span class="extreme__k">{t(lang, 'item.high')}</span>
-          <span class="extreme__v"><Fragment set:html={GEMS} /><b>{money(item.ath)}</b></span>
+        <span class="murs__sep" aria-hidden="true"></span>
+        <div>
+          <div class="mur__k"><Fragment set:html={gemsM()} /> {t(lang, 'item.median')}</div>
+          <div class="mur__v">{money(item.prixMedian)}<span class="mur__u">gems</span></div>
+          <div class="mur__eq">
+            {item.prixMedian && item.floor
+              ? `${t(lang, 'item.gap')} ${((item.floor / item.prixMedian - 1) * 100).toFixed(1)} %`
+              : '—'}
+          </div>
+          <div class="mur__d">
+            <span class="muted">{item.totalPoints?.toLocaleString(nf)} {t(lang, 'home.points')}</span>
+          </div>
         </div>
       </div>
 
-      <div class="stats stats--fiche">
-        <div class="stat"><div class="k">{t(lang, 'item.30d')}</div><div class={`v ${cls(item.change30d)}`}>{pct(item.change30d)}</div></div>
-        {item.storePrice && <div class="stat"><div class="k">{t(lang, 'item.storePrice')}</div><div class="v">{money(item.storePrice)}</div></div>}
-        {item.tirage && <div class="stat"><div class="k">{t(lang, 'item.supply')}</div><div class="v">{item.tirage.toLocaleString(nf)}</div></div>}
-      </div>
+      {/* ═══ LA JAUGE ═══
+          ⭐⭐ LES EXTRÊMES SONT DANS LA JAUGE, et c'est le point de la maquette
+          que j'avais manqué deux fois. L'ATH et l'ATL n'ont de sens QUE par
+          rapport au prix du jour : les isoler dans deux cartouches les coupe de
+          leur seule référence. Le curseur EST l'information. */}
+      {item.atl != null && item.ath != null && (
+        <div class="jauge">
+          <div class="jauge__b">
+            <div class="jauge__r"></div>
+            {item.ath > item.atl && item.floor != null && (
+              <div class="jauge__c" style={`left:${Math.min(100, Math.max(0, ((item.floor - item.atl) / (item.ath - item.atl)) * 100)).toFixed(1)}%`}></div>
+            )}
+          </div>
+          <div class="jauge__l">
+            <div class="jauge__e">
+              <span class="jauge__k">{t(lang, 'item.low')}</span>
+              <span class="jauge__v jauge__v--b"><Fragment set:html={gemsM()} />{money(item.atl)}</span>
+              <span class="jauge__d">{item.atlDate ? `${t(lang, 'item.on')} ${item.atlDate} · ` : ''}
+                {item.atl > 0 ? `${t(lang, 'item.above')} ${((item.floor / item.atl - 1) * 100).toFixed(0)} %` : ''}</span>
+            </div>
+            <div class="jauge__e jauge__e--c">
+              <span class="jauge__k">{t(lang, 'item.position')}</span>
+              <span class="jauge__v">{item.ath > item.atl
+                ? Math.min(100, Math.max(0, ((item.floor - item.atl) / (item.ath - item.atl)) * 100)).toFixed(0)
+                : '—'} %</span>
+              <span class="jauge__d">{t(lang, 'item.amplitude')}</span>
+            </div>
+            <div class="jauge__e jauge__e--d">
+              <span class="jauge__k">{t(lang, 'item.high')}</span>
+              <span class="jauge__v jauge__v--h"><Fragment set:html={gemsM()} />{money(item.ath)}</span>
+              <span class="jauge__d">{item.athDate ? `${t(lang, 'item.on')} ${item.athDate} · ` : ''}
+                {item.ath > 0 ? `${t(lang, 'item.below')} ${((1 - item.floor / item.ath) * 100).toFixed(0)} %` : ''}</span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   </div>
 
   {item.prixAberrant && <p class="avertis">{t(lang, 'item.outlier')}</p>}
 
-  <div class="card">
-    <h2 style="margin-top:0">{t(lang, 'item.chart')}</h2>
+  {/* ⭐ Balisage de la maquette : `graph-hote`, `graph-tete`, `series`,
+      `serie-b`, `graph-pied`.
+      ⚠️ Les boutons de série sont RENDUS mais inertes — le graphique n'est pas
+      encore interactif. Ils portent donc `disabled` : ⛔ un contrôle qui ne
+      répond pas doit le DIRE plutôt qu'ignorer le clic en silence. */}
+  <div class="graph-hote">
+    <div class="graph-tete">
+      <div>
+        <h2 style="font-size:var(--t-lg)">{t(lang, 'item.chart')}</h2>
+        <p class="etiq" style="margin-top:5px">{item.points} {t(lang, 'item.shown')}</p>
+      </div>
+      {/* ⭐ Les PLAGES de la maquette. Celles au-delà du palier portent
+          `data-verrou` : elles restent visibles pour montrer ce qu'on achète,
+          et `aria-disabled` pour que le clavier sache qu'elles n'ouvrent pas. */}
+      <div class="plages" role="group" aria-label={t(lang, 'item.chart')}>
+        {['3 J', '30 J', '90 J', 'MAX'].map((pl, k) => (
+          <button type="button" aria-pressed={k === 0 ? 'true' : 'false'}
+                  aria-disabled={k === 0 ? undefined : 'true'}
+                  data-verrou={k === 0 ? undefined : ''}>{pl}</button>
+        ))}
+      </div>
+      <div class="series" role="group" aria-label={t(lang, 'item.chart')}>
+        <button class="serie-b" type="button" aria-pressed="true" disabled style="--c:var(--sect-pur)"><i></i>{t(lang, 'movers.floor')}</button>
+        <button class="serie-b serie-b--pointille" type="button" aria-pressed="true" disabled style="--c:var(--muted)"><i></i>{t(lang, 'item.listings')}</button>
+      </div>
+    </div>
     <Fragment set:html={svg} />
-    <p class="muted" style="font-size:14px;margin:6px 0 0">{item.points} {t(lang, 'item.shown')}</p>
+    <div class="graph-pied"><span class="etiq">{item.totalPoints?.toLocaleString(nf)} {t(lang, 'home.points')}</span></div>
+  </div>
+
+  <div class="sect-t sect-t--gd"><h2 class="mono-t">{t(lang, 'account.modules')}</h2>
+    <span class="etiq" style="color:var(--lock)">{MODULES.length}</span></div>
+  {/* ⭐ LES ONGLETS SONT VISIBLES MÊME VERROUILLÉS : un membre voit le NOM de
+      chaque module, jamais son contenu. C'est la différence entre « il n'y a
+      rien ici » et « il y a quelque chose ici, et c'est à vous ».
+      ⛔ `aria-disabled` et NON `disabled` : un onglet verrouillé doit rester
+      atteignable au clavier pour qu'un lecteur d'écran annonce pourquoi il ne
+      s'ouvre pas. Un contrôle retiré de l'ordre de focus n'explique rien. */}
+  {/* ⭐ LE CATALOGUE DES MODULES : nom, promesse, palier. Il vient AVANT les
+      onglets parce qu'il dit ce qui existe ; les onglets disent seulement ce
+      qui est ouvert. */}
+  <div class="modules">
+    {MODULES.map((mo) => (
+      <div class={franchit(mo, Astro.locals) ? 'module module--ouvert' : 'module'}>
+        <span class="module__i"><Fragment set:html={forme('ULTRA_RARE')} /></span>
+        <span class="module__c">
+          <span class="module__n">{t(lang, `mod.${mo}`)}</span>
+          <span class="module__d">{t(lang, `mod.${mo}.d`)}</span>
+        </span>
+      </div>
+    ))}
+  </div>
+
+  <div class="onglets-m" role="tablist">
+    {MODULES.map((mo, k) => (
+      <button role="tab" type="button" aria-selected={k === 0 ? 'true' : 'false'}
+              aria-disabled={franchit(mo, Astro.locals) ? undefined : 'true'}>
+        {t(lang, `mod.${mo}`)}{k === 0 && <span class="cpt">{item.listings ?? 0}</span>}
+      </button>
+    ))}
   </div>
 
   <Gate lang={lang} gate="price_history" total={item.totalPoints} shown={item.points} since={item.since} />
 
   {recent.length > 0 && (
     <>
-      <h2>{t(lang, 'item.recent')}</h2>
-      <table>
-        <thead><tr><th>{t(lang, 'item.date')}</th><th class="num">{t(lang, 'movers.floor')}</th><th class="num hide">{t(lang, 'item.listings')}</th></tr></thead>
-        <tbody>{recent.map((p) => (
-          <tr><td>{new Date(p.ts).toLocaleDateString(df)}</td><td class="num">{money(p.floor)}</td><td class="num hide">{p.listings}</td></tr>
+      <div class="sect-t"><h2>{t(lang, 'item.recent')}</h2></div>
+      <div class="tbl-hote ligne-offres"><table>
+        <thead><tr><th class="rang">#</th><th>{t(lang, 'item.date')}</th><th class="n">{t(lang, 'movers.floor')}</th><th class="n c-2">{t(lang, 'item.listings')}</th></tr></thead>
+        <tbody>{recent.map((p, k) => (
+          <tr><td class="rang">{String(k + 1).padStart(2, '0')}</td>
+            <td>{new Date(p.ts).toLocaleDateString(df)}</td>
+            <td class="n"><span class="num"><Fragment set:html={gemsM()} /> {money(p.floor)}</span></td>
+            <td class="n c-2">{p.listings}</td></tr>
         ))}</tbody>
-      </table>
+      </table></div>
     </>
   )}
 
@@ -226,7 +326,7 @@ const descItem = (item.floor && item.totalPoints && anneeDebut)
   <h2>{t(lang, 'item.sheet')}</h2>
   <table><tbody>
     {colSlug && <tr><th>{t(lang, 'item.collection')}</th><td><a href={localize(lang, `/collection/${colSlug}/`)}>{item.series}</a></td></tr>}
-    {item.rarity && <tr><th>{t(lang, 'item.rarity')}</th><td><span class={`rar rar--${(item.rarity || '').toLowerCase()}`}><Fragment set:html={formeRarete(item.rarity, 13)} /><span class="rar__m">{motRarete(item.rarity)}</span></span></td></tr>}
+    {item.rarity && <tr><th>{t(lang, 'item.rarity')}</th><td><Fragment set:html={rar(item.rarity)} /></td></tr>}
     {item.brand && <tr><th>{t(lang, 'item.brand')}</th><td>{item.brand}</td></tr>}
     {item.licensor && <tr><th>{t(lang, 'item.licensor')}</th><td>{item.licensor}</td></tr>}
     {item.tirage && <tr><th>{t(lang, 'item.supply')}</th><td>{item.tirage.toLocaleString(nf)}</td></tr>}
