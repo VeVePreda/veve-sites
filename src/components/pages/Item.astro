@@ -115,10 +115,21 @@ const descItem = (item.floor && item.totalPoints && anneeDebut)
         <span class="socle socle--fiche">
           {item.image ? (
             <>
-              <img class="socle__fond" src={item.image} alt="" aria-hidden="true"
+              {/* ⛔⛔ LA CLASSE `ok` MANQUAIT ICI — 31/07/2026. Le theme ecrit
+              `.socle__net{opacity:0}` et `.socle__net.ok{opacity:1}` : sans
+              `ok`, l'image EST chargee, EST dans le DOM, et reste a
+              opacite 0. Preda : « l'image est presente mais je ne la vois
+              pas » — c'est litteralement ce qui se passait.
+              ⭐ `Carte.astro` posait bien `ok` sur ses deux <img>. Meme
+              composant, deux gabarits, un seul correct : QUATRIEME fois
+              aujourd'hui que « corrige a un endroit » n'est pas « corrige ».
+              ⚠️ `ok` est en dur et c'est voulu : le fondu au chargement
+              demanderait du JS, et une image qui depend de JS pour devenir
+              visible ne s'affiche pas du tout s'il echoue. */}
+            <img class="socle__fond ok" src={item.image} alt="" aria-hidden="true"
                    width="400" height="500" loading="eager" decoding="async" />
               <span class="socle__voile" aria-hidden="true"></span>
-              <img class="socle__net" src={item.image} alt={item.name}
+              <img class="socle__net ok" src={item.image} alt={item.name}
                    width="400" height="500" loading="eager" fetchpriority="high" decoding="async"
                    onerror="this.closest('.socle').classList.add('socle--casse')" />
             </>

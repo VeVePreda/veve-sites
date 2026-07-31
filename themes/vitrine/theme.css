@@ -1217,3 +1217,33 @@ body > footer.site{ margin-bottom:var(--cadre-marge); }
 }
 .item .lead{font-size:var(--t-sm);margin:10px 0 0;color:var(--text-2)}
 .item:hover .n{color:var(--sect-a)}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   L'EN-TÊTE PORTAIT DEUX HABILLAGES (31/07/2026)
+   ═══════════════════════════════════════════════════════════════════════════
+   Le moteur emet `<header class="site site-h">` — une classe pour le socle
+   generique (`header.site`, que servent aurora et encyclopedie) et une pour la
+   maquette (`.site-h`). Les DEUX s'appliquaient :
+     · deux `background` en color-mix empiles (l'un sur --bg, l'autre --nuit) ;
+     · deux `backdrop-filter:blur()` l'un sur l'autre ;
+     · deux `z-index` (10 et 60) ;
+     · et surtout `header.site .wrap{flex-wrap:wrap}` contre
+       `.site-h__in{display:flex;height:64px}` — d'ou l'en-tete qui passait sur
+       DEUX lignes et debordait du cadre.
+   ⭐⭐ AUCUNE DES DEUX REGLES N'EST FAUSSE. C'est leur SOMME qui l'est. Une
+   classe de compatibilite laissee en place « au cas ou » n'est pas neutre :
+   elle habille. Meme famille que `[hidden]` du lot 19 — le defaut ne vit dans
+   aucun des deux fichiers, il vit entre eux.
+   ⛔ On ne retire pas `site` du gabarit : aurora et encyclopedie en dependent,
+   et `css-mort` exige `header.site` dans le socle de CHAQUE theme. On
+   NEUTRALISE la couche generique ici, ou l'on sait qu'elle fait double emploi.
+   Specificite (0,2,1) : gagne sur `header.site` (0,1,1) comme sur `.site-h`. */
+header.site.site-h{
+  background:color-mix(in srgb,var(--nuit) 90%,transparent);
+  z-index:60;
+}
+header.site.site-h .wrap{
+  flex-wrap:nowrap;      /* ⛔ c'est CE `wrap` qui cassait l'en-tete en deux */
+  min-height:0;
+  gap:var(--s4);
+}
