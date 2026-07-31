@@ -171,6 +171,36 @@ for (const t of themes) {
   }
 }
 
+// ── 5 · LE THEME DOIT HONORER `hidden` ────────────────────────────────────
+// ⭐⭐ AJOUTE LE 31/07/2026, APRES AVOIR SERVI /movers/ AVEC LE TABLEAU **ET**
+// LA GRILLE EN MEME TEMPS. La bascule Tableau/Tuiles pose bien l'attribut
+// `hidden` ; la feuille du navigateur dit `[hidden]{display:none}` — une regle
+// de specificite (0,1,0). N'IMPORTE QUELLE CLASSE du theme qui pose un
+// `display:` la vaut et, declaree plus tard, la GAGNE. Neuf classes le
+// faisaient : .tuiles .socle__fond .socle__gemme .socle__ext .hero__piece
+// .logo .cadenas .col-carte__pile .tete-p__viz
+// ⛔ Le moteur avait raison, le theme aussi : c'est la CASCADE entre les deux
+// qui donnait le mauvais resultat. Encore « est-ce la ? » contre « est-ce ce
+// qui gagne ? », sur un troisieme axe.
+// ⭐ Le controle est volontairement GROSSIER — il ne cherche pas quelles
+// classes entrent en conflit, il exige la seule ligne qui clot le sujet pour
+// toutes, presentes et a venir : `[hidden]{display:none!important}`.
+{
+  const utiliseHidden = /\shidden(\s|=|\/|>|})/.test(gabaritsSrc);
+  if (utiliseHidden) {
+    for (const t of themes) {
+      const css = sansCommentaires(lire(t));
+      if (!/\[hidden\][^{]*\{[^}]*display\s*:\s*none/.test(css)) {
+        griefs++;
+        console.log(`⛔ ${path.relative(R, t)}`);
+        console.log(`   des gabarits cachent avec l'attribut « hidden », mais ce theme ne le neutralise pas.`);
+        console.log(`   → toute classe du theme qui pose un display: GAGNE contre [hidden] : l'element reste VISIBLE.`);
+        console.log(`   → ajouter : [hidden]{display:none!important}`);
+      }
+    }
+  }
+}
+
 // ── 0 · L'INSTRUMENT SE MESURE LUI-MEME ───────────────────────────────────
 // ⛔⛔ CE BLOC EXISTE PARCE QUE CET OUTIL A DIT « ✅ 0 theme(s) » ET SORTI EN 0.
 // `node css-mort.mjs --verbose` : le drapeau etait pris pour `argv[2]`, donc

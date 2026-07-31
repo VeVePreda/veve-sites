@@ -1132,3 +1132,66 @@ dl.fiche-tbl dt:last-of-type,dl.fiche-tbl dd:last-of-type{border-bottom:0}
 .f-langues .tag[aria-current]{
   border-color:var(--sect-pur);color:var(--text);background:var(--sect-1v);font-weight:600;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LE CADRE — le contenu décollé des bords  (31/07/2026)
+   ═══════════════════════════════════════════════════════════════════════════
+   ⭐ Demande de Preda : « j'aimerais que les pages soient décollées sur chaque
+   côté, je trouve que ça donne plus d'identité au site ». C'est aussi ce que
+   la maquette montre depuis toujours — son `.vp` est un panneau posé sur un
+   vide plus sombre, et c'est ce vide qui fait le cadre.
+
+   ⭐⭐ ET CE CADRE PORTE DEUX CHOSES QU'ON AVAIT PERDUES EN PORTANT LE CSS.
+   Dans la maquette, `.vp` est `position:relative` et vit dans un
+   `.mk-frame{overflow:hidden}`. Le thème n'avait ni l'un ni l'autre :
+     · sans bloc de positionnement, `.hero__champ{right:calc(50% - 50vw)}`
+       se calcule contre un ancêtre imprévu ;
+     · sans rognage, ce qui déborde à droite POUSSE LA PAGE et crée la barre
+       de défilement horizontale.
+   On avait vu la 3ᵉ chose que `.vp` portait (le `container-name`, corrigé au
+   lot 15) et manqué les deux autres. ⭐ Un élément supprimé emporte TOUT ce
+   qu'il portait, pas seulement ce pour quoi on le connaissait.
+   ⚠️ `overflow-x:clip` et non `hidden` : `hidden` crée un contexte de
+   défilement qui casse `position:sticky` à l'intérieur. `clip` rogne sans
+   rien rendre défilable. */
+:root{ --cadre-max:1520px; --cadre-marge:var(--s5); }
+body{ background:#0E0E0E; }
+body > header.site,
+body > nav.onglets,
+body > main,
+body > footer.site{
+  max-width:var(--cadre-max);
+  margin-inline:auto;
+  background:var(--bg);
+}
+/* ⛔ On ne rogne QUE `main`. Rogner l'en-tête tuerait tout menu déroulant
+   qui en sort (le menu du compte de la maquette). */
+body > main{ position:relative; overflow-x:clip; }
+body > header.site{ margin-top:var(--cadre-marge); }
+body > footer.site{ margin-bottom:var(--cadre-marge); }
+@media (max-width:900px){
+  /* Sur mobile le cadre mange de la largeur utile pour rien : on le retire. */
+  :root{ --cadre-marge:0px; }
+  body > header.site, body > nav.onglets, body > main, body > footer.site{ max-width:none; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   [hidden] — CE QUE LE MOTEUR CACHE DOIT RESTER CACHÉ  (31/07/2026)
+   ═══════════════════════════════════════════════════════════════════════════
+   🔴 LE THÈME N'AVAIT AUCUNE RÈGLE POUR `[hidden]`. La feuille du navigateur
+   dit `[hidden]{display:none}` — une règle de spécificité (0,1,0) qu'une
+   simple classe (0,1,0) déclarée APRÈS écrase. Neuf classes du thème posent
+   un `display:` et gagnaient donc contre l'attribut :
+     .tuiles .socle__fond .socle__gemme .socle__ext .hero__piece
+     .logo .cadenas .col-carte__pile .tete-p__viz
+   VISIBLE EN PRODUCTION : /movers/ affichait LE TABLEAU **ET** LA GRILLE en
+   même temps — la bascule Tableau/Tuiles pose bien `hidden`, le CSS l'ignorait.
+   ⭐⭐ Aucune erreur, aucun build rouge : le moteur avait raison, le thème
+   aussi, et c'est la CASCADE entre les deux qui donnait le mauvais résultat.
+   Encore « est-ce là ? » contre « est-ce ce qui gagne ? ».
+   ⭐ `!important` est ici le bon outil, pas un raccourci : `hidden` est une
+   intention du DOM, elle ne se négocie pas avec une règle de présentation. */
+[hidden]{ display:none !important; }
+
+/* Les compteurs sous les quatre boîtes : ils étaient collés au bloc. */
+.boites + .stats{ margin-top:var(--s5); }

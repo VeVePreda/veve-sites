@@ -22,6 +22,21 @@ import { manifest } from '../../../engine/lib/manifest.mjs';
 import { acces, porte } from '../../../engine/lib/access.mjs';
 import { forme } from '../../../engine/lib/vitrine.mjs';
 const MODULES = ['modules', 'extremes', 'price_history', 'alerts', 'wallet_watch'];
+
+// Un module est « ouvert » quand il ne demande rien de plus qu'un visiteur.
+const ouvert = (mo) => !porte(mo).actif;
+// Le nom LISIBLE d'un palier, dans la langue de la page. Retombe sur la clé
+// seulement si le manifeste ne declare pas ce plan — et alors c'est un vrai
+// defaut de manifeste, pas un cas normal a masquer.
+const nomPlan = (cle) => {
+  const p = (m.offer?.plans || []).find((x) => x.cle === cle);
+  return pick(p?.nom, lang) || cle;
+};
+// Le cadenas de fin de carte, en SVG : pas de glyphe, pas de dependance a une
+// fonte a symboles (cf. le bouton jour/nuit du lot 18).
+const cadenas = () => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+  + 'stroke-width="2" stroke-linecap="round"><rect x="4.5" y="10.5" width="15" height="10" rx="2"/>'
+  + '<path d="M8 10.5V7.8a4 4 0 0 1 8 0v2.7"/></svg>';
 import { t, localize, pick } from '../../../engine/lib/i18n.mjs';
 
 // ⭐ LA LANGUE ARRIVE EN PROP, ELLE NE SE DEVINE PLUS.
@@ -110,14 +125,36 @@ const an = (v) => (v === 0 ? '—' : t(lang, 'offer.peryear', { v: Math.round(v 
   <div class="sect-t sect-t--gd"><h2 class="mono-t">{t(lang, 'account.modules')}</h2></div>
   <span class="sep-v" aria-hidden="true"></span>
   <div class="modules compa">
+    {/* ⛔⛔ LA STRUCTURE ÉTAIT FAUSSE — corrigé le 31/07/2026.
+       `.module__c` n'est PAS le conteneur de contenu : dans la maquette
+       c'est la PASTILLE DE FIN, celle qui porte le cadenas ou la flèche —
+       `margin-left:auto; color:var(--lock); flex:0 0 auto`, et le thème
+       l'écrit EXACTEMENT comme la maquette. Le gabarit y avait mis le nom
+       et la description : poussés à droite, sans pouvoir rétrécir, ils
+       débordaient de la carte et la pastille de palier leur passait dessus.
+       ⭐⭐ LA CLASSE EXISTAIT, SA RÈGLE AUSSI, ET ELLE ÉTAIT JUSTE. C'est le
+       GABARIT qui a mis le mauvais contenu dans le bon habillage — le
+       contrat thème↔gabarit se rompt aussi dans ce sens-là, et aucun de mes
+       contrôles ne regarde ce côté : ils vérifient qu'une classe émise a une
+       règle, jamais qu'elle enveloppe ce pour quoi la règle a été écrite.
+       ⭐ `min-width:0` est indispensable : sans lui un enfant flex refuse de
+       passer sous la largeur de son contenu et déborde en silence. */}
     {MODULES.map((mo) => (
-      <div class="module">
-        <span class="module__i"><Fragment set:html={forme('ULTRA_RARE')} /></span>
-        <span class="module__c">
+            <div class={`module${ouvert(mo) ? ' module--ouvert' : ''}`}>
+        <span class="module__i"><Fragment set:html={forme(ouvert(mo) ? 'RARE' : 'COMMON')} /></span>
+        <span style="min-width:0;flex:1">
           <span class="module__n">{t(lang, `mod.${mo}`)}</span>
           <span class="module__d">{t(lang, `mod.${mo}.d`)}</span>
+          {/* ⭐ LE NOM DU PALIER, TRADUIT. Le gabarit affichait `porte(mo).tier`,
+              c'est-à-dire la CLÉ BRUTE : « crevette », « whale », en minuscules
+              et dans aucune langue. Une clé technique qui fuit dans l'interface
+              est le même défaut qu'un texte en dur — sauf qu'elle est laide
+              dans TOUTES les langues au lieu d'une seule. */}
+          <span class="etiq" style="display:block;margin-top:6px;color:var(--lock)">
+            {nomPlan(porte(mo).tier)}
+          </span>
         </span>
-        <span class="puce">{porte(mo).tier}</span>
+        <span class="module__c" aria-hidden="true"><Fragment set:html={cadenas()} /></span>
       </div>
     ))}
   </div>

@@ -573,3 +573,13 @@ h2 .lien-ancre:focus-visible,h3 .lien-ancre:focus-visible{opacity:1}
    dans les encadrés gris. Un contraste se valide contre le fond RÉEL du bloc,
    jamais contre le blanc.
    ============================================================================= */
+
+/* ⛔⛔ `hidden` EST UNE INTENTION DU DOM, ELLE NE SE NEGOCIE PAS (31/07/2026).
+   La feuille du navigateur dit `[hidden]{display:none}` — specificite (0,1,0).
+   N'IMPORTE QUELLE classe de ce theme qui pose un `display:` la vaut et,
+   declaree plus tard, la GAGNE : l'element reste VISIBLE alors que le moteur
+   l'a cache. Vu en production sur veveprice (/movers/ affichait le tableau ET
+   la grille) ; ce theme avait le meme trou, sans qu'on l'ait encore rencontre.
+   ⭐ Corrige AVANT le symptome, parce que le controle l'a trouve — c'est la
+   premiere fois aujourd'hui que l'ordre est dans ce sens-la. */
+[hidden]{ display:none !important; }
