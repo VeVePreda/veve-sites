@@ -152,6 +152,23 @@ const affiliate = links.affiliate || [];
 const fresh = updatedAt ? new Date(updatedAt).toLocaleDateString(dateLocale[lang] || 'en-GB') : null;
 const analytics = m.analytics || {};
 const statsOn = Boolean(analytics.website_id);
+// ⛔⛔ OÙ VIT LE SÉLECTEUR DE LANGUE — UNE DONNÉE, PAS DU CODE (31/07/2026).
+// La maquette porte ce commentaire depuis des semaines : « LE SÉLECTEUR DE
+// LANGUE A QUITTÉ L'EN-TÊTE (demande de Preda) […] ils vivent maintenant dans
+// le pied de page […] et le réglage persistant est dans les paramètres du
+// compte. » Le moteur ne l'avait jamais appliqué — l'en-tête de veveprice
+// affichait encore EN/FR/ES/DE à côté de la recherche.
+// ⛔ ON NE LE DÉPLACE PAS EN DUR : `encyclopedie` STYLE `.langbar` dans son
+// en-tête (8 règles). Un déplacement écrit dans le gabarit casserait vevewiki
+// sans un mot. Le site choisit, par `identity.langues_dans` :
+//     absent | "entete"  -> comportement actuel (vevewiki : rien ne bouge)
+//     "pied"             -> les liens descendent dans le pied de page
+// ⭐⭐ LES LIENS RESTENT DANS LE DOM DANS LES DEUX CAS. C'est par eux que
+// Google découvre les versions traduites : les retirer ferait disparaître le
+// multilingue des résultats — un dégât invisible pendant des mois. Ils
+// changent de PLACE, jamais d'EXISTENCE. (Les `<link rel="alternate">` du
+// <head>, eux, ne bougent pas du tout.)
+const langAuPied = (m.identity.langues_dans || 'entete') === 'pied';
 const suggestData = alternates.filter((a) => a.lang !== lang).map((a) => ({ l: a.lang, h: a.href, n: localeNames[a.lang] || a.lang }));
 ---
 <!doctype html>
@@ -318,11 +335,13 @@ const suggestData = alternates.filter((a) => a.lang !== lang).map((a) => ({ l: a
               aria-pressed="false"></button>
     )}
     </div>
+    {!langAuPied && (
     <span class="langbar">
       {alternates.map((a) => (
         <a href={a.href} hreflang={a.lang} aria-current={a.lang === lang ? 'true' : undefined}>{a.lang.toUpperCase()}</a>
       ))}
     </span>
+    )}
   </nav>
 </div></header>
 {acces().tiers.length > 1 && (
@@ -355,6 +374,19 @@ const suggestData = alternates.filter((a) => a.lang !== lang).map((a) => ({ l: a
       — c'est une obligation, pas un choix de mise en page — mais ils n'ont
       aucune raison d'attirer l'œil autant qu'un lien de contenu. On les recule
       visuellement (gris, plus petits), jamais on ne les cache. */}
+  {langAuPied && alternates.length > 1 && (
+    <p class="f-langues" style="margin:0 0 12px">
+      {/* ⭐ LE NOM ENTIER, PAS LE CODE. « ES » demande au visiteur de savoir
+          qu'il est espagnol ; « Español » le lui dit. Et un nom de langue
+          s'écrit TOUJOURS dans sa propre langue — un francophone cherche
+          « Deutsch », pas « Allemand ». */}
+      <span class="etiq" style="display:block;margin-bottom:6px">{t(lang, 'footer.language')}</span>
+      {alternates.map((a) => (
+        <a class="tag" href={a.href} hreflang={a.lang}
+           aria-current={a.lang === lang ? 'true' : undefined}>{localeNames[a.lang] || a.lang.toUpperCase()}</a>
+      ))}
+    </p>
+  )}
   <p class="legal-links f-legal">
     {DOCS.map((d, i) => (<>{i > 0 && ' · '}<a href={localize(lang, `/legal/${d}/`)}>{legalTitle(lang, d)}</a></>))}
   </p>

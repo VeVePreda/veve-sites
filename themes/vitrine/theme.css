@@ -122,7 +122,7 @@
      « brutaliste illisible ». La règle est : ce qui CONTIENT est carré, ce
      qu'on CLIQUE est rond. */
   --r-doc:0; --r-sm:2px; --r-md:3px; --r-lg:4px; --r-full:999px;
-  --tap:44px;        /* cible confortable — navigation, boutons pleins */
+  --tap:44px;--i-lune:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z'/%3E%3C/svg%3E");--i-soleil:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='4.2'/%3E%3Cpath d='M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M18.7 5.3l-1.6 1.6M6.9 17.1l-1.6 1.6'/%3E%3C/svg%3E");        /* cible confortable — navigation, boutons pleins */
   --tap-min:36px;    /* plancher tactile : WCAG 2.1 AA exige 24 px (2.5.8),
                         donc 32 px était CONFORME. ⭐ « Conforme » et
                         « confortable » ne sont pas le même seuil, et c'est le
@@ -1083,3 +1083,52 @@ dl.fiche-tbl dt:last-of-type,dl.fiche-tbl dd:last-of-type{border-bottom:0}
 .promesses li{position:relative;padding-left:26px;font-size:15px;line-height:1.55}
 .promesses li::before{content:"—";position:absolute;left:0;top:0;
   color:var(--primary);font-weight:700}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LE BOUTON JOUR / NUIT — 31/07/2026
+   ═══════════════════════════════════════════════════════════════════════════
+   ⛔⛔ `vitrine` N'AVAIT AUCUNE REGLE POUR `.bascule`. Le moteur emet
+   `<button class="bascule"></button>` — un bouton VIDE, que le theme devait
+   habiller. Sans regle : un tiret gris de 8 px entre la recherche et les
+   langues. Aucune erreur, aucun build rouge — la classe emise sans regle,
+   exactement le defaut que ce projet paie depuis le lot 12.
+   ⭐ `encyclopedie` l'habillait (4 regles) : le bouton MARCHAIT sur vevewiki
+   et pas sur veveprice. « Corrige sur un site » n'est pas « corrige ».
+
+   ⭐⭐ ICONE EN MASQUE SVG, PAS EN GLYPHE. `encyclopedie` utilise
+   `content:"☾"` / `content:"☀"`. C'est court et lisible, mais ces deux
+   caracteres sont HORS du sous-ensemble latin d'Archivo : ils partent dans la
+   pile de repli, et sur une machine qui n'a pas de fonte a symboles ils
+   sortent en CARRE VIDE — sans erreur, la encore. Un masque SVG ne depend
+   d'aucune fonte, herite de `currentColor`, et pese moins qu'une requete. */
+.bascule{
+  width:var(--tap-min);height:var(--tap-min);flex:0 0 auto;cursor:pointer;
+  display:inline-grid;place-items:center;padding:0;
+  border:1px solid var(--rule);border-radius:var(--r-md);
+  background:var(--surface-2);color:var(--text-2);
+  transition:border-color var(--d-fast) var(--e-soft),color var(--d-fast) var(--e-soft),
+             background var(--d-fast) var(--e-soft);
+}
+.bascule::before{
+  content:"";width:16px;height:16px;background:currentColor;
+  /* lune — l'action proposee quand on est en JOUR */
+  -webkit-mask:var(--i-lune) center/16px 16px no-repeat;
+          mask:var(--i-lune) center/16px 16px no-repeat;
+}
+:root[data-theme="nuit"] .bascule::before{
+  /* soleil — l'action proposee quand on est en NUIT.
+     ⭐ Le bouton montre TOUJOURS ce vers quoi il emmene, jamais l'etat
+     courant : un bouton qui affiche l'etat se lit comme un interrupteur
+     deja actionne, et on clique dans le mauvais sens une fois sur deux. */
+  -webkit-mask:var(--i-soleil) center/16px 16px no-repeat;
+          mask:var(--i-soleil) center/16px 16px no-repeat;
+}
+.bascule:hover{border-color:var(--sect-pur);color:var(--text);background:var(--surface-3)}
+.bascule:focus-visible{outline:var(--foc-proche) solid var(--sect-pur);outline-offset:2px}
+
+/* Les langues au pied de page (identity.langues_dans: pied). */
+.f-langues{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.f-langues .etiq{width:100%;color:var(--muted)}
+.f-langues .tag[aria-current]{
+  border-color:var(--sect-pur);color:var(--text);background:var(--sect-1v);font-weight:600;
+}

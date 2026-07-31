@@ -207,6 +207,13 @@ identity:
   # sans qu'aucun build ne s'en plaigne. `vitrine` ne pose que des variables,
   # donc il bascule par construction.
   theme: vitrine
+  # 🌐 OÙ VIT LE SÉLECTEUR DE LANGUE : "entete" (défaut) | "pied".
+  # ⛔ La maquette l'a sorti de l'en-tête sur demande de Preda ; le moteur ne
+  # l'avait jamais suivi. Les liens hreflang RESTENT dans le DOM — ils
+  # changent de place, pas d'existence — sinon Google perd les traductions.
+  # ⚠️ vevewiki ne déclare rien et garde donc sa barre dans l'en-tête, que son
+  # thème `encyclopedie` style depuis toujours (8 règles).
+  langues_dans: pied
 
   # ⭐ LA PALETTE DE BASE EST LA SOMBRE — c'est l'identité de VeVe Price, et
   # c'est celle qui a été dessinée, mesurée et validée. Les gris viennent de
