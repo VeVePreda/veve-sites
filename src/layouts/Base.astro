@@ -118,6 +118,25 @@ const varsDe = (pal) => `--primary:${pal.primary};--accent:${pal.accent};`
   + `--danger:${pal.danger};--bg:${pal.bg};--surface:${pal.surface};`
   + `--text:${pal.text};--muted:${pal.muted};`
   + `--font-heading:${f.heading};--font-body:${f.body}`;
+// ⛔⛔ LA FONTE EST UNE DONNEE, COMME LE THEME ET LES PALIERS — 31/07/2026.
+// Le manifeste declarait `'Archivo'` depuis le debut et RIEN ne l'apportait :
+// zero @font-face, zero .woff2, zero preload. Le site s'affichait donc dans la
+// fonte par defaut du navigateur — un serif — sur une direction artistique
+// dont l'identite EST le caractere.
+// ⭐ Une fonte declaree mais non servie ne provoque aucune erreur : le
+// navigateur descend la pile de replis et fait comme si de rien n'etait.
+// Un site obtient desormais ses fontes en declarant `identity.fonts.files`,
+// sans une ligne de code — c'est ce qui evitera de refaire ce travail 13 fois.
+const fontFiles = Array.isArray(f.files) ? f.files : [];
+const fontFace = fontFiles.map((ff) => `@font-face{font-family:'${ff.famille}';`
+  + `src:url('${ff.fichier}') format('woff2');`
+  + `font-weight:${ff.graisses || '400'};font-style:normal;`
+  // ⭐ `swap` : le texte est LISIBLE tout de suite dans le repli, puis la vraie
+  // fonte prend sa place. `block` cacherait le texte, `optional` pourrait ne
+  // jamais la charger. Sur un site dont l'identite est typographique, on veut
+  // la fonte — mais jamais au prix d'une page blanche.
+  + `font-display:swap;}`).join('');
+
 const pNuit = m.identity.palette_nuit || null;
 const vars = pNuit
   ? `:root{color-scheme:${colorScheme(p)};${varsDe(p)}}`
@@ -151,6 +170,12 @@ const suggestData = alternates.filter((a) => a.lang !== lang).map((a) => ({ l: a
 <title>{fullTitle}</title>
 <meta name="description" content={desc} />
 <link rel="canonical" href={canon} />
+{/* ⚠️ `crossorigin` EST OBLIGATOIRE sur un preload de fonte, meme en meme
+    origine : sans lui le navigateur telecharge le fichier DEUX fois — une pour
+    le preload, une pour le @font-face — et le preload devient un cout net. */}
+{fontFiles.map((ff) => (
+  <link rel="preload" href={ff.fichier} as="font" type="font/woff2" crossorigin />
+))}
 {noindex && <meta name="robots" content="noindex,follow" />}
 {alternates.map((a) => <link rel="alternate" hreflang={a.lang} href={a.href} />)}
 <link rel="alternate" hreflang="x-default" href={`${root}${localize(def, path)}`} />
@@ -212,6 +237,7 @@ const suggestData = alternates.filter((a) => a.lang !== lang).map((a) => ({ l: a
     })();
   </script>
 )}
+{fontFace && <style is:inline set:html={fontFace}></style>}
 <style is:inline set:html={vars}></style>
 <style is:inline set:html={themeCss}></style>
 <style is:inline set:html={`.legal-links{margin:0 0 10px;font-size:12.5px;line-height:1.9;color:var(--muted)}.legal-links a{color:var(--muted);text-decoration:none;border-bottom:1px solid transparent}.legal-links a:hover,.legal-links a:focus-visible{color:var(--text);border-bottom-color:var(--muted)}.langbar{display:flex;gap:6px;margin-left:12px}.langbar a{font-size:13px;color:var(--muted);padding:2px 6px;border-radius:6px;min-height:24px;min-width:24px;display:inline-flex;align-items:center;justify-content:center}.langbar a[aria-current]{background:#ffffff14;color:var(--text)}.crumbs a{display:inline-block;padding:3px 0;min-height:24px}.legal-links a{display:inline-block;padding:3px 0;min-height:24px}.saut{position:absolute;left:-9999px;top:0;z-index:100;background:var(--surface);color:var(--text);border:1px solid var(--primary);border-radius:0 0 8px 0;padding:10px 16px;text-decoration:none}.saut:focus{left:0}#langsuggest{display:none;background:var(--surface);border:1px solid var(--primary);border-radius:10px;padding:10px 14px;margin:14px 0;font-size:14px}#langsuggest a{font-weight:500}#langsuggest button{background:none;border:0;color:var(--muted);cursor:pointer;font-size:13px;text-decoration:underline}`}></style>
