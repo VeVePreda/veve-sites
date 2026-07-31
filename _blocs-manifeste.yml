@@ -1,0 +1,133 @@
+# Les 3 blocs que l'installateur reporte dans sites/veveprice/manifest.yml.
+# ⛔ Ce fichier ne se copie pas : il est LU par installer.py.
+
+identity:
+  # ⛔ PLUS `aurora`. aurora code ses filets en blanc semi-transparent
+  # (#ffffff12) : ils existent sur fond sombre et DISPARAISSENT sur fond clair,
+  # sans qu'aucun build ne s'en plaigne. `vitrine` ne pose que des variables,
+  # donc il bascule par construction.
+  theme: vitrine
+
+  # ⭐ LA PALETTE DE BASE EST LA SOMBRE — c'est l'identité de VeVe Price, et
+  # c'est celle qui a été dessinée, mesurée et validée. Les gris viennent de
+  # l'application VeVe d'origine, relevés à la pipette, pas approximés.
+  palette:
+    primary: "#10CEF2"   # le cyan VeVe — porte les LIENS et l'état actif
+    accent:  "#3EC875"   # hausse
+    danger:  "#ED9BA6"   # baisse
+    bg:      "#1A1A1A"   # le gris VeVe d'époque
+    surface: "#2C2C2C"
+    text:    "#FFFFFF"
+    muted:   "#B1B1B1"   # mesuré 5,42:1 sur #1A1A1A — passe AA en texte courant
+
+  # Le pendant clair. ⚠️ CHAQUE valeur en dur d'un thème doit avoir son pendant,
+  # sinon la bascule laisse des trous invisibles au build.
+  # ⭐ Le vif de VeVe échoue en TEXTE sur clair (le cyan tombe à 1,38:1) mais
+  # réussit en APLAT avec une encre sombre. C'est pourquoi `primary` s'assombrit
+  # ici : il sert de couleur de lien, donc de texte.
+  palette_nuit:
+    primary: "#0A7A90"   # cyan assombri — 4,73:1 sur #FFFFFF
+    accent:  "#096E38"
+    danger:  "#B01F32"
+    bg:      "#EFEFEF"
+    surface: "#FFFFFF"
+    text:    "#1A1A1A"
+    muted:   "#5E5E5E"
+
+  fonts:
+    # ⛔ NE PAS charger ces fontes depuis Google Fonts. Deux raisons :
+    #   1. deux résolutions DNS + deux TLS dans le chemin critique du 1er rendu ;
+    #   2. RGPD — fonts.gstatic.com transmet l'IP du visiteur à Google.
+    # Elles doivent être auto-hébergées dans public/fonts/ (sous-ensemble latin,
+    # woff2, preload, font-display:swap). Tant que ce n'est pas fait, le repli
+    # système ci-dessous s'applique et le site reste correct.
+    heading: "'Archivo', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
+    body:    "'Archivo', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
+
+
+# ───────────────────────────────────────────────────────────────────────────
+# BLOC 2 · REMPLACER le bloc `access:` (lignes 80-86 au 30/07)
+# ───────────────────────────────────────────────────────────────────────────
+#
+# ⭐ LE PALIER EST UNE DONNÉE. Aucune page ne teste un palier, aucune page ne
+# lit un plafond : tout passe par engine/lib/access.mjs. C'est ce qui permet
+# d'ajouter trois paliers sans toucher une ligne de gabarit.
+#
+# ⚠️⚠️ CE BLOC ARME DES PORTES QUI N'ONT PAS ENCORE DE PORTIER.
+# Il n'existe aujourd'hui NI page d'inscription, NI page de connexion, NI
+# paiement. Déclarer crevette/langouste/whale rend visibles des appels à
+# l'action dont la destination n'existe pas.
+# ⛔ Donc : `offer.url` doit pointer quelque part AVANT le déploiement. Tant
+# qu'il est vide, mettre une page d'attente ou un lien Discord — un bouton qui
+# ne mène nulle part coûte plus cher en confiance qu'il ne rapporte en promesse.
+
+access:
+  tiers: [visitor, member, crevette, langouste, whale]
+  gates:
+    # L'historique : 3 jours pour qui ne paie pas (arbitrage Preda du 30/07).
+    price_history:
+      tier: crevette
+      public_max: 30       # relevés RÉELLEMENT exposés
+      public_days: 3       # ⭐ 3 jours, pas 90 : c'est la profondeur qui se vend
+    # Les extrêmes et les modules d'analyse.
+    extremes:
+      tier: crevette
+    modules:
+      tier: crevette
+    # Les alertes, avec leurs plafonds. 0 pour un membre : il voit le NOM du
+    # module, jamais son contenu.
+    alerts:
+      tier: crevette
+      caps:
+        member:    0
+        crevette:  2
+        langouste: 10
+        whale:     -1     # -1 = illimité
+    # Suivre le portefeuille de QUELQU'UN D'AUTRE — réservé au dernier palier.
+    wallet_watch:
+      tier: whale
+
+
+# ───────────────────────────────────────────────────────────────────────────
+# BLOC 3 · REMPLACER le bloc `offer:` — les tarifs vivent ICI
+# ───────────────────────────────────────────────────────────────────────────
+# ⭐ UN TARIF ÉCRIT EN DUR DANS UN GABARIT EST UN TARIF QU'ON OUBLIERA DE
+# CHANGER. Et deux tarifs différents sur deux pages ne coûtent pas une
+# correction, ils coûtent un litige. `/offre/` lit ce bloc, jamais l'inverse.
+offer:
+  # ⛔ TANT QUE CETTE URL EST VIDE, AUCUN APPEL À L'ACTION N'EST AFFICHÉ.
+  # C'est délibéré : /offre/ et /compte/ testent tous deux `offer.url` et
+  # remplacent le bouton par « les abonnements ouvrent bientôt ».
+  # Un bouton qui ne mène nulle part coûte plus cher en confiance qu'il ne
+  # rapporte en promesse.
+  url: ""            # <-- Discord, page d'attente, ou prestataire de paiement
+
+  annual_discount: 0.20    # −20 % à l'année
+
+  # ⚠️ `cle` DOIT correspondre à un palier de `access.tiers`. Un plan dont le
+  # palier n'existe pas serait vendu pour une porte qui ne s'ouvrira jamais :
+  # /offre/ filtre donc sur `tiers`, et un plan orphelin disparaît en silence.
+  # ⭐ C'est le bon comportement — mieux vaut ne pas vendre que mal vendre.
+  plans:
+    - cle: member
+      nom: "Membre"
+      prix: 0
+      alertes: 0
+      d: "Le nom de chaque module, la vitrine libre, les trois derniers jours."
+    - cle: crevette
+      nom: "Crevette"
+      prix: 15
+      alertes: 2
+      d: "L'historique complet, les extrêmes, les modules d'analyse."
+    - cle: langouste
+      nom: "Langouste"
+      prix: 35
+      alertes: 10
+      d: "Tout Crevette, plus dix alertes et les exports."
+    - cle: whale
+      nom: "Whale"
+      prix: 50
+      alertes: -1        # ⚠️ -1 = ILLIMITÉ. Les gabarits le traduisent en « ∞ » :
+                         # afficher « -1 alerte » sur une page de tarifs est le
+                         # genre de bug qui se voit depuis la rue.
+      d: "Alertes illimitées et suivi de portefeuilles tiers."
