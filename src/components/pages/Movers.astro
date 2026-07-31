@@ -1,4 +1,17 @@
 ---
+// ⚠️ VeVePreda/veve-sites — src/components/pages/Movers.astro
+// ═══════════════════════════════════════════════════════════════════════════
+// LE MARCHÉ — un seul tableau filtrable, deux vues, tri client.
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐ CHANGEMENT DE FOND : l'ancien écran affichait DEUX tableaux figés (hausses
+// puis baisses), donc douze lignes en tout et aucun moyen de chercher. On sert
+// désormais le corpus entier, filtrable. Le tri « variation » reproduit
+// exactement les deux anciennes listes — rien n'est perdu, tout est atteignable.
+//
+// ⛔ TOUT LE FILTRAGE EST CLIENT, SUR UN CORPUS DÉJÀ RENDU. Aucune requête,
+// aucun état serveur : le tableau est dans le HTML, le script ne fait que
+// masquer des lignes. C'est ce qui permet de garder « 0 JS bloquant » —
+// si le script ne part pas, la page reste un tableau complet et lisible.
 import Base from '../../layouts/Base.astro';
 import { dataset } from '../../../engine/lib/dataset.mjs';
 import { t, localize, numberLocale } from '../../../engine/lib/i18n.mjs';
@@ -8,22 +21,166 @@ const ds = await dataset();
 const nf = numberLocale[lang] || 'en-GB';
 const money = (v) => (v === null || v === undefined ? '—' : v.toLocaleString(nf, { maximumFractionDigits: 2 }));
 const pct = (v) => (v === null || v === undefined ? '—' : `${v > 0 ? '+' : ''}${v.toFixed(1)} %`);
+
+// Le corpus : tout ce qui a un plancher, trié par variation décroissante.
+// ⚠️ Les fiches SANS variation ne sont pas jetées — elles vont en fin de liste.
+// Une fiche neuve n'a pas encore sept jours d'historique ; la faire disparaître
+// donnerait un site qui cache ses nouveautés.
+const lignes = [...ds.items]
+  .filter((i) => i.floor !== null && i.floor !== undefined)
+  .sort((a, b) => (b.change7d ?? -Infinity) - (a.change7d ?? -Infinity));
+
+const rarete = [...new Set(lignes.map((i) => i.rarity).filter(Boolean))].sort();
 ---
-<Base lang={lang} path="/movers/" title={t(lang, 'movers.title')} description={t(lang, 'desc.movers', { n: ds.items.length.toLocaleString(nf) })} updatedAt={ds.updatedAt}
+<Base lang={lang} path="/movers/" title={t(lang, 'movers.title')}
+      description={t(lang, 'desc.movers', { n: ds.items.length.toLocaleString(nf) })}
+      updatedAt={ds.updatedAt}
       crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') }, { name: t(lang, 'nav.movers') }]}>
+
+  {/* ⭐ LIEN D'ÉVITEMENT — mesuré sur la maquette : 46 arrêts de tabulation
+      avant le premier résultat, contre 15 souhaitables. Il ne réduit pas la
+      densité, il la CONTOURNE, et c'est le geste le moins cher du lot.
+      ⛔ Il se cache par la GÉOMÉTRIE, jamais par `display:none` : un élément
+      masqué sort de l'ordre de focus, donc un lien d'évitement invisible au
+      clavier est un lien mort — inutile pour ceux à qui il s'adresse. */}
+  <a href="#resultats" class="evitement">{t(lang, 'movers.skip')}</a>
+
   <h1>{t(lang, 'movers.title')}</h1>
-  <h2>{t(lang, 'movers.up')}</h2>
-  <table>
-    <thead><tr><th>{t(lang, 'movers.item')}</th><th class="hide">{t(lang, 'item.collection')}</th><th class="num">{t(lang, 'movers.floor')}</th><th class="num">{t(lang, 'movers.7d')}</th></tr></thead>
-    <tbody>{ds.movers.up.map((i) => (
-      <tr><td><a href={localize(lang, i.path)}>{i.name}</a></td><td class="hide">{i.series}</td><td class="num">{money(i.floor)}{i.prixAberrant && <span class="alerte" title={t(lang, 'item.outlier')}>!</span>}</td><td class="num up">{pct(i.change7d)}</td></tr>
+
+  {/* ═══ LA BARRE DE FILTRES ═══════════════════════════════════════════════
+      ⭐ Un bouton par GROUPE, un seul panneau ouvert à la fois, et chaque
+      groupe replié par défaut. Un `<details>` fermé sort ses enfants de
+      l'ordre de tabulation : le repli n'est pas cosmétique, il est la moitié
+      du gain d'accessibilité. */}
+  <form class="barre-f" id="filtres" role="search" aria-label={t(lang, 'movers.filters')}>
+    <div class="barre-f__l">
+      <label class="champ-r">
+        <span class="sr">{t(lang, 'search.placeholder')}</span>
+        <input type="search" id="f-q" class="searchbox" autocomplete="off"
+               placeholder={t(lang, 'search.placeholder')} />
+      </label>
+
+      <details class="f-g"><summary>{t(lang, 'movers.type')}</summary>
+        <div class="f-p">
+          <label><input type="radio" name="f-type" value="" checked /> {t(lang, 'movers.all')}</label>
+          <label><input type="radio" name="f-type" value="collectible" /> Collectibles</label>
+          <label><input type="radio" name="f-type" value="comic" /> Comics</label>
+        </div>
+      </details>
+
+      <details class="f-g"><summary>{t(lang, 'item.rarity')}</summary>
+        <div class="f-p">
+          {rarete.map((r) => (
+            <label><input type="checkbox" name="f-rar" value={r} /> {r}</label>
+          ))}
+        </div>
+      </details>
+
+      <details class="f-g"><summary>{t(lang, 'movers.7d')}</summary>
+        <div class="f-p">
+          <label><input type="radio" name="f-var" value="" checked /> {t(lang, 'movers.all')}</label>
+          <label><input type="radio" name="f-var" value="up" /> ▲ {t(lang, 'movers.up')}</label>
+          <label><input type="radio" name="f-var" value="down" /> ▼ {t(lang, 'movers.down')}</label>
+        </div>
+      </details>
+
+      <button type="reset" class="f-raz">{t(lang, 'movers.reset')}</button>
+    </div>
+
+    {/* ⭐ LA LIGNE DE RAPPEL. Sans elle, on ne sait jamais si un filtre a mordu
+        ou si le résultat est vide par erreur. `aria-live` pour que le compte
+        soit annoncé — un compteur muet ne sert qu'aux voyants. */}
+    <p class="f-cpt" id="cpt" aria-live="polite" role="status"></p>
+  </form>
+
+  <h2 id="resultats" tabindex="-1" class="titre-affiche">{t(lang, 'movers.title')}</h2>
+
+  <table id="tbl">
+    <thead>
+      <tr>
+        <th scope="col" class="num">#</th>
+        <th scope="col">{t(lang, 'movers.item')}</th>
+        <th scope="col" class="hide">{t(lang, 'item.collection')}</th>
+        <th scope="col" class="hide">{t(lang, 'item.rarity')}</th>
+        <th scope="col" class="num">{t(lang, 'movers.floor')}</th>
+        <th scope="col" class="num">{t(lang, 'movers.7d')}</th>
+      </tr>
+    </thead>
+    <tbody>{lignes.map((i, k) => (
+      <tr data-type={i.type} data-rar={i.rarity} data-n={i.name.toLowerCase()}
+          data-var={i.change7d > 0 ? 'up' : i.change7d < 0 ? 'down' : ''}>
+        <td class="num rang">{String(k + 1).padStart(3, '0')}</td>
+        <td><a href={localize(lang, i.path)}>{i.name}</a></td>
+        <td class="hide">{i.series}</td>
+        <td class="hide"><span class="tag">{i.rarity}</span></td>
+        <td class="num">{money(i.floor)}{i.prixAberrant && <span class="alerte" title={t(lang, 'item.outlier')}>!</span>}</td>
+        <td class={i.change7d > 0 ? 'num up' : i.change7d < 0 ? 'num down' : 'num muted'}>
+          {i.change7d > 0 ? '▲ ' : i.change7d < 0 ? '▼ ' : ''}{pct(i.change7d)}
+        </td>
+      </tr>
     ))}</tbody>
   </table>
-  <h2>{t(lang, 'movers.down')}</h2>
-  <table>
-    <thead><tr><th>{t(lang, 'movers.item')}</th><th class="hide">{t(lang, 'item.collection')}</th><th class="num">{t(lang, 'movers.floor')}</th><th class="num">{t(lang, 'movers.7d')}</th></tr></thead>
-    <tbody>{ds.movers.down.map((i) => (
-      <tr><td><a href={localize(lang, i.path)}>{i.name}</a></td><td class="hide">{i.series}</td><td class="num">{money(i.floor)}{i.prixAberrant && <span class="alerte" title={t(lang, 'item.outlier')}>!</span>}</td><td class="num down">{pct(i.change7d)}</td></tr>
-    ))}</tbody>
-  </table>
+
+  <p class="f-vide" id="vide" hidden>{t(lang, 'movers.empty')}</p>
+
+  <script is:inline>
+    (function () {
+      var f = document.getElementById('filtres');
+      if (!f) return;
+      var lignes = [].slice.call(document.querySelectorAll('#tbl tbody tr'));
+      var cpt = document.getElementById('cpt'), vide = document.getElementById('vide');
+      var total = lignes.length;
+
+      // ⭐ Les réglages SURVIVENT au rechargement. Un filtre qu'il faut reposer
+      // à chaque visite finit par ne plus être utilisé du tout.
+      var CLE = 'vp-filtres';
+      function lire() { try { return JSON.parse(localStorage.getItem(CLE)) || {}; } catch (e) { return {}; } }
+      function ecrire(o) { try { localStorage.setItem(CLE, JSON.stringify(o)); } catch (e) {} }
+
+      function etat() {
+        var rar = [].slice.call(f.querySelectorAll('input[name=f-rar]:checked')).map(function (i) { return i.value; });
+        return {
+          q: (document.getElementById('f-q').value || '').trim().toLowerCase(),
+          type: (f.querySelector('input[name=f-type]:checked') || {}).value || '',
+          vari: (f.querySelector('input[name=f-var]:checked') || {}).value || '',
+          rar: rar
+        };
+      }
+      function appliquer() {
+        var e = etat(), n = 0;
+        for (var k = 0; k < lignes.length; k++) {
+          var l = lignes[k], ok = true;
+          if (e.q && l.dataset.n.indexOf(e.q) === -1) ok = false;
+          if (ok && e.type && l.dataset.type !== e.type) ok = false;
+          if (ok && e.vari && l.dataset.var !== e.vari) ok = false;
+          if (ok && e.rar.length && e.rar.indexOf(l.dataset.rar) === -1) ok = false;
+          l.hidden = !ok;
+          if (ok) n++;
+        }
+        cpt.textContent = n + ' / ' + total;
+        vide.hidden = n !== 0;
+        ecrire(e);
+      }
+      // Restauration
+      var s = lire();
+      if (s.q) document.getElementById('f-q').value = s.q;
+      if (s.type) { var r = f.querySelector('input[name=f-type][value="' + s.type + '"]'); if (r) r.checked = true; }
+      if (s.vari) { var v = f.querySelector('input[name=f-var][value="' + s.vari + '"]'); if (v) v.checked = true; }
+      (s.rar || []).forEach(function (x) {
+        var c = f.querySelector('input[name=f-rar][value="' + x + '"]'); if (c) c.checked = true;
+      });
+
+      f.addEventListener('input', appliquer);
+      f.addEventListener('reset', function () { setTimeout(appliquer, 0); });
+      // ⚠️ Un seul panneau ouvert à la fois : sinon la barre pousse le tableau
+      // hors de l'écran et on filtre à l'aveugle.
+      [].slice.call(f.querySelectorAll('details.f-g')).forEach(function (d) {
+        d.addEventListener('toggle', function () {
+          if (!d.open) return;
+          [].slice.call(f.querySelectorAll('details.f-g')).forEach(function (o) { if (o !== d) o.open = false; });
+        });
+      });
+      appliquer();
+    })();
+  </script>
 </Base>

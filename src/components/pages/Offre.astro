@@ -1,0 +1,102 @@
+---
+// ⚠️ VeVePreda/veve-sites — src/pages/offre/index.astro  (FICHIER NEUF)
+// ═══════════════════════════════════════════════════════════════════════════
+// LES PALIERS — la page qui débloque le déploiement.
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐⭐ CETTE PAGE EST PRÉ-GÉNÉRÉE, ET C'EST UNE DÉCISION, PAS UN OUBLI.
+// Elle POURRAIT être dynamique pour dire « vous êtes déjà Crevette ». Elle ne
+// l'est pas, pour deux raisons qui pèsent plus lourd :
+//   1. Le travail d'une page de tarifs est de convertir des INCONNUS. Sa cible
+//      n'a pas de session, par définition.
+//   2. Une page rendue à la demande n'est pas mise en cache et perd la
+//      pré-génération : sur la page la plus partagée du site, c'est payer une
+//      personnalisation que personne ne demande avec la vitesse de tout le monde.
+// La personnalisation vit sur /compte/, dont c'est le métier.
+//
+// ⛔ CETTE PAGE NE PREND PAS DE PAIEMENT. Encaisser exige un prestataire
+// « merchant of record » et le statut professionnel. Ici on DÉCRIT et on
+// oriente. Un bouton qui prétend faire payer sans savoir encaisser est pire
+// qu'un bouton absent.
+import Base from '../../layouts/Base.astro';
+import { manifest } from '../../../engine/lib/manifest.mjs';
+import { acces } from '../../../engine/lib/access.mjs';
+import { t, localize } from '../../../engine/lib/i18n.mjs';
+
+// ⭐ LA LANGUE ARRIVE EN PROP, ELLE NE SE DEVINE PLUS.
+// La version précédente faisait `locales().def` : la page n'existait donc qu'en
+// anglais, et un lien /fr/offre/ aurait rendu 404. ⚠️ C'est EXACTEMENT le défaut
+// déjà payé sur le blog — « une navigation ne se décide pas au niveau du SITE
+// mais au niveau de la LANGUE » — et je venais de le recommettre en écrivant
+// une page neuve. Une leçon écrite dans un fichier ne protège que celui qui
+// relit ce fichier.
+const { lang } = Astro.props;
+const m = manifest();
+const { tiers } = acces();
+
+// ⭐ LES PRIX VIVENT DANS LE MANIFESTE, PAS ICI. Un tarif écrit en dur dans un
+// gabarit est un tarif qu'on oubliera de changer — et deux tarifs différents
+// sur deux pages est la faute qui coûte un litige, pas seulement une correction.
+// Repli lisible si le bloc `offer.plans` n'existe pas encore.
+const PLANS = m.offer?.plans || [
+  { cle: 'member',    nom: 'Membre',    prix: 0,  alertes: 0,
+    d: 'Le nom de chaque module, la vitrine libre, les trois derniers jours.' },
+  { cle: 'crevette',  nom: 'Crevette',  prix: 15, alertes: 2,
+    d: "L'historique complet, les extrêmes, les modules d'analyse." },
+  { cle: 'langouste', nom: 'Langouste', prix: 35, alertes: 10,
+    d: 'Tout Crevette, plus dix alertes et les exports.' },
+  { cle: 'whale',     nom: 'Whale',     prix: 50, alertes: -1,
+    d: 'Alertes illimitées et suivi de portefeuilles tiers.' },
+];
+const REMISE_AN = m.offer?.annual_discount ?? 0.20;
+
+// ⚠️ On n'affiche QUE les paliers que le site déclare. Vendre un palier que le
+// moteur ne connaît pas, c'est encaisser pour une porte qui ne s'ouvrira pas.
+const visibles = PLANS.filter((p) => tiers.includes(p.cle));
+const eur = (v) => (v === 0 ? 'Gratuit' : `${v} $ / mois`);
+const an = (v) => (v === 0 ? '—' : `${Math.round(v * 12 * (1 - REMISE_AN))} $ / an`);
+---
+<Base lang={lang} path="/offre/" title={t(lang, 'offer.title')}
+      description={t(lang, 'offer.desc')}
+      crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') }, { name: t(lang, 'offer.title') }]}>
+
+  <h1>{t(lang, 'offer.title')}</h1>
+  <p class="lead">{t(lang, 'offer.lead')}</p>
+
+  {visibles.length === 0 && (
+    /* ⭐ Le cas « aucun palier déclaré » n'est pas une erreur : c'est un site
+       gratuit. La page le dit au lieu d'afficher une grille vide. */
+    <p class="muted">{t(lang, 'offer.free')}</p>
+  )}
+
+  <div class="grid grid--tarifs">
+    {visibles.map((p) => (
+      <div class={p.cle === 'crevette' ? 'card tarif tarif--phare' : 'card tarif'}>
+        {p.cle === 'crevette' && <span class="tarif__ruban">{t(lang, 'offer.popular')}</span>}
+        <h2 class="tarif__n">{p.nom}</h2>
+        <p class="tarif__p">{eur(p.prix)}</p>
+        <p class="tarif__a">{an(p.prix)}</p>
+        <p class="tarif__d">{p.d}</p>
+        <p class="tarif__al">
+          {/* ⚠️ `-1` veut dire ILLIMITÉ. Afficher « -1 alerte » sur une page de
+              tarifs est le genre de bug qui se voit depuis la rue. */}
+          {p.alertes === -1 ? '∞' : p.alertes} {t(lang, 'offer.alerts')}
+        </p>
+        {m.offer?.url
+          ? <a class="btn-p" href={m.offer.url}>{t(lang, 'offer.cta')}</a>
+          : <span class="muted tarif__soon">{t(lang, 'account.soon')}</span>}
+      </div>
+    ))}
+  </div>
+
+  {/* ⭐ CE QUE LE SITE NE FERA PAS EST UN ARGUMENT DE VENTE, pas une clause en
+      petits caractères. Sur un marché où les données de prix se manipulent, la
+      seule chose qui se vend durablement est la raison de faire confiance. */}
+  <h2 class="titre-affiche">{t(lang, 'offer.promise')}</h2>
+  <ul class="promesses">
+    <li>{t(lang, 'offer.p1')}</li>
+    <li>{t(lang, 'offer.p2')}</li>
+    <li>{t(lang, 'offer.p3')}</li>
+  </ul>
+
+  <p class="muted" style="font-size:13px;margin-top:var(--s6)">{t(lang, 'offer.legal')}</p>
+</Base>

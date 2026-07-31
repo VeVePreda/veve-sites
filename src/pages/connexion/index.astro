@@ -1,0 +1,68 @@
+---
+// ⚠️ VeVePreda/veve-sites — src/pages/connexion/index.astro  (FICHIER NEUF)
+// ═══════════════════════════════════════════════════════════════════════════
+// LA CONNEXION — un aiguillage, pas un formulaire.
+// ═══════════════════════════════════════════════════════════════════════════
+// ⛔⛔ CETTE PAGE NE VÉRIFIE AUCUN MOT DE PASSE, ET C'EST VOLONTAIRE.
+// Stocker des mots de passe, c'est se charger du hachage, du salage, de la
+// limitation de débit, de la réinitialisation, des fuites et de leur
+// notification. Sur un site à un seul développeur, c'est la dette la plus
+// coûteuse qu'on puisse contracter — et la seule dont l'échec se paie en
+// données d'autrui.
+// Ici on DÉLÈGUE à `veveid`, qui existe déjà, qui tourne déjà sur Coolify, et
+// qui porte déjà la notion d'identité VeVe. Cette page ne fait qu'envoyer la
+// personne au bon endroit et l'y ramener.
+export const prerender = process.env.RENDERING !== 'server';
+
+import Base from '../../layouts/Base.astro';
+import { palierVisiteur } from '../../../engine/lib/access.mjs';
+import { t, localize, locales } from '../../../engine/lib/i18n.mjs';
+
+// ⭐ CES PAGES SONT RENDUES À LA DEMANDE : elles peuvent donc lire l'en-tête
+// `Accept-Language`, ce qu'une page pré-générée ne peut pas faire. Autant s'en
+// servir — sinon un francophone connecté lit son compte en anglais.
+// ⚠️ On ne fait confiance qu'aux langues que le SITE déclare : un en-tête est
+// une donnée d'entrée comme une autre, il ne choisit pas dans un ensemble
+// ouvert. `def` reste le repli, jamais une valeur devinée.
+const { active, def } = locales();
+const souhait = (Astro.request.headers.get('accept-language') || '')
+  .split(',').map((x) => x.split(';')[0].trim().slice(0, 2).toLowerCase());
+const lang = souhait.find((l) => active.includes(l)) || def;
+const palier = palierVisiteur(Astro.locals);
+const idBase = process.env.VEVEID_URL || '';
+
+// ⚠️ LE RETOUR EST CONSTRUIT CÔTÉ SERVEUR, JAMAIS REPRIS D'UN PARAMÈTRE.
+// Un `?retour=` accepté tel quel est une redirection ouverte : il suffit d'un
+// lien pour renvoyer la personne, jeton en main, vers un site tiers.
+const retour = new URL('/compte/', Astro.site || 'https://veveprice.com').href;
+const lien = idBase ? `${idBase}/oauth/start?retour=${encodeURIComponent(retour)}` : '';
+---
+<Base lang={lang} path="/connexion/" title={t(lang, 'login.title')}
+      crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') }, { name: t(lang, 'login.title') }]}>
+
+  <h1>{t(lang, 'login.title')}</h1>
+
+  {palier !== 'visitor' ? (
+    <section class="card">
+      <p>{t(lang, 'login.already')}</p>
+      <a class="btn-p" href={localize(lang, '/compte/')}>{t(lang, 'account.title')}</a>
+      {/* ⚠️ La déconnexion est un POST, pas un lien. Un GET destructeur est
+          déclenchable par un simple <img src>, et les préchargeurs de liens du
+          navigateur le suivent tout seuls : on déconnecterait les gens sans
+          qu'ils aient rien cliqué. */}
+      <form method="POST" action="/api/deconnexion" style="margin-top:var(--s4)">
+        <button type="submit" class="f-raz">{t(lang, 'login.out')}</button>
+      </form>
+    </section>
+  ) : (
+    <section class="card">
+      <p class="lead">{t(lang, 'login.lead')}</p>
+      {lien
+        ? <a class="btn-p" href={lien} rel="nofollow">{t(lang, 'login.veveid')}</a>
+        : /* ⛔ Pas de service d'identité configuré : on le DIT. Un bouton mort
+             ferait croire à une panne du site plutôt qu'à une étape à venir. */
+          <p class="muted">{t(lang, 'login.nosvc')}</p>}
+      <p class="muted" style="font-size:13px;margin-top:var(--s4)">{t(lang, 'login.why')}</p>
+    </section>
+  )}
+</Base>

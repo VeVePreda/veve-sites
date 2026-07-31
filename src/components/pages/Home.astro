@@ -1,4 +1,17 @@
 ---
+// ⚠️ VeVePreda/veve-sites — src/components/pages/Home.astro
+// ═══════════════════════════════════════════════════════════════════════════
+// L'ACCUEIL DE VEVE PRICE — la plaque éditoriale, puis les chapitres.
+// ═══════════════════════════════════════════════════════════════════════════
+// ⛔ CE COMPOSANT EST PROPRE À VEVEPRICE. vevewiki passe par EditorialHome.astro
+// (cf. src/pages/index.astro) et n'a AUCUN module de prix — vérifié avant
+// réécriture : `content.data_modules` vide donc `priceEnabled()` faux.
+//
+// ⭐ LA LOGIQUE DE SÉLECTION N'A PAS BOUGÉ D'UN IOTA. Le classement par score
+// avec quota par type est un correctif payé cher : 100 % des comics avaient
+// disparu de l'accueil parce qu'on classait par nombre de relevés, qui mesure
+// l'avancée du backfill et non l'intérêt de la fiche. On ne redessine que la
+// PRÉSENTATION. ⛔ Ne pas « simplifier » ce bloc en le retouchant au passage.
 import Base from '../../layouts/Base.astro';
 import { dataset } from '../../../engine/lib/dataset.mjs';
 import { manifest } from '../../../engine/lib/manifest.mjs';
@@ -10,21 +23,13 @@ const ds = await dataset();
 const nf = numberLocale[lang] || 'en-GB';
 const up = ds.movers.up.slice(0, 6);
 const down = ds.movers.down.slice(0, 6);
-// ⭐ La vitrine d'accueil etait classee par NOMBRE DE RELEVES — le meme proxy
-// trompeur qui avait fait disparaitre 100 % des comics du site : il mesure
-// l'avancee du backfill, pas l'interet de la fiche. Et comme les collectibles
-// sont densifies plus vite, la page la plus vue du site n'affichait qu'eux.
-// On classe donc par score d'utilite ET on garantit une place a chaque type :
-// une page d'accueil qui ignore 86 % du catalogue dit au visiteur (et a Google)
-// que le site ne couvre pas les comics.
+
 const parScore = (a, b) => (b.score || 0) - (a.score || 0);
 const featured = (() => {
   const N = 8;
   const parT = { collectible: [], comic: [] };
   for (const i of [...ds.items].sort(parScore)) parT[i.type]?.push(i);
   const pris = [...parT.collectible.slice(0, N / 2), ...parT.comic.slice(0, N / 2)];
-  // Un type absent ou trop maigre ne doit pas retrecir la vitrine : on complete
-  // avec le meilleur du reste.
   if (pris.length < N) {
     const vus = new Set(pris.map((i) => i.uuid));
     for (const i of [...ds.items].sort(parScore)) {
@@ -34,16 +39,58 @@ const featured = (() => {
   }
   return pris.sort(parScore).slice(0, N);
 })();
-const collections = [...ds.collections.values()].sort((a, b) => b.items.length - a.items.length).slice(0, 8);
+
+const collections = [...ds.collections.values()]
+  .sort((a, b) => b.items.length - a.items.length).slice(0, 8);
+
 const pct = (v) => (v === null || v === undefined ? '—' : `${v > 0 ? '+' : ''}${v.toFixed(1)} %`);
 const money = (v) => (v === null || v === undefined ? '—' : v.toLocaleString(nf, { maximumFractionDigits: 2 }));
+
+// ⚠️⚠️ LES IMAGES N'EXISTENT PAS ENCORE DANS LE JEU DE DONNÉES.
+// `image_url` est dans le Sheet (scraper/sheets.py L.58) mais absent de
+// COLD_MAP (scraper/catalog_export.py L.44) : il ne traverse pas l'export.
+// ⭐ Le gabarit ne doit PAS s'écrouler pour autant — un composant qui exige une
+// donnée absente bloque son propre déploiement. La pièce d'en-tête est
+// FACULTATIVE, son emplacement se referme proprement, et le jour où le champ
+// arrive elle s'allume sans qu'on retouche ce fichier.
+const piece = featured.find((i) => i.image) || null;
+const aPiece = Boolean(piece && piece.image);
 ---
 <Base lang={lang} path="/" title={null} updatedAt={ds.updatedAt}>
-  <h1>{pick(m.site.tagline, lang)}</h1>
-  <p class="lead">{pick(m.site.description, lang)}</p>
 
-  <input id="q" class="searchbox" type="search" placeholder={t(lang, 'search.placeholder')} autocomplete="off" aria-label={t(lang, 'search.placeholder')} />
-  <div id="results" class="grid" style="margin-top:14px"></div>
+  {/* ═══ LA PLAQUE — champ noir débordant à droite, panneau os décalé ═══
+      ⭐ Ce qui fait la composition n'est pas un effet, c'est un DÉCALAGE :
+      trois surfaces larges qui se chevauchent, dont une qui sort du cadre.
+      Empiler des ombres et des dégradés sur un bloc centré ne produit jamais
+      cet effet — il a fallu quatre tentatives pour l'admettre. */}
+  <section class={aPiece ? 'plaque' : 'plaque plaque--nue'} aria-labelledby="plaque-t">
+    <div class="plaque__champ" aria-hidden="true"></div>
+
+    {aPiece && (
+      <span class="plaque__piece" aria-hidden="true">
+        <img src={piece.image} alt="" width="520" height="650"
+             loading="eager" fetchpriority="high" decoding="async" />
+      </span>
+    )}
+
+    <span class="plaque__ref" aria-hidden="true">VEVE PRICE</span>
+
+    <div class="plaque__os">
+      <span class="num-s">// 001</span>
+      {/* ⭐ L'accroche porte un CHIFFRE, pas un adjectif. Un adjectif se
+          conteste, un relevé se vérifie — et il se vérifie sur cette page. */}
+      <h1 id="plaque-t" class="plaque__t">
+        {ds.items.length.toLocaleString(nf)} {t(lang, 'home.pieces')}<br />
+        <em>{t(lang, 'home.tracked')}</em>
+      </h1>
+      <p class="lead">{pick(m.site.description, lang)}</p>
+
+      <input id="q" class="searchbox plaque__rech" type="search"
+             placeholder={t(lang, 'search.placeholder')} autocomplete="off"
+             aria-label={t(lang, 'search.placeholder')} />
+      <div id="results" class="grid" style="margin-top:14px"></div>
+    </div>
+  </section>
 
   <div class="stats">
     <div class="stat"><div class="k">{t(lang, 'stats.tracked')}</div><div class="v">{ds.items.length.toLocaleString(nf)}</div></div>
@@ -51,12 +98,15 @@ const money = (v) => (v === null || v === undefined ? '—' : v.toLocaleString(n
     <div class="stat"><div class="k">{t(lang, 'stats.collections')}</div><div class="v">{ds.collections.size}</div></div>
   </div>
 
-  <h2>{t(lang, 'home.up')}</h2>
+  {/* ⭐ UN SEUL titre au rang d'affiche par coup d'œil. L'accueil est
+      l'exception assumée : c'est un sommaire, ses chapitres sont séparés par
+      des écrans entiers de défilement et ne se voient jamais ensemble. */}
+  <h2 class="titre-affiche">{t(lang, 'home.up')}</h2>
   <div class="grid">
     {up.map((i) => (
       <a class="item" href={localize(lang, i.path)}>
         <div class="n">{i.name}</div><div class="s">{i.series} · {i.rarity}</div>
-        <div class="f">{money(i.floor)}{i.prixAberrant && <span class="alerte" title={t(lang, 'item.outlier')}>!</span>} <span class="up" style="font-size:14px">{pct(i.change7d)}</span></div>
+        <div class="f">{money(i.floor)}{i.prixAberrant && <span class="alerte" title={t(lang, 'item.outlier')}>!</span>} <span class="up" style="font-size:14px">▲ {pct(i.change7d)}</span></div>
       </a>
     ))}
   </div>
@@ -66,12 +116,15 @@ const money = (v) => (v === null || v === undefined ? '—' : v.toLocaleString(n
     {down.map((i) => (
       <a class="item" href={localize(lang, i.path)}>
         <div class="n">{i.name}</div><div class="s">{i.series} · {i.rarity}</div>
-        <div class="f">{money(i.floor)}{i.prixAberrant && <span class="alerte" title={t(lang, 'item.outlier')}>!</span>} <span class="down" style="font-size:14px">{pct(i.change7d)}</span></div>
+        {/* ⚠️ La flèche est OBLIGATOIRE (WCAG 1.4.1) : un deutan ne distingue
+            pas ce vert de ce rouge. La couleur seule ne peut porter aucune
+            information — elle la renforce, elle ne la remplace jamais. */}
+        <div class="f">{money(i.floor)}{i.prixAberrant && <span class="alerte" title={t(lang, 'item.outlier')}>!</span>} <span class="down" style="font-size:14px">▼ {pct(i.change7d)}</span></div>
       </a>
     ))}
   </div>
 
-  <h2>{t(lang, 'home.documented')}</h2>
+  <h2 class="titre-affiche">{t(lang, 'home.documented')}</h2>
   <div class="grid">
     {featured.map((i) => (
       <a class="item" href={localize(lang, i.path)}>

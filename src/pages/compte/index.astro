@@ -1,0 +1,98 @@
+---
+// ⚠️ VeVePreda/veve-sites — src/pages/compte/index.astro  (FICHIER NEUF)
+// ═══════════════════════════════════════════════════════════════════════════
+// L'ESPACE MEMBRE — la première page qui dépend de QUI regarde.
+// ═══════════════════════════════════════════════════════════════════════════
+// ⚠️ `prerender` CONDITIONNEL, ET IL LE DOIT : une route `prerender = false`
+// fait ÉCHOUER le build en mode static (NoAdapterInstalled). Même motif que
+// src/pages/api/sante.js — c'est le contrat du socle hybride.
+// ⛔ Conséquence à connaître : en mode static, cette page est PRÉ-GÉNÉRÉE, donc
+// elle affichera toujours l'état « visiteur ». Ce n'est pas un bug, c'est ce
+// que « statique » veut dire. veveprice tourne en `rendering: server`.
+export const prerender = process.env.RENDERING !== 'server';
+
+import Base from '../../layouts/Base.astro';
+import { manifest } from '../../../engine/lib/manifest.mjs';
+import { acces, palierVisiteur, porte, franchit } from '../../../engine/lib/access.mjs';
+import { t, localize, locales } from '../../../engine/lib/i18n.mjs';
+
+// ⭐ CES PAGES SONT RENDUES À LA DEMANDE : elles peuvent donc lire l'en-tête
+// `Accept-Language`, ce qu'une page pré-générée ne peut pas faire. Autant s'en
+// servir — sinon un francophone connecté lit son compte en anglais.
+// ⚠️ On ne fait confiance qu'aux langues que le SITE déclare : un en-tête est
+// une donnée d'entrée comme une autre, il ne choisit pas dans un ensemble
+// ouvert. `def` reste le repli, jamais une valeur devinée.
+const { active, def } = locales();
+const souhait = (Astro.request.headers.get('accept-language') || '')
+  .split(',').map((x) => x.split(';')[0].trim().slice(0, 2).toLowerCase());
+const lang = souhait.find((l) => active.includes(l)) || def;
+const m = manifest();
+const { tiers } = acces();
+const palier = palierVisiteur(Astro.locals);
+const connecte = palier !== 'visitor';
+
+// ⭐ LES MODULES SONT TOUJOURS LISTÉS, MÊME VERROUILLÉS. Un membre non payant
+// voit le NOM et la promesse de chaque module, jamais son contenu. C'est la
+// différence entre « il n'y a rien ici » et « il y a quelque chose ici, et
+// c'est à vous » — et c'est ce qui fait qu'un mur vend au lieu de frustrer.
+const MODULES = [
+  { cle: 'price_history', nom: 'Historique complet',   d: 'Toute la courbe, pas les trois derniers jours.' },
+  { cle: 'extremes',      nom: 'Plus haut / plus bas', d: 'Les extrêmes historiques et leur date.' },
+  { cle: 'modules',       nom: "Modules d'analyse",    d: 'Détenteurs, activité, offres en vente.' },
+  { cle: 'alerts',        nom: 'Alertes de seuil',     d: 'Être prévenu quand un plancher franchit un prix.' },
+  { cle: 'wallet_watch',  nom: 'Suivi de portefeuille',d: "Surveiller un portefeuille qui n'est pas le sien." },
+];
+---
+<Base lang={lang} path="/compte/" title={t(lang, 'account.title')}
+      crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') }, { name: t(lang, 'account.title') }]}>
+
+  <h1>{t(lang, 'account.title')}</h1>
+
+  {!connecte && (
+    <section class="card" style="margin-bottom:var(--s5)">
+      <h2 style="margin-top:0">{t(lang, 'account.signedout')}</h2>
+      <p class="lead" style="margin-bottom:var(--s4)">{t(lang, 'account.signedout.d')}</p>
+      {/* ⛔ UN BOUTON QUI NE MÈNE NULLE PART COÛTE PLUS CHER EN CONFIANCE QU'IL
+          NE RAPPORTE EN PROMESSE. Tant que `offer.url` est vide, on n'affiche
+          PAS d'appel à l'action — on affiche ce qui existe, et rien de plus. */}
+      {m.offer?.url
+        ? <a class="btn-p" href={m.offer.url}>{t(lang, 'account.subscribe')}</a>
+        : <p class="muted">{t(lang, 'account.soon')}</p>}
+    </section>
+  )}
+
+  {connecte && (
+    <div class="stats">
+      <div class="stat"><div class="k">{t(lang, 'account.tier')}</div><div class="v">{palier}</div></div>
+      <div class="stat"><div class="k">{t(lang, 'account.alerts')}</div>
+        {/* ⚠️ `-1` veut dire ILLIMITÉ et il faut le traduire ici : afficher
+            « -1 alerte » serait un bug visible depuis la page d'accueil. */}
+        <div class="v">{(() => { const c = porte('alerts').caps?.[palier]; return c === -1 ? '∞' : (c ?? 0); })()}</div></div>
+    </div>
+  )}
+
+  <h2 class="titre-affiche">{t(lang, 'account.modules')}</h2>
+  <div class="grid">
+    {MODULES.map((mo) => {
+      const ouvert = franchit(mo.cle, Astro.locals);
+      return (
+        <div class={ouvert ? 'item module module--ouvert' : 'item module'}>
+          <div class="n">{mo.nom}</div>
+          <div class="s">{mo.d}</div>
+          <div class="f" style="font-size:12px">
+            {ouvert
+              ? <span class="up">✓ {t(lang, 'account.open')}</span>
+              : <span class="muted">🔒 {porte(mo.cle).tier}</span>}
+          </div>
+        </div>
+      );
+    })}
+  </div>
+
+  {/* ⭐ LA TRANSPARENCE EST UN ARGUMENT DE VENTE, PAS UNE CONCESSION. Dire quels
+      paliers existent, y compris ceux qu'on n'a pas, est ce qui rend crédible
+      la promesse de celui qu'on vend. */}
+  <p class="muted" style="margin-top:var(--s5);font-size:13px">
+    {t(lang, 'account.tiers')} : {tiers.join(' · ')}
+  </p>
+</Base>

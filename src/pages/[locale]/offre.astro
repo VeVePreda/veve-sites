@@ -1,0 +1,14 @@
+---
+// ⚠️ MÊME MOTIF QUE [locale]/movers.astro, ET C'EST VOLONTAIRE.
+// Une page de tarifs non émise dans une langue devient un 404 le jour où
+// quelqu'un met le lien dans la nav — invisible au build, puisque c'est un lien
+// et pas une route. On émet donc les 4 langues, toujours.
+import Offre from '../../components/pages/Offre.astro';
+import { locales } from '../../../engine/lib/i18n.mjs';
+export function getStaticPaths() {
+  const { active, def } = locales();
+  return active.filter((l) => l !== def).map((l) => ({ params: { locale: l } }));
+}
+const lang = Astro.params.locale;
+---
+<Offre lang={lang} />
