@@ -304,7 +304,16 @@ const suggestData = alternates.filter((a) => a.lang !== lang).map((a) => ({ l: a
         et vevewiki (qui ne la declare pas) garde exactement son en-tete.
         ⭐ AUCUN CHIFFRE DEDANS : « 1 200 pieces » se perimerait en silence le
         jour ou le catalogue bouge, et personne ne relit un sous-titre. */}
-    <span class="marque__t" set:html={m.site.brand.replace(/^Ve(Ve)/, 'Ve<em>$1</em>')
+    {/* ⭐ LA COUPURE EST APRES LE PREMIER MOT — demande de Preda, 31/07.
+        Avant : `^Ve(Ve)` mettait en accent le SECOND « Ve », donc « ve<em>Ve</em>
+        Price » — la marque etait coupee EN PLEIN MILIEU d'elle-meme. Le nom
+        du reseau est « VeVe » : il se lit d'un bloc. C'est le QUALIFICATIF
+        (Price, Wiki) qui distingue un site des 14 autres, donc c'est lui qui
+        porte la couleur. Un seul mot d'accent, et il dit lequel des sites
+        vous regardez.
+        ⚠️ `.marque__t em` n'a de regle que dans `vitrine` : vevewiki reçoit
+        le meme balisage et ne change pas d'apparence (verifie). */}
+    <span class="marque__t" set:html={m.site.brand.replace(/^(\S+)\s+(.+)$/, '$1 <em>$2</em>')
       + (m.identity.accroche ? `<small>${pick(m.identity.accroche, lang)}</small>` : '')}></span>
   </a>
   <nav class="nav main" aria-label={t(lang, 'a11y.nav')}>

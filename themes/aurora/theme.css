@@ -112,3 +112,12 @@ footer.site{border-top:1px solid #ffffff14;padding:26px 0;color:var(--muted);fon
 }
 .item .lead{font-size:.9rem;margin:10px 0 0;color:var(--muted)}
 .item:hover .n{color:var(--primary)}
+
+/* ⭐ `.flat` : la variation NULLE. `up` est vert, `down` est rouge, et `flat`
+   ne recevait rien — un « 0,0 % » sortait donc aussi affirme qu'une vraie
+   hausse. L'absence de mouvement est une information, mais la moins
+   importante des trois : elle doit se lire sans attirer l'oeil. */
+.flat{ color:var(--muted); }
+/* `.cover` : l'image d'en-tete d'un article. Sans regle elle sortait a sa
+   taille naturelle, cassant la grille des cartes du blog. */
+.cover{ width:100%; aspect-ratio:16/9; object-fit:cover; border-radius:8px; background:var(--surface); }

@@ -605,3 +605,9 @@ h2 .lien-ancre:focus-visible,h3 .lien-ancre:focus-visible{opacity:1}
 }
 .item .lead{font-size:.9rem;margin:10px 0 0;color:var(--muted)}
 .item:hover .n{color:var(--primary)}
+
+/* ⭐ `.flat` : la variation NULLE. `up` est vert, `down` est rouge, et `flat`
+   ne recevait rien — un « 0,0 % » sortait donc aussi affirme qu'une vraie
+   hausse. L'absence de mouvement est une information, mais la moins
+   importante des trois : elle doit se lire sans attirer l'oeil. */
+.flat{ color:var(--muted); }

@@ -1247,3 +1247,25 @@ header.site.site-h .wrap{
   min-height:0;
   gap:var(--s4);
 }
+
+/* ⛔⛔ LA PAGE ETAIT PLUS ETROITE QUE SON EN-TETE (31/07/2026).
+   Le cadre du lot 19 pose `--cadre-max:1520px` sur l'en-tete, le contenu et le
+   pied. Mais `.wrap` — le conteneur interne, herite du socle du moteur —
+   plafonne a 1220px. L'en-tete DESSINE donc son fond sur 1520 pendant que le
+   contenu vit dans 1220 : 150 px de vide de chaque cote, et une barre
+   superieure visiblement plus large que la page.
+   ⭐ DEUX PLAFONDS SUR LE MEME AXE, ET AUCUN DES DEUX N'EST FAUX. 1220 etait
+   le bon chiffre AVANT le cadre ; 1520 est le bon depuis. Ajouter une
+   contrainte sans retirer celle qu'elle remplace laisse les deux en vigueur —
+   et c'est la plus SERREE qui gagne, en silence.
+   ⭐ `none` et pas `var(--cadre-max)` : le cadre plafonne deja. Repeter la
+   valeur creerait une troisieme source de verite pour la meme mesure. */
+.wrap{ max-width:none; }
+
+/* ⛔ `.flat` — LA VARIATION NULLE N'AVAIT AUCUNE REGLE (31/07/2026).
+   Le tableau ecrit `class:list={['n', … : 'flat']}` : `up` est vert, `down`
+   est rose, et `flat` ne recevait RIEN. Un « 0,0 % » sortait donc dans la
+   couleur du texte courant, c'est-a-dire aussi affirme qu'une vraie hausse.
+   ⭐ L'absence de mouvement est une information, mais c'est la MOINS
+   importante des trois : elle doit se lire sans attirer l'oeil. */
+.flat, td.flat .num, td.flat{ color:var(--muted); }

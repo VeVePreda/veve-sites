@@ -91,8 +91,28 @@ for (const t of themes) {
 // ── 3 · une classe emise par le moteur, sans aucune regle dans le theme ────
 // ⭐ C'EST LE CONTROLE QUI MANQUAIT. Le LISEZ-MOI disait « 27 classes, et c'est
 // tout le contrat » — personne ne verifiait que le contrat etait tenu.
-const SOCLE = ['wrap','card','grid','item','tag','stats','stat','lead','muted','up','down',
-               'num','hide','crumbs','searchbox','chart','avertis','alerte','post','prose','legal'];
+// ⚠️ CETTE LISTE EST ECRITE A LA MAIN, ET C'EST SA LIMITE CONNUE.
+// Elle ne couvre que ce qu'on a PENSE a y mettre. `.n` et `.s` — le titre et
+// la ligne secondaire de toutes les cartes generiques — n'y etaient pas : le
+// blog est sorti en texte nu dans les TROIS themes, et j'en ai conclu que la
+// page manquait de CONTENU. Elle manquait d'HABILLAGE.
+//
+// ⛔⛔ J'AI ESSAYE DE LA DEDUIRE DES GABARITS, ET C'ETAIT PIRE (31/07/2026).
+// « toute classe ecrite dans un class="…" est une promesse faite au theme »
+// semble juste, et donne **172 griefs sur `encyclopedie`** : il lui reclamait
+// `.tuile`, `.jauge`, `.tarif`, `.hero__champ`… tout le vocabulaire de la
+// VITRINE, que le wiki ne rendra jamais. Un theme n'a pas a implementer le
+// vocabulaire d'un autre site.
+// ⭐ CE QU'IL AURAIT FALLU SAVOIR : quelles classes CE site rend vraiment —
+// une information qui n'existe qu'APRES le build, pas dans les gabarits. Le
+// controle statique ne peut donc pas la deduire, et un controle qui crie 172
+// fois a tort cesse d'etre lu — ce qui coute plus cher que les quelques
+// oublis qu'il aurait attrapes.
+// ➡️ On garde la liste manuelle, on y ajoute ce qu'on decouvre, et on assume
+// qu'elle est incomplete plutot que fausse.
+const SOCLE = ['wrap','card','grid','item','tag','stats','stat','lead','muted','up','down','flat',
+               'num','hide','crumbs','searchbox','chart','avertis','alerte','post','prose','legal',
+               'n','s','cover'];
 const BALISES = ['header.site','nav.main','footer.site','body','html'];
 for (const t of themes) {
   const css = sansCommentaires(lire(t));
