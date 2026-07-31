@@ -273,6 +273,17 @@ async function construireDataset() {
       releaseDate: c.release_date || '',
       tirage: num(c.tirage),
       storePrice: num(c.store_price),
+      // 🖼️ LE VISUEL. ⚠️ On ASSAINIT au lieu de faire confiance : une URL qui
+      // vient d'un Sheet est une donnee d'entree comme une autre. Sans ce
+      // filtre, une cellule contenant `javascript:` ou `data:text/html`
+      // atterrirait telle quelle dans un `src` — c'est une injection, servie
+      // par notre propre domaine.
+      // ⭐ On n'accepte QUE du https, et rien d'autre. Une liste blanche de
+      // protocoles ne se contourne pas ; une liste noire, si.
+      image: (() => {
+        const u = String(c.image || '').trim();
+        return u.startsWith('https://') ? u : '';
+      })(),
       floor: num(c.floor) ?? publicHist[publicHist.length - 1].floor,
       listings: num(c.listings) ?? publicHist[publicHist.length - 1].listings,
       // Un catalogue qui renvoie 0 veut dire « je ne sais pas », pas « zero ».

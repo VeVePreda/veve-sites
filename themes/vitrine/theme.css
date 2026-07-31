@@ -650,3 +650,16 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;
 .f-r span{font-family:var(--font-heading);font-size:12.5px}
 .jetons{display:flex;flex-wrap:wrap;gap:7px}
 .jetons .tag b{color:var(--primary);margin-left:5px}
+
+/* ═══ 26 · QUAND UNE IMAGE NE CHARGE PAS ══════════════════════════════════
+   ⚠️ Une URL du CDN VeVe peut disparaître ou changer sans nous prévenir : nous
+   ne la maîtrisons pas. Sans ce repli, le cadre resterait vide — et un cadre
+   vide ne dit pas « image absente », il dit « ce site est cassé ».
+   ⭐ Le socle retombe alors exactement sur la gemme, c'est-à-dire sur l'état
+   qu'il avait avant que les images n'existent. Un repli n'a pas à être beau,
+   il a à être INDISTINGUABLE d'un état normal. */
+.socle--casse .socle__net,.socle--casse .socle__fond{display:none}
+.socle--casse::after{content:"";position:absolute;inset:0;z-index:2;
+  background:currentColor;color:var(--vp-rule-2);
+  -webkit-mask:var(--gemme) center/44% no-repeat;mask:var(--gemme) center/44% no-repeat}
+:root{--gemme:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.2'%3E%3Cpath d='M12 2.9 19.9 7.5v9L12 21.1 4.1 16.5v-9Z'/%3E%3C/svg%3E")}

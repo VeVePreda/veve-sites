@@ -35,9 +35,12 @@ const img = item.image || null;
       <>
         {/* Deux <img>, UNE SEULE URL : même requête, même cache. Le fond
             diffus remplit le cadre, l'image nette se pose dessus. */}
-        <img class="socle__fond" src={img} alt="" aria-hidden="true" loading="lazy" decoding="async" />
+        <img class="socle__fond" src={img} alt="" aria-hidden="true"
+             width="400" height="500" loading="lazy" decoding="async" />
         <span class="socle__voile" aria-hidden="true"></span>
-        <img class="socle__net" src={img} alt={item.name} loading="lazy" decoding="async" />
+        <img class="socle__net" src={img} alt={item.name}
+             width="400" height="500" loading="lazy" decoding="async"
+             onerror="this.closest('.socle').classList.add('socle--casse')" />
       </>
     ) : (
       <>
