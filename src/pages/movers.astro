@@ -1,8 +1,0 @@
----
-import { priceEnabled } from '../../engine/lib/features.mjs';
-import Movers from '../components/pages/Movers.astro';
-import { locales } from '../../engine/lib/i18n.mjs';
-const lang = locales().def;
-if (!priceEnabled()) return Astro.redirect('/');
----
-<Movers lang={lang} />
