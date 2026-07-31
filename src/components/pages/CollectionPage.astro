@@ -1,7 +1,7 @@
 ---
 // ⚠️ VeVePreda/veve-sites — src/components/pages/CollectionPage.astro
 import Base from '../../layouts/Base.astro';
-import Piece from '../Piece.astro';
+import Carte from '../Carte.astro';
 import { itemListLd } from '../../../engine/lib/seo.mjs';
 import { siteUrl } from '../../../engine/lib/manifest.mjs';
 import { t, localize, numberLocale } from '../../../engine/lib/i18n.mjs';
@@ -45,8 +45,8 @@ const titreCollection = `${t(lang, 'item.collection')} : ${col.name}`;
       une grille montre un ENSEMBLE. Sur une page dont le sujet EST l'ensemble,
       la grille passe donc en premier, et le tableau reste dessous pour qui veut
       comparer ligne à ligne. */}
-  <div class="grille">{items.slice(0, 24).map((i) => (
-    <Piece item={i} href={localize(lang, i.path)} lang={lang} nf={nf} />
+  <div class="grille">{items.slice(0, 24).map((i, k) => (
+    <Carte item={i} href={localize(lang, i.path)} nf={nf} i={k} />
   ))}</div>
 
   {items.length > 24 && (
