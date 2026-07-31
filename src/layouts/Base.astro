@@ -1,6 +1,7 @@
 ---
 import { createHash } from 'node:crypto';
 import { manifest, siteUrl } from '../../engine/lib/manifest.mjs';
+import { acces } from '../../engine/lib/access.mjs';
 import { jsonld, websiteLd, pageTitle, homeTitle, breadcrumbLd } from '../../engine/lib/seo.mjs';
 import { locales, t, pick, localize, localeNames, dateLocale } from '../../engine/lib/i18n.mjs';
 import { DOCS, legalTitle } from '../../engine/lib/legal.mjs';
@@ -252,6 +253,20 @@ const suggestData = alternates.filter((a) => a.lang !== lang).map((a) => ({ l: a
           <a href={localize(lang, '/movers/')}>{t(lang, 'nav.movers')}</a>
           <a href={localize(lang, '/collections/')}>{t(lang, 'nav.collections')}</a>
           <a href={localize(lang, '/rarity/')}>{t(lang, 'nav.rarities')}</a>
+          {/* ⚠️ MÊME CONDITION QUE LE BLOG, ET ELLE A DÉJÀ ÉTÉ PAYÉE DEUX FOIS.
+              Un lien vers une page non émise dans cette langue est un 404
+              INVISIBLE au build — c'est un lien, pas une route.
+              · /offre/ EST émise dans les 4 langues (src/pages/[locale]/offre.astro)
+                donc `localize` est sûr ;
+              · /compte/ ne l'est PAS : elle est rendue à la demande et lit
+                `Accept-Language`, elle n'a donc QU'UNE adresse, sans préfixe.
+              ⛔ Mettre `localize` sur /compte/ fabriquerait /fr/compte/, page
+              qui n'existe pas.
+              ⭐ La condition sur `tiers` : le même Base.astro sert les 15 sites.
+              vevewiki déclare `tiers: [visitor]` — les deux entrées y
+              disparaissent SANS une ligne de code propre à un site. */}
+          {acces().tiers.length > 1 && <a href={localize(lang, '/offre/')}>{t(lang, 'nav.offer')}</a>}
+          {acces().tiers.length > 1 && <a href="/compte/">{t(lang, 'account.title')}</a>}
         </>)}
     {pNuit && (
       <button type="button" id="bascule-theme" class="bascule"

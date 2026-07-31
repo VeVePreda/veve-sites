@@ -23,17 +23,26 @@ import { manifest } from './manifest.mjs';
 
 // Ordre croissant de privilege. Un palier absent de `tiers` desactive les
 // portes qui l'exigent (le contenu redevient entierement public).
-export const PALIERS = ['visitor', 'free', 'member'];
+// ⚠️ L'ORDRE EST LA SEULE CHOSE QUI COMPTE : `auMoins()` compare des RANGS.
+// Inserer un palier au milieu deplace tous les suivants et change
+// SILENCIEUSEMENT qui franchit quoi. On ajoute a la fin, jamais au milieu.
+// ⭐ `member` est GRATUIT (compte sans paiement) : il est sous `crevette`.
+export const PALIERS = ['visitor', 'free', 'member', 'crevette', 'langouste', 'whale'];
 
 // ⭐ LES VALEURS HISTORIQUES VIVENT ICI, ET NULLE PART AILLEURS.
 // Elles reproduisent exactement dataset.mjs L.170-171 d'avant la migration.
 const DEFAUTS_PORTES = {
   price_history: { tier: 'member', public_max: 30, public_days: 90 },
+  // ⭐ Ces portes ne se TRONQUENT pas : elles s'ouvrent ou non, pas de plafond.
+  extremes:     { tier: 'crevette' },
+  modules:      { tier: 'crevette' },
+  alerts:       { tier: 'crevette', caps: { member: 0, crevette: 2, langouste: 10, whale: -1 } },
+  wallet_watch: { tier: 'whale' },
 };
 
 // Ce que le moteur sait faire. Une porte inconnue est une faute de frappe,
 // pas une fonctionnalite a venir : on prefere l'erreur bruyante.
-const PORTES_CONNUES = new Set(['price_history']);
+const PORTES_CONNUES = new Set(['price_history', 'extremes', 'modules', 'alerts', 'wallet_watch']);
 
 let _cache = null;
 
@@ -73,6 +82,16 @@ export function acces() {
   tiers = PALIERS.filter((p) => tiers.includes(p));           // ordre canonique
 
   // --- Portes -------------------------------------------------------------
+  // ⛔ Ce fichier promettait « on prefere l'erreur bruyante », mais la boucle
+  // itere PORTES_CONNUES : une porte inventee dans le manifeste etait ignoree
+  // EN SILENCE. Un manifeste qui ne fait rien et ne dit rien est pire qu'un
+  // manifeste qui echoue. On tient la promesse ici.
+  const inconnues = Object.keys(brut.gates || {}).filter((n) => !PORTES_CONNUES.has(n));
+  if (inconnues.length) {
+    throw new Error(`[acces] porte inconnue dans access.gates : ${inconnues.join(', ')} `
+      + `(connues : ${[...PORTES_CONNUES].join(', ')})`);
+  }
+
   const portes = {};
   for (const nom of PORTES_CONNUES) {
     const def = DEFAUTS_PORTES[nom] || { tier: 'member' };
@@ -100,6 +119,10 @@ export function acces() {
       actif,
       public_max: actif ? Number(dit.public_max ?? heritePlafond ?? def.public_max) : Infinity,
       public_days: actif ? Number(dit.public_days ?? heriteFenetre ?? def.public_days) : Infinity,
+      // ⚠️ `-1` = illimite, et il faut le DIRE : `Infinity` ne survit pas a un
+      // aller-retour JSON, il en revient en `null`. Le sentinelle entier est le
+      // seul qui traverse une serialisation sans se faire effacer.
+      caps: { ...(def.caps || {}), ...(dit.caps || {}) },
     };
   }
 
@@ -209,3 +232,12 @@ export function restant(total, montre) {
 
 // Reservee aux tests : la matrice est memoisee pour la duree d'un build.
 export function _reinitialiser() { _cache = null; }
+
+// Combien d'unites ce palier a-t-il droit sur cette porte ?
+//   -1 = illimite · 0 = aucune (il voit le NOM du module, pas son contenu)
+export function plafond(nomPorte, locals) {
+  const p = porte(nomPorte);
+  if (!p.actif) return -1;
+  const v = p.caps?.[palierVisiteur(locals)];
+  return v === undefined ? 0 : Number(v);
+}
