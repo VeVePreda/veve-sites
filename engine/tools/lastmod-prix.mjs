@@ -120,13 +120,17 @@ async function main() {
   const disparues = Object.keys(ancienItems).filter((p) => !(p in items)).length;
 
   // Les INDEX : ils changent quand leur COMPOSITION change, pas quand un prix
-  // bouge a l'interieur. `/movers/` fait exception par nature — c'est un
+  // bouge a l'interieur. `/market/` fait exception par nature — c'est un
   // classement de variations, donc il change des qu'un classement change.
   const compo = (m) => [...m.values()].map((c) => [c.slug, c.name, (c.items || []).length]).sort();
   const familles = {
     collections: sha(compo(ds.collections)),
     rarity: sha(compo(ds.rarities)),
-    movers: sha([...ds.movers.up, ...ds.movers.down].map((i) => [i.path, i.change7d])),
+    // ⚠️ LA CLE DE SORTIE est `market` (l'adresse), la SOURCE reste
+    // `ds.movers` (le nom du calcul dans le dataset). Renommer l'une sans
+    // l'autre a fait echouer `test:lastmod` immediatement — le banc compare
+    // ce qui est ECRIT a ce que le sitemap RELIT.
+    market: sha([...ds.movers.up, ...ds.movers.down].map((i) => [i.path, i.change7d])),
     // ⛔ ON N'ECRIT PAS `donnees` ICI, ET C'EST DELIBERE.
     // `lastmod.py` la tient deja (agregats + figures). Deux outils qui
     // ecrivent la meme cle avec deux definitions differentes, c'est le

@@ -42,7 +42,7 @@ import { priceEnabled } from './features.mjs';
  *  Ajouter une fonctionnalité gatée = ajouter une ligne ici, rien d'autre. */
 const ZONES = [
   { nom: 'prix', actif: priceEnabled,
-    prefixes: ['/movers/', '/collections/', '/rarity/', '/collectibles/', '/comics/', '/collection/'] },
+    prefixes: ['/market/', '/collections/', '/rarity/', '/collectibles/', '/comics/', '/collection/'] },
 ];
 
 const estTalon = (html) =>

@@ -115,7 +115,7 @@ const horo = maj ? `${String(maj.getUTCDate()).padStart(2,'0')}.${String(maj.get
         <div class="sect-t sect-t--gd"><h2 class="mono-t">{t(lang, 'home.what')}</h2></div>
         <div class="boites">
           {V.boites.map((b) => (
-            <a href={localize(lang, '/movers/')}
+            <a href={localize(lang, '/market/')}
                style={`grid-column:span ${b.span || 6};grid-row:span ${b.rang || 1}`}
                class:list={['boite', 'revele', b.n === '001' ? 'boite--sect' : b.n === '002' ? 'boite--os' : b.n === '004' ? 'boite--damier damier' : '']}>
               <span class="boite__n">{b.n}</span>
@@ -133,7 +133,7 @@ const horo = maj ? `${String(maj.getUTCDate()).padStart(2,'0')}.${String(maj.get
       <div class="stat"><div class="etiq">{t(lang, 'stats.collections')}</div><div class="stat__v">{ds.collections.size}</div></div>
     </div>
 
-    <div class="sect-t sect-t--gd"><h2 class="mono-t">{t(lang, 'home.up')}</h2><a href={localize(lang, '/movers/')}>{t(lang, 'home.allMarket')} →</a></div>
+    <div class="sect-t sect-t--gd"><h2 class="mono-t">{t(lang, 'home.up')}</h2><a href={localize(lang, '/market/')}>{t(lang, 'home.allMarket')} →</a></div>
     <div class="grille">{up.map((i, k) => <Carte item={i} href={localize(lang, i.path)} nf={nf} i={k} />)}</div>
 
     <div class="sect-t"><h2>{t(lang, 'home.down')}</h2></div>

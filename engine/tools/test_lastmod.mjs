@@ -66,7 +66,7 @@ for (const cle of ['donnees', 'legal']) {
 // contrôle décoratif.
 if (priceEnabled()) {
   console.log('\n2 bis. Le site publie des prix : ses familles et ses fiches');
-  for (const cle of ['collections', 'rarity', 'movers']) {
+  for (const cle of ['collections', 'rarity', 'market']) {
     dit(!!S[cle], `l'index « ${cle} » a une date`,
       'lance engine/tools/lastmod-prix.mjs dans le workflow');
   }

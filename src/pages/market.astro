@@ -1,0 +1,8 @@
+---
+import { priceEnabled } from '../../engine/lib/features.mjs';
+import Market from '../components/pages/Market.astro';
+import { locales } from '../../engine/lib/i18n.mjs';
+const lang = locales().def;
+if (!priceEnabled()) return Astro.redirect('/');
+---
+<Market lang={lang} />
