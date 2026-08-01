@@ -1,0 +1,244 @@
+---
+// ⚠️ VeVePreda/veve-sites — src/components/Cadran.astro   (FICHIER NEUF)
+// ═══════════════════════════════════════════════════════════════════════════
+// LE CADRAN — l'historique COMPLET, chargé à la demande, sur une page STATIQUE.
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// CE QU'IL FERME. Les 461 pages de contenu sont pré-générées (c'est le
+// référencement), donc le `<Gate>` d'une fiche est calculé AU BUILD, au niveau
+// visiteur : un abonné voyait encore la page du visiteur. Ici la page reste un
+// fichier statique et la partie réservée arrive par `/api/historique/[uuid]`,
+// qui lit la session. C'est la seule forme qui garde les deux.
+//
+// ⛔⛔ CE QUI VIENT DE LA MAQUETTE NE DÉFAIT PAS CE QUE LE MOTEUR TIENT.
+// La maquette a un `voile()` : le VRAI contenu réservé, flouté sous un calque.
+// C'est une FUITE — le flou est une propriété de PRÉSENTATION, la donnée reste
+// en clair dans le HTML, lisible par « afficher la source ». Elle peut se le
+// permettre : ses courbes sont fabriquées (`serieJours()` est un générateur
+// pseudo-aléatoire amorcé sur le nom de la pièce). Elle n'a rien à protéger.
+//
+// ⭐⭐ CE QU'ON FLOUTE ICI, ET POURQUOI CE N'EN EST PAS UNE.
+// `.verrou__fond` habille EXACTEMENT la courbe publique — les 30 relevés sur
+// 3 jours que le manifeste donne à tout le monde, et qui sont DÉJÀ affichés en
+// clair 40 lignes plus haut sur la même page. Flouter du public ne cache rien
+// et n'expose rien : ça donne au verrou la profondeur visuelle de la maquette
+// sans jamais mettre un octet réservé dans le HTML pré-généré.
+// ⛔ NE JAMAIS y passer la donnée complète « puisque le CSS la floute ».
+//
+// ⭐ LES EXTRÊMES SONT CALCULÉS SUR LES POINTS REÇUS, jamais sur `item.ath` /
+// `item.atl` du catalogue. Ce n'est pas de la méfiance de principe : au 31/07
+// le taux de paires ATL > ATH est INCONNU (les 16,7 % mesurés datent du
+// catalogue du 16/07, la réparation a tourné le 22/07, et le garde-fou
+// n'était posé que sur UN des deux chemins d'export). Un min/max lu sur la
+// série observée ne peut pas être incohérent avec la courbe qu'il annote.
+import { t, numberLocale, dateLocale } from '../../engine/lib/i18n.mjs';
+import { porte } from '../../engine/lib/access.mjs';
+
+const { lang, uuid, svgPublic, total, shown } = Astro.props;
+const p = porte('price_history');
+const nf = numberLocale[lang] || 'en-GB';
+const df = dateLocale[lang] || 'en-GB';
+
+// ⭐ Si la porte est inactive (site gratuit, ou vevewiki), ce composant ne rend
+// RIEN. Pas un verrou vide, pas un cadran désactivé : rien. Le manifeste
+// décide, le code obéit — et un verrou sur un site sans mur serait un mensonge
+// commercial autant qu'une faute d'interface.
+const rendre = p.actif && Number(total) > Number(shown);
+---
+{rendre && (
+  <div class="dissout" data-cadran={uuid}
+       data-nf={nf} data-df={df}
+       data-l-haut={t(lang, 'item.high')} data-l-bas={t(lang, 'item.low')}
+       data-l-pts={t(lang, 'home.points')} data-l-refus={t(lang, 'hist.denied')}>
+
+    {/* ⭐ L'ÉTAT VERROUILLÉ EST CE QUE LE HTML CONTIENT, ET C'EST VOULU.
+        Sans JavaScript, un abonné voit ce panneau — dégradé, jamais faux, et
+        jamais une fuite. Le robot d'indexation voit exactement ce que voit un
+        visiteur : la page ne dit pas une chose à Google et une autre aux gens.
+        C'est aussi ce qui rend le comportement TESTABLE hors navigateur. */}
+    <div class="graph-hote verrou" data-etat="ferme">
+      <span class="verrou__fond" aria-hidden="true" set:html={svgPublic} />
+      <span class="dissout__px" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+      <span class="verrou__prof" aria-hidden="true"><i></i><i></i><i></i></span>
+      <div class="verrou__voile">
+        <div class="verrou__in">
+          <p class="etiq" style="color:var(--lock);margin:0">{t(lang, 'mod.price_history')}</p>
+          <div class="verrou__t">{Number(total).toLocaleString(nf)} {t(lang, 'offer.total')}</div>
+          <p class="verrou__d" style="margin:0">{t(lang, 'mod.price_history.d')}</p>
+          {/* ⭐⭐ LE DÉCLENCHEUR EST UN CLIC, ET C'EST UNE DÉCISION.
+              Ma première version testait un cookie « vp_actif » pour savoir
+              s'il fallait appeler l'API. ⛔ Ce cookie N'EXISTE PAS : personne
+              ne le pose, et le service de session n'a pas été écrit. Un
+              composant qui attend un signal que rien n'émet ne se déclenche
+              jamais — et il a l'air correct, ce qui est pire qu'une panne.
+              ⭐ Un bouton ne dépend de rien : il marche le jour où les
+              comptes existent, sans qu'une ligne d'ici ne change. Il évite
+              aussi de réveiller Node pour les 8 500 pages visitées par des
+              gens qui n'ont pas de compte — c'est ce que nginx protège en ne
+              routant QUE /api/ vers lui. */}
+          <button type="button" class="btn btn--principal btn--sm" data-ouvrir>
+            {t(lang, 'hist.unlock')}
+          </button>
+          <p class="etiq" data-message hidden></p>
+        </div>
+      </div>
+    </div>
+
+    {/* Le cadran lui-même : vide au build, rempli par le script si — et
+        seulement si — la route d'API a reconnu un droit. ⭐ `hidden` et non
+        `display:none` en style : les trois thèmes honorent `[hidden]` depuis
+        le lot 19, et un attribut se teste sans lire de CSS. */}
+    <div class="graph-hote" data-cible hidden>
+      <span class="ref ref--td" data-legende></span>
+      <div data-svg></div>
+      <div class="info-bulle" data-bulle hidden></div>
+    </div>
+  </div>
+)}
+
+{rendre && (
+<script is:inline>
+(function () {
+  var hotes = document.querySelectorAll('[data-cadran]');
+  if (!hotes.length) return;
+
+  // ⭐ UNE FOIS QU'UN DROIT A ÉTÉ RECONNU DANS CETTE SESSION D'ONGLET, les
+  // fiches suivantes se remplissent seules : un abonné ne clique qu'une fois.
+  // ⛔ `sessionStorage` ne porte AUCUN droit, seulement un souvenir de
+  // commodité. Le forcer à « 1 » depuis la console ne donne rien : il ne fait
+  // qu'avancer l'appel à l'API, qui refuse exactement comme avant. Le seul
+  // juge du palier est le serveur — un état de navigateur ne se falsifie pas
+  // seulement, il se falsifie FACILEMENT.
+  var CLE = 'vp-hist-ok';
+  var auto = false;
+  try { auto = sessionStorage.getItem(CLE) === '1'; } catch (e) {}
+
+  hotes.forEach(function (hote) {
+    var uuid = hote.getAttribute('data-cadran');
+    var ferme = hote.querySelector('[data-etat="ferme"]');
+    var cible = hote.querySelector('[data-cible]');
+    var svgHote = hote.querySelector('[data-svg]');
+    var bulle = hote.querySelector('[data-bulle]');
+    var legende = hote.querySelector('[data-legende]');
+
+    var bouton = hote.querySelector('[data-ouvrir]');
+    var message = hote.querySelector('[data-message]');
+    var enCours = false;
+
+    function charger(parClic) {
+      if (enCours) return;
+      enCours = true;
+      if (bouton) bouton.disabled = true;
+      fetch('/api/historique/' + encodeURIComponent(uuid), {
+        credentials: 'same-origin', headers: { accept: 'application/json' }
+      }).then(function (r) {
+        // ⛔ ON NE DÉGRADE PAS EN SILENCE, ET ON NE CRIE PAS NON PLUS.
+        // 401/403 : le verrou est la BONNE réponse — le sceau du <Gate> dit
+        // déjà quoi faire. On ne parle QUE si la personne a cliqué : un
+        // message surgi sans geste est du bruit.
+        // 404/500 : le contenu est dû et n'arrive pas. Là il faut une trace,
+        // sinon une réserve non copiée dans l'image rendrait TOUTES les
+        // fiches muettes pour les abonnés, avec un déploiement vert.
+        if (r.status === 401 || r.status === 403) {
+          if (parClic && message) { message.hidden = false; message.textContent = hote.getAttribute('data-l-refus') || ''; }
+          return null;
+        }
+        if (!r.ok) { console.warn('[cadran] ' + uuid + ' : HTTP ' + r.status); return null; }
+        return r.json();
+      }).then(function (j) {
+        if (!j || !j.ok || !j.h || !j.h.p || j.h.p.length < 2) return;
+        try { sessionStorage.setItem(CLE, '1'); } catch (e) {}
+        dessiner(j.h.p, j);
+      }).catch(function (e) {
+        console.warn('[cadran] ' + uuid + ' : ' + e.message);
+      }).then(function () {
+        enCours = false;
+        if (bouton) bouton.disabled = false;
+      });
+    }
+
+    if (bouton) bouton.addEventListener('click', function () { charger(true); });
+    if (auto) charger(false);
+
+    function dessiner(pts, meta) {
+      var nf = hote.getAttribute('data-nf') || 'en-GB';
+      var df = hote.getAttribute('data-df') || 'en-GB';
+      var W = 720, H = 260, pad = { l: 46, r: 18, t: 16, b: 26 };
+      var xs = pts.map(function (p) { return p[0]; });
+      var ys = pts.map(function (p) { return p[1]; });
+      var x0 = Math.min.apply(null, xs), x1 = Math.max.apply(null, xs);
+      var y0 = Math.min.apply(null, ys), y1 = Math.max.apply(null, ys);
+      // ⚠️ Une série parfaitement plate donne un dénominateur nul : sans ce
+      // garde, toute la courbe part en NaN et le <path> disparaît SANS erreur.
+      var spanX = (x1 - x0) || 1, spanY = (y1 - y0) || 1;
+      var px = function (v) { return pad.l + ((v - x0) / spanX) * (W - pad.l - pad.r); };
+      var py = function (v) { return H - pad.b - ((v - y0) / spanY) * (H - pad.t - pad.b); };
+      var d = pts.map(function (p, i) { return (i ? 'L' : 'M') + px(p[0]).toFixed(1) + ' ' + py(p[1]).toFixed(1); }).join(' ');
+      var aire = d + ' L' + px(x1).toFixed(1) + ' ' + (H - pad.b) + ' L' + px(x0).toFixed(1) + ' ' + (H - pad.b) + ' Z';
+      var iHaut = ys.indexOf(y1), iBas = ys.indexOf(y0);
+      var nb = function (v) { return v.toLocaleString(nf, { maximumFractionDigits: 2 }); };
+      var jour = function (s) { return new Date(s * 1000).toLocaleDateString(df); };
+
+      var g = '';
+      // Trois graduations, et la MÉDIANE en `axe--d` : une graduation
+      // secondaire se lit comme un repère, pas comme une valeur de la courbe.
+      [y0, (y0 + y1) / 2, y1].forEach(function (v, k) {
+        g += '<line x1="' + pad.l + '" y1="' + py(v).toFixed(1) + '" x2="' + (W - pad.r)
+          + '" y2="' + py(v).toFixed(1) + '" class="grille-l"/>'
+          + '<text x="' + (pad.l - 8) + '" y="' + (py(v) + 4).toFixed(1)
+          + '" class="axe' + (k === 1 ? ' axe--d' : '') + '" text-anchor="end">' + nb(v) + '</text>';
+      });
+      [x0, (x0 + x1) / 2, x1].forEach(function (v) {
+        g += '<text x="' + px(v).toFixed(1) + '" y="' + (H - 6)
+          + '" class="axe axe--d" text-anchor="middle">' + jour(v) + '</text>';
+      });
+      g += '<path d="' + aire + '" class="aire"/><path d="' + d + '" class="ligne" fill="none"/>';
+      g += '<circle cx="' + px(pts[iHaut][0]).toFixed(1) + '" cy="' + py(y1).toFixed(1) + '" class="pt-haut"/>';
+      g += '<circle cx="' + px(pts[iBas][0]).toFixed(1) + '" cy="' + py(y0).toFixed(1) + '" class="pt-bas"/>';
+      g += '<line class="cadran" x1="0" y1="' + pad.t + '" x2="0" y2="' + (H - pad.b) + '" data-curseur/>';
+      g += '<circle class="cadran-pt" cx="0" cy="0" data-curseur-pt/>';
+
+      svgHote.innerHTML = '<svg class="graph" viewBox="0 0 ' + W + ' ' + H
+        + '" role="img" aria-label="' + (hote.getAttribute('data-l-pts') || '') + '">' + g + '</svg>';
+      legende.textContent = meta.h.n.toLocaleString(nf) + ' ' + (hote.getAttribute('data-l-pts') || '');
+
+      // ⭐ LE VERROU DISPARAÎT SEULEMENT MAINTENANT — après que le cadran a
+      // été rendu, jamais avant l'appel. Le retirer plus tôt ferait clignoter
+      // un vide entre les deux états, et ce vide dure exactement le temps du
+      // réseau : long, variable, et vu par la seule personne qui paie.
+      if (ferme) ferme.remove();
+      cible.hidden = false;
+      // Le sceau du <Gate> annonce ce qui manque : il n'a plus rien à annoncer.
+      var sceau = document.querySelector('[data-sceau="price_history"]');
+      if (sceau) sceau.remove();
+
+      var svg = svgHote.querySelector('svg');
+      var lig = svg.querySelector('[data-curseur]');
+      var ptc = svg.querySelector('[data-curseur-pt]');
+      svg.addEventListener('pointermove', function (ev) {
+        var b = svg.getBoundingClientRect();
+        var vx = ((ev.clientX - b.left) / b.width) * W;
+        var t = x0 + ((vx - pad.l) / (W - pad.l - pad.r)) * spanX;
+        var best = 0, dist = Infinity;
+        for (var i = 0; i < pts.length; i++) {
+          var dd = Math.abs(pts[i][0] - t);
+          if (dd < dist) { dist = dd; best = i; }
+        }
+        var p = pts[best];
+        lig.setAttribute('x1', px(p[0]).toFixed(1)); lig.setAttribute('x2', px(p[0]).toFixed(1));
+        ptc.setAttribute('cx', px(p[0]).toFixed(1)); ptc.setAttribute('cy', py(p[1]).toFixed(1));
+        bulle.hidden = false;
+        bulle.innerHTML = '<span class="j">' + jour(p[0]) + '</span><b>' + nb(p[1]) + '</b>';
+        // Repositionnement dans le repère du parent, en pixels réels : le
+        // viewBox est mis à l'échelle, une position calculée en unités SVG
+        // serait juste sur un écran et fausse sur tous les autres.
+        var rx = (px(p[0]) / W) * b.width;
+        bulle.style.left = Math.min(Math.max(rx - 40, 0), b.width - 120) + 'px';
+        bulle.style.top = ((py(p[1]) / H) * b.height - 46) + 'px';
+      });
+      svg.addEventListener('pointerleave', function () { bulle.hidden = true; });
+    }
+  });
+})();
+</script>
+)}

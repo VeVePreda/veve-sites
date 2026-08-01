@@ -63,8 +63,14 @@ const depuis = since ? new Date(since).toLocaleDateString(df) : null;
     cette contrainte — elle n'a pas de vraies donnees a proteger. En portant
     une maquette, ce qui vient d'elle ne doit jamais defaire ce que le moteur
     a decide de tenir. */}
+{/* ⭐ `data-sceau` — AJOUT DU 01/08/2026, UN SEUL ATTRIBUT.
+    Le <Cadran> retire ce sceau quand il a REÇU le contenu réservé : sans
+    marqueur, il devrait le retrouver par sa position ou sa classe, et le
+    premier changement de mise en page casserait le lien en silence.
+    ⛔ Cet attribut ne PORTE aucun droit et n'en révèle aucun : il nomme un
+    emplacement. Le seul juge du palier reste le serveur. */}
 {teaser && (
-  <div class="sceau" style="margin-top:var(--s4)">
+  <div class="sceau" data-sceau={gate} style="margin-top:var(--s4)">
     <span class="verrou__prof" aria-hidden="true"><i></i><i></i><i></i></span>
     <div class="sceau__in">
       <span class="cadenas" aria-hidden="true">

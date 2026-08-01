@@ -1,6 +1,10 @@
 ---
 import Base from '../../layouts/Base.astro';
 import Gate from '../Gate.astro';
+// ⭐ AJOUT SEUL (01/08/2026). Le <Gate> annonce ce qui MANQUE ; le <Cadran>
+// apporte ce qui est DÛ, chargé à la demande après lecture de la session. Le
+// reste du frontmatter n'est toujours pas retouché.
+import Cadran from '../Cadran.astro';
 import { dataset } from '../../../engine/lib/dataset.mjs';
 import { priceChartSVG } from '../../../engine/lib/chart.mjs';
 import { productLd, breadcrumbLd } from '../../../engine/lib/seo.mjs';
@@ -303,6 +307,15 @@ const descItem = (item.floor && item.totalPoints && anneeDebut)
   </div>
 
   <Gate lang={lang} gate="price_history" total={item.totalPoints} shown={item.points} since={item.since} />
+  {/* ⭐⭐ IL VIENT APRÈS LE <Gate>, ET L'ORDRE COMPTE. Sans JavaScript, on lit
+      d'abord ce qui manque et comment l'obtenir (le sceau), puis on voit le
+      verrou. Avec JavaScript et un droit reconnu, les deux disparaissent et le
+      cadran prend leur place. ⛔ `svgPublic` est la courbe PUBLIQUE — celle
+      déjà affichée en clair plus haut sur cette page. Ne jamais lui passer
+      autre chose : le flou du verrou est de la PRÉSENTATION, il ne cache rien
+      à qui lit la source. */}
+  <Cadran lang={lang} uuid={item.uuid} svgPublic={svg}
+          total={item.totalPoints} shown={item.points} />
 
   {recent.length > 0 && (
     <>

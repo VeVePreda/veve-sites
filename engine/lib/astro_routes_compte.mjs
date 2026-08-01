@@ -47,6 +47,19 @@ const ROUTES_COMPTE = [
   'pages/connexion/index.astro',
   'pages/api/sante.js',
   'pages/api/deconnexion.js',
+  // ⭐⭐ AJOUTÉE LE 01/08/2026 — LA ROUTE QUI REND LE MUR RÉEL.
+  // Les 461 pages de contenu restent PRÉ-GÉNÉRÉES : c'est ce qui fait le
+  // référencement, et le lot 24 ne les a pas touchées. Mais un `<Gate>`
+  // évalué au build l'est au niveau VISITEUR, pour tout le monde — un abonné
+  // voyait donc encore la page du visiteur. Cette route sert la partie
+  // réservée à la demande, après lecture de la session, sans que la page
+  // cesse d'être un fichier statique.
+  // ⚠️ ELLE SUIT EXACTEMENT LE MÊME DISPOSITIF que les quatre au-dessus, et
+  // pour la même raison : `prerender` reste un LITTÉRAL honnête dans le
+  // fichier, et c'est le MODE (donc le manifeste) qui décide. L'oublier ici
+  // la pré-générerait en silence — le fichier serait figé au build, à vide,
+  // et répondrait « pas de session » à un abonné parfaitement connecté.
+  'pages/api/historique/[uuid].js',
 ];
 
 const normalise = (p) => String(p || '').replace(/\\/g, '/');

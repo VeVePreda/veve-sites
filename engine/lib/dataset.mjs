@@ -10,6 +10,12 @@ import { join } from 'node:path';
 import { getCatalogue, getBaselines, streamPrices } from '../data/warehouse.mjs';
 import { manifest, SITE } from './manifest.mjs';
 import { porte } from './access.mjs';
+// ⭐ LA RÉSERVE — l'historique COMPLET, écrit HORS de dist/, pour la route
+// `/api/historique/[uuid]`. Elle se greffe sur LA passe de prix qui a DÉJÀ
+// lieu ici : `streamPrices` n'est pas mis en cache (contrairement à `load()`),
+// un second script retéléchargerait le fichier entier — et `test:donnees`
+// interdit une seconde construction du jeu de données, précisément pour ça.
+import * as reserve from './reserve.mjs';
 
 const ROOT = process.env.PROJECT_ROOT || process.cwd();
 const DAY = 86400000;
@@ -191,6 +197,12 @@ async function construireDataset() {
   // nombre d'items (~19 000), JAMAIS de la taille du fichier de prix.
   const known = new Set();
   for (const c of cat) { const u = c.uuid || c.veve_uuid; if (u) known.add(u); }
+  // ⭐⭐ LA RÉSERVE NE S'OUVRE QUE SI LE SITE VEND DE LA PROFONDEUR.
+  // Porte inactive = tout l'historique est déjà public (vevewiki, ou un site
+  // entièrement gratuit) : écrire une réserve coûterait des dizaines de Mo
+  // dans l'image pour protéger ce que la page donne déjà. Le manifeste décide,
+  // le code obéit — comme pour le thème, la palette et le mode de rendu.
+  if (PORTE_PRIX.actif) reserve.ouvrir();
   // Porte inactive : pas de fenetre (on remonte a l'origine) et une tranche
   // d'1 ms, donc un seau par releve — la courbe garde tout. Le calcul du seau
   // ne doit JAMAIS voir un Infinity : (Inf/Inf) donne NaN, et un NaN en cle de
@@ -210,6 +222,12 @@ async function construireDataset() {
     a.n++;
     if (ts < a.first) a.first = ts;
     const pt = { ts, floor: f, listings: Number(cols[idx.listings]) || 0 };
+    // ⛔ UNE SEULE LIGNE, ET ELLE EST À SA PLACE. C'est le seul endroit du
+    // moteur où chaque relèvé passe une fois et une seule. La réserve
+    // bufferise et vide sur disque : la promesse de l'en-tête de cette
+    // fonction (« la mémoire dépend du nombre d'items, JAMAIS de la taille du
+    // fichier de prix ») reste tenue.
+    reserve.point(u, ts, f, pt.listings);
     // repli : les tout derniers releves, quel que soit leur age (les prix sont
     // enregistres AU CHANGEMENT : un item stable n'a rien de recent).
     a.tail.push(pt);
@@ -583,6 +601,15 @@ async function construireDataset() {
       console.log(`[vitrine] ATTENTION AUCUN ${t} publie alors que le quota est de ${quotas[t]} — eligibles : ${eligibles[t]}`);
     }
   }
+
+  // ⭐ LA RÉSERVE SE FERME SUR LES UUID RÉELLEMENT PUBLIÉS, ET PAS AVANT.
+  // Un item du catalogue sans page ne peut être demandé par personne : garder
+  // sa réserve gonflerait l'image de ~15 fois (19 242 items du catalogue
+  // contre 1 200 fiches publiées) pour zéro requête servie.
+  // ⚠️ Cet appel doit rester APRÈS le calcul de `items` : plus haut, la liste
+  // des publiés n'existe pas encore, et un `fermer()` sans filtre garderait
+  // tout — sans qu'aucune erreur ne le dise.
+  reserve.fermer(new Set(items.map((i) => i.uuid)));
 
   _ds = {
     items, bySlug, collections, rarities, movers,

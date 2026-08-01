@@ -54,6 +54,19 @@ RUN WAREHOUSE_OFFLINE=1 npm run test:donnees
 RUN WAREHOUSE_OFFLINE=1 npm run test:quotas
 # Verifie que les paliers d'acces sont lus par la matrice, et par elle seule.
 RUN WAREHOUSE_OFFLINE=1 npm run test:acces
+# ⭐⭐ `test:reserve` — LE BANC DU MUR (01/08/2026).
+# Il garde six pannes dont AUCUNE ne fait échouer un build Astro :
+#   · un uuid d'URL qui sert de chemin de fichier (traversée) ;
+#   · une route qui rend la donnée sans vérifier le palier — le mur devient
+#     décoratif, et un mur décoratif se découvre par une capture d'écran ;
+#   · un refus qui échoue OUVERT sur une session absente : c'est exactement
+#     `getattr(…, ())` et ses 216 838 transferts mal étiquetés, transposé à
+#     un droit d'accès — donc à de l'abonnement distribué gratuitement ;
+#   · la réserve qui atterrit sous dist/, servie en clair par nginx ;
+#   · une réserve non triée : la courbe se replie sur elle-même, et seul un
+#     abonné la voit — donc trop tard ;
+#   · des classes émises par le Cadran que le thème n'habille pas.
+RUN WAREHOUSE_OFFLINE=1 npm run test:reserve
 
 # ⭐ Les garde-fous qui ne tournent PAS en production ne gardent rien.
 # `test:blog`, `test:figures` et `test:fiches` protègent trois pannes 100 %
@@ -130,7 +143,12 @@ RUN node outils/cascade-aplatie.mjs
 
 RUN WAREHOUSE_OFFLINE=1 npm run test:renommage
 
-RUN export RENDERING=$(cat /app/.rendering); npm run build
+# ⚠️ LE DOSSIER EXISTE TOUJOURS, MEME VIDE. En mode static (vevewiki) la
+# reserve ne s'ouvre jamais : la porte `price_history` est inactive, tout
+# l'historique est deja public, et l'ecrire couterait des dizaines de Mo pour
+# proteger ce que la page donne. Sans ce mkdir, le `COPY /app/.reserve` de
+# l'etape suivante ferait echouer le build de vevewiki sur une source absente.
+RUN export RENDERING=$(cat /app/.rendering); npm run build; mkdir -p /app/.reserve
 
 # 🔴 LE GARDE-FOU : le mode annonce et la forme produite doivent coincider.
 # Sans lui, l'incoherence se decouvre en production, en servant des pages
@@ -230,6 +248,25 @@ COPY --from=build /app/package.json ./package.json
 # Le rendu a la demande relit le manifeste et le moteur : ils doivent etre la.
 COPY --from=build /app/engine ./engine
 COPY --from=build /app/sites ./sites
+# ⭐⭐ LA RESERVE — l'historique COMPLET, ecrit au build par engine/lib/reserve.mjs.
+# ⛔ ELLE N'EST PAS DANS dist/, ET C'EST TOUT L'INTERET : nginx sert dist/ (ou
+# dist/client) comme racine, donc il ne peut pas la servir, meme par accident.
+# Seul Node la lit, et seulement apres que /api/historique/[uuid] a reconnu un
+# palier. La copier ici est ce qui la rend lisible par Node.
+# 🔴 SI CETTE LIGNE DISPARAIT, RIEN N'ECHOUE : le site se deploie, il est vert,
+# et TOUTES les fiches restent muettes pour les abonnes. D'ou le controle qui
+# suit — un garde-fou pose APRES la coupe qu'il surveille.
+# ⚠️ `[^/]*` : le dossier commence par un point, et `COPY /app/.reserve` sur une
+# source absente fait echouer le build avec un message clair. C'est voulu : une
+# reserve vide doit arreter le deploiement, pas le laisser passer.
+COPY --from=build /app/.reserve ./.reserve
+RUN set -e; \
+    MODE=$(cat /app/.rendering); \
+    if [ "$MODE" = "server" ]; then \
+      n=$(find .reserve -name '*.json' | wc -l); \
+      [ "$n" -gt 0 ] || { echo "ERREUR: mode server mais la reserve est VIDE — les abonnes n'auraient aucun historique"; exit 1; }; \
+      echo "reserve : $n fiche(s) d'historique complet, hors de dist/"; \
+    fi
 # Les deux configurations voyagent dans l'image ; le lanceur choisit.
 COPY nginx.conf nginx.server.conf ./
 COPY docker-entrypoint.sh /docker-entrypoint.sh
