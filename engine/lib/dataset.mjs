@@ -314,6 +314,18 @@ async function construireDataset() {
       // ⚠️ Repli sur les bornes de la baseline si le catalogue ne les a pas :
       // `first_ts`/`last_ts` ne sont PAS les dates des extrêmes, donc on ne s'y
       // rabat pas. Mieux vaut pas de date qu'une date fausse.
+      // 📝 LA DESCRIPTION et 📕 LE VRAI TITRE DU COMIC — colonnes ajoutees a
+      // `catalogue.csv.gz` le 01/08/2026 (lot scrapeur-veve du meme jour).
+      // ⭐ LUES SANS ETRE EXIGEES, et c'est ce qui rend ce lot deposable AVANT
+      // que la chaine de collecte ait tourne : un catalogue qui ne les porte
+      // pas encore rend `null`, et les gabarits n'affichent rien. Aucune page
+      // ne casse, aucune erreur, et le jour ou la colonne arrive elle
+      // s'affiche sans redeploiement du site.
+      // ⛔ `nomAffiche` NE REMPLACE PAS `name` : `name` nourrit le slug, et
+      // les adresses sont gelees. On ajoute un champ d'AFFICHAGE a cote, on
+      // ne renomme pas l'identite.
+      description: String(c.description || '').trim() || null,
+      nomComic: String(c.veve_comic_name || '').trim() || null,
       athDate: String(c.ath_date || '').trim() || null,
       atlDate: String(c.atl_date || '').trim() || null,
       // ⚠️ NOMS REELS DES COLONNES (verifies dans scraper/price_baseline.py) :

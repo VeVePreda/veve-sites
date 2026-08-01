@@ -59,6 +59,16 @@ const colSlug = item.series ? item.serieSlug : null;
 const norm = (v) => String(v || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
 const jolieRareteFr = (r) => String(r).toLowerCase().split(/[_\s]+/).filter(Boolean)
   .map((w) => w[0].toUpperCase() + w.slice(1)).join(' ');
+// 📕 LE TITRE AFFICHE. `item.name` porte « Retellings #1 (1982) » — le nom de
+// la SERIE plus le numero. Le titre de l'oeuvre est `veve_comic_name`, collecte
+// depuis toujours par veve_detail._map_comic puis jete par DROP_COLUMNS
+// jusqu'au 01/08/2026.
+// ⭐ REPLI SUR `name`, TOUJOURS. La colonne est vide pour les collectibles (leur
+// `name` EST deja le nom de l'objet) et absente d'un catalogue anterieur au lot
+// de collecte. Un titre vide serait pire que le mauvais titre.
+// ⛔ ON NE TOUCHE PAS A `item.name` : il nourrit le slug, et les adresses sont
+// gelees. Ceci est un champ d'AFFICHAGE.
+const titreOeuvre = item.nomComic || item.name;
 const serieRedondante = norm(item.series) === norm(item.name);
 const crumbs = [{ name: t(lang, 'home.crumb'), url: localize(lang, '/') }];
 if (colSlug) crumbs.push({ name: item.series, url: localize(lang, `/collection/${colSlug}/`) });
@@ -160,12 +170,27 @@ const descItem = (item.floor && item.totalPoints && anneeDebut)
     </div>
 
     <div class="fiche__txt">
-      <h1 class="mono-t">{item.name}</h1>
+      {/* 📕 Le TITRE DE L'OEUVRE, pas celui de la collection. Voir `titreOeuvre`
+          dans le frontmatter : repli sur `item.name`, toujours. */}
+      <h1 class="mono-t">{titreOeuvre}</h1>
       <p class="respire">
         {item.rarity && <Fragment set:html={rar(item.rarity)} />}
         {colSlug && <a class="tag" href={localize(lang, `/collection/${colSlug}/`)}>{item.series}</a>}
         {item.tirage && <span class="tag">{t(lang, 'item.supply')} {item.tirage.toLocaleString(nf)}</span>}
       </p>
+
+      {/* 📝 LA DESCRIPTION. Elle est dans les onglets froids du Sheet depuis
+          toujours et ne traversait pas `catalog_export.py` — troisieme fois
+          que ce motif se produit sur ce fichier, apres `image` et `ath_date`.
+          ⭐ RENDU CONDITIONNEL, jamais un bloc vide : un catalogue anterieur au
+          lot de collecte du 01/08 n'a pas la colonne, `dataset.mjs` rend
+          `null`, et la fiche est exactement celle d'avant. C'est ce qui permet
+          de deposer ce lot SANS attendre que la chaine ait tourne.
+          ⛔ Texte BRUT, jamais `set:html` : cette chaine vient d'un Sheet, donc
+          d'une saisie, donc c'est une donnee d'entree comme une autre. La
+          rendre en HTML serait une injection servie par notre domaine — la
+          meme faute que le `src` non assaini des visuels. */}
+      {item.description && <p class="prose">{item.description}</p>}
 
       {/* ═══ LES DEUX MURS ═══
           ⚠️ La maquette oppose « Plancher VeVe » (gems) et « Plancher StackR »
@@ -249,6 +274,22 @@ const descItem = (item.floor && item.totalPoints && anneeDebut)
       ⚠️ Les boutons de série sont RENDUS mais inertes — le graphique n'est pas
       encore interactif. Ils portent donc `disabled` : ⛔ un contrôle qui ne
       répond pas doit le DIRE plutôt qu'ignorer le clic en silence. */}
+  {/* ⛔⛔ LE GRAPHIQUE EMPIETAIT SUR LES DEUX COLONNES (01/08/2026).
+      Il etait ecrit HORS de `.fiche` — donc enfant direct de la balise main,
+      donc en
+      pleine largeur, courant sous la colonne image ET la colonne texte. Dans
+      la maquette il vit dans un `.avec-aside` (`minmax(0,1fr) 300px`), avec la
+      colonne laterale a sa droite.
+      ⭐ `.avec-aside` est l'une des ~30 classes que le theme habillait sans
+      qu'aucun composant ne les emette (l.826, et sa reponse mobile l.1015).
+      Le CSS etait la depuis le portage ; c'est le gabarit qui ne l'appelait
+      pas. « Est-ce la ? » avait la bonne reponse, « qui l'emet ? » n'avait
+      aucune reponse.
+      ⚠️ L'aside reste VIDE pour l'instant, et il est marque `aria-hidden` :
+      il tient la colonne pour que le graphique cesse de s'etaler, sans
+      annoncer un contenu qui n'existe pas. Les modules qui doivent y vivre
+      (favoris, Vault, alertes) demandent un compte. */}
+  <div class="avec-aside">
   <div class="graph-hote">
     <div class="graph-tete">
       <div>
@@ -272,6 +313,14 @@ const descItem = (item.floor && item.totalPoints && anneeDebut)
     </div>
     <Fragment set:html={svg} />
     <div class="graph-pied"><span class="etiq">{item.totalPoints?.toLocaleString(nf)} {t(lang, 'home.points')}</span></div>
+  </div>
+    {/* ⛔ SANS CLASSE, DELIBEREMENT. Ma premiere version portait
+        `class="rail-aside"` — une classe que j'ai INVENTEE et qu'aucun theme
+        n'habille. C'est le defaut du contrat gabarit/theme, et il coute plus
+        cher qu'une classe absente : il a l'air d'etre la. Cet aside n'a besoin
+        d'aucun habillage, seulement d'occuper la colonne que la grille lui
+        donne — le `<aside>` nu le fait tres bien. */}
+    <aside aria-hidden="true"></aside>
   </div>
 
   <div class="sect-t sect-t--gd"><h2 class="mono-t">{t(lang, 'account.modules')}</h2>
