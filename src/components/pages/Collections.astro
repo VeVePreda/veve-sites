@@ -26,16 +26,28 @@ const pile = (c) => [...c.items].sort((a, b) => (b.floor ?? 0) - (a.floor ?? 0))
       <h1 class="mono-t">{t(lang, 'collections.title')}</h1>
       <p class="respire">{cols.length.toLocaleString(nf)} {t(lang, 'collections.count')}.</p>
     </div>
+    {/* ⭐ MEME DEFAUT ICI, ET IL VENAIT DU MEME COPIER-COLLER : trois
+        hexagones en dur au lieu des trois collections de tete. La pile de la
+        tete de page dit « voici de quoi on parle » — avec trois formes vides
+        elle ne disait rien du tout. */}
     <span class="tete-p__viz" aria-hidden="true">
-      {[0, 1, 2].map(() => (
-        <span class="socle">
-          <span class="socle__voile"></span>
-          <span class="forme forme--xl" style="--c-a:var(--rule-2)">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4">
-              <path d="M12 2.9 19.9 7.5v9L12 21.1 4.1 16.5v-9Z" /></svg>
+      {cols.slice(0, 3).map((c) => {
+        const v = pile(c).find((i) => i.image);
+        return (
+          <span class="socle">
+            <span class="socle__voile"></span>
+            {v ? (
+              <img class="socle__net ok" src={v.image} alt="" width="400" height="600"
+                   loading="lazy" decoding="async" />
+            ) : (
+              <span class="forme forme--xl" style="--c-a:var(--rule-2)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4">
+                  <path d="M12 2.9 19.9 7.5v9L12 21.1 4.1 16.5v-9Z" /></svg>
+              </span>
+            )}
           </span>
-        </span>
-      ))}
+        );
+      })}
     </span>
   </div>
 
@@ -46,13 +58,34 @@ const pile = (c) => [...c.items].sort((a, b) => (b.floor ?? 0) - (a.floor ?? 0))
   <div class="grille grille--series">
     {cols.map((c) => (
       <a class="col-carte revele" href={localize(lang, `/collection/${c.slug}/`)}>
+        {/* 🔴 `pile(c).map(() => …)` — LE PARAMETRE ETAIT IGNORE (01/08/2026).
+            Les trois pieces les plus cheres de la collection etaient calculees
+            correctement, puis jetees : la boucle rendait trois fois le MEME
+            hexagone gris. D'ou une page Collections entiere sans une seule
+            image, alors que `i.image` est dans la donnee depuis le lot qui l'a
+            ajoutee au catalogue (« sinon : 19 242 fiches, zero image »).
+            ⭐ Une parenthese vide dans un `map` ne produit ni erreur, ni
+            avertissement, ni page vide : elle produit une page PLAUSIBLE. Le
+            gabarit avait l'air de marcher, et seul un oeil sur le rendu
+            pouvait le dire — c'est le meme profil que le CSS qui ne crie pas.
+            ⛔ Meme assainissement que partout : `dataset.mjs` n'accepte que du
+            `https://`, on ne refait pas le controle ici, on ne l'affaiblit pas
+            non plus — une URL absente donne le repere, jamais un `src` vide
+            (un `src=""` recharge la PAGE COURANTE comme si c'etait une image). */}
         <span class="col-carte__pile" aria-hidden="true">
-          {pile(c).map(() => (
-            <span class="socle"><span class="forme forme--xl" style="--c-a:var(--rule-2)">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
-                <path d="M12 2.9 19.9 7.5v9L12 21.1 4.1 16.5v-9Z" />
-              </svg>
-            </span></span>
+          {pile(c).map((i) => (
+            <span class="socle">
+              {i.image ? (
+                <img class="socle__net ok" src={i.image} alt="" width="400" height="600"
+                     loading="lazy" decoding="async" />
+              ) : (
+                <span class="forme forme--xl" style="--c-a:var(--rule-2)">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+                    <path d="M12 2.9 19.9 7.5v9L12 21.1 4.1 16.5v-9Z" />
+                  </svg>
+                </span>
+              )}
+            </span>
           ))}
         </span>
         <span class="cartouche">

@@ -40,7 +40,10 @@ const money = (v) => (v === null || v === undefined ? '—' : v.toLocaleString(n
 // le SEO d'un renommage. Ajouter des pages de liste est une décision à part.
 // Ici : plafond au rendu, puis dévoilement par tranches côté client.
 const PLAFOND = 200;
-const PAR_PAGE = 50;
+// ⭐ 20 ET NON 50 (demande de Preda, 01/08). ⛔ Ce n'est PAS une pagination :
+// les 1 200 adresses du site sont gelees, et une vraie page `/market/2/`
+// creerait des URL. C'est un devoilement par tranches, sans nouvelle adresse.
+const PAR_PAGE = 20;
 const toutes = [...ds.items]
   .filter((i) => i.floor !== null && i.floor !== undefined)
   .sort((a, b) => (b.change7d ?? -Infinity) - (a.change7d ?? -Infinity));
@@ -183,13 +186,6 @@ const nbComic = toutes.length - nbColl;
       {t(lang, 'movers.capped').replace('%s', toutes.length.toLocaleString(nf))}
     </p>
   )}
-  {lignes.length > PAR_PAGE && (
-    <p style="margin:var(--s4) 0 0;text-align:center">
-      <button type="button" id="plus" class="btn btn--sm"
-              data-pas={PAR_PAGE} data-total={lignes.length}>{t(lang, 'movers.more')}</button>
-      <span class="etiq" id="plus-cpt" style="display:block;margin-top:8px;color:var(--muted)"></span>
-    </p>
-  )}
   <div id="vue-tui" class="tuiles" hidden>{lignes.slice(0, 120).map((i, k) => (
     <a class="tuile revele" href={localize(lang, i.path)} style={`--i:${k}`}
        data-type={i.type} data-rar={i.rarity} data-n={i.name.toLowerCase()}
@@ -228,6 +224,22 @@ const nbComic = toutes.length - nbColl;
     </a>
   ))}</div>
 
+  {/* ⛔⛔ LE BOUTON EST DESCENDU ICI LE 01/08/2026. Il etait ecrit entre le
+      tableau et la grille de tuiles : en vue Tableau il tombait bien en bas,
+      mais en vue Tuiles il s'affichait AU-DESSUS des vignettes — un « voir
+      plus » avant d'avoir rien vu.
+      ⭐ Le defaut ne venait pas du bouton mais de l'ordre du document : deux
+      vues alternatives se suivent dans le HTML, donc tout ce qui les CONCLUT
+      doit venir apres les deux, jamais entre. `hidden` masque la vue inactive,
+      il ne deplace pas ce qui est coince au milieu. */}
+  {lignes.length > PAR_PAGE && (
+    <p style="margin:var(--s4) 0 0;text-align:center">
+      <button type="button" id="plus" class="btn btn--sm"
+              data-pas={PAR_PAGE} data-total={lignes.length}>{t(lang, 'movers.more')}</button>
+      <span class="etiq" id="plus-cpt" style="display:block;margin-top:8px;color:var(--muted)"></span>
+    </p>
+  )}
+
   <p class="respire" id="vide" hidden>{t(lang, 'movers.empty')}</p>
 
   <script is:inline>
@@ -242,14 +254,14 @@ const nbComic = toutes.length - nbColl;
       var cPlus = document.getElementById('plus-cpt');
       var pas = bPlus ? parseInt(bPlus.dataset.pas, 10) : 0;
       var montre = pas;
+      // ⭐ Le devoilement s'applique APRES les filtres, et sur la vue ACTIVE :
+      // on ne compte que ce que le filtre a laisse passer. Sinon « voir plus »
+      // revelerait des lignes que le filtre a ecartees — le bouton
+      // travaillerait contre l'utilisateur.
       function tranche(visibles) {
         if (!bPlus) return;
-        var n = 0;
-        for (var i = 0; i < visibles.length; i++) {
-          visibles[i].hidden = n >= montre; n++;
-        }
-        var reste = Math.max(0, visibles.length - montre);
-        bPlus.hidden = reste === 0;
+        for (var i = 0; i < visibles.length; i++) visibles[i].hidden = i >= montre;
+        bPlus.hidden = visibles.length <= montre;
         if (cPlus) cPlus.textContent = Math.min(montre, visibles.length) + ' / ' + visibles.length;
       }
       if (bPlus) bPlus.addEventListener('click', function () {
@@ -275,8 +287,16 @@ const nbComic = toutes.length - nbColl;
       }
       function appliquer(){
         var e = etat(), n = 0;
-        L.forEach(function(l){ var ok = garde(e,l); l.hidden = !ok; if (ok) n++; });
-        T.forEach(function(t){ t.hidden = !garde(e,t); });
+        // ⛔ `tranche()` etait DEFINIE et JAMAIS APPELEE : le devoilement par
+        // tranches ne s'appliquait a rien, les 200 lignes sortaient d'un coup,
+        // et « voir plus » ne faisait qu'incrementer un compteur invisible.
+        // ⭐ Du code mort qui a l'air vivant : la fonction existait, le bouton
+        // existait, le CSS existait — c'est le seul APPEL qui manquait, et
+        // rien ne le signale. Meme famille que la classe emise sans regle.
+        var visT = [], visU = [];
+        L.forEach(function(l){ var ok = garde(e,l); l.hidden = !ok; if (ok) { n++; visT.push(l); } });
+        T.forEach(function(t){ var ok = garde(e,t); t.hidden = !ok; if (ok) visU.push(t); });
+        tranche(e.vue === 'tui' ? visU : visT);
         cpt.textContent = n + ' / ' + L.length;
         // Les jetons : un par filtre actif, cliquable pour le retirer.
         var j = document.getElementById('actifs'); j.innerHTML = '';
@@ -311,7 +331,10 @@ const nbComic = toutes.length - nbColl;
       }
       seg('[data-corpus]', function(b){ return b.dataset.corpus === corpus; }, function(b){ corpus = b.dataset.corpus; });
       seg('.v-b',          function(b){ return b.dataset.vue === vue; },       function(b){ vue = b.dataset.vue; });
-      f.addEventListener('input', appliquer);
+      // ⛔ Changer de filtre REVIENT a la premiere tranche. Sans ca, quelqu'un
+      // qui a deplie 200 lignes puis restreint a une rarete garde un
+      // « 200 / 12 » absurde, et le bouton reste cache sur un corpus tout neuf.
+      f.addEventListener('input', function(){ montre = pas; appliquer(); });
       f.addEventListener('reset', function(){ setTimeout(function(){ corpus=''; appliquer(); }, 0); });
       // ⚠️ Un seul panneau ouvert : sinon la barre pousse le tableau hors de
       // l'écran et on filtre à l'aveugle.

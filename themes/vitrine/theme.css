@@ -392,7 +392,22 @@ button{font:inherit;color:inherit}
 a{color:var(--sect-a);text-decoration:none}
 a:hover{text-decoration:underline;text-underline-offset:3px}
 :focus-visible{outline:2px solid var(--sect-a);outline-offset:2px;border-radius:var(--r-sm)}
-.wrap{max-width:1220px;margin:0 auto;padding:0 24px}
+/* ⛔⛔ `max-width:1220px` RETIRE D'ICI LE 01/08/2026 — ET C'EST LA VRAIE
+   CORRECTION, pas celle du 31/07. Le lot 26 avait neutralise ce plafond plus
+   bas par un second `.wrap{max-width:none}` : deux declarations pour la meme
+   mesure, la seconde annulant la premiere. Ca marchait pour l'en-tete (dont le
+   `.wrap` est un ENFANT) et ca cassait le contenu — parce que `<main>` PORTE
+   lui-meme la classe :
+       body > main   -> (0,0,2)  max-width:var(--cadre-max)  1520px
+       .wrap         -> (0,1,0)  max-width:none              <- GAGNE
+   `main` n'avait donc plus AUCUN plafond pendant que l'en-tete gardait 1520 :
+   la page etait plus LARGE que son en-tete, l'inverse exact du defaut qu'on
+   croyait avoir repare.
+   ⭐⭐ MEME LECON QU'IL Y A DEUX JOURS, DANS L'AUTRE SENS : ajouter une
+   contrainte sans retirer celle qu'elle remplace laisse les deux en vigueur.
+   Le 31/07 la plus SERREE gagnait ; ici c'est la plus SPECIFIQUE. On ne
+   negocie plus entre deux regles : il n'en reste qu'une, le cadre. */
+.wrap{margin:0 auto;padding:0 24px}
 .site-h{position:sticky;top:0;z-index:60;background:color-mix(in srgb,var(--nuit) 90%,transparent); backdrop-filter:blur(var(--foc-verre));-webkit-backdrop-filter:blur(var(--foc-verre)); border-bottom:1px solid var(--rule)}
 .site-h::after{content:"";position:absolute;inset:auto 0 -3px;height:3px; background:linear-gradient(90deg,var(--sect-pur),color-mix(in srgb,var(--sect-pur) 30%,transparent) 68%,transparent); z-index:2}
 .site-h__in{display:flex;align-items:center;gap:var(--s4);height:64px}
@@ -698,8 +713,30 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 .f-panneau__t{font-family:var(--tech);font-size:var(--t-xs);text-transform:uppercase;letter-spacing:.1em; color:var(--muted);margin-bottom:12px;display:flex;align-items:center;gap:10px}
 .f-panneau__t::after{content:"";flex:1;height:1px;background:var(--rule)}
 .tiroir__c{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end}
-.f-panneau{transition:opacity var(--d-base) var(--e-out),transform var(--d-base) var(--e-out)}
-.f-panneau{opacity:0;transform:translateY(-6px)}
+/* 🔴🔴 LE PANNEAU DE FILTRES ETAIT INVISIBLE EN PERMANENCE (01/08/2026).
+   La maquette ecrit :
+       @media (prefers-reduced-motion: no-preference){
+         .f-panneau{transition:opacity …,transform …}
+         @starting-style{ .f-panneau{opacity:0;transform:translateY(-6px)} }
+       }
+   `@starting-style` decrit l'etat de DEPART d'une transition — l'apparence de
+   l'element juste avant qu'il apparaisse. LES DEUX at-rules ont ete aplaties
+   en portant ce lot : `opacity:0` est passe de « pendant un dixieme de
+   seconde » a « pour toujours ». Le panneau s'ouvrait, POUSSAIT le contenu
+   (d'ou le grand vide sous FILTRES) et ne se voyait pas.
+   ⭐⭐ `cascade-aplatie.mjs` NE POUVAIT PAS L'ATTRAPER, et c'est ce qui compte
+   ici. Il cherche une regle presente A LA FOIS a la racine et sous une
+   at-rule : il detecte la RECOPIE. Ici l'at-rule a ete REMPLACEE par son
+   contenu — il ne reste aucun doublon a comparer. C'est l'autre moitie de la
+   meme famille, et l'outil posait deja la bonne question sans y repondre en
+   entier : « quelle FRACTION de sa famille j'attrape ? ».
+   ➡️ Le pendant statique vit dans `outils/css-mort.mjs` : un `opacity:0` pose
+   a la racine que rien ne ramene au-dessus de zero rend l'element
+   DEFINITIVEMENT invisible — et ca, ca se mesure sans navigateur. */
+@media (prefers-reduced-motion: no-preference){
+  .f-panneau{transition:opacity var(--d-base) var(--e-out),transform var(--d-base) var(--e-out)}
+  @starting-style{ .f-panneau{opacity:0;transform:translateY(-6px)} }
+}
 .seg-p{display:inline-flex;padding:3px;background:var(--surface-2);border-radius:var(--r-full); border:1px solid var(--rule-2);gap:2px}
 .seg-p button{border:0;background:transparent;color:var(--muted);cursor:pointer; padding:0 15px;min-height:var(--tap-min);border-radius:var(--r-full);font-family:var(--geo); font-size:var(--t-sm);font-weight:600;display:inline-flex;align-items:center;gap:7px; transition:all var(--d-fast)}
 .seg-p button:hover{color:var(--text)}
@@ -1258,9 +1295,11 @@ header.site.site-h .wrap{
    le bon chiffre AVANT le cadre ; 1520 est le bon depuis. Ajouter une
    contrainte sans retirer celle qu'elle remplace laisse les deux en vigueur —
    et c'est la plus SERREE qui gagne, en silence.
-   ⭐ `none` et pas `var(--cadre-max)` : le cadre plafonne deja. Repeter la
-   valeur creerait une troisieme source de verite pour la meme mesure. */
-.wrap{ max-width:none; }
+   ⛔⛔ 01/08/2026 — CETTE NEUTRALISATION EST SUPPRIMEE, PAS CORRIGEE.
+   Elle produisait le defaut INVERSE : `<main class="wrap">` PORTE la classe,
+   donc `.wrap{max-width:none}` (0,1,0) battait `body > main` (0,0,2) et le
+   contenu n'avait plus de cadre du tout. Le plafond de 1220 est desormais
+   retire A LA SOURCE (voir plus haut). Une seule declaration, plus de duel. */
 
 /* ⛔ `.flat` — LA VARIATION NULLE N'AVAIT AUCUNE REGLE (31/07/2026).
    Le tableau ecrit `class:list={['n', … : 'flat']}` : `up` est vert, `down`
