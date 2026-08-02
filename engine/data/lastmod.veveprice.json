@@ -1,7 +1,7 @@
 {
  "_note": "Date du dernier changement REEL de chaque famille de pages, et de chaque fiche pour un site a prix. Produit par engine/tools/lastmod.py et engine/tools/lastmod-prix.mjs, lu par src/pages/sitemap.xml.js. Ne pas editer a la main : la date suivrait le fichier, pas le contenu.",
  "site": "veveprice",
- "passages": 10,
+ "passages": 11,
  "sections": {
   "donnees": {
    "h": "2f6eaaeadfff86f5f8315957ee03a5acc6c1507926c3b88e1652c5d3235a075b",
@@ -20,7 +20,7 @@
    "d": "2026-07-29"
   },
   "market": {
-   "h": "96c9da7ab177192a3e800a1964f47fdeabde0696cd2e92906d0ff03d26f14c22",
+   "h": "c377124af9b9ef74e46acee74a8d6021c945ea5cab9a4a389f76d4ef265c12a6",
    "d": "2026-08-02"
   }
  },
@@ -1705,12 +1705,12 @@
    "h": "acfa38b52fe60c6c7365f8ae681fa384c1d1cd590ba2593e8f0ac188c3c3a31d",
    "d": "2026-07-29"
   },
-  "/collectibles/jim-mahfood/pop-life-print/": {
-   "h": "5109d431771a7418fa93d1297b9bb78a2bb4a90e7fafddf055d25fc6925fff96",
-   "d": "2026-08-02"
-  },
   "/collectibles/star-wars-vehicles-series-8-millennium-falcon/millennium-falcon-holodisk/": {
    "h": "d7a28ddb9315cf94679142e88d0004901732c8b8be2711210ad7dd356ce419b4",
+   "d": "2026-08-02"
+  },
+  "/collectibles/jim-mahfood/pop-life-print/": {
+   "h": "5109d431771a7418fa93d1297b9bb78a2bb4a90e7fafddf055d25fc6925fff96",
    "d": "2026-08-02"
   },
   "/comics/star-wars-special/1/secret-rare/": {
@@ -2933,12 +2933,12 @@
    "h": "0a4774efe82b62a0ce4f66b6a623b88a0d8b35fb5f45a77f12c4069cc6fbedde",
    "d": "2026-08-02"
   },
-  "/collectibles/veve-logos/veve-logo-white-red/": {
-   "h": "d422fca6c5da11061697326ac554b622797777cc3770f9362ad67b2be9948adb",
-   "d": "2026-08-02"
-  },
   "/collectibles/teenage-mutant-ninja-turtles-raphael/raphael-classic-special-edition/": {
    "h": "c247a4cf4fe1a982cd51225edd0dc92fb635cadc7cb71df2efdb333957a043e6",
+   "d": "2026-08-02"
+  },
+  "/collectibles/veve-logos/veve-logo-white-red/": {
+   "h": "d422fca6c5da11061697326ac554b622797777cc3770f9362ad67b2be9948adb",
    "d": "2026-08-02"
   },
   "/collectibles/brandalised-flower-bomber-series-mcp/flower-bomber-street-cleaner-edition/": {
@@ -3621,13 +3621,13 @@
    "h": "16b21cbe383c63f695186059cdbca7ac7c480bbbccd5f2489baa5bb37034a046",
    "d": "2026-08-01"
   },
-  "/collectibles/guardians-of-the-galaxy-vol-3-mightys/cosmo/": {
-   "h": "eca0b8d3591022be94a19c5e73fe55c2ff865ffd0adc540606cff3b3dd77a76a",
-   "d": "2026-07-31"
-  },
   "/collectibles/edo-stormtrooper/edo-stormtrooper-drawn-and-ready/": {
    "h": "d382f26258285ccc3a9f910f398839b5313335815b7ee4ddfd02813b15dc05d9",
    "d": "2026-07-29"
+  },
+  "/collectibles/guardians-of-the-galaxy-vol-3-mightys/cosmo/": {
+   "h": "eca0b8d3591022be94a19c5e73fe55c2ff865ffd0adc540606cff3b3dd77a76a",
+   "d": "2026-07-31"
   },
   "/collectibles/spider-man-2099-series-1/spider-man-2099-shadow-protocol/": {
    "h": "869ea38ecabcbc34e0b0f0cdd940a8505f22ec3a36082b7d4c12f7079b6e0077",
@@ -4201,13 +4201,13 @@
    "h": "a685878fab87870a26cd41dea56c9b7da01748f3b05d8d1f3d5b7538763cc4d9",
    "d": "2026-07-30"
   },
-  "/collectibles/the-book-of-boba-fett-movie-props/boba-fett-s-belt/": {
-   "h": "e4e334c359652d484803b82608dbdc041f5caa626363d9f94b3314be9b74aa0c",
-   "d": "2026-08-02"
-  },
   "/collectibles/imperial-royal-guard/edo-imperial-royal-guard-lunging-press/": {
    "h": "d04f88ad9a6b422368669b0b4417cb3b01b194aef72b9e1fa7001f49c210b871",
    "d": "2026-07-29"
+  },
+  "/collectibles/the-book-of-boba-fett-movie-props/boba-fett-s-belt/": {
+   "h": "e4e334c359652d484803b82608dbdc041f5caa626363d9f94b3314be9b74aa0c",
+   "d": "2026-08-02"
   },
   "/collectibles/the-feeshy-underworld-series-1/the-endoplasmic-butterflyfeesh/": {
    "h": "898398addb85736152d1e7c7a5a15e2a4997e65dc8d6c3e8c8d0594e5a8614c8",
@@ -4321,6 +4321,10 @@
    "h": "b4f8caf16925bfbfefd9b38820ccd3a22cdd9cdf2d06c330cc8004a9fbdd1029",
    "d": "2026-08-02"
   },
+  "/collectibles/star-wars-death-troopers-series-2/death-trooper-e-11d-prone/": {
+   "h": "1435e5b3c3d8fd2b776cef342707ae9c2a9332a924b8c524de8466a0aac16196",
+   "d": "2026-07-29"
+  },
   "/collectibles/lamborghini-gallardo/gallardo-giallo-midas/": {
    "h": "47f93b1f8385e405858e9b2248e055a428c12582a0e26dc25d497a51405c88b3",
    "d": "2026-08-02"
@@ -4328,10 +4332,6 @@
   "/collectibles/lamborghini-gallardo/gallardo-nero-noctis/": {
    "h": "358e5c7a4b950ff6e25ba26f3374ed209ef10182236a77546879bfccbe263154",
    "d": "2026-07-31"
-  },
-  "/collectibles/star-wars-death-troopers-series-2/death-trooper-e-11d-prone/": {
-   "h": "1435e5b3c3d8fd2b776cef342707ae9c2a9332a924b8c524de8466a0aac16196",
-   "d": "2026-07-29"
   },
   "/collectibles/matt-murdock/matt-murdock-shadow-of-daredevil/": {
    "h": "ad9acf2cd49c66de5314da5ad1bfb539c2f884e0c05657a834d3e3f748298211",
@@ -4693,6 +4693,10 @@
    "h": "2fa288fc1acf0c138d19994524f553b51f3103a0e0bb5f3220e6d435c169d192",
    "d": "2026-08-01"
   },
+  "/collectibles/edo-scout-trooper/edo-scout-trooper-take-aim/": {
+   "h": "8eb01674ec5c64fe707fef4bfe0de384e336433fada414a60d27e774515e3858",
+   "d": "2026-08-01"
+  },
   "/collectibles/live-action-ultraman/ultraseven/": {
    "h": "b8b248cf30e54884b3f96400b38ea1f0fef9b456e75114783dff34886e089cfb",
    "d": "2026-08-01"
@@ -4700,10 +4704,6 @@
   "/collectibles/bond-60th-anniversary-poster-series-2/the-spy-who-loved-me-german-special-display-poster/": {
    "h": "149c2630a49e9fde5ea6f930a810eea038ec3dfeec6fe4aac1fbff7c2610f562",
    "d": "2026-07-29"
-  },
-  "/collectibles/edo-scout-trooper/edo-scout-trooper-take-aim/": {
-   "h": "8eb01674ec5c64fe707fef4bfe0de384e336433fada414a60d27e774515e3858",
-   "d": "2026-08-01"
   },
   "/collectibles/solo-leveling-sung-jinwoo-frames/e-rank-hunter-frame/": {
    "h": "17a312cdc2be2c2ceed2afb174e2b0dc4a339354a67d432ddae9221b1f8e8fb6",
