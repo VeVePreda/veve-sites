@@ -75,6 +75,23 @@ let refuses = 0;        // uuid de forme invalide
  *  ne vendent pas de profondeur (vevewiki) ne paient pas cette écriture. */
 export function ouvrir() {
   if (actif) return;
+  // 🔴 SOUPAPE D'URGENCE (03/08/2026). La reserve n'avait JAMAIS tourne sur de
+  // vraies donnees quand elle a ete livree : hors reseau, `engine/data/sample`
+  // n'a pas de vrais uuid, donc la liste blanche les refuse tous et le chemin
+  // complet n'est jamais exerce. Le A-LIRE du lot 27 le disait — c'est
+  // maintenant un risque materialise, pas une precaution.
+  // ⭐ ELLE NE COUTE RIEN AUJOURD'HUI : `SESSION_API` n'est pas renseignee,
+  // donc personne ne franchit `price_history`, donc personne ne demande la
+  // reserve. La couper ne prive AUCUN abonne — il n'y en a pas encore.
+  // ⛔ C'EST UN CONTOURNEMENT, PAS UN REGLAGE. Une variable qui desactive un
+  // garde-fou et qu'on oublie est exactement le profil du secret jamais
+  // renseigne : elle se perime en silence. Le Dockerfile la CRIE a chaque
+  // build pour qu'elle ne devienne pas l'etat normal.
+  if (process.env.RESERVE_OFF === '1') {
+    console.log('[reserve] DESACTIVEE par RESERVE_OFF=1 — aucun historique complet ne sera ecrit, '
+      + '/api/historique/[uuid] rendra 404 pour tout le monde. Contournement temporaire.');
+    return;
+  }
   // ⛔ On repart d'un dossier VIDE. Un artefact laissé par un build précédent
   // servirait l'historique d'hier à un abonné, sans qu'aucune erreur ne le
   // dise — et c'est le genre de reste qui survit à un rollback.

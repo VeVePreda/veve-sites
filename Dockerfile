@@ -148,7 +148,22 @@ RUN WAREHOUSE_OFFLINE=1 npm run test:renommage
 # l'historique est deja public, et l'ecrire couterait des dizaines de Mo pour
 # proteger ce que la page donne. Sans ce mkdir, le `COPY /app/.reserve` de
 # l'etape suivante ferait echouer le build de vevewiki sur une source absente.
-RUN export RENDERING=$(cat /app/.rendering); npm run build; mkdir -p /app/.reserve
+# 🔴🔴 `&&` ET NON `;` — CORRIGE LE 03/08/2026, C'ETAIT MA FAUTE (lot 27).
+# En ajoutant `mkdir -p /app/.reserve` APRES le build, j'ai ecrit :
+#     npm run build; mkdir -p /app/.reserve
+# Avec `;`, le code de sortie de l'ETAPE est celui de la DERNIERE commande —
+# donc celui du `mkdir`, qui reussit toujours. Un build Astro qui echoue
+# passait desormais AU VERT, et l'erreur ne reapparaissait qu'a l'etape
+# suivante, sous un message qui pointe ailleurs :
+#     « ERREUR: rendering:server mais pas de dist/server/entry.mjs
+#       — adaptateur Node absent ? »
+# ⭐⭐ UN GARDE-FOU QUI ECHOUE OUVERT, ET C'EST MOI QUI L'AI INTRODUIT. C'est
+# exactement le defaut de `getattr(…, ())` : l'erreur reelle est avalee et
+# remplacee par un diagnostic plausible mais faux. Ici le compilateur Astro
+# CRIAIT, et le Dockerfile l'a rendu muet.
+# ⭐ `set -e` en plus du `&&` : ceinture et bretelles sur une ligne qui decide
+# si 8 500 pages existent.
+RUN set -e; export RENDERING=$(cat /app/.rendering); npm run build && mkdir -p /app/.reserve
 
 # 🔴 LE GARDE-FOU : le mode annonce et la forme produite doivent coincider.
 # Sans lui, l'incoherence se decouvre en production, en servant des pages
@@ -264,7 +279,13 @@ RUN set -e; \
     MODE=$(cat /app/.rendering); \
     if [ "$MODE" = "server" ]; then \
       n=$(find .reserve -name '*.json' | wc -l); \
-      [ "$n" -gt 0 ] || { echo "ERREUR: mode server mais la reserve est VIDE — les abonnes n'auraient aucun historique"; exit 1; }; \
+      if [ "${RESERVE_OFF:-0}" = "1" ]; then \
+        echo "⚠️ RESERVE_OFF=1 : la reserve est VOLONTAIREMENT desactivee."; \
+        echo "   /api/historique/[uuid] rendra 404 pour TOUT LE MONDE."; \
+        echo "   ⛔ C'est un CONTOURNEMENT, pas un reglage : le retirer des que la cause est connue."; \
+      else \
+        [ "$n" -gt 0 ] || { echo "ERREUR: mode server mais la reserve est VIDE — les abonnes n'auraient aucun historique"; exit 1; }; \
+      fi; \
       echo "reserve : $n fiche(s) d'historique complet, hors de dist/"; \
     fi
 # Les deux configurations voyagent dans l'image ; le lanceur choisit.
