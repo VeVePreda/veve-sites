@@ -32,11 +32,21 @@ export const CHAMPS = {
   t: 'item.type',        pts: 'item.totalPoints',
 };
 // ⛔ CEUX-LÀ N'EXISTENT PAS, ET NE DOIVENT PAS ÊTRE FABRIQUÉS.
-//    omi/od1/od7 = plancher StackR (aucun collecteur) · usd = $/MCP (aucun
-//    taux) · d1 = variation 24 h (le moteur ne garde que 7 j et 30 j) ·
+//    omi/od1/od7 = plancher StackR (aucun collecteur) ·
+//    d1 = variation 24 h (le moteur ne garde que 7 j et 30 j) ·
 //    dem = fiche de démonstration (notion propre à la maquette) ·
 //    fav = favori (demande un compte).
-export const ABSENTS = new Set(['omi', 'od1', 'od7', 'usd', 'd1', 'dem', 'fav']);
+//
+// ✅ 03/08/2026 — `usd` ($/MCP) EST SORTI DE CETTE LISTE. Il y figurait pour
+// « aucun taux », un motif qui était faux : le floor VeVe est déjà en gems ≈ $.
+// Ce qui manquait était le dénominateur MCP, désormais dans `vitrine.mjs`.
+// ⭐⭐ UNE LISTE D'IMPOSSIBLES SE RELIT, ELLE NE SE CONSULTE PAS. Chaque nom
+// qui y dort porte une raison écrite un jour donné ; celle-ci avait survécu à
+// sa cause et faisait refuser la traduction d'une cellule calculable.
+// ⛔ Retirer un nom d'ici ne remplit RIEN tout seul : le gabarit doit porter
+// le calcul (cf. `parMcp` dans Market.astro). Cette liste dit ce que le
+// transpileur s'interdit d'inventer, pas ce que le moteur sait faire.
+export const ABSENTS = new Set(['omi', 'od1', 'od7', 'd1', 'dem', 'fav']);
 
 export function porter(src, nom, { strict = true } = {}) {
   const i = src.indexOf(nom);

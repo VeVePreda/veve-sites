@@ -15,13 +15,61 @@
 // `rar--secret_rare`, qui n'existe dans aucune feuille — les six couleurs de
 // rareté étaient donc absentes du site depuis le début.
 export const RAR = {
-  COMMON:       { cl: 'rar--common',   l: 'Common',       mcp: 0.25 },
-  UNCOMMON:     { cl: 'rar--uncommon', l: 'Uncommon',     mcp: 0.50 },
-  RARE:         { cl: 'rar--rare',     l: 'Rare',         mcp: 2.00 },
-  ULTRA_RARE:   { cl: 'rar--ultra',    l: 'Ultra Rare',   mcp: 3.00 },
-  SECRET_RARE:  { cl: 'rar--secret',   l: 'Secret Rare',  mcp: 6.00 },
-  ARTIST_PROOF: { cl: 'rar--proof',    l: 'Artist Proof', mcp: 6.00 },
+  COMMON:       { cl: 'rar--common',   l: 'Common' },
+  UNCOMMON:     { cl: 'rar--uncommon', l: 'Uncommon' },
+  RARE:         { cl: 'rar--rare',     l: 'Rare' },
+  ULTRA_RARE:   { cl: 'rar--ultra',    l: 'Ultra Rare' },
+  SECRET_RARE:  { cl: 'rar--secret',   l: 'Secret Rare' },
+  ARTIST_PROOF: { cl: 'rar--proof',    l: 'Artist Proof' },
 };
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LE BARÈME MCP — DEUX TABLES, PAS UNE
+// ═══════════════════════════════════════════════════════════════════════════
+// Source : https://www.veve.me/blog/veve/mcp/veve-master-collector-program-earning-mcp-points/
+//
+// 🔴 CORRIGÉ LE 03/08/2026. `RAR[r].mcp` portait UN SEUL barème — celui des
+// COMICS — et il était servi à TOUTES les pièces. Un collectible Common
+// affichait donc « 0,25 MCP » quand il en rapporte 1,00, et un Rare « 2,00 »
+// quand il en rapporte 1,25. En production, sur un site de cotes.
+//
+// ⭐⭐⭐ DEUX POPULATIONS QUI PARTAGENT UN VOCABULAIRE NE PARTAGENT PAS SES
+// VALEURS. « Rare » nomme la même rareté chez les comics et les collectibles,
+// et ne vaut pas la même chose. Le mot commun avait fait croire à un barème
+// commun — la table n'a jamais été fausse, elle était INCOMPLÈTE d'un axe.
+//
+// ⭐ Les collectibles ne suivent pas un barème mais UNE BASE PLUS UN BONUS :
+// 1,00 par collectible détenu, plus +0,25 (Rare), +0,50 (Ultra Rare),
+// +5,00 (Secret Rare). D'où Common ET Uncommon à 1,00 — ce n'est pas une
+// coquille, ni l'un ni l'autre n'a de bonus.
+//
+// ⚠️ CE QUE CE CHIFFRE N'EST PAS : le rendement d'une PREMIÈRE copie, hors
+// bonus. VeVe applique des doublons décroissants (2ᵉ comic à 50 %, 2ᵉ
+// collectible à 0,75), un bonus de bas numéro (+50 % comics, +0,5 collectibles)
+// et des points de Set. Toute étiquette publiée doit le dire.
+//
+// ⛔ ARTIST PROOF N'EST PAS DANS LA TABLE DE VEVE. Côté collectibles, les 111
+// lignes du catalogue le donnent à 1,00 (la base, sans bonus) : c'est une
+// MESURE. Côté comics, personne ne l'a publié et je n'ai rien mesuré : la
+// valeur reste `undefined`, et l'affichage rendra un tiret NU — pas un tiret
+// « en attente de collecte ». ⭐ La valeur 6,00 qui s'y trouvait avant était
+// une invention : elle recopiait Secret Rare faute de mieux.
+const MCP = {
+  comic: {
+    COMMON: 0.25, UNCOMMON: 0.50, RARE: 2.00, ULTRA_RARE: 3.00,
+    SECRET_RARE: 6.00,
+  },
+  collectible: {
+    COMMON: 1.00, UNCOMMON: 1.00, RARE: 1.25, ULTRA_RARE: 1.50,
+    SECRET_RARE: 6.00, ARTIST_PROOF: 1.00,
+  },
+};
+
+/** Points MCP quotidiens d'une PREMIÈRE copie, ou `undefined` si le barème ne
+ *  connaît pas ce couple (rareté, type). ⛔ Jamais de repli sur l'autre
+ *  catégorie : c'est exactement l'erreur que ce lot répare. */
+export const mcpPoints = (rarete, type) =>
+  MCP[type === 'comic' ? 'comic' : 'collectible'][rarete];
 
 // Les six géométries, en 24×24, CREUSES.
 // ⭐ Creuses et non pleines : une forme pleine devient une pastille de couleur

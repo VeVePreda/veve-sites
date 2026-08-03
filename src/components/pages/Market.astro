@@ -8,18 +8,27 @@
 // `f-b`, `cpt-f`, `seg-p`, `tuiles`, `tuile__hd/__off/__b/__n` : ce sont les
 // noms de `maquette-veveprice.html`, et le thème ne connaît qu'eux.
 //
-// ⛔ TROIS COLONNES DE LA MAQUETTE ONT ÉTÉ RETIRÉES, PAS REMPLIES :
+// ⛔ DEUX COLONNES DE LA MAQUETTE SONT RETIRÉES, PAS REMPLIES :
 //    · plancher StackR (OMI) — aucun collecteur ne le remonte ;
-//    · $ par MCP            — aucun taux de conversion dans le moteur ;
 //    · bouton favori        — demande un compte.
 // ⭐ Le transpileur les a signalées et a REFUSÉ de les traduire. Sur un site
 // de cotes, une valeur fabriquée est la seule faute qu'on ne rattrape jamais —
 // mieux vaut une colonne de moins qu'une colonne qui ment.
+//
+// ✅ 03/08/2026 — « $ par MCP » A QUITTÉ CETTE LISTE. Elle y était pour
+// « aucun taux de conversion dans le moteur », et c'était FAUX : le floor VeVe
+// est déjà en GEMS ≈ $, il n'y a aucune conversion à faire. Le seul obstacle
+// réel était le DÉNOMINATEUR — les points MCP — qu'on croyait devoir collecter
+// alors que c'est un barème publié, désormais dans `vitrine.mjs`.
+// ⭐⭐⭐ UNE COLONNE DÉCLARÉE IMPOSSIBLE MÉRITE D'ÊTRE RE-INSTRUITE : le motif
+// invoqué (« pas de taux ») avait survécu à sa cause et se citait tout seul.
+// ⏳ La 2ᵉ ligne (OMI/MCP) reste en attente : elle dépend du plancher StackR,
+// et lui manque vraiment.
 import Base from '../../layouts/Base.astro';
 import BarreAcces from '../BarreAcces.astro';
 import { dataset } from '../../../engine/lib/dataset.mjs';
 import { t, localize, numberLocale } from '../../../engine/lib/i18n.mjs';
-import { rar, forme, delta, gemsM, omiM, RAR, sparkline } from '../../../engine/lib/vitrine.mjs';
+import { rar, forme, delta, gemsM, omiM, RAR, mcpPoints, sparkline } from '../../../engine/lib/vitrine.mjs';
 
 const { lang } = Astro.props;
 const ds = await dataset();
@@ -27,15 +36,36 @@ const nf = numberLocale[lang] || 'en-GB';
 const money = (v) => (v === null || v === undefined ? '—' : v.toLocaleString(nf, { maximumFractionDigits: 2 }));
 
 // ⭐ LE MCP EST UNE CONSTANTE DU BARÈME, PAS UNE DONNÉE À COLLECTER.
-// `RAR` porte la valeur de chaque rareté (Common 0,25 … Secret Rare 6,00).
+// 🔴 MAIS IL Y A DEUX BARÈMES, ET CETTE PAGE N'EN SERVAIT QU'UN (corrigé le
+// 03/08/2026) : celui des comics, appliqué aussi aux collectibles. Un
+// collectible Common annonçait 0,25 quand il rapporte 1,00.
+// ⇒ `mcpPoints(rareté, type)` — le type vient de la fiche, jamais d'un défaut.
 // ⚠️ Une rareté inconnue rend un tiret NU, sans `data-attente` : ce n'est pas
 // une donnée en attente de collecte, c'est une rareté que le barème ne connaît
 // pas. Les deux tirets ne veulent pas dire la même chose, ils ne portent donc
 // pas la même marque — c'est toute la règle de cette page.
-const mcpDe = (r) => {
-  const v = RAR[r]?.mcp;
+const mcpDe = (r, type) => {
+  const v = mcpPoints(r, type);
   return v === undefined ? '—' : `${v.toFixed(2)} ${t(lang, 'movers.mcp')}`;
 };
+
+// ⭐⭐ GEMS PAR POINT MCP — le prix d'un point de rendement quotidien.
+// `floor` est en GEMS ≈ $ : aucune conversion, aucun taux, une division.
+// ⛔ TROIS REFUS DÉLIBÉRÉS, chacun payé ailleurs dans ce projet :
+//   · pas de floor, ou barème muet -> on ne rend RIEN (l'appelant décide du
+//     tiret et de sa marque) ;
+//   · MCP à 0 ou négatif -> pas d'infini déguisé en aubaine ;
+//   · aucun arrondi avant l'affichage — arrondir tôt, c'est la virgule qui
+//     saute, en plus lent.
+// ⚠️ Le floor est un prix DEMANDÉ : ce ratio est un PLAFOND de rendement, pas
+// un rendement observé. L'infobulle le dit, et elle doit continuer de le dire.
+const parMcp = (i) => {
+  const m = mcpPoints(i.rarity, i.type);
+  if (!m || m <= 0) return null;
+  if (i.floor === null || i.floor === undefined) return null;
+  return i.floor / m;
+};
+const noteMcp = t(lang, 'movers.perMcpNote');
 
 // Le même libellé pour tous les tirets en attente : une seule phrase à
 // traduire, et surtout une seule à corriger le jour où elle change.
@@ -179,22 +209,33 @@ const nbComic = toutes.length - nbColl;
           🔴 CE QUE LA DONNÉE NE FOURNIT PAS, ET IL FAUT LE LIRE AVANT DE
           S'ÉTONNER DES TIRETS. `_DynState` de `catalog_export.py` ne rend que
           `floor` et `listings` ; `outils/porter.mjs` recense les absents noir
-          sur blanc : ABSENTS = {omi, od1, od7, usd, d1, dem, fav}. Donc :
+          sur blanc : ABSENTS = {omi, od1, od7, d1, dem, fav}. Donc :
             · plancher StackR en OMI ........ aucun collecteur
-            · $/MCP ......................... aucun taux de change
+            · OMI/MCP ....................... dépend de ce plancher
             · variation 24 h ................ le moteur ne garde que 7 j et 30 j
             · listings StackR ............... aucun collecteur
             · liens VeVe et StackR .......... aucune URL dans la donnée
           Arbitrage Preda : AFFICHER QUAND MÊME, avec des tirets.
+
+          ✅ 03/08/2026 — « $/MCP, aucun taux de change » A QUITTÉ CETTE LISTE,
+          parce que ce motif était FAUX : le floor VeVe est déjà en gems ≈ $.
+          Ce qui manquait était le DÉNOMINATEUR (les points MCP), qu'on croyait
+          devoir collecter alors que c'est un barème publié par VeVe.
+          ⭐⭐⭐ UNE LISTE D'IMPOSSIBLES SE RELIT, ELLE NE SE CONSULTE PAS. Le
+          motif écrit un jour donné avait survécu à sa cause, et il se citait
+          tout seul à chaque lecture de ce fichier.
 
           ⭐⭐ ET C'EST POURQUOI CHAQUE TIRET EN ATTENTE PORTE `data-attente`
           ET UN `title`. Un « — » qui veut dire « aucune offre » et un « — »
           qui veut dire « pas encore collecté » se ressemblent et sont
           l'INVERSE l'un de l'autre. Sur un site de cotes, laisser les deux se
           confondre est la faute qu'on ne rattrape pas.
-          ⛔ NE JAMAIS remplir ces cases par un calcul, un taux deviné ou une
-          conversion approchée. Le jour où le lot `scrapeur-veve` livre les
-          colonnes, elles tombent dedans SANS toucher à ce gabarit. */}
+          ⛔ NE JAMAIS remplir ces cases par un TAUX DEVINÉ ou une conversion
+          approchée. ⚠️ Un RATIO de deux grandeurs qu'on possède déjà (un
+          plancher collecté ÷ un barème publié et sourcé) n'est pas une valeur
+          fabriquée — mais il doit dire d'où il vient : `movers.perMcpNote`
+          porte cette phrase, et le floor étant un prix DEMANDÉ, le ratio est
+          un PLAFOND de rendement, jamais un rendement observé. */}
       <thead><tr>
         <th scope="col" class="rang">#</th>
         <th scope="col" class="tri">{t(lang, 'movers.item')}</th>
@@ -226,7 +267,7 @@ const nbComic = toutes.length - nbColl;
               c'est une constante du barème VeVe, pas une donnée à collecter. */}
           <td class="c-3"><span class="m2">
             <span class="m2__a"><Fragment set:html={rar(i.rarity)} /></span>
-            <span class="m2__b num">{mcpDe(i.rarity)}</span>
+            <span class="m2__b num">{mcpDe(i.rarity, i.type)}</span>
           </span></td>
 
           {/* SUPPLY — propriété de la PIÈCE, pas d'un marché : une seule
@@ -254,10 +295,20 @@ const nbComic = toutes.length - nbColl;
             <span class="m2__b muted" data-attente title={attente}>—</span>
           </span></td>
 
-          {/* $/MCP — demande un taux de change qu'aucune source ne fournit. */}
+          {/* $/MCP — ligne 1 : GEMS par point MCP (floor ÷ barème). Le floor
+              VeVe est déjà en gems ≈ $ : rien à convertir.
+              ligne 2 : OMI par point MCP — VRAIMENT en attente, elle demande
+              le plancher StackR que personne ne collecte encore.
+              ⭐ Les deux tirets de cette cellule ne disent PAS la même chose :
+              celui du haut (sans `data-attente`) veut dire « le barème ne
+              connaît pas cette rareté », celui du bas « pas encore collecté ». */}
           <td class="n c-5"><span class="m2">
-            <span class="m2__a muted" data-attente title={attente}>—</span>
-            <span class="m2__b muted" data-attente title={attente}>—</span>
+            {parMcp(i) === null
+              ? <span class="m2__a muted">—</span>
+              : <span class="m2__a num" title={noteMcp}>
+                  <Fragment set:html={gemsM()} /> {money(parMcp(i))}
+                </span>}
+            <span class="m2__b muted" data-attente title={attente}><Fragment set:html={omiM()} /> —</span>
           </span></td>
 
           {/* ⚠️ Moins de 2 relevés => AUCUNE courbe, jamais une ligne plate :
