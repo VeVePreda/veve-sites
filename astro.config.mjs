@@ -2,6 +2,7 @@ import { defineConfig } from 'astro/config';
 import node from '@astrojs/node';
 import fonctionnalitesEteintes from './engine/lib/astro_features.mjs';
 import routesCompte from './engine/lib/astro_routes_compte.mjs';
+import reserveAnalytics from './engine/lib/astro_reserve_analytics.mjs';
 import { satteri } from '@astrojs/markdown-satteri';
 import figuresMarkdown from './engine/lib/figures_markdown.mjs';
 
@@ -34,7 +35,7 @@ export default defineConfig({
   // enfin tourner le middleware de session : Astro ne l'appelle que pour les
   // routes rendues a la demande, et elles etaient toutes pre-generees en
   // silence (`prerender` ecrit en EXPRESSION, jamais evaluee).
-  integrations: [fonctionnalitesEteintes(), routesCompte(mode)],
+  integrations: [fonctionnalitesEteintes(), routesCompte(mode), reserveAnalytics(mode)],
   // `![legende](figure:mon-id)` dans un article .md du depot -> figure de
   // donnees tracee AU BUILD, exactement comme pour un corps venu du Sheet.
   // Une seule syntaxe pour les deux pipelines.

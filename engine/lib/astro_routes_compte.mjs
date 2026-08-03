@@ -71,6 +71,11 @@ const ROUTES_COMPTE = [
   'pages/inscription/index.astro',
   'pages/api/demo.js',
   'pages/api/inscription.js',
+  // ⭐⭐ LOT 44 — les modules abonnés d'Analytics. Arbitrage Preda du 03/08 :
+  // TOUT est derrière le mur. Cette route lit la session et sert `.reserve/` ;
+  // pré-générée, elle deviendrait un fichier figé répondant « pas de session »
+  // à un abonné parfaitement connecté. C'est la panne du lot 24, mot pour mot.
+  'pages/api/analytics/[module].js',
 ];
 
 const normalise = (p) => String(p || '').replace(/\\/g, '/');

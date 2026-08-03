@@ -1462,3 +1462,22 @@ header.site.site-h .wrap{
 
 /* La colonne des liens n'a pas à être aussi large que le nom d'une pièce. */
 .tbl-hote td .m2__a, .tbl-hote td .m2__b{ white-space:nowrap; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ⑰ LES MODULES DU GRAND LIVRE — Analytics.               LOT 44, 03/08/2026
+   ═══════════════════════════════════════════════════════════════════════════
+   ⭐ `.led__hote` est le conteneur que le script remplit après réponse de
+   `/api/analytics/`. Il porte une règle parce qu'il est ÉMIS : une classe
+   émise sans règle coûte plus cher qu'une classe absente — elle a l'air d'être
+   là. C'est le contrat gabarit ↔ thème, et il vaut aussi pour trois lignes.
+
+   ⚠️ `min-height` et pas `height` : le bloc contient successivement « chargement »,
+   puis un cadenas, puis un tableau de douze lignes. Une hauteur fixe ferait
+   sauter la page à chaque réponse d'API — et sur quatre modules qui répondent
+   dans un ordre imprévisible, la page danserait sous le curseur. */
+.led__hote{ min-height:44px; display:grid; align-content:start; gap:var(--s3); }
+/* Les tableaux servis par l'API n'ont pas de largeur imposée : ils tiennent la
+   colonne de leur panneau, et débordent en défilement plutôt qu'en écrasant
+   les colonnes de chiffres. */
+.led__hote .tbl-hote{ overflow-x:auto; }
+.led__hote code{ font-family:var(--tech); font-size:var(--t-xs); color:var(--text-2); }

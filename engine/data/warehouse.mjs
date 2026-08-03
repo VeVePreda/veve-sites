@@ -29,6 +29,52 @@ const SOURCES = {
     prev: base('prices-full-prev', 'prices_baselines.csv.gz'),
     sample: 'prices_baselines.csv',
   },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // LES DÉRIVÉS DU GRAND LIVRE — lot 44, 03/08/2026
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ⭐⭐ RIEN À CALCULER, RIEN À PUBLIER : CES FICHIERS EXISTENT DÉJÀ.
+  // `scraper/ledger_derived.py` (jetonveve) les produit dans `derived/`, et
+  // `analytics.yml` fait `gh release upload analytics-derived derived/*` — un
+  // GLOB, donc tout y passe. La release `analytics-derived-prev` porte le N-1,
+  // exactement comme `prices-full-prev`.
+  //
+  // ⚠️ J'AVAIS CONCLU L'INVERSE. Cherchant `pulse.csv` dans les workflows, je
+  // n'avais rien trouvé et j'en avais déduit que le fichier n'était pas publié.
+  // ⭐⭐⭐ **Une recherche par NOM DE FICHIER ne trouve jamais un glob.**
+  // L'absence de mention n'est pas l'absence de publication : il faut lire ce
+  // que la commande ENVOIE, pas chercher le nom qu'on attend.
+  //
+  // ⛔ CES DONNÉES SONT INTÉGRALEMENT RÉSERVÉES (arbitrage Preda du 03/08 :
+  // « tout derrière le mur »). Elles ne doivent JAMAIS entrer dans `dist/` —
+  // elles s'écrivent dans `.reserve/` et ne sortent que par `/api/analytics/`.
+  // C'est l'architecture qui protège, pas le contrôle d'accès : la panne du
+  // lot 34 n'a rien laissé fuiter POUR CETTE RAISON, pas grâce à `franchit()`.
+  pulse: {
+    url: base('analytics-derived', 'pulse.csv'),
+    prev: base('analytics-derived-prev', 'pulse.csv'),
+    sample: 'pulse.csv',
+  },
+  walletSize: {
+    url: base('analytics-derived', 'wallet_size.csv'),
+    prev: base('analytics-derived-prev', 'wallet_size.csv'),
+    sample: 'wallet_size.csv',
+  },
+  whales: {
+    url: base('analytics-derived', 'whales.csv'),
+    prev: base('analytics-derived-prev', 'whales.csv'),
+    sample: 'whales.csv',
+  },
+  corner: {
+    url: base('analytics-derived', 'corner_full.csv.gz'),
+    prev: base('analytics-derived-prev', 'corner_full.csv.gz'),
+    sample: 'corner_full.csv',
+  },
+  metaLedger: {
+    url: base('analytics-derived', 'meta_ledger.csv'),
+    prev: base('analytics-derived-prev', 'meta_ledger.csv'),
+    sample: 'meta_ledger.csv',
+  },
 };
 
 // ===========================================================================
@@ -243,3 +289,11 @@ export async function streamPrices(onRow) {
 
 export const getCatalogue = () => load('catalogue');
 export const getBaselines = () => load('baselines');
+
+// Les dérivés du grand livre. ⚠️ Réservés : ne jamais les passer à un composant
+// rendu au build — ils vont dans `.reserve/`, servis par `/api/analytics/`.
+export const getPulse = () => load('pulse');
+export const getWalletSize = () => load('walletSize');
+export const getWhales = () => load('whales');
+export const getCorner = () => load('corner');
+export const getMetaLedger = () => load('metaLedger');

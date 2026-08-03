@@ -167,4 +167,170 @@ const figuresPro = [...reg.values()].filter((f) => !FIG_DEMO.includes(f.id));
   ) : (
     <Gate lang={lang} gate="modules" total={reg.size} shown={figuresDemo.length} />
   )}
+
+  {/* ═══════════════════════════════════════════════════════════════════════
+      LES MODULES DU GRAND LIVRE — lot 44, 03/08/2026
+      ═══════════════════════════════════════════════════════════════════════
+      Demande Preda du 03/08 : porter sur Analytics les modules du Sheet.
+      Arbitrage du même jour : **tout derrière le mur.**
+
+      ⭐⭐ AUCUN CHIFFRE N'EST ÉCRIT ICI, ET C'EST LE POINT.
+      Cette page est PRÉ-GÉNÉRÉE : ce qu'elle contient est le même fichier pour
+      tout le monde et pour toujours. Y mettre un chiffre réservé — même flouté,
+      même derrière un `{ouvert && …}` évalué au build — le livrerait à qui lit
+      la source. Le 03/08 au matin, un palier de démo a fait changer 374 pages
+      sur 447 et **rien n'a fuité, parce que la donnée n'était pas dans dist/**.
+      C'est l'architecture qui a tenu, pas `franchit()`.
+      ⛔ Ne JAMAIS remplacer ces conteneurs vides par un rendu au build.
+
+      Le contenu arrive donc par `/api/analytics/<module>`, à la demande, après
+      lecture de la session. Sans droit, l'API répond 401/403 et le bloc affiche
+      son cadenas — le NOM du module et sa promesse, jamais son contenu.
+      ⭐ « Il y a quelque chose ici, et c'est à vous » plutôt que « il n'y a rien
+      ici » : c'est la différence entre un mur qui vend et un mur qui frustre. */}
+  <div class="sect-t sect-t--gd"><h2 class="mono-t">{t(lang, 'led.title')}</h2>
+    <span class="etiq" id="led-maj"></span></div>
+  <p class="respire" style="max-width:60ch">{t(lang, 'led.lead')}</p>
+
+  <div class="modules" style="margin-top:var(--s4)">
+    {['pulse', 'size', 'whales', 'corner', 'fiche'].map((m) => (
+      <div class="module" id={`led-mod-${m}`}>
+        <span class="module__c">
+          <span class="module__n">{t(lang, `led.${m}`)}</span>
+          <span class="module__d">{t(lang, `led.${m}.d`)}</span>
+        </span>
+      </div>
+    ))}
+  </div>
+
+  {/* ⭐ Un conteneur PAR module, vide, avec son état de repli écrit en dur.
+      Sans JavaScript, le lecteur voit « réservé aux abonnés » — pas une zone
+      blanche qui a l'air cassée. La promesse est tenue par le HTML seul. */}
+  {['pulse', 'size', 'whales', 'corner'].map((m) => (
+    <section class="panneau" style="margin-top:var(--s4)" data-led={m}>
+      <p class="etiq">// {t(lang, `led.${m}`).toUpperCase()}</p>
+      <div class="led__hote"><p class="muted">{t(lang, 'led.locked')}</p></div>
+    </section>
+  ))}
 </Base>
+
+{/* ⚠️ `is:inline` : ce script lit une API privée et ne doit pas être groupé
+    avec le JS public, qui est mis en cache partagé. */}
+<script is:inline define:vars={{
+  L: {
+    locked: t(lang, 'led.locked'), loading: t(lang, 'led.loading'),
+    error: t(lang, 'led.error'), asOf: t(lang, 'led.asOf'),
+    months: t(lang, 'led.months'), years: t(lang, 'led.years'),
+    wallets: t(lang, 'led.wallets'), share: t(lang, 'led.share'),
+    rank: t(lang, 'led.rank'), wallet: t(lang, 'led.wallet'),
+    holdings: t(lang, 'led.holdings'), gini: t(lang, 'led.gini'),
+    holders: t(lang, 'led.holders'), item: t(lang, 'led.item'), on: t(lang, 'led.on'),
+  },
+}}>
+(function () {
+  var CIBLES = { pulse: 'pulse', size: 'wallet_size', whales: 'whales', corner: 'corner_top' };
+  var ech = function (s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  };
+  // ⛔ TOUT PASSE PAR `ech()`. Ces valeurs viennent d'un CSV produit par un
+  // tiers (l'entrepôt) : c'est une donnée d'entrée comme une autre. Un nom de
+  // pièce contenant une balise serait une injection servie par notre domaine —
+  // la même faute que le `src` non assaini des visuels.
+  var num = function (v) {
+    var n = Number(v);
+    return isFinite(n) ? n.toLocaleString() : ech(v);
+  };
+  var tab = function (entetes, lignes) {
+    return '<div class="tbl-hote"><table><thead><tr>'
+      + entetes.map(function (h) { return '<th scope="col">' + ech(h) + '</th>'; }).join('')
+      + '</tr></thead><tbody>'
+      + lignes.map(function (l) {
+        return '<tr>' + l.map(function (c) { return '<td>' + c + '</td>'; }).join('') + '</tr>';
+      }).join('') + '</tbody></table></div>';
+  };
+
+  var rendus = {
+    pulse: function (d) {
+      var m = (d.mois || []).slice(-12);
+      var a = d.annees || [];
+      // ⚠️ « Par semaine » n'existe pas dans la source : `pulse.csv` est un
+      // pulse MENSUEL. On affiche mois et années, on n'invente pas de semaines.
+      return '<p class="etiq">' + m.length + ' ' + ech(L.months) + ' · '
+        + a.length + ' ' + ech(L.years) + '</p>'
+        + tab(['', 'actifs', 'trades', 'acheteurs', 'vendeurs', 'burns', 'listings'],
+          a.concat(m).map(function (r) {
+            return ['<b>' + ech(r.month) + '</b>', num(r.actifs), num(r.trades),
+              num(r.acheteurs), num(r.vendeurs), num(r.burns), num(r.listings)];
+          }));
+    },
+    size: function (d) {
+      var out = '';
+      Object.keys(d).forEach(function (dim) {
+        out += '<p class="etiq" style="margin-top:12px">' + ech(dim) + '</p>'
+          + tab(['', L.wallets, L.share], d[dim].map(function (r) {
+            return ['<b>' + ech(r.bucket) + '</b>', num(r.wallets), ech(r.pct_wallets) + ' %'];
+          }));
+      });
+      return out;
+    },
+    whales: function (d) {
+      var out = '';
+      Object.keys(d).forEach(function (bloc) {
+        // ⚠️ 20 lignes affichées sur les 100 servies : une liste de cent
+        // adresses ne se lit pas, et la couper ici ne cache rien — l'API les
+        // a déjà toutes données à qui a le droit.
+        out += '<p class="etiq" style="margin-top:12px">' + ech(bloc) + '</p>'
+          + tab([L.rank, L.wallet, L.holdings, 'store', 'floor'],
+            d[bloc].slice(0, 20).map(function (r) {
+              return [num(r.rank), '<code>' + ech(String(r.wallet).slice(0, 10)) + '…</code>',
+                num(r.holdings), num(r.value_store), num(r.value_floor)];
+            }));
+      });
+      return out;
+    },
+    corner: function (d) {
+      // ⭐ On affiche le DÉNOMINATEUR. Un « top 20 » sans lui laisse croire que
+      // le catalogue fait vingt pièces.
+      return '<p class="etiq">' + ech(L.on) + ' ' + num(d.total) + '</p>'
+        + tab([L.item, L.gini, L.holders, 'top1 %', 'top10 %'],
+          (d.lignes || []).map(function (r) {
+            return ['<b>' + ech(r.name) + '</b>', ech(r.gini), num(r.holders),
+              ech(r.top1_pct) + ' %', ech(r.top10_pct) + ' %'];
+          }));
+    },
+  };
+
+  Object.keys(CIBLES).forEach(function (cle) {
+    var sec = document.querySelector('[data-led="' + cle + '"]');
+    if (!sec) return;
+    var hote = sec.querySelector('.led__hote');
+    hote.innerHTML = '<p class="muted">' + ech(L.loading) + '</p>';
+    fetch('/api/analytics/' + CIBLES[cle], { headers: { accept: 'application/json' } })
+      .then(function (r) {
+        // ⭐ 401 et 403 ne sont PAS des erreurs : ce sont les réponses normales
+        // d'un mur qui fonctionne. Les traiter comme une panne ferait croire
+        // que le site est cassé alors qu'il fait exactement son travail.
+        if (r.status === 401 || r.status === 403) return { verrou: true };
+        if (!r.ok) throw new Error(String(r.status));
+        return r.json();
+      })
+      .then(function (d) {
+        if (d && d.verrou) { hote.innerHTML = '<p class="muted">🔒 ' + ech(L.locked) + '</p>'; return; }
+        hote.innerHTML = rendus[cle](d);
+      })
+      .catch(function () { hote.innerHTML = '<p class="muted">' + ech(L.error) + '</p>'; });
+  });
+
+  // La date du relevé : un chiffre sans date n'est pas vérifiable.
+  fetch('/api/analytics/meta', { headers: { accept: 'application/json' } })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (d) {
+      if (d && d.run_date) {
+        document.getElementById('led-maj').textContent = L.asOf + ' ' + d.run_date;
+      }
+    })
+    .catch(function () {});
+})();
+</script>

@@ -21,6 +21,7 @@ import Base from '../../layouts/Base.astro';
 import { manifest } from '../../../engine/lib/manifest.mjs';
 import { acces, palierVisiteur, porte, franchit } from '../../../engine/lib/access.mjs';
 import { t, localize, locales } from '../../../engine/lib/i18n.mjs';
+import { comptesActifs } from '../../../engine/lib/features.mjs';
 
 // ⭐ CES PAGES SONT RENDUES À LA DEMANDE : elles peuvent donc lire l'en-tête
 // `Accept-Language`, ce qu'une page pré-générée ne peut pas faire. Autant s'en
@@ -34,6 +35,15 @@ const souhait = (Astro.request.headers.get('accept-language') || '')
 const lang = souhait.find((l) => active.includes(l)) || def;
 const m = manifest();
 const { tiers } = acces();
+// ⛔ DÉCISION PREDA DU 03/08/2026 : vevewiki n'aura JAMAIS d'espace membre.
+// La question était ouverte depuis le lot 42 ; elle est close, on ne la
+// repose pas.
+// ⭐ Même dispositif que `/inscription/` : un `redirect` produit un talon que
+// l'intégration `veve:fonctionnalites-eteintes` efface ensuite. Les deux
+// moitiés vont ENSEMBLE — ce `redirect` seul laisserait une page fantôme, et
+// l'audit SEO rouge en permanence (le défaut du 27/07).
+if (!comptesActifs()) return Astro.redirect('/');
+
 const palier = palierVisiteur(Astro.locals);
 const connecte = palier !== 'visitor';
 

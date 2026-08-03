@@ -48,11 +48,17 @@ const ZONES = [
   // ⭐ LOT 42 — « ajouter une fonctionnalite gatee = ajouter une ligne ici ».
   // On suit le contrat que ce fichier annonce en tete, au lieu d'inventer un
   // second mecanisme d'extinction a cote du premier.
-  // ⚠️ `/compte/` et `/connexion/` ne sont VOLONTAIREMENT pas dans cette liste :
-  // elles emettent de VRAIES pages sur vevewiki (55 Ko, 54 Ko), pas des talons.
-  // Le garde-fou n'y toucherait donc pas — mais surtout, les retirer ferait
-  // disparaitre deux pages, et ca s'annonce. Cf. features.mjs, comptesActifs().
-  { nom: 'comptes', actif: comptesActifs, prefixes: ['/inscription/'] },
+  // ⭐ LOT 44 — `/compte/` et `/connexion/` REJOIGNENT LA ZONE.
+  // Elles emettaient de VRAIES pages sur vevewiki (55 Ko et 54 Ko de
+  // vocabulaire `vitrine` sur un theme qui n'en a aucune regle). Le lot 42 les
+  // avait laissees dehors parce que les gater fait DISPARAITRE deux pages et
+  // que ca se decide. Preda a tranche le 03/08 : vevewiki n'aura jamais
+  // d'espace membre.
+  // ⚠️ Elles ne peuvent etre effacees QUE parce qu'elles emettent desormais un
+  // TALON (le `redirect` ajoute dans chaque page). Sans lui, ce garde-fou ne
+  // les toucherait pas — il refuse d'effacer une vraie page, par conception.
+  { nom: 'comptes', actif: comptesActifs,
+    prefixes: ['/inscription/', '/compte/', '/connexion/'] },
 ];
 
 const estTalon = (html) =>
