@@ -152,7 +152,29 @@ const team = links.team || [];
 const affiliate = links.affiliate || [];
 const fresh = updatedAt ? new Date(updatedAt).toLocaleDateString(dateLocale[lang] || 'en-GB') : null;
 const analytics = m.analytics || {};
-const statsOn = Boolean(analytics.website_id);
+// ═══ LE FOURNISSEUR DE MESURE — audit d'hygiene du 03/08/2026 ═══
+// ⚠️ `analytics.provider` etait DECLARE dans le manifeste et LU NULLE PART : le
+// chemin du script etait ecrit en dur. Ecrire `provider: plausible` n'aurait
+// rien change, et rien ne l'aurait dit.
+// ⭐⭐ C'est le defaut de famille de ce projet en miniature — un reglage pose a
+// un endroit, qu'on croit applique. Deux issues : le lire, ou le supprimer. On
+// le LIT : le reseau vise 15 sites, et le jour ou l'un d'eux mesure ailleurs,
+// la parade doit deja etre en place.
+// ⛔ Une liste FERMEE, et un refus bruyant sur un nom inconnu. Un repli
+//    silencieux vers umami servirait le script d'un tiers depuis notre domaine
+//    — c'est une faute de confidentialite, pas une faute de configuration.
+const MESUREURS = {
+  umami: '/stats/script.js',           // auto-heberge sur Coolify, meme domaine
+  plausible: '/stats/script.js',       // meme chemin : le proxy est cote nginx
+};
+const fournisseur = String(analytics.provider || 'umami').trim().toLowerCase();
+if (analytics.website_id && !MESUREURS[fournisseur]) {
+  throw new Error(`[analytics] provider inconnu : « ${fournisseur} » `
+    + `(connus : ${Object.keys(MESUREURS).join(', ')}). Un provider mal orthographie `
+    + `ne doit pas retomber en silence sur un autre mesureur.`);
+}
+const statsSrc = MESUREURS[fournisseur];
+const statsOn = Boolean(analytics.website_id) && Boolean(statsSrc);
 // ⛔⛔ OÙ VIT LE SÉLECTEUR DE LANGUE — UNE DONNÉE, PAS DU CODE (31/07/2026).
 // La maquette porte ce commentaire depuis des semaines : « LE SÉLECTEUR DE
 // LANGUE A QUITTÉ L'EN-TÊTE (demande de Preda) […] ils vivent maintenant dans
@@ -236,7 +258,7 @@ if (navAttente.length && !globalThis.__navDit) {
 <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 <meta name="generator-ref" content={canary} />
 <meta name="build-time" content={updatedAt || new Date().toISOString()} />
-{statsOn && <script defer src="/stats/script.js" data-website-id={analytics.website_id}></script>}
+{statsOn && <script defer src={statsSrc} data-website-id={analytics.website_id}></script>}
 {/* ⭐⭐ AVANT LES STYLES, ET C'EST LE POINT. Ce script pose l'attribut AVANT que
     la page ne soit peinte. Placé plus bas (ou en fin de body), un lecteur en
     mode nuit verrait un éclair blanc à chaque chargement — visible une fois sur

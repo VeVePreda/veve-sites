@@ -17,6 +17,7 @@ import json
 import pathlib
 import sys
 import tempfile
+import shutil
 import urllib.request
 
 CHEMIN = pathlib.Path(sys.argv[1]) if len(sys.argv) > 1 else (
@@ -89,6 +90,11 @@ def scenario(nom, etat_initial, sitemap, code_http, essai=False, plafond=None):
     finally:
         sys.argv = vieux
     apres = json.loads(f.read_text(encoding='utf-8')).get('urls', {}) if f.exists() else {}
+    # ⭐ NETTOYAGE — audit d'hygiene du 03/08/2026. Un dossier etait cree PAR
+    # SCENARIO et aucun n'etait supprime. ⚠️ On lit `apres` AVANT d'effacer :
+    # inverser les deux lignes rendrait un dictionnaire vide sur tous les
+    # scenarios, et le banc passerait au vert en ne verifiant plus rien.
+    shutil.rmtree(base, ignore_errors=True)
     return apres, reseau.envois
 
 

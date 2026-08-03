@@ -238,7 +238,12 @@ export async function ficheParamsLocalized() {
 }
 
 /** Date de collecte de l'entrepôt — pour le cartouche des figures générées à la
- *  volée. ⚠️ C'est la date du RELEVÉ, pas celle du build : cf. engine/data/entrepot.json. */
+ *  volée. ⚠️ C'est la date du RELEVÉ, pas celle du build.
+ *  🔴 CORRIGÉ LE 03/08/2026 (audit d'hygiène) : ce commentaire renvoyait à
+ *  `engine/data/entrepot.json`, un fichier QUI N'EXISTE PAS. La valeur vient de
+ *  `content.entrepot_collecte` du manifeste — c'est la ligne juste en dessous.
+ *  ⭐ Un commentaire qui nomme un fichier mort envoie le prochain lecteur au
+ *  mauvais endroit, et il le croira : un commentaire a toujours l'air à jour. */
 export function collecteEntrepot() {
   const m = manifest();
   return m.content?.entrepot_collecte || null;

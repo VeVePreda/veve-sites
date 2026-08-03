@@ -82,6 +82,13 @@ def locations(payload):
 
 import tempfile
 base = pathlib.Path(tempfile.mkdtemp(prefix='nginx-'))
+# ⭐⭐ NETTOYAGE DU TEMPORAIRE — audit d'hygiene du 03/08/2026. Ce banc laissait
+# un dossier par execution ; cumules, ils ont rempli le disque et provoque un
+# ENOSPC. ⛔ PAS un `try/finally` : ce fichier appelle `sys.exit()` a quatre
+# endroits avant la fin. `atexit` tourne quand meme — c'est le seul point de
+# sortie commun.
+import atexit, shutil
+atexit.register(lambda: shutil.rmtree(base, ignore_errors=True))
 
 print('\n1. les deux configurations sont-elles valides ?')
 analyses = {}

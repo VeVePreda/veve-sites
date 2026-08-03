@@ -24,7 +24,7 @@
 //
 // Chaque scenario tourne dans un PROCESSUS SEPARE : le jeu de donnees est
 // memoise (cf. test_concurrence), deux etats ne peuvent pas coexister.
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, cpSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, cpSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -32,6 +32,18 @@ import { spawnSync } from 'node:child_process';
 
 const RACINE = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const base = mkdtempSync(join(tmpdir(), 'adresses-comics-'));
+// ⭐⭐ NETTOYAGE DU TEMPORAIRE — audit d'hygiene du 03/08/2026.
+// Ce banc creait un dossier par execution et n'en supprimait aucun. Mesure ce
+// jour-la : 393 Mo dans /sessions/.../tmp, 26 dossiers `acces-*` et 21
+// `adresses-comics-*`, et un `ENOSPC` en plein milieu d'un lot.
+// ⚠️ INVISIBLE DANS DOCKER — conteneur neuf a chaque build. Visible sur une
+// machine de dev, ou sur toute session un peu longue. C'est la meme famille que
+// le `dist/` sali de `test_slugs`, deja corrige une fois : la lecon n'avait pas
+// ete propagee aux voisins.
+// ⛔ PAS UN `try/finally` : ce fichier appelle `process.exit()` a plusieurs
+//    endroits, et un `finally` ne s'execute pas apres un exit explicite. Le
+//    crochet `exit` de Node, si — c'est le SEUL point de sortie commun.
+process.on('exit', () => { try { rmSync(base, { recursive: true, force: true }); } catch { /* rien a nettoyer */ } });
 let echecs = 0;
 
 const RUNNER = join(base, 'runner.mjs');
