@@ -1,21 +1,50 @@
 # =============================================================================
 #  ⚠️ VeVePreda/veve-sites — .github/workflows/vevewiki-editorial.yml
 #
+#  🔴 CE FICHIER NE CONCERNE PLUS LE SEUL VEVEWIKI — 03/08/2026, lot 45.
+#  ═══════════════════════════════════════════════════════════════════════════
+#  Il était codé en dur sur vevewiki (18 occurrences, aucune matrice, aucun
+#  paramètre) alors que le récolteur Python, lui, sait faire n'importe quel site
+#  depuis toujours (`editorial_pull.py --site`). Remplir `sheet_id` dans le
+#  manifeste de veveprice n'aurait donc rien déclenché : c'est CE fichier qui
+#  décidait, tout seul, qu'il n'existait qu'un site éditorial.
+#
+#  ⛔⛔ LE NOM DU FICHIER MENT, ET IL EST GARDÉ EXPRÈS — arbitrage du 03/08.
+#  `editorial.yml` serait plus honnête. Mais ce fichier se TÉLÉVERSE, et un
+#  téléversement sous le MÊME nom ÉCRASE, alors qu'un nom neuf AJOUTE. Deux
+#  fichiers de workflow portant le même `cron` et le même groupe de concurrence,
+#  ce sont DEUX récoltes le même matin sur un quota Sheets PAR MINUTE partagé
+#  avec scrapeur-veve. ⭐ On préfère un nom qui ment à une panne qui se déclenche
+#  toute seule si un geste est oublié — c'est la leçon du lot 34 (6 fichiers de
+#  rareté restés en ligne après la suppression de leurs clés, et
+#  `<h1>rarities.title</h1>` en production dans cinq langues).
+#  ⭐ Le renommage reste possible plus tard, en UN clic depuis l'interface
+#  GitHub (elle, elle supprime) : créer `editorial.yml`, effacer celui-ci, et
+#  reprendre les commentaires de `freeze-slugs.yml` l. 5, `tests.yml` l. 7 et
+#  `rebuild-daily.yml` l. 9 qui citent encore l'ancien nom.
+#
 #  Étape 5 du constructeur générique (bible/architecture-generateur-sites.md) :
 #  RÉCOLTER le Sheet éditorial -> committer le snapshot -> DÉCLENCHER le
-#  déploiement Coolify (qui rebâtit SITE=vevewiki). « snapshot -> git ».
+#  déploiement Coolify du site. « snapshot -> git ».
 #
 #  ⏱️ PLANIFIÉ ET DÉCALÉ : tourne à 09:37 UTC, volontairement à l'écart des crons
 #  daily / réparation / moisson (⚠️ QUOTA SHEETS PARTAGÉ — ne jamais chevaucher).
+#  ⛔⛔ `max-parallel: 1` N'EST PAS UN DÉTAIL. Une matrice s'exécute EN PARALLÈLE
+#  par défaut : sans cette ligne, les deux sites appelleraient l'API Sheets à la
+#  même seconde, sur un quota PAR MINUTE qui est partagé avec le daily, la
+#  réparation et la moisson. La ligne d'avertissement ci-dessus existe depuis le
+#  27/07 — une matrice l'aurait violée le jour de sa création.
 #
-#  SECRETS À CRÉER (Settings ▸ Secrets ▸ Actions du dépôt veve-sites) :
+#  SECRETS (Settings ▸ Secrets ▸ Actions du dépôt veve-sites) :
 #    GOOGLE_SERVICE_ACCOUNT_JSON   le service-account gspread (le MÊME que scrapeur-veve)
 #    SCRAPEUR_VEVE_PAT             PAT (lecture) pour cloner VeVePreda/scrapeur-veve
 #    COOLIFY_DEPLOY_URL_VEVEWIKI   URL de déploiement Coolify de l'app vevewiki
+#    COOLIFY_DEPLOY_URL            URL de déploiement Coolify de veveprice (déjà
+#                                  utilisée par rebuild-daily — ⛔ ne pas la dupliquer)
 #    COOLIFY_TOKEN                 jeton Coolify (déjà utilisé par rebuild-daily)
 #    DISCORD_WEBHOOK               webhook d'alerte (déjà utilisé par rebuild-daily)
 # =============================================================================
-name: Vevewiki — récolte éditoriale + déploiement
+name: Récolte éditoriale + déploiement (tous les sites)
 
 on:
   schedule:
@@ -26,13 +55,35 @@ on:
 permissions:
   contents: write
 
+# ⭐ UN SEUL GROUPE POUR TOUS LES SITES, ET C'EST VOLONTAIRE : deux exécutions
+# de ce workflow ne doivent jamais se chevaucher, même sur des sites différents,
+# parce qu'elles partagent le quota Sheets.
 concurrency:
-  group: vevewiki-editorial
+  group: editorial
   cancel-in-progress: false   # une récolte ne se coupe jamais en cours (quota Sheets)
 
 jobs:
   recolte-et-deploie:
     runs-on: ubuntu-latest
+    name: ${{ matrix.site }}
+    strategy:
+      # ⛔⛔ SÉQUENTIEL. Voir l'en-tête : le quota Sheets est PAR MINUTE et
+      # PARTAGÉ avec les workflows de scrapeur-veve.
+      max-parallel: 1
+      # ⭐ `fail-fast: false` : un site dont le Sheet est mal partagé ne doit pas
+      # empêcher l'autre d'être récolté. Sinon la première erreur de
+      # configuration gèle TOUT le réseau éditorial.
+      fail-fast: false
+      matrix:
+        include:
+          - site: vevewiki
+            domaine: vevewiki.com
+            sonde: /glossary/            # une page que ce site publie toujours
+            secret_deploy: COOLIFY_DEPLOY_URL_VEVEWIKI
+          - site: veveprice
+            domaine: veveprice.com
+            sonde: /                     # l'accueil, comme rebuild-daily
+            secret_deploy: COOLIFY_DEPLOY_URL
     steps:
       - name: Checkout veve-sites
         uses: actions/checkout@v4
@@ -44,7 +95,38 @@ jobs:
           token: ${{ secrets.SCRAPEUR_VEVE_PAT }}
           path: _scrapeur
 
+      # ═══════════════════════════════════════════════════════════════════
+      #  CE SITE A-T-IL UN SHEET ? — la garde, et pourquoi elle est bruyante
+      # ═══════════════════════════════════════════════════════════════════
+      #  `editorial_pull.py` LÈVE quand `editorial.sheet_id` manque. Sans cette
+      #  garde, ajouter veveprice à la matrice ferait échouer la récolte tous
+      #  les matins jusqu'à ce que Preda ait collé l'identifiant — et une alerte
+      #  Discord quotidienne pour une configuration en attente est une alerte
+      #  qu'on apprend à ignorer, y compris le jour où elle dit vrai.
+      #  ⭐⭐ MAIS UN SAUT SILENCIEUX EST PIRE. Un site qu'on croit récolté et
+      #  qui ne l'est pas ressemble exactement à un site dont le Sheet est vide.
+      #  D'où le `::warning` : il remonte dans le résumé du run, visible sans
+      #  ouvrir les journaux.
+      #  ⚠️ SA LIMITE, ÉCRITE : c'est un `grep`, pas un lecteur YAML — il tourne
+      #  avant `setup-python`. Il exige `sheet_id:` en DÉBUT de ligne (hors
+      #  commentaire) suivi d'une valeur entre guillemets. Un `sheet_id: abc`
+      #  sans guillemets serait lu comme absent. C'est la forme qu'emploient les
+      #  deux manifestes, et le message le dit.
+      - name: Ce site a-t-il un Sheet éditorial ?
+        id: garde
+        run: |
+          set -u
+          f="sites/${{ matrix.site }}/manifest.yml"
+          if grep -qE '^[[:space:]]*sheet_id:[[:space:]]*"[^"]+"' "$f"; then
+            echo "actif=true" >> "$GITHUB_OUTPUT"
+            echo "✅ ${{ matrix.site }} : sheet_id présent, récolte lancée."
+          else
+            echo "actif=false" >> "$GITHUB_OUTPUT"
+            echo "::warning title=Récolte ignorée (${{ matrix.site }})::$f n'a pas de \`editorial.sheet_id\` entre guillemets. Le site garde ses articles .md — état SAIN, pas une panne. Coller l'id du Sheet pour l'activer."
+          fi
+
       - name: Python
+        if: steps.garde.outputs.actif == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
@@ -52,17 +134,20 @@ jobs:
       - name: Dépendances (gspread, google-auth, pyyaml…)
         # PyYAML n'est PAS dans le requirements.txt de scrapeur-veve -> on l'ajoute
         # explicitement (le récolteur lit le manifeste YAML du site).
+        if: steps.garde.outputs.actif == 'true'
         run: pip install -r _scrapeur/requirements.txt pyyaml
 
-      - name: Récolte -> snapshot sites/vevewiki/editorial/*.json
+      - name: Récolte -> snapshot sites/${{ matrix.site }}/editorial/*.json
+        if: steps.garde.outputs.actif == 'true'
         env:
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          SITE: ${{ matrix.site }}
         run: |
           set -euo pipefail
           # cd dans _scrapeur pour que le paquet `scraper` soit importable ;
           # --root pointe le dépôt veve-sites (manifeste + sortie des snapshots).
           cd _scrapeur
-          python -m scraper.editorial_pull --site vevewiki --root "${GITHUB_WORKSPACE}"
+          python -m scraper.editorial_pull --site "${SITE}" --root "${GITHUB_WORKSPACE}"
 
       # ─────────────────────────────────────────────────────────────────────
       #  Cartes de partage par article
@@ -74,10 +159,11 @@ jobs:
       #  Le script est IDEMPOTENT : il ne réécrit un fichier que si ses octets
       #  changent, sinon on committerait 26 binaires par jour pour rien.
       - name: Cartes de partage des articles
+        if: steps.garde.outputs.actif == 'true'
         run: |
           set -e
           pip install --quiet pillow
-          SITE=vevewiki python3 engine/tools/make_article_cards.py
+          SITE="${{ matrix.site }}" python3 engine/tools/make_article_cards.py
 
       # ─────────────────────────────────────────────────────────────────────
       #  Dates de dernière modification RÉELLE
@@ -88,35 +174,57 @@ jobs:
       #  Sans lui, le sitemap redate ses 82 URL du jour à chaque passage — et un
       #  lastmod qui bouge partout tous les jours, un moteur apprend à l'ignorer.
       - name: Dates de dernière modification (lastmod)
-        run: python3 engine/tools/lastmod.py --site vevewiki
+        if: steps.garde.outputs.actif == 'true'
+        run: python3 engine/tools/lastmod.py --site "${{ matrix.site }}"
 
       - name: Committer le snapshot s'il a changé
         id: commit
+        if: steps.garde.outputs.actif == 'true'
         run: |
           set -euo pipefail
-          git config user.name  "vevewiki-bot"
+          git config user.name  "${{ matrix.site }}-bot"
           git config user.email "actions@users.noreply.github.com"
           # ⚠️ RENOMME LE 29/07/2026 : un fichier de dates PAR SITE. L'ancien
           #    `lastmod.json` etait commun a tout le depot ; le jour ou un
           #    deuxieme site aurait lance l'outil, il aurait ecrase les dates
           #    d'ici. Oublier cette ligne, c'est committer un fichier qui
           #    n'existe plus : rien n'echoue, et le wiki cesse d'etre date.
-          git add sites/vevewiki/editorial public/og/vevewiki engine/data/lastmod.vevewiki.json
+          # ⛔⛔ `git add` EN BLOC : si UN SEUL de ces chemins n'existe pas,
+          # git échoue et RIEN n'est indexé — le snapshot fraîchement récolté
+          # part avec. C'est une panne déjà payée sur la chaîne Discord.
+          # ⭐ Un site neuf n'a ni dossier `og/` ni fichier lastmod tant qu'il
+          # n'a pas d'article : on ajoute chemin par chemin, et un chemin absent
+          # se DIT au lieu de tout emporter.
+          S="${{ matrix.site }}"
+          for chemin in "sites/$S/editorial" "public/og/$S" "engine/data/lastmod.$S.json"; do
+            if [ -e "$chemin" ]; then
+              git add "$chemin"
+            else
+              echo "· $chemin : absent, rien à indexer (normal si ce site n'a pas encore d'article)."
+            fi
+          done
           if git diff --cached --quiet; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
             echo "Aucun changement éditorial — rien à committer."
           else
-            git commit -m "chore(vevewiki): snapshot éditorial + cartes $(date -u +%F)"
-            git push
+            git commit -m "chore($S): snapshot éditorial + cartes $(date -u +%F)"
+            # ⚠️ `--rebase --autostash` AJOUTÉ LE 03/08/2026 AVEC LA MATRICE.
+            # Tant qu'un seul site passait ici, un `git push` nu suffisait.
+            # veveprice, lui, est aussi écrit par `rebuild-daily` : deux
+            # workflows qui poussent sur la même branche finissent par se
+            # croiser, et un push rejeté perd la récolte du jour.
+            git pull --rebase --autostash && git push
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
 
       # ⭐ L'HEURE DE DÉPART EST LA RÉFÉRENCE DU CONTRÔLE DE FRAÎCHEUR : une
       # page construite après cet instant ne peut venir que de CE déploiement.
       - name: Horodater le départ
+        if: steps.garde.outputs.actif == 'true'
         run: echo "DEPART=$(date -u +%s)" >> "$GITHUB_ENV"
 
-      - name: Déclencher le déploiement Coolify (vevewiki)
+      - name: Déclencher le déploiement Coolify
+        if: steps.garde.outputs.actif == 'true'
         run: |
           set -u
           code=$(curl -sS -o /tmp/deploy.out -w '%{http_code}' \
@@ -128,7 +236,11 @@ jobs:
             echo "Le déclenchement du déploiement a échoué."; exit 1
           fi
         env:
-          COOLIFY_DEPLOY_URL: ${{ secrets.COOLIFY_DEPLOY_URL_VEVEWIKI }}
+          # ⭐ Le NOM du secret vient de la matrice, sa VALEUR de `secrets[…]`.
+          # Un secret ne se construit pas par concaténation de chaîne : c'est
+          # l'indexation du contexte qui le résout, et elle est évaluée par
+          # GitHub, pas par le shell.
+          COOLIFY_DEPLOY_URL: ${{ secrets[matrix.secret_deploy] }}
           COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
 
       # ⭐⭐ « RÉPONDRE » N'EST PAS « AVOIR ÉTÉ RECONSTRUIT ».
@@ -143,13 +255,14 @@ jobs:
       #    avant l'action ne prouve rien. `build-time` change à chaque
       #    construction : c'est la seule qui distingue un build d'un autre.
       - name: Vérifier que le site est VRAIMENT reconstruit
+        if: steps.garde.outputs.actif == 'true'
         run: |
           set -u
           echo "Le build doit être postérieur à : $(date -u -d "@${DEPART}" +%FT%TZ)"
           ok=0
           for i in $(seq 1 20); do
             sleep 45
-            html=$(curl -sS "https://vevewiki.com/glossary/?cb=$(date +%s)" || true)
+            html=$(curl -sS "https://${{ matrix.domaine }}${{ matrix.sonde }}?cb=$(date +%s)" || true)
             bt=$(printf '%s' "$html" \
               | grep -o 'name="build-time" content="[^"]*"' \
               | head -1 | sed 's/.*content="//; s/"$//')
@@ -165,7 +278,7 @@ jobs:
             echo "Tentative $i : le site sert encore le build du $bt."
           done
           if [ "$ok" != "1" ]; then
-            echo "Après 15 minutes, vevewiki sert toujours un build antérieur au déclenchement."
+            echo "Après 15 minutes, ${{ matrix.domaine }} sert toujours un build antérieur au déclenchement."
             exit 1
           fi
 
@@ -185,6 +298,7 @@ jobs:
       #  ⚠️ Un échec ici n'est PAS bloquant : un moteur indisponible ne doit
       #     pas faire échouer un déploiement par ailleurs réussi.
       - name: Prévenir IndexNow des URL modifiées
+        if: steps.garde.outputs.actif == 'true'
         continue-on-error: true
         run: |
           set -u
@@ -198,27 +312,41 @@ jobs:
           # 10 000 URL dans UNE requête POST. C'est l'usage prévu.
           # ⚠️ Ce pas ne pouvait pas exister avant que les lastmod soient
           #    honnêtes : « ce qui a changé » valait « tout », chaque jour.
-          cle="a7f3c9e214d84b06b1e5c0f7d29a63b8"
+          # ⭐ LA CLÉ SE LIT DANS LE MANIFESTE, ELLE N'EST PLUS RECOPIÉE ICI.
+          # Elle y était en dur (`a7f3c9e2…`) alors que `seo.indexnow_key` la
+          # porte déjà — et c'est le manifeste que `src/pages/[key].txt.js`
+          # SERT. Deux copies d'une même clé, c'est une divergence qui attend :
+          # le jour où l'une change, le site publie une clé et en revendique une
+          # autre, et le moteur refuse en silence.
+          S="${{ matrix.site }}"
+          D="${{ matrix.domaine }}"
+          cle=$(grep -oE 'indexnow_key:[[:space:]]*"[^"]+"' "sites/$S/manifest.yml" \
+                | head -1 | sed 's/.*"\(.*\)"/\1/')
+          if [ -z "$cle" ]; then
+            echo "::warning title=IndexNow ignoré ($S)::aucun \`seo.indexnow_key\` dans le manifeste."
+            exit 0
+          fi
           # La clé doit être servie AVANT d'être revendiquée, sinon le moteur
           # rejette la soumission — on le vérifie plutôt que de le supposer.
-          code=$(curl -sS -o /dev/null -w '%{http_code}' "https://vevewiki.com/${cle}.txt" || true)
+          code=$(curl -sS -o /dev/null -w '%{http_code}' "https://${D}/${cle}.txt" || true)
           if [ "$code" != "200" ]; then
             echo "La clé IndexNow n'est pas servie (HTTP $code) — soumission ignorée."
             exit 0
           fi
-          python3 engine/tools/indexnow.py --site vevewiki --domaine vevewiki.com --cle "${cle}"
+          python3 engine/tools/indexnow.py --site "$S" --domaine "$D" --cle "${cle}"
 
       # L'état IndexNow se commite APRÈS coup : il retient ce qui a été vu en
       # ligne, donc il ne peut être écrit qu'une fois le site déployé.
       - name: Committer l'état IndexNow
+        if: steps.garde.outputs.actif == 'true'
         continue-on-error: true
         run: |
           set -u
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add engine/data/indexnow_vevewiki.json || true
+          git add "engine/data/indexnow_${{ matrix.site }}.json" || true
           if ! git diff --cached --quiet; then
-            git commit -m "chore(vevewiki): état IndexNow $(date -u +%F)"
+            git commit -m "chore(${{ matrix.site }}): état IndexNow $(date -u +%F)"
             git pull --rebase --autostash && git push
           fi
 
@@ -227,7 +355,7 @@ jobs:
         run: |
           set -u
           run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
-          payload=$(printf '{"content":"🔴 **VeVeWiki** : la récolte éditoriale ou le déploiement a échoué.\\n%s"}' "$run_url")
+          payload=$(printf '{"content":"🔴 **%s** : la récolte éditoriale ou le déploiement a échoué.\\n%s"}' "${{ matrix.site }}" "$run_url")
           curl -sS -X POST -H 'Content-Type: application/json' -d "$payload" "${DISCORD_WEBHOOK}" || true
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
