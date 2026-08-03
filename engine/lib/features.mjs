@@ -63,3 +63,32 @@ export function searchEnabled() {
   if (mode === 'none' || mode === 'false' || mode === '') return false;
   return priceEnabled() || editorialEnabled();
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LES COMPTES — lot 42, 03/08/2026
+// ─────────────────────────────────────────────────────────────────────────────
+// ⭐ UN SITE A DES COMPTES S'IL A PLUS D'UN PALIER À DISTINGUER.
+// `access.tiers: [visitor]` — le cas de vevewiki — veut dire « tout le monde
+// voit la même chose » : il n'y a alors rien à ouvrir, donc rien à inscrire.
+// C'est la lecture que `Base.astro` fait déjà pour cacher `/compte/` du menu
+// (`acces().tiers.length > 1`, deux fois). On la NOMME au lieu de la recopier
+// une troisième fois : une condition écrite trois fois diverge deux fois.
+//
+// 🔴 CE QUE ÇA FERME, MESURÉ LE 03/08 : sans ce prédicat, `/inscription/` était
+// construite sur vevewiki — une page d'inscription sur une encyclopédie sans
+// compte, portant SIX classes (`flottantes`, `inscr__tete`, `inscr__h1`,
+// `inscr__form`, `inscr__cgu`, `inscr__liste`) qui n'ont AUCUNE règle dans le
+// thème `encyclopedie`. ⭐⭐ Une classe émise sans règle coûte plus cher qu'une
+// classe absente : elle a l'air d'être là.
+//
+// ⚠️ `/compte/` et `/connexion/` ONT LE MÊME DÉFAUT ET NE SONT PAS CORRIGÉES
+// ICI. Elles produisent 55 Ko et 54 Ko de vraies pages sur vevewiki, avec le
+// vocabulaire de la vitrine. Les gater ferait DISPARAÎTRE deux pages de plus,
+// et une page qui disparaît en silence a coûté trois pannes le 03/08 : ça se
+// décide et ça s'annonce, ça ne se glisse pas dans un lot qui parle d'autre
+// chose. → décision de Preda, lot suivant.
+export function comptesActifs() {
+  const m = manifest();
+  const t = m.access?.tiers;
+  return Array.isArray(t) && t.length > 1;
+}

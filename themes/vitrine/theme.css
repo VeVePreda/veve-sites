@@ -1308,3 +1308,125 @@ header.site.site-h .wrap{
    ⭐ L'absence de mouvement est une information, mais c'est la MOINS
    importante des trois : elle doit se lire sans attirer l'oeil. */
 .flat, td.flat .num, td.flat{ color:var(--muted); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ⑮ L'INSCRIPTION — champ de profondeur + formulaire.        LOT 42, 03/08/2026
+   ═══════════════════════════════════════════════════════════════════════════
+   ⛔ CE BLOC N'EXISTE QUE DANS `vitrine`, ET C'EST DÉLIBÉRÉ.
+   `panneau`, `champ`, `etiq`, `logo`, `centre`, `respire` ont ZÉRO règle dans
+   `encyclopedie` et `aurora` — mesuré le 03/08, pas supposé. Porter le décor
+   dans les trois thèmes reviendrait à réclamer à l'encyclopédie le vocabulaire
+   de la vitrine : c'est le grief exact des 172 lignes du 31/07.
+   ⭐ Le contrat tient dans l'autre sens : les classes `inscr__*` ci-dessous ont
+   TOUTES une règle ici. Une classe émise sans règle coûte plus cher qu'une
+   classe absente — elle a l'air d'être là.
+
+   ⚠️ LA MAQUETTE ÉCRIVAIT `@container vp (max-width:700px)`. Repris tel quel,
+   ce serait une règle MORTE : aucun `container-name: vp` n'est déclaré nulle
+   part dans ce dépôt (vérifié sur les 3 thèmes et sur Base.astro). Elle aurait
+   eu l'air présente et n'aurait jamais rien coupé. → `@media`. */
+
+/* ── LE CHAMP DE PROFONDEUR ───────────────────────────────────────────────
+   ⭐ DEUX LOIS D'OPTIQUE, PAS DES RÉGLAGES DÉCORATIFS : la vitesse est
+   proportionnelle à la taille (parallaxe) et le flou à la distance à la
+   focale. C'est ce couple qui fait lire « profondeur » au lieu d'« animation ».
+   ⚠️ `position:fixed` et pas `absolute` : le champ doit occuper la FENÊTRE. Un
+   `absolute` reste prisonnier du premier ancêtre positionné, et il y en a
+   toujours un — la maquette a payé ce défaut, les pièces traversaient un
+   couloir de 470 px au lieu de la page. */
+.flottantes{ position:fixed; inset:0; pointer-events:none; z-index:0; overflow:hidden; }
+.flottantes img{ position:absolute; object-fit:contain; opacity:0; will-change:transform,opacity; }
+
+/* Plan LOIN — petit, flou léger, sombre, très lent : il dérive à peine. */
+.flottantes img[data-p="1"]{ filter:blur(var(--foc-proche)) brightness(.42); z-index:1; }
+/* Plan MOYEN — net : c'est le plan de mise au point. */
+.flottantes img[data-p="2"]{ filter:blur(var(--foc-net)) brightness(.86)
+  drop-shadow(0 16px 22px #000000B3); z-index:2; }
+/* Plan PRÈS — grand et très flou. Il est HORS focale, donc il passe devant sans
+   jamais capter l'oeil : c'est ce qui empêche le décor de voler la vedette au
+   formulaire. */
+.flottantes img[data-p="3"]{ filter:blur(var(--foc-loin)) brightness(.6); z-index:3; }
+
+/* ⚠️ AUCUNE ANIMATION NE CHANGE L'ÉCHELLE. Une pièce qui grandit sur place
+   ressemble à un zoom d'appareil photo — un mouvement de CAMÉRA, que l'oeil lit
+   comme un défaut de rendu. Seul le déplacement porte le mouvement.
+   ⭐ `.ok` n'est posé que par `onload` : une image qui n'est jamais arrivée ne
+   s'anime pas, elle reste à `opacity:0`. Le décor ne clignote pas en attendant
+   le réseau. */
+@media (prefers-reduced-motion: no-preference){
+  .flottantes img.ok[data-p="1"]{ animation:vp-trav-loin  var(--dur) linear var(--dl) infinite both; }
+  .flottantes img.ok[data-p="2"]{ animation:vp-trav-moyen var(--dur) linear var(--dl) infinite both; }
+  .flottantes img.ok[data-p="3"]{ animation:vp-trav-pres  var(--dur) linear var(--dl) infinite both; }
+}
+/* ⭐ Qui refuse le mouvement garde la profondeur : les pièces restent posées,
+   simplement immobiles. Retirer le décor entier punirait le réglage. */
+@media (prefers-reduced-motion: reduce){ .flottantes img.ok{ opacity:.35; } }
+
+@keyframes vp-trav-loin{
+  0%{ opacity:0; transform:translate3d(0,34px,0) rotate(-3deg); }
+  22%{ opacity:.55; } 78%{ opacity:.55; }
+  100%{ opacity:0; transform:translate3d(-26px,-34px,0) rotate(3deg); }
+}
+@keyframes vp-trav-moyen{
+  0%{ opacity:0; transform:translate3d(0,72px,0) rotate(4deg); }
+  18%{ opacity:1; } 82%{ opacity:1; }
+  100%{ opacity:0; transform:translate3d(-58px,-72px,0) rotate(-4deg); }
+}
+@keyframes vp-trav-pres{
+  0%{ opacity:0; transform:translate3d(0,150px,0) rotate(-6deg); }
+  14%{ opacity:.5; } 86%{ opacity:.5; }
+  100%{ opacity:0; transform:translate3d(-120px,-150px,0) rotate(6deg); }
+}
+
+/* Sous 900 px le plan PRÈS mange l'écran ; sous 700 px il n'y a plus de marge
+   latérale du tout et le décor passerait derrière le formulaire au lieu
+   d'autour. On le retire, on ne le rétrécit pas. */
+@media (max-width:900px){ .flottantes img[data-p="3"]{ display:none; } }
+@media (max-width:700px){ .flottantes{ display:none; } }
+
+/* ── LE FORMULAIRE ────────────────────────────────────────────────────────── */
+.inscr__tete{ text-align:center; display:grid; gap:12px; justify-items:center; }
+/* ⛔ PAS `mono-t` ICI. Ce titre-là fait `clamp(38px,7.2vw,96px)` : sur un
+   panneau de 470 px, « Créer un compte » passerait à la ligne au milieu du
+   mot. La maquette pose d'ailleurs `font-size:var(--t-xl)` en dur au même
+   endroit — elle avait vu le même mur. */
+.inscr__h1{ font-family:var(--geo); font-size:var(--t-xl); font-weight:800;
+  letter-spacing:-.02em; line-height:1.15; margin:0; }
+
+/* ⚠️ Le bandeau d'avertissement emprunte la couleur du CADENAS, pas celle de
+   l'erreur : rien n'est cassé, la fonction n'est pas encore ouverte. Un rouge
+   ici ferait croire à une panne du site. */
+.inscr__avis{ margin:var(--s4) 0 0; padding:12px 14px; border-radius:var(--r-md);
+  background:var(--lock-1v); border:1px solid var(--lock);
+  font-size:var(--t-sm); line-height:1.55; color:var(--text-2); }
+.inscr__avis b{ color:var(--text); }
+
+.inscr__form{ display:grid; gap:var(--s3); margin-top:var(--s5); }
+
+.inscr__cgu{ display:flex; gap:10px; align-items:flex-start; margin-top:5px;
+  font-size:var(--t-sm); line-height:1.5; color:var(--text-2); }
+/* ⭐ 16 px et pas plus : au-delà, une case à cocher cesse d'avoir l'air d'une
+   case. `accent-color` suffit — repeindre une case avec un pseudo-élément lui
+   fait perdre son comportement clavier. */
+.inscr__cgu input{ width:16px; height:16px; margin-top:3px; flex:0 0 16px;
+  accent-color:var(--sect-pur); }
+.inscr__cgu a{ color:var(--sect-a); }
+
+.inscr__valider{ width:100%; margin-top:var(--s2); }
+
+.inscr__filet{ height:1px; background:var(--rule); margin:var(--s5) 0; }
+.inscr__pied{ text-align:center; font-size:var(--t-sm); color:var(--muted); margin:0; }
+.inscr__pied a{ color:var(--sect-a); }
+
+/* ── CE QUE LE COMPTE OUVRE ───────────────────────────────────────────────── */
+.inscr__ouvre{ margin-top:var(--s4); padding:var(--s4); }
+.inscr__liste{ list-style:none; padding:0; margin:12px 0 0; display:grid; gap:9px;
+  font-size:var(--t-sm); color:var(--text-2); }
+.inscr__liste li{ display:flex; gap:10px; align-items:flex-start; }
+.inscr__oui{ color:var(--sect-a); flex:0 0 auto; }
+.inscr__clos{ flex:0 0 auto; }
+/* ⭐ LA LIGNE VERROUILLÉE EST GRISE, PAS BARRÉE. Barrer dirait « supprimé » ;
+   gris dit « existe, ailleurs ». C'est toute la différence entre frustrer et
+   vendre. */
+.inscr__non{ color:var(--muted); }
+.inscr__paliers{ margin:var(--s4) 0 0; }

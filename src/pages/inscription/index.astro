@@ -1,0 +1,207 @@
+---
+// ⚠️ VeVePreda/veve-sites — src/pages/inscription/index.astro  (FICHIER NEUF)
+// ═══════════════════════════════════════════════════════════════════════════
+// L'INSCRIPTION — au balisage de la maquette, écran 9 (`ecranConnexion`).
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐ LITTERAL, ET C'EST LE POINT. Astro exige que `prerender` soit
+// statiquement analysable ; une EXPRESSION n'est pas evaluee et retombe
+// silencieusement sur `true`. La valeur reelle est posee par l'integration
+// `veve:routes-compte` selon le mode du manifeste. `true` ici est le defaut
+// SUR : sans adaptateur, un build static ne peut pas rendre a la demande.
+export const prerender = true;
+
+import Base from '../../layouts/Base.astro';
+import { acces, palierVisiteur } from '../../../engine/lib/access.mjs';
+import { t, localize, locales } from '../../../engine/lib/i18n.mjs';
+import { comptesActifs } from '../../../engine/lib/features.mjs';
+import { getCatalogue } from '../../../engine/data/warehouse.mjs';
+
+// ⭐ RENDUE À LA DEMANDE : elle peut lire `Accept-Language`, ce qu'une page
+// pré-générée ne peut pas faire. ⚠️ On ne fait confiance qu'aux langues que le
+// SITE déclare : un en-tête est une donnée d'entrée comme une autre.
+const { active, def } = locales();
+const souhait = (Astro.request.headers.get('accept-language') || '')
+  .split(',').map((x) => x.split(';')[0].trim().slice(0, 2).toLowerCase());
+const lang = souhait.find((l) => active.includes(l)) || def;
+
+// ⛔ UN SITE SANS PALIERS N'A RIEN À INSCRIRE.
+// ⭐ ET UNE PAGE NE SE RETIRE PAS D'UN SITE EN LA REDIRIGEANT : tant qu'elle est
+// ÉMISE, elle existe. C'est la leçon écrite en tête d'`astro_features.mjs`, et
+// c'est pour ça que ce `redirect` ne suffit PAS tout seul — il produit un talon
+// `<meta refresh>` que l'intégration `veve:fonctionnalites-eteintes` efface
+// ensuite, exactement comme pour les pages de prix sur un wiki.
+// ⚠️ Les deux moitiés vont ensemble : ce `redirect` sans la zone déclarée dans
+// `astro_features.mjs` laisserait un talon fantôme, et l'audit SEO rouge en
+// permanence — le défaut du 27/07 remis au monde.
+if (!comptesActifs()) return Astro.redirect('/');
+
+const { tiers } = acces();
+const connecte = palierVisiteur(Astro.locals) !== 'visitor';
+
+// ⛔ AUCUN SERVICE D'IDENTITÉ N'EXISTE ENCORE, ET LA PAGE LE DIT.
+// `veveid` ne connaît que le parcours par wallet : ni mot de passe, ni
+// `/oauth/start`. Arbitrage Preda du 03/08 : le courriel + mot de passe se fera
+// EN DERNIER. D'ici là le formulaire est celui qui servira, et un bandeau dit
+// qu'il ne crée rien.
+// ⭐⭐ UN FORMULAIRE QUI A L'AIR DE MARCHER ET QUI NE MARCHE PAS COÛTE PLUS
+// CHER QU'UNE PAGE ABSENTE : l'absence se voit, la panne muette se croit.
+const inscriptionOuverte = Boolean(process.env.INSCRIPTION_API);
+
+// ── LE CHAMP DE PROFONDEUR ────────────────────────────────────────────────
+// 16 pièces sur 3 plans, positions en unités de FENÊTRE (la colonne 36–64 %
+// reste vide : c'est là qu'est le formulaire, et le décor ne passe jamais
+// devant). ⚠️ Les durées sont premières entre elles pour que les cycles ne se
+// resynchronisent jamais, et les délais négatifs tous différents — sinon les
+// seize pièces apparaissent ensemble, ce qui est pire que pas d'animation.
+const PLACES = [
+  ['top:8vh;left:5vw;width:5vw', 1, 29],      ['top:34vh;left:14vw;width:4.4vw', 1, 37],
+  ['top:68vh;left:6vw;width:5.4vw', 1, 31],   ['top:12vh;right:9vw;width:5vw', 1, 41],
+  ['top:58vh;right:5vw;width:4.6vw', 1, 23],  ['top:84vh;left:28vw;width:4vw', 1, 43],
+  ['top:16vh;left:-3vw;width:11vw', 2, 19],   ['top:52vh;left:1vw;width:12vw', 2, 17],
+  ['top:6vh;right:-2vw;width:10vw', 2, 23],   ['top:62vh;right:-3vw;width:12vw', 2, 13],
+  ['top:88vh;right:16vw;width:9vw', 2, 29],   ['top:2vh;left:22vw;width:8vw', 2, 31],
+  ['top:-14vh;left:8vw;width:22vw', 3, 11],   ['top:70vh;right:2vw;width:24vw', 3, 7],
+  ['top:30vh;right:-14vw;width:20vw', 3, 13], ['top:44vh;left:-12vw;width:21vw', 3, 17],
+];
+
+// ⭐ LE DÉCOR EST UNE DONNÉE DU CATALOGUE, PAS UNE LISTE D'URL EN DUR.
+// ⚠️ ET IL DOIT SURVIVRE À SON ABSENCE : le jeu d'exemple n'a pas de colonne
+// `image`. Sans visuel, `pieces` vaut `[]`, le `<span>` ne contient rien, et la
+// page est simplement sobre. Une page qui a l'air en panne coûte plus cher
+// qu'une page sobre.
+let pieces = [];
+try {
+  const cat = await getCatalogue();
+  const avecImage = (Array.isArray(cat) ? cat : []).filter((i) => i && i.image);
+  // Un pas premier avec la taille : on balaie tout le catalogue au lieu de
+  // prendre 16 voisins de la même série, qui se ressembleraient tous.
+  const pas = 997;
+  pieces = PLACES.map((_, k) => avecImage[(k * pas) % (avecImage.length || 1)])
+    .filter(Boolean)
+    .map((i, k) => ({ src: i.image, st: PLACES[k][0], p: PLACES[k][1], dur: PLACES[k][2] }));
+} catch { pieces = []; }
+
+// La phrase des CGU porte deux liens ; `{terms}` et `{privacy}` laissent chaque
+// langue les placer où sa grammaire les veut, au lieu de figer l'ordre du
+// français dans le gabarit.
+const cguMorceaux = t(lang, 'signup.cgu').split(/(\{terms\}|\{privacy\})/);
+---
+    {/* ⛔ UNE SEULE LANGUE DÉCLARÉE — même correctif que /compte/ et
+        /connexion/. Cette page est rendue à la demande et lit `Accept-Language` :
+        elle n'a qu'UNE adresse, sans préfixe. Sans `langs`, la barre de langues
+        et les `hreflang` proposeraient /fr/inscription/, /es/inscription/… qui
+        n'existent pas. Trois 404 déjà payés le 01/08. */}
+    {/* ⚠️ `noindex` : une page de formulaire de compte n'a rien à faire dans un
+        index de recherche, et elle diluerait le budget d'exploration des 443
+        pages qui, elles, portent le référencement. */}
+<Base langs={[def]} lang={lang} path="/inscription/" noindex={true}
+      title={t(lang, 'signup.title')} description={t(lang, 'signup.free')}
+      crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') }, { name: t(lang, 'signup.crumb') }]}>
+
+  <div class="centre" style="position:relative;padding-bottom:var(--s7)">
+
+    {pieces.length > 0 && (
+      <span class="flottantes" aria-hidden="true">
+        {pieces.map((piece, k) => (
+          <img src={piece.src} alt="" data-p={piece.p} loading="lazy" decoding="async"
+               style={`${piece.st};--dur:${piece.dur}s;--dl:-${(k * 3.7).toFixed(1)}s`}
+               onload="this.classList.add('ok')"
+               onerror="this.remove()" />
+        ))}
+      </span>
+    )}
+
+    <div class="panneau" style="position:relative;z-index:2">
+
+      <div class="inscr__tete">
+        <span class="logo logo--xl" aria-hidden="true">VP</span>
+        <h1 class="inscr__h1">{t(lang, 'signup.title')}</h1>
+        <p class="etiq">{t(lang, 'signup.free')}</p>
+      </div>
+
+      {connecte && (
+        <p class="respire" style="margin-top:var(--s4)">
+          <a class="btn btn--fantome btn--sm" href="/compte/">{t(lang, 'account.title')}</a>
+        </p>
+      )}
+
+      {!inscriptionOuverte && (
+        /* ⭐ LE BANDEAU EST AU-DESSUS DU FORMULAIRE, PAS EN DESSOUS.
+           Un avertissement placé après les champs se lit une fois qu'on a déjà
+           tapé son mot de passe — c'est-à-dire trop tard pour servir. */
+        <p class="inscr__avis">
+          <b>{t(lang, 'signup.closed')}</b><br />{t(lang, 'signup.closed.d')}
+        </p>
+      )}
+
+      {/* ⚠️ MÉTHODE POST, ET `action` EXPLICITE. Un formulaire sans `method`
+          part en GET : le mot de passe se retrouverait dans l'URL, donc dans
+          l'historique du navigateur, dans le Referer et dans les journaux du
+          serveur. C'est la faute la plus banale et la plus chère de la page. */}
+      <form class="inscr__form" method="POST" action="/api/inscription">
+
+        <div class="champ">
+          <label class="etiq" for="c-mail">{t(lang, 'signup.mail')}</label>
+          <input id="c-mail" name="courriel" type="email" autocomplete="email"
+                 required placeholder={t(lang, 'signup.mail.ph')} />
+        </div>
+
+        <div class="champ">
+          <label class="etiq" for="c-pseudo">{t(lang, 'signup.pseudo')}</label>
+          <input id="c-pseudo" name="pseudo" type="text" autocomplete="nickname"
+                 required maxlength="40" placeholder={t(lang, 'signup.pseudo.ph')} />
+        </div>
+
+        <div class="champ">
+          <label class="etiq" for="c-mdp">{t(lang, 'signup.pass')}</label>
+          {/* ⭐ `autocomplete="new-password"` — sans lui, le gestionnaire de
+              mots de passe propose l'ancien au lieu d'en fabriquer un neuf.
+              ⛔ `minlength` SEUL NE PROTÈGE RIEN : c'est un confort de saisie,
+              la règle vraie se réapplique côté serveur, toujours. */}
+          <input id="c-mdp" name="motdepasse" type="password" autocomplete="new-password"
+                 required minlength="12" placeholder={t(lang, 'signup.pass.ph')} />
+          <span class="champ__aide">{t(lang, 'signup.pass.help')}</span>
+        </div>
+
+        <label class="inscr__cgu">
+          <input type="checkbox" name="cgu" required />
+          <span>
+            {cguMorceaux.map((bout) => (
+              bout === '{terms}'
+                ? <a href={localize(lang, '/legal/terms/')}>{t(lang, 'signup.cgu.terms')}</a>
+                : bout === '{privacy}'
+                  ? <a href={localize(lang, '/legal/privacy/')}>{t(lang, 'signup.cgu.privacy')}</a>
+                  : bout
+            ))}
+          </span>
+        </label>
+
+        <button type="submit" class="btn btn--principal inscr__valider">{t(lang, 'signup.submit')}</button>
+      </form>
+
+      <div class="inscr__filet"></div>
+      <p class="inscr__pied">
+        {t(lang, 'signup.already')} <a href="/connexion/">{t(lang, 'signup.signin')}</a>
+      </p>
+    </div>
+
+    {/* ⭐ CE PANNEAU DIT AUSSI CE QUE LE COMPTE N'OUVRE PAS, et c'est
+        délibéré : la quatrième ligne est un cadenas. Une promesse qui borne
+        elle-même sa portée est la seule qu'on croit. */}
+    <div class="panneau inscr__ouvre" style="position:relative;z-index:2">
+      <p class="etiq">{t(lang, 'signup.opens')}</p>
+      <ul class="inscr__liste">
+        <li><span class="inscr__oui" aria-hidden="true">✓</span>{t(lang, 'signup.o1')}</li>
+        <li><span class="inscr__oui" aria-hidden="true">✓</span>{t(lang, 'signup.o2')}</li>
+        <li><span class="inscr__oui" aria-hidden="true">✓</span>{t(lang, 'signup.o3')}</li>
+        <li class="inscr__non"><span class="inscr__clos" aria-hidden="true">🔒</span>{t(lang, 'signup.o4')}</li>
+      </ul>
+      {/* La transparence est un argument de vente, pas une concession : dire
+          quels paliers existent rend crédible la promesse de celui qu'on vend. */}
+      {tiers.length > 1 && (
+        <p class="etiq inscr__paliers">{t(lang, 'account.tiers')} : {tiers.join(' · ')}</p>
+      )}
+    </div>
+
+  </div>
+</Base>

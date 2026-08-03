@@ -38,13 +38,21 @@
 import { readFileSync, rmSync, existsSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
-import { priceEnabled } from './features.mjs';
+import { priceEnabled, comptesActifs } from './features.mjs';
 
 /** Préfixes d'URL portés par chaque fonctionnalité, dans l'ordre du plan de site.
  *  Ajouter une fonctionnalité gatée = ajouter une ligne ici, rien d'autre. */
 const ZONES = [
   { nom: 'prix', actif: priceEnabled,
     prefixes: ['/market/', '/collections/', '/collectibles/', '/comics/', '/collection/'] },
+  // ⭐ LOT 42 — « ajouter une fonctionnalite gatee = ajouter une ligne ici ».
+  // On suit le contrat que ce fichier annonce en tete, au lieu d'inventer un
+  // second mecanisme d'extinction a cote du premier.
+  // ⚠️ `/compte/` et `/connexion/` ne sont VOLONTAIREMENT pas dans cette liste :
+  // elles emettent de VRAIES pages sur vevewiki (55 Ko, 54 Ko), pas des talons.
+  // Le garde-fou n'y toucherait donc pas — mais surtout, les retirer ferait
+  // disparaitre deux pages, et ca s'annonce. Cf. features.mjs, comptesActifs().
+  { nom: 'comptes', actif: comptesActifs, prefixes: ['/inscription/'] },
 ];
 
 const estTalon = (html) =>

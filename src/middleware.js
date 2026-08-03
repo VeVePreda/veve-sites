@@ -21,6 +21,7 @@
 // de croire qu'une page est protégée parce qu'elle est « derrière un palier ».
 
 import { PALIERS, palierDemo } from '../engine/lib/access.mjs';
+import { COOKIE_DEMO, lire as lireDemo } from '../engine/lib/demo_session.mjs';
 
 const COOKIE = 'vp_session';
 
@@ -110,7 +111,23 @@ export async function onRequest(context, next) {
   //    trente-et-unième oubliera. La règle vit ICI, en un seul endroit.
   if (context.isPrerendered) return next();
 
-  const brut = (await palierDeLaSession(sid, env)) || palierDeDemonstration(env);
+  // ═══════════════════════════════════════════════════════════════════════════
+  // L'ORDRE DE CES TROIS SOURCES EST UN CHOIX DE SÉCURITÉ — lot 42, 03/08/2026
+  // ═══════════════════════════════════════════════════════════════════════════
+  //   1. la SESSION RÉELLE       — la seule qui vaudra en production ;
+  //   2. le JETON DE DÉMO signé  — nominatif, il faut la clé pour l'obtenir ;
+  //   3. la DÉMO DU MANIFESTE    — collective, elle vaut pour tout le monde.
+  //
+  // ⭐ DU PLUS SPÉCIFIQUE AU PLUS GÉNÉRAL, et jamais l'inverse. Si la démo
+  // collective passait devant, un jeton nominatif « whale » serait écrasé par
+  // le « crevette » du manifeste, et on chercherait longtemps pourquoi.
+  // ⛔ Les trois s'effacent devant `SESSION_API` : `palierDeLaSession()` parce
+  // qu'elle EST le service, les deux autres parce qu'elles ne tiennent la place
+  // que d'un service absent. Cette condition vit dans les modules appelés, pas
+  // ici : la dupliquer serait s'offrir une occasion de l'oublier d'un côté.
+  const brut = (await palierDeLaSession(sid, env))
+    || lireDemo(context.cookies.get(COOKIE_DEMO)?.value || null, env)
+    || palierDeDemonstration(env);
 
   // ⭐ On dépose la valeur BRUTE. C'est `palierVisiteur()` d'access.mjs qui
   // décide ce qu'elle vaut : il vérifie qu'elle existe, qu'elle est déclarée

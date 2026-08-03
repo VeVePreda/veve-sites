@@ -60,6 +60,17 @@ const ROUTES_COMPTE = [
   // la pré-générerait en silence — le fichier serait figé au build, à vide,
   // et répondrait « pas de session » à un abonné parfaitement connecté.
   'pages/api/historique/[uuid].js',
+  // ⭐⭐ AJOUTÉES LE 03/08/2026 — LOT 42.
+  // `/inscription/` lit `Accept-Language` comme `/compte/` et `/connexion/` :
+  // elle DOIT être à la demande, sinon elle sert la langue du build à tout le
+  // monde. `/api/demo` et `/api/inscription` posent ou lisent des cookies : une
+  // route pré-générée est un fichier figé, elle ne peut poser aucun en-tête.
+  // 🔴 C'est littéralement la panne du lot 24 sur `/api/deconnexion`. Ajouter
+  // une route de compte SANS l'inscrire ici la pré-génère EN SILENCE — le build
+  // reste vert, et la fonction est morte.
+  'pages/inscription/index.astro',
+  'pages/api/demo.js',
+  'pages/api/inscription.js',
 ];
 
 const normalise = (p) => String(p || '').replace(/\\/g, '/');
