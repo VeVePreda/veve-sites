@@ -129,6 +129,35 @@ export function languesDuSite() {
   if (!siteEditorial()) return active;
   const toutes = activeSections();
   journalLangues([...toutes, 'blog']);
+
+  // 🔴🔴 CORRIGE LE 03/08/2026 (lot 37) — 15 PAGES SUPPRIMEES EN SILENCE.
+  // ═══════════════════════════════════════════════════════════════════════
+  // `siteEditorial()` devient vrai des que `editorial.pages` est non vide.
+  // Mais `activeSections()` INTERSECTE avec `SECTIONS`, ou `blog` ne figure
+  // pas — deliberement : « le blog a son rendu propre » (l.13).
+  // Un site qui ne declare QUE `blog` a donc ZERO section mesurable, et le
+  // filtre ci-dessous ne laissait passer que la langue pivot.
+  //
+  // MESURE, PAS SUPPOSITION : en branchant `editorial: {pages: [blog]}` sur
+  // veveprice, le build est passe de 439 a 424 pages. Disparues :
+  // /fr/, /es/, /de/ et leurs 12 pages legales. Sans une erreur, sans un
+  // warning, et les 16 bancs seraient restes verts.
+  //
+  // ⭐⭐ « NE RIEN POUVOIR MESURER » ET « TOUT REFUSER » SONT L'INVERSE L'UN DE
+  // L'AUTRE, ET SE RESSEMBLENT DANS LE CODE. C'est le meme defaut que le
+  // `getattr(…, ())` des 216 838 transferts : l'absence de reponse produisait
+  // une reponse plausible. Ce fichier promettait pourtant l'inverse en
+  // toutes lettres (langues.mjs l.38) : « un site sans bloc editorial n'est
+  // pas mesure du tout — ses langues restent celles de son manifeste ». La
+  // promesse etait bonne ; elle sautait des qu'un site declarait UNE page non
+  // mesurable.
+  //
+  // ⛔ NE PAS « corriger » en ajoutant `blog` a SECTIONS : le blog n'est pas
+  // rendu par ce module, et l'y mettre lui fabriquerait des routes en double.
+  // Les langues du blog sont deja mesurees, ailleurs et mieux, par
+  // `languesBlog()` — qui lit les articles REELS des deux sources.
+  if (!toutes.length) return active;
+
   return active.filter((l) => l === def || toutes.some((s) => languesDeSection(s).includes(l)));
 }
 

@@ -1,0 +1,148 @@
+---
+// ⚠️ VeVePreda/veve-sites — src/components/pages/BlogPostVitrine.astro (NEUF)
+// ═══════════════════════════════════════════════════════════════════════════
+// L'ARTICLE, PEAU VITRINE — porté de `ecranArticle()` de la maquette.
+// ═══════════════════════════════════════════════════════════════════════════
+// Même raison d'être que BlogIndexVitrine : `avec-aside`, `panneau`, `etiq`,
+// `carte`, `h-page`, `num` n'existent QUE dans le thème `vitrine`. Le gabarit
+// partagé `BlogPost.astro` n'a pas bougé d'un octet — vevewiki rend exactement
+// ce qu'il rendait ce matin.
+//
+// ⭐⭐ CE QUE LE MOTEUR TIENT ET QUE JE N'AI PAS TOUCHÉ : le JSON-LD Article,
+// les `hreflang` des traductions, l'og:image générée, le seuil d'indexation des
+// tags, et le rendu des DEUX sources (une ligne de Sheet arrive en `html`, un
+// `.md` du dépôt passe par le pipeline Astro). Ce sont les pièces qui font le
+// référencement ; la maquette n'en connaît aucune.
+//
+// ═══════════════════════════════════════════════════════════════════════════
+// LE BOUCHON QUE J'AI REFUSÉ DE PORTER
+// ═══════════════════════════════════════════════════════════════════════════
+// La maquette place `grandGraph(it, 42, …)` au milieu de l'article, dans un
+// `<figure>` avec sa légende. C'est joli, et c'est un GÉNÉRATEUR
+// PSEUDO-ALÉATOIRE : `serieJours()` fabrique la courbe avec un `rnd()` semé sur
+// le nom de la pièce. Aucun de ces points n'a jamais existé.
+// ⛔ SUR UN SITE DE COTES, UNE VALEUR FABRIQUÉE EST LA SEULE FAUTE QU'ON NE
+//    RATTRAPE JAMAIS.
+// ⭐ Et le moteur a déjà la vraie réponse, meilleure : dans le corps de
+//    l'article, `![légende](figure:id)` devient une figure de données tracée au
+//    build (`figureParId`), sourcée, et l'auteur ne recopie aucun chiffre. Le
+//    graphique de l'article ne se porte pas : il s'écrit dans le texte.
+import { render } from 'astro:content';
+import Base from '../../layouts/Base.astro';
+import { translationPaths, tagsFor, postsFor, dureeLecture } from '../../../engine/lib/blog.mjs';
+import { dataset } from '../../../engine/lib/dataset.mjs';
+import { manifest, siteUrl } from '../../../engine/lib/manifest.mjs';
+import { jsonld, breadcrumbLd } from '../../../engine/lib/seo.mjs';
+import { t, localize, dateLocale } from '../../../engine/lib/i18n.mjs';
+import { carteArticle } from '../../../engine/lib/og.mjs';
+
+const { lang, post, updatedAt } = Astro.props;
+const m = manifest();
+const root = siteUrl();
+const df = dateLocale[lang] || 'en-GB';
+const Content = post.entry ? (await render(post.entry)).Content : null;
+const path = `/blog/${post.slug}/`;
+const alt = await translationPaths(post.data.translationKey);
+
+const ds = await dataset();
+const byUuid = new Map(ds.items.map((i) => [i.uuid, i]));
+const cited = (post.data.items || []).map((u) => byUuid.get(u)).filter(Boolean);
+
+// « À lire ensuite » — les articles qui PARTAGENT un tag, à défaut les plus
+// récents. ⛔ Jamais un tirage au hasard : deux visites de la même page
+// donneraient deux listes, et un lien qui bouge sans raison se lit comme une
+// panne. L'ordre vient de la donnée, il est donc stable.
+const tousLesPosts = await postsFor(lang);
+const mesTags = new Set(post.data.tags || []);
+const suite = tousLesPosts
+  .filter((p) => p.slug !== post.slug)
+  .map((p) => ({ p, n: (p.data.tags || []).filter((x) => mesTags.has(x)).length }))
+  .sort((a, b) => (b.n - a.n) || (new Date(b.p.data.date) - new Date(a.p.data.date)))
+  .slice(0, 3)
+  .map((x) => x.p);
+
+const minutes = dureeLecture(post);
+// ⭐ `avec-aside` pose DEUX colonnes. Si les deux panneaux sont vides — article
+// qui ne cite aucune piece, et seul article du blog — la colonne laterale reste
+// une bande blanche a cote du texte. ⛔ Une mise en page qui promet un contenu
+// absent se lit comme une panne, pas comme de la sobriete. Sans aside, on rend
+// l'article en pleine largeur, ce qui est le bon dessin pour ce cas.
+const aAside = cited.length > 0 || suite.length > 0;
+const categorie = (post.data.tags && post.data.tags[0]) || '';
+
+const crumbs = [
+  { name: t(lang, 'home.crumb'), url: localize(lang, '/') },
+  { name: t(lang, 'blog.title'), url: localize(lang, '/blog/') },
+  { name: post.data.title },
+];
+const articleLd = {
+  '@context': 'https://schema.org', '@type': 'Article',
+  headline: post.data.title,
+  description: post.data.description,
+  datePublished: new Date(post.data.date).toISOString(),
+  dateModified: new Date(post.data.updated || post.data.date).toISOString(),
+  inLanguage: lang,
+  author: { '@type': 'Organization', name: m.site.brand },
+  publisher: { '@type': 'Organization', name: m.site.brand },
+  mainEntityOfPage: `${root}${localize(lang, path)}`,
+};
+const ld = [articleLd, breadcrumbLd(crumbs.map((c) => ({ name: c.name, url: c.url ? root + c.url : `${root}${localize(lang, path)}` })))];
+const tagsAvecPage = new Set((await tagsFor(lang)).map((x) => x.tag));
+---
+<Base lang={lang} path={path} altPaths={alt} title={post.data.title} description={post.data.description}
+      crumbs={crumbs} ld={ld} updatedAt={updatedAt} image={carteArticle(lang, post.slug)}>
+  <div class={aAside ? "avec-aside" : ""}>
+    <article class="post">
+      <p class="etiq etiq--bleu">
+        {categorie && `${categorie} · `}
+        {new Date(post.data.date).toLocaleDateString(df)}
+        {minutes && ` · ${t(lang, 'blog.readingTime', { n: minutes })}`}
+      </p>
+      <h1 class="h-page">{post.data.title}</h1>
+      <p class="lead">{post.data.description}</p>
+      {post.data.updated && (
+        <p class="etiq">{t(lang, 'blog.updated')} {new Date(post.data.updated).toLocaleDateString(df)}</p>
+      )}
+      {/* ⭐ Le corps rend les DEUX sources sans les confondre — c'est le moteur
+          qui décide, pas la peau. */}
+      <div class="prose">{Content ? <Content /> : <Fragment set:html={post.html} />}</div>
+
+      {post.data.tags.length > 0 && (
+        <p class="filtres" style="margin-top:var(--s6)">
+          {post.data.tags.map((tg) => (tagsAvecPage.has(tg)
+            ? <a class="puce" href={localize(lang, `/blog/tag/${tg}/`)}>{tg}</a>
+            : <span class="puce">{tg}</span>))}
+        </p>
+      )}
+    </article>
+
+    {aAside && (
+    <aside>
+      {/* LA PIÈCE DONT ON PARLE — la maquette la dessinait, et le moteur la
+          fournit DÉJÀ : `data.items` porte les uuid cités par l'article.
+          ⚠️ Rien ne s'affiche si l'article ne cite personne : un panneau vide
+          serait une promesse que le contenu ne tient pas. */}
+      {cited.length > 0 && (
+        <div class="panneau">
+          <p class="etiq">{t(lang, 'blog.relatedItems')}</p>
+          {cited.map((i) => (
+            <a class="carte" href={localize(lang, i.path)}>
+              <span class="n">{i.name}</span><span class="s">{i.series}</span>
+            </a>
+          ))}
+        </div>
+      )}
+      {suite.length > 0 && (
+        <div class="panneau">
+          <p class="etiq">{t(lang, 'blog.readNext')}</p>
+          {suite.map((p) => (
+            <a href={localize(lang, `/blog/${p.slug}/`)}>{p.data.title}</a>
+          ))}
+        </div>
+      )}
+    </aside>
+    )}
+  </div>
+
+  <p style="margin-top:var(--s6)"><a href={localize(lang, '/blog/')}>← {t(lang, 'blog.backToBlog')}</a></p>
+</Base>

@@ -172,6 +172,7 @@ RUN set -e; MODE=$(cat /app/.rendering); \
     if [ "$MODE" = "server" ]; then \
       test -f dist/server/entry.mjs || { echo "ERREUR: rendering:server mais pas de dist/server/entry.mjs — adaptateur Node absent ?"; exit 1; }; \
       test -d dist/client || { echo "ERREUR: rendering:server mais pas de dist/client — les pages pre-generees ont disparu"; exit 1; }; \
+      test -f dist/client/index.html || { echo "ERREUR: rendering:server mais pas de dist/client/index.html — LA PAGE D'ACCUEIL N'EXISTE PAS"; exit 1; }; \
       echo "mode server : $(find dist/client -name index.html | wc -l) pages pre-generees + un serveur Node"; \
     else \
       test -f dist/index.html || { echo "ERREUR: rendering:static mais pas de dist/index.html"; exit 1; }; \
@@ -194,6 +195,19 @@ RUN set -e; MODE=$(cat /app/.rendering); \
 # ⭐ Il sort en rc=2 s'il n'a lu aucune page ou moins de 20 cles : un banc qui
 # n'a rien inspecte n'a rien prouve, et son vert est le plus cher de tous.
 RUN WAREHOUSE_OFFLINE=1 npm run test:cles
+# ⭐⭐ `test:routes` — LA TROISIEME PANNE DE LA MEME FAMILLE, LE MEME JOUR.
+# 03/08/2026 : (1) 24 pages `/rarity/` en placeholder, (2) `src/pages/index.astro`
+# supprime par megarde — LA PAGE D'ACCUEIL, build vert a 438 pages, (3) un
+# `editorial: {pages:[blog]}` au manifeste faisant tomber le build de 439 a 424
+# pages : /fr/, /es/, /de/ et 12 pages legales, sans une erreur.
+# ⭐⭐ « QU'EST-CE QUE LA PAGE DIT ? » (test:cles) ET « LA PAGE EXISTE-T-ELLE ? »
+# SONT DEUX QUESTIONS. Aucun banc ne posait la seconde ; deux fois sur trois,
+# c'est un humain comparant des comptes de pages qui a vu la panne.
+# ⚠️ SON ATTENTE VIENT DU MANIFESTE, PAS D'UNE LISTE. Sa premiere version la
+# tirait de `languesDuSite()` — la fonction qui PORTAIT le defaut n°3 — et
+# restait verte : l'attente retrecissait avec la panne. Un instrument branche en
+# aval de ce qu'il mesure ne mesure rien.
+RUN WAREHOUSE_OFFLINE=1 npm run test:routes
 
 # --- Precompression : le seul gain de vitesse qui restait ------------------
 # ⭐⭐ POURQUOI PRECOMPRESSER, PLUTOT QUE DE MONTER LE NIVEAU DE gzip.

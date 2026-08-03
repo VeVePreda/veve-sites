@@ -1,0 +1,151 @@
+---
+// ⚠️ VeVePreda/veve-sites — src/components/pages/BlogIndexVitrine.astro (NEUF)
+// ═══════════════════════════════════════════════════════════════════════════
+// L'INDEX DU BLOG, PEAU VITRINE — porté de `ecranBlog()` de la maquette.
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴 POURQUOI CE FICHIER EXISTE PLUTÔT QU'UNE MODIFICATION DE BlogIndex.astro.
+// Le blog de la maquette emploie 35 classes ; **31 n'existent que dans le thème
+// `vitrine`** (mesuré le 03/08/2026). `encyclopedie` n'a aucune règle pour
+// `boite`, `boites`, `bloc__os`, `etiq`, `carte`, `sect-t`, `filtres`, `num-s`…
+// Seules `prose`, `crumbs`, `lead` et `wrap` sont dans les trois thèmes.
+// ⛔ Porter ce balisage dans le gabarit PARTAGÉ aurait rendu inerte le blog de
+//    vevewiki — 40 pages réelles, 5 articles × 5 langues — pour embellir celui
+//    de veveprice, qui en a UN.
+// ⭐ C'est le miroir exact de la panne du 31/07 : on avait alors réclamé à
+//    `encyclopedie` le vocabulaire de la vitrine via `css-mort`, 172 griefs.
+//    Ici c'est le GABARIT qui l'aurait réclamé — et rien n'aurait crié.
+//
+// ⭐⭐ CE QUI VIENT DE LA MAQUETTE NE DOIT JAMAIS DÉFAIRE CE QUE LE MOTEUR TIENT.
+// Tout ce qui suit (dates, traductions, noindex sur index vide, hreflang,
+// seuil de tag) vient du moteur et n'a pas bougé. Seul le BALISAGE est porté.
+//
+// ═══════════════════════════════════════════════════════════════════════════
+// CE QUE JE N'AI PAS PORTÉ, ET POURQUOI
+// ═══════════════════════════════════════════════════════════════════════════
+// · `grandGraph(it, 42)` — la courbe de la maquette est un GÉNÉRATEUR
+//   PSEUDO-ALÉATOIRE (`serieJours` + `rnd()`). Sur un site de cotes, une valeur
+//   fabriquée est la seule faute qu'on ne rattrape jamais. Et le moteur fait
+//   déjà mieux : `![légende](figure:id)` trace une figure de données au build,
+//   l'auteur ne recopiant AUCUN chiffre.
+// · La série numérotée « Débuter sa collection » (01 → 05) — le moteur n'a
+//   AUCUNE notion de série ordonnée. `porter.mjs` l'aurait signalée, jamais
+//   inventée : « tout champ de la maquette sans équivalent est signalé, jamais
+//   inventé ». Il faudrait une colonne d'ordre dans le Sheet ; ce n'est pas ce
+//   lot.
+// · « 42 ARTICLES » en dur — remplacé par le compte réel.
+// · Les puces de filtre en `<button aria-pressed>` — remplacées par des LIENS
+//   vers les pages de tag qui existent déjà (`/blog/tag/<tag>/`). Un bouton
+//   sans JS ne filtre rien ; un lien, si. Et le seuil `SEUIL_INDEX_TAG` du
+//   moteur continue de décider lesquels ont une page.
+import Base from '../../layouts/Base.astro';
+import { postsFor, tagsFor, blogMeta, languesBlog, dureeLecture } from '../../../engine/lib/blog.mjs';
+import { t, localize, dateLocale } from '../../../engine/lib/i18n.mjs';
+
+const { lang, updatedAt } = Astro.props;
+const posts = await postsFor(lang);
+const tags = await tagsFor(lang);
+const df = dateLocale[lang] || 'en-GB';
+const meta = blogMeta(lang, { title: t(lang, 'blog.title'), description: t(lang, 'desc.blogIndex') });
+const languesArticles = await languesBlog();
+
+// ⭐⭐ LE SEUIL DE LA « UNE » — LA DÉCISION LA PLUS IMPORTANTE DE CE FICHIER.
+// Le dessin de la maquette suppose 42 articles. veveprice en a UN. Avec un
+// seul, « à la une » EST l'article, et la grille « derniers articles » est
+// vide : la page a l'air cassée alors que tout marche.
+// ⛔ Une page qui a l'air en panne coûte plus cher qu'une page sobre.
+// En dessous de ce seuil on rend la liste simple — même contenu, même donnée,
+// aucune promesse que le contenu ne tient pas.
+const SEUIL_UNE = 4;
+const enVitrine = posts.length >= SEUIL_UNE;
+const une = enVitrine ? posts[0] : null;
+const suite = enVitrine ? posts.slice(1) : posts;
+
+// La catégorie affichée = le premier tag. Le moteur n'a pas de champ
+// « catégorie » ; on ne lui en invente pas un, on nomme ce qu'il a.
+const categorie = (p) => (p.data.tags && p.data.tags[0]) || '';
+const minutes = (p) => dureeLecture(p);
+
+// Les gabarits de grille de la maquette : des tailles INÉGALES créent une
+// hiérarchie de lecture qu'une grille régulière ne donne pas. Au-delà de la
+// liste, on retombe sur la taille standard.
+// ⚠️ LES TAILLES INEGALES NE VALENT QUE SI IL Y A UNE HIERARCHIE A EXPRIMER.
+// A un ou deux articles, une boite de 7 colonnes sur 12 flotte a cote du vide :
+// le dessin dit « il y a une suite » et il n'y en a pas. En mode degrade on
+// rend une grille reguliere — meme classes, meme CSS, aucune promesse.
+const GRILLE = ['grid-column:span 7;grid-row:span 3', 'grid-column:span 5;grid-row:span 3',
+  'grid-column:span 4;grid-row:span 2', 'grid-column:span 4;grid-row:span 2',
+  'grid-column:span 4;grid-row:span 2'];
+const VARIANTE = [' boite--os', '', ' boite--sect', '', ''];
+---
+<Base lang={lang} path="/blog/" title={meta.title} description={meta.description} updatedAt={updatedAt}
+      noindex={posts.length === 0} langs={languesArticles}
+      crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') }, { name: meta.title }]}>
+
+  <p class="etiq etiq--bleu">// {meta.title.toUpperCase()} — {posts.length}</p>
+  <h1 class="mono-t">{meta.title}</h1>
+  <p class="respire" style="max-width:52ch">{meta.description}</p>
+
+  {tags.length > 0 && (
+    <div class="filtres">
+      {tags.map((x) => (
+        <a class="puce" href={localize(lang, `/blog/tag/${x.tag}/`)}>{x.tag} ({x.n})</a>
+      ))}
+      <span class="sep-v"></span>
+      <a class="puce" href={localize(lang, '/rss.xml')}>RSS</a>
+    </div>
+  )}
+
+  {posts.length === 0 && <p class="lead">{t(lang, 'blog.empty')}</p>}
+
+  {/* LA UNE — champ noir + panneau os, le motif de l'accueil.
+      ⚠️ `cover` peut être vide (mesuré : 13 articles sans image sur vevewiki).
+      Le bloc doit tenir SANS image, sinon on publie un cadre creux. */}
+  {une && (
+    <a class="bloc revele" href={localize(lang, `/blog/${une.slug}/`)}
+       style="margin-top:var(--s5);min-height:340px;text-decoration:none">
+      <span class="bloc__champ bloc__champ--noir"></span>
+      {une.cover && (
+        <span style="position:absolute;inset:0 0 0 auto;width:56%;overflow:hidden">
+          <img src={une.cover} alt="" loading="lazy" decoding="async" width="720" height="405"
+               style="width:100%;height:100%;object-fit:cover;opacity:.9" />
+          <span style="position:absolute;inset:0;background:linear-gradient(90deg,#0E0E0E 6%,transparent 52%)"></span>
+        </span>
+      )}
+      <span class="ref ref--td">{t(lang, 'blog.featured')}
+        {new Date(une.data.date).toLocaleDateString(df)}</span>
+      <span class="bloc__os" style="margin:var(--s6) 0;padding:var(--s6);max-width:520px;position:relative;z-index:4;display:block">
+        {categorie(une) && <span class="num-s">// {categorie(une).toUpperCase()}</span>}
+        <span class="mono-t" style="display:block">{une.data.title}</span>
+        <span style="display:block;margin:var(--s4) 0 0;font-size:var(--t-md);line-height:1.6">{une.data.description}</span>
+        {minutes(une) && <span class="etiq" style="display:block;margin-top:var(--s4)">{t(lang, 'blog.readingTime', { n: minutes(une) })}</span>}
+      </span>
+    </a>
+  )}
+
+  {suite.length > 0 && (
+    <>
+      <div class="sect-t sect-t--gd"><h2>{t(lang, 'blog.latest')}</h2></div>
+      <div class="boites">
+        {suite.map((p, k) => (
+          <a class={`boite${(enVitrine && VARIANTE[k]) || ''} revele`}
+             href={localize(lang, `/blog/${p.slug}/`)}
+             style={`${enVitrine ? (GRILLE[k] || 'grid-column:span 4;grid-row:span 2') : 'grid-column:span 6;grid-row:span 2'};--i:${k}`}>
+            <span class="boite__n">
+              {categorie(p) ? `// ${categorie(p).toUpperCase()} — ` : '// '}
+              {new Date(p.data.date).toLocaleDateString(df)}
+            </span>
+            {p.cover && (
+              <span class="boite__viz">
+                <img src={p.cover} alt="" loading="lazy" decoding="async" width="320" height="180" />
+              </span>
+            )}
+            <span class="boite__bas">
+              <span class="boite__t">{p.data.title}</span>
+              {minutes(p) && <span class="boite__d">{t(lang, 'blog.readingTime', { n: minutes(p) })}</span>}
+            </span>
+          </a>
+        ))}
+      </div>
+    </>
+  )}
+</Base>

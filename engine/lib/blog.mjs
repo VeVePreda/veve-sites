@@ -123,6 +123,15 @@ async function sheetPostsFor(lang) {
         figure: (id, legende) => figureParId(id, lang, legende),
       }),
       cover: norm(r.cover || r.image),
+      // ⭐ DUREE DE LECTURE — colonne OPTIONNELLE du Sheet (arbitrage Preda
+      // du 03/08 : c'est l'auteur qui l'ecrit). Alias toleres comme partout
+      // ailleurs dans ce lecteur : un Sheet tenu a la main n'a pas d'en-tetes
+      // stables, et refuser « duree » parce qu'on attendait « lecture » ferait
+      // perdre la donnee en silence.
+      // ⛔ ON NE LA COMPLETE PAS ICI. Vide = vide. Le repli calcule vit dans
+      // `dureeLecture()`, en UN seul endroit : deux definitions d'un meme
+      // chiffre, c'est le defaut de famille de ce projet.
+      lectureDite: norm(r.lecture || r.reading_time || r.readingTime || r.duree || r.temps),
       data: {
         title: titre,
         description: norm(r.excerpt || r.description || r.chapeau)
@@ -319,6 +328,79 @@ export function blogMeta(lang, fallback = {}) {
 /** Ce site a-t-il un blog ? (nav, sitemap) — vrai si le manifeste l'active
  *  (`editorial.pages` contient `blog`) OU si le site n'est pas un site éditorial
  *  (les sites de prix gardent leur blog markdown historique). */
+// ═══════════════════════════════════════════════════════════════════════════
+// LA DUREE DE LECTURE — dite par l'auteur, calculee a defaut.
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐ ARBITRAGE PREDA DU 03/08/2026 : c'est un CHAMP OPTIONNEL DU SHEET. Quand
+// l'auteur l'ecrit, elle fait foi — il sait si son article se lit vite.
+//
+// ⚠️ ET « OPTIONNEL » DOIT AVOIR UN COMPORTEMENT QUAND IL EST ABSENT. Sans
+// repli, un article sans la colonne afficherait « — de lecture », ou pire une
+// chaine vide dans une etiquette dessinee pour porter un chiffre. On calcule
+// donc : mots du corps / 200, plancher a 1 minute.
+//
+// ⛔ LE PIEGE CONNU, ET IL EST REEL : un chiffre ECRIT A LA MAIN se perime des
+// que l'article est rallonge, sans que rien ne le dise. C'est le meme mecanisme
+// que l'habillage du Sheet pose hors du code qui ecrit. On ne peut pas
+// l'empecher — c'est le prix du choix — mais on peut le RENDRE VISIBLE : le
+// build journalise l'ecart quand la valeur dite s'eloigne de plus de 60 % du
+// calcul. Il ne corrige rien, il le dit.
+const MOTS_PAR_MINUTE = 200;
+
+/** Minutes de lecture d'un article. `null` si le corps est vide. */
+export function dureeLecture(post) {
+  const dite = Number(String(post?.lectureDite ?? '').replace(/[^0-9]/g, ''));
+  // Le corps : une ligne de Sheet arrive rendue en `html`, un .md porte son
+  // `entry.body` brut. On mesure le TEXTE, jamais le balisage.
+  const brut = post?.html
+    ? String(post.html).replace(/<[^>]+>/g, ' ')
+    : String(post?.entry?.body || '');
+  const mots = brut.split(/\s+/).filter(Boolean).length;
+  const calcule = mots ? Math.max(1, Math.round(mots / MOTS_PAR_MINUTE)) : null;
+
+  if (Number.isFinite(dite) && dite > 0) {
+    if (calcule && (dite > calcule * 1.6 || dite < calcule * 0.4)) {
+      console.log(`[blog] « ${post.slug} » (${post.lang}) : duree dite ${dite} min, `
+        + `corps mesure a ~${calcule} min. La valeur DITE est publiee — mais si `
+        + `l'article a ete rallonge depuis, la colonne du Sheet est a reprendre.`);
+    }
+    return dite;
+  }
+  return calcule;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LA PEAU DU BLOG — quel jeu de gabarits rend les articles.
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴 POURQUOI CE REGLAGE EXISTE, ET IL FAUT LE SAVOIR AVANT D'Y TOUCHER.
+// Le blog de la maquette emploie 35 classes. TRENTE ET UNE n'existent QUE dans
+// le theme `vitrine` : `boite`, `boites`, `bloc__os`, `etiq`, `carte`,
+// `sect-t`, `avec-aside`, `panneau`, `filtres`, `num-s`… `encyclopedie` et
+// `aurora` n'en ont aucune regle — mesure le 03/08/2026.
+// Seules `prose`, `crumbs`, `lead` et `wrap` sont dans les trois.
+//
+// ⛔ PORTER LE BALISAGE DANS LE GABARIT PARTAGE AURAIT RENDU INERTE LE BLOG DE
+// vevewiki — 40 pages reelles, 5 articles x 5 langues — POUR EMBELLIR CELUI DE
+// veveprice, QUI EN A UN. C'est le miroir exact du 31/07 : on avait alors
+// reclame a `encyclopedie` le vocabulaire de la vitrine via `css-mort`, et
+// recolte 172 griefs. Ici, c'est le GABARIT qui l'aurait reclame — et personne
+// n'aurait crie.
+//
+// ⭐ On suit le precedent du moteur plutot que d'en inventer un : `index.astro`
+// choisit deja `Home` ou `EditorialHome` selon le manifeste.
+// ⚠️ DEFAUT = `sobre`. Un site qui ne declare rien ne change pas de rendu.
+export function blogSkin() {
+  const v = String(manifest().editorial?.blog_skin || '').trim().toLowerCase();
+  if (!v) return 'sobre';
+  if (v !== 'vitrine' && v !== 'sobre') {
+    // Porte inconnue = faute de frappe, pas fonctionnalite a venir. On refuse
+    // bruyamment : un `blog_skin: vitrines` silencieux rendrait la page sobre
+    // et on chercherait la panne dans le CSS pendant une heure.
+    throw new Error(`[blog] editorial.blog_skin inconnu : « ${v} » (attendus : vitrine, sobre)`);
+  }
+  return v;
+}
+
 export function blogEnabled() {
   const m = manifest();
   const ed = m.editorial || {};

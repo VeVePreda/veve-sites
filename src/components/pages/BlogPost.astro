@@ -1,4 +1,25 @@
 ---
+// ═══════════════════════════════════════════════════════════════════════════
+// AIGUILLAGE DE PEAU — ajoute le 03/08/2026 (lot 37).
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐ UN SEUL ENDROIT DECIDE. Le moteur a deja ce motif : `src/pages/index.astro`
+// choisit `Home` ou `EditorialHome` selon le manifeste. On le suit plutot que
+// d'inventer un second mecanisme — deux facons de choisir un gabarit finiraient
+// par diverger, comme les quatre reglages ecrases de ce projet.
+//
+// 🔴 QUAND `blogSkin()` VAUT `sobre` (le DEFAUT, et le cas de vevewiki), CE QUI
+// SUIT EST EXACTEMENT LE FICHIER D'AVANT, a l'enveloppe `<Fragment>` pres.
+// Le blog de vevewiki — 40 pages reelles — ne passe jamais par la branche
+// vitrine, donc il ne peut pas bouger.
+//
+// ⚠️ L'ENVELOPPE N'EST PAS COSMETIQUE. Le corps commence par un COMMENTAIRE
+// JSX puis par `<Base>` : deux expressions soeurs. Sans `<Fragment>`, le
+// compilateur Astro rend « Expected `,` or `)` but found `Identifier` » — un
+// message qui ne nomme ni le commentaire ni la cause. Mesure, pas suppose.
+import BlogPostVitrine from './BlogPostVitrine.astro';
+import { blogSkin } from '../../../engine/lib/blog.mjs';
+const _peau = blogSkin();
+
 import { render } from 'astro:content';
 import Base from '../../layouts/Base.astro';
 import { translationPaths, tagsFor } from '../../../engine/lib/blog.mjs';
@@ -42,6 +63,8 @@ const articleLd = {
 const ld = [articleLd, breadcrumbLd(crumbs.map((c) => ({ name: c.name, url: c.url ? root + c.url : `${root}${localize(lang, path)}` })))];
 const tagsAvecPage = new Set((await tagsFor(lang)).map((x) => x.tag));
 ---
+{_peau === "vitrine" ? <BlogPostVitrine {...Astro.props} /> : (
+<Fragment>
 {/* La carte sert d'og:image, PAS d'illustration en tete d'article : a
     l'interieur elle ne ferait que repeter le <h1> juste au-dessus, et une
     image qui redit le texte qu'elle surmonte est du remplissage. */}
@@ -73,3 +96,5 @@ const tagsAvecPage = new Set((await tagsFor(lang)).map((x) => x.tag));
 
   <p style="margin-top:28px"><a href={localize(lang, '/blog/')}>← {t(lang, 'blog.backToBlog')}</a></p>
 </Base>
+</Fragment>
+)}

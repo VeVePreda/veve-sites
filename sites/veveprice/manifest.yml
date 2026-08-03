@@ -126,6 +126,55 @@ access:
       tier: whale
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# BLOG — Sheet dédié + peau vitrine   (03/08/2026, lot 37)
+# ═══════════════════════════════════════════════════════════════════════════
+# ⚠️ AVANT CE LOT, veveprice n'avait AUCUN bloc `editorial:`. `blog.mjs` le
+# disait dans son propre en-tête : « un site sans onglet Blog (veveprice) ».
+# Son unique article vient de sites/veveprice/blog/{fr,en}/*.md.
+#
+# ⭐ `pages: [blog]` NE CRÉE AUCUNE ROUTE. `SECTIONS` d'editorial_pages.mjs vaut
+# [glossary, acronyms, annuaire, history, brands] — le blog en est absent
+# exprès, « il a son rendu propre ». Cette clé ne pilote que la RÉCOLTE
+# (editorial_pull.py) et le journal des langues.
+#
+# 🔴 ET ELLE NE BASCULE PAS L'ACCUEIL. `src/pages/index.astro` teste :
+#     wiki = (content.home === 'editorial')
+#         || (editorial.pages.length && !content.data_modules.length)
+# veveprice a 3 `data_modules`, donc le second terme est FAUX. Vérifié au build,
+# pas déduit : l'accueil reste `Home.astro`.
+editorial:
+  # 🔴 À REMPLIR PAR PREDA — l'id du Sheet éditorial de VeVePrice.
+  # ⛔ TANT QUE CETTE LIGNE EST COMMENTÉE, la récolte ne tourne pas et le blog
+  #    reste alimenté par les seuls .md du dépôt. C'est un état SAIN, pas une
+  #    panne : rien ne casse, rien n'est inventé, et le build le journalise.
+  # sheet_id: "..."
+  pages: [blog]
+  # ⚠️ Même raison que sur vevewiki : tant que l'onglet Blog n'a aucune ligne,
+  # une lecture vide ne doit pas faire échouer la récolte quotidienne.
+  allow_empty: [blog]
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # LA PEAU — pourquoi ce réglage existe (à lire avant d'y toucher)
+  # ─────────────────────────────────────────────────────────────────────────
+  # Le blog de la maquette emploie 35 classes. **31 n'existent QUE dans le
+  # thème `vitrine`** (mesuré le 03/08) : boite, boites, bloc__os, etiq, carte,
+  # sect-t, avec-aside, panneau, filtres, num-s… `encyclopedie` n'en a AUCUNE.
+  # ⛔ Porter ce balisage dans le gabarit PARTAGÉ aurait rendu inerte le blog de
+  #    vevewiki — 40 pages réelles — pour embellir celui-ci, qui a 1 article.
+  # ⭐ `sobre` reste le défaut du réseau : un site qui ne déclare rien ne change
+  #    pas de rendu. Seul veveprice demande la peau vitrine.
+  blog_skin: vitrine
+
+  labels:
+    blog:
+      title: { fr: "Le blog", en: "The blog" }
+      # ⚠️ 70 caractères minimum (audit SEO) : en dessous, Google fabrique son
+      # propre extrait. Cf. DESC_MIN dans engine/lib/editorial_pages.mjs.
+      description:
+        fr: "Ce que les chiffres racontent quand on les regarde de près : chaque article s'appuie sur les relevés du site, avec ses sources."
+        en: "What the numbers say when you look closely: every article is built on this site's own price records, sources included."
+
 # ───────────────────────────────────────────────────────────────────────────
 # BLOC 3 · REMPLACER le bloc `offer:` — les tarifs vivent ICI
 # ───────────────────────────────────────────────────────────────────────────

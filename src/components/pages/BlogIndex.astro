@@ -1,4 +1,25 @@
 ---
+// ═══════════════════════════════════════════════════════════════════════════
+// AIGUILLAGE DE PEAU — ajoute le 03/08/2026 (lot 37).
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐ UN SEUL ENDROIT DECIDE. Le moteur a deja ce motif : `src/pages/index.astro`
+// choisit `Home` ou `EditorialHome` selon le manifeste. On le suit plutot que
+// d'inventer un second mecanisme — deux facons de choisir un gabarit finiraient
+// par diverger, comme les quatre reglages ecrases de ce projet.
+//
+// 🔴 QUAND `blogSkin()` VAUT `sobre` (le DEFAUT, et le cas de vevewiki), CE QUI
+// SUIT EST EXACTEMENT LE FICHIER D'AVANT, a l'enveloppe `<Fragment>` pres.
+// Le blog de vevewiki — 40 pages reelles — ne passe jamais par la branche
+// vitrine, donc il ne peut pas bouger.
+//
+// ⚠️ L'ENVELOPPE N'EST PAS COSMETIQUE. Le corps commence par un COMMENTAIRE
+// JSX puis par `<Base>` : deux expressions soeurs. Sans `<Fragment>`, le
+// compilateur Astro rend « Expected `,` or `)` but found `Identifier` » — un
+// message qui ne nomme ni le commentaire ni la cause. Mesure, pas suppose.
+import BlogIndexVitrine from './BlogIndexVitrine.astro';
+import { blogSkin } from '../../../engine/lib/blog.mjs';
+const _peau = blogSkin();
+
 import Base from '../../layouts/Base.astro';
 import { postsFor, tagsFor, blogMeta, languesBlog } from '../../../engine/lib/blog.mjs';
 import { t, localize, dateLocale } from '../../../engine/lib/i18n.mjs';
@@ -11,6 +32,8 @@ const df = dateLocale[lang] || 'en-GB';
 const meta = blogMeta(lang, { title: t(lang, 'blog.title'), description: t(lang, 'desc.blogIndex') });
 const languesArticles = await languesBlog();
 ---
+{_peau === "vitrine" ? <BlogIndexVitrine {...Astro.props} /> : (
+<Fragment>
 <Base lang={lang} path="/blog/" title={meta.title} description={meta.description} updatedAt={updatedAt} noindex={posts.length === 0}
       langs={languesArticles}
       crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') }, { name: meta.title }]}>
@@ -41,3 +64,5 @@ const languesArticles = await languesBlog();
     ))}
   </div>
 </Base>
+</Fragment>
+)}

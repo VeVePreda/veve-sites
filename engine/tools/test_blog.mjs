@@ -402,6 +402,61 @@ console.log('\n10. Sources : « toute information porte un lien vers sa source �
 }
 
 rmSync(base, { recursive: true, force: true });
+// ═══════════════════════════════════════════════════════════════════════════
+// LA PEAU DU BLOG (lot 37, 03/08/2026)
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐ CE QUI SE TESTE ICI N'EST PAS « la peau vitrine est jolie » — c'est que le
+// DEFAUT protege vevewiki. 31 des 35 classes du blog de la maquette n'existent
+// que dans le theme `vitrine` ; un site qui ne declare rien doit rester
+// `sobre`, sinon son blog — 40 pages reelles — sortirait en texte nu.
+console.log('\n8. La peau du blog et la duree de lecture');
+{
+  const { blogSkin, dureeLecture, postsFor } = await import('../lib/blog.mjs');
+  const { manifest } = await import('../lib/manifest.mjs');
+  const { locales } = await import('../lib/i18n.mjs');
+  const site = process.env.SITE || 'veveprice';
+  const peau = blogSkin();
+  verifier(`blogSkin() rend une peau connue (${site} -> ${peau})`,
+    peau === 'vitrine' || peau === 'sobre', peau);
+
+  // ⭐ AUTO-CONTROLE : un nom inconnu doit ECHOUER, pas retomber sur `sobre`.
+  // Un `blog_skin: vitrines` silencieux rendrait la page sobre, et on
+  // chercherait la panne dans le CSS pendant une heure.
+  const m = manifest();
+  if (m.editorial) {
+    const sauve = m.editorial.blog_skin;
+    m.editorial.blog_skin = 'vitrines';
+    let leve = false;
+    try { blogSkin(); } catch { leve = true; }
+    m.editorial.blog_skin = sauve;
+    verifier('une peau INCONNUE fait echouer le build', leve,
+      'un blog_skin mal orthographie serait retombe sur sobre en silence');
+  } else {
+    verifier('site sans bloc editorial : peau `sobre` par defaut', peau === 'sobre', peau);
+  }
+
+  // ⛔ Sur un corps vide, la duree doit valoir `null`, PAS 0 : « 0 min de
+  //    lecture » est un chiffre qui a l'air vrai. Une absence se dit absente.
+  verifier('un corps vide ne fabrique pas un « 0 min »',
+    dureeLecture({ html: '', slug: 'x', lang: 'en' }) === null, 'doit valoir null');
+
+  // ⭐ Et la valeur DITE par le Sheet l'emporte sur le calcul — c'est
+  //    l'arbitrage du 03/08 : c'est l'auteur qui sait.
+  const mots = Array(600).fill('mot').join(' ');
+  verifier('la duree DITE par le Sheet fait foi',
+    dureeLecture({ html: mots, lectureDite: '9', slug: 'y', lang: 'en' }) === 9, 'attendu 9');
+  verifier('sans valeur dite, elle se CALCULE sur le corps',
+    dureeLecture({ html: mots, slug: 'y', lang: 'en' }) === 3, 'attendu 3 (600 mots / 200)');
+
+  const tous = await postsFor(locales().def);
+  if (tous.length) {
+    const d = tous.map((p) => dureeLecture(p));
+    verifier(`duree plausible sur ${d.length} article(s) reel(s) : ${d.join(', ')} min`,
+      d.every((x) => x === null || (Number.isInteger(x) && x >= 1)), JSON.stringify(d));
+  }
+}
+
+
 console.log(echecs === 0 ? '\n✅ blog hybride : tout est vert\n'
                          : `\n❌ blog hybride : ${echecs} échec(s)\n`);
 process.exit(echecs === 0 ? 0 : 1);
