@@ -200,7 +200,7 @@ editorial:
   # ⛔ TANT QUE CETTE LIGNE EST COMMENTÉE, la récolte ne tourne pas et le blog
   #    reste alimenté par les seuls .md du dépôt. C'est un état SAIN, pas une
   #    panne : rien ne casse, rien n'est inventé, et le workflow le journalise.
-  # sheet_id: "..."
+  sheet_id: "1fiICkMWiW4OBid43vfSBKcErtYBkXcbRuY3fRv7Rwo0"   # Sheet éditorial veveprice (03/08)
   pages: [blog]
   # ⚠️ Même raison que sur vevewiki : tant que l'onglet Blog n'a aucune ligne,
   # une lecture vide ne doit pas faire échouer la récolte quotidienne.
