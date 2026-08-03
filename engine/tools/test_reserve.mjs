@@ -103,11 +103,37 @@ const corps = async (r) => JSON.parse(await r.text());
 // jour où le manifeste change, sans que personne ne le voie : ce serait un
 // réglage posé à un endroit et redit à un autre — la faute de famille de ce
 // projet. On interroge donc la même source que le code testé.
+//
+// 🔴🔴 ET J'AI REFAIT LA MÊME FAUTE UN CRAN PLUS HAUT — DÉPLOIEMENT CASSÉ EN
+// PRODUCTION LE 02/08/2026. J'avais lu le PALIER dans le manifeste, mais pas
+// l'état ACTIF de la porte. Or ce banc tourne dans le Dockerfile, donc pour
+// TOUS les sites, et vevewiki déclare `access.tiers: [visitor]` :
+//     [acces] portes : price_history=public
+// Porte inactive => `franchit()` rend `true` pour tout le monde, sans session.
+// C'est le comportement CORRECT d'un site gratuit — `access.mjs` le dit en
+// toutes lettres : « Porte inactive (site gratuit) => tout le monde franchit ».
+// Mon banc exigeait 401, recevait 200, et faisait échouer le build de vevewiki
+// sur un moteur parfaitement sain.
+//
+// ⭐⭐ « LE MANIFESTE DÉCIDE, LE CODE OBÉIT » VAUT AUSSI POUR LES BANCS. Un
+// contrôle qui SUPPOSE le manifeste au lieu de le LIRE teste un site
+// imaginaire — et il ne se trompe pas à moitié : il casse le déploiement de
+// l'autre site, celui qu'il n'a jamais regardé.
+// ⛔ La correction n'est PAS de se taire quand la porte est inactive : un
+// contrôle qui n'a rien inspecté n'a rien prouvé, et c'est justement sur
+// vevewiki qu'il vient de tomber. Les DEUX contrats sont vérifiés, chacun sur
+// le site où il s'applique.
 const { PALIERS, porte: porteAcces } = await import('../lib/access.mjs');
-const EXIGE = porteAcces('price_history').tier;
+const PORTE = porteAcces('price_history');
+const ACTIVE = PORTE.actif;
+const EXIGE = PORTE.tier;
 const DESSOUS = PALIERS[Math.max(0, PALIERS.indexOf(EXIGE) - 1)];
-console.log(`  (le manifeste exige « ${EXIGE} » ; juste en dessous : « ${DESSOUS} »)`);
+console.log(ACTIVE
+  ? `  (site à paliers : la porte exige « ${EXIGE} » ; juste en dessous : « ${DESSOUS} »)`
+  : `  (site GRATUIT : price_history est inactive — tout le monde franchit, et`
+    + ` c'est le contrat. Les cas de refus ne s'appliquent pas ici.)`);
 
+if (ACTIVE) {
 await cas('AUCUNE session -> 401, et AUCUNE donnée', async () => {
   const r = await appel(A, {});
   assert.equal(r.status, 401);
@@ -118,7 +144,7 @@ await cas('AUCUNE session -> 401, et AUCUNE donnée', async () => {
 await cas('locals absent (middleware jamais exécuté) -> 401', async () => {
   assert.equal((await appel(A, undefined)).status, 401);
 });
-await cas(`palier JUSTE EN DESSOUS (« ${DESSOUS} ») -> refus, et AUCUNE donnée`, async () => {
+if (ACTIVE) await cas(`palier JUSTE EN DESSOUS (« ${DESSOUS} ») -> refus, et AUCUNE donnée`, async () => {
   // ⭐ Le palier immédiatement inférieur, pas `visitor` : c'est la frontière
   // qui se casse quand `auMoins()` passe d'un `>=` à un `>`, ou quand
   // quelqu'un insère un palier AU MILIEU de PALIERS (l'ordre est la seule
@@ -127,13 +153,27 @@ await cas(`palier JUSTE EN DESSOUS (« ${DESSOUS} ») -> refus, et AUCUNE donné
   assert.ok(r.status === 401 || r.status === 403, `status ${r.status}`);
   assert.equal(JSON.stringify(await corps(r)).includes('"p"'), false);
 });
-await cas('palier INVENTÉ -> refus (jamais une ouverture par méconnaissance)', async () => {
+if (ACTIVE) await cas('palier INVENTÉ -> refus (jamais une ouverture par méconnaissance)', async () => {
   const r = await appel(A, { palier: 'empereur' });
   assert.ok(r.status === 401 || r.status === 403, `status ${r.status}`);
 });
 await cas('uuid de traversée -> 400, AVANT toute lecture de disque', async () => {
   assert.equal((await appel('../../sites/veveprice/manifest', { palier: 'whale' })).status, 400);
 });
+}
+// ⭐ LE CONTRAT DU SITE GRATUIT, vérifié LÀ OÙ IL S'APPLIQUE.
+if (!ACTIVE) {
+await cas('site gratuit : sans session, la route SERT (porte inactive)', async () => {
+  const r = await appel(A, {});
+  assert.equal(r.status, 200, "une porte inactive ne refuse personne — c'est access.mjs qui le dit");
+  assert.equal((await corps(r)).ok, true);
+});
+await cas("site gratuit : ce n'est PAS une fuite — rien n'est réservé", () => {
+  assert.equal(PORTE.actif, false);
+  assert.equal(Number.isFinite(PORTE.public_max), false,
+    'porte inactive : le plafond doit être levé (Infinity), sinon le site tronque sans rien vendre');
+});
+}
 await cas(`palier SUFFISANT (« ${EXIGE} ») -> 200 et les points`, async () => {
   const r = await appel(A, { palier: EXIGE });
   assert.equal(r.status, 200);
