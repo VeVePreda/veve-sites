@@ -31,8 +31,29 @@ const prixActifs = priceEnabled();
 // parametre, /es/ afficherait des onglets Brands / History / Directory menant a
 // des pages qui ne sont pas construites — quatre 404 sur chaque page espagnole.
 const blogDansCetteLangue = blogEnabled() && (await languesBlog()).includes(lang);
-const wikiNav = (m.editorial && Array.isArray(m.editorial.pages) && m.editorial.pages.length)
-  ? activeSections(lang).map((sx) => sectionMeta(sx, lang)).concat(
+// 🔴🔴 CORRIGE LE 03/08/2026 — LE MENU DE veveprice EST TOMBE A UN SEUL LIEN.
+// ═══════════════════════════════════════════════════════════════════════════
+// `wikiNav` s'activait sur la SEULE presence de `editorial.pages`. Au lot 37,
+// veveprice a recu un bloc `editorial:` pour brancher son Sheet blog — et il
+// est instantanement passe pour un wiki. Or `activeSections()` ne rend que les
+// sections EDITORIALES, et le blog n'en est pas une : la liste valait `[]`, et
+// la nav se reduisait au seul lien blog. **La nav du manifeste (lot 38)
+// n'etait jamais atteinte** — elle vit dans la branche `else`.
+//
+// ⭐⭐ UN SITE N'EST PAS UN WIKI PARCE QU'IL A UN BLOC `editorial:`. Il l'est
+// s'il a des SECTIONS EDITORIALES A MONTRER. Le test porte donc desormais sur
+// `activeSections(lang).length`, c'est-a-dire sur ce qu'il y a vraiment a
+// afficher — pas sur la presence d'une cle de configuration.
+// ⛔ C'est la troisieme fois que ce bloc `editorial:` fait un degat lateral :
+//    il avait deja supprime 15 pages (langues) au meme lot. Une cle de
+//    manifeste qui commande TROIS comportements distincts est une cle qui
+//    surprend.
+// ⚠️ `nav:` du manifeste, lui, ne s'applique qu'aux sites qui le declarent :
+//    vevewiki n'en a pas, sa branche wiki est donc intacte.
+const sectionsWiki = (m.editorial && Array.isArray(m.editorial.pages) && m.editorial.pages.length)
+  ? activeSections(lang) : [];
+const wikiNav = sectionsWiki.length
+  ? sectionsWiki.map((sx) => sectionMeta(sx, lang)).concat(
       blogDansCetteLangue
         ? [{ section: 'blog', path: '/blog/',
              title: blogMeta(lang, { title: t(lang, 'blog.title') }).title }]
@@ -385,7 +406,14 @@ if (navAttente.length && !globalThis.__navDit) {
               ⭐ La condition sur `tiers` : le même Base.astro sert les 15 sites.
               vevewiki déclare `tiers: [visitor]` — les deux entrées y
               disparaissent SANS une ligne de code propre à un site. */}
-          {acces().tiers.length > 1 && <a href={localize(lang, '/offre/')}>{t(lang, 'nav.offer')}</a>}
+          {/* ⛔ `/offre/` A ETE RETIREE D'ICI LE 03/08 : elle est declaree dans
+              `nav:` du manifeste (lot 38) et se rendait donc DEUX FOIS.
+              ⭐ Une entree affichee a deux endroits est une entree qui
+              divergera. Le manifeste est la source, ce fichier ne double pas.
+              ⚠️ `/compte/` RESTE ici, et ce n'est pas un oubli : elle est
+              rendue A LA DEMANDE, lit `Accept-Language`, et n'a donc QU'UNE
+              adresse sans prefixe. La passer par `nav:` la ferait `localize`,
+              ce qui fabriquerait /fr/compte/ — une page qui n'existe pas. */}
           {acces().tiers.length > 1 && <a href="/compte/">{t(lang, 'account.title')}</a>}
         </>)}
     </span>
@@ -394,10 +422,19 @@ if (navAttente.length && !globalThis.__navDit) {
           Il annonce le raccourci `⌘K` et donne le focus au vrai champ.
           ⛔ Annoncer un raccourci sans le câbler est une promesse rompue —
           le script de l'accueil l'écoute réellement. */}
-      <button class="h-rech" type="button" aria-label={t(lang, 'search.placeholder')}
-              onclick="var q=document.getElementById('q');if(q){q.focus()}else{location.href='/'}">
+      {/* 🔴 CORRIGE LE 03/08/2026 — DIAGNOSTIQUE LE MATIN, LIVRE LE SOIR.
+          Le bouton faisait `location.href='/'` : il n'existe de champ `#q` que
+          sur l'accueil, donc sur TOUTES les autres pages cliquer sur la
+          recherche renvoyait a l'accueil, dans une autre barre de recherche.
+          ⭐⭐ C'EST MAINTENANT UN LIEN, PAS UN BOUTON, et c'est le point.
+          Sans JavaScript il mene a l'accueil, qui a une vraie recherche : la
+          promesse est tenue par le HTML seul. Le script le PROMEUT en palette
+          modale. Un bouton, lui, serait inerte sans JS — une promesse rompue,
+          exactement ce que le commentaire d'a cote interdit. */}
+      <a class="h-rech" id="ouvrir-palette" href={localize(lang, '/')}
+         aria-label={t(lang, 'search.placeholder')}>
         <span>{t(lang, 'search.placeholder')}</span><span class="kbd">⌘K</span>
-      </button>
+      </a>
       {pNuit && (
       <button type="button" id="bascule-theme" class="bascule"
               aria-label={t(lang, 'theme.toggle')} title={t(lang, 'theme.toggle')}
@@ -413,11 +450,25 @@ if (navAttente.length && !globalThis.__navDit) {
     )}
   </nav>
 </div></header>
+  {/* 🔴 LA BARRE MOBILE LISAIT SA PROPRE LISTE — corrige le 03/08/2026.
+      Le lot 38 avait mis le menu dans le manifeste, mais SEULEMENT pour la nav
+      d'en-tete. Celle-ci gardait `/collections/` en dur et ignorait Analytics,
+      Blog et Abonnement : deux menus, deux verites, sur la meme page.
+      ⭐⭐ Preda a vu « plus que Blog » dans le menu — et la barre mobile, elle,
+      montrait encore l'ancien monde. Un ecran qui se contredit lui-meme coute
+      plus cher qu'un ecran incomplet.
+      ⚠️ Elle est VOLONTAIREMENT plus courte : 4 entrees au maximum, sinon les
+      cibles tactiles passent sous 44 px. On prend les premieres de `nav:`,
+      puis `/compte/`. L'ordre du manifeste decide donc aussi des priorites
+      mobiles — c'est une consequence a connaitre avant de le reordonner. */}
 {acces().tiers.length > 1 && (
   <nav class="onglets" aria-label={t(lang, 'a11y.nav')}>
-    <a href={localize(lang, '/')}>{t(lang, 'home.crumb')}</a>
-    <a href={localize(lang, '/market/')}>{t(lang, 'nav.movers')}</a>
-    <a href={localize(lang, '/collections/')}>{t(lang, 'nav.collections')}</a>
+    {navManifeste
+      .filter((e) => e.cle !== 'nav.blog' || blogDansCetteLangue)
+      .slice(0, 3)
+      .map((e) => (
+        <a href={e.href === '/' ? localize(lang, '/') : localize(lang, e.href)}>{t(lang, e.cle)}</a>
+      ))}
     <a href="/compte/">{t(lang, 'account.title')}</a>
   </nav>
 )}
@@ -516,6 +567,100 @@ if (navAttente.length && !globalThis.__navDit) {
       box.querySelector('a').addEventListener('click', function () { localStorage.setItem('langChoice', match.l); });
       box.querySelector('button').addEventListener('click', function () { localStorage.setItem('langDismiss', '1'); box.style.display = 'none'; });
     } catch (e) {}
+  })();
+</script>
+
+{/* ═══════════════════════════════════════════════════════════════════════════
+    LA PALETTE DE RECHERCHE — disponible sur TOUTES les pages.
+    ═══════════════════════════════════════════════════════════════════════════
+    ⭐ Elle lit `/search-index.json`, deja genere par le moteur : aucune donnee
+    neuve, aucune collecte, aucun index a maintenir.
+    ⚠️ SON STYLE EST AUTONOME. Ce fichier sert les 15 sites du reseau, et
+    `boite`, `carte`, `panneau` n'existent QUE dans le theme `vitrine` — mesure
+    le 03/08 : 31 classes sur 35. On n'utilise donc que les JETONS que chaque
+    site emet depuis son manifeste (`--surface`, `--text`, `--muted`, `--rule`),
+    verifies presents sur veveprice ET vevewiki.
+    ⛔ Ne pas y mettre une classe de theme « parce que c'est plus joli » : elle
+    serait inerte sur l'encyclopedie, et personne ne le verrait avant un
+    utilisateur. */}
+<dialog id="palette" aria-label={t(lang, 'search.placeholder')}>
+  <input id="palette-q" type="search" autocomplete="off" placeholder={t(lang, 'search.placeholder')} />
+  <div id="palette-r" role="listbox"></div>
+</dialog>
+<style>
+  #palette{border:1px solid var(--rule,#3a3a3a);border-radius:12px;padding:0;width:min(620px,92vw);
+    background:var(--surface,#222);color:var(--text,#fff);box-shadow:0 24px 60px #00000080}
+  #palette::backdrop{background:#000000A6}
+  #palette-q{width:100%;box-sizing:border-box;border:0;border-bottom:1px solid var(--rule,#3a3a3a);
+    background:transparent;color:inherit;font:inherit;font-size:17px;padding:16px 18px;outline:0}
+  #palette-r{max-height:min(58vh,420px);overflow:auto;padding:6px}
+  #palette-r a{display:block;padding:10px 12px;border-radius:8px;color:inherit;text-decoration:none;
+    font-size:14px;line-height:1.35}
+  #palette-r a:hover,#palette-r a[aria-selected="true"]{background:var(--surface-2,#33333a);text-decoration:none}
+  #palette-r p{padding:14px 12px;margin:0;color:var(--muted,#999);font-size:14px}
+</style>
+<script is:inline define:vars={{ prefixe: localize(lang, ''), rien: t(lang, 'search.none') }}>
+  (function () {
+    var d = document.getElementById('palette');
+    if (!d || typeof d.showModal !== 'function') return;   // pas de dialog : le lien vers l'accueil reste
+    var q = document.getElementById('palette-q'), r = document.getElementById('palette-r');
+    var idx = null, sel = -1;
+
+    function rendre(list) {
+      sel = -1;
+      if (!list.length) { r.innerHTML = '<p>' + rien + '</p>'; return; }
+      r.innerHTML = list.slice(0, 30).map(function (i) {
+        return '<a role="option" href="' + prefixe + i.s + '">' + i.n + '</a>';
+      }).join('');
+    }
+    function filtrer() {
+      var v = q.value.trim().toLowerCase();
+      if (!v) { r.innerHTML = ''; return; }
+      if (!idx) return;
+      rendre(idx.filter(function (i) { return i.n.toLowerCase().indexOf(v) !== -1; }));
+    }
+    // ⭐ L'index n'est cherche qu'A LA PREMIERE OUVERTURE. Le charger au chargement
+    //    de page ferait payer 9 Ko a chaque visiteur pour une fonction que la
+    //    plupart n'ouvriront jamais.
+    function ouvrir(e) {
+      if (e) e.preventDefault();
+      d.showModal(); q.value = ''; r.innerHTML = ''; q.focus();
+      if (!idx) {
+        fetch('/search-index.json').then(function (x) { return x.json(); })
+          .then(function (j) { idx = j; filtrer(); })
+          .catch(function () { r.innerHTML = '<p>' + rien + '</p>'; });
+      }
+    }
+    var lien = document.getElementById('ouvrir-palette');
+    if (lien) lien.addEventListener('click', ouvrir);
+    q.addEventListener('input', filtrer);
+
+    // Clavier : fleches + Entree. Un champ de recherche qu'on ne peut pas
+    // parcourir au clavier oblige a lacher la souris pour rien.
+    q.addEventListener('keydown', function (e) {
+      var opts = r.querySelectorAll('a');
+      if (!opts.length) return;
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (sel >= 0) opts[sel].removeAttribute('aria-selected');
+        sel = e.key === 'ArrowDown' ? (sel + 1) % opts.length : (sel <= 0 ? opts.length - 1 : sel - 1);
+        opts[sel].setAttribute('aria-selected', 'true');
+        opts[sel].scrollIntoView({ block: 'nearest' });
+      } else if (e.key === 'Enter' && sel >= 0) {
+        e.preventDefault(); opts[sel].click();
+      }
+    });
+
+    // ⌘K / Ctrl+K partout. ⛔ L'accueil a son PROPRE champ `#q` et son propre
+    //    raccourci : on lui laisse la main pour ne pas ouvrir deux choses a la
+    //    fois sur la seule page ou la recherche est deja sous les yeux.
+    document.addEventListener('keydown', function (e) {
+      if ((e.metaKey || e.ctrlKey) && e.key && e.key.toLowerCase() === 'k') {
+        if (document.getElementById('q')) return;
+        e.preventDefault(); ouvrir();
+      }
+    });
+    d.addEventListener('click', function (e) { if (e.target === d) d.close(); });
   })();
 </script>
 </body>

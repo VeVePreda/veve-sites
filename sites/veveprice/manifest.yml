@@ -196,7 +196,7 @@ editorial:
 
   labels:
     blog:
-      title: { fr: "Le blog", en: "The blog" }
+      title: { fr: "Blog", en: "Blog" }
       # ⚠️ 70 caractères minimum (audit SEO) : en dessous, Google fabrique son
       # propre extrait. Cf. DESC_MIN dans engine/lib/editorial_pages.mjs.
       description:
