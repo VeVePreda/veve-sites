@@ -1,0 +1,170 @@
+---
+// ⚠️ VeVePreda/veve-sites — src/components/pages/Analytics.astro  (FICHIER NEUF)
+// ═══════════════════════════════════════════════════════════════════════════
+// ANALYTICS — UNE SEULE PAGE, DEUX VISAGES SELON LE PALIER.
+// ═══════════════════════════════════════════════════════════════════════════
+// Demande Preda du 03/08/2026 : « la version publique doit comporter des pages
+// de démonstration présentées comme une simulation, et une page Analytics avec
+// les vrais outils pour les personnes connectées qui ont un abonnement ».
+//
+// ⭐⭐ UNE ROUTE, PAS DEUX, ET C'EST LA DÉCISION STRUCTURANTE.
+// Deux adresses (`/analytics/` et `/analytics-pro/`) auraient produit deux
+// pages à maintenir, deux traductions, deux URL à indexer, et surtout DEUX
+// VÉRITÉS sur ce que l'outil sait faire — qui divergent toujours. C'est le
+// défaut de famille de ce projet : un réglage posé à un endroit, silencieusement
+// écrasé par un autre. Une seule adresse, un seul contenu, et `franchit()`
+// décide de ce qui s'ouvre. C'est exactement le dispositif de la fiche.
+//
+// 🔴 CE QUI N'EST PAS UNE SIMULATION, ET C'EST LE POINT LE PLUS IMPORTANT.
+// La « démo » ne montre PAS de chiffres fabriqués. Elle fait tourner les VRAIS
+// outils sur la donnée PUBLIQUE — les 8 figures de `engine/data/figures/`, déjà
+// tracées, sourcées et datées, et les extrêmes du catalogue, qui sont réels.
+// ⛔ SUR UN SITE DE COTES, UNE VALEUR FABRIQUÉE EST LA SEULE FAUTE QU'ON NE
+//    RATTRAPE JAMAIS. La maquette, elle, dessine ses courbes avec un générateur
+//    pseudo-aléatoire (`serieJours` + `rnd()`) : on ne porte pas ce mécanisme,
+//    ici pas plus qu'ailleurs.
+// ⭐ « Simulation » désigne donc le PÉRIMÈTRE (un échantillon public, figé),
+//    jamais la VÉRACITÉ. Le bandeau le dit dans ces termes.
+//
+// ⚠️ CETTE PAGE EST PRÉ-GÉNÉRÉE, DONC ÉVALUÉE AU BUILD, DONC AU PALIER VISITEUR
+// POUR TOUT LE MONDE. C'est voulu : c'est ce qui fait le référencement, et
+// `<Gate>` garantit depuis le 21/07 que la donnée réservée n'est JAMAIS écrite
+// dans le HTML public. La partie abonnée arrive à la demande, exactement comme
+// l'historique complet des fiches (lot 27, `/api/historique/[uuid]`).
+// ⛔ Ne pas basculer cette route en `prerender = false` « pour que ça marche » :
+//    on perdrait l'indexation de la seule page qui explique ce qu'on vend.
+import Base from '../../layouts/Base.astro';
+import Gate from '../Gate.astro';
+import Figures from '../Figures.astro';
+import { dataset } from '../../../engine/lib/dataset.mjs';
+import { registreFigures, figureHTML, contexteFigure } from '../../../engine/lib/figures.mjs';
+import { franchit, porte, acces } from '../../../engine/lib/access.mjs';
+import { t, localize, numberLocale, dateLocale } from '../../../engine/lib/i18n.mjs';
+import { rar, gemsM } from '../../../engine/lib/vitrine.mjs';
+
+const { lang } = Astro.props;
+const nf = numberLocale[lang] || 'en-GB';
+const df = dateLocale[lang] || 'en-GB';
+const ds = await dataset();
+const ctx = contexteFigure(lang);
+
+// Les 5 modules du catalogue d'accès, dans l'ordre de privilège.
+const MODULES = ['modules', 'extremes', 'price_history', 'alerts', 'wallet_watch'];
+
+// ⭐ LE PALIER OBSERVÉ, pas celui de la porte. Au build il vaut toujours
+// `visitor` — et c'est ce qui rend cette page identique pour Google et pour un
+// visiteur anonyme, donc indexable sans mensonge.
+const ouvert = Object.fromEntries(MODULES.map((mo) => [mo, franchit(mo, Astro.locals)]));
+const toutOuvert = MODULES.every((mo) => ouvert[mo]);
+
+// ═══ LA DÉMONSTRATION : DES OUTILS RÉELS SUR DE LA DONNÉE PUBLIQUE ═══
+// ⭐ Les extrêmes sont dans le jeu de données depuis le lot de collecte : `ath`,
+// `atl`, `athDate`, `atlDate`. Ce sont de VRAIS chiffres.
+// ⚠️ On filtre les paires incohérentes (`atl > ath`) plutôt que de les
+// afficher : le chantier ATL/ATH n'est pas clos en amont, et une page qui
+// montre un plus-bas au-dessus d'un plus-haut détruit la confiance qu'elle
+// existe pour construire. ⛔ On ne les CORRIGE pas ici — corriger à l'affichage
+// masquerait la panne au lieu de la soigner. On les écarte, et on le dit.
+const avecExtremes = ds.items.filter((i) => i.ath && i.atl && i.atl <= i.ath);
+const ecartes = ds.items.filter((i) => i.ath && i.atl && i.atl > i.ath).length;
+const amplitude = (i) => (i.atl > 0 ? i.ath / i.atl : 0);
+const demoExtremes = [...avecExtremes].sort((a, b) => amplitude(b) - amplitude(a)).slice(0, 8);
+
+// Les figures publiques : de la donnée agrégée, déjà sourcée et datée.
+const reg = registreFigures();
+const FIG_DEMO = ['catalogue-raretes', 'tirages-catalogue', 'comics-par-annee'];
+const figuresDemo = FIG_DEMO.map((id) => reg.get(id)).filter(Boolean);
+const figuresPro = [...reg.values()].filter((f) => !FIG_DEMO.includes(f.id));
+---
+<Base lang={lang} path="/analytics/" title={t(lang, 'analytics.title')}
+      description={t(lang, 'desc.analytics')}
+      crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') }, { name: t(lang, 'analytics.title') }]}>
+  <Figures />
+
+  <p class="etiq etiq--bleu">// {t(lang, 'analytics.title').toUpperCase()}</p>
+  <h1 class="mono-t">{t(lang, 'analytics.title')}</h1>
+  <p class="respire" style="max-width:56ch">{t(lang, 'desc.analytics')}</p>
+
+  {/* ═══ LE BANDEAU DE DÉMONSTRATION ═══
+      ⭐⭐ IL DIT CE QU'IL EST, ET SURTOUT CE QU'IL N'EST PAS. « Démonstration »
+      pourrait se lire « chiffres illustratifs » — c'est exactement la lecture
+      qu'il faut tuer. Le texte affirme donc que les chiffres sont RÉELS et que
+      c'est le PÉRIMÈTRE qui est réduit.
+      ⛔ Ne jamais réécrire ce bandeau en « données d'exemple » : ce serait faux,
+      et faux dans le sens qui décrédibilise le site. */}
+  {!toutOuvert && (
+    <div class="panneau" style="margin-top:var(--s5)">
+      <p class="num-s">// {t(lang, 'analytics.demoBadge')}</p>
+      <p style="margin:8px 0 0">{t(lang, 'analytics.demoWhat')}</p>
+      <p class="etiq" style="margin-top:10px">{t(lang, 'analytics.demoReal')}</p>
+      {acces().tiers.length > 1 && (
+        <p style="margin-top:var(--s4)">
+          <a class="puce" href={localize(lang, '/offre/')}>{t(lang, 'nav.offer')} →</a>
+        </p>
+      )}
+    </div>
+  )}
+
+  {/* ═══ CE QUE CHAQUE OUTIL FAIT, ET À QUEL PALIER ═══
+      ⭐ Le catalogue vient AVANT les outils : il dit ce qui EXISTE, les outils
+      disent seulement ce qui est OUVERT. C'est la différence entre « il n'y a
+      rien ici » et « il y a quelque chose ici, et c'est à vous ». */}
+  <div class="sect-t sect-t--gd"><h2 class="mono-t">{t(lang, 'analytics.tools')}</h2>
+    <span class="etiq">{MODULES.filter((mo) => ouvert[mo]).length}/{MODULES.length}</span></div>
+  <div class="modules">
+    {MODULES.map((mo) => (
+      <div class={ouvert[mo] ? 'module module--ouvert' : 'module'}>
+        <span class="module__c">
+          <span class="module__n">{t(lang, `mod.${mo}`)}</span>
+          <span class="module__d">{t(lang, `mod.${mo}.d`)}</span>
+          {!ouvert[mo] && <span class="etiq" style="color:var(--lock)">{porte(mo).tier}</span>}
+        </span>
+      </div>
+    ))}
+  </div>
+
+  {/* ═══ OUTIL 1 — L'AMPLITUDE, calculée sur le catalogue public ═══ */}
+  <div class="sect-t"><h2>{t(lang, 'analytics.amplitude')}</h2>
+    <span class="etiq">{demoExtremes.length} / {avecExtremes.length.toLocaleString(nf)}</span></div>
+  <p class="etiq">{t(lang, 'analytics.amplitudeWhat')}</p>
+  <div class="tbl-hote"><table>
+    <thead><tr>
+      <th class="rang">#</th><th>{t(lang, 'movers.item')}</th>
+      <th class="n">{t(lang, 'item.atl')}</th><th class="n">{t(lang, 'item.ath')}</th>
+      <th class="n">×</th>
+    </tr></thead>
+    <tbody>{demoExtremes.map((i, k) => (
+      <tr>
+        <td class="rang">{String(k + 1).padStart(2, '0')}</td>
+        <td><a href={localize(lang, i.path)}>{i.name}</a></td>
+        <td class="n"><span class="num">{i.atl.toLocaleString(nf, { maximumFractionDigits: 2 })}</span></td>
+        <td class="n"><span class="num">{i.ath.toLocaleString(nf, { maximumFractionDigits: 2 })}</span></td>
+        <td class="n"><span class="num">{amplitude(i).toFixed(1)}</span></td>
+      </tr>
+    ))}</tbody>
+  </table></div>
+  {/* ⚠️ ON DIT CE QU'ON A ÉCARTÉ. Un tableau qui tait son filtre laisse croire
+      que le catalogue est propre — et c'est comme ça qu'un défaut connu
+      disparaît des conversations. Le chantier ATL/ATH est en amont, pas ici. */}
+  {ecartes > 0 && (
+    <p class="etiq" style="margin-top:10px">{t(lang, 'analytics.excluded', { n: ecartes })}</p>
+  )}
+
+  {/* ═══ OUTIL 2 — LES FIGURES PUBLIQUES ═══ */}
+  <div class="sect-t"><h2>{t(lang, 'analytics.figures')}</h2>
+    <span class="etiq">{figuresDemo.length} / {reg.size}</span></div>
+  {figuresDemo.map((f) => (<Fragment set:html={figureHTML(f, ctx)} />))}
+
+  {/* ═══ CE QUI EST RÉSERVÉ ═══
+      ⭐⭐ `<Gate>` d'abord, le contenu ensuite — et le contenu réservé n'est
+      ÉCRIT dans le HTML que si la porte est franchie. Le flou et le masquage
+      sont de la PRÉSENTATION : ils ne cachent rien à qui lit la source. C'est
+      la règle depuis le 21/07 et elle ne se négocie pas. */}
+  <div class="sect-t sect-t--gd"><h2 class="mono-t">{t(lang, 'analytics.full')}</h2>
+    <span class="etiq" style="color:var(--lock)">{figuresPro.length}</span></div>
+  {ouvert.modules ? (
+    figuresPro.map((f) => (<Fragment set:html={figureHTML(f, ctx)} />))
+  ) : (
+    <Gate lang={lang} gate="modules" total={reg.size} shown={figuresDemo.length} />
+  )}
+</Base>

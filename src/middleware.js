@@ -82,6 +82,34 @@ export function palierDeDemonstration(env) {
 export async function onRequest(context, next) {
   const env = context.locals?.runtime?.env;
   const sid = context.cookies.get(COOKIE)?.value || null;
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 🔴🔴 LE MIDDLEWARE TOURNE AUSSI PENDANT LE BUILD — corrigé le 03/08/2026.
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Mon A-LIRE du lot 34 affirmait : « la démo ne concerne que les routes
+  // rendues à la demande ; les pages pré-générées ne passent pas par le
+  // middleware ». C'ÉTAIT FAUX, et c'était déjà déployé.
+  //
+  // MESURÉ, pas supposé : avec `access.demo: crevette`, une sonde dans un
+  // composant pré-généré affiche `locals = {"palier":"crevette"}` AU BUILD.
+  // Conséquence : 374 pages sur 447 changeaient — les bandeaux d'abonnement
+  // (`sceau`) disparaissaient du HTML statique, pour tout le monde et pour
+  // Google.
+  //
+  // ✅ CE QUI N'EST PAS ARRIVÉ, ET POURQUOI : aucune donnée réservée n'a fuité.
+  // L'historique complet vit dans `.reserve/`, HORS de `dist/` (lot 27), et il
+  // n'arrive que par `/api/historique/[uuid]`. C'est l'architecture qui a tenu,
+  // pas le contrôle d'accès — et il faut le dire dans cet ordre.
+  //
+  // ⭐⭐ UNE PAGE PRÉ-GÉNÉRÉE N'A PAS DE VISITEUR. Lui attribuer un palier est
+  // une contradiction : le fichier produit est le MÊME pour tout le monde et
+  // pour toujours. Un palier qui vaut « crevette » pour un fichier servi à un
+  // anonyme n'est pas un droit, c'est une fuite qui n'a pas encore eu lieu.
+  // ⛔ NE PAS « corriger » ça dans chaque composant en appelant un
+  //    `franchitVisiteur()` : trente gabarits devraient y penser, et le
+  //    trente-et-unième oubliera. La règle vit ICI, en un seul endroit.
+  if (context.isPrerendered) return next();
+
   const brut = (await palierDeLaSession(sid, env)) || palierDeDemonstration(env);
 
   // ⭐ On dépose la valeur BRUTE. C'est `palierVisiteur()` d'access.mjs qui

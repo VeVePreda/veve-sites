@@ -165,7 +165,7 @@ access:
 nav:
   - { cle: nav.dashboard, href: /,            pret: true  }   # l'accueil fait office de tableau de bord
   - { cle: nav.movers,    href: /market/,     pret: true  }
-  - { cle: nav.analytics, href: /analytics/,  pret: false }   # ⏳ démo publique + version abonnée
+  - { cle: nav.analytics, href: /analytics/,  pret: true  }   # ✅ lot 39 — démo publique + partie abonnée
   - { cle: nav.blog,      href: /blog/,       pret: true  }
   - { cle: nav.alerts,    href: /alertes/,    pret: false }   # ⏳ demande un compte
   - { cle: nav.vault,     href: /vault/,      pret: false }   # ⏳ demande un compte

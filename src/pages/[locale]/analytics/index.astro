@@ -1,0 +1,15 @@
+---
+// ⚠️ MÊME MOTIF QUE [locale]/offre.astro, ET C'EST VOLONTAIRE.
+// Une page absente d'une langue devient un 404 le jour où le menu la référence
+// — invisible au build, puisque c'est un lien et pas une route. Depuis le lot
+// 38 `test:routes` refuse une entrée `pret: true` sans page : on émet donc
+// TOUTES les langues actives, toujours.
+import Analytics from '../../../components/pages/Analytics.astro';
+import { locales } from '../../../../engine/lib/i18n.mjs';
+export function getStaticPaths() {
+  const { active, def } = locales();
+  return active.filter((l) => l !== def).map((l) => ({ params: { locale: l } }));
+}
+const lang = Astro.params.locale;
+---
+<Analytics lang={lang} />
