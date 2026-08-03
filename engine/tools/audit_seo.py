@@ -64,6 +64,40 @@ erreurs, avertissements = [], []
 
 # ── cibles existantes (pages + fichiers) ────────────────────────────────────
 targets = set(H)
+
+# ⭐⭐ LES ROUTES RENDUES A LA DEMANDE EXISTENT, MEME SANS FICHIER (03/08/2026).
+# Depuis le lot 24, `engine/lib/astro_routes_compte.mjs` bascule quatre routes
+# en rendu a la demande quand le site est en mode `server` : elles sont servies
+# par Node, pas par nginx, donc elles ne laissent AUCUN fichier dans
+# `dist/client`. L'audit, qui juge en lisant le disque, les comptait comme des
+# liens morts : au 03/08 il annoncait
+#     [DEFAUT] 2 liens <a> casses : {'/compte/': 922, '/connexion/': 368}
+# soit 1 290 faux positifs sur des pages qui repondent parfaitement.
+#
+# ⭐ ENCORE « VERIFIER L'INSTRUMENT ». C'est la deuxieme fois que cet audit se
+# trompe pour la meme raison : il avait deja lu `dist` au lieu de `dist/client`
+# et invente 7 933 liens casses. Un instrument qui ne suit pas un changement de
+# MODE ne se tait pas, il MENT — et un chiffre plausible ne se relit jamais.
+# ⛔⛔ ET C'EST CRITIQUE MAINTENANT QU'IL A UN LECTEUR (workflow nocturne) : un
+# rapport qui crie 1 290 fois a tort cesse d'etre lu des la premiere nuit,
+# exactement comme les 172 griefs de `css-mort` sur encyclopedie.
+#
+# ⚠️ ON NE LES INVENTE PAS : la liste est LUE dans le moteur, pas recopiee ici.
+# Deux listes pour la meme verite finissent toujours par diverger.
+_routes = pathlib.Path(__file__).resolve().parent.parent / 'lib' / 'astro_routes_compte.mjs'
+_a_la_demande = set()
+_mode_server = (D.parent / 'server' / 'entry.mjs').exists()
+if _mode_server and _routes.exists():
+    for m in re.finditer(r"'pages/([^']+)'", _routes.read_text(encoding='utf-8')):
+        chemin = m.group(1)
+        if '[' in chemin:          # route dynamique : pas d'adresse fixe a declarer
+            continue
+        url = '/' + chemin.replace('/index.astro', '/').replace('.js', '')
+        _a_la_demande.add(url)
+    if _a_la_demande:
+        targets |= _a_la_demande
+        print(f"  (mode server : {len(_a_la_demande)} route(s) rendue(s) a la demande, "
+              f"sans fichier mais bien servies : {' '.join(sorted(_a_la_demande))})")
 for f in D.rglob('*'):
     if f.is_file():
         targets.add('/' + str(f.relative_to(D)).replace('\\', '/'))

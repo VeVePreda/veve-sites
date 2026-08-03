@@ -218,30 +218,30 @@ RUN set -e; \
     [ "$n" -gt 0 ] || { echo "ERREUR: aucune ressource precompressee"; exit 1; }; \
     echo "precompression : $n fichier(s), $avant -> $apres octets"
 
-# --- Audit SEO ------------------------------------------------------------
-# 🔴 CORRIGE LE 29/07/2026 — `dist` ETAIT EN DUR ICI, ET LE MODE IGNORE.
-# En mode serveur les pages sont dans dist/client (cf. RACINE, 13 lignes plus
-# haut). L'audit chargeait donc des cles `/client/fr/...` : la racine `/`
-# n'existait pas dans son index, le parcours en largeur ne quittait jamais son
-# point de depart, et il imprimait `profondeur max : 0 clics` — un chiffre
-# plausible, entierement faux. Dans la meme foulee il declarait 7 933 liens
-# internes valides « casses », 31 208 anomalies hreflang, 7 804 pages
-# inatteignables, et rangeait les quatre langues dans un seul seau (son
-# `langue()` attend `^/xx/`), d'ou de faux titres dupliques.
-# ⭐ AUCUN de ces defauts n'a jamais alerte : le `|| true` avale le code 1.
-# Un instrument casse ne se tait pas, il MENT — et un chiffre plausible ne
-# se relit jamais.
+# --- Audit SEO : SORTI DU BUILD LE 03/08/2026 ------------------------------
+# ⛔⛔ IL N'EST PLUS ICI, ET C'EST UN GAIN, PAS UNE PERTE.
 #
-# ⚠️ LE `|| true` RESTE, VOLONTAIREMENT. Maintenant que l'audit lit les bonnes
-#    pages il devient exact, donc il va signaler de VRAIS defauts et sortir 1.
-#    Le rendre bloquant dans le meme geste arreterait les deploiements de
-#    veveprice sur des defauts que personne n'a encore lus. On lit d'abord.
-RUN set -e; \
-    apk add --no-cache python3 >/dev/null; \
-    MODE=$(cat /app/.rendering); \
-    if [ "$MODE" = "server" ]; then RACINE=dist/client; else RACINE=dist; fi; \
-    echo "audit sur $RACINE (mode $MODE)"; \
-    python3 engine/tools/audit_seo.py "$RACINE" || true
+# CE QU'IL COUTAIT. Il charge TOUT le HTML en memoire d'un coup (~8 500 pages,
+# une fiche veveprice pese ~146 Ko : l'ordre de grandeur est le GIGAOCTET
+# resident), puis refait huit passes de regex dessus. Place APRES la
+# precompression, son second parcours (`rglob('*')`) voit en plus les 7 887
+# `.gz`. Mesure du 03/08 : le deploiement etait encore a l'etape 25/25 apres
+# 25 MINUTES.
+#
+# ⭐⭐ ET IL NE GARDAIT RIEN. Son `|| true` avale le code de sortie — il ne peut
+# donc rien bloquer — et son rapport se perd dans les logs Coolify, que
+# personne ne relit. Un controle dont le resultat n'est lu NULLE PART ne garde
+# rien : il ne fait que payer. On ne l'a jamais vu parce qu'il n'a jamais eu a
+# se justifier, faute d'echouer.
+# ⚠️ Personne n'avait mesure sa duree. Un instrument dont on ignore le cout est
+# un instrument qu'on ne peut pas arbitrer.
+#
+# ➡️ IL VIT DESORMAIS DANS `.github/workflows/audit-seo.yml`, une fois par
+# nuit, et son rapport devient un ARTEFACT telechargeable — c'est-a-dire un
+# rapport qui a enfin un lecteur. Le deplacer ne l'affaiblit pas : ca lui rend
+# la seule chose qui lui manquait.
+# ⛔ NE PAS le remettre ici « pour ne pas l'oublier » : le remettre, c'est
+# reprendre 25 minutes par deploiement pour un texte que personne n'ouvre.
 
 # --- Etape 2 : service web (les deux modes) ---
 FROM node:22-alpine AS runtime
