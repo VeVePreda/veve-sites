@@ -331,7 +331,6 @@ const suggestData = alternates.filter((a) => a.lang !== lang).map((a) => ({ l: a
           {blogDansCetteLangue && <a href={localize(lang, '/blog/')}>{t(lang, 'nav.blog')}</a>}
           <a href={localize(lang, '/market/')}>{t(lang, 'nav.movers')}</a>
           <a href={localize(lang, '/collections/')}>{t(lang, 'nav.collections')}</a>
-          <a href={localize(lang, '/rarity/')}>{t(lang, 'nav.rarities')}</a>
           {/* ⚠️ MÊME CONDITION QUE LE BLOG, ET ELLE A DÉJÀ ÉTÉ PAYÉE DEUX FOIS.
               Un lien vers une page non émise dans cette langue est un 404
               INVISIBLE au build — c'est un lien, pas une route.

@@ -27,7 +27,7 @@ export default defineConfig({
   adapter: mode === 'server' ? node({ mode: 'standalone' }) : undefined,
   // Retire les talons de redirection des fonctionnalites eteintes par le
   // manifeste (un wiki n'a pas de pages de prix). Sans quoi Astro emet
-  // /movers/, /collections/ et /rarity/ en pages fantomes. Cf.
+  // /movers/ et /collections/ en pages fantomes. Cf.
   // engine/lib/astro_features.mjs — no-op quand la fonctionnalite est active.
   // ⛔⛔ `routesCompte(mode)` — arbitrage du 31/07. Les 4 routes de compte
   // deviennent « a la demande » UNIQUEMENT en mode server. C'est ce qui fait

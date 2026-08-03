@@ -112,10 +112,13 @@ export async function GET() {
   // Pages de PRIX : uniquement si le site en publie. Leur texte vient de
   // engine/i18n (pas d'un Sheet) : elles existent dans toutes les langues du site.
   if (price) {
-    for (const p of ['/market/', '/collections/', '/rarity/']) paths.push({ p, langs: langsSite });
+    for (const p of ['/market/', '/collections/']) paths.push({ p, langs: langsSite });
     for (const i of ds.items) paths.push({ p: i.path, langs: langsSite });
     for (const c of ds.collections.values()) paths.push({ p: `/collection/${c.slug}/`, langs: langsSite });
-    for (const r of ds.rarities.values()) paths.push({ p: `/rarity/${r.slug}/`, langs: langsSite });
+    // ⛔ 03/08/2026 — LES PAGES /rarity/ SONT SUPPRIMEES (arbitrage assume :
+    //    404 sec, referencement perdu). `ds.rarities` SURVIT dans dataset.mjs :
+    //    c'est l'index dont la vraie page Marche aura besoin pour filtrer par
+    //    rarete. Une donnee derivee n'est pas une page ; on retire la page.
   }
   const entries = [];
   for (const { p, langs } of paths) {

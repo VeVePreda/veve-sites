@@ -20,7 +20,7 @@
 // donc intégralement public — ce qui est correct, et ce qu'il faut savoir avant
 // de croire qu'une page est protégée parce qu'elle est « derrière un palier ».
 
-import { PALIERS } from '../engine/lib/access.mjs';
+import { PALIERS, palierDemo } from '../engine/lib/access.mjs';
 
 const COOKIE = 'vp_session';
 
@@ -51,9 +51,38 @@ async function palierDeLaSession(sid, env) {
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// LA SESSION DE DÉMONSTRATION — arbitrage du 01/08/2026, livré le 03/08.
+// ═══════════════════════════════════════════════════════════════════════════
+// `access.demo` du manifeste fait entrer tout le monde au palier déclaré.
+// C'est une porte ouverte, assumée, sans date de fin.
+//
+// 🔴 LA SEULE CONDITION, ET ELLE N'EST PAS UN GARDE-FOU DÉCORATIF : la démo ne
+// s'applique QUE si `SESSION_API` n'est pas configuré du tout.
+// ⭐⭐ CE N'EST PAS « la démo expire ». C'est la DÉFINITION de la démo : elle
+// tient la place d'un service de session qui n'existe pas encore. Le jour où ce
+// service existe, il n'y a plus de place à tenir.
+// ⛔ SANS CETTE CONDITION, la démo deviendrait un CONTOURNEMENT du service de
+// session — et une panne réseau de `SESSION_API` distribuerait l'abonnement à
+// tout le monde. C'est exactement le défaut que `palierDeLaSession()` refuse
+// dix lignes plus haut en échouant fermé ; on ne va pas le réintroduire par la
+// porte d'à côté. Un `catch` qui rend « member » et une démo qui rend
+// « member » quand l'API tombe sont le MÊME bug écrit deux fois.
+export function palierDeDemonstration(env) {
+  const base = env?.SESSION_API || process.env.SESSION_API;
+  if (base) return null;              // le vrai service existe : la démo s'efface
+  try {
+    return palierDemo();              // `null` si le manifeste ne déclare rien
+  } catch {
+    // Manifeste illisible à la requête : on ne devine pas, on ferme.
+    return null;
+  }
+}
+
 export async function onRequest(context, next) {
+  const env = context.locals?.runtime?.env;
   const sid = context.cookies.get(COOKIE)?.value || null;
-  const brut = await palierDeLaSession(sid, context.locals?.runtime?.env);
+  const brut = (await palierDeLaSession(sid, env)) || palierDeDemonstration(env);
 
   // ⭐ On dépose la valeur BRUTE. C'est `palierVisiteur()` d'access.mjs qui
   // décide ce qu'elle vaut : il vérifie qu'elle existe, qu'elle est déclarée

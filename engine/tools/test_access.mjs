@@ -67,6 +67,7 @@ process.stdout.write('###' + JSON.stringify({
   menteuses: ds.items.filter((i) => (i.points || 0) > (i.totalPoints || 0)).length,
   nan: ds.items.filter((i) => !Number.isFinite(i.points) || (i.history || []).some((h) => !Number.isFinite(h.floor))).length,
   paliers: acces().tiers,
+  demo: acces().demo,
   porte: { tier: p.tier, actif: p.actif, max: p.public_max, jours: p.public_days },
   premiers: ds.items.slice(0, 5).map((i) => i.path + '|' + i.points),
   // --- Lot 2b : le palier du VISITEUR, distinct de celui de la porte -------
@@ -116,6 +117,15 @@ const AMBIGU = `${ENTETE}\n  public_points_max: 30\naccess:\n  tiers: [visitor, 
 // Trois paliers, porte exigeant seulement `free` : le seul scenario ou l'ORDRE
 // des paliers change quelque chose (un membre franchit une porte `free`).
 const TROIS = `${ENTETE}\naccess:\n  tiers: [visitor, free, member]\n  gates:\n    price_history:\n      tier: free\n      public_max: 30\n      public_days: 90\n`;
+
+// --- Lot 34 : la session de DEMONSTRATION ---------------------------------
+// ⭐ Trois scenarios, dont DEUX QUI DOIVENT ECHOUER. Un test de validation qui
+// ne fait passer que des cas valides ne prouve rien : il prouve que le code
+// n'explose pas, pas qu'il refuse. C'est la lecon du 18/07 (« aucun lien
+// casse » sur un repertoire vide) appliquee a une configuration d'acces.
+const DEMO_OK = `${ENTETE}\naccess:\n  tiers: [visitor, member]\n  demo: member\n  gates:\n    price_history:\n      tier: member\n      public_max: 30\n      public_days: 90\n`;
+const DEMO_INCONNUE = `${ENTETE}\naccess:\n  tiers: [visitor, member]\n  demo: baleine\n`;
+const DEMO_HORS_TIERS = `${ENTETE}\naccess:\n  tiers: [visitor, member]\n  demo: whale\n`;
 
 try {
   // =========================================================================
@@ -313,6 +323,61 @@ try {
     ancien.depassement === 0, `${ancien.depassement} fiche(s) au-dessus de ${ancien.porte.max}`);
   verifie('le site gratuit non plus (plafond leve, mais pas de fuite)',
     gratuit.fuite === 0, `${gratuit.fuite} fiche(s) en ecart`);
+
+  // =========================================================================
+  // 8. 🔴 LA SESSION DE DEMONSTRATION (lot 34, 03/08/2026)
+  //    Porte ouverte assumee. Ce qui se teste n'est donc PAS « est-elle
+  //    fermee », mais : (a) le manifeste la declare-t-il sans ambiguite,
+  //    (b) REFUSE-T-ELLE une declaration fausse, (c) s'efface-t-elle devant
+  //    un vrai service de session.
+  //    ⭐⭐ (c) EST LA SEULE QUI PROTEGE DE L'ARGENT. Une demo qui ecraserait
+  //    `SESSION_API` transformerait une panne reseau en abonnements gratuits —
+  //    le meme bug que le `catch` qui rendrait « member », ecrit ailleurs.
+  // =========================================================================
+  console.log('\n8. la session de demonstration');
+
+  const demoOk = scenario('demo-ok', DEMO_OK);
+  verifie('un manifeste avec « demo: member » expose bien ce palier',
+    demoOk.ok && demoOk.demo === 'member', `demo=${demoOk.demo}`);
+
+  // ⭐ auto-controle : sans la cle, la demo doit valoir null — sinon la ligne
+  // ci-dessus serait vraie meme si `demo` etait cable en dur.
+  verifie('auto-controle : sans « demo: », le manifeste n\'ouvre rien',
+    nouveau.demo === null || nouveau.demo === undefined, `demo=${nouveau.demo}`);
+
+  const demoInconnue = scenario('demo-inconnue', DEMO_INCONNUE);
+  verifie('un palier de demo INCONNU fait ECHOUER le build',
+    !demoInconnue.ok && /access\.demo/.test(demoInconnue.err || ''),
+    demoInconnue.ok ? 'le build a passe — la faute de frappe serait silencieuse' : 'refus bruyant');
+
+  const demoHorsTiers = scenario('demo-hors-tiers', DEMO_HORS_TIERS);
+  verifie('un palier de demo ABSENT de access.tiers fait ECHOUER le build',
+    !demoHorsTiers.ok && /access\.tiers/.test(demoHorsTiers.err || ''),
+    demoHorsTiers.ok ? 'le build a passe — la demo serait un mensonge silencieux' : 'refus bruyant');
+
+  // --- (c) l'effacement devant un vrai service de session ------------------
+  // On appelle la condition du middleware DIRECTEMENT, dans deux processus,
+  // avec et sans SESSION_API. C'est la seule assertion de ce fichier qui
+  // touche au middleware, et elle vaut les autres reunies.
+  const sondeMw = (avecApi) => {
+    const r = spawnSync(process.execPath, ['-e',
+      `import(${JSON.stringify(join(RACINE, 'src', 'middleware.js'))})`
+      + `.then((m) => process.stdout.write('###' + JSON.stringify(m.palierDeDemonstration({}))))`
+      + `.catch((e) => process.stdout.write('###"ERREUR:' + e.message + '"'))`],
+      { cwd: RACINE, encoding: 'utf8',
+        env: { ...process.env, SITE: 'veveprice', WAREHOUSE_OFFLINE: '1',
+               ...(avecApi ? { SESSION_API: 'https://id.example/api' } : { SESSION_API: '' }) } });
+    const m = (r.stdout || '').split('###')[1];
+    return m ? JSON.parse(m) : `PAS DE SORTIE: ${(r.stderr || '').slice(-400)}`;
+  };
+  const sansApi = sondeMw(false);
+  const avecApi = sondeMw(true);
+  verifie('sans SESSION_API, le middleware applique la demo du manifeste',
+    sansApi === 'crevette', `palier rendu = ${JSON.stringify(sansApi)} (manifeste veveprice)`);
+  verifie('🔴 avec SESSION_API configure, la demo s\'EFFACE',
+    avecApi === null,
+    avecApi === null ? 'null — le vrai service decide seul'
+      : `palier rendu = ${JSON.stringify(avecApi)} — une panne reseau distribuerait l'abonnement`);
 
 } finally {
   console.log(`\n${echecs === 0 ? '✅ tout est vert' : `❌ ${echecs} echec(s)`}`);

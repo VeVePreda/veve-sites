@@ -225,7 +225,7 @@ if bavards:
 # chose. On verifie donc qu'un site SANS page de prix ne vend pas du prix.
 mots_prix = ('price', 'floor', 'prix', 'plancher', 'precio', 'preis')
 accueils = [u for u in H if u == '/' or re.fullmatch(r'/[a-z]{2}/', u)]
-a_des_prix = any(re.match(r'^(/[a-z]{2})?/(collectibles|comics|collection|movers|rarity)/', u) for u in H)
+a_des_prix = any(re.match(r'^(/[a-z]{2})?/(collectibles|comics|collection|movers)/', u) for u in H)
 if not a_des_prix:
     ment = [u for u in accueils if any(w in titles[u].lower() for w in mots_prix)]
     if ment:

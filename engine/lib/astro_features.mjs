@@ -12,6 +12,8 @@
 //    • version racine `movers.astro` -> route STATIQUE, donc SANS
 //      `getStaticPaths` : Astro la construit TOUJOURS, et le `Astro.redirect('/')`
 //      y devient un talon `<meta http-equiv="refresh">`.
+//  (Recit du 31/07/2026. `/rarity/` a depuis ete SUPPRIMEE du moteur — lot 34 —
+//   et ne figure donc plus dans les prefixes ci-dessous.)
 //  D'où, sur vevewiki, trois pages `/collections/`, `/movers/`, `/rarity/` sans
 //  <html lang>, sans viewport, sans description, sans h1 — et toutes le même
 //  <title> « Redirecting to: / ». Elles étaient en `noindex`, donc invisibles
@@ -42,7 +44,7 @@ import { priceEnabled } from './features.mjs';
  *  Ajouter une fonctionnalité gatée = ajouter une ligne ici, rien d'autre. */
 const ZONES = [
   { nom: 'prix', actif: priceEnabled,
-    prefixes: ['/market/', '/collections/', '/rarity/', '/collectibles/', '/comics/', '/collection/'] },
+    prefixes: ['/market/', '/collections/', '/collectibles/', '/comics/', '/collection/'] },
 ];
 
 const estTalon = (html) =>

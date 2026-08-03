@@ -79,6 +79,24 @@ publication:
 # plus aucun appel à l'action fantôme, et pas une ligne de code conditionnel.
 access:
   tiers: [visitor, member, crevette, langouste, whale]
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # 🔴 SESSION DE DÉMONSTRATION — arbitrage Preda du 01/08/2026, livré le 03/08.
+  # ─────────────────────────────────────────────────────────────────────────
+  # Tout visiteur sans session vaut ce palier. Aucune date de fin : PERSONNE NE
+  # LA REFERMERA À NOTRE PLACE. C'est assumé.
+  #
+  # ⭐ POUR L'ÉTEINDRE : commenter la ligne ci-dessous, redéployer (4 min 52).
+  # ⭐ ELLE EST ICI, ET PAS DANS UNE VARIABLE COOLIFY, EXPRÈS. Le risque énoncé
+  #    n'est pas la démo, c'est l'OUBLI. Une variable d'environnement est
+  #    invisible depuis le dépôt — rien ne peut la rappeler. Écrite ici, elle
+  #    est un marqueur : `outils/etat_reel.py` la voit, donc l'oubli ne tient
+  #    pas plus d'une session.
+  # ⛔ ELLE NE S'APPLIQUE PAS SI `SESSION_API` EST CONFIGURÉ. Ce n'est pas une
+  #    expiration déguisée : une démo qui écraserait un vrai service de session
+  #    transformerait une panne réseau en abonnements gratuits.
+  demo: crevette
+
   gates:
     # L'historique : 3 jours pour qui ne paie pas (arbitrage Preda du 30/07).
     price_history:
@@ -298,7 +316,7 @@ seo:
   indexnow_key: "8f3c1b7a92d54e6fa0c7b5e214d83f60"   # cle publique IndexNow (Bing/Yandex)
 
 content:
-  data_modules: [item_price_pages, collection_index, movers, rarity_index]
+  data_modules: [item_price_pages, collection_index, movers]
 
 # ═══════════════════════════════════════════════════════════════════════════
 # VITRINE ÉDITORIALE — les blocs d'accueil

@@ -125,7 +125,6 @@ async function main() {
   const compo = (m) => [...m.values()].map((c) => [c.slug, c.name, (c.items || []).length]).sort();
   const familles = {
     collections: sha(compo(ds.collections)),
-    rarity: sha(compo(ds.rarities)),
     // ⚠️ LA CLE DE SORTIE est `market` (l'adresse), la SOURCE reste
     // `ds.movers` (le nom du calcul dans le dataset). Renommer l'une sans
     // l'autre a fait echouer `test:lastmod` immediatement — le banc compare

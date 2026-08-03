@@ -81,6 +81,34 @@ export function acces() {
   if (!tiers.includes('visitor')) tiers.unshift('visitor');   // le visiteur existe toujours
   tiers = PALIERS.filter((p) => tiers.includes(p));           // ordre canonique
 
+  // --- LA SESSION DE DEMONSTRATION ---------------------------------------
+  // 🔴 ARBITRAGE ASSUME DU 01/08/2026, LIVRE LE 03/08 (lot 34). Tant qu'aucun
+  // service de session n'existe, `access.demo` fait entrer TOUT LE MONDE au
+  // palier declare. C'est une porte grande ouverte, volontairement, et sans
+  // date de fin : personne ne la refermera a notre place.
+  //
+  // ⭐⭐ POURQUOI ICI ET PAS DANS UNE VARIABLE D'ENVIRONNEMENT. Le risque
+  // enonce n'est pas « la demo est dangereuse », c'est « rien ne me rappellera
+  // de l'eteindre ». Une variable Coolify est invisible depuis le depot : elle
+  // ne peut etre rappelee par rien. Ecrite ici, elle devient un MARQUEUR —
+  // `etat_reel.py` la lit, donc l'oubli devient impossible a maintenir.
+  // ⛔ NE PAS la deplacer dans l'environnement « pour pouvoir l'eteindre sans
+  // redeployer » : c'est precisement la propriete qu'on ne veut pas.
+  let demo = null;
+  if (brut.demo !== undefined && brut.demo !== null && brut.demo !== false) {
+    if (!PALIERS.includes(brut.demo)) {
+      throw new Error(`[acces] access.demo : palier inconnu « ${brut.demo} » (attendus : ${PALIERS.join(', ')})`);
+    }
+    // Un palier que le site ne VEND pas ne peut pas etre offert en demo :
+    // `palierVisiteur()` le ramenerait a visitor et la demo serait un mensonge
+    // silencieux — une porte qu'on croit ouverte et qui ne l'est pas.
+    if (!tiers.includes(brut.demo)) {
+      throw new Error(`[acces] access.demo = « ${brut.demo} » mais ce palier est absent de access.tiers `
+        + `(${tiers.join(', ')}). Une demo vers un palier non declare ne s'appliquerait jamais.`);
+    }
+    demo = brut.demo;
+  }
+
   // --- Portes -------------------------------------------------------------
   // ⛔ Ce fichier promettait « on prefere l'erreur bruyante », mais la boucle
   // itere PORTES_CONNUES : une porte inventee dans le manifeste etait ignoree
@@ -145,8 +173,15 @@ export function acces() {
     .join(' · ');
   const origine = m.access ? 'manifeste (access)' : 'retro-compat (publication)';
   console.log(`[acces] paliers : ${tiers.join(' < ')} — portes : ${resume} — source : ${origine}`);
+  // ⭐ On le CRIE. Une porte ouverte qui ne se voit pas dans le journal de
+  // build est une porte qu'on decouvrira par un tiers, pas par nous.
+  if (demo) {
+    console.log(`[acces] 🔴 SESSION DE DEMONSTRATION ACTIVE — access.demo = « ${demo} ». `
+      + `Tout visiteur sans session vaudra « ${demo} » SI ET SEULEMENT SI aucun SESSION_API `
+      + `n'est configure. Retirer « demo: » de sites/<site>/manifest.yml pour refermer.`);
+  }
 
-  _cache = { tiers, portes };
+  _cache = { tiers, portes, demo };
   return _cache;
 }
 
@@ -181,6 +216,13 @@ export function porte(nom) {
 // middleware de session posera `locals.palier` et SEUL CE FICHIER changera.
 
 export const palierParDefaut = () => 'visitor';
+
+// Le palier de demonstration declare par le manifeste, ou `null`.
+// ⛔ Ce n'est PAS le palier applique : c'est le middleware qui decide s'il a le
+// droit de s'en servir (cf. src/middleware.js). Les separer est le meme
+// principe que `porte().tier` contre `palierVisiteur()` — ce que le site
+// DECLARE et ce qu'une personne PORTE sont deux choses.
+export const palierDemo = () => acces().demo;
 
 // Un visiteur au palier `a` franchit-il une porte qui exige `requis` ?
 // Comparaison par RANG, pas par egalite : un membre franchit une porte `free`.
