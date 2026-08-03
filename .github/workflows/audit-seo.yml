@@ -1,0 +1,113 @@
+# ⚠️ DEPOT : VeVePreda/veve-sites
+#
+# L'AUDIT SEO SORT DU DEPLOIEMENT (03/08/2026).
+#
+# CE QU'IL COUTAIT DANS LE DOCKERFILE. Il charge TOUT le HTML en memoire d'un
+# coup (~8 500 pages ; une fiche veveprice pese ~146 Ko, l'ordre de grandeur
+# est le gigaoctet resident), puis refait huit passes de regex dessus. Place
+# APRES la precompression, son second parcours voit en plus les 7 887 `.gz`.
+# Mesure du 03/08 : le deploiement etait encore a l'etape 25/25 apres 25 MIN.
+#
+# ⭐⭐ ET IL NE GARDAIT RIEN. Son `|| true` avale le code de sortie — il ne peut
+# donc rien bloquer — et son rapport se perd dans les logs Coolify, que
+# personne ne relit. Un controle dont le resultat n'est lu NULLE PART ne garde
+# rien : il ne fait que payer. Il n'a jamais eu a se justifier, faute d'echouer.
+#
+# ⭐ CE QUE LE DEPLACEMENT LUI REND. Ici son rapport devient un ARTEFACT
+# telechargeable, conserve 30 jours : c'est-a-dire un rapport qui a enfin un
+# LECTEUR. Le sortir du build ne l'affaiblit pas, ca lui donne la seule chose
+# qui lui manquait.
+#
+# ⛔ CE WORKFLOW NE DEPLOIE RIEN ET N'ECRIT DANS AUCUNE RELEASE. Il reconstruit
+# le site hors reseau et lit le resultat. Il ne peut rien casser.
+#
+# ⚠️ `continue-on-error` PLUTOT QUE `|| true` : la difference n'est pas
+# cosmetique. Avec `|| true`, l'echec est INVISIBLE — c'est ce qui a permis a
+# l'audit de mentir pendant des semaines en lisant les mauvaises pages. Ici le
+# job apparait ORANGE dans l'onglet Actions : il n'arrete rien, et il se voit.
+
+name: Audit SEO (nocturne)
+
+on:
+  schedule:
+    # ⏰ 02:40 UTC. ⚠️ LES CRONS GITHUB SONT EN UTC — 04:40 heure FR en ete —
+    # et GitHub ABANDONNE les runs planifies quand il est charge. Un horaire
+    # creux limite les sauts ; il n'y a rien a rattraper si un run manque.
+    - cron: '40 2 * * *'
+  workflow_dispatch:
+    inputs:
+      site:
+        description: 'Site a auditer'
+        required: true
+        default: 'veveprice'
+        type: choice
+        options: [veveprice, vevewiki]
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      # ⭐ LES DEUX SITES, ET SEPAREMENT. « Corrige sur un site » ne veut pas
+      # dire « corrige » — c'est la lecon du 31/07, payee cinq fois.
+      matrix:
+        site: ${{ github.event_name == 'workflow_dispatch' && fromJSON(format('["{0}"]', inputs.site)) || fromJSON('["veveprice","vevewiki"]') }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Installer les dependances
+        run: npm ci --no-audit --no-fund
+
+      - name: Construire le site
+        env:
+          SITE: ${{ matrix.site }}
+          # ⚠️ HORS RESEAU, DELIBEREMENT. Cet audit juge la FORME des pages
+          # (titres, descriptions, hreflang, maillage, profondeur de clic), pas
+          # la fraicheur des prix. L'echantillon local suffit et rend le job
+          # reproductible : un audit qui depend d'une release peut echouer pour
+          # une raison qui n'a rien a voir avec ce qu'il mesure.
+          WAREHOUSE_OFFLINE: '1'
+          ALLOW_SAMPLE: '1'
+        run: |
+          MODE=$(sed -n 's/^rendering:[[:space:]]*\([a-zA-Z]*\).*/\1/p' "sites/$SITE/manifest.yml" | head -1)
+          [ -n "$MODE" ] || MODE=static
+          echo "mode lu dans le manifeste : $MODE"
+          RENDERING=$MODE npm run build
+
+      - name: Auditer
+        id: audit
+        continue-on-error: true
+        env:
+          SITE: ${{ matrix.site }}
+        run: |
+          if [ -d dist/client ]; then RACINE=dist/client; else RACINE=dist; fi
+          echo "audit sur $RACINE"
+          # ⭐ La sortie part A LA FOIS dans le journal et dans un fichier :
+          # le journal pour un coup d'oeil, le fichier pour le relire dans un
+          # mois. Un rapport qu'on ne peut pas comparer a celui d'avant ne dit
+          # pas si on progresse.
+          python3 engine/tools/audit_seo.py "$RACINE" 2>&1 | tee "audit-$SITE.txt"
+          exit ${PIPESTATUS[0]}
+
+      - name: Deposer le rapport
+        # ⭐ `if: always()` — le rapport est SURTOUT utile quand l'audit a
+        # trouve quelque chose. Ne le publier qu'en cas de succes reviendrait a
+        # jeter la seule sortie qui compte.
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: audit-seo-${{ matrix.site }}
+          path: audit-${{ matrix.site }}.txt
+          retention-days: 30
+
+      - name: Resume
+        if: always()
+        run: |
+          echo "### Audit SEO — ${{ matrix.site }}" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          tail -40 "audit-${{ matrix.site }}.txt" >> $GITHUB_STEP_SUMMARY || echo "(aucun rapport produit)" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
