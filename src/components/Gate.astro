@@ -77,7 +77,18 @@ const depuis = since ? new Date(since).toLocaleDateString(df) : null;
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
              stroke-width="2" stroke-linecap="round"><rect x="4.5" y="10.5" width="15" height="10" rx="2"/><path d="M8 10.5V7.8a4 4 0 0 1 8 0v2.7"/></svg>
       </span>
-      <p class="etiq" style="color:var(--lock);margin:0">{t(lang, `mod.${gate}`)}</p>
+      {/* ⛔ L'ETIQUETTE `mod.${gate}` — « Full history » — EST RETIREE LE
+          03/08/2026 (lot 45, demande Preda). Elle sortait ICI, puis A NOUVEAU
+          quelques lignes plus bas dans <Cadran>, sous un <h2> « Floor price » :
+          le meme titre trois fois de suite, dont deux mot pour mot.
+          ⭐ ON RETIRE LE LIBELLE, PAS LA PORTE. `franchit()`, la matrice
+          d'acces et `data-sceau` ne bougent pas d'une ligne : c'est un retrait
+          d'AFFICHAGE, et test:acces continue de prouver les paliers.
+          ⚠️ LA CLE i18n `mod.price_history` RESTE VIVANTE — Analytics.astro,
+          Offre.astro et /compte/ l'affichent dans leur catalogue de modules.
+          ⛔ Ne pas la supprimer des cinq dictionnaires « puisqu'elle ne sert
+          plus » : elle sert, ailleurs, et test:cles ne le dirait qu'apres
+          le build — c'est exactement la panne du lot 34. */}
       {/* ⭐ LE NOMBRE RESTE LE COEUR DU MESSAGE. « 482 releves au total, vous
           en voyez 15 » convertit ; « contenu reserve » ne convertit pas. Le
           total vient de la donnee reelle, jamais du plafond du manifeste. */}

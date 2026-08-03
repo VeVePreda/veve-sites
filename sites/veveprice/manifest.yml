@@ -172,10 +172,34 @@ nav:
   - { cle: nav.offer,     href: /offre/,      pret: true  }
 
 editorial:
-  # 🔴 À REMPLIR PAR PREDA — l'id du Sheet éditorial de VeVePrice.
+  # ═══════════════════════════════════════════════════════════════════════════
+  # 🔑 À REMPLIR PAR PREDA — l'id du Sheet éditorial de VeVePrice
+  # ═══════════════════════════════════════════════════════════════════════════
+  # L'id est dans l'URL du Sheet, ENTRE `/d/` et `/edit`.
+  #
+  # ⛔ ET IL NE SUFFIT PAS DE LE COLLER. L'accès passe par un SERVICE ACCOUNT,
+  #    pas par le compte Google de Preda : ouvrir le secret GitHub
+  #    `GOOGLE_SERVICE_ACCOUNT_JSON`, y lire `client_email` (de la forme
+  #    `…@….iam.gserviceaccount.com`) et partager le Sheet avec cette adresse
+  #    en LECTEUR. C'est l'étape qu'on oublie, et son symptôme est une récolte
+  #    qui échoue tous les matins sans rien dire d'utile.
+  #
+  # ⚠️ FORME EXIGÉE : `sheet_id: "…"` en début de ligne, AVEC les guillemets.
+  #    La garde du workflow (.github/workflows/vevewiki-editorial.yml) reconnaît
+  #    cette forme-là ; sans guillemets, elle lira « absent » et sautera le site
+  #    en silence apparent — elle le dira, mais dans un avertissement qu'il faut
+  #    penser à lire.
+  #
+  # ⭐ ARBITRAGE PREDA DU 03/08/2026 : UN SHEET PAR SITE, onglets au NOM NU
+  #    (`Blog`, `Glossary`…). C'est le défaut de `editorial_pull.py` : aucun
+  #    `tabs:` à écrire ici. ⚠️ Le revers est connu et assumé — un partage avec
+  #    le service account PAR SITE, et autant d'appels que de sites sur un quota
+  #    Sheets PAR MINUTE partagé avec le daily, la réparation et la moisson.
+  #    C'est pour ça que le workflow tourne en `max-parallel: 1`.
+  #
   # ⛔ TANT QUE CETTE LIGNE EST COMMENTÉE, la récolte ne tourne pas et le blog
   #    reste alimenté par les seuls .md du dépôt. C'est un état SAIN, pas une
-  #    panne : rien ne casse, rien n'est inventé, et le build le journalise.
+  #    panne : rien ne casse, rien n'est inventé, et le workflow le journalise.
   # sheet_id: "..."
   pages: [blog]
   # ⚠️ Même raison que sur vevewiki : tant que l'onglet Blog n'a aucune ligne,
@@ -405,6 +429,28 @@ content:
 # ⭐ Bénéfice secondaire, et il compte : tu peux réécrire une réponse de FAQ
 # sans qu'un développeur touche un fichier .astro.
 vitrine:
+  # ═══════════════════════════════════════════════════════════════════════════
+  # « DÉBUTER SA COLLECTION » — une SÉRIE d'articles, pas une donnée
+  # ═══════════════════════════════════════════════════════════════════════════
+  # ⭐ La maquette la définit noir sur blanc (l. 2217 et 3294) : « une SÉRIE
+  #    d'articles, pas une catégorie. Une série a un ordre, un début et une
+  #    fin. » Le catalogue n'a effectivement aucune notion de série ordonnée —
+  #    le BLOG en a une depuis toujours. La section se remplit donc depuis
+  #    l'onglet `Blog` du Sheet, sans une ligne de code de plus.
+  #
+  # CE QU'IL FAUT ÉCRIRE DANS LE SHEET, PAR ÉPISODE :
+  #   · `tags`  contient `debuter` (c'est ce que lit `serie.tag` ci-dessous) ;
+  #   · `ordre` (colonne OPTIONNELLE) porte 1, 2, 3… si l'ordre de lecture
+  #     n'est pas l'ordre de publication.
+  # ⚠️ `ordre` est TOUT OU RIEN : tant que les épisodes ne l'ont pas TOUS,
+  #    l'ordre retenu est la date croissante, et le build le dit.
+  #
+  # ⛔ ZÉRO ARTICLE PORTANT L'ÉTIQUETTE = LA SECTION N'EXISTE PAS. Pas de titre
+  #    seul, pas de cadres factices : la maquette peut inventer cinq épisodes,
+  #    l'accueil d'un site de cotes non. Retirer `tag:` désactive la section.
+  serie:
+    tag: debuter
+
   # Les quatre encarts « Ce que fait ce site ». `span` = colonnes sur 12.
   # ⚠️ Les hauteurs INÉGALES font la composition : quatre boîtes identiques
   # forment un tableau, pas une plaque.

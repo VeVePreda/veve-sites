@@ -14,6 +14,11 @@ const blog = defineCollection({
     updated: z.coerce.date().optional(),
     tags: z.array(z.string()).default([]),
     items: z.array(z.string()).default([]),      // uuid des fiches liees (maillage interne)
+    // ⭐ RANG DANS UNE SERIE — optionnel (lot 45). Il double la colonne `ordre`
+    // de l'onglet Sheet : les deux sources d'un meme blog doivent savoir dire
+    // la meme chose, sinon un article migre du Sheet vers un .md et perd sa
+    // place dans la serie sans qu'aucun controle ne parle.
+    ordre: z.number().int().positive().optional(),
     translationKey: z.string(),                   // relie les versions de langue
     draft: z.boolean().default(false),
   }),

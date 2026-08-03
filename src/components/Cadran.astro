@@ -62,7 +62,16 @@ const rendre = p.actif && Number(total) > Number(shown);
       <span class="verrou__prof" aria-hidden="true"><i></i><i></i><i></i></span>
       <div class="verrou__voile">
         <div class="verrou__in">
-          <p class="etiq" style="color:var(--lock);margin:0">{t(lang, 'mod.price_history')}</p>
+          {/* ⛔ « FULL HISTORY » RETIRE ICI AUSSI — lot 45, 03/08/2026.
+              C'etait la SECONDE des deux occurrences consecutives (l'autre
+              etait dans le sceau de <Gate>, juste au-dessus). ⭐ Le bouton
+              `hist.unlock` — « Afficher l'historique complet » — dit deja ce
+              que le verrou ouvre, et il le dit sous une forme qui se clique.
+              ⛔⛔ CE QUI DISPARAIT EST UN <p>, PAS CE COMPOSANT. Le <Cadran> est
+              le SEUL chemin par lequel un abonne obtient son historique : il
+              appelle /api/historique/[uuid], qui lit la session cote serveur.
+              Le supprimer rendrait la fiche muette pour la seule personne qui
+              paie — et le build serait vert. */}
           <div class="verrou__t">{Number(total).toLocaleString(nf)} {t(lang, 'offer.total')}</div>
           <p class="verrou__d" style="margin:0">{t(lang, 'mod.price_history.d')}</p>
           {/* ⭐⭐ LE DÉCLENCHEUR EST UN CLIC, ET C'EST UNE DÉCISION.

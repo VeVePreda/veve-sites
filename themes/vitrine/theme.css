@@ -451,7 +451,19 @@ a:hover{text-decoration:underline;text-underline-offset:3px}
 .deplie__m svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.7;flex:0 0 16px}
 .deplie__m{transition:opacity var(--d-base) var(--e-out),transform var(--d-base) var(--e-out)}
 .deplie__m{opacity:0;transform:translateY(-8px) scale(.98)}
-.site-f{margin-top:var(--s8);padding:var(--s7) 0;color:var(--muted);font-size:var(--t-sm); border-top:1px solid var(--rule);background:var(--surface)}
+/* ⛔ `margin-top` RETIRE LE 03/08/2026 (lot 45, Preda) : « le contenu doit
+   toucher le pied de page ». Il valait `var(--s8)` = 88 px de vide entre la
+   derniere ligne et le filet du pied — sur une page courte (/legal/, une fiche
+   sans articles lies) ce blanc etait la moitie de ce qu'on voyait en bas.
+   ⭐ LE PIED GARDE SON `padding` INTERNE : le texte ne colle pas au filet, il
+   respire A L'INTERIEUR du pied. Ce qu'on retire est l'ecart ENTRE les deux
+   blocs, pas l'air autour du texte — deux choses que « l'ecart en bas de
+   page » designe indistinctement et qui ne se corrigent pas au meme endroit.
+   ⚠️ `main` n'a deja aucun `padding-bottom` (l. 460 : `var(--s7) 0 0`) : cette
+   marge etait le SEUL ecart, il n'y en a pas un second a chercher.
+   ⚠️ vitrine SEULEMENT — `.site-f` n'existe dans aucun autre theme, vevewiki
+   (encyclopedie) n'est pas touche. */
+.site-f{margin-top:0;padding:var(--s7) 0;color:var(--muted);font-size:var(--t-sm); border-top:1px solid var(--rule);background:var(--surface)}
 .site-f__cols{display:grid;gap:var(--s6);grid-template-columns:1.5fr 1fr 1fr 1fr;margin-bottom:var(--s6)}
 .site-f h2{margin:0 0 12px;font-family:var(--tech);font-size:var(--t-xs);color:var(--text-2); text-transform:uppercase;letter-spacing:.11em;font-weight:600}
 .site-f ul{list-style:none;margin:0;padding:0;display:grid;gap:8px}
@@ -651,8 +663,28 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 .sceau{position:relative;border:1px solid var(--rule);border-radius:var(--r-lg);background:var(--surface); padding:var(--s6) var(--s5);text-align:center;overflow:hidden}
 .sceau::before{content:"";position:absolute;inset:0;opacity:.6; background:radial-gradient(72% 90% at 50% 0%, var(--lock-1v), transparent 70%)}
 .sceau__in{position:relative;z-index:2;display:grid;gap:var(--s3);justify-items:center;max-width:46ch;margin:0 auto}
-.barre-acces{display:flex;align-items:center;gap:var(--s4);flex-wrap:wrap;padding:15px 18px; border:1px solid color-mix(in srgb,var(--lock) 38%,transparent);border-radius:var(--r-lg); background:var(--lock-1v);margin-bottom:var(--s5)}
-.barre-acces p{margin:0;font-size:var(--t-sm);color:var(--text-2);flex:1;min-width:220px}
+/* ═══════════════════════════════════════════════════════════════════════════
+   LA BARRE D'ACCES PREND LA COULEUR DE SA SECTION — 03/08/2026, lot 45, Preda
+   ═══════════════════════════════════════════════════════════════════════════
+   ⭐⭐ AUCUNE COULEUR N'EST INVENTEE ICI, ET C'EST TOUT LE POINT. Le mecanisme
+   existe depuis le lot 43 : l'attribut `data-sect` est pose sur la balise body
+   (Base.astro l. 354) et
+   chaque section redefinit `--sect-a` / `--sect-1v` un peu plus haut dans ce
+   fichier. La barre lisait `--lock` et `--text-2` — deux valeurs FIXES — donc
+   elle sortait cyan sur le Marche, qui est rouge. On remplace des constantes
+   par les variables que le corps de page pose deja.
+   ⭐ `--sect-a` et non `--sect-pur` : `a` est la teinte ACCESSIBLE de la
+   section (la variante sombre en theme jour, claire en theme nuit). C'est
+   celle que `.etiq--bleu` emploie depuis toujours pour du TEXTE — mettre du
+   `--sect-pur` sur du 12,5 px donnerait un contraste que WCAG refuse.
+   ⛔ LE CADENAS EST RECOLORE ICI, PAS DANS `.cadenas`. La regle generique
+   (l. 649) habille aussi le sceau de <Gate>, ou la couleur `--lock` DIT
+   « contenu reserve ». La reperer globalement effacerait ce signal partout
+   pour corriger un composant. Selecteur a deux niveaux = specificite (0,2,0),
+   il gagne sur (0,1,0) quel que soit l'ordre des regles. */
+.barre-acces{display:flex;align-items:center;gap:var(--s4);flex-wrap:wrap;padding:15px 18px; border:1px solid color-mix(in srgb,var(--sect-a) 38%,transparent);border-radius:var(--r-lg); background:var(--sect-1v);margin-bottom:var(--s5)}
+.barre-acces p{margin:0;font-size:var(--t-sm);color:var(--sect-a);flex:1;min-width:220px}
+.barre-acces .cadenas{background:var(--sect-1v);border-color:color-mix(in srgb,var(--sect-a) 44%,transparent);color:var(--sect-a)}
 .modules{display:grid;gap:var(--s3);grid-template-columns:repeat(auto-fill,minmax(232px,1fr))}
 .module{display:flex;gap:12px;align-items:flex-start;padding:15px;border-radius:var(--r-md); border:1px dashed color-mix(in srgb,var(--lock) 40%,transparent);background:var(--lock-1v); transition:border-color var(--d-fast),transform var(--d-base) var(--e-out)}
 .module:hover{border-color:var(--lock);transform:translateY(-2px);text-decoration:none}

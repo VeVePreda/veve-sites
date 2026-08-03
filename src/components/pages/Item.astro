@@ -301,105 +301,86 @@ const descItem = (item.floor && item.totalPoints && anneeDebut)
           </div>
         </div>
       )}
+
+      {/* ═══════════════════════════════════════════════════════════════════
+          LE GRAPHIQUE RENTRE DANS `.fiche__txt` — 03/08/2026, lot 45, Preda
+          ═══════════════════════════════════════════════════════════════════
+          🔴 « Le tableau Floor price est a cheval entre le bloc du titre et le
+          bloc Details. » Il l'etait : le bloc vivait dans un `.avec-aside`
+          FRERE de `.fiche`, donc sous les DEUX colonnes de la fiche — la
+          colonne image (qui porte « Details ») et la colonne texte. Il ne
+          debordait plus de la page depuis le lot 43, mais il ne se rattachait
+          toujours a rien.
+          ⭐⭐ TROISIEME FOIS QUE CE BLOC BOUGE, ET LES TROIS FOIS POUR LA MEME
+          RAISON : la classe etait juste, le NIVEAU ne l'etait pas. « Est-ce la
+          bonne classe ? » et « est-ce le bon parent ? » sont deux questions, et
+          seule la seconde decide de ce qu'on voit.
+          ⭐ C'est la structure de la maquette, verifiee et non deduite : son
+          `graphBloc` est ecrit DANS `.fiche__txt`, juste apres `.jauge`, avec
+          `margin-top:var(--s6)` (maquette-veveprice.html l. 2406). Titre,
+          description, murs, jauge et courbe sont donc un seul conteneur.
+          ⛔ `.avec-aside` ET SON `<aside>` VIDE DISPARAISSENT AVEC LUI. La
+          colonne laterale n'existait que pour empecher le graphique de
+          s'etaler ; `.fiche` borne desormais la largeur. Garder un aside vide
+          « pour plus tard » reserverait 300 px a du neant sur 7 857 pages.
+          ⚠️ `.avec-aside` reste habillee par le theme et EMISE ailleurs
+          (BlogPostVitrine.astro) : elle ne devient pas une regle orpheline.
+          ⚠️ L'ORDRE INTERNE NE BOUGE PAS : courbe publique, puis sceau, puis
+          cadran. Sans JavaScript on lit d'abord ce qui manque et comment
+          l'obtenir, ensuite le verrou. */}
+      {/* ⭐ Balisage de la maquette : `graph-hote`, `graph-tete`, `series`,
+          `serie-b`, `graph-pied`.
+          ⚠️ Les boutons de série sont RENDUS mais inertes — le graphique n'est pas
+          encore interactif. Ils portent donc `disabled` : ⛔ un contrôle qui ne
+          répond pas doit le DIRE plutôt qu'ignorer le clic en silence. */}
+      <div class="graph-hote" style="margin-top:var(--s6)">
+        <div class="graph-tete">
+          <div>
+            <h2 style="font-size:var(--t-lg)">{t(lang, 'item.chart')}</h2>
+            <p class="etiq" style="margin-top:5px">{item.points} {t(lang, 'item.shown')}</p>
+          </div>
+          {/* ⭐ Les PLAGES de la maquette. Celles au-delà du palier portent
+              `data-verrou` : elles restent visibles pour montrer ce qu'on achète,
+              et `aria-disabled` pour que le clavier sache qu'elles n'ouvrent pas. */}
+          <div class="plages" role="group" aria-label={t(lang, 'item.chart')}>
+            {['3 J', '30 J', '90 J', 'MAX'].map((pl, k) => (
+              <button type="button" aria-pressed={k === 0 ? 'true' : 'false'}
+                      aria-disabled={k === 0 ? undefined : 'true'}
+                      data-verrou={k === 0 ? undefined : ''}>{pl}</button>
+            ))}
+          </div>
+          <div class="series" role="group" aria-label={t(lang, 'item.chart')}>
+            <button class="serie-b" type="button" aria-pressed="true" disabled style="--c:var(--sect-pur)"><i></i>{t(lang, 'movers.floor')}</button>
+            <button class="serie-b serie-b--pointille" type="button" aria-pressed="true" disabled style="--c:var(--muted)"><i></i>{t(lang, 'item.listings')}</button>
+          </div>
+        </div>
+        <Fragment set:html={svg} />
+        <div class="graph-pied"><span class="etiq">{item.totalPoints?.toLocaleString(nf)} {t(lang, 'home.points')}</span></div>
+      </div>
+
+      {/* ⛔ LE BLOC « MODULES » A ETE RETIRE LE 03/08/2026 (demande Preda).
+          Il portait le catalogue des 5 modules + les onglets `role="tablist"`.
+          ⚠️ CE QUI DISPARAIT AVEC LUI, ET QU'IL FAUT SAVOIR : c'etait le seul
+          endroit de la fiche qui MONTRAIT au visiteur ce qu'il n'a pas encore —
+          « il y a quelque chose ici, et c'est a vous » plutot que « il n'y a rien
+          ici ». Le composant Gate ci-dessous garde ce role pour l'historique seul.
+          ⭐ `franchit()` et la matrice d'acces ne bougent PAS : c'est un retrait
+          d'AFFICHAGE, pas de droit. Les paliers restent exactement ce qu'ils
+          etaient, et test:acces continue de les prouver. */}
+      <Gate lang={lang} gate="price_history" total={item.totalPoints} shown={item.points} since={item.since} />
+      {/* ⭐⭐ IL VIENT APRÈS LE <Gate>, ET L'ORDRE COMPTE. Sans JavaScript, on lit
+          d'abord ce qui manque et comment l'obtenir (le sceau), puis on voit le
+          verrou. Avec JavaScript et un droit reconnu, les deux disparaissent et le
+          cadran prend leur place. ⛔ `svgPublic` est la courbe PUBLIQUE — celle
+          déjà affichée en clair plus haut sur cette page. Ne jamais lui passer
+          autre chose : le flou du verrou est de la PRÉSENTATION, il ne cache rien
+          à qui lit la source. */}
+      <Cadran lang={lang} uuid={item.uuid} svgPublic={svg}
+              total={item.totalPoints} shown={item.points} />
     </div>
   </div>
 
   {item.prixAberrant && <p class="avertis">{t(lang, 'item.outlier')}</p>}
-
-  {/* ⭐ Balisage de la maquette : `graph-hote`, `graph-tete`, `series`,
-      `serie-b`, `graph-pied`.
-      ⚠️ Les boutons de série sont RENDUS mais inertes — le graphique n'est pas
-      encore interactif. Ils portent donc `disabled` : ⛔ un contrôle qui ne
-      répond pas doit le DIRE plutôt qu'ignorer le clic en silence. */}
-  {/* ⛔⛔ LE GRAPHIQUE EMPIETAIT SUR LES DEUX COLONNES (01/08/2026).
-      Il etait ecrit HORS de `.fiche` — donc enfant direct de la balise main,
-      donc en
-      pleine largeur, courant sous la colonne image ET la colonne texte. Dans
-      la maquette il vit dans un `.avec-aside` (`minmax(0,1fr) 300px`), avec la
-      colonne laterale a sa droite.
-      ⭐ `.avec-aside` est l'une des ~30 classes que le theme habillait sans
-      qu'aucun composant ne les emette (l.826, et sa reponse mobile l.1015).
-      Le CSS etait la depuis le portage ; c'est le gabarit qui ne l'appelait
-      pas. « Est-ce la ? » avait la bonne reponse, « qui l'emet ? » n'avait
-      aucune reponse.
-      ⚠️ L'aside reste VIDE pour l'instant, et il est marque `aria-hidden` :
-      il tient la colonne pour que le graphique cesse de s'etaler, sans
-      annoncer un contenu qui n'existe pas. Les modules qui doivent y vivre
-      (favoris, Vault, alertes) demandent un compte. */}
-  <div class="avec-aside">
-  {/* 🔴 CORRIGE LE 03/08/2026 — « le tableau Floor price empiete sur les deux
-      espaces » (Preda). Le graphique PUBLIC etait bien dans la colonne de
-      gauche, mais <Gate> et <Cadran> — l'historique verrouille, qui porte le
-      MEME titre a l'ecran — etaient ecrits APRES la fermeture de
-      `.avec-aside`, donc enfants directs de la balise main, donc en pleine largeur
-      sous les deux colonnes.
-      ⭐⭐ C'est le meme defaut qu'en juillet sur `graph-hote` lui-meme, et pour
-      la meme raison : la classe etait juste, l'ENDROIT ne l'etait pas. « Est-ce
-      la ? » et « est-ce au bon niveau ? » sont deux questions.
-      ⚠️ L'ORDRE INTERNE NE BOUGE PAS : courbe publique, puis sceau, puis
-      cadran. Sans JavaScript on lit d'abord ce qui manque et comment
-      l'obtenir, ensuite le verrou. */}
-  {/* ⛔ SANS CLASSE, ET CE N'EST PAS UN OUBLI. Ma premiere version portait
-      `class="fiche__prix"` — verifie juste apres l'avoir ecrite : ZERO regle
-      dans les trois themes. C'est le defaut du contrat gabarit/theme, deux
-      lignes sous le commentaire qui l'interdit, et je venais de le refaire.
-      ⭐⭐ Une classe emise sans regle coute plus cher qu'une classe absente :
-      elle A L'AIR d'etre la. Ce conteneur n'a besoin d'AUCUN habillage — il
-      doit seulement etre la premiere colonne de la grille `.avec-aside`, et une
-      simple balise div nue le fait. */}
-  <div>
-  <div class="graph-hote">
-    <div class="graph-tete">
-      <div>
-        <h2 style="font-size:var(--t-lg)">{t(lang, 'item.chart')}</h2>
-        <p class="etiq" style="margin-top:5px">{item.points} {t(lang, 'item.shown')}</p>
-      </div>
-      {/* ⭐ Les PLAGES de la maquette. Celles au-delà du palier portent
-          `data-verrou` : elles restent visibles pour montrer ce qu'on achète,
-          et `aria-disabled` pour que le clavier sache qu'elles n'ouvrent pas. */}
-      <div class="plages" role="group" aria-label={t(lang, 'item.chart')}>
-        {['3 J', '30 J', '90 J', 'MAX'].map((pl, k) => (
-          <button type="button" aria-pressed={k === 0 ? 'true' : 'false'}
-                  aria-disabled={k === 0 ? undefined : 'true'}
-                  data-verrou={k === 0 ? undefined : ''}>{pl}</button>
-        ))}
-      </div>
-      <div class="series" role="group" aria-label={t(lang, 'item.chart')}>
-        <button class="serie-b" type="button" aria-pressed="true" disabled style="--c:var(--sect-pur)"><i></i>{t(lang, 'movers.floor')}</button>
-        <button class="serie-b serie-b--pointille" type="button" aria-pressed="true" disabled style="--c:var(--muted)"><i></i>{t(lang, 'item.listings')}</button>
-      </div>
-    </div>
-    <Fragment set:html={svg} />
-    <div class="graph-pied"><span class="etiq">{item.totalPoints?.toLocaleString(nf)} {t(lang, 'home.points')}</span></div>
-  </div>
-
-  {/* ⛔ LE BLOC « MODULES » A ETE RETIRE LE 03/08/2026 (demande Preda).
-      Il portait le catalogue des 5 modules + les onglets `role="tablist"`.
-      ⚠️ CE QUI DISPARAIT AVEC LUI, ET QU'IL FAUT SAVOIR : c'etait le seul
-      endroit de la fiche qui MONTRAIT au visiteur ce qu'il n'a pas encore —
-      « il y a quelque chose ici, et c'est a vous » plutot que « il n'y a rien
-      ici ». Le composant Gate ci-dessous garde ce role pour l'historique seul.
-      ⭐ `franchit()` et la matrice d'acces ne bougent PAS : c'est un retrait
-      d'AFFICHAGE, pas de droit. Les paliers restent exactement ce qu'ils
-      etaient, et test:acces continue de les prouver. */}
-  <Gate lang={lang} gate="price_history" total={item.totalPoints} shown={item.points} since={item.since} />
-  {/* ⭐⭐ IL VIENT APRÈS LE <Gate>, ET L'ORDRE COMPTE. Sans JavaScript, on lit
-      d'abord ce qui manque et comment l'obtenir (le sceau), puis on voit le
-      verrou. Avec JavaScript et un droit reconnu, les deux disparaissent et le
-      cadran prend leur place. ⛔ `svgPublic` est la courbe PUBLIQUE — celle
-      déjà affichée en clair plus haut sur cette page. Ne jamais lui passer
-      autre chose : le flou du verrou est de la PRÉSENTATION, il ne cache rien
-      à qui lit la source. */}
-  <Cadran lang={lang} uuid={item.uuid} svgPublic={svg}
-          total={item.totalPoints} shown={item.points} />
-  </div>
-  {/* ⛔ SANS CLASSE, DELIBEREMENT. Ma premiere version portait
-      `class="rail-aside"` — une classe INVENTEE qu'aucun theme n'habille.
-      C'est le defaut du contrat gabarit/theme, et il coute plus cher qu'une
-      classe absente : il a l'air d'etre la. Cet aside n'a besoin d'aucun
-      habillage, seulement d'occuper la colonne que la grille lui donne. */}
-  <aside aria-hidden="true"></aside>
-  </div>
 
   {/* ⛔ « DERNIERS RELEVES » RETIRE LE 03/08/2026 (demande Preda).
       Le tableau redisait, en chiffres, ce que la courbe juste au-dessus dit en
@@ -422,3 +403,4 @@ const descItem = (item.floor && item.totalPoints && anneeDebut)
   )}
 
 </Base>
+

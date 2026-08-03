@@ -132,6 +132,12 @@ async function sheetPostsFor(lang) {
       // `dureeLecture()`, en UN seul endroit : deux definitions d'un meme
       // chiffre, c'est le defaut de famille de ce projet.
       lectureDite: norm(r.lecture || r.reading_time || r.readingTime || r.duree || r.temps),
+      // ⭐ RANG DANS UNE SERIE — colonne OPTIONNELLE, meme idiome que
+      // `lectureDite` juste au-dessus : l'auteur peut le dire, sinon on le
+      // calcule (cf. `serie()`). Alias toleres, comme partout dans ce lecteur.
+      // ⛔ ON NE COMPLETE PAS ICI. Vide = vide ; le repli vit en UN seul
+      // endroit, dans `serie()`.
+      rangDit: norm(r.ordre || r.episode || r.rang || r.numero),
       data: {
         title: titre,
         description: norm(r.excerpt || r.description || r.chapeau)
@@ -259,6 +265,16 @@ export async function translationPaths(key) {
 // arrive a trois seuils pour une seule decision.
 export const SEUIL_INDEX_TAG = Number(process.env.TAG_MIN_INDEX || 4);
 
+// ⭐ LE SEUIL DE CREATION, EXPORTE POUR LA MEME RAISON QUE CELUI D'INDEXATION.
+// Un theme a un seul article ne serait qu'un doublon de l'index : on ne lui
+// cree pas de page tant qu'il n'a pas au moins 2 articles.
+// ⛔ IL ETAIT UNE CONSTANTE LOCALE DE `tagsFor`, DONC INVISIBLE DU DEHORS —
+// et l'accueil (lot 45) a besoin de savoir si `/blog/tag/<x>/` sera CONSTRUITE
+// avant d'y envoyer un lien. Le recopier la-bas aurait fait un QUATRIEME seuil
+// pour la meme decision ; c'est exactement ce que le correctif du 29/07
+// ci-dessus vient de defaire. On l'expose, on ne le duplique pas.
+export const SEUIL_PAGE_TAG = Number(process.env.TAG_MIN_POSTS || 2);
+
 export async function tagsFor(lang) {
   const counts = new Map();
   for (const p of await postsFor(lang)) {
@@ -268,11 +284,54 @@ export async function tagsFor(lang) {
     // — et on recree en silence le defaut que ce correctif vient de fermer.
     for (const t of new Set(p.data.tags || [])) counts.set(t, (counts.get(t) || 0) + 1);
   }
-  // Un theme a un seul article ne serait qu'un doublon de l'index :
-  // on ne lui cree pas de page tant qu'il n'a pas au moins 2 articles.
-  const MIN = Number(process.env.TAG_MIN_POSTS || 2);
-  return [...counts.entries()].filter(([, n]) => n >= MIN)
+  return [...counts.entries()].filter(([, n]) => n >= SEUIL_PAGE_TAG)
     .map(([tag, n]) => ({ tag, n })).sort((a, b) => b.n - a.n);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  UNE SERIE D'ARTICLES — « Debuter sa collection », 03/08/2026, lot 45
+// ═══════════════════════════════════════════════════════════════════════════
+//  ⭐⭐ CE N'EST PAS DE LA DONNEE, ET C'EST LA DECOUVERTE DU LOT. La reprise
+//  annoncait « aucun equivalent dans la donnee : il n'existe pas de notion de
+//  serie ordonnee ». C'est vrai du CATALOGUE — et la maquette n'en demandait
+//  pas : ses lignes 2217 et 3294 disent en toutes lettres « une SERIE
+//  d'articles, pas une categorie. Une serie a un ordre, un debut et une fin ».
+//  C'est donc de l'EDITORIAL, et le moteur savait deja le porter : etiquettes
+//  de blog + onglet Sheet. Zero collecteur a ecrire.
+//
+//  ⭐ L'ORDRE, ET POURQUOI IL Y EN A DEUX. `ordre` (colonne du Sheet) fait foi
+//  quand l'auteur l'ecrit : lui seul sait que l'episode 3 se lit apres le 2
+//  meme s'il a ete publie avant. A defaut, la DATE CROISSANTE — un feuilleton
+//  se publie dans son ordre de lecture, et une position calculee ne se perime
+//  jamais.
+//  ⚠️ LE PIEGE DU NUMERO CALCULE, ECRIT PARCE QU'IL EST REEL : si l'episode 3
+//  est en brouillon, l'episode 4 s'affiche « 03 ». Le numero decrit alors la
+//  POSITION dans ce qui est publie, pas l'intention de l'auteur. C'est
+//  exactement pour ca que la colonne `ordre` existe — et le build le dit.
+//  ⛔ NE PAS « corriger » en trouant la numerotation : une serie qui saute de
+//  02 a 04 se lit comme un article perdu, pas comme un brouillon.
+export async function serie(lang, tag) {
+  if (!tag) return [];
+  const posts = await postsByTag(lang, tag);
+  if (!posts.length) return [];
+  const rang = (p) => {
+    const v = Number(String(p.rangDit ?? p.data?.ordre ?? '').replace(/[^0-9]/g, ''));
+    return Number.isFinite(v) && v > 0 ? v : null;
+  };
+  const dits = posts.filter((p) => rang(p) !== null);
+  // Tri : par rang dit quand TOUS l'ont, sinon par date croissante. ⛔ Pas de
+  // melange des deux — un tri qui change de critere selon la ligne produit un
+  // ordre que personne ne peut prevoir en lisant le Sheet.
+  const complet = dits.length === posts.length;
+  if (dits.length && !complet) {
+    console.warn(`[blog] serie « ${tag} » (${lang}) : ${dits.length}/${posts.length} article(s) `
+      + `portent une colonne \`ordre\`. Tant qu'ils ne l'ont pas TOUS, l'ordre `
+      + `retenu est la date croissante. Completer la colonne, ou la vider.`);
+  }
+  const tries = complet
+    ? [...posts].sort((a, b) => rang(a) - rang(b))
+    : [...posts].sort((a, b) => new Date(a.data.date) - new Date(b.data.date));
+  return tries.map((p, i) => ({ ...p, rang: complet ? rang(p) : i + 1 }));
 }
 
 export async function postsByTag(lang, tag) {

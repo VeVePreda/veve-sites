@@ -20,6 +20,9 @@ import { dataset } from '../../../engine/lib/dataset.mjs';
 import { manifest } from '../../../engine/lib/manifest.mjs';
 import { t, pick, localize, numberLocale } from '../../../engine/lib/i18n.mjs';
 import { pli, delta, gemsM } from '../../../engine/lib/vitrine.mjs';
+// ⭐ AJOUT SEUL (lot 45). `serie` rend les articles d'une etiquette dans leur
+// ordre de lecture ; `dureeLecture` donne les minutes, dites ou calculees.
+import { serie, dureeLecture, SEUIL_PAGE_TAG } from '../../../engine/lib/blog.mjs';
 
 const { lang } = Astro.props;
 const m = manifest();
@@ -77,6 +80,30 @@ const vizBoites = (() => {
   }
   return (V.boites || []).map((b, k) => b.img || pool[k % (pool.length || 1)] || null);
 })();
+// ═══════════════════════════════════════════════════════════════════════════
+// « DEBUTER SA COLLECTION » — une SERIE D'ARTICLES, pas une notion de donnee
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐⭐ VERIFIE DANS LA MAQUETTE, PAS DEDUIT. Ses lignes 2217 et 3294 : « une
+// SERIE d'articles, pas une categorie. Une serie a un ordre, un debut et une
+// fin — c'est ce qui fait revenir. » Le catalogue n'a effectivement aucune
+// notion de serie ordonnee ; le BLOG en a une depuis toujours (etiquettes +
+// onglet Sheet). La section ne demandait donc pas un collecteur, elle
+// demandait de brancher deux choses qui existaient deja.
+//
+// ⛔ RENDU CONDITIONNEL, ET C'EST LA REGLE DE LA MAISON. Zero article portant
+// l'etiquette = la section n'est pas emise. ⛔ Ni titre seul, ni cadres
+// factices : la maquette peut se permettre cinq episodes inventes, l'accueil
+// d'un site de cotes non. Un bloc vide sur la page la plus vue annonce un
+// contenu qu'on n'a pas.
+// ⚠️ Le jour ou l'etiquette n'existe pas encore dans le Sheet, cette page est
+// EXACTEMENT celle d'avant — c'est ce qui permet de deposer le lot sans
+// attendre que Preda ait ecrit les articles.
+const tagSerie = String(V.serie?.tag || '').trim();
+const episodes = tagSerie ? await serie(lang, tagSerie) : [];
+if (tagSerie && !episodes.length) {
+  console.log(`[accueil] serie « ${tagSerie} » : aucun article dans « ${lang} », `
+    + `section non emise. (vitrine.serie.tag du manifeste)`);
+}
 const maj = ds.updatedAt ? new Date(ds.updatedAt) : null;
 const horo = maj ? `${String(maj.getUTCDate()).padStart(2,'0')}.${String(maj.getUTCMonth()+1).padStart(2,'0')}.${maj.getUTCFullYear()} — ${String(maj.getUTCHours()).padStart(2,'0')}:${String(maj.getUTCMinutes()).padStart(2,'0')} UTC` : '';
 ---
@@ -123,26 +150,24 @@ const horo = maj ? `${String(maj.getUTCDate()).padStart(2,'0')}.${String(maj.get
     </div>
   </div>
 
-  {/* Le bandeau : la seule chose qui BOUGE, donc la seule qui dit « ce site est
-      vivant » avant qu'on ait lu une ligne. ⛔ Il ne doit jamais devenir deux. */}
-  <div class="ticker" tabindex="0" role="region" aria-label={t(lang, 'home.live')}>
-    <div class="ticker__piste">
-      {[0, 1].map(() => (
-        <>{tick.map((i) => (
-          <a class="tick" href={localize(lang, i.path)}>
-            <Fragment set:html={pli(i.rarity)} />
-            <b>{i.name.slice(0, 26)}</b>
-            <span class="num"><Fragment set:html={gemsM()} /> {money(i.floor)}</span>
-            <Fragment set:html={delta(i.change7d)} />
-          </a>
-        ))}</>
-      ))}
-    </div>
-  </div>
-
-  <BarreAcces lang={lang} />
-
+  {/* ⭐⭐ L'ORDRE DE L'ACCUEIL — 03/08/2026, lot 45, demande Preda.
+      Ce que fait ce site → bandeau → À l'affiche → hausses ET baisses sur
+      la MÊME ligne → Séries suivies → Débuter sa collection.
+      ⭐ C'est aussi, au bloc près, l'ordre de `maquette-veveprice.html`
+      (stats l. 2178, « Ce que fait ce site » l. 2186, ticker l. 2190,
+      barre d'accès l. 2194, « À l'affiche » l. 2200, `.deux-col` l. 2203).
+      La maquette avait déjà tranché ; le moteur ne l'avait pas suivie.
+      ⛔ LE BANDEAU RESTE HORS DE `.wrap`, ET C'EST STRUCTUREL : `.wrap`
+      borne la largeur, le ticker doit courir d'un bord à l'autre. D'où
+      DEUX `.wrap` de part et d'autre, exactement comme la maquette — pas
+      un seul dont on sortirait le bandeau par une marge négative. */}
   <div class="wrap">
+    <div class="stats">
+      <div class="stat stat--bleu"><div class="etiq">{t(lang, 'stats.tracked')}</div><div class="stat__v">{ds.items.length.toLocaleString(nf)}</div></div>
+      <div class="stat"><div class="etiq">{t(lang, 'stats.catalogue')}</div><div class="stat__v">{ds.catalogueSize.toLocaleString(nf)}</div></div>
+      <div class="stat"><div class="etiq">{t(lang, 'stats.collections')}</div><div class="stat__v">{ds.collections.size}</div></div>
+    </div>
+
     {/* ⛔ LA BARRE DE RECHERCHE DE L'ACCUEIL EST RETIRÉE — demande Preda, 03/08.
         ⭐⭐ ET ELLE SE RETIRE TOUTE SEULE, SANS TOUCHER À `Base.astro`.
         Le garde de la palette globale s'écrit `if (document.getElementById('q'))
@@ -189,20 +214,69 @@ const horo = maj ? `${String(maj.getUTCDate()).padStart(2,'0')}.${String(maj.get
       </>
     )}
 
-    <div class="stats">
-      <div class="stat stat--bleu"><div class="etiq">{t(lang, 'stats.tracked')}</div><div class="stat__v">{ds.items.length.toLocaleString(nf)}</div></div>
-      <div class="stat"><div class="etiq">{t(lang, 'stats.catalogue')}</div><div class="stat__v">{ds.catalogueSize.toLocaleString(nf)}</div></div>
-      <div class="stat"><div class="etiq">{t(lang, 'stats.collections')}</div><div class="stat__v">{ds.collections.size}</div></div>
+  </div>
+
+  {/* Le bandeau : la seule chose qui BOUGE, donc la seule qui dit « ce site est
+      vivant » avant qu'on ait lu une ligne. ⛔ Il ne doit jamais devenir deux. */}
+  <div class="ticker" tabindex="0" role="region" aria-label={t(lang, 'home.live')}>
+    <div class="ticker__piste">
+      {[0, 1].map(() => (
+        <>{tick.map((i) => (
+          <a class="tick" href={localize(lang, i.path)}>
+            <Fragment set:html={pli(i.rarity)} />
+            <b>{i.name.slice(0, 26)}</b>
+            <span class="num"><Fragment set:html={gemsM()} /> {money(i.floor)}</span>
+            <Fragment set:html={delta(i.change7d)} />
+          </a>
+        ))}</>
+      ))}
+    </div>
+  </div>
+
+  <div class="wrap">
+    <BarreAcces lang={lang} />
+
+    {/* ⭐ « A L'AFFICHE » — le titre de la maquette (l. 2200). Il remplace
+        « Historiques les plus fournis », qui decrivait le CRITERE DE TRI au
+        lieu de dire ce qu'on regarde. ⛔ LA SELECTION NE BOUGE PAS D'UNE
+        LIGNE : c'est toujours `featured`, classe par score avec quota par
+        type — le correctif qui a rendu leurs 8 fiches aux comics. On renomme
+        un titre, on ne retouche pas un tri paye cher.
+        ⚠️ La maquette fait alterner « A l'affiche » (membre) et « Les fiches
+        libres » (visiteur). ⛔ Pas ici : l'accueil est PRE-GENERE, donc il n'a
+        pas de visiteur (cf. `context.isPrerendered` du middleware) — le titre
+        conditionnel sortirait fige pour tout le monde, y compris Google. Un
+        seul titre vrai vaut mieux que deux dont un ne s'affiche jamais. */}
+    <div class="sect-t sect-t--gd"><h2 class="mono-t">{t(lang, 'home.featured')}</h2></div>
+    <div class="grille">{featured.map((i, k) => <Carte item={i} href={localize(lang, i.path)} nf={nf} i={k} ed />)}</div>
+
+
+    {/* ═══ HAUSSES ET BAISSES SUR LA MEME LIGNE — lot 45, demande Preda ═══
+        ⭐⭐ `.deux-col` EXISTAIT DEJA, HABILLEE, ET PERSONNE NE L'EMETTAIT.
+        `themes/vitrine/theme.css` l. 825 : `grid-template-columns:1fr 1fr`,
+        plus sa reponse mobile l. 1014. Zero gabarit du depot ne l'ecrivait —
+        exactement le defaut du lot 43 (`data-sect`, `.boite__viz`) : le theme
+        est complet, c'est le gabarit qui est muet, et rien ne crie.
+        ⛔ AUCUNE REGLE CSS N'EST AJOUTEE ICI. On emet la classe qui attendait.
+        ⭐ Les deux moities gardent leur `.grille` : elle vaut
+        `repeat(auto-fill,minmax(196px,1fr))`, donc elle se replie toute seule
+        a l'interieur d'une demi-largeur. En dessous de 840 px `.deux-col`
+        repasse a une colonne — les deux blocs se remettent l'un sous l'autre
+        sans qu'une regle de plus soit ecrite.
+        ⚠️ Le titre des baisses passe en `sect-t--gd` comme celui des hausses :
+        cote a cote, deux titres de tailles differentes se lisent comme une
+        hierarchie qui n'existe pas. */}
+    <div class="deux-col">
+      <section>
+        <div class="sect-t sect-t--gd" style="margin-top:0"><h2 class="mono-t">{t(lang, 'home.up')}</h2><a href={localize(lang, '/market/')}>{t(lang, 'home.allMarket')} →</a></div>
+        <div class="grille">{up.map((i, k) => <Carte item={i} href={localize(lang, i.path)} nf={nf} i={k} />)}</div>
+      </section>
+      <section>
+        <div class="sect-t sect-t--gd" style="margin-top:0"><h2 class="mono-t">{t(lang, 'home.down')}</h2><a href={localize(lang, '/market/')}>{t(lang, 'home.allMarket')} →</a></div>
+        <div class="grille">{down.map((i, k) => <Carte item={i} href={localize(lang, i.path)} nf={nf} i={k} />)}</div>
+      </section>
     </div>
 
-    <div class="sect-t sect-t--gd"><h2 class="mono-t">{t(lang, 'home.up')}</h2><a href={localize(lang, '/market/')}>{t(lang, 'home.allMarket')} →</a></div>
-    <div class="grille">{up.map((i, k) => <Carte item={i} href={localize(lang, i.path)} nf={nf} i={k} />)}</div>
-
-    <div class="sect-t"><h2>{t(lang, 'home.down')}</h2></div>
-    <div class="grille">{down.map((i, k) => <Carte item={i} href={localize(lang, i.path)} nf={nf} i={k} />)}</div>
-
-    <div class="sect-t sect-t--gd"><h2 class="mono-t">{t(lang, 'home.documented')}</h2></div>
-    <div class="grille">{featured.map((i, k) => <Carte item={i} href={localize(lang, i.path)} nf={nf} i={k} ed />)}</div>
 
     {/* ⭐ LA PILE de trois pièces décalées dit « ENSEMBLE » sans écrire le mot,
         et distingue d'un coup d'œil une collection d'une pièce. */}
@@ -229,6 +303,70 @@ const horo = maj ? `${String(maj.getUTCDate()).padStart(2,'0')}.${String(maj.get
         </a>
       ))}
     </div>
+
+    {episodes.length > 0 && (
+      <>
+        {/* ═══ « DEBUTER SA COLLECTION » — la porte d'entree d'un nouveau venu ═══
+            ⭐ Le compte des episodes est CALCULE (`episodes.length`), jamais
+            ecrit : « les 5 episodes » fige un chiffre qui se perime au sixieme
+            article, en silence, sur la page la plus vue du site. */}
+        {/* ⛔⛔ LE LIEN N'EST EMIS QUE SI LA PAGE D'ETIQUETTE EXISTE. Le moteur
+            ne construit `/blog/tag/<x>/` qu'a partir de `SEUIL_PAGE_TAG`
+            articles (2 aujourd'hui) : avec un seul episode publie, ce lien
+            serait un 404 sur la page la plus vue du site — et aucun banc ne le
+            verrait, `test:routes` ne controlant que les routes du manifeste.
+            ⭐ LE SEUIL EST IMPORTE, PAS RECOPIE. Il y avait deja eu TROIS
+            regles pour une seule decision sur ces pages (blog.mjs / BlogTag /
+            sitemap) ; en ecrire « 2 » ici en ferait une quatrieme. */}
+        <div class="sect-t sect-t--gd"><h2 class="mono-t">{t(lang, 'home.serie')}</h2>
+          {episodes.length >= SEUIL_PAGE_TAG && (
+            <a href={localize(lang, `/blog/tag/${tagSerie}/`)}>{episodes.length} {t(lang, 'home.episodes')} →</a>
+          )}</div>
+        <div class="grille">
+          {episodes.map((e, k) => (
+            <a class="carte revele" href={localize(lang, `/blog/${e.slug}/`)} style={`--i:${k}`}>
+              <div class="socle">
+                {e.cover ? (
+                  <>
+                    {/* ⛔ LA CLASSE `ok` EST OBLIGATOIRE. Le theme ecrit
+                        `.socle__net{opacity:0}` et `.socle__net.ok{opacity:1}` :
+                        sans elle l'image est chargee, dans le DOM, et invisible.
+                        Ce piege a deja coute deux fois (fiche 31/07, cartes). */}
+                    <img class="socle__fond ok" src={e.cover} alt="" aria-hidden="true"
+                         width="400" height="500" loading="lazy" decoding="async" />
+                    <span class="socle__voile"></span>
+                    <img class="socle__net ok" src={e.cover} alt={e.data.title}
+                         width="400" height="500" loading="lazy" decoding="async"
+                         onerror="this.closest('.socle').classList.add('socle--casse')" />
+                  </>
+                ) : (
+                  <>
+                    <span class="socle__voile"></span>
+                    <span style="position:absolute;inset:0;display:grid;place-items:center;z-index:3">
+                      <span class="forme forme--xl" style="--c-a:var(--rule-2)">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4">
+                          <path d="M12 2.9 19.9 7.5v9L12 21.1 4.1 16.5v-9Z" />
+                        </svg>
+                      </span>
+                    </span>
+                  </>
+                )}
+                <span class="socle__coin etiq">{String(e.rang).padStart(2, '0')}</span>
+              </div>
+              <div class="cartouche">
+                <div class="cartouche__n">{e.data.title}</div>
+                <div class="cartouche__l">
+                  <span class="cartouche__s">{t(lang, 'home.episode')} {String(e.rang).padStart(2, '0')}</span>
+                  {/* ⚠️ `dureeLecture` peut rendre `null` (corps vide) : on
+                      n'emet alors PAS l'etiquette, plutot que « — min ». */}
+                  {dureeLecture(e) && <span class="cartouche__s">{dureeLecture(e)} {t(lang, 'home.minutes')}</span>}
+                </div>
+              </div>
+            </a>
+          ))}
+        </div>
+      </>
+    )}
 
     {V.faq?.length > 0 && (
       <>
