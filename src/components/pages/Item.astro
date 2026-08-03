@@ -15,7 +15,12 @@ import { rar, forme, delta, gemsM, RAR, omiM } from '../../../engine/lib/vitrine
 import { franchit } from '../../../engine/lib/access.mjs';
 import BarreAcces from '../BarreAcces.astro';
 // Les cinq modules d'analyse, dans l'ordre de la maquette.
-const MODULES = ['modules', 'extremes', 'price_history', 'alerts', 'wallet_watch'];
+// ⛔ `MODULES` A ETE RETIRE LE 03/08/2026 (lot 43) : le bloc qui le lisait a
+// disparu au lot precedent, et la constante lui a survecu. ⭐ Un fichier
+// supprime se supprime DEUX FOIS — lui, et ce qui le nomme. Une variable
+// morte n'est pas inoffensive : elle fait croire qu'un catalogue de modules
+// vit encore ici, et le prochain lecteur ira chercher pourquoi il ne s'affiche pas.
+// ⚠️ La liste EXISTE toujours, au seul endroit qui l'affiche : src/pages/compte/index.astro.
 // ⭐ AJOUT SEUL. ⛔ Le reste du frontmatter n'est PAS retouché : il porte des
 // correctifs coûteux (serieSlug lu et non recalculé — 35 séries divergentes,
 // 52 liens cassés le 29/07 ; le titre qui garde la série au lieu de
@@ -114,7 +119,8 @@ const descItem = (item.floor && item.totalPoints && anneeDebut)
   ? t(lang, 'desc.item', { name: item.qualifie || item.name, series: serieTxt, price: money(item.floor), n: item.totalPoints.toLocaleString(nf), year: anneeDebut, brand: m.site.brand })
   : t(lang, 'desc.itemShort', { name: item.qualifie || item.name, series: serieTxt, brand: m.site.brand });
 ---
-<Base lang={lang} path={path} title={titreItem} description={descItem} crumbs={crumbs} ld={ld} updatedAt={updatedAt}>
+<Base lang={lang} path={path} sect={item.type === 'comic' ? 'comics' : 'collectibles'}
+      title={titreItem} description={descItem} crumbs={crumbs} ld={ld} updatedAt={updatedAt}>
   <BarreAcces lang={lang} />
 
   {/* ═══ LA FICHE — structure de la maquette, à la classe près ═══
@@ -212,10 +218,15 @@ const descItem = (item.floor && item.totalPoints && anneeDebut)
           ne le remonte aujourd'hui. ⛔ Je ne fabrique pas un chiffre pour
           remplir un cadre : sur un site de cotes, une valeur inventée est la
           seule faute qu'on ne rattrape jamais.
-          ⭐ Le second mur porte donc une donnée RÉELLE et de même nature : le
-          PRIX MÉDIAN, celui-là même qui pilote le classement et l'avertissement
-          de prix non représentatif. Le jour où StackR est collecté, ce bloc
-          change de source sans changer de forme. */}
+          ⚠️ CE COMMENTAIRE MENTAIT, corrigé le 03/08/2026 (lot 43). Il annonçait
+          que le second mur portait le PRIX MÉDIAN ; le code rend le cadre StackR
+          à tirets depuis l'arbitrage de Preda le même jour. La médiane n'est
+          affichée NULLE PART dans le moteur — vérifié sur les 56 gabarits.
+          ⭐⭐ Un commentaire qui décrit une version précédente du code d'en
+          dessous est pire qu'un commentaire absent : il se lit comme une
+          spécification, et c'est lui qu'on croit quand les deux divergent.
+          ⛔ La médiane reste CALCULÉE et elle pilote toujours le classement
+          (dataset.mjs) : ne pas confondre « plus affichée » et « retirée ». */}
       <div class="murs">
         <div>
           <div class="mur__k"><Fragment set:html={gemsM()} /> {t(lang, 'item.floor')}</div>

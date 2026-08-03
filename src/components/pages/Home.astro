@@ -48,6 +48,35 @@ const featured = (() => {
 const cols = [...ds.collections.values()].sort((a, b) => b.items.length - a.items.length).slice(0, 6);
 const tick = [...up, ...down];
 const piece = featured.find((i) => i.image) || null;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴 LES VISUELS DES QUATRE BOÎTES — le défaut signalé par Preda le 03/08.
+// ═══════════════════════════════════════════════════════════════════════════
+// `.boite__viz` porte TROIS règles dans le thème `vitrine` (position, rotation,
+// grossissement au survol) et le gabarit ne l'émettait JAMAIS. Idem pour
+// `.boite__bas`, que la maquette émet pourtant (ligne 3348).
+// ⭐⭐ C'EST L'EXACT MIROIR DU CONTRAT GABARIT ↔ THÈME : d'habitude on traque
+// la classe émise sans règle ; ici c'est la règle sans classe. Elle ne casse
+// rien, elle ne crie pas, et la boîte a simplement l'air plate — c'est
+// pourquoi ça a survécu à tous les bancs.
+//
+// ⚠️ LES VISUELS VIENNENT DU CATALOGUE, PAS DU MANIFESTE. Une URL d'image
+// écrite dans le manifeste pourrit le jour où la pièce change de visuel, et
+// personne ne le voit. Le manifeste peut cependant en imposer une (`img:`) —
+// c'est un choix éditorial, il reste possible.
+// ⛔ ET ÇA DOIT SURVIVRE À L'ABSENCE : le jeu d'exemple n'a pas de colonne
+// `image`. Sans visuel, `viz` vaut `null`, le `<span>` n'est pas émis, et la
+// boîte est simplement plate — comme aujourd'hui, mais volontairement.
+const vizBoites = (() => {
+  const avecImage = featured.filter((i) => i.image);
+  const vus = new Set();
+  const pool = [];
+  for (const i of avecImage) {
+    if (vus.has(i.image)) continue;      // deux boîtes avec le même visuel se lisent comme un bug
+    vus.add(i.image); pool.push(i.image);
+  }
+  return (V.boites || []).map((b, k) => b.img || pool[k % (pool.length || 1)] || null);
+})();
 const maj = ds.updatedAt ? new Date(ds.updatedAt) : null;
 const horo = maj ? `${String(maj.getUTCDate()).padStart(2,'0')}.${String(maj.getUTCMonth()+1).padStart(2,'0')}.${maj.getUTCFullYear()} — ${String(maj.getUTCHours()).padStart(2,'0')}:${String(maj.getUTCMinutes()).padStart(2,'0')} UTC` : '';
 ---
@@ -77,9 +106,17 @@ const horo = maj ? `${String(maj.getUTCDate()).padStart(2,'0')}.${String(maj.get
           conteste, un relevé se vérifie — et il se vérifie sur cette page. */}
       <h1 class="mono-t">{ds.items.length.toLocaleString(nf)} {t(lang, 'home.pieces')}<br /><em>{t(lang, 'home.tracked')}</em></h1>
       <p class="respire" style="margin:var(--s5) 0 0;color:var(--carte-ink-2);max-width:38ch">{pick(m.site.description, lang)}</p>
-      <button class="h-rech hero__rech" type="button" onclick="document.getElementById('q').focus()">
+      {/* ⭐ UN LIEN, PAS UN BOUTON — et c'est le point, déjà tranché au lot 41.
+          Sans JavaScript il mène à l'accueil ; le script le promeut en palette.
+          Un <button> serait INERTE sans JS : la promesse du ⌘K affiché dessus
+          serait rompue, et c'est exactement ce que le champ retiré évitait.
+          ⚠️ `data-ouvrir-palette` est le crochet que `Base.astro` écoute — un
+          ATTRIBUT et pas un id, parce que l'en-tête en porte déjà un et que
+          deux id identiques sur une page, c'est du HTML invalide et un des
+          deux qui ne répond pas. Aucun script neuf ici. */}
+      <a class="h-rech hero__rech" data-ouvrir-palette href={localize(lang, '/')}>
         <span style="font-size:var(--t-md)">{t(lang, 'search.placeholder')}</span><span class="kbd">⌘K</span>
-      </button>
+      </a>
       <div class="marq" style="margin-top:var(--s5)">
         <i></i><span style="color:var(--carte-ink-2)">GEMS / {t(lang, 'movers.floor')} / {t(lang, 'item.high')} / {t(lang, 'item.low')}</span>
       </div>
@@ -106,21 +143,46 @@ const horo = maj ? `${String(maj.getUTCDate()).padStart(2,'0')}.${String(maj.get
   <BarreAcces lang={lang} />
 
   <div class="wrap">
-    <input id="q" class="searchbox" type="search" placeholder={t(lang, 'search.placeholder')}
-           autocomplete="off" aria-label={t(lang, 'search.placeholder')} />
-    <div id="results" class="grille" style="margin-top:14px"></div>
+    {/* ⛔ LA BARRE DE RECHERCHE DE L'ACCUEIL EST RETIRÉE — demande Preda, 03/08.
+        ⭐⭐ ET ELLE SE RETIRE TOUTE SEULE, SANS TOUCHER À `Base.astro`.
+        Le garde de la palette globale s'écrit `if (document.getElementById('q'))
+        return;` — il porte sur la PRÉSENCE DU CHAMP, pas sur la route. En
+        supprimant `#q`, l'accueil récupère donc ⌘K et la palette modale, comme
+        les 442 autres pages. C'était écrit au lot 41 « sauf sur l'accueil, qui
+        a son propre champ » : la condition disparaît avec le champ.
+        ⭐ Une condition exprimée sur le FAIT plutôt que sur le LIEU se répare
+        d'elle-même. Écrite `if (location.pathname === '/') return;`, il aurait
+        fallu y penser aujourd'hui — et on ne l'aurait pas fait. */}
 
     {V.boites?.length > 0 && (
       <>
         <div class="sect-t sect-t--gd"><h2 class="mono-t">{t(lang, 'home.what')}</h2></div>
         <div class="boites">
-          {V.boites.map((b) => (
+          {V.boites.map((b, i) => (
             <a href={localize(lang, '/market/')}
                style={`grid-column:span ${b.span || 6};grid-row:span ${b.rang || 1}`}
                class:list={['boite', 'revele', b.n === '001' ? 'boite--sect' : b.n === '002' ? 'boite--os' : b.n === '004' ? 'boite--damier damier' : '']}>
               <span class="boite__n">{b.n}</span>
-              <span class="boite__t" set:html={pick(b.t, lang)} />
-              <span class="boite__d">{pick(b.d, lang)}</span>
+              {vizBoites[i] && (
+                /* ⚠️ `aria-hidden` : c'est un DÉCOR. Il n'illustre pas le texte
+                   de la boîte — la pièce montrée n'a aucun rapport avec « le
+                   plancher toutes les 30 min ». Un `alt` descriptif mentirait
+                   au lecteur d'écran ; un `alt` vide suffit et se tait.
+                   ⚠️ `onerror` retire l'image : une URL cassée doit laisser une
+                   boîte plate, jamais un cadre vide au coin replié. */
+                <span class="boite__viz" aria-hidden="true">
+                  <img src={vizBoites[i]} alt="" loading="lazy" decoding="async"
+                       width="400" height="600" onerror="this.closest('.boite__viz').remove()" />
+                </span>
+              )}
+              {/* ⭐ `.boite__bas` GROUPE le titre et la description et les borne
+                  à 58 % de la largeur — c'est lui qui empêche le texte de
+                  passer sous le visuel. Le thème le prévoyait, la maquette
+                  l'émet ; seul le moteur l'avait perdu. */}
+              <span class="boite__bas">
+                <span class="boite__t" set:html={pick(b.t, lang)} />
+                <span class="boite__d">{pick(b.d, lang)}</span>
+              </span>
             </a>
           ))}
         </div>
@@ -186,26 +248,4 @@ const horo = maj ? `${String(maj.getUTCDate()).padStart(2,'0')}.${String(maj.get
   </div>
   </div>
 
-  <script is:inline define:vars={{ prefixe: localize(lang, '') }}>
-    (function () {
-      var q = document.getElementById('q'), out = document.getElementById('results'), idx = null;
-      function render(list) {
-        out.innerHTML = list.slice(0, 24).map(function (i) {
-          return '<a class="carte" href="' + prefixe + i.s + '"><div class="cartouche"><div class="cartouche__n">' + i.n + '</div></div></a>';
-        }).join('');
-      }
-      function filter(v) { if (idx) render(idx.filter(function (i) { return i.n.toLowerCase().indexOf(v) !== -1; })); }
-      q.addEventListener('input', function () {
-        var v = q.value.trim().toLowerCase();
-        if (!v) { out.innerHTML = ''; return; }
-        if (!idx) { fetch('/search-index.json').then(function (r) { return r.json(); }).then(function (d) { idx = d; filter(v); }); }
-        else filter(v);
-      });
-      // ⌘K / Ctrl+K — le raccourci que la maquette annonce dans le bouton.
-      // ⛔ Annoncer un raccourci sans le câbler est une promesse rompue.
-      document.addEventListener('keydown', function (e) {
-        if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); q.focus(); }
-      });
-    })();
-  </script>
 </Base>

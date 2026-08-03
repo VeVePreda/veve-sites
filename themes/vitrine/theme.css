@@ -1430,3 +1430,35 @@ header.site.site-h .wrap{
    vendre. */
 .inscr__non{ color:var(--muted); }
 .inscr__paliers{ margin:var(--s4) 0 0; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ⑯ LA CELLULE À DEUX LIGNES — le Marché VeVe / StackR.  LOT 43, 03/08/2026
+   ═══════════════════════════════════════════════════════════════════════════
+   ⭐ `.m2` empile deux valeurs DANS une cellule : ligne du haut = VeVe, ligne
+   du bas = StackR. Le tableau garde donc UN `<tr>` par pièce — ce qui compte,
+   parce que tout le filtrage et le compteur de résultats comptent des `<tr>`.
+
+   ⛔ CE BLOC N'EXISTE QUE DANS `vitrine`, comme le décor du lot 42. Les pages
+   de prix n'existent que sur un site à `data_modules` non vide, et le seul
+   aujourd'hui porte ce thème. Le jour où un site de prix prend `aurora`, ces
+   règles devront y être portées — c'est écrit ici pour qu'on le sache. */
+.m2{ display:grid; gap:2px; }
+.m2__a{ line-height:1.25; }
+/* ⭐ LA SECONDE LIGNE EST PLUS PETITE ET PLUS PÂLE, ET C'EST DE L'INFORMATION.
+   Deux lignes de même poids se liraient comme deux pièces différentes ; une
+   hiérarchie dit « même objet, second marché ». */
+.m2__b{ font-size:var(--t-xs); color:var(--muted); line-height:1.25; }
+
+/* ⭐⭐ LE TIRET EN ATTENTE SE DISTINGUE DU TIRET « RIEN ».
+   Un « — » qui veut dire « aucune offre » et un « — » qui veut dire « pas
+   encore collecté » sont l'inverse l'un de l'autre. Le second est donc
+   souligné en pointillés : on voit qu'il y a quelque chose à savoir, et le
+   `title` le dit au survol comme au clavier.
+   ⚠️ `text-decoration` et pas une couleur : une couleur seule serait invisible
+   pour un daltonien, et sur une colonne de chiffres elle passerait pour un
+   état de marché. */
+[data-attente]{ text-decoration:underline dotted currentColor; text-underline-offset:3px;
+  cursor:help; opacity:.75; }
+
+/* La colonne des liens n'a pas à être aussi large que le nom d'une pièce. */
+.tbl-hote td .m2__a, .tbl-hote td .m2__b{ white-space:nowrap; }

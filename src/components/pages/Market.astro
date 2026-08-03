@@ -19,12 +19,27 @@ import Base from '../../layouts/Base.astro';
 import BarreAcces from '../BarreAcces.astro';
 import { dataset } from '../../../engine/lib/dataset.mjs';
 import { t, localize, numberLocale } from '../../../engine/lib/i18n.mjs';
-import { rar, forme, delta, gemsM, RAR, sparkline } from '../../../engine/lib/vitrine.mjs';
+import { rar, forme, delta, gemsM, omiM, RAR, sparkline } from '../../../engine/lib/vitrine.mjs';
 
 const { lang } = Astro.props;
 const ds = await dataset();
 const nf = numberLocale[lang] || 'en-GB';
 const money = (v) => (v === null || v === undefined ? '—' : v.toLocaleString(nf, { maximumFractionDigits: 2 }));
+
+// ⭐ LE MCP EST UNE CONSTANTE DU BARÈME, PAS UNE DONNÉE À COLLECTER.
+// `RAR` porte la valeur de chaque rareté (Common 0,25 … Secret Rare 6,00).
+// ⚠️ Une rareté inconnue rend un tiret NU, sans `data-attente` : ce n'est pas
+// une donnée en attente de collecte, c'est une rareté que le barème ne connaît
+// pas. Les deux tirets ne veulent pas dire la même chose, ils ne portent donc
+// pas la même marque — c'est toute la règle de cette page.
+const mcpDe = (r) => {
+  const v = RAR[r]?.mcp;
+  return v === undefined ? '—' : `${v.toFixed(2)} ${t(lang, 'movers.mcp')}`;
+};
+
+// Le même libellé pour tous les tirets en attente : une seule phrase à
+// traduire, et surtout une seule à corriger le jour où elle change.
+const attente = t(lang, 'data.notCollected');
 
 // ⚠️ Les fiches SANS variation ne sont pas jetées, elles vont en fin de liste.
 // Une fiche neuve n'a pas sept jours d'historique ; la faire disparaître
@@ -56,7 +71,7 @@ const rarete = Object.keys(RAR).filter((r) => presentes.has(r));
 const nbColl = toutes.filter((i) => i.type === 'collectible').length;
 const nbComic = toutes.length - nbColl;
 ---
-<Base lang={lang} path="/market/" title={t(lang, 'movers.title')}
+<Base sect="cotes" lang={lang} path="/market/" title={t(lang, 'movers.title')}
       description={t(lang, 'desc.movers', { n: ds.items.length.toLocaleString(nf) })}
       updatedAt={ds.updatedAt}
       crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') }, { name: t(lang, 'nav.movers') }]}>
@@ -69,6 +84,13 @@ const nbComic = toutes.length - nbColl;
   <a href="#resultats" class="saut evitement">{t(lang, 'movers.skip')}</a>
 
   <BarreAcces lang={lang} />
+  {/* ⭐ L'ÉTIQUETTE DE SECTION, comme Analytics et le Blog. Elle n'est PAS
+      bleue malgré son nom : `.etiq--bleu` vaut `color:var(--sect-a)`, donc
+      elle prend la couleur de la section — ROUGE ici, puisque le Marché
+      déclare `sect="cotes"`. ⚠️ Le nom de la classe ment depuis toujours ;
+      il n'est pas renommé dans ce lot parce qu'il est employé 11 fois et que
+      ce lot parle d'autre chose. */}
+  <p class="etiq etiq--bleu">// {t(lang, 'movers.title').toUpperCase()}</p>
   <h1 class="mono-t">{t(lang, 'movers.title')}</h1>
   <p class="respire">{t(lang, 'desc.movers', { n: ds.items.length.toLocaleString(nf) })}</p>
 
@@ -138,19 +160,59 @@ const nbComic = toutes.length - nbColl;
 
   <div id="vue-tbl" class="tbl-hote">
     <table>
+      {/* ═══════════════════════════════════════════════════════════════════
+          LE MARCHÉ À DEUX LIGNES — demande Preda du 03/08/2026 (lot 43)
+          ═══════════════════════════════════════════════════════════════════
+          Chaque pièce occupe DEUX lignes visuelles : la première porte VeVe,
+          la seconde StackR.
+
+          ⭐⭐ MAIS C'EST UN SEUL `<tr>`, ET C'EST LA DÉCISION STRUCTURANTE.
+          Deux `<tr>` par pièce auraient doublé les lignes du tableau — or tout
+          le filtrage vit sur `tr[data-type]`, `tr[data-rar]`, `tr[data-var]`,
+          et le compteur « n résultats » compte des `<tr>`. Les filtres auraient
+          affiché « 2 400 pièces » pour 1 200, et masquer une ligne sur deux
+          aurait coupé les pièces en deux.
+          ⛔ Une refonte visuelle ne doit jamais changer l'unité que la machine
+          compte. Deux lignes DANS la cellule donnent le même rendu et ne
+          touchent à rien.
+
+          🔴 CE QUE LA DONNÉE NE FOURNIT PAS, ET IL FAUT LE LIRE AVANT DE
+          S'ÉTONNER DES TIRETS. `_DynState` de `catalog_export.py` ne rend que
+          `floor` et `listings` ; `outils/porter.mjs` recense les absents noir
+          sur blanc : ABSENTS = {omi, od1, od7, usd, d1, dem, fav}. Donc :
+            · plancher StackR en OMI ........ aucun collecteur
+            · $/MCP ......................... aucun taux de change
+            · variation 24 h ................ le moteur ne garde que 7 j et 30 j
+            · listings StackR ............... aucun collecteur
+            · liens VeVe et StackR .......... aucune URL dans la donnée
+          Arbitrage Preda : AFFICHER QUAND MÊME, avec des tirets.
+
+          ⭐⭐ ET C'EST POURQUOI CHAQUE TIRET EN ATTENTE PORTE `data-attente`
+          ET UN `title`. Un « — » qui veut dire « aucune offre » et un « — »
+          qui veut dire « pas encore collecté » se ressemblent et sont
+          l'INVERSE l'un de l'autre. Sur un site de cotes, laisser les deux se
+          confondre est la faute qu'on ne rattrape pas.
+          ⛔ NE JAMAIS remplir ces cases par un calcul, un taux deviné ou une
+          conversion approchée. Le jour où le lot `scrapeur-veve` livre les
+          colonnes, elles tombent dedans SANS toucher à ce gabarit. */}
       <thead><tr>
         <th scope="col" class="rang">#</th>
         <th scope="col" class="tri">{t(lang, 'movers.item')}</th>
         <th scope="col" class="c-3">{t(lang, 'item.rarity')}</th>
-        <th scope="col" class="n">{t(lang, 'movers.floor')}</th>
-        {/* ⭐ LA COURBE, entre le plancher et la variation — c'est la place
-            qu'elle occupe dans la maquette, et ce n'est pas anodin : elle se
-            lit comme le CHEMIN entre les deux chiffres qui l'encadrent. */}
-        <th scope="col" class="c-5" style="width:88px"><span class="sr-only">{t(lang, 'movers.trend')}</span></th>
-        <th scope="col" class="n">{t(lang, 'movers.7d')}</th>
         <th scope="col" class="n c-4">{t(lang, 'item.supply')}</th>
         <th scope="col" class="n c-4">{t(lang, 'item.listings')}</th>
-        <th scope="col" class="c-5">{t(lang, 'item.release')}</th>
+        <th scope="col" class="n">{t(lang, 'movers.floor')}</th>
+        <th scope="col" class="n c-5">{t(lang, 'movers.24h')}</th>
+        <th scope="col" class="n c-5">{t(lang, 'movers.perMcp')}</th>
+        {/* ⭐ LA COURBE reste, et elle reste ICI : c'est le tri de la page
+            (« tri : variation 7 jours », annoncé sous le titre). Retirer la
+            colonne sur laquelle le tableau est CLASSÉ laisserait un ordre
+            inexplicable. Elle n'est pas dans la liste de Preda parce qu'elle
+            n'est pas une colonne de marché — c'est le chemin entre deux
+            chiffres. */}
+        <th scope="col" class="c-5" style="width:88px"><span class="sr-only">{t(lang, 'movers.trend7')}</span></th>
+        <th scope="col" class="n">{t(lang, 'movers.7d')}</th>
+        <th scope="col" class="c-4">{t(lang, 'movers.links')}</th>
       </tr></thead>
       <tbody>{lignes.map((i, k) => (
         <tr data-type={i.type} data-rar={i.rarity} data-n={i.name.toLowerCase()}
@@ -159,16 +221,59 @@ const nbComic = toutes.length - nbColl;
           <td><a class="tbl-obj" href={localize(lang, i.path)}>
             <span><span class="tbl-obj__n">{i.name}</span><span class="tbl-obj__s">{i.series}</span></span>
           </a></td>
-          <td class="c-3"><Fragment set:html={rar(i.rarity)} /></td>
-          <td class="n"><span class="num"><Fragment set:html={gemsM()} /> {money(i.floor)}</span>
-            {i.listings <= 1 && <span class="alerte" title={t(lang, 'item.outlier')}>!</span>}</td>
+          {/* RARETÉ — ligne 1 : le symbole et le nom. ligne 2 : la valeur MCP.
+              ⭐ Le MCP vient de `RAR` (engine/lib/vitrine.mjs), il est RÉEL :
+              c'est une constante du barème VeVe, pas une donnée à collecter. */}
+          <td class="c-3"><span class="m2">
+            <span class="m2__a"><Fragment set:html={rar(i.rarity)} /></span>
+            <span class="m2__b num">{mcpDe(i.rarity)}</span>
+          </span></td>
+
+          {/* SUPPLY — propriété de la PIÈCE, pas d'un marché : une seule
+              valeur, pas de seconde ligne inventée pour faire joli. */}
+          <td class="n c-4 muted">{i.tirage ? i.tirage.toLocaleString(nf) : '—'}</td>
+
+          {/* LISTINGS — VeVe puis StackR */}
+          <td class="n c-4"><span class="m2">
+            <span class="m2__a muted">{i.listings ?? '—'}</span>
+            <span class="m2__b muted" data-attente title={attente}>—</span>
+          </span></td>
+
+          {/* PLANCHER — gems chez VeVe, OMI converti en dollars chez StackR */}
+          <td class="n"><span class="m2">
+            <span class="m2__a"><span class="num"><Fragment set:html={gemsM()} /> {money(i.floor)}</span>
+              {i.listings <= 1 && <span class="alerte" title={t(lang, 'item.outlier')}>!</span>}</span>
+            <span class="m2__b muted" data-attente title={attente}><Fragment set:html={omiM()} /> —</span>
+          </span></td>
+
+          {/* VARIATION 24 H — absente des DEUX côtés : le moteur ne conserve
+              que 7 jours et 30 jours. Ce n'est pas un oubli de collecte, c'est
+              la profondeur de l'entrepôt. */}
+          <td class="n c-5"><span class="m2">
+            <span class="m2__a muted" data-attente title={attente}>—</span>
+            <span class="m2__b muted" data-attente title={attente}>—</span>
+          </span></td>
+
+          {/* $/MCP — demande un taux de change qu'aucune source ne fournit. */}
+          <td class="n c-5"><span class="m2">
+            <span class="m2__a muted" data-attente title={attente}>—</span>
+            <span class="m2__b muted" data-attente title={attente}>—</span>
+          </span></td>
+
           {/* ⚠️ Moins de 2 relevés => AUCUNE courbe, jamais une ligne plate :
               une ligne plate AFFIRME une stabilité qu'on n'a pas observée. */}
           <td class="c-5" style="width:88px"><Fragment set:html={sparkline(i.history, i.change7d)} /></td>
           <td class:list={['n', i.change7d > 0 ? 'up' : i.change7d < 0 ? 'down' : 'flat']}><Fragment set:html={delta(i.change7d)} /></td>
-          <td class="n c-4 muted">{i.tirage ? i.tirage.toLocaleString(nf) : '—'}</td>
-          <td class="n c-4 muted">{i.listings ?? '—'}</td>
-          <td class="c-5 muted">{i.releaseDate || '—'}</td>
+
+          {/* LIENS — ⛔ AUCUNE URL DANS LA DONNÉE, ni pour VeVe ni pour StackR.
+              ⭐⭐ ET JE N'EN FABRIQUE PAS. Un motif d'URL deviné produit un lien
+              qui a l'air bon et qui rend 404 : le visiteur conclut que le site
+              se trompe, pas que la source manque. Un tiret qui dit « pas encore
+              collecté » est plus honnête et coûte moins cher à réparer. */}
+          <td class="c-4"><span class="m2">
+            <span class="m2__a muted" data-attente title={attente}>{t(lang, 'movers.onVeve')} —</span>
+            <span class="m2__b muted" data-attente title={attente}>{t(lang, 'movers.onStackr')} —</span>
+          </span></td>
         </tr>
       ))}</tbody>
     </table>

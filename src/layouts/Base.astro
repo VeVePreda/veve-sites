@@ -18,7 +18,31 @@ const links = m.links || {};
 // `langs` : les langues où CETTE page existe vraiment. Non fourni = les langues
 // du site. C'est ce qui empêche un hreflang d'annoncer /es/brands/ quand cette
 // page n'est pas construite (cf. engine/lib/langues.mjs).
-const { lang, path = '/', altPaths = null, langs = null, title, description, crumbs = [], ld = [], updatedAt = null, noindex = false, image = null } = Astro.props;
+const { lang, path = '/', altPaths = null, langs = null, title, description, crumbs = [], ld = [], updatedAt = null, noindex = false, image = null, sect = 'general' } = Astro.props;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴 LA COULEUR PAR SECTION — DIX RÈGLES DE THÈME QUE RIEN N'ACTIVAIT
+// ═══════════════════════════════════════════════════════════════════════════
+// Mesuré le 03/08/2026 : `[data-sect="cotes"]`, `"analyse"`, `"collectibles"`,
+// `"comics"`, `"general"` portent chacune leur palette dans les trois thèmes —
+// et **AUCUN gabarit n'émettait l'attribut**. Tout le système était mort. Le
+// Marché s'affichait donc en cyan là où il devait être rouge, et personne ne
+// pouvait le voir en lisant le thème : les règles étaient bien là.
+//
+// ⭐⭐ MÊME FAMILLE QUE `.boite__viz` DU MÊME LOT : une RÈGLE SANS CLASSE. On
+// traque d'habitude l'inverse (la classe émise sans règle, qui a l'air d'être
+// là) — celle-ci ne crie pas non plus, et elle est plus difficile à voir :
+// le thème est complet, c'est le gabarit qui est muet.
+//
+// ⚠️ ET IL VA SUR L'ÉLÉMENT BODY, PAS SUR MAIN. L'en-tête est un FRÈRE de
+// main, pas un descendant : posé sur le contenu, l'attribut laisserait la
+// barre du haut dans la couleur d'origine. La maquette a payé exactement ce
+// bug (son commentaire ligne 258) et conclut : « le plus petit ancêtre COMMUN
+// à tout ce qu'elle colore ».
+// ⭐ La liste est FERMÉE : une valeur inconnue retombe sur `general` au lieu
+// de produire un `data-sect="markt"` silencieux qui ne matcherait rien.
+const SECTIONS_COULEUR = ['general', 'collectibles', 'comics', 'cotes', 'analyse'];
+const sectCouleur = SECTIONS_COULEUR.includes(sect) ? sect : 'general';
 const { active, def } = locales();
 const prixActifs = priceEnabled();
 // Nav PILOTEE PAR LE MANIFESTE : un site avec des pages editoriales (bloc
@@ -327,7 +351,7 @@ if (navAttente.length && !globalThis.__navDit) {
 )}
 {ld.map((o) => <Fragment set:html={jsonld(o)} />)}
 </head>
-<body>
+<body data-sect={sectCouleur}>
 {/* ⭐ Lien d'évitement — WCAG 2.4.1, niveau A. Sans lui, un visiteur au clavier
     ou au lecteur d'écran traverse six liens de menu et le sélecteur de langue
     À CHAQUE PAGE avant d'atteindre le contenu. Il reste hors de l'écran tant
@@ -431,7 +455,7 @@ if (navAttente.length && !globalThis.__navDit) {
           promesse est tenue par le HTML seul. Le script le PROMEUT en palette
           modale. Un bouton, lui, serait inerte sans JS — une promesse rompue,
           exactement ce que le commentaire d'a cote interdit. */}
-      <a class="h-rech" id="ouvrir-palette" href={localize(lang, '/')}
+      <a class="h-rech" id="ouvrir-palette" data-ouvrir-palette href={localize(lang, '/')}
          aria-label={t(lang, 'search.placeholder')}>
         <span>{t(lang, 'search.placeholder')}</span><span class="kbd">⌘K</span>
       </a>
@@ -631,8 +655,16 @@ if (navAttente.length && !globalThis.__navDit) {
           .catch(function () { r.innerHTML = '<p>' + rien + '</p>'; });
       }
     }
-    var lien = document.getElementById('ouvrir-palette');
-    if (lien) lien.addEventListener('click', ouvrir);
+    // ⚠️ TOUS LES DÉCLENCHEURS, PAS LE PREMIER — corrigé au lot 43.
+    // `getElementById` ne rend qu'UN élément. Le jour où une page a deux
+    // entrées vers la palette (l'accueil en a une dans l'en-tête ET une dans
+    // le hero depuis le retrait de sa barre de recherche), la seconde était
+    // muette — et un id dupliqué, en prime, est du HTML invalide.
+    // ⭐ Un crochet de comportement se pose en ATTRIBUT, pas en id : un id est
+    // unique par définition, donc il ne peut pas désigner « tous ceux qui font
+    // cette chose ». C'est ce que l'id disait, et c'était faux.
+    var liens = document.querySelectorAll('[data-ouvrir-palette]');
+    for (var li = 0; li < liens.length; li++) liens[li].addEventListener('click', ouvrir);
     q.addEventListener('input', filtrer);
 
     // Clavier : fleches + Entree. Un champ de recherche qu'on ne peut pas

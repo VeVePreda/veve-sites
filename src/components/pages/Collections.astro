@@ -16,13 +16,14 @@ const cols = [...ds.collections.values()].sort((a, b) => b.items.length - a.item
 // texte identiques ne faisaient pas.
 const pile = (c) => [...c.items].sort((a, b) => (b.floor ?? 0) - (a.floor ?? 0)).slice(0, 3);
 ---
-<Base lang={lang} path="/collections/" title={t(lang, 'collections.title')}
+<Base sect="collectibles" lang={lang} path="/collections/" title={t(lang, 'collections.title')}
       description={t(lang, 'desc.collections', { n: cols.length.toLocaleString(nf) })} updatedAt={ds.updatedAt}
       crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') }, { name: t(lang, 'collections.title') }]}>
   {/* ⭐ LA TÊTE DE PAGE de la maquette : titre à gauche, pile de vignettes à
       droite. Elle dit de quoi parle l'écran AVANT qu'on lise le titre. */}
   <div class="tete-p">
     <div>
+      <p class="etiq etiq--bleu">// {t(lang, 'collections.title').toUpperCase()}</p>
       <h1 class="mono-t">{t(lang, 'collections.title')}</h1>
       <p class="respire">{cols.length.toLocaleString(nf)} {t(lang, 'collections.count')}.</p>
     </div>
