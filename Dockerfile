@@ -179,6 +179,22 @@ RUN set -e; MODE=$(cat /app/.rendering); \
       echo "mode static : $(find dist -name index.html | wc -l) pages"; \
     fi
 
+# ⭐⭐ `test:cles` — LE BANC QUI MANQUAIT, ET IL M'A MANQUE A MOI (03/08/2026).
+# Le lot 34 retirait `/rarity/` : 6 cles i18n supprimees, 6 fichiers a
+# supprimer A LA MAIN. Les cles sont parties, les fichiers non. Resultat en
+# ligne, dans 5 langues : `<h1>rarities.title</h1>`, `<title>rarities.title |
+# VeVe Price</title>`, 24 pages.
+# 🔴 ET LES DIX CONTROLES ETAIENT VERTS. `test:langues` compare les langues
+# ENTRE ELLES : les 5 avaient perdu les MEMES cles, il etait donc vert — et il
+# avait raison de l'etre. ⭐⭐ UN CONTROLE DE COHERENCE NE VOIT PAS UNE PERTE
+# UNIFORME.
+# ⚠️ IL EST APRES `npm run build`, contrairement a css-mort / imports-orphelins
+# / cascade-aplatie, et ce n'est pas un oubli : sa question — « qu'est-ce que
+# la page DIT ? » — n'a de reponse qu'apres rendu. Il lit `dist/`.
+# ⭐ Il sort en rc=2 s'il n'a lu aucune page ou moins de 20 cles : un banc qui
+# n'a rien inspecte n'a rien prouve, et son vert est le plus cher de tous.
+RUN WAREHOUSE_OFFLINE=1 npm run test:cles
+
 # --- Precompression : le seul gain de vitesse qui restait ------------------
 # ⭐⭐ POURQUOI PRECOMPRESSER, PLUTOT QUE DE MONTER LE NIVEAU DE gzip.
 # `nginx.conf` declarait `gzip on` sans `gzip_comp_level` : nginx compressait

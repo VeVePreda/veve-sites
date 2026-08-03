@@ -20,7 +20,7 @@
     "test:acces": "node engine/tools/test_access.mjs",
     "test:reserve": "node engine/tools/test_reserve.mjs",
     "test:blog": "node engine/tools/test_blog.mjs",
-    "test": "npm run test:dockerfile && npm run test:gabarits && npm run test:donnees && npm run test:entrepot && npm run test:quotas && npm run test:acces && npm run test:reserve && npm run test:blog && npm run test:figures && npm run test:fiches && npm run test:lastmod && npm run test:langues && npm run test:renommage && npm run test:schema && npm run test:adresses && npm run test:slugs && npm run test:nginx && npm run test:indexnow",
+    "test": "npm run test:dockerfile && npm run test:gabarits && npm run test:donnees && npm run test:entrepot && npm run test:quotas && npm run test:acces && npm run test:reserve && npm run test:blog && npm run test:figures && npm run test:fiches && npm run test:lastmod && npm run test:langues && npm run test:renommage && npm run test:schema && npm run test:adresses && npm run test:slugs && npm run test:nginx && npm run test:indexnow && npm run test:cles",
     "test:entrepot": "node engine/tools/test_entrepot.mjs",
     "test:figures": "node engine/tools/test_figures.mjs",
     "test:fiches": "node engine/tools/test_fiches.mjs",
@@ -28,7 +28,8 @@
     "test:langues": "node engine/tools/test_langues.mjs",
     "test:renommage": "node engine/tools/test_renommage.mjs",
     "test:schema": "node engine/tools/test_donnees_structurees.mjs",
-    "test:adresses": "node engine/tools/test_adresses_comics.mjs"
+    "test:adresses": "node engine/tools/test_adresses_comics.mjs",
+    "test:cles": "node engine/tools/test_cles_i18n.mjs"
   },
   "dependencies": {
     "@astrojs/markdown-satteri": "^0.3.4",
