@@ -11,7 +11,7 @@ import { productLd, breadcrumbLd } from '../../../engine/lib/seo.mjs';
 import { manifest, siteUrl } from '../../../engine/lib/manifest.mjs';
 import { t, localize, numberLocale, dateLocale } from '../../../engine/lib/i18n.mjs';
 import { postsForItem } from '../../../engine/lib/blog.mjs';
-import { rar, forme, delta, gemsM, RAR } from '../../../engine/lib/vitrine.mjs';
+import { rar, forme, delta, gemsM, RAR, omiM } from '../../../engine/lib/vitrine.mjs';
 import { franchit } from '../../../engine/lib/access.mjs';
 import BarreAcces from '../BarreAcces.astro';
 // Les cinq modules d'analyse, dans l'ordre de la maquette.
@@ -167,6 +167,20 @@ const descItem = (item.floor && item.totalPoints && anneeDebut)
         {item.releaseDate && <tr><th>{t(lang, 'item.release')}</th><td>{item.releaseDate}</td></tr>}
         {item.storePrice && <tr><th>{t(lang, 'item.storePrice')}</th><td>{money(item.storePrice)}</td></tr>}
       </tbody></table>
+      {/* ⭐ « DETAILS » REMONTE ICI LE 03/08/2026 (demande Preda) : directement
+          sous « Release price », dans la colonne de l'image, au lieu du bas de
+          page.
+          ⛔ ET IL NE REDIT PAS CE QUE LE TABLEAU DU DESSUS DIT DEJA. Le bloc
+          d'origine repetait marque, licence, sortie et prix de sortie — quatre
+          lignes affichees DEUX FOIS sur la meme page, a deux endroits qui
+          finissent toujours par diverger. Il ne porte plus que ce dont il est
+          la seule source : collection, rarete, tirage. */}
+          <h2>{t(lang, 'item.sheet')}</h2>
+          <table><tbody>
+            {colSlug && <tr><th>{t(lang, 'item.collection')}</th><td><a href={localize(lang, `/collection/${colSlug}/`)}>{item.series}</a></td></tr>}
+            {item.rarity && <tr><th>{t(lang, 'item.rarity')}</th><td><Fragment set:html={rar(item.rarity)} /></td></tr>}
+            {item.tirage && <tr><th>{t(lang, 'item.supply')}</th><td>{item.tirage.toLocaleString(nf)}</td></tr>}
+          </tbody></table>
     </div>
 
     <div class="fiche__txt">
@@ -215,15 +229,27 @@ const descItem = (item.floor && item.totalPoints && anneeDebut)
         </div>
         <span class="murs__sep" aria-hidden="true"></span>
         <div>
-          <div class="mur__k"><Fragment set:html={gemsM()} /> {t(lang, 'item.median')}</div>
-          <div class="mur__v">{money(item.prixMedian)}<span class="mur__u">gems</span></div>
-          <div class="mur__eq">
-            {item.prixMedian && item.floor
-              ? `${t(lang, 'item.gap')} ${((item.floor / item.prixMedian - 1) * 100).toFixed(1)} %`
-              : '—'}
-          </div>
+          {/* ═══ LE PLANCHER STACKR — arbitrage Preda du 03/08/2026 ═══
+              🔴 CETTE DONNEE N'EXISTE PAS ENCORE. Aucun collecteur ne remonte
+              le plancher StackR : `_DynState` de catalog_export.py ne fournit
+              que `floor` et `listings`, et `porter.mjs` le recense noir sur
+              blanc — ABSENTS = {omi, od1, od7, usd, d1, dem, fav}.
+              Preda a tranche : AFFICHER LE CADRE AVEC DES TIRETS, pour voir la
+              structure finale et garder le manque sous les yeux.
+              ⭐⭐ MAIS UN « — » QUI VEUT DIRE « AUCUNE OFFRE » ET UN « — » QUI
+              VEUT DIRE « PAS ENCORE COLLECTE » SE RESSEMBLENT ET SONT
+              L'INVERSE. C'est le defaut de famille de ce projet — une absence
+              qui prend l'apparence d'une valeur. D'ou `data-attente` et le
+              `title` : le cadre dit qu'il attend une source, il ne pretend pas
+              constater un marche vide.
+              ⛔ NE JAMAIS remplir ces champs par un calcul, un taux devine ou
+              une conversion approchee. Le jour ou le collecteur existe, ce
+              bloc change de SOURCE sans changer de FORME. */}
+          <div class="mur__k"><Fragment set:html={omiM()} /> {t(lang, 'item.floorStackr')}</div>
+          <div class="mur__v" data-attente title={t(lang, 'data.notCollected')}>—<span class="mur__u">OMI</span></div>
+          <div class="mur__eq" data-attente title={t(lang, 'data.notCollected')}>—</div>
           <div class="mur__d">
-            <span class="muted">{item.totalPoints?.toLocaleString(nf)} {t(lang, 'home.points')}</span>
+            <span class="muted">{t(lang, 'data.notCollected')}</span>
           </div>
         </div>
       </div>
@@ -290,6 +316,27 @@ const descItem = (item.floor && item.totalPoints && anneeDebut)
       annoncer un contenu qui n'existe pas. Les modules qui doivent y vivre
       (favoris, Vault, alertes) demandent un compte. */}
   <div class="avec-aside">
+  {/* 🔴 CORRIGE LE 03/08/2026 — « le tableau Floor price empiete sur les deux
+      espaces » (Preda). Le graphique PUBLIC etait bien dans la colonne de
+      gauche, mais <Gate> et <Cadran> — l'historique verrouille, qui porte le
+      MEME titre a l'ecran — etaient ecrits APRES la fermeture de
+      `.avec-aside`, donc enfants directs de la balise main, donc en pleine largeur
+      sous les deux colonnes.
+      ⭐⭐ C'est le meme defaut qu'en juillet sur `graph-hote` lui-meme, et pour
+      la meme raison : la classe etait juste, l'ENDROIT ne l'etait pas. « Est-ce
+      la ? » et « est-ce au bon niveau ? » sont deux questions.
+      ⚠️ L'ORDRE INTERNE NE BOUGE PAS : courbe publique, puis sceau, puis
+      cadran. Sans JavaScript on lit d'abord ce qui manque et comment
+      l'obtenir, ensuite le verrou. */}
+  {/* ⛔ SANS CLASSE, ET CE N'EST PAS UN OUBLI. Ma premiere version portait
+      `class="fiche__prix"` — verifie juste apres l'avoir ecrite : ZERO regle
+      dans les trois themes. C'est le defaut du contrat gabarit/theme, deux
+      lignes sous le commentaire qui l'interdit, et je venais de le refaire.
+      ⭐⭐ Une classe emise sans regle coute plus cher qu'une classe absente :
+      elle A L'AIR d'etre la. Ce conteneur n'a besoin d'AUCUN habillage — il
+      doit seulement etre la premiere colonne de la grille `.avec-aside`, et une
+      simple balise div nue le fait. */}
+  <div>
   <div class="graph-hote">
     <div class="graph-tete">
       <div>
@@ -314,47 +361,16 @@ const descItem = (item.floor && item.totalPoints && anneeDebut)
     <Fragment set:html={svg} />
     <div class="graph-pied"><span class="etiq">{item.totalPoints?.toLocaleString(nf)} {t(lang, 'home.points')}</span></div>
   </div>
-    {/* ⛔ SANS CLASSE, DELIBEREMENT. Ma premiere version portait
-        `class="rail-aside"` — une classe que j'ai INVENTEE et qu'aucun theme
-        n'habille. C'est le defaut du contrat gabarit/theme, et il coute plus
-        cher qu'une classe absente : il a l'air d'etre la. Cet aside n'a besoin
-        d'aucun habillage, seulement d'occuper la colonne que la grille lui
-        donne — le `<aside>` nu le fait tres bien. */}
-    <aside aria-hidden="true"></aside>
-  </div>
 
-  <div class="sect-t sect-t--gd"><h2 class="mono-t">{t(lang, 'account.modules')}</h2>
-    <span class="etiq" style="color:var(--lock)">{MODULES.length}</span></div>
-  {/* ⭐ LES ONGLETS SONT VISIBLES MÊME VERROUILLÉS : un membre voit le NOM de
-      chaque module, jamais son contenu. C'est la différence entre « il n'y a
-      rien ici » et « il y a quelque chose ici, et c'est à vous ».
-      ⛔ `aria-disabled` et NON `disabled` : un onglet verrouillé doit rester
-      atteignable au clavier pour qu'un lecteur d'écran annonce pourquoi il ne
-      s'ouvre pas. Un contrôle retiré de l'ordre de focus n'explique rien. */}
-  {/* ⭐ LE CATALOGUE DES MODULES : nom, promesse, palier. Il vient AVANT les
-      onglets parce qu'il dit ce qui existe ; les onglets disent seulement ce
-      qui est ouvert. */}
-  <div class="modules">
-    {MODULES.map((mo) => (
-      <div class={franchit(mo, Astro.locals) ? 'module module--ouvert' : 'module'}>
-        <span class="module__i"><Fragment set:html={forme('ULTRA_RARE')} /></span>
-        <span class="module__c">
-          <span class="module__n">{t(lang, `mod.${mo}`)}</span>
-          <span class="module__d">{t(lang, `mod.${mo}.d`)}</span>
-        </span>
-      </div>
-    ))}
-  </div>
-
-  <div class="onglets-m" role="tablist">
-    {MODULES.map((mo, k) => (
-      <button role="tab" type="button" aria-selected={k === 0 ? 'true' : 'false'}
-              aria-disabled={franchit(mo, Astro.locals) ? undefined : 'true'}>
-        {t(lang, `mod.${mo}`)}{k === 0 && <span class="cpt">{item.listings ?? 0}</span>}
-      </button>
-    ))}
-  </div>
-
+  {/* ⛔ LE BLOC « MODULES » A ETE RETIRE LE 03/08/2026 (demande Preda).
+      Il portait le catalogue des 5 modules + les onglets `role="tablist"`.
+      ⚠️ CE QUI DISPARAIT AVEC LUI, ET QU'IL FAUT SAVOIR : c'etait le seul
+      endroit de la fiche qui MONTRAIT au visiteur ce qu'il n'a pas encore —
+      « il y a quelque chose ici, et c'est a vous » plutot que « il n'y a rien
+      ici ». Le composant Gate ci-dessous garde ce role pour l'historique seul.
+      ⭐ `franchit()` et la matrice d'acces ne bougent PAS : c'est un retrait
+      d'AFFICHAGE, pas de droit. Les paliers restent exactement ce qu'ils
+      etaient, et test:acces continue de les prouver. */}
   <Gate lang={lang} gate="price_history" total={item.totalPoints} shown={item.points} since={item.since} />
   {/* ⭐⭐ IL VIENT APRÈS LE <Gate>, ET L'ORDRE COMPTE. Sans JavaScript, on lit
       d'abord ce qui manque et comment l'obtenir (le sceau), puis on voit le
@@ -365,22 +381,20 @@ const descItem = (item.floor && item.totalPoints && anneeDebut)
       à qui lit la source. */}
   <Cadran lang={lang} uuid={item.uuid} svgPublic={svg}
           total={item.totalPoints} shown={item.points} />
+  </div>
+  {/* ⛔ SANS CLASSE, DELIBEREMENT. Ma premiere version portait
+      `class="rail-aside"` — une classe INVENTEE qu'aucun theme n'habille.
+      C'est le defaut du contrat gabarit/theme, et il coute plus cher qu'une
+      classe absente : il a l'air d'etre la. Cet aside n'a besoin d'aucun
+      habillage, seulement d'occuper la colonne que la grille lui donne. */}
+  <aside aria-hidden="true"></aside>
+  </div>
 
-  {recent.length > 0 && (
-    <>
-      <div class="sect-t"><h2>{t(lang, 'item.recent')}</h2></div>
-      <div class="tbl-hote ligne-offres"><table>
-        <thead><tr><th class="rang">#</th><th>{t(lang, 'item.date')}</th><th class="n">{t(lang, 'movers.floor')}</th><th class="n c-2">{t(lang, 'item.listings')}</th></tr></thead>
-        <tbody>{recent.map((p, k) => (
-          <tr><td class="rang">{String(k + 1).padStart(2, '0')}</td>
-            <td>{new Date(p.ts).toLocaleDateString(df)}</td>
-            <td class="n"><span class="num"><Fragment set:html={gemsM()} /> {money(p.floor)}</span></td>
-            <td class="n c-2">{p.listings}</td></tr>
-        ))}</tbody>
-      </table></div>
-    </>
-  )}
-
+  {/* ⛔ « DERNIERS RELEVES » RETIRE LE 03/08/2026 (demande Preda).
+      Le tableau redisait, en chiffres, ce que la courbe juste au-dessus dit en
+      forme. ⭐ `recent` reste CALCULE dans le frontmatter : il ne coute rien et
+      il est le seul endroit ou la profondeur reelle de l'historique public se
+      lit. Le retirer aussi rendrait le jour du retour plus cher que le gain. */}
   {relatedPosts.length > 0 && (
     <>
       <h2>{t(lang, 'blog.relatedPosts')}</h2>
@@ -396,14 +410,4 @@ const descItem = (item.floor && item.totalPoints && anneeDebut)
     </>
   )}
 
-  <h2>{t(lang, 'item.sheet')}</h2>
-  <table><tbody>
-    {colSlug && <tr><th>{t(lang, 'item.collection')}</th><td><a href={localize(lang, `/collection/${colSlug}/`)}>{item.series}</a></td></tr>}
-    {item.rarity && <tr><th>{t(lang, 'item.rarity')}</th><td><Fragment set:html={rar(item.rarity)} /></td></tr>}
-    {item.brand && <tr><th>{t(lang, 'item.brand')}</th><td>{item.brand}</td></tr>}
-    {item.licensor && <tr><th>{t(lang, 'item.licensor')}</th><td>{item.licensor}</td></tr>}
-    {item.tirage && <tr><th>{t(lang, 'item.supply')}</th><td>{item.tirage.toLocaleString(nf)}</td></tr>}
-    {item.storePrice && <tr><th>{t(lang, 'item.storePrice')}</th><td>{money(item.storePrice)}</td></tr>}
-    {item.releaseDate && <tr><th>{t(lang, 'item.release')}</th><td>{item.releaseDate}</td></tr>}
-  </tbody></table>
 </Base>

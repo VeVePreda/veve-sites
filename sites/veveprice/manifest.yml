@@ -143,6 +143,34 @@ access:
 #         || (editorial.pages.length && !content.data_modules.length)
 # veveprice a 3 `data_modules`, donc le second terme est FAUX. Vérifié au build,
 # pas déduit : l'accueil reste `Home.astro`.
+# ═══════════════════════════════════════════════════════════════════════════
+# LE MENU — arbitrage Preda du 03/08/2026 (lot 38)
+# ═══════════════════════════════════════════════════════════════════════════
+# Dashboard / Marché / Analytics / Blog / Alertes / Vault / Abonnement.
+#
+# 🔴 QUATRE DE CES SEPT PAGES N'EXISTENT PAS ENCORE — mesuré, pas supposé :
+#    /dashboard/, /analytics/, /alertes/, /vault/ ne sont produites par aucune
+#    route. Seules /market/, /blog/ et /offre/ le sont.
+#
+# ⛔ UN LIEN VERS UNE PAGE NON ÉMISE EST UN 404 INVISIBLE AU BUILD : c'est un
+#    lien, pas une route, donc rien ne le vérifie. Ce défaut a déjà été payé
+#    DEUX FOIS sur ce fichier (le blog dans les langues sans article, /compte/
+#    préfixé par `localize`).
+#
+# ⭐ D'où `pret:`. Une entrée `pret: false` est ÉCRITE ici — l'intention est
+#    donc visible, et `etat_reel.py` peut la lire — mais elle n'est PAS émise
+#    dans la nav. Le jour où la page existe, on bascule le drapeau : une ligne.
+# ⭐⭐ ET `test:routes` REFUSE TOUTE ENTRÉE `pret: true` SANS PAGE PRODUITE.
+#    Le 404 invisible devient impossible, au lieu d'être seulement déconseillé.
+nav:
+  - { cle: nav.dashboard, href: /,            pret: true  }   # l'accueil fait office de tableau de bord
+  - { cle: nav.movers,    href: /market/,     pret: true  }
+  - { cle: nav.analytics, href: /analytics/,  pret: false }   # ⏳ démo publique + version abonnée
+  - { cle: nav.blog,      href: /blog/,       pret: true  }
+  - { cle: nav.alerts,    href: /alertes/,    pret: false }   # ⏳ demande un compte
+  - { cle: nav.vault,     href: /vault/,      pret: false }   # ⏳ demande un compte
+  - { cle: nav.offer,     href: /offre/,      pret: true  }
+
 editorial:
   # 🔴 À REMPLIR PAR PREDA — l'id du Sheet éditorial de VeVePrice.
   # ⛔ TANT QUE CETTE LIGNE EST COMMENTÉE, la récolte ne tourne pas et le blog

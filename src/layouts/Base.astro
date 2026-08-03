@@ -171,6 +171,16 @@ const statsOn = Boolean(analytics.website_id);
 // <head>, eux, ne bougent pas du tout.)
 const langAuPied = (m.identity.langues_dans || 'entete') === 'pied';
 const suggestData = alternates.filter((a) => a.lang !== lang).map((a) => ({ l: a.lang, h: a.href, n: localeNames[a.lang] || a.lang }));
+
+// ⭐ Le menu, lu UNE fois. Une entree non prete est ECARTEE et DITE : un menu
+// qui rétrécit sans le dire se lit comme une régression.
+const navManifeste = (manifest().nav || []).filter((e) => e && e.pret);
+const navAttente = (manifest().nav || []).filter((e) => e && !e.pret);
+if (navAttente.length && !globalThis.__navDit) {
+  globalThis.__navDit = true;
+  console.log(`[nav] ${navManifeste.length} entree(s) emise(s) · ${navAttente.length} en attente de page : `
+    + navAttente.map((e) => e.href).join(', '));
+}
 ---
 <!doctype html>
 <html lang={lang}>
@@ -328,9 +338,19 @@ const suggestData = alternates.filter((a) => a.lang !== lang).map((a) => ({ l: a
               chaque page espagnole et allemande — visible nulle part au build,
               puisque c'est un lien, pas une route. Une navigation ne se decide
               pas au niveau du SITE mais au niveau de la LANGUE. */}
-          {blogDansCetteLangue && <a href={localize(lang, '/blog/')}>{t(lang, 'nav.blog')}</a>}
-          <a href={localize(lang, '/market/')}>{t(lang, 'nav.movers')}</a>
-          <a href={localize(lang, '/collections/')}>{t(lang, 'nav.collections')}</a>
+          {/* ═══ LE MENU VIENT DU MANIFESTE — 03/08/2026, lot 38 ═══
+              ⭐ `nav:` de sites/<site>/manifest.yml. Une entree `pret: false`
+                 est declaree mais PAS emise : sa page n'existe pas encore.
+              ⛔ UN LIEN VERS UNE PAGE NON EMISE EST UN 404 INVISIBLE AU BUILD.
+                 Deja paye deux fois ici (le blog dans les langues sans
+                 article, /compte/ prefixe par `localize`). Le blog garde en
+                 plus sa condition PAR LANGUE : une entree peut etre prete
+                 pour le site et absente dans une langue. Les deux conditions
+                 se cumulent, elles ne se remplacent pas. */}
+          {navManifeste.map((e) => (
+            (e.cle !== 'nav.blog' || blogDansCetteLangue) &&
+              <a href={e.href === '/' ? localize(lang, '/') : localize(lang, e.href)}>{t(lang, e.cle)}</a>
+          ))}
           {/* ⚠️ MÊME CONDITION QUE LE BLOG, ET ELLE A DÉJÀ ÉTÉ PAYÉE DEUX FOIS.
               Un lien vers une page non émise dans cette langue est un 404
               INVISIBLE au build — c'est un lien, pas une route.

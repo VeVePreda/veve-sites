@@ -137,9 +137,8 @@ if (prix) {
 
 // LE BLOG, dans les langues qui ont VRAIMENT un article — pas dans celles qui
 // n'en ont pas : un index d'articles vide est pire qu'une page absente.
-if (blogEnabled()) {
-  for (const l of await languesBlog()) veut(localize(l, '/blog/'), `${l} a au moins un article`);
-}
+const langsBlog = blogEnabled() ? await languesBlog() : [];
+for (const l of langsBlog) veut(localize(l, '/blog/'), `${l} a au moins un article`);
 
 // LES FICHIERS DE SERVICE. Ils ne se voient pas, donc leur disparition ne se
 // voit pas non plus — jusqu'a ce que l'indexation s'arrete.
@@ -160,6 +159,45 @@ dit(manquantes.length === 0, `${attentes.length} route(s) attendue(s) presente(s
 for (const a of manquantes) {
   console.log(`     🔴 ${a.chemin}`);
   console.log(`        attendue parce que : ${a.pourquoi}`);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 2 bis. LE MENU — toute entree `pret: true` DOIT avoir une page.
+// ═══════════════════════════════════════════════════════════════════════════
+// ⛔ UN LIEN VERS UNE PAGE NON EMISE EST UN 404 INVISIBLE AU BUILD : c'est un
+// lien, pas une route, donc aucun compilateur ne le regarde. Ce defaut a ete
+// paye DEUX FOIS sur Base.astro — le blog dans les langues sans article, et
+// /compte/ prefixe par `localize` qui fabriquait /fr/compte/.
+// ⭐ Depuis le lot 38 le menu est une DONNEE (`nav:` du manifeste) : on peut
+// donc enfin le VERIFIER, au lieu de relire le gabarit a l'oeil.
+const nav = Array.isArray(m.nav) ? m.nav : [];
+if (nav.length) {
+  console.log(`\n2 bis. Le menu declare par le manifeste`);
+  const prets = nav.filter((e) => e && e.pret);
+  const attente = nav.filter((e) => e && !e.pret);
+  const casses = [];
+  for (const e of prets) {
+    for (const l of langsAccueil) {
+      const cible = e.href === '/' ? localize(l, '/') : localize(l, e.href);
+      // Le blog n'est emis que dans les langues qui ont un article : c'est
+      // voulu, et Base.astro porte la meme condition. On ne le reclame donc
+      // que la ou il existe — sinon ce banc crierait sur un comportement juste.
+      if (e.cle === 'nav.blog' && !langsBlog.includes(l)) continue;
+      if (!existePage(cible)) casses.push(`${cible}  (${e.cle})`);
+    }
+  }
+  dit(casses.length === 0, `${prets.length} entree(s) « pret: true » ont toutes leur page`,
+    casses.length === 0 ? `dans ${langsAccueil.length} langue(s)` : `${casses.length} LIEN(S) VERS LE VIDE`);
+  for (const c of casses) {
+    console.log(`     🔴 ${c}`);
+    console.log(`        le menu pointe vers une page que le build ne produit pas.`);
+    console.log(`        -> soit passer l'entree a « pret: false », soit creer la route.`);
+  }
+  if (attente.length) {
+    console.log(`     ⏳ ${attente.length} entree(s) declaree(s) mais PAS emise(s) : `
+      + attente.map((e) => e.href).join(', '));
+    console.log(`        (c'est un etat SAIN : l'intention est ecrite, le lien n'existe pas.)`);
+  }
 }
 
 console.log(`\n3. Les fichiers de service`);
