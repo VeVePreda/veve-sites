@@ -317,8 +317,13 @@ const mcpJour = mcpPoints(item.rarity, item.type);
               manipuler la nôtre par `window.opener`. */}
           <div class="mur__k">
             <Fragment set:html={gemsM()} /> {t(lang, 'item.floor')}
-            {item.veveUrl && (
-              <a class="lien-b" href={item.veveUrl} target="_blank" rel="noopener"
+            {/* ⭐ LOT 77 — LE BOUTON VISE LE MARCHÉ, PAS LA BOUTIQUE.
+                Preda : « le lien que tu as mis pour VeVe n'est pas celui du
+                market ». Il avait raison : `veve_url` mène à la fiche
+                produit. Le motif du marché vient de trois exemples qu'il a
+                relevés lui-même — voir `dataset.mjs`. */}
+            {item.veveMarketUrl && (
+              <a class="lien-b" href={item.veveMarketUrl} target="_blank" rel="noopener"
                  style="margin-left:auto">{t(lang, 'item.viewVeve')} ↗</a>
             )}
           </div>

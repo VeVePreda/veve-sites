@@ -484,8 +484,15 @@ vitrine:
     - n: "001"
       span: 7
       rang: 3
-      t: { fr: "Le plancher,<br>toutes les 30 min", en: "The floor,<br>every 30 minutes",
-           es: "El mínimo,<br>cada 30 minutos", de: "Der Bodenpreis,<br>alle 30 Minuten" }
+      # ⛔ LA CADENCE A QUITTÉ CE TITRE (lot 77, demande de Preda : « ne précise
+      # pas à quelle fréquence »). C'était la DERNIÈRE des trois mentions
+      # visibles de « toutes les 30 minutes » — les deux autres étaient
+      # l'accroche de l'en-tête (lot 74) et la description SEO des sets.
+      # ⭐ Le texte dit maintenant CE QU'ON FAIT, pas À QUEL RYTHME : la
+      # promesse tient sans donner un chiffre qu'un incident de cron rendrait
+      # faux, et que personne ne penserait à corriger ce jour-là.
+      t: { fr: "Le plancher,<br>relevé et daté", en: "The floor,<br>recorded and dated",
+           es: "El mínimo,<br>registrado y fechado", de: "Der Bodenpreis,<br>erfasst und datiert" }
       d: { fr: "Relevé et horodaté. Aucune estimation, aucun modèle : ce que vous lisez a été constaté à une heure précise.",
            en: "Recorded and timestamped. No estimate, no model: what you read was observed at a precise time.",
            es: "Registrado y con hora. Sin estimaciones ni modelos: lo que lees fue observado a una hora precisa.",

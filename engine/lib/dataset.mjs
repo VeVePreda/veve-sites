@@ -324,6 +324,39 @@ async function construireDataset() {
         const u = String(c.veve_url || '').trim();
         return u.startsWith('https://') ? u : '';
       })(),
+      // ═══════════════════════════════════════════════════════════════════════
+      // LOT 77 — L'ADRESSE DU MARCHÉ VEVE, ET POURQUOI ELLE NE VIOLE PAS LA RÈGLE
+      // ═══════════════════════════════════════════════════════════════════════
+      // `veve_url` mène à la fiche BOUTIQUE. Preda veut le MARCHÉ, et il a
+      // fourni lui-même les trois motifs, relevés dans son compte :
+      //   collectible          .../collectibles/en/market/collectibles/<id>
+      //   comic (une rareté)   .../collectibles/en/market/comics/<id>
+      //   variantes de couv.   .../collectibles/en/market/comic-covers/<id>
+      //
+      // ⛔ « ON NE FABRIQUE PAS D'URL » RESTE VRAI, et ceci n'en est pas une
+      // fabrication : le MOTIF vient de la source (trois exemples réels), et
+      // l'IDENTIFIANT vient de `veve_url`, qui prouve déjà que VeVe adresse
+      // cette pièce par cet uuid-là (`/collectibles/en/collectibles/<uuid>`
+      // résout et rend la bonne fiche — vérifié le 05/08).
+      // ⭐⭐ LA DIFFÉRENCE EST ENTIÈRE : deviner un motif produit un lien qui a
+      // l'air bon et rend 404 ; dériver un motif OBSERVÉ avec un identifiant
+      // PROUVÉ produit un lien qu'un seul clic suffit à valider. On ne prend
+      // pas moins de précautions, on en prend d'un autre genre.
+      // ⚠️ CE QUI RESTE NON VÉRIFIÉ, ET IL FAUT LE SAVOIR : les pages Marché de
+      // VeVe sont rendues en JavaScript, donc invérifiables depuis le bac à
+      // sable — un mauvais uuid rendrait une page vide, pas une erreur. C'est
+      // Preda qui tranche, en un clic.
+      // ⛔ `comic-covers` n'est PAS produit : il désigne une SÉRIE de variantes
+      //    de couverture, entité que le moteur ne porte pas. On ne devine pas
+      //    un identifiant qu'on n'a pas.
+      veveMarketUrl: (() => {
+        const u = String(c.veve_url || '').trim();
+        if (!u.startsWith('https://')) return '';
+        const id = u.split('/').filter(Boolean).pop();
+        if (!/^[0-9a-f-]{36}$/i.test(id)) return '';
+        const rayon = String(c.kind || '').toLowerCase() === 'comic' ? 'comics' : 'collectibles';
+        return `https://www.veve.me/collectibles/en/market/${rayon}/${id}`;
+      })(),
       floor: num(c.floor) ?? publicHist[publicHist.length - 1].floor,
       listings: num(c.listings) ?? publicHist[publicHist.length - 1].listings,
       // Un catalogue qui renvoie 0 veut dire « je ne sais pas », pas « zero ».

@@ -141,7 +141,7 @@ const horo = maj ? `${String(maj.getUTCDate()).padStart(2,'0')}.${String(maj.get
         vérifiables — c'est ce qu'un registre doit afficher en premier, et ça ne
         répète plus la devise. `home.independent` et `home.every30` restent dans
         les dictionnaires : le sceau et le pied de page s'en servent. */}
-    <span class="hero__ref ref--tg">{`// VEVE PRICE\n`}<b>{ds.items.length.toLocaleString(nf)} {t(lang, 'home.pieces')}</b></span>
+    <span class="hero__ref ref--tg">{`// VEVE PRICE`}</span>
     <span class="hero__ref ref--bd">{`// CH.VEVE\n${horo}`}</span>
     {piece && (
       <span class="hero__piece" aria-hidden="true">
@@ -153,7 +153,16 @@ const horo = maj ? `${String(maj.getUTCDate()).padStart(2,'0')}.${String(maj.get
       <span class="num-s">// 001 — {t(lang, 'home.record')}</span>
       {/* ⭐ L'accroche porte un CHIFFRE, pas un adjectif : un adjectif se
           conteste, un relevé se vérifie — et il se vérifie sur cette page. */}
-      <h1 class="mono-t">{ds.items.length.toLocaleString(nf)} {t(lang, 'home.pieces')}<br /><em>{t(lang, 'home.tracked')}</em></h1>
+      {/* ⛔ LOT 77 — LE GRAND TITRE NE COMPTE PLUS RIEN (demande de Preda :
+          « ne précise pas combien on track d'infos ni à quelle fréquence »).
+          Il disait « 1 200 pièces / suivies ».
+          ⭐⭐ UN CHIFFRE DE PÉRIMÈTRE EST UNE PROMESSE QUI SE PÉRIME SEULE. 1 200
+          est le plafond du gel des adresses, pas une ambition : le jour où il
+          bouge, c'est le titre de la page la plus vue qui ment, et personne ne
+          relit un titre. Le nouveau dit le BÉNÉFICE, qui lui ne se périme pas.
+          ⚠️ `home.pieces` et `home.tracked` restent dans les dictionnaires : le
+          Marché et les fiches s'en servent encore. */}
+      <h1 class="mono-t">{t(lang, 'home.h1a')}<br /><em>{t(lang, 'home.h1b')}</em></h1>
       <p class="respire" style="margin:var(--s5) 0 0;color:var(--carte-ink-2);max-width:38ch">{pick(m.site.description, lang)}</p>
       {/* ⭐ UN LIEN, PAS UN BOUTON — et c'est le point, déjà tranché au lot 41.
           Sans JavaScript il mène à l'accueil ; le script le promeut en palette.
@@ -209,11 +218,15 @@ const horo = maj ? `${String(maj.getUTCDate()).padStart(2,'0')}.${String(maj.get
       ⛔ La barre d'accès (« les fiches sont en accès libre… ») a QUITTÉ cette
       page — voir le commentaire à sa place. */}
   <div class="wrap">
-    <div class="stats">
-      <div class="stat stat--bleu"><div class="etiq">{t(lang, 'stats.tracked')}</div><div class="stat__v">{ds.items.length.toLocaleString(nf)}</div></div>
-      <div class="stat"><div class="etiq">{t(lang, 'stats.catalogue')}</div><div class="stat__v">{ds.catalogueSize.toLocaleString(nf)}</div></div>
-      <div class="stat"><div class="etiq">{t(lang, 'stats.collections')}</div><div class="stat__v">{ds.collections.size}</div></div>
-    </div>
+    {/* ⛔ LES TROIS COMPTEURS SONT RETIRÉS (lot 77). Ils disaient « Tracked
+        items 1 200 / Catalogue covered 19 256 / Sets 754 » — exactement les
+        chiffres de périmètre que Preda ne veut plus annoncer.
+        ⭐ Ils ne sont pas « cachés » : le bloc n'est plus émis. Une donnée
+        masquée reste une donnée livrée (elle part dans le HTML, elle se lit
+        dans la source) — ce site s'interdit ça ailleurs, il se l'interdit ici.
+        ⚠️ `stats.tracked`, `stats.catalogue` et `stats.collections` restent
+        dans les dictionnaires : les retirer ferait rougir `test:cles` sur les
+        cinq langues pour une économie de trois lignes. */}
 
     {/* ⛔ LA BARRE DE RECHERCHE DE L'ACCUEIL EST RETIRÉE — demande Preda, 03/08.
         ⭐⭐ ET ELLE SE RETIRE TOUTE SEULE, SANS TOUCHER À `Base.astro`.
