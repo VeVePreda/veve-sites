@@ -15,7 +15,6 @@
 // l'avancée du backfill, pas l'intérêt de la fiche. ⛔ Ne pas y toucher.
 import Base from '../../layouts/Base.astro';
 import Carte from '../Carte.astro';
-import BarreAcces from '../BarreAcces.astro';
 import { dataset } from '../../../engine/lib/dataset.mjs';
 import { manifest } from '../../../engine/lib/manifest.mjs';
 import { t, pick, localize, numberLocale } from '../../../engine/lib/i18n.mjs';
@@ -50,6 +49,18 @@ const featured = (() => {
 })();
 const cols = [...ds.collections.values()].sort((a, b) => b.items.length - a.items.length).slice(0, 6);
 const tick = [...up, ...down];
+
+// 🔴 LOT 68 — « ON NE VOIT PAS LES COUVERTURES DANS LE MODULE SETS » (Preda).
+// ⭐⭐ EXACTEMENT LE MÊME DÉFAUT QUE `Collections.astro` LE 01/08 : la pile de
+// trois vignettes s'écrivait `{[0, 1, 2].map(() => (…))}` — une parenthèse
+// VIDE. La boucle rendait donc trois fois le même hexagone gris, alors que
+// `i.image` est dans la donnée depuis le lot qui l'a ajoutée au catalogue.
+// ⛔ Ni erreur, ni avertissement, ni page vide : une page PLAUSIBLE. Le
+// gabarit avait l'air de marcher. Corrigé là-bas, PAS ici — la copie a
+// survécu, comme le module en double du 05/08.
+// ⭐ La leçon n'est pas « attention aux parenthèses » : c'est qu'un correctif
+// se cherche AUSSI dans les gabarits voisins, par le motif et pas par le nom.
+const pile = (c) => [...c.items].sort((a, b) => (b.floor ?? 0) - (a.floor ?? 0)).slice(0, 3);
 const piece = featured.find((i) => i.image) || null;
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -150,17 +161,42 @@ const horo = maj ? `${String(maj.getUTCDate()).padStart(2,'0')}.${String(maj.get
     </div>
   </div>
 
-  {/* ⭐⭐ L'ORDRE DE L'ACCUEIL — 03/08/2026, lot 45, demande Preda.
-      Ce que fait ce site → bandeau → À l'affiche → hausses ET baisses sur
-      la MÊME ligne → Séries suivies → Débuter sa collection.
-      ⭐ C'est aussi, au bloc près, l'ordre de `maquette-veveprice.html`
-      (stats l. 2178, « Ce que fait ce site » l. 2186, ticker l. 2190,
-      barre d'accès l. 2194, « À l'affiche » l. 2200, `.deux-col` l. 2203).
-      La maquette avait déjà tranché ; le moteur ne l'avait pas suivie.
-      ⛔ LE BANDEAU RESTE HORS DE `.wrap`, ET C'EST STRUCTUREL : `.wrap`
-      borne la largeur, le ticker doit courir d'un bord à l'autre. D'où
-      DEUX `.wrap` de part et d'autre, exactement comme la maquette — pas
-      un seul dont on sortirait le bandeau par une marge négative. */}
+  {/* ⭐⭐ LE BANDEAU EST REMONTÉ ICI — demande de Preda, 05/08/2026.
+      Il était entre « Ce que fait ce site » et « À l'affiche », qui est la
+      position de `maquette-veveprice.html` (l. 2190). Ce n'était donc pas une
+      erreur de portage : c'est un ARBITRAGE qui change.
+      ⛔ NE PAS LE REMETTRE « comme la maquette » au prochain audit de fidélité.
+      La maquette est la référence du DESSIN, pas de l'ordre de lecture une fois
+      que Preda a tranché dessus. Un comparateur de fidélité signalera cet écart
+      et il aura tort : c'est écrit ici pour qu'on ne repaie pas la discussion.
+      ⭐ Sous le premier écran, le bandeau est la première chose qui BOUGE :
+      il dit « ce site est vivant » avant qu'on ait lu une ligne. Entre deux
+      blocs de contenu, il n'était plus qu'une frise.
+      ⛔ IL RESTE HORS DE `.wrap`, ET C'EST STRUCTUREL : `.wrap` borne la
+      largeur, le bandeau doit courir d'un bord à l'autre. ⛔ Il ne doit jamais
+      devenir deux. */}
+  <div class="ticker" tabindex="0" role="region" aria-label={t(lang, 'home.live')}>
+    <div class="ticker__piste">
+      {[0, 1].map(() => (
+        <>{tick.map((i) => (
+          <a class="tick" href={localize(lang, i.path)}>
+            <Fragment set:html={pli(i.rarity)} />
+            <b>{i.name.slice(0, 26)}</b>
+            <span class="num"><Fragment set:html={gemsM()} /> {money(i.floor)}</span>
+            <Fragment set:html={delta(i.change7d)} />
+          </a>
+        ))}</>
+      ))}
+    </div>
+  </div>
+
+  {/* ⭐⭐ L'ORDRE DE L'ACCUEIL — révisé le 05/08/2026 (lot 68), demande Preda.
+      premier écran → BANDEAU → compteurs → Ce que fait ce site → À l'affiche
+      → hausses ET baisses sur la MÊME ligne → Sets → Débuter sa collection.
+      ⭐ Le bandeau était en cinquième position (l'ordre de la maquette,
+      l. 2190) ; il est remonté en deuxième. Le reste ne bouge pas.
+      ⛔ La barre d'accès (« les fiches sont en accès libre… ») a QUITTÉ cette
+      page — voir le commentaire à sa place. */}
   <div class="wrap">
     <div class="stats">
       <div class="stat stat--bleu"><div class="etiq">{t(lang, 'stats.tracked')}</div><div class="stat__v">{ds.items.length.toLocaleString(nf)}</div></div>
@@ -216,25 +252,17 @@ const horo = maj ? `${String(maj.getUTCDate()).padStart(2,'0')}.${String(maj.get
 
   </div>
 
-  {/* Le bandeau : la seule chose qui BOUGE, donc la seule qui dit « ce site est
-      vivant » avant qu'on ait lu une ligne. ⛔ Il ne doit jamais devenir deux. */}
-  <div class="ticker" tabindex="0" role="region" aria-label={t(lang, 'home.live')}>
-    <div class="ticker__piste">
-      {[0, 1].map(() => (
-        <>{tick.map((i) => (
-          <a class="tick" href={localize(lang, i.path)}>
-            <Fragment set:html={pli(i.rarity)} />
-            <b>{i.name.slice(0, 26)}</b>
-            <span class="num"><Fragment set:html={gemsM()} /> {money(i.floor)}</span>
-            <Fragment set:html={delta(i.change7d)} />
-          </a>
-        ))}</>
-      ))}
-    </div>
-  </div>
-
   <div class="wrap">
-    <BarreAcces lang={lang} />
+    {/* ⛔ LA BARRE D'ACCÈS A ÉTÉ RETIRÉE DE L'ACCUEIL — demande de Preda,
+        05/08/2026. C'est elle qui affichait « Les fiches sont en accès libre
+        pour que vous jugiez sur pièce. L'historique complet et les alertes
+        demandent un compte. »
+        ⭐ ELLE N'EST PAS SUPPRIMÉE DU SITE : `BarreAcces.astro` reste, et le
+        Marché et la fiche continuent de la porter. C'est là qu'elle travaille
+        — au moment où quelqu'un bute sur une donnée réservée. Sur l'accueil,
+        elle annonçait une limite avant d'avoir montré la moindre valeur.
+        ⛔ Ne pas la remettre « pour la cohérence » : trois écrans sur quatre,
+        c'est le bon dosage ; quatre sur quatre, c'est un péage. */}
 
     {/* ⭐ « A L'AFFICHE » — le titre de la maquette (l. 2200). Il remplace
         « Historiques les plus fournis », qui decrivait le CRITERE DE TRI au
@@ -279,20 +307,38 @@ const horo = maj ? `${String(maj.getUTCDate()).padStart(2,'0')}.${String(maj.get
 
 
     {/* ⭐ LA PILE de trois pièces décalées dit « ENSEMBLE » sans écrire le mot,
-        et distingue d'un coup d'œil une collection d'une pièce. */}
-    <div class="sect-t"><h2>{t(lang, 'home.collections')}</h2><a href={localize(lang, '/collections/')}>{t(lang, 'home.allSeries')} →</a></div>
+        et distingue d'un coup d'œil une collection d'une pièce.
+        🔴 LOT 68 — LE TITRE ÉTAIT LE SEUL DE L'ACCUEIL À NE PAS ÊTRE UN
+        `sect-t--gd mono-t` (signalé par Preda). Il sortait donc deux fois plus
+        petit que « À l'affiche » et « Plus fortes hausses », au milieu d'eux.
+        ⭐ Ce n'est pas un réglage de taille, c'est une classe oubliée : le
+        thème n'a qu'un seul titre de section, et il faut le demander. */}
+    <div class="sect-t sect-t--gd"><h2 class="mono-t">{t(lang, 'home.collections')}</h2><a href={localize(lang, '/collections/')}>{t(lang, 'home.allSeries')} →</a></div>
     <div class="grille grille--series">
       {cols.map((c) => (
         <a class="col-carte revele" href={localize(lang, `/collection/${c.slug}/`)}>
+          {/* 🔴 `{[0, 1, 2].map(() => …)}` — LA PARENTHÈSE ÉTAIT VIDE. Trois
+              hexagones gris identiques au lieu des trois pièces du set. Même
+              défaut, même ligne, que `Collections.astro` corrigé le 01/08 : le
+              correctif n'avait pas traversé jusqu'ici.
+              ⭐⭐ UN CORRECTIF SE CHERCHE PAR SON MOTIF, PAS PAR SON FICHIER.
+              `grep -n "map(() =>" src/components` aurait sorti les deux en une
+              seconde le jour où l'un des deux a été réparé.
+              ⛔ Pas de `src=""` quand l'image manque : un `src` vide recharge
+              LA PAGE COURANTE comme si c'était une image. On rend le repère. */}
           <span class="col-carte__pile" aria-hidden="true">
-            {[0, 1, 2].map(() => (
+            {pile(c).map((i) => (
               <span class="socle">
-                <span class="socle__voile"></span><span class="socle__droit">© ECOMI</span>
-                <span class="forme forme--xl" style="--c-a:var(--rule-2)">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4">
-                    <path d="M12 2.9 19.9 7.5v9L12 21.1 4.1 16.5v-9Z" />
-                  </svg>
-                </span>
+                {i.image ? (
+                  <img class="socle__net ok" src={i.image} alt="" width="400" height="600"
+                       loading="lazy" decoding="async" />
+                ) : (
+                  <span class="forme forme--xl" style="--c-a:var(--rule-2)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4">
+                      <path d="M12 2.9 19.9 7.5v9L12 21.1 4.1 16.5v-9Z" />
+                    </svg>
+                  </span>
+                )}
               </span>
             ))}
           </span>

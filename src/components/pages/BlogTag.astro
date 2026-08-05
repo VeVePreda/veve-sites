@@ -14,7 +14,7 @@ const df = dateLocale[lang] || 'en-GB';
 // cote sitemap, d'ou 10 pages en noindex qui etaient quand meme annoncees.
 const maigre = posts.length < SEUIL_INDEX_TAG;
 ---
-<Base lang={lang} path={`/blog/tag/${tag}/`} title={`${t(lang, 'blog.tag')} : ${tag}`} description={t(lang, 'desc.blogTag', { name: tag })} updatedAt={updatedAt} noindex={maigre}
+<Base sect="blog" lang={lang} path={`/blog/tag/${tag}/`} title={`${t(lang, 'blog.tag')} : ${tag}`} description={t(lang, 'desc.blogTag', { name: tag })} updatedAt={updatedAt} noindex={maigre}
       crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') }, { name: t(lang, 'blog.title'), url: localize(lang, '/blog/') }, { name: tag }]}>
   <h1>{t(lang, 'blog.tag')} : {tag}</h1>
   <div class="grid">

@@ -77,7 +77,7 @@ const GRILLE = ['grid-column:span 7;grid-row:span 3', 'grid-column:span 5;grid-r
   'grid-column:span 4;grid-row:span 2'];
 const VARIANTE = [' boite--os', '', ' boite--sect', '', ''];
 ---
-<Base lang={lang} path="/blog/" title={meta.title} description={meta.description} updatedAt={updatedAt}
+<Base sect="blog" lang={lang} path="/blog/" title={meta.title} description={meta.description} updatedAt={updatedAt}
       noindex={posts.length === 0} langs={languesArticles}
       crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') }, { name: meta.title }]}>
 
@@ -125,7 +125,15 @@ const VARIANTE = [' boite--os', '', ' boite--sect', '', ''];
   {suite.length > 0 && (
     <>
       <div class="sect-t sect-t--gd"><h2>{t(lang, 'blog.latest')}</h2></div>
-      <div class="boites">
+      {/* 🔴 LOT 68 — « les cases d'article doivent avoir un espace de
+          séparation entre elles » (Preda). `.boites` vaut `gap:2px` : sur
+          l'accueil c'est une MOSAÏQUE voulue — quatre surfaces jointives qui
+          forment un seul bloc — mais une liste d'articles n'est pas une
+          mosaïque, ce sont des cartes.
+          ⛔ ON N'ÉLARGIT DONC PAS `.boites` : ça déferait le dessin de
+          l'accueil, qui est celui de la maquette. Une variante, pas une
+          retouche — même grille, autre intention. */}
+      <div class="boites boites--blog">
         {suite.map((p, k) => (
           <a class={`boite${(enVitrine && VARIANTE[k]) || ''} revele`}
              href={localize(lang, `/blog/${p.slug}/`)}

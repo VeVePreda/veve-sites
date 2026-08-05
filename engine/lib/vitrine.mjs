@@ -219,3 +219,47 @@ export const degradesSpark = () =>
   + '<stop offset="0%" stop-color="#10CEF2" stop-opacity=".28"/>'
   + '<stop offset="100%" stop-color="#10CEF2" stop-opacity="0"/></linearGradient>'
   + '</defs></svg>';
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴 LOT 68 — `releaseDate` N'EST PAS UNE DATE ISO, ET J'AI FAILLI LE CROIRE
+// ═══════════════════════════════════════════════════════════════════════════
+// Mesuré le 05/08/2026 sur les 1 200 fiches publiées :
+//     800 valent « 06/10/2021 14:00:00 »  ·  400 valent « 30/12/2021 »
+//     ZÉRO vaut « 2021-10-06 ».
+// La colonne vient du Sheet, qui est en locale FRANÇAISE : jour/mois/année.
+//
+// ⭐⭐⭐ CE QUE ÇA A FAILLI COÛTER, ET C'EST LA VRAIE LEÇON. Le filtre par
+// dates du Marché testait `/^\d{4}-\d{2}-\d{2}$/`. Sur ce format-là il ne
+// reconnaît RIEN : `jour(i)` rend '', donc aucune ligne ne porte de date, donc
+// « après le … » et « avant le … » ne mordent JAMAIS — et l'utilisateur voit
+// un filtre qui « laisse tout passer », pas un filtre cassé. Un filtre inerte
+// est le pire des trois états possibles : il ne se plaint pas, il ne renvoie
+// pas d'erreur, et il donne une réponse fausse qui a l'air juste.
+// ⭐⭐ MÊME FAMILLE QUE « UN CAPTEUR QUI NE MESURE PAS LA BONNE UNITÉ DIT QUE
+// TOUT VA BIEN » (troisième occurrence du projet, 05/08). On ne l'attrape pas
+// en relisant le code : on l'attrape en REGARDANT LA DONNÉE avant d'écrire le
+// test qui la lit.
+//
+// ⛔ POURQUOI ICI ET PAS DANS `dataset.mjs`. Normaliser à la source serait le
+// vrai correctif, et il est tentant — mais `releaseDate` est AFFICHÉE telle
+// quelle sur la fiche (Item.astro l. 173) et repartirait en `datePublished`
+// dans les données structurées. Changer sa forme au milieu de la chaîne
+// toucherait le SEO de 1 200 pages pour régler un filtre. On convertit donc à
+// l'USAGE, et cette fonction est le SEUL endroit qui connaît le format —
+// jamais deux copies, c'est déjà ce qui a coûté le module en double du 05/08.
+// ⚠️ Le jour où le catalogue passe en ISO, cette fonction le reconnaîtra sans
+// changer : elle accepte les DEUX formes et ne devine jamais la troisième.
+export function jourISO(valeur) {
+  const v = String(valeur || '').trim();
+  if (!v) return '';
+  // Déjà ISO (avec ou sans heure) — on prend les dix premiers caractères.
+  const iso = v.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+  // Locale française : JJ/MM/AAAA, heure facultative.
+  const fr = v.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+  if (fr) return `${fr[3]}-${fr[2]}-${fr[1]}`;
+  // ⛔ AUCUN AUTRE ESSAI. `new Date(v)` accepterait n'importe quoi et rendrait
+  // une date plausible pour une chaîne qui n'en est pas une : c'est comme ça
+  // qu'on publie « 01/01/2001 » sur une fiche dont la date est illisible.
+  return '';
+}

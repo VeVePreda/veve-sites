@@ -27,7 +27,7 @@ const ld = [itemListLd(items.map((i) => ({ name: i.name, url: `${root}${localize
 //    fois pire. On garde la version simple.
 const titreCollection = `${t(lang, 'item.collection')} : ${col.name}`;
 ---
-<Base sect="collectibles" lang={lang} path={path} title={titreCollection}
+<Base sect="sets" lang={lang} path={path} title={titreCollection}
       description={t(lang, 'desc.collection', { name: col.name, n: col.items.length })} ld={ld} updatedAt={updatedAt}
       crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') }, { name: t(lang, 'collections.title'), url: localize(lang, '/collections/') }, { name: col.name }]}>
   <div class="h-page">

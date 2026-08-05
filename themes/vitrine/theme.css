@@ -1042,7 +1042,7 @@ dl.fiche-tbl dt:last-of-type,dl.fiche-tbl dd:last-of-type{border-bottom:0}
 @media (max-width:900px){ .fiche__viz{position:static;max-width:250px;margin:0 auto} }
 @media (max-width:700px){ .murs{grid-template-columns:1fr;gap:var(--s5)} .murs__sep{display:none} }
 @media (max-width:560px){ .jauge__l{grid-template-columns:1fr 1fr;gap:var(--s3)} .jauge__e--c{grid-column:1/-1;order:3;justify-items:center;padding-top:8px;border-top:1px solid var(--rule)} }
-@media (max-width:640px){ .onglets{display:grid;grid-template-columns:repeat(5,1fr);position:sticky;bottom:0;z-index:70; background:color-mix(in srgb,var(--nuit) 94%,transparent);backdrop-filter:blur(16px); border-top:1px solid var(--rule);padding-bottom:env(safe-area-inset-bottom)} .onglets a{display:grid;justify-items:center;gap:4px;padding:9px 2px 10px;min-height:var(--tap); color:var(--muted);font-family:var(--geo);font-size:9.5px;font-weight:500} .onglets a[aria-current]{color:var(--sect-a)} .onglets a:hover{text-decoration:none} .onglets svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round} .stats{grid-template-columns:repeat(2,1fr)} .site-h__in{height:56px;gap:10px} }
+@media (max-width:640px){ .onglets{display:grid;grid-template-columns:repeat(4,1fr);position:sticky;bottom:0;z-index:70; background:color-mix(in srgb,var(--nuit) 94%,transparent);backdrop-filter:blur(16px); border-top:1px solid var(--rule);padding-bottom:env(safe-area-inset-bottom)} .onglets a{display:grid;justify-items:center;gap:4px;padding:9px 2px 10px;min-height:var(--tap); color:var(--muted);font-family:var(--geo);font-size:9.5px;font-weight:500} .onglets a[aria-current]{color:var(--sect-a)} .onglets a:hover{text-decoration:none} .onglets svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round} .stats{grid-template-columns:repeat(2,1fr)} .site-h__in{height:56px;gap:10px} }
 @media (max-width:840px){ .deux-col{grid-template-columns:1fr} }
 @media (max-width:900px){ .avec-aside{grid-template-columns:1fr} }
 @media (max-width:1040px){ .tarifs{grid-template-columns:repeat(2,1fr)} }
@@ -1513,3 +1513,168 @@ header.site.site-h .wrap{
    les colonnes de chiffres. */
 .led__hote .tbl-hote{ overflow-x:auto; }
 .led__hote code{ font-family:var(--tech); font-size:var(--t-xs); color:var(--text-2); }
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LOT 68 — 05/08/2026 · retours de Preda sur veveprice
+   ═══════════════════════════════════════════════════════════════════════════
+   ⛔ TOUT CE QUI SUIT EST EN FIN DE FICHIER, ET C'EST VOLONTAIRE. À
+   spécificité égale, c'est l'ordre de source qui tranche : écrites plus haut,
+   la moitié de ces règles auraient été « là » sans jamais « gagner ». C'est le
+   défaut le plus cher de ce thème, il a déjà coûté trois sessions.
+   ⭐ Aucune classe neuve inventée : on habille des sélecteurs que les gabarits
+   émettent, ou on étend un vocabulaire déjà porté par le thème.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ───────────────────────────────────────────────────────────────────────────
+   1. UNE COULEUR PAR PAGE  — « la ligne du header doit prendre celle de la page »
+   ───────────────────────────────────────────────────────────────────────────
+   Le mécanisme existait déjà et il est intact : `Base.astro` pose
+   `data-sect` sur <body>, `.site-h::after` (l. 412) peint la ligne de 3 px
+   avec `--sect-pur`, et `[data-sect]{--cyan:var(--sect-a)}` (l. 373) fait
+   suivre tout ce qui consommait le cyan. On n'ajoute donc QUE des palettes.
+   ⚠️ CINQ VARIABLES PAR SECTION, JAMAIS QUATRE :
+     --sect-a     la couleur du TEXTE et des liens  → doit passer 4,5:1 sur le fond
+     --sect-pur   la couleur PLEINE (ligne du header, pastilles, segments actifs)
+     --sect-sur   l'encre POSÉE SUR `--sect-pur`    → doit passer 4,5:1 sur elle
+     --sect-fonce le bas des dégradés
+     --sect-1v    le voile (fond des états actifs)
+   ⭐ `--sect-a` et `--sect-pur` DIFFÈRENT en thème jour, et ce n'est pas une
+   coquetterie : une couleur assez vive pour une ligne de 3 px est illisible en
+   texte de 14 px. La même distinction existe déjà pour le cyan (l. 327-329) ;
+   la reproduire ici évite de repayer la leçon cinq fois. */
+[data-sect="tableau"]  {--sect-a:#10CEF2;--sect-pur:#10CEF2;--sect-sur:#1A1A1A;--sect-fonce:#0A8FA9;--sect-1v:#10CEF21F}
+[data-sect="blog"]     {--sect-a:#ED8E00;--sect-pur:#ED8E00;--sect-sur:#1A1A1A;--sect-fonce:#895200;--sect-1v:#ED8E0024}
+[data-sect="sets"]     {--sect-a:#6BB6FC;--sect-pur:#0082FA;--sect-sur:#1A1A1A;--sect-fonce:#004B91;--sect-1v:#0082FA24}
+[data-sect="offre"]    {--sect-a:#E3B341;--sect-pur:#D4A017;--sect-sur:#1A1A1A;--sect-fonce:#8A6608;--sect-1v:#D4A01726}
+[data-sect="analytics"]{--sect-a:#C08BF8;--sect-pur:#A855F7;--sect-sur:#FFFFFF;--sect-fonce:#6B21A8;--sect-1v:#A855F726}
+/* Thème jour : `--sect-a` s'assombrit, `--sect-pur` ne bouge pas. */
+[data-theme="jour"] [data-sect="tableau"]  {--sect-a:#08687A;--sect-pur:#10CEF2;--sect-sur:#1A1A1A;--sect-fonce:#0A8FA9;--sect-1v:#10CEF233}
+[data-theme="jour"] [data-sect="blog"]     {--sect-a:#8A5300;--sect-pur:#ED8E00;--sect-sur:#1A1A1A;--sect-fonce:#895200;--sect-1v:#ED8E0033}
+[data-theme="jour"] [data-sect="sets"]     {--sect-a:#005FB5;--sect-pur:#0082FA;--sect-sur:#1A1A1A;--sect-fonce:#0060B7;--sect-1v:#0082FA33}
+[data-theme="jour"] [data-sect="offre"]    {--sect-a:#6F5200;--sect-pur:#D4A017;--sect-sur:#1A1A1A;--sect-fonce:#8A6608;--sect-1v:#D4A01733}
+[data-theme="jour"] [data-sect="analytics"]{--sect-a:#6B21A8;--sect-pur:#A855F7;--sect-sur:#FFFFFF;--sect-fonce:#6B21A8;--sect-1v:#A855F733}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   2. LE CONTENU DESCEND JUSQU'AU PIED DE PAGE
+   ───────────────────────────────────────────────────────────────────────────
+   Sur une page courte (une fiche sans historique, un blog à un article, un
+   filtre qui ne rend rien), le pied de page remontait au milieu de l'écran et
+   laissait un bandeau de fond nu en dessous. Ce n'est pas un espacement à
+   régler : c'est que rien ne disait au contenu d'occuper la hauteur restante.
+   ⭐ `100dvh` et non `100vh` : sur mobile, `vh` compte la barre d'adresse
+   rétractée, donc `100vh` fabrique un débordement d'une soixantaine de pixels
+   qu'on ne voit que sur un vrai téléphone. `dvh` suit la barre.
+   ⚠️ `flex:1 0 auto` sur `main` seulement. Les autres enfants de <body> gardent
+   leur hauteur naturelle ; `flex-shrink:0` empêche l'en-tête et le pied d'être
+   comprimés quand le contenu déborde vraiment. */
+body{ min-height:100dvh; display:flex; flex-direction:column; }
+body > header.site, body > nav.onglets, body > footer.site{ flex:0 0 auto; }
+body > main{ flex:1 0 auto; }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   3. LE DÉPLIANT DE NAVIGATION  (voir le commentaire de src/layouts/Base.astro)
+   ───────────────────────────────────────────────────────────────────────────
+   ⭐ LE MÊME SEUIL QUE `.nav__liens`, ÉCRIT JUSTE EN DESSOUS. Deux seuils qui
+   doivent coïncider et qui vivent à 400 lignes d'écart finissent par diverger —
+   c'est exactement ce qui a créé le trou 641-1040 qu'on répare ici. */
+.nav__deplie{ display:none; }
+@media (max-width:1040px){
+  .nav__liens{ display:none; }
+  .nav__deplie{ display:block; }
+}
+/* Le dépliant se rabat sous le bord droit de l'en-tête, jamais hors-écran. */
+.nav__deplie .deplie__m{ right:0; min-width:min(240px,72vw); }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   4. LES CASES D'ARTICLE DU BLOG RESPIRENT
+   ───────────────────────────────────────────────────────────────────────────
+   ⛔ `.boites` GARDE SON `gap:2px`, et il le doit : sur l'accueil c'est une
+   MOSAÏQUE — quatre surfaces jointives qui forment un seul bloc. Élargir le
+   gap là-bas déferait le dessin de la maquette.
+   ⭐ Le blog n'est pas une mosaïque, c'est une LISTE de cartes : même grille,
+   autre intention, donc une variante et pas une retouche. */
+.boites--blog{ gap:var(--s4); grid-auto-rows:136px; }
+@media (max-width:560px){ .boites--blog{ gap:var(--s3); } }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   5. ACCUEIL — L'ESPACE ENTRE « À L'AFFICHE » ET LES DEUX COLONNES
+   ───────────────────────────────────────────────────────────────────────────
+   Les deux titres de `.deux-col` portent `margin-top:0` (sinon ils se
+   décalaient l'un de l'autre), si bien que le bloc se collait à la grille du
+   dessus : `.sect-t--gd` donnait son `var(--s8)` à tous les autres titres et à
+   aucun de ceux-là. L'espace appartient donc au BLOC, pas à son titre. */
+.grille + .deux-col{ margin-top:var(--s8); }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   6. ACCUEIL — « HAUSSES » ET « BAISSES » DÉSAXÉES SELON LA LANGUE
+   ───────────────────────────────────────────────────────────────────────────
+   🔴 Signalé par Preda, et invisible en français. « Plus fortes hausses » tient
+   sur une ligne, « Größte Kursrückgänge (7 Tage) » sur deux : la grille de
+   droite démarrait un titre plus bas que celle de gauche. Le défaut n'est donc
+   pas dans la mise en page — il est dans le fait qu'elle dépende de la
+   LONGUEUR D'UNE TRADUCTION.
+   ⭐⭐ `subgrid` répond exactement à ça : les deux sections partagent les
+   RANGÉES de leur parent, donc les deux titres occupent la même hauteur et les
+   deux grilles commencent à la même ligne — quelle que soit la langue.
+   ⚠️ REPLI SILENCIEUX ET SÛR : là où `subgrid` manque, la déclaration entière
+   est invalide et ignorée, on retombe sur le rendu d'aujourd'hui. Aucune page
+   ne casse, elle se désaxe comme avant. */
+.deux-col{ grid-template-rows:auto 1fr; align-items:start; }
+.deux-col > section{ grid-row:span 2; display:grid; grid-template-rows:subgrid; gap:var(--s5); }
+.deux-col > section > .sect-t{ align-self:end; }
+@media (max-width:840px){
+  /* En une colonne il n'y a plus rien à aligner : on rend la main. */
+  .deux-col{ grid-template-rows:none; }
+  .deux-col > section{ grid-row:auto; grid-template-rows:none; }
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   7. LA BARRE DE FILTRES — panneaux, tri, et le compteur qui ne mentait plus
+   ───────────────────────────────────────────────────────────────────────────
+   ⭐ `.f-b[aria-expanded="true"]` était DÉJÀ habillé (l. 740) et ne s'allumait
+   jamais : le gabarit employait `<details><summary class="f-b">`, or un
+   `<summary>` n'a pas d'attribut `aria-expanded` — il l'expose à l'arbre
+   d'accessibilité, pas au DOM, donc le sélecteur d'attribut ne le voit pas.
+   Le bouton du groupe ouvert restait gris. Corrigé côté gabarit (vrais
+   `<button aria-expanded>`), rien à changer ici.
+   Ce qui suit n'ajoute que ce que la maquette montre et que le thème n'avait
+   pas : la rangée du tri, et le repli du panneau sur petit écran. */
+.barre-f__tri{ display:flex; align-items:center; gap:8px; margin-left:auto; }
+.barre-f__tri label{ font-family:var(--tech); font-size:var(--t-xs); text-transform:uppercase;
+  letter-spacing:.1em; color:var(--muted); }
+.f-panneau .tiroir__c{ gap:12px; }
+.f-panneau .champ .etiq{ display:block; margin-bottom:5px; }
+@media (max-width:560px){
+  .barre-f__tri{ margin-left:0; width:100%; }
+  .f-panneau .tiroir__c > *{ flex:1 1 140px; }
+}
+/* Les jetons « actifs » n'ont pas à border la barre quand il n'y en a aucun. */
+.actifs:empty{ display:none; }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   8. LES DEUX LIENS DU MARCHÉ, SUR UNE SEULE LIGNE, SÉPARÉS PAR UNE BARRE
+   ───────────────────────────────────────────────────────────────────────────
+   Demande de Preda. Ce sont deux BOUTONS, donc ils portent une cible tactile
+   et un état désactivé lisible — un lien « en attente de collecte » ne doit pas
+   avoir l'air cliquable. */
+.liens-2{ display:inline-flex; align-items:center; gap:7px; white-space:nowrap; }
+.liens-2__sep{ color:var(--rule-int); user-select:none; }
+.lien-b{ display:inline-flex; align-items:center; justify-content:center; min-height:var(--tap-min);
+  padding:0 11px; border-radius:var(--r-full); border:1px solid var(--rule-2);
+  background:var(--surface-2); color:var(--text-2); font-family:var(--geo);
+  font-size:var(--t-xs); font-weight:600; transition:all var(--d-fast); }
+.lien-b:hover{ border-color:var(--sect-a); color:var(--sect-a); background:var(--sect-1v); text-decoration:none; }
+/* ⭐ `[data-attente]` porte DÉJÀ le sens « pas encore collecté » partout dans
+   ce site : on l'habille au lieu d'inventer une classe `--off`. Un seul mot
+   pour une seule idée, sinon les deux divergent. */
+.lien-b[data-attente]{ opacity:.5; cursor:help; border-style:dashed; }
+.lien-b[data-attente]:hover{ border-color:var(--rule-2); color:var(--text-2); background:var(--surface-2); }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   9. LA COURBE 7 j EST DEVENUE UNE COLONNE À PART ENTIÈRE
+   ───────────────────────────────────────────────────────────────────────────
+   Elle n'est plus l'appendice muet du pourcentage : elle EST la colonne « 7 j ».
+   Elle porte donc un en-tête visible et une largeur tenue. */
+.col-courbe{ width:104px; }
+.col-courbe .spark{ display:block; }

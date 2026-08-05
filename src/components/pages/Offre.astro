@@ -81,7 +81,7 @@ const visibles = PLANS.filter((p) => tiers.includes(p.cle));
 const eur = (v) => (v === 0 ? t(lang, 'offer.free.price') : t(lang, 'offer.permonth', { v }));
 const an = (v) => (v === 0 ? '—' : t(lang, 'offer.peryear', { v: Math.round(v * 12 * (1 - REMISE_AN)) }));
 ---
-<Base sect="analyse" lang={lang} path="/offre/" title={t(lang, 'offer.title')}
+<Base sect="offre" lang={lang} path="/offre/" title={t(lang, 'offer.title')}
       description={t(lang, 'offer.desc')}
       crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') }, { name: t(lang, 'offer.title') }]}>
 

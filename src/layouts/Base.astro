@@ -41,7 +41,24 @@ const { lang, path = '/', altPaths = null, langs = null, title, description, cru
 // à tout ce qu'elle colore ».
 // ⭐ La liste est FERMÉE : une valeur inconnue retombe sur `general` au lieu
 // de produire un `data-sect="markt"` silencieux qui ne matcherait rien.
-const SECTIONS_COULEUR = ['general', 'collectibles', 'comics', 'cotes', 'analyse'];
+// ⭐ LOT 68 (05/08/2026) — CINQ SECTIONS DE PLUS, demande de Preda : « chaque
+// page doit avoir sa couleur, et la ligne du header doit la prendre ».
+//   tableau   cyan    — le tableau de bord (l'accueil connecté)
+//   blog      ambre
+//   sets      bleu    — /collections/
+//   offre     or
+//   analytics violet  — remplace `analyse` sur /analytics/, qui valait le cyan
+//                       du site et ne distinguait donc rien.
+// ⛔ `analyse` RESTE dans la liste : d'autres pages du réseau la déclarent, et
+//    la retirer les ferait retomber en `general` sans qu'aucun build le dise.
+// ⚠️ AJOUTER UNE VALEUR ICI NE SUFFIT PAS. La palette doit exister dans le
+//    thème (`themes/vitrine/theme.css`, bloc « LOT 68 ») — sinon la page tombe
+//    sur les variables héritées et a l'air de « ne pas prendre la couleur »,
+//    sans la moindre erreur au build. C'est le défaut du 03/08 retourné : là
+//    le thème était complet et le gabarit muet, ici le gabarit parlerait dans
+//    le vide.
+const SECTIONS_COULEUR = ['general', 'collectibles', 'comics', 'cotes', 'analyse',
+  'tableau', 'blog', 'sets', 'offre', 'analytics'];
 const sectCouleur = SECTIONS_COULEUR.includes(sect) ? sect : 'general';
 const { active, def } = locales();
 const prixActifs = priceEnabled();
@@ -248,6 +265,37 @@ if (navAttente.length && !globalThis.__navDit) {
   console.log(`[nav] ${navManifeste.length} entree(s) emise(s) · ${navAttente.length} en attente de page : `
     + navAttente.map((e) => e.href).join(', '));
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴 LOT 68 — LE MENU DISPARAISSAIT ENTRE 641 px ET 1040 px
+// ═══════════════════════════════════════════════════════════════════════════
+// Mesuré dans `themes/vitrine/theme.css` :
+//   @media (max-width:1040px){ .nav__liens{display:none} }   ← le menu s'en va
+//   @media (max-width:640px) { .onglets{display:grid}    }   ← la barre arrive
+// Entre les deux, sur 400 px de largeur d'écran — c'est-à-dire une tablette,
+// une fenêtre à moitié réduite, un portable en 1366 avec le zoom à 125 % — le
+// site n'avait AUCUNE navigation. Ni erreur, ni page cassée : deux règles
+// justes, écrites à des moments différents, qui ne se recouvrent pas.
+// ⭐⭐ UN INTERVALLE N'EST À PERSONNE. Chacune des deux règles est correcte
+// prise seule ; le défaut n'existe que dans l'espace entre elles, et aucun banc
+// ne teste un espace. C'est la même famille que « est-ce là ? » contre « est-ce
+// ce qui gagne ? », en version géométrie.
+//
+// ⭐ LA PARADE EST UN MENU QUI NE DÉPEND D'AUCUN INTERVALLE : un dépliant
+// affiché DÈS que `.nav__liens` se cache (même seuil, 1040 px, écrit une seule
+// fois dans le thème). Il porte la liste ENTIÈRE, pas les 3 premières entrées
+// comme la barre du bas — donc plus aucune largeur d'écran ne perd un lien.
+// ⛔ Il réemploie `.deplie` / `.deplie__b` / `.deplie__m`, le vocabulaire que le
+//    thème habille DÉJÀ (l. 439-451). Aucune classe neuve, donc aucune classe
+//    qui pourrait se retrouver sans règle chez aurora ou encyclopedie.
+const menuComplet = wikiNav
+  ? wikiNav.map((sx) => ({ href: localize(lang, sx.path), label: sx.title }))
+  : navManifeste
+      .filter((e) => e.cle !== 'nav.blog' || blogDansCetteLangue)
+      .map((e) => ({ href: e.href === '/' ? localize(lang, '/') : localize(lang, e.href),
+                     label: t(lang, e.cle) }))
+      .concat(acces().tiers.length > 1
+        ? [{ href: '/compte/', label: t(lang, 'account.title') }] : []);
 ---
 <!doctype html>
 <html lang={lang}>
@@ -441,6 +489,21 @@ if (navAttente.length && !globalThis.__navDit) {
           {acces().tiers.length > 1 && <a href="/compte/">{t(lang, 'account.title')}</a>}
         </>)}
     </span>
+    {/* ⭐ LE DÉPLIANT DE SECOURS — il n'apparaît QUE là où `.nav__liens` se
+        cache (thème, `.nav__deplie`), donc il ne double jamais le menu.
+        ⛔ `hidden` et pas une classe : le thème pose `[hidden]{display:none
+        !important}`, et un menu fermé doit SORTIR de l'ordre de tabulation —
+        sinon on tabule dans six liens invisibles. */}
+    <div class="deplie nav__deplie">
+      <button type="button" class="deplie__b" id="menu-b" aria-expanded="false"
+              aria-controls="menu-m" aria-haspopup="true">
+        <svg viewBox="0 0 24 24" aria-hidden="true" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
+        <span>{t(lang, 'nav.menu')}</span>
+      </button>
+      <div class="deplie__m" id="menu-m" hidden>
+        {menuComplet.map((e) => (<a href={e.href}>{e.label}</a>))}
+      </div>
+    </div>
     <div class="h-outils filtres">
       {/* ⭐ La barre de recherche de la maquette : un BOUTON, pas un champ.
           Il annonce le raccourci `⌘K` et donne le focus au vrai champ.
@@ -693,6 +756,37 @@ if (navAttente.length && !globalThis.__navDit) {
       }
     });
     d.addEventListener('click', function (e) { if (e.target === d) d.close(); });
+  })();
+</script>
+{/* ═══ LOT 68 — l'ouverture du dépliant de navigation ═══
+    ⭐ `is:inline` et rien d'autre : cinq lignes de JavaScript n'ont pas besoin
+    d'un module, et un menu qui attend un bundle est un menu mort pendant deux
+    secondes sur un téléphone.
+    ⚠️ SANS JAVASCRIPT LE BOUTON EST INERTE — mais il n'est pas la seule voie :
+    la barre du bas (`.onglets`) et le pied de page restent en HTML pur. On ne
+    supprime jamais le dernier chemin, on en ajoute un plus commode. */}
+<script is:inline>
+  (function () {
+    var b = document.getElementById('menu-b');
+    var m = document.getElementById('menu-m');
+    if (!b || !m) return;
+    function poser(ouvert) {
+      m.hidden = !ouvert;
+      b.setAttribute('aria-expanded', String(ouvert));
+    }
+    b.addEventListener('click', function (e) {
+      e.stopPropagation();
+      poser(m.hidden);
+    });
+    // ⭐ Un clic AILLEURS referme. Sans ça, le menu reste ouvert par-dessus la
+    // page et on croit avoir cliqué à côté d'un lien alors qu'on a cliqué sur
+    // le voile invisible du menu.
+    document.addEventListener('click', function (e) {
+      if (!m.hidden && !m.contains(e.target) && e.target !== b) poser(false);
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && !m.hidden) { poser(false); b.focus(); }
+    });
   })();
 </script>
 </body>

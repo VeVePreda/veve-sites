@@ -76,7 +76,7 @@ const FIG_DEMO = ['catalogue-raretes', 'tirages-catalogue', 'comics-par-annee'];
 const figuresDemo = FIG_DEMO.map((id) => reg.get(id)).filter(Boolean);
 const figuresPro = [...reg.values()].filter((f) => !FIG_DEMO.includes(f.id));
 ---
-<Base sect="analyse" lang={lang} path="/analytics/" title={t(lang, 'analytics.title')}
+<Base sect="analytics" lang={lang} path="/analytics/" title={t(lang, 'analytics.title')}
       description={t(lang, 'desc.analytics')}
       crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') }, { name: t(lang, 'analytics.title') }]}>
   <Figures />

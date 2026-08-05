@@ -165,6 +165,14 @@ access:
 nav:
   - { cle: nav.dashboard, href: /,            pret: true  }   # l'accueil fait office de tableau de bord
   - { cle: nav.movers,    href: /market/,     pret: true  }
+  # ⭐ LOT 68 (05/08/2026) — LES SETS ENTRENT AU MENU, demande de Preda.
+  # La page existe depuis toujours (`/collections/`, `Collections.astro`) et
+  # l'accueil y renvoyait déjà — elle n'était atteignable QUE par ce lien.
+  # ⛔ L'adresse reste `/collections/` : elle est dans les 1 200 adresses
+  #    GELÉES. Le libellé « Sets » vit dans `nav.collections` (i18n), le chemin
+  #    dans le gel. Renommer le chemin pour qu'il ressemble au libellé casserait
+  #    le SEO — c'est exactement ce que le gel protège.
+  - { cle: nav.collections, href: /collections/, pret: true  }
   - { cle: nav.analytics, href: /analytics/,  pret: true  }   # ✅ lot 39 — démo publique + partie abonnée
   - { cle: nav.blog,      href: /blog/,       pret: true  }
   - { cle: nav.alerts,    href: /alertes/,    pret: false }   # ⏳ demande un compte

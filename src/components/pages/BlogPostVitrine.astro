@@ -89,7 +89,7 @@ const articleLd = {
 const ld = [articleLd, breadcrumbLd(crumbs.map((c) => ({ name: c.name, url: c.url ? root + c.url : `${root}${localize(lang, path)}` })))];
 const tagsAvecPage = new Set((await tagsFor(lang)).map((x) => x.tag));
 ---
-<Base lang={lang} path={path} altPaths={alt} title={post.data.title} description={post.data.description}
+<Base sect="blog" lang={lang} path={path} altPaths={alt} title={post.data.title} description={post.data.description}
       crumbs={crumbs} ld={ld} updatedAt={updatedAt} image={carteArticle(lang, post.slug)}>
   <div class={aAside ? "avec-aside" : ""}>
     <article class="post">
