@@ -60,6 +60,11 @@ const tailles = cols.map((c) => c.items.length);
 const tailleMax = tailles.length ? Math.max(...tailles) : 0;
 const nbComicSets = axes.filter((x) => x.ty === 'comic').length;
 const chevron = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
+// ⭐ 60 et pas 910 : voir le commentaire du bouton « voir plus », plus bas.
+// ⛔ Ce n'est PAS une pagination — aucune adresse neuve n'est créée, la page
+// reste `/collections/`. Même politique que le Marché, pour la même raison :
+// les 1 200 adresses du site sont gelées.
+const PAR_TRANCHE = 60;
 ---
 <Base sect="sets" lang={lang} path="/collections/" title={t(lang, 'collections.title')}
       description={t(lang, 'desc.collections', { n: cols.length.toLocaleString(nf) })} updatedAt={ds.updatedAt}
@@ -268,11 +273,22 @@ const chevron = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6
         annee:  function(a,b){ return (b.dataset.an || '').localeCompare(a.dataset.an || ''); },
         nom:    function(a,b){ return a.dataset.n.localeCompare(b.dataset.n); }
       };
+      var bPlus = document.getElementById('s-plus');
+      var cPlus = document.getElementById('s-plus-cpt');
+      var pas = bPlus ? parseInt(bPlus.dataset.pas, 10) : 0;
+      var montre = pas || 1e9;
       function appliquer(){
         var e = etat(), vis = [];
         C.forEach(function(x){ var ok = garde(e, x); x.hidden = !ok; if (ok) vis.push(x); });
         vis.sort(ORDRE[e.tri] || ORDRE.taille);
         vis.forEach(function(x){ G.appendChild(x); });
+        // ⭐ La tranche s'applique APRÈS le filtre et le tri : « voir plus » ne
+        // doit jamais révéler une carte que le filtre a écartée.
+        if (bPlus) {
+          for (var k = 0; k < vis.length; k++) vis[k].hidden = k >= montre;
+          bPlus.hidden = vis.length <= montre;
+          cPlus.textContent = Math.min(montre, vis.length) + ' / ' + vis.length;
+        }
         cpt.textContent = vis.length + ' / ' + C.length;
         vide.hidden = vis.length !== 0;
         var j = document.getElementById('s-actifs'); j.innerHTML = '';
@@ -315,12 +331,37 @@ const chevron = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6
           pan.hidden = !ouvrir; b.setAttribute('aria-expanded', String(ouvrir));
         });
       });
-      f.addEventListener('input',  appliquer);
-      f.addEventListener('change', appliquer);
-      f.addEventListener('reset',  function(){ setTimeout(function(){ corpus = ''; appliquer(); }, 0); });
+      if (bPlus) bPlus.addEventListener('click', function(){ montre += pas; appliquer(); });
+      // ⛔ Changer de filtre revient à la première tranche : sinon « 300 / 12 ».
+      f.addEventListener('input',  function(){ montre = pas || 1e9; appliquer(); });
+      f.addEventListener('change', function(){ montre = pas || 1e9; appliquer(); });
+      f.addEventListener('reset',  function(){ setTimeout(function(){ corpus = ''; montre = pas || 1e9; appliquer(); }, 0); });
       appliquer();
     })();
   </script>
+  {/* ═══ LOT 72 — LE DÉVOILEMENT PAR TRANCHES ═══
+      🔴 Preda : « la page Sets met une limite d'affichage de 20 ». Il n'y avait
+      AUCUNE limite dans le code — et c'est bien le problème : depuis que les
+      comics sont regroupés par numéro, cette page rend **910 cartes portant
+      chacune 3 vignettes**, soit près de 2 700 images. Un navigateur qui peine
+      à poser 2 700 nœuds image donne exactement ce qu'il a décrit : une page
+      qui s'arrête.
+      ⭐⭐ « JE VOIS 20 CARTES » N'EST PAS FORCÉMENT « QUELQU'UN A ÉCRIT 20 ».
+      J'ai cherché un plafond dans le CSS et dans le gabarit ; il n'y en avait
+      pas. Ce que Preda décrivait n'était pas une règle, c'était une LIMITE DE
+      RENDU — et c'est moi qui l'avais créée au lot précédent, en multipliant
+      les sets par 1,2 sans toucher à la façon de les afficher.
+      ⛔ Chercher la cause dans la couche où le symptôme s'exprime est le
+      réflexe qui coûte le plus cher : la cause était deux lots en arrière.
+      ⭐ 60 par tranche, comme le Marché en fait 20 : une carte de set est plus
+      lourde qu'une ligne de tableau mais on en voit plus à l'écran. */}
+  {axes.length > PAR_TRANCHE && (
+    <p style="margin:var(--s5) 0 0;text-align:center">
+      <button type="button" id="s-plus" class="btn btn--sm" data-pas={PAR_TRANCHE}>{t(lang, 'movers.more')}</button>
+      <span class="etiq" id="s-plus-cpt" style="display:block;margin-top:8px;color:var(--muted)"></span>
+    </p>
+  )}
+
   <div class="sceau">
     <div class="sceau__in">
       <span class="puce">{t(lang, 'home.independent')}</span>

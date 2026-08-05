@@ -1741,6 +1741,54 @@ header.site, header.site.site-h{ position:relative; top:auto; }
 body > *{ min-width:0; }
 
 /* ───────────────────────────────────────────────────────────────────────────
+   🔴🔴🔴 LOT 72 — LA VRAIE CAUSE, ET ELLE EXPLIQUE SIX SYMPTÔMES D'UN COUP
+   ───────────────────────────────────────────────────────────────────────────
+   Preda, trois fois de suite : « le header n'a pas la même taille que le
+   contenu », « aucune page n'a la même largeur », « quand je retire une
+   colonne dans le filtre, la largeur de la page diminue », « exploite la
+   largeur maximale », « le fond du contenu doit descendre jusqu'au footer ».
+   J'ai traité ça comme cinq problèmes. C'EN EST UN SEUL.
+
+   ⭐⭐⭐ `margin-inline:auto` SUR UN ÉLÉMENT FLEX DÉSACTIVE L'ÉTIREMENT.
+   Spécification Flexbox, §9.4 : un élément s'étire à la taille de sa ligne
+   « si `align-self:stretch`, si sa taille transversale calculée vaut `auto`,
+   **et si AUCUNE de ses marges transversales ne vaut `auto`** ».
+   Or `body > header.site, body > main, body > footer.site` portent
+   `margin-inline:auto` depuis le lot 19 — c'était le bon outil quand <body>
+   était un bloc. Le lot 70 a mis <body> en `display:flex`, et cette marge est
+   devenue un interrupteur : chaque bande se dimensionne désormais sur SON
+   PROPRE CONTENU (`fit-content`), puis se centre.
+   D'où, mécaniquement :
+     · l'en-tête = largeur de sa barre (marque + menu + outils)   → plus étroit
+     · le <main> = largeur de son contenu le plus large           → variable
+     · une colonne masquée = un tableau plus étroit = UNE PAGE PLUS ÉTROITE
+     · le fond de `main` ne couvre plus toute la largeur, le fond de <body>
+       (#0E0E0E) apparaît sur les côtés — d'où « le fond ne descend pas »
+     · et rien n'« exploite la largeur maximale », puisque plus personne ne la
+       demande.
+   ⭐⭐ MON CORRECTIF DU LOT 71 (`min-width:0`) A ENLEVÉ LA BORNE BASSE ET LAISSÉ
+   LE VRAI DÉFAUT INTACT. Il empêchait la page de s'élargir ; il ne lui rendait
+   pas sa largeur. Traiter un symptôme au lieu de la cause déplace le bug.
+   ➡️ On redonne une taille transversale EXPLICITE. `width:100%` n'est pas
+   `auto`, donc l'étirement n'est plus nécessaire : la bande fait la largeur du
+   <body>, `max-width` la plafonne à 1520 px, et les marges auto la centrent —
+   ce qui laisse le vide sur les bords, exactement comme la maquette.
+   ⚠️ `box-sizing:border-box` est posé sur `*` (l. 382) : `width:100%` cohabite
+   donc avec le padding sans déborder. */
+body > header.site,
+body > nav.onglets,
+body > main,
+body > footer.site{ width:100%; }
+
+/* Le fond du contenu couvre toute la hauteur restante — pas seulement celle de
+   ce qu'il contient. `flex:1 0 auto` le fait grandir ; encore faut-il qu'il
+   soit peint : `background:var(--bg)` est déjà posé plus haut par la règle du
+   cadre, on ne fait ici que garantir qu'aucune page courte ne laisse voir le
+   fond de <body> entre le contenu et le pied. */
+body > main{ background:var(--bg); }
+
+
+/* ───────────────────────────────────────────────────────────────────────────
    4. 🔴 TOUTES LES PAGES N'AVAIENT PAS LA MÊME LARGEUR
    ───────────────────────────────────────────────────────────────────────────
    Mesuré : `Base.astro` rend `<main class="wrap">` (padding 0 24px), et

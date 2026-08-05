@@ -130,8 +130,19 @@ const horo = maj ? `${String(maj.getUTCDate()).padStart(2,'0')}.${String(maj.get
       DÉCALAGE, pas de l'accumulation — il a fallu quatre essais pour l'admettre. */}
   <div class="hero">
     <span class="hero__champ" aria-hidden="true"></span>
-    <span class="hero__ref ref--tg">{`// VEVE PRICE\n${t(lang, 'home.independent')}\n`}<b>{ds.items.length.toLocaleString(nf)} {t(lang, 'home.pieces')}</b></span>
-    <span class="hero__ref ref--bd">{`// CH.VEVE\n${t(lang, 'home.every30')}\n${horo}`}</span>
+    {/* ⛔ LOT 72 — « THE RECORD » ET « RECORDED EVERY 30 MIN » SONT PARTIS DU
+        PREMIER ÉCRAN (demande de Preda, redite deux fois).
+        Le lot 71 avait changé l'accroche AU-DESSUS DU TITRE (`home.record`),
+        et laissé ces deux repères en coin — qui redisaient exactement la même
+        chose, en plus petit. ⭐ Remplacer un texte à un endroit ne le remplace
+        pas : il faut chercher qui d'autre le dit.
+        ⭐ CE QUI RESTE EST FACTUEL, PAS PROMOTIONNEL : le nombre de pièces
+        suivies à gauche, l'horodatage du dernier relevé à droite. Deux chiffres
+        vérifiables — c'est ce qu'un registre doit afficher en premier, et ça ne
+        répète plus la devise. `home.independent` et `home.every30` restent dans
+        les dictionnaires : le sceau et le pied de page s'en servent. */}
+    <span class="hero__ref ref--tg">{`// VEVE PRICE\n`}<b>{ds.items.length.toLocaleString(nf)} {t(lang, 'home.pieces')}</b></span>
+    <span class="hero__ref ref--bd">{`// CH.VEVE\n${horo}`}</span>
     {piece && (
       <span class="hero__piece" aria-hidden="true">
         <img class="ok" src={piece.image} alt="" width="520" height="650"
