@@ -344,11 +344,29 @@ identity:
   # ✏️ L'ACCROCHE DE L'EN-TÊTE (sous le nom). Courte, une carte par langue.
   # ⛔ Ce n'est PAS `site.tagline` — celle-là est la description SEO.
   # ⭐ Sans chiffre : « 1 200 pièces » se périmerait en silence.
+  # ⭐⭐ LOT 74 (05/08/2026) — LA DEVISE, ENFIN AU BON ENDROIT.
+  # ═══════════════════════════════════════════════════════════════════════════
+  # 🔴 TROISIÈME ENDROIT OÙ CETTE PHRASE VIVAIT, ET LE SEUL QUE PREDA VOYAIT.
+  # Il a écrit « il y a toujours marqué "The record, every 30 minutes" dans le
+  # HEADER ». J'ai corrigé deux fois AILLEURS :
+  #   lot 71 → `home.record`, l'étiquette au-dessus du grand titre ;
+  #   lot 73 → les deux repères en coin du premier écran (`hero__ref`).
+  # La phrase qu'il voyait était `identity.accroche`, le sous-titre sous le
+  # logotype — dans l'en-tête, présent sur les 1 200 pages, exactement là où il
+  # l'avait dit.
+  # ⭐⭐⭐ IL AVAIT NOMMÉ L'ENDROIT LES DEUX FOIS, ET LES DEUX FOIS J'AI CHERCHÉ
+  # OÙ ÇA M'ARRANGEAIT. « Header » ne veut pas dire « haut de page » : c'est un
+  # élément qui a un nom dans ce code. Quand quelqu'un répète un reproche mot
+  # pour mot, c'est le mot qu'il faut relire, pas le code.
+  # ⛔ Et la parade tenait en une commande : `grep -rn "every 30" .` — trois
+  #    occurrences, trois lots. Chercher la CHAÎNE avant de chercher la cause.
+  # ⭐ La devise ne se met pas en majuscules ici : le thème s'en charge.
   accroche:
-    fr: "Le relevé, toutes les 30 minutes"
-    en: "The record, every 30 minutes"
-    es: "El registro, cada 30 minutos"
-    de: "Der Nachweis, alle 30 Minuten"
+    fr: "Traquez ce que vous aimez"
+    en: "Track down what you love"
+    es: "Rastrea lo que amas"
+    de: "Finde, was du liebst"
+    it: "Trova ciò che ami"
 
   # ⭐ LA PALETTE DE BASE EST LA SOMBRE — c'est l'identité de VeVe Price, et
   # c'est celle qui a été dessinée, mesurée et validée. Les gris viennent de
