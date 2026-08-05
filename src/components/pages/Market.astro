@@ -496,9 +496,6 @@ const chevron = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6
     </table>
   </div>
 
-  {/* ⛔ 120 tuiles seulement : rendre 1 200 vignettes coûterait 1 200 décodages
-      d'image sur un téléphone. Le filtre sert à descendre en dessous, il n'a
-      pas à être précédé d'une avalanche. */}
   {/* ⭐ DIRE QU'ON PLAFONNE. Un classement tronqué sans le dire laisse croire
       que le catalogue fait 200 pièces. Le nombre réel est déjà sur le filtre,
       mais il faut que la TRONCATURE soit énoncée là où elle s'applique —
@@ -508,10 +505,34 @@ const chevron = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6
       {t(lang, 'movers.capped').replace('%s', toutes.length.toLocaleString(nf))}
     </p>
   )}
-  <div id="vue-tui" class="tuiles" hidden>{lignes.slice(0, 120).map((i, k) => (
+  {/* ═══ LOT 71 — LES DEUX VUES MONTRENT DÉSORMAIS LE MÊME CORPUS ═══
+      🔴 Preda : « le filtre ne fonctionne pas en vue tuiles ». Deux causes, et
+      la seconde est la vraie.
+      ① Les tuiles ne portaient que 4 attributs `data-` sur 10 : ni `floor`, ni
+         `tirage`, ni `listings`, ni `$/MCP`, ni date. Les quatre nouveaux
+         groupes de filtres ne pouvaient donc rien mordre dessus — ils
+         laissaient tout passer, ce qui se lit exactement comme « le filtre ne
+         marche pas ».
+      ② ⭐⭐ ET SURTOUT : le tableau rendait 200 pièces, la grille 120. Filtrer
+         sur une rareté dont la première occurrence est au rang 150 donnait
+         « 3 résultats » en Tableau et RIEN en Tuiles. Deux vues du même écran
+         avec deux corpus, c'est un filtre qui ment une fois sur deux.
+      ⛔ Le commentaire d'origine assumait ces deux politiques (« 1 200
+         vignettes coûteraient 1 200 décodages d'image ») — il avait raison sur
+         1 200, pas sur 200 : les images sont en `loading="lazy"`, seules
+         celles à l'écran sont décodées, et le dévoilement par tranches n'en
+         montre que 20 au départ.
+      ⭐ UNE SEULE LISTE, UN SEUL PLAFOND, UN SEUL COMPTEUR. */}
+  <div id="vue-tui" class="tuiles" hidden>{lignes.map((i, k) => (
     <a class="tuile revele" href={localize(lang, i.path)} style={`--i:${k}`}
        data-type={i.type} data-rar={i.rarity} data-n={i.name.toLowerCase()}
-       data-var={i.change7d > 0 ? 'up' : i.change7d < 0 ? 'down' : ''}>
+       data-var={i.change7d > 0 ? 'up' : i.change7d < 0 ? 'down' : ''}
+       data-ch={i.change7d === null || i.change7d === undefined ? '' : String(i.change7d)}
+       data-floor={i.floor === null || i.floor === undefined ? '' : String(i.floor)}
+       data-sup={i.tirage ? String(i.tirage) : ''}
+       data-lst={i.listings === null || i.listings === undefined ? '' : String(i.listings)}
+       data-mcp={parMcp(i) === null ? '' : String(parMcp(i))}
+       data-date={jour(i)}>
       <span class="tuile__hd">
         <span class="tuile__s">{i.series}</span>
         <span class="tuile__off">{i.listings ?? 0} {t(lang, 'item.listings')}</span>
@@ -578,6 +599,7 @@ const chevron = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6
     (function () {
       var f = document.getElementById('filtres'); if (!f) return;
       var corps  = document.querySelector('#vue-tbl tbody');
+      var grille = document.getElementById('vue-tui');
       var L      = [].slice.call(document.querySelectorAll('#vue-tbl tbody tr'));
       var T      = [].slice.call(document.querySelectorAll('#vue-tui .tuile'));
       var cpt    = document.getElementById('cpt');
@@ -677,6 +699,11 @@ const chevron = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6
         var cmp = ORDRE[e.tri] || ORDRE['ch-desc'];
         visT.sort(cmp);
         if (corps) visT.forEach(function(l){ corps.appendChild(l); });
+        // ⭐ LE TRI S'APPLIQUE AUX DEUX VUES. Un ordre qui change quand on
+        // bascule Tableau/Tuiles est un ordre auquel on cesse de faire
+        // confiance — et c'est le même reproche que le corpus à deux tailles.
+        visU.sort(cmp);
+        if (grille) visU.forEach(function(x){ grille.appendChild(x); });
         // Le rang se RENUMÉROTE : « 001 » sur la troisième ligne d'un
         // classement trié autrement serait un chiffre qui ment.
         visT.forEach(function(l, k){

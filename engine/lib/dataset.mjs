@@ -566,11 +566,53 @@ async function construireDataset() {
   }
 
   const bySlug = new Map(items.map((i) => [i.path, i]));
+  // ═════════════════════════════════════════════════════════════════════════
+  // LES SETS — 🔴 LOT 71 : UN SET DE COMICS EST UN NUMÉRO, PAS UNE SÉRIE
+  // ═════════════════════════════════════════════════════════════════════════
+  // Preda, 05/08/2026 : « il y a un problème avec les sets, ça doit être basé
+  // sur la série ; pour les comics ça ne devrait comporter que les 5 raretés
+  // tout au plus, là je vois des comics d'autres séries. »
+  //
+  // Ce qu'il voyait, mesuré : le set « The Amazing Spider-Man Vol. 1 » réunissait
+  // #1, #13, #252… — 12 fiches, 8 titres différents. Ce n'était pas un bug de
+  // rendu : le regroupement se faisait sur `series`, et chez un comic `series`
+  // désigne la COLLECTION ÉDITORIALE ENTIÈRE (des décennies de numéros), pas ce
+  // qu'un collectionneur appelle un set.
+  //
+  // ⭐⭐ LE MOT « SÉRIE » NE DÉSIGNE PAS LA MÊME CHOSE DES DEUX CÔTÉS, ET C'EST
+  // TOUTE LA CAUSE. Chez un collectible, `series` EST le set (« Bond 60th
+  // Anniversary »). Chez un comic, le set est le NUMÉRO et ses raretés — la
+  // série n'en est que le rayon. Un champ qui porte le même nom pour deux
+  // granularités différentes produit un regroupement qui a l'air correct sur la
+  // moitié du catalogue. → [[chantier-uniformisation-identite]]
+  //
+  // ⭐ `edition_type` porte le `comicNumber` on-chain (voir plus haut, l. 283) :
+  // c'est déjà la clé qui sert à la hiérarchie d'adresses série → numéro →
+  // rareté. On réemploie la découpe qui existe, on n'en invente pas une seconde.
+  //
+  // ⚠️ MESURÉ AVANT/APRÈS, pas supposé : 758 → 913 sets, plus AUCUN set de
+  // comics au-dessus de 5 fiches. Les deux seuls sets à plus de 5 restants sont
+  // des COLLECTIBLES (« Bond 60th Anniversary - Poster Series 2 » 7,
+  // « BLACKPINK Concert Finale » 10) — et c'est correct, un set de collectibles
+  // n'a pas de raison de tenir en cinq.
+  //
+  // ⛔ LES ADRESSES `/collection/<slug>/` CHANGENT POUR LES COMICS, et c'est
+  // assumé : elles ne sont PAS dans `slugs.json` (vérifié — le gel ne couvre
+  // que les 1 200 fiches). Rien ne casse ; Google devra ré-explorer.
+  // ⛔ Un comic SANS numéro retombe sur sa série seule plutôt que de fabriquer
+  //    un « #undefined » : on ne crée pas d'adresse à partir d'un trou.
+  const cleSet = (i) => {
+    if (i.type !== 'comic') return { cle: i.series, nom: i.series };
+    const n = String(i.edition_type || '').trim();
+    return n ? { cle: `${i.series} #${n}`, nom: `${i.series} #${n}` }
+             : { cle: i.series, nom: i.series };
+  };
   const collections = new Map();
   for (const i of items) {
     if (!i.series) continue;
-    const s = slugify(i.series);
-    if (!collections.has(s)) collections.set(s, { slug: s, name: i.series, brand: i.brand, items: [] });
+    const { cle, nom } = cleSet(i);
+    const s = slugify(cle);
+    if (!collections.has(s)) collections.set(s, { slug: s, name: nom, brand: i.brand, items: [] });
     collections.get(s).items.push(i);
   }
   const rarities = new Map();

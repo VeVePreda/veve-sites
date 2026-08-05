@@ -576,7 +576,7 @@ h3{font-size:var(--t-lg)}
 .stat{background:var(--surface);border:1px solid var(--rule);border-radius:var(--r-md);padding:13px 16px;position:relative}
 .stat__v{font-family:var(--tech);font-size:var(--t-xl);font-weight:700;font-variant-numeric:tabular-nums; margin-top:5px;line-height:1.1;display:flex;align-items:baseline;gap:5px;flex-wrap:wrap;letter-spacing:-.02em}
 .stat--bleu{border-color:color-mix(in srgb,var(--sect-pur) 40%,transparent);background:var(--sect-1v)}
-.tbl-hote{background:var(--surface);border:1px solid var(--rule);border-radius:var(--r-lg);overflow:hidden;box-shadow:var(--sh-1)}
+.tbl-hote{background:var(--surface);border:1px solid var(--rule);border-radius:var(--r-lg);overflow-x:auto;overflow-y:hidden;box-shadow:var(--sh-1)}
 table{width:100%;border-collapse:collapse;font-size:var(--t-sm)}
 thead th{text-align:left;padding:11px 15px;background:var(--surface-2);font-family:var(--tech); font-size:var(--t-xs);text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:500; border-bottom:1px solid var(--rule);white-space:nowrap}
 thead th.tri{cursor:pointer;user-select:none;transition:color var(--d-fast)}
@@ -1678,3 +1678,120 @@ body > main{ flex:1 0 auto; }
    Elle porte donc un en-tête visible et une largeur tenue. */
 .col-courbe{ width:104px; }
 .col-courbe .spark{ display:block; }
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LOT 71 — 05/08/2026 · deuxième passe de retours sur veveprice
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ───────────────────────────────────────────────────────────────────────────
+   1. 🔴🔴 LA BANDE DE L'EN-TÊTE N'ÉTAIT PAS ROUGE SUR LE MARCHÉ
+   ───────────────────────────────────────────────────────────────────────────
+   Preda : « la bande colorée du header n'est pas rouge dans le Market ».
+   Et il avait raison contre trois vérifications qui disaient le contraire :
+   `<body data-sect="cotes">` était bien émis, `[data-sect="cotes"]` posait bien
+   `--sect-pur:#D7263D`, et `.site-h::after` (l. 412) lisait bien `--sect-pur`.
+
+   ⭐⭐⭐ CE QUI MANQUAIT : IL Y A **DEUX** RÈGLES `::after` SUR CET ÉLÉMENT.
+       header.site::after   (l. 209)  →  var(--primary)   spécificité (0,1,2)
+       .site-h::after       (l. 412)  →  var(--sect-pur)  spécificité (0,1,1)
+   Le socle générique GAGNE — un type de plus dans le sélecteur — et il peint la
+   bande avec `--primary`, la couleur du manifeste, donc CYAN sur toutes les
+   pages. La règle « juste » était écrite, chargée, et perdait.
+   ⛔ Et c'est la TROISIÈME fois que ce double habillage frappe ce même élément :
+   le 31/07 on avait neutralisé son `background`, son `z-index` et son `.wrap`
+   (bloc `header.site.site-h` plus haut) — et laissé son `::after`.
+   ⭐⭐ ON NE CORRIGE PAS UN DOUBLE HABILLAGE UNE PROPRIÉTÉ À LA FOIS. Le jour où
+   on en neutralise une, on liste TOUT ce que la couche générique déclare sur ce
+   sélecteur, pseudo-éléments compris — sinon on revient trois fois.
+   ⭐ Spécificité (0,2,2) : gagne sur les deux, sans `!important`. */
+header.site.site-h::after{
+  background:linear-gradient(90deg,var(--sect-pur),
+             color-mix(in srgb,var(--sect-pur) 30%,transparent) 68%,transparent);
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   2. L'EN-TÊTE NE SUIT PLUS LE DÉFILEMENT (demande de Preda)
+   ───────────────────────────────────────────────────────────────────────────
+   ⚠️ `position:relative` et NON `static` : la bande de 3 px est un
+   `::after` en `position:absolute`. En `static`, elle n'aurait plus d'ancêtre
+   positionné et irait se caler sur le bloc conteneur initial — c'est-à-dire
+   une barre de 3 px flottant en haut du document, visible sur toutes les pages.
+   ⛔ Le piège classique de « je retire juste le sticky ». */
+header.site, header.site.site-h{ position:relative; top:auto; }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   3. 🔴🔴 L'EN-TÊTE ÉTAIT PLUS ÉTROIT QUE LA PAGE — ET C'EST MOI QUI L'AI FAIT
+   ───────────────────────────────────────────────────────────────────────────
+   Le lot 70 a posé `body{display:flex;flex-direction:column}` pour que le
+   contenu descende jusqu'au pied de page. Effet de bord que je n'avais pas vu :
+   **un élément flex ne rétrécit jamais sous sa largeur min-content.** Le
+   `<main>` qui contient le tableau du Marché (dix colonnes) réclamait donc plus
+   que la largeur de la fenêtre, il l'obtenait, et l'en-tête — lui, sans contenu
+   large — restait à la largeur de la fenêtre. D'où une barre du haut visiblement
+   plus étroite que la page, et une page qui « s'agrandit » en vue Tuiles.
+   ⭐⭐ `min-width:auto` EST LE DÉFAUT DES ÉLÉMENTS FLEX, et c'est une protection :
+   elle empêche d'écraser un contenu illisible. Elle devient un piège dès que le
+   contenu a le droit de défiler tout seul — ce qui est le cas d'un tableau.
+   ➡️ `min-width:0` sur les enfants directs de <body> + la table qui défile DANS
+   sa carte (`.tbl-hote{overflow-x:auto}`, corrigé plus haut). Le tableau reste
+   entièrement atteignable, la page ne s'élargit plus.
+   ⭐ La leçon : `display:flex` sur <body> n'est pas un réglage de mise en page,
+   c'est un changement de modèle de dimensionnement pour TOUS ses enfants. */
+body > *{ min-width:0; }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   4. 🔴 TOUTES LES PAGES N'AVAIENT PAS LA MÊME LARGEUR
+   ───────────────────────────────────────────────────────────────────────────
+   Mesuré : `Base.astro` rend `<main class="wrap">` (padding 0 24px), et
+   `Home.astro` remet DEUX `<div class="wrap">` à l'intérieur. L'accueil avait
+   donc **48 px de marge** là où le Marché, les Sets, Plans et Analytics en
+   avaient 24. Les blocs de l'accueil étaient 48 px plus étroits de chaque côté
+   que partout ailleurs — assez pour se voir, trop peu pour qu'on sache dire
+   pourquoi.
+   ⭐ Le `.wrap` interne de l'accueil n'est PAS une erreur : il existe pour que
+   le bandeau animé puisse sortir de la colonne et courir d'un bord à l'autre.
+   Ce qu'il ne doit pas faire, c'est ajouter une SECONDE fois le padding.
+   ⛔ On ne le retire donc pas du gabarit — on rend l'imbrication inoffensive,
+   ici, pour tout le réseau et pour toutes les pages à venir. */
+.wrap .wrap{ padding-left:0; padding-right:0; }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   5. LE BANDEAU ANIMÉ COLLAIT AUX COMPTEURS
+   ───────────────────────────────────────────────────────────────────────────
+   Il touche les bords de l'écran par construction (il est hors de `.wrap`),
+   donc rien ne le séparait verticalement de ce qui l'entoure. */
+.ticker{ margin-block:var(--s6); }
+@media (max-width:640px){ .ticker{ margin-block:var(--s5); } }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   6. 🔴 LA PAGE « PLANS » RESTAIT CYAN
+   ───────────────────────────────────────────────────────────────────────────
+   Preda : « la couleur dans Plans n'est pas respectée, la majeure partie des
+   cases sont cyan ». Cause : `[data-sect]` remappait `--cyan`, `--cyan-fonce`
+   et `--cyan-1v` (l. 373) — mais **pas `--lock`**. Or c'est `--lock` qui peint
+   le palier mis en avant (`.tarif--phare`), les modules réservés (`.module`),
+   le cadenas, le sceau et le bouton verrou : l'essentiel de cette page.
+   ⭐⭐ UN JETON DE COULEUR QUI ÉCHAPPE AU REMAPPAGE EST UNE COULEUR QUI NE
+   CHANGERA JAMAIS, et rien ne le dit : la page « prend » sa couleur partout où
+   on regarde d'abord (la bande, les liens, les étiquettes) et la garde là où
+   elle occupe le plus de surface.
+   ⚠️ Conséquence assumée sur les autres pages : le cadenas et les blocs
+   « réservé aux membres » prennent désormais la couleur de leur page. C'est
+   cohérent avec « une couleur par page » — et `--lock` gardait de toute façon
+   le cyan du site, pas une sémantique propre (il vaut `var(--primary)` dans le
+   socle, l. 352). */
+[data-sect]{
+  --lock:     var(--sect-a);
+  --lock-pur: var(--sect-pur);
+  --lock-1v:  var(--sect-1v);
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   7. LA VUE TUILES NE DOIT PAS POUVOIR ÉLARGIR LA PAGE
+   ───────────────────────────────────────────────────────────────────────────
+   Ceinture et bretelles avec le `min-width:0` du §3 : une grille dont les
+   colonnes ont un minimum en pixels réclame ce minimum × le nombre de colonnes
+   dès que la largeur disponible devient indéfinie. */
+.tuiles{ min-width:0; }
+.tuile__n, .tuile__s{ overflow-wrap:anywhere; }
