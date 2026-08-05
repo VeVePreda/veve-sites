@@ -383,6 +383,55 @@ async function construireDataset() {
       nomComic: String(c.veve_comic_name || '').trim() || null,
       athDate: String(c.ath_date || '').trim() || null,
       atlDate: String(c.atl_date || '').trim() || null,
+      // ═══════════════════════════════════════════════════════════════════════
+      // LES SIX COLONNES QUE LE CATALOGUE PORTAIT ET QUE CE FICHIER JETAIT
+      // ═══════════════════════════════════════════════════════════════════════
+      // 🔴🔴 CE QU'IL FAUT AVOIR COMPRIS AVANT DE RELIRE CE BLOC.
+      // Le lot 78 (cote `scrapeur-veve`) a sorti `season` de `DROP_COLUMNS` et
+      // elargi `catalog_export.py`. Le message de passation en concluait que
+      // « la fiche se remplit SANS lot cote site ». C'etait faux, et le
+      // commentaire d'`Item.astro` l'affirmait aussi : « la fiche se remplira
+      // toute seule le jour ou l'export s'elargit — aucun gabarit a retoucher ».
+      // ⛔ CE FICHIER NE FAIT PAS PASSE-PLAT : il PROJETTE, champ par champ.
+      // Une colonne qui n'est pas nommee ici n'existe pas pour le moteur, quoi
+      // qu'en dise le CSV. Mesure du 05/08 sur le catalogue publie a 16h13 :
+      // 28 colonnes, `season` remplie sur 2 720 / 2 720 collectibles — et zero
+      // ligne du site l'affichait.
+      // ⭐⭐⭐ ONZIEME OCCURRENCE DE « COLLECTEE PUIS JETEE », et la premiere ou
+      // c'est un COMMENTAIRE RASSURANT qui a tenu lieu de verification. Les dix
+      // precedentes se lisaient dans le code ; celle-ci se lisait dans une
+      // phrase qui promettait que le code n'avait pas besoin d'etre lu.
+      //
+      // ⚠️ NOMS ET FORMATS RELEVES DANS LE CSV PUBLIE, PAS DEDUITS DU CODE
+      // AMONT — et l'ecart compte :
+      //   market_fee   '8.5%' (chaine, deja convertie) et NON 85 dixiemes de %.
+      //                Le commentaire de `catalog_export.py` decrit son ENTREE ;
+      //                appliquer /10 ici aurait divise une valeur deja divisee
+      //                et affiche « 0,85 % » partout, sans qu'aucun test crie.
+      //   drop_method  RESERVATION | WAITLIST | CRAFT | AUCTION (4 valeurs)
+      //   is_blindbox  'TRUE' / 'FALSE' — chaines, pas des booleens JSON
+      //   season       1..12, COLLECTIBLES SEULEMENT (`COMIC_QUERY` ne demande
+      //                pas `series`, donc la colonne restera vide sur 🟢C-COMICS
+      //                — ce n'est pas un trou a combler, c'est une frontiere)
+      //   start_year   COMICS seulement, 16 560 / 16 597
+      // ⭐ LUES SANS ETRE EXIGEES, comme `description` avant elles : un
+      // catalogue anterieur rend `null` et la fiche est exactement celle
+      // d'avant. Le lot est donc deposable meme si un export echoue.
+      saison: pos(c.season),
+      premiereEdition: pos(c.first_available_edition),
+      anneeDebut: pos(c.start_year),
+      // ⚠️ `%` RETIRE AVANT `num()` : `Number('8.5%')` rend NaN, donc `num()`
+      // aurait rendu `null` sur les 19 280 lignes — un echec TOTAL et MUET,
+      // impossible a distinguer d'une colonne absente.
+      fraisMarche: pos(String(c.market_fee || '').replace('%', '')),
+      // ⛔ BRUT, PAS TRADUIT ICI. Le moteur transporte la valeur de la source ;
+      // c'est le gabarit qui decide comment la dire, et dans quelle langue.
+      methodeDrop: String(c.drop_method || '').trim().toUpperCase() || null,
+      // ⚠️ TRANSPORTE MAIS PAS ENCORE AFFICHE : aucune cle i18n `item.blindbox`
+      // n'existe dans les 5 dictionnaires, et on n'invente pas un libelle dans
+      // cinq langues sans arbitrage. Il coute zero ligne et il est le vrai
+      // discriminant collectible/comic du catalogue (2 720 non vides).
+      blindbox: c.is_blindbox === 'TRUE' ? true : (c.is_blindbox === 'FALSE' ? false : null),
       // ⚠️ NOMS REELS DES COLONNES (verifies dans scraper/price_baseline.py) :
       // floor_min, floor_p5, floor_p25, floor_p50, floor_p75, floor_p95,
       // floor_max, listings_p50... — les percentiles sont PREFIXES.

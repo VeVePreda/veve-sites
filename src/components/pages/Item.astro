@@ -128,6 +128,17 @@ const descItem = (item.floor && item.totalPoints && anneeDebut)
 // ⛔ Les confondre reviendrait à ranger un travail d'une heure et un chantier
 //    entier sous le même tiret. C'est exactement la faute que ce site
 //    s'interdit ailleurs (« aucune offre » contre « pas encore collecté »).
+// 🏷️ LA MÉTHODE DE DROP, DITE DANS LA LANGUE DE LA PAGE.
+// ⛔ ON NE PASSE PAS LA VALEUR DIRECTEMENT À `t()`, et c'est tout l'intérêt de
+// ce garde : `t()` rend LA CLÉ BRUTE quand elle est absente du dictionnaire
+// (`?? key`, engine/lib/i18n.mjs). Le jour où VeVe ajoute une cinquième
+// méthode, un `t(lang, \`item.drop.\${v}\`)` nu afficherait « item.drop.LOTTERY »
+// aux visiteurs — une chaîne de code sur une fiche publique.
+// ⭐ Ici l'inconnu retombe sur SA PROPRE VALEUR : « LOTTERY » s'affiche, c'est
+// lisible, et le mot en majuscules non traduit est lui-même le signal qu'une
+// valeur neuve est apparue. Un repli qui informe vaut mieux qu'un repli muet.
+const DROPS_CONNUS = new Set(['RESERVATION', 'WAITLIST', 'CRAFT', 'AUCTION']);
+const dropLisible = (v) => (DROPS_CONNUS.has(v) ? t(lang, `item.drop.${v}`) : v);
 const enAttente = t(lang, 'data.notCollected');
 const pasCollecte = t(lang, 'data.notCollected');
 const mcpJour = mcpPoints(item.rarity, item.type);
@@ -198,6 +209,20 @@ const mcpJour = mcpPoints(item.rarity, item.type);
           catalogue. La chaîne les récolte et les jette, deux fois.
           ⛔ Ce lot ne peut donc PAS les remplir : le correctif vit dans
           `scrapeur-veve`, pas ici. → A-LIRE-lot73-veveprice.md
+
+          🔴🔴 CE COMMENTAIRE S'EST TROMPÉ, ET IL A COÛTÉ UN LOT (05/08/2026).
+          Il disait : « La fiche se remplira toute seule le jour où l'export
+          s'élargit — aucun gabarit à retoucher. » L'export s'est élargi le
+          05/08 (28 colonnes, `season` à 2 720/2 720), et la fiche n'a rien
+          affiché : `engine/lib/dataset.mjs` PROJETTE champ par champ, il ne
+          fait pas passe-plat, et les lignes ci-dessous écrivaient un `—`
+          LITTÉRAL — pas un repli `{item.x || —}`, une absence totale de
+          lecture. Il fallait donc DEUX gabarits, pas zéro.
+          ⭐⭐⭐ UN COMMENTAIRE QUI PROMET QU'IL N'Y A RIEN À FAIRE EST LA SEULE
+          FORME DE DETTE QUI SE RELIT COMME UNE BONNE NOUVELLE. Le message de
+          passation a repris sa promesse mot pour mot, sans que personne
+          rouvre le fichier — la vérification s'est arrêtée là où la phrase
+          rassurait. → [[regle-donnee-collectee-puis-jetee]] (11ᵉ occurrence)
           ⭐⭐ ON AFFICHE LE TIRET PLUTÔT QUE DE MASQUER LA LIGNE, et c'est la
           règle de la maison : une ligne absente laisse croire que la donnée
           n'existe pas ; un tiret `data-attente` dit qu'elle existe et qu'on
@@ -222,17 +247,39 @@ const mcpJour = mcpPoints(item.rarity, item.type);
         <tr><th>{t(lang, 'item.mcpDaily')}</th>
           <td>{mcpJour !== undefined ? mcpJour.toFixed(2) : <span class="muted">—</span>}</td></tr>
         <tr><th>{t(lang, 'item.firstEdition')}</th>
-          <td><span data-attente title={enAttente}>—</span></td></tr>
-        <tr><th>{t(lang, 'item.season')}</th>
-          <td><span data-attente title={enAttente}>—</span></td></tr>
+          <td>{item.premiereEdition != null
+                ? item.premiereEdition.toLocaleString(nf)
+                : <span data-attente title={enAttente}>—</span>}</td></tr>
+        {/* ⛔ LA SAISON N'EST AFFICHÉE QUE SUR LES COLLECTIBLES, ET C'EST LA
+            SEULE LIGNE DE CE BLOC QUI DISPARAÎT AU LIEU DE MONTRER UN TIRET.
+            La règle de la maison — « on affiche le tiret plutôt que de masquer
+            la ligne » — vaut pour une donnée qui EXISTE et qu'on attend. Ici
+            `COMIC_QUERY` ne demande pas `series{ season }` : sur un comic la
+            colonne ne se remplira JAMAIS, et un tiret titré « pas encore
+            collecté » promettrait une donnée qui n'est pas en chemin.
+            ⭐ Masquer dit « ça ne s'applique pas » ; un tiret dit « ça vient ».
+            Ce sont deux affirmations différentes, et une seule est vraie. */}
+        {item.type !== 'comic' && (
+          <tr><th>{t(lang, 'item.season')}</th>
+            <td>{item.saison != null
+                  ? item.saison.toLocaleString(nf)
+                  : <span data-attente title={enAttente}>—</span>}</td></tr>
+        )}
         <tr><th>{t(lang, 'item.storePrice')}</th>
           <td>{item.storePrice ? money(item.storePrice) : <span data-attente title={enAttente}>—</span>}</td></tr>
         <tr><th>{t(lang, 'item.release')}</th>
           <td>{item.releaseDate || <span data-attente title={enAttente}>—</span>}</td></tr>
         <tr><th>{t(lang, 'item.dropType')}</th>
-          <td><span data-attente title={enAttente}>—</span></td></tr>
+          <td>{item.methodeDrop
+                ? dropLisible(item.methodeDrop)
+                : <span data-attente title={enAttente}>—</span>}</td></tr>
+        {/* ⚠️ `fraisMarche` est un NOMBRE (8.5), le `%` est posé ici : c'est le
+            gabarit qui sait qu'on est en fr-FR et doit écrire « 8,5 % » avec sa
+            virgule et son espace insécable, pas le moteur. */}
         <tr><th>{t(lang, 'item.marketFee')}</th>
-          <td><span data-attente title={enAttente}>—</span></td></tr>
+          <td>{item.fraisMarche != null
+                ? `${item.fraisMarche.toLocaleString(nf)}\u00a0%`
+                : <span data-attente title={enAttente}>—</span>}</td></tr>
         <tr><th>{t(lang, 'item.available')}</th>
           <td><span data-attente title={enAttente}>—</span></td></tr>
       </tbody></table>
@@ -246,7 +293,13 @@ const mcpJour = mcpPoints(item.rarity, item.type);
           <tr><th>{t(lang, 'item.artists')}</th><td><span data-attente title={pasCollecte}>—</span></td></tr>
           <tr><th>{t(lang, 'item.coverArtists')}</th><td><span data-attente title={pasCollecte}>—</span></td></tr>
           <tr><th>{t(lang, 'item.characters')}</th><td><span data-attente title={pasCollecte}>—</span></td></tr>
-          <tr><th>{t(lang, 'item.startYear')}</th><td><span data-attente title={enAttente}>—</span></td></tr>
+          {/* ⛔ PAS DE `toLocaleString` SUR UNE ANNÉE : en fr-FR il rendrait
+              « 2 024 ». Un formateur de nombres appliqué à un millésime est
+              une faute qui a l'air d'un soin. */}
+          <tr><th>{t(lang, 'item.startYear')}</th>
+            <td>{item.anneeDebut != null
+                  ? String(item.anneeDebut)
+                  : <span data-attente title={enAttente}>—</span>}</td></tr>
           <tr><th>{t(lang, 'item.pages')}</th><td><span data-attente title={pasCollecte}>—</span></td></tr>
           <tr><th>{t(lang, 'item.issue')}</th><td>{titreOeuvre}</td></tr>
           {colSlug && <tr><th>{t(lang, 'item.series')}</th>
