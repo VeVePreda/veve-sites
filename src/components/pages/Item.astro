@@ -11,7 +11,7 @@ import { productLd, breadcrumbLd } from '../../../engine/lib/seo.mjs';
 import { manifest, siteUrl } from '../../../engine/lib/manifest.mjs';
 import { t, localize, numberLocale, dateLocale } from '../../../engine/lib/i18n.mjs';
 import { postsForItem } from '../../../engine/lib/blog.mjs';
-import { rar, forme, delta, gemsM, RAR, omiM } from '../../../engine/lib/vitrine.mjs';
+import { rar, forme, delta, gemsM, RAR, omiM, mcpPoints } from '../../../engine/lib/vitrine.mjs';
 import { franchit } from '../../../engine/lib/access.mjs';
 import BarreAcces from '../BarreAcces.astro';
 // Les cinq modules d'analyse, dans l'ordre de la maquette.
@@ -118,6 +118,19 @@ const serieTxt = item.series ? ` (${item.series})` : '';
 const descItem = (item.floor && item.totalPoints && anneeDebut)
   ? t(lang, 'desc.item', { name: item.qualifie || item.name, series: serieTxt, price: money(item.floor), n: item.totalPoints.toLocaleString(nf), year: anneeDebut, brand: m.site.brand })
   : t(lang, 'desc.itemShort', { name: item.qualifie || item.name, series: serieTxt, brand: m.site.brand });
+
+// ⭐⭐ DEUX LIBELLÉS D'ATTENTE, ET ILS NE DISENT PAS LA MÊME CHOSE.
+//   `enAttente`   : la donnée EST collectée, elle se perd entre le Sheet et le
+//                   catalogue — un correctif dans `scrapeur-veve` la fera
+//                   apparaître ici sans toucher à ce fichier ;
+//   `pasCollecte` : personne ne la demande à aucune API — il faut d'abord
+//                   décider de la cueillir.
+// ⛔ Les confondre reviendrait à ranger un travail d'une heure et un chantier
+//    entier sous le même tiret. C'est exactement la faute que ce site
+//    s'interdit ailleurs (« aucune offre » contre « pas encore collecté »).
+const enAttente = t(lang, 'data.notCollected');
+const pasCollecte = t(lang, 'data.notCollected');
+const mcpJour = mcpPoints(item.rarity, item.type);
 ---
 <Base lang={lang} path={path} sect={item.type === 'comic' ? 'comics' : 'collectibles'}
       title={titreItem} description={descItem} crumbs={crumbs} ld={ld} updatedAt={updatedAt}>
@@ -165,28 +178,89 @@ const descItem = (item.floor && item.totalPoints && anneeDebut)
           )}
         </span>
       </div>
-      {/* La fiche technique sous la pièce, comme dans la maquette. */}
+      {/* ═══════════════════════════════════════════════════════════════════
+          LA COLONNE DE GAUCHE — LOT 73, l'ordre exact demandé par Preda
+          ═══════════════════════════════════════════════════════════════════
+          Trois blocs, séparés comme il les a écrits :
+            ① l'identité de la pièce      : rareté, tirage
+            ② les conditions du drop      : type d'édition → disponibilité
+            ③ la provenance               : série / marque / licence
+               (et pour un comic : le générique + le numéro)
+
+          🔴🔴 CE QUI EST EN ATTENTE, ET POURQUOI ON LE MONTRE QUAND MÊME.
+          Sur les onze lignes du bloc ②, SIX ne sont pas encore dans
+          `catalogue.csv.gz`. ⭐⭐⭐ ET CINQ D'ENTRE ELLES SONT DÉJÀ COLLECTÉES :
+          `veve_detail.py` demande à l'API VeVe `marketFee`, `dailyMcpPoints`,
+          `dropMethod`, `firstAvailableEdition` et `series{ season }` depuis
+          toujours. Elles atteignent le Sheet — sauf `season`, que
+          `DROP_COLUMNS` de `sheets.py` supprime explicitement — et c'est
+          `catalog_export.py` qui ne les recopie pas dans les 22 colonnes du
+          catalogue. La chaîne les récolte et les jette, deux fois.
+          ⛔ Ce lot ne peut donc PAS les remplir : le correctif vit dans
+          `scrapeur-veve`, pas ici. → A-LIRE-lot73-veveprice.md
+          ⭐⭐ ON AFFICHE LE TIRET PLUTÔT QUE DE MASQUER LA LIGNE, et c'est la
+          règle de la maison : une ligne absente laisse croire que la donnée
+          n'existe pas ; un tiret `data-attente` dit qu'elle existe et qu'on
+          l'attend. La fiche se remplira toute seule le jour où l'export
+          s'élargit — aucun gabarit à retoucher.
+          ⚠️ « Available: Globally », « Writers », « Artists », « Cover
+          Artists », « Characters » et « Pages » ne sont demandés à AUCUNE API
+          aujourd'hui : ceux-là ne sont pas jetés, ils ne sont pas cueillis.
+          C'est une autre décision, et elle t'appartient. */}
       <table class="fiche-tbl"><tbody>
-        {item.edition_type && <tr><th>{t(lang, 'item.edition')}</th><td>{item.edition_type}</td></tr>}
-        {item.brand && <tr><th>{t(lang, 'item.brand')}</th><td>{item.brand}</td></tr>}
-        {item.licensor && <tr><th>{t(lang, 'item.licensor')}</th><td>{item.licensor}</td></tr>}
-        {item.releaseDate && <tr><th>{t(lang, 'item.release')}</th><td>{item.releaseDate}</td></tr>}
-        {item.storePrice && <tr><th>{t(lang, 'item.storePrice')}</th><td>{money(item.storePrice)}</td></tr>}
+        {item.rarity && <tr><th>{t(lang, 'item.rarity')}</th><td><Fragment set:html={rar(item.rarity)} /></td></tr>}
+        {item.tirage && <tr><th>{t(lang, 'item.supply')}</th><td>{item.tirage.toLocaleString(nf)}</td></tr>}
       </tbody></table>
-      {/* ⭐ « DETAILS » REMONTE ICI LE 03/08/2026 (demande Preda) : directement
-          sous « Release price », dans la colonne de l'image, au lieu du bas de
-          page.
-          ⛔ ET IL NE REDIT PAS CE QUE LE TABLEAU DU DESSUS DIT DEJA. Le bloc
-          d'origine repetait marque, licence, sortie et prix de sortie — quatre
-          lignes affichees DEUX FOIS sur la meme page, a deux endroits qui
-          finissent toujours par diverger. Il ne porte plus que ce dont il est
-          la seule source : collection, rarete, tirage. */}
-          <h2>{t(lang, 'item.sheet')}</h2>
-          <table><tbody>
-            {colSlug && <tr><th>{t(lang, 'item.collection')}</th><td><a href={localize(lang, `/collection/${colSlug}/`)}>{item.series}</a></td></tr>}
-            {item.rarity && <tr><th>{t(lang, 'item.rarity')}</th><td><Fragment set:html={rar(item.rarity)} /></td></tr>}
-            {item.tirage && <tr><th>{t(lang, 'item.supply')}</th><td>{item.tirage.toLocaleString(nf)}</td></tr>}
-          </tbody></table>
+
+      <table class="fiche-tbl"><tbody>
+        <tr><th>{t(lang, 'item.edition')}</th>
+          <td>{item.edition_type || <span data-attente title={enAttente}>—</span>}</td></tr>
+        {/* ⭐ Le MCP vient du BARÈME publié (`vitrine.mjs`), pas d'une collecte :
+            c'est une constante, elle est donc juste sans dépendre d'un run.
+            ⚠️ La colonne `daily_mcp_points` du Sheet, elle, est connue pour être
+            fausse — on ne s'en sert pas, même le jour où elle arrivera ici. */}
+        <tr><th>{t(lang, 'item.mcpDaily')}</th>
+          <td>{mcpJour !== undefined ? mcpJour.toFixed(2) : <span class="muted">—</span>}</td></tr>
+        <tr><th>{t(lang, 'item.firstEdition')}</th>
+          <td><span data-attente title={enAttente}>—</span></td></tr>
+        <tr><th>{t(lang, 'item.season')}</th>
+          <td><span data-attente title={enAttente}>—</span></td></tr>
+        <tr><th>{t(lang, 'item.storePrice')}</th>
+          <td>{item.storePrice ? money(item.storePrice) : <span data-attente title={enAttente}>—</span>}</td></tr>
+        <tr><th>{t(lang, 'item.release')}</th>
+          <td>{item.releaseDate || <span data-attente title={enAttente}>—</span>}</td></tr>
+        <tr><th>{t(lang, 'item.dropType')}</th>
+          <td><span data-attente title={enAttente}>—</span></td></tr>
+        <tr><th>{t(lang, 'item.marketFee')}</th>
+          <td><span data-attente title={enAttente}>—</span></td></tr>
+        <tr><th>{t(lang, 'item.available')}</th>
+          <td><span data-attente title={enAttente}>—</span></td></tr>
+      </tbody></table>
+
+      {/* ③ LA PROVENANCE — deux formes, parce qu'un comic et un collectible ne
+          se décrivent pas pareil. ⭐ La série reste un LIEN vers son set : c'est
+          la seule ligne de ce bloc qui mène quelque part. */}
+      {item.type === 'comic' ? (
+        <table class="fiche-tbl"><tbody>
+          <tr><th>{t(lang, 'item.writers')}</th><td><span data-attente title={pasCollecte}>—</span></td></tr>
+          <tr><th>{t(lang, 'item.artists')}</th><td><span data-attente title={pasCollecte}>—</span></td></tr>
+          <tr><th>{t(lang, 'item.coverArtists')}</th><td><span data-attente title={pasCollecte}>—</span></td></tr>
+          <tr><th>{t(lang, 'item.characters')}</th><td><span data-attente title={pasCollecte}>—</span></td></tr>
+          <tr><th>{t(lang, 'item.startYear')}</th><td><span data-attente title={enAttente}>—</span></td></tr>
+          <tr><th>{t(lang, 'item.pages')}</th><td><span data-attente title={pasCollecte}>—</span></td></tr>
+          <tr><th>{t(lang, 'item.issue')}</th><td>{titreOeuvre}</td></tr>
+          {colSlug && <tr><th>{t(lang, 'item.series')}</th>
+            <td><a href={localize(lang, `/collection/${colSlug}/`)}>{item.series}</a></td></tr>}
+          {item.licensor && <tr><th>{t(lang, 'item.license')}</th><td>{item.licensor}</td></tr>}
+        </tbody></table>
+      ) : (
+        <table class="fiche-tbl"><tbody>
+          {colSlug && <tr><th>{t(lang, 'item.series')}</th>
+            <td><a href={localize(lang, `/collection/${colSlug}/`)}>{item.series}</a></td></tr>}
+          {item.brand && <tr><th>{t(lang, 'item.brand')}</th><td>{item.brand}</td></tr>}
+          {item.licensor && <tr><th>{t(lang, 'item.license')}</th><td>{item.licensor}</td></tr>}
+        </tbody></table>
+      )}
     </div>
 
     <div class="fiche__txt">
@@ -229,7 +303,25 @@ const descItem = (item.floor && item.totalPoints && anneeDebut)
           (dataset.mjs) : ne pas confondre « plus affichée » et « retirée ». */}
       <div class="murs">
         <div>
-          <div class="mur__k"><Fragment set:html={gemsM()} /> {t(lang, 'item.floor')}</div>
+          {/* ⭐ LOT 73 — LE BOUTON « VOIR SUR VEVE », en face du plancher.
+              🔴 IL A FALLU DIX LOTS POUR LE POSER, ET LA DONNÉE ÉTAIT LÀ DEPUIS
+              LE DÉBUT. Ce fichier et le Marché portaient tous deux « ⛔ aucune
+              URL dans la donnée, et je n'en fabrique pas ». Or `catalogue.csv.gz`
+              a une colonne `veve_url`, remplie sur 1 200 fiches sur 1 200 —
+              c'est le MOTEUR qui la jetait, pas la collecte qui l'ignorait.
+              ⭐⭐⭐ Le refus était juste ET il tenait lieu de vérification :
+              « on ne fabrique pas d'URL » a fini par vouloir dire « on n'en a
+              pas », ce que personne n'avait mesuré. Un principe correct devient
+              un angle mort dès qu'il dispense de regarder.
+              ⚠️ `rel="noopener"` : la page ouverte ne doit pas pouvoir
+              manipuler la nôtre par `window.opener`. */}
+          <div class="mur__k">
+            <Fragment set:html={gemsM()} /> {t(lang, 'item.floor')}
+            {item.veveUrl && (
+              <a class="lien-b" href={item.veveUrl} target="_blank" rel="noopener"
+                 style="margin-left:auto">{t(lang, 'item.viewVeve')} ↗</a>
+            )}
+          </div>
           <div class="mur__v">{money(item.floor)}<span class="mur__u">gems</span></div>
           <div class="mur__eq">{item.listings ?? '—'} {t(lang, 'item.listings')}</div>
           <div class="mur__d">
@@ -256,7 +348,18 @@ const descItem = (item.floor && item.totalPoints && anneeDebut)
               ⛔ NE JAMAIS remplir ces champs par un calcul, un taux devine ou
               une conversion approchee. Le jour ou le collecteur existe, ce
               bloc change de SOURCE sans changer de FORME. */}
-          <div class="mur__k"><Fragment set:html={omiM()} /> {t(lang, 'item.floorStackr')}</div>
+          {/* ⛔ ET CELUI DE STACKR RESTE DÉSACTIVÉ, PARCE QUE L'URL, ELLE,
+              N'EXISTE VRAIMENT NULLE PART — ni dans le catalogue, ni dans le
+              Sheet, ni dans aucun collecteur (vérifié cette fois, pas supposé).
+              ⭐ Un `<span>` et non un `<a>` : un bouton mort qui a l'air
+              cliquable coûte plus cher en confiance qu'un bouton grisé qui dit
+              pourquoi. Le jour où l'URL arrive, `<span>` devient `<a href>` et
+              rien d'autre ne bouge. */}
+          <div class="mur__k">
+            <Fragment set:html={omiM()} /> {t(lang, 'item.floorStackr')}
+            <span class="lien-b" data-attente title={t(lang, 'data.notCollected')}
+                  style="margin-left:auto">{t(lang, 'item.viewStackr')} ↗</span>
+          </div>
           <div class="mur__v" data-attente title={t(lang, 'data.notCollected')}>—<span class="mur__u">OMI</span></div>
           <div class="mur__eq" data-attente title={t(lang, 'data.notCollected')}>—</div>
           <div class="mur__d">

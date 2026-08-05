@@ -302,6 +302,28 @@ async function construireDataset() {
         const u = String(c.image || '').trim();
         return u.startsWith('https://') ? u : '';
       })(),
+      // 🔴🔴 LOT 73 — `veve_url` ÉTAIT DANS LE CATALOGUE ET LE MOTEUR LE JETAIT.
+      // ═══════════════════════════════════════════════════════════════════════
+      // Preda demande un bouton « voir sur VeVe » sur la fiche. Le Marché porte
+      // depuis des semaines le commentaire « ⛔ AUCUNE URL DANS LA DONNÉE, ni
+      // pour VeVe ni pour StackR, ET JE N'EN FABRIQUE PAS ».
+      // C'était FAUX pour VeVe : `catalogue.csv.gz` a 22 colonnes, la 12ᵉ
+      // s'appelle `veve_url` et vaut
+      // `https://www.veve.me/collectibles/en/collectibles/<uuid>`.
+      // ⭐⭐⭐ DIXIÈME FOIS : LA DONNÉE MANQUANTE ÉTAIT DÉJÀ COLLECTÉE PUIS JETÉE.
+      // Et cette fois le refus s'était CRISTALLISÉ EN RÈGLE — « on ne fabrique
+      // pas d'URL » est juste, mais il servait à ne pas aller regarder si on en
+      // avait une. Un principe correct devient un angle mort quand il dispense
+      // de vérifier. → [[regle-donnee-collectee-puis-jetee]]
+      // ⚠️ Même assainissement que `image` : https et rien d'autre. Une URL qui
+      // vient d'un Sheet est une donnée d'entrée comme une autre, et un
+      // `javascript:` dans un `href` est une injection servie par notre domaine.
+      // ⛔ StackR n'a toujours PAS d'URL — celle-là n'existe nulle part, et on
+      //    ne l'invente pas. Le bouton reste, désactivé et dit comme tel.
+      veveUrl: (() => {
+        const u = String(c.veve_url || '').trim();
+        return u.startsWith('https://') ? u : '';
+      })(),
       floor: num(c.floor) ?? publicHist[publicHist.length - 1].floor,
       listings: num(c.listings) ?? publicHist[publicHist.length - 1].listings,
       // Un catalogue qui renvoie 0 veut dire « je ne sais pas », pas « zero ».
