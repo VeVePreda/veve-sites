@@ -36,7 +36,32 @@ export const prerender = true;
 const MODE = import.meta.env.RENDERING === 'server' ? 'server' : 'static';
 const SITE = import.meta.env.SITE || 'veveprice';
 
-export const GET = () => new Response(
-  JSON.stringify({ ok: true, mode: MODE, site: SITE }),
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐⭐⭐ LA SONDE DIT AUSSI CE QUE LE SERVEUR CROIT ETRE — ajoute au lot 92.
+// ═══════════════════════════════════════════════════════════════════════════
+// CE QUE CA A COUTE DE NE PAS L'AVOIR : deux lots pour trouver que nginx
+// envoyait `X-Forwarded-Proto: http` a Node. Le symptome etait un 403 CSRF ;
+// la cause etait une seule valeur, invisible de l'exterieur, que personne ne
+// pouvait lire sans ouvrir un terminal sur le serveur.
+//
+// `origin` est CE QU'ASTRO A RECONSTRUIT, et c'est exactement ce qu'il compare
+// a l'en-tete `Origin` du navigateur pour accepter ou refuser un POST de
+// formulaire. S'il affiche `http://…` alors que le site est en https, tout
+// envoi de formulaire rendra 403 — et ca se lit maintenant en une requete.
+//
+// ⭐ Un service doit savoir dire lui-meme s'il est correctement installe. Le
+//   `demarrage.ts` de veveid porte deja ce principe ; ici la difference est
+//   qu'un demarrage ne voit pas Cloudflare, et une vraie requete si.
+//
+// ⛔ ON NE REND AUCUN EN-TETE BRUT, ni IP, ni cookie : seulement l'origine
+//   reconstruite, que le visiteur connait deja puisque c'est la sienne.
+export const GET = ({ url }) => new Response(
+  JSON.stringify({
+    ok: true,
+    mode: MODE,
+    site: SITE,
+    origin: url.origin,
+    proto: url.protocol.replace(':', ''),
+  }),
   { headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } },
 );

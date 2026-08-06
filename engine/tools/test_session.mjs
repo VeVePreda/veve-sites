@@ -161,6 +161,29 @@ const enHttp = /proxy_pass\s+http:\/\/127\.0\.0\.1/.test(nginxServeur);
 const transmetProto = /proxy_set_header\s+X-Forwarded-Proto/i.test(nginxServeur);
 dit(enHttp, 'nginx parle bien http à Node (c’est la cause du décalage)', enHttp ? '' : 'proxy_pass introuvable — ce contrôle ne mesure plus rien');
 dit(transmetProto, 'nginx transmet X-Forwarded-Proto', transmetProto ? '' : 'sans lui, Astro ne PEUT pas connaître le vrai schéma');
+/**
+ * 🔴🔴 LE CONTRÔLE QUI MANQUAIT AU LOT 91, ET QUI A COÛTÉ UN LOT DE PLUS.
+ *
+ * `proxy_set_header X-Forwarded-Proto $scheme` a l'air correct — c'est même la
+ * ligne qu'on trouve dans tous les exemples. Mais `$scheme` décrit la connexion
+ * CLOUDFLARE → NGINX. Ce serveur n'écoute qu'en `listen 80` : `$scheme` vaut
+ * donc toujours `http`, et cette ligne ÉCRASE par `http` le `https` que
+ * Cloudflare venait d'envoyer.
+ *
+ * ⭐⭐ Le banc du lot 91 vérifiait que l'en-tête était TRANSMIS. Il ne
+ *    vérifiait pas AVEC QUOI. « Est-ce là ? » et « qu'est-ce que ça vaut ? »
+ *    sont deux questions — la même leçon que le CSS, dans une autre couche.
+ */
+const ecoutePas443 = !/listen\s+443/.test(nginxServeur);
+const ecraseAvecScheme = /X-Forwarded-Proto\s+\$scheme\s*;/.test(nginxServeur);
+dit(!(ecoutePas443 && ecraseAvecScheme),
+  'X-Forwarded-Proto ne vaut pas $scheme sur un serveur qui n’écoute qu’en 80',
+  ecoutePas443 && ecraseAvecScheme
+    ? '$scheme vaut TOUJOURS http ici — il écrase le https envoyé par le proxy amont ⇒ 403 sur tout POST de formulaire'
+    : '');
+dit(/map\s+\$http_x_forwarded_proto/.test(nginxServeur),
+  'une map propage le protocole du visiteur, avec repli sur $scheme',
+  'sans elle, le protocole du dernier saut remplace celui du visiteur');
 dit(/security\s*:\s*\{[\s\S]{0,400}allowedDomains/.test(conf),
   'astro.config.mjs déclare security.allowedDomains',
   'sans lui, X-Forwarded-Proto est jeté ⇒ 403 sur TOUT POST de formulaire, en production seulement');
