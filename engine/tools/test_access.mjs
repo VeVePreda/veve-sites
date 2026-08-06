@@ -98,12 +98,21 @@ process.stdout.write('###' + JSON.stringify({
 }));
 `);
 
-function scenario(nom, manifesteYml) {
+// ⭐ PREPARER et EXECUTER se separent (06/08/2026) : la sonde du middleware a
+// besoin d'une RACINE de scenario, pas d'un resultat de scenario. Sans cette
+// scission, elle ne pouvait interroger que le manifeste de production — et
+// c'est ce qui a cable une DECISION de Preda dans une assertion de mecanisme.
+function preparer(nom, manifesteYml) {
   const root = join(base, nom);
   mkdirSync(join(root, 'sites', 'test'), { recursive: true });
   mkdirSync(join(root, 'engine', 'data'), { recursive: true });
   cpSync(join(RACINE, 'engine', 'data', 'sample'), join(root, 'engine', 'data', 'sample'), { recursive: true });
   writeFileSync(join(root, 'sites', 'test', 'manifest.yml'), manifesteYml);
+  return root;
+}
+
+function scenario(nom, manifesteYml) {
+  const root = preparer(nom, manifesteYml);
   const r = spawnSync(process.execPath, [RUNNER], {
     cwd: RACINE,
     env: { ...process.env, PROJECT_ROOT: root, SITE: 'test', WAREHOUSE_OFFLINE: '1' },
@@ -371,25 +380,70 @@ try {
   // On appelle la condition du middleware DIRECTEMENT, dans deux processus,
   // avec et sans SESSION_API. C'est la seule assertion de ce fichier qui
   // touche au middleware, et elle vaut les autres reunies.
-  const sondeMw = (avecApi) => {
+  //
+  // 🔴🔴 CORRIGE LE 06/08/2026, APRES UN DEPLOIEMENT ARRETE PAR CE BANC.
+  // Il exigeait `sansApi === 'crevette'` — la valeur ECRITE DANS LE MANIFESTE
+  // DE PRODUCTION. Le jour ou Preda a eteint la demo (et il a bien fait : elle
+  // servait la reserve a n'importe qui), ce banc est tombe. Il n'avait rien
+  // trouve : il a signale que la POLITIQUE avait change, en croyant parler du
+  // MECANISME.
+  // ⭐⭐⭐ UN BANC QUI CABLE UNE DECISION DANS SON ATTENTE FAIT ECHOUER LE
+  // DEPLOIEMENT LE JOUR OU LA DECISION EST PRISE — c'est-a-dire exactement au
+  // pire moment, et en accusant l'innocent. `test:routes` porte deja la regle
+  // en tete : « son attente vient du manifeste, pas d'une liste ».
+  // ⛔ ET ON NE LE REPARE PAS EN ECRIVANT `sansApi === null` : on aurait juste
+  // cable la decision SUIVANTE, et le banc retomberait le jour ou la demo se
+  // rallume. Deux fautes de plus a chaque changement d'avis.
+  //
+  // LA FORME JUSTE, EN DEUX MOITIES :
+  //   (a) sur un manifeste QUI DECLARE une demo, le middleware la relaie —
+  //       assertion NETTE, non nulle, insensible a la politique de veveprice ;
+  //   (b) sur le manifeste REEL, le middleware rend ce que le manifeste
+  //       DECLARE, quel qu'il soit — l'attente est LUE, jamais ecrite.
+  const sondeMw = (avecApi, root) => {
     const r = spawnSync(process.execPath, ['-e',
       `import(${JSON.stringify(join(RACINE, 'src', 'middleware.js'))})`
       + `.then((m) => process.stdout.write('###' + JSON.stringify(m.palierDeDemonstration({}))))`
       + `.catch((e) => process.stdout.write('###"ERREUR:' + e.message + '"'))`],
       { cwd: RACINE, encoding: 'utf8',
-        env: { ...process.env, SITE: 'veveprice', WAREHOUSE_OFFLINE: '1',
+        env: { ...process.env, WAREHOUSE_OFFLINE: '1',
+               ...(root ? { PROJECT_ROOT: root, SITE: 'test' } : { SITE: 'veveprice' }),
                ...(avecApi ? { SESSION_API: 'https://id.example/api' } : { SESSION_API: '' }) } });
     const m = (r.stdout || '').split('###')[1];
     return m ? JSON.parse(m) : `PAS DE SORTIE: ${(r.stderr || '').slice(-400)}`;
   };
-  const sansApi = sondeMw(false);
-  const avecApi = sondeMw(true);
-  verifie('sans SESSION_API, le middleware applique la demo du manifeste',
-    sansApi === 'crevette', `palier rendu = ${JSON.stringify(sansApi)} (manifeste veveprice)`);
+
+  // --- (a) le MECANISME, sur un manifeste qui declare « demo: member » ------
+  const racineDemo = preparer('demo-middleware', DEMO_OK);
+  const relais = sondeMw(false, racineDemo);
+  verifie('sans SESSION_API, le middleware RELAIE la demo declaree',
+    relais === 'member',
+    `palier rendu = ${JSON.stringify(relais)} (manifeste declarant « demo: member »)`);
   verifie('🔴 avec SESSION_API configure, la demo s\'EFFACE',
-    avecApi === null,
-    avecApi === null ? 'null — le vrai service decide seul'
-      : `palier rendu = ${JSON.stringify(avecApi)} — une panne reseau distribuerait l'abonnement`);
+    sondeMw(true, racineDemo) === null,
+    'null — le vrai service decide seul, meme quand le manifeste declare une demo');
+
+  // --- (b) le manifeste REEL : l'attente est LUE, pas ecrite ----------------
+  // ⭐ On demande au moteur ce que le site declare, et on exige que le
+  // middleware rende CA. Eteindre ou rallumer la demo ne casse plus rien ;
+  // seul un middleware qui cesserait de relayer ferait tomber le banc.
+  const declaree = (() => {
+    const r = spawnSync(process.execPath, ['-e',
+      `import(${JSON.stringify(join(RACINE, 'engine', 'lib', 'access.mjs'))})`
+      + `.then((m) => process.stdout.write('###' + JSON.stringify(m.palierDemo() ?? null)))`
+      + `.catch((e) => process.stdout.write('###"ERREUR:' + e.message + '"'))`],
+      { cwd: RACINE, encoding: 'utf8',
+        env: { ...process.env, SITE: 'veveprice', WAREHOUSE_OFFLINE: '1', SESSION_API: '' } });
+    const m = (r.stdout || '').split('###')[1];
+    return m ? JSON.parse(m) : `PAS DE SORTIE: ${(r.stderr || '').slice(-400)}`;
+  })();
+  const sansApi = sondeMw(false);
+  verifie('sur le manifeste reel, le middleware rend ce que le site DECLARE',
+    sansApi === declaree,
+    `declare = ${JSON.stringify(declaree)} · rendu = ${JSON.stringify(sansApi)}`
+    + (declaree === null ? ' — veveprice a eteint sa demo le 06/08, et c\'est une DECISION, pas une panne' : ''));
+  verifie('🔴 sur le manifeste reel aussi, SESSION_API efface tout',
+    sondeMw(true) === null, 'null — le vrai service decide seul');
 
 } finally {
   console.log(`\n${echecs === 0 ? '✅ tout est vert' : `❌ ${echecs} echec(s)`}`);
