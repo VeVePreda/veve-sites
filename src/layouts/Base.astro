@@ -306,7 +306,12 @@ const menuComplet = wikiNav
       .filter((e) => e.cle !== 'nav.blog' || blogDansCetteLangue)
       .map((e) => ({ href: e.href === '/' ? localize(lang, '/') : localize(lang, e.href),
                      label: t(lang, e.cle) }))
-      .concat(acces().tiers.length > 1
+      // 🔴 `aUneSession` ET NON `tiers.length > 1` (06/08/2026, demande de Preda).
+      // La condition disait « ce site A des comptes », pas « cette personne EN a
+      // un ». Elle affichait donc « Mon compte » à des visiteurs qui n'en ont
+      // aucun. ⭐⭐ CE QUE LE SITE PROPOSE ET CE QUE LA PERSONNE POSSÈDE SONT
+      // DEUX QUESTIONS — la même confusion que palier/session, un cran plus haut.
+      .concat(comptesOuverts && aUneSession
         ? [{ href: '/compte/', label: t(lang, 'account.title') }] : []);
 ---
 <!doctype html>
@@ -498,7 +503,7 @@ const menuComplet = wikiNav
               rendue A LA DEMANDE, lit `Accept-Language`, et n'a donc QU'UNE
               adresse sans prefixe. La passer par `nav:` la ferait `localize`,
               ce qui fabriquerait /fr/compte/ — une page qui n'existe pas. */}
-          {acces().tiers.length > 1 && <a href="/compte/">{t(lang, 'account.title')}</a>}
+          {comptesOuverts && aUneSession && <a href="/compte/">{t(lang, 'account.title')}</a>}
         </>)}
     </span>
     {/* ⭐ LE DÉPLIANT DE SECOURS — il n'apparaît QUE là où `.nav__liens` se
@@ -549,7 +554,10 @@ const menuComplet = wikiNav
          ⭐ `<details>` et pas un bouton : il s'ouvre SANS JavaScript. Une
          commande de langue qui exige un script est une commande qui manque
          exactement aux gens qui en ont le plus besoin. */}
-      {langAuCompte && alternates.length > 1 && (
+      {/* ⛔ `!aUneSession` : une fois connecté, le réglage de langue vit dans
+          l'espace compte — le garder ici donnerait DEUX commandes pour un seul
+          réglage, et deux commandes pour un réglage finissent par diverger. */}
+      {langAuCompte && !aUneSession && alternates.length > 1 && (
       <details class="globe">
         <summary aria-label={t(lang, 'lang.pick')} title={t(lang, 'lang.pick')}>
           <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6">
@@ -576,7 +584,6 @@ const menuComplet = wikiNav
       {comptesOuverts && !aUneSession && (
       <span class="h-cta">
         <a class="btn btn--principal btn--sm" href="/inscription/">{t(lang, 'nav.signup')}</a>
-        <a class="h-cta__b" href="/connexion/">{t(lang, 'signup.signin')}</a>
       </span>
     )}
     </div>
@@ -615,7 +622,7 @@ const menuComplet = wikiNav
       .map((e) => (
         <a href={e.href === '/' ? localize(lang, '/') : localize(lang, e.href)}>{t(lang, e.cle)}</a>
       ))}
-    <a href="/compte/">{t(lang, 'account.title')}</a>
+    {comptesOuverts && aUneSession && <a href="/compte/">{t(lang, 'account.title')}</a>}
   </nav>
 )}
 <main class="wrap" id="contenu" tabindex="-1">

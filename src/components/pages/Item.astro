@@ -320,10 +320,16 @@ const mcpJour = mcpPoints(item.rarity, item.type);
       {/* 📕 Le TITRE DE L'OEUVRE, pas celui de la collection. Voir `titreOeuvre`
           dans le frontmatter : repli sur `item.name`, toujours. */}
       <h1 class="mono-t">{titreOeuvre}</h1>
+      {/* ⛔ RARETÉ ET TIRAGE RETIRÉS D'ICI LE 06/08/2026 (demande de Preda).
+          Ils restent dans le tableau d'identité 90 lignes plus bas — ils y sont
+          nommés, alignés et traduits. Sous le titre ils n'étaient qu'un doublon
+          qui poussait la description vers le bas.
+          ⭐ Le lien de série RESTE : lui n'existe qu'ici, et c'est la seule
+          passerelle de la fiche vers sa collection. Retirer une ligne entière
+          parce que deux de ses trois morceaux sont en trop, c'est la panne
+          d'à côté. */}
       <p class="respire">
-        {item.rarity && <Fragment set:html={rar(item.rarity)} />}
         {colSlug && <a class="tag" href={localize(lang, `/collection/${colSlug}/`)}>{item.series}</a>}
-        {item.tirage && <span class="tag">{t(lang, 'item.supply')} {item.tirage.toLocaleString(nf)}</span>}
       </p>
 
       {/* 📝 LA DESCRIPTION. Elle est dans les onglets froids du Sheet depuis

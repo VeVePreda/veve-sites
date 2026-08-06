@@ -355,7 +355,19 @@ async function construireDataset() {
         const id = u.split('/').filter(Boolean).pop();
         if (!/^[0-9a-f-]{36}$/i.test(id)) return '';
         const rayon = String(c.kind || '').toLowerCase() === 'comic' ? 'comics' : 'collectibles';
-        return `https://www.veve.me/collectibles/en/market/${rayon}/${id}`;
+        // 🔴🔴 CORRIGÉ LE 06/08/2026 — IL Y AVAIT UN SEGMENT DE TROP.
+        // L'adresse émise était `/collectibles/en/market/collectibles/<uuid>` :
+        // VeVe répondait 200 et servait une coquille vide, parce que son routeur
+        // ne reconnaît pas ce chemin — il ne tentait même pas d'authentifier.
+        // ⭐⭐ UN 200 SUR UNE APPLICATION JAVASCRIPT NE DIT PAS QUE LA PAGE
+        // EXISTE : elle rend son index pour n'importe quel chemin. C'est le
+        // `curl` qui rassurait, pas le site.
+        // ⭐ La bonne forme vient de VeVe LUI-MÊME : le paramètre `state` de sa
+        // redirection OAuth porte `http://www.veve.me/en/market/collectibles/<uuid>`.
+        // ⚠️ Le lien mène à l'écran de connexion VeVe pour qui n'y est pas
+        // connecté. C'est leur comportement, pas le nôtre — et c'est la seule
+        // adresse qu'ils reconnaissent.
+        return `https://www.veve.me/en/market/${rayon}/${id}`;
       })(),
       floor: num(c.floor) ?? publicHist[publicHist.length - 1].floor,
       listings: num(c.listings) ?? publicHist[publicHist.length - 1].listings,

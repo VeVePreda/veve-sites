@@ -218,8 +218,23 @@ nav.main a{font-family:var(--font-heading);font-size:14px;font-weight:500;color:
   border-radius:var(--r-full);transition:color var(--d-fast),background var(--d-fast)}
 nav.main a:hover, nav.main a:focus-visible{color:var(--text);background:var(--vp-survol);text-decoration:none}
 nav.main a[aria-current]{color:var(--primary);background:color-mix(in srgb,var(--primary) 12%,transparent)}
+/* 🔴🔴 `margin-top:var(--s8)` RETIRÉ LE 06/08/2026 — 88 px de vide en bas de
+   CHAQUE page, signalés plusieurs fois par Preda.
+   ⭐⭐⭐ LA CORRECTION ÉTAIT DÉJÀ ÉCRITE, ET ELLE NE S'APPLIQUAIT PAS.
+   Le footer porte `class="site site-f"`. `.site-f` (l. 510) déclare
+   `margin-top:0` — mais `.site-f` pèse (0,1,0) et `footer.site` pèse (0,1,1) :
+   l'ancienne règle GAGNE, quel que soit l'ordre des lignes. Quelqu'un a donc
+   écrit le correctif, l'a vu dans le fichier, et l'espace est resté.
+   ⭐⭐ « EST-CE LÀ ? » ET « EST-CE CE QUI GAGNE ? » SONT DEUX QUESTIONS.
+   ⚠️ ET CE N'EST PAS UN CAS ISOLÉ : `header.site` (l. 205) contre `.site-h`
+   (l. 411), `nav.main` contre `.nav__liens`, `footer.site` contre `.site-f` —
+   une STRATE ENTIÈRE de l'ancien thème habille encore les mêmes éléments que
+   le vocabulaire de la maquette. On retire ici la seule déclaration qui faisait
+   un dégât visible ; la strate, elle, se traite en entier, pas au coup par coup.
+   ⛔ Ne pas « re-corriger » en remontant `.site-f` plus bas dans le fichier :
+   l'ordre ne bat pas la spécificité, et on croirait avoir compris. */
 footer.site{border-top:1px solid var(--vp-rule);padding:var(--s6) 0;
-  color:var(--muted);font-size:14px;margin-top:var(--s8)}
+  color:var(--muted);font-size:14px}
 .card{background:var(--surface);border:1px solid var(--vp-rule);
   border-radius:var(--r-lg);padding:var(--s5);box-shadow:var(--sh-1)}
 .grid{display:grid;gap:var(--s3);grid-template-columns:repeat(auto-fill,minmax(196px,1fr))}
