@@ -177,6 +177,17 @@ jobs:
         if: steps.garde.outputs.actif == 'true'
         run: python3 engine/tools/lastmod.py --site "${{ matrix.site }}"
 
+      # ⭐⭐⭐ L'HEURE DE DÉPART SE PREND AVANT LE COMMIT — DÉPLACÉE LE 06/08/2026.
+      # Sa justification d'origine — « une page construite après cet instant ne
+      # peut venir que de CE déploiement » — n'était vraie que tant qu'un seul
+      # ordre de déploiement existait. Le `git push` ci-dessous EN EST UN
+      # (webhook Coolify) : le build pouvait démarrer AVANT ce jalon.
+      # ⭐⭐ UN TÉMOIN ANCRÉ SUR UN JALON POSÉ APRÈS LE DÉPART RÉEL NE MESURE
+      # PLUS CE QU'IL CROIT. Posé ici, il couvre les DEUX ordres possibles.
+      - name: Horodater le départ
+        if: steps.garde.outputs.actif == 'true'
+        run: echo "DEPART=$(date -u +%s)" >> "$GITHUB_ENV"
+
       - name: Committer le snapshot s'il a changé
         id: commit
         if: steps.garde.outputs.actif == 'true'
@@ -217,16 +228,26 @@ jobs:
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
 
-      # ⭐ L'HEURE DE DÉPART EST LA RÉFÉRENCE DU CONTRÔLE DE FRAÎCHEUR : une
-      # page construite après cet instant ne peut venir que de CE déploiement.
-      - name: Horodater le départ
-        if: steps.garde.outputs.actif == 'true'
-        run: echo "DEPART=$(date -u +%s)" >> "$GITHUB_ENV"
-
+      # ⛔ ON NE DEMANDE UN DÉPLOIEMENT QUE SI PERSONNE NE L'A DÉJÀ FAIT.
+      # Mesuré sur veveprice le 06/08 à 09:27:46 : deux déploiements du MÊME
+      # commit lancés à la MÊME SECONDE, l'un « Webhook » (le push), l'autre
+      # « API » (cette étape). Le second est mort en cours de build — exit 255,
+      # `DeploymentException` dans `build_image()`. Aucun banc n'avait échoué.
+      # ⚠️ ET ON NE SUPPRIME PAS CET APPEL : le commit est CONDITIONNEL. Sans
+      # récolte, pas de push, donc pas de webhook — et sans cette étape le site
+      # cesserait d'être reconstruit sans que rien ne le dise. Les deux chemins
+      # sont nécessaires ; c'est leur SIMULTANÉITÉ qui ne l'était pas.
+      # ⭐ Ici la réponse était déjà écrite : `steps.commit.outputs.changed`
+      # existe depuis le 03/08. Il ne manquait que de s'en servir.
       - name: Déclencher le déploiement Coolify
         if: steps.garde.outputs.actif == 'true'
         run: |
           set -u
+          if [ "${A_POUSSE}" = "true" ]; then
+            echo "Le commit du snapshot a déjà commandé le déploiement (webhook)."
+            echo "On n'en demande pas un second : deux ordres simultanés se tuent l'un l'autre."
+            exit 0
+          fi
           code=$(curl -sS -o /tmp/deploy.out -w '%{http_code}' \
             -H "Authorization: Bearer ${COOLIFY_TOKEN}" \
             "${COOLIFY_DEPLOY_URL}")
@@ -236,6 +257,7 @@ jobs:
             echo "Le déclenchement du déploiement a échoué."; exit 1
           fi
         env:
+          A_POUSSE: ${{ steps.commit.outputs.changed }}
           # ⭐ Le NOM du secret vient de la matrice, sa VALEUR de `secrets[…]`.
           # Un secret ne se construit pas par concaténation de chaîne : c'est
           # l'indexation du contexte qui le résout, et elle est évaluée par

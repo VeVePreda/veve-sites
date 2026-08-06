@@ -203,6 +203,18 @@ jobs:
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
 
+      # ⭐⭐⭐ L'HEURE DE DEPART SE PREND AVANT LE COMMIT — DEPLACEE LE 06/08/2026.
+      # Elle etait prise APRES, et sa justification etait juste tant qu'un seul
+      # ordre de deploiement existait : « une page construite apres cet instant
+      # ne peut venir que de CE deploiement ». Or le `git push` ci-dessous EST
+      # un ordre de deploiement (webhook Coolify) : le build pouvait donc
+      # demarrer AVANT que ce jalon ne soit pose, et le controle de fraicheur se
+      # serait mis a mesurer par rapport a un depart qui n'etait plus le sien.
+      # ⭐⭐ UN TEMOIN ANCRE SUR UN JALON POSE APRES LE DEPART REEL NE MESURE
+      # PLUS CE QU'IL CROIT. Pose ici, il couvre les DEUX ordres possibles.
+      - name: Horodater le depart
+        run: echo "DEPART=$(date -u +%s)" >> "$GITHUB_ENV"
+
       # ⚠️ AVANT le declenchement : c'est ce commit que Coolify va construire.
       - name: Committer le journal des dates s'il a change
         run: |
@@ -219,17 +231,31 @@ jobs:
           else
             git commit -m "chore(veveprice): journal des dates $(date -u +%F)"
             git pull --rebase --autostash && git push
+            # 🔴🔴 CE `git push` VIENT DE COMMANDER UN DEPLOIEMENT (06/08/2026).
+            # Coolify a un webhook sur cette branche : chaque commit declenche un
+            # build. L'etape suivante en demandait un SECOND par l'API — meme
+            # commit, meme seconde. Mesure du 06/08 a 09:27:46 : deux
+            # deploiements, un « Webhook » et un « API », le second tue en cours
+            # de build (exit 255, DeploymentException dans build_image()).
+            # ⭐⭐⭐ UN `git push` N'EST PAS UN GESTE DE COMPTABILITE QUAND UN
+            # WEBHOOK DE DEPLOIEMENT EST BRANCHE SUR LA BRANCHE : C'EST UN ORDRE.
+            echo "POUSSE=1" >> "$GITHUB_ENV"
           fi
 
-      # ⭐ L'HEURE DE DEPART EST LA REFERENCE DU CONTROLE DE FRAICHEUR.
-      # Elle se prend AVANT le declenchement : une page construite apres cet
-      # instant ne peut venir que de CE deploiement.
-      - name: Horodater le depart
-        run: echo "DEPART=$(date -u +%s)" >> "$GITHUB_ENV"
-
+      # ⛔ ON NE DEMANDE UN DEPLOIEMENT QUE SI PERSONNE NE L'A DEJA FAIT.
+      # ⚠️ ET ON NE SUPPRIME PAS CET APPEL : l'etape de commit est CONDITIONNELLE.
+      # Les jours ou le journal des dates ne bouge pas, il n'y a pas de push,
+      # donc pas de webhook — et sans cet appel le site cesserait d'etre
+      # reconstruit sans que rien ne le dise. Les deux chemins sont necessaires ;
+      # c'est leur SIMULTANEITE qui ne l'etait pas.
       - name: Declencher le deploiement Coolify
         run: |
           set -u
+          if [ "${POUSSE:-0}" = "1" ]; then
+            echo "Le commit du journal des dates a deja commande le deploiement (webhook)."
+            echo "On n'en demande pas un second : deux ordres simultanes se tuent l'un l'autre."
+            exit 0
+          fi
           code=$(curl -sS -o /tmp/deploy.out -w '%{http_code}' \
             -H "Authorization: Bearer ${COOLIFY_TOKEN}" \
             "${COOLIFY_DEPLOY_URL}")
