@@ -205,6 +205,26 @@ dit(/siteUrl\(\)/.test(conf),
   'le domaine autorisé est DÉRIVÉ du manifeste',
   'un domaine en dur casserait les autres sites du moteur — en silence, et en production seulement');
 
+// ── 8. LE SECRET PARTAGÉ N'A QU'UNE VALEUR, ET DEUX NOMS ───────────────────
+console.log('\n8. Le secret de service se lit sous ses deux noms');
+/**
+ * 🔴 `veveid` lit `ID_SERVICE`. Ce dépôt lisait `VEVEID_SERVICE`. Même valeur,
+ *    deux noms, et rien ne le disait : recopier la variable sous son nom
+ *    d'origine — le geste évident — laissait l'en-tête `x-service` vide,
+ *    veveid répondait 401, et la page disait « nous n'avons pas pu envoyer le
+ *    lien ». Une heure pour une lettre de différence.
+ * ⭐⭐⭐ UN SECRET PARTAGÉ QUI PORTE DEUX NOMS SELON LE CÔTÉ EST UNE ERREUR DE
+ *   RECOPIE EN ATTENTE.
+ */
+for (const f of ['src/pages/api/entrer.js', 'src/pages/api/inscription.js',
+                 'src/pages/api/deconnexion.js', 'src/pages/api/sante.js']) {
+  const src = lire(join(RACINE, f));
+  const tolere = /VEVEID_SERVICE\s*\|\|\s*process\.env\.ID_SERVICE/.test(src)
+    || /secretDeService\(\)/.test(src);
+  dit(tolere, `${f} accepte les deux noms du secret`,
+    tolere ? '' : 'une recopie sous le nom de veveid (ID_SERVICE) resterait sans effet');
+}
+
 // ── 6. AUTO-CONTRÔLE ───────────────────────────────────────────────────────
 console.log('\n6. Auto-contrôle — ce banc a-t-il quelque chose à inspecter ?');
 // ⭐ Un verdict rendu sur zéro élément n'a rien prouvé. Si `sources` était

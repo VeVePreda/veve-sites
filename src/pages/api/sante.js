@@ -72,7 +72,8 @@ const SITE = import.meta.env.SITE || 'veveprice';
 const branche = () => ({
   inscription: Boolean(process.env.INSCRIPTION_API),
   session: Boolean(process.env.SESSION_API),
-  service: Boolean(process.env.VEVEID_SERVICE),
+  // ⭐ Les DEUX noms comptent : voir `secretDeService()` (lot 94).
+  service: Boolean(process.env.VEVEID_SERVICE || process.env.ID_SERVICE),
 });
 
 export const GET = ({ url }) => new Response(

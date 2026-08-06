@@ -32,6 +32,17 @@
 // ne peut pas rendre cette route a la demande.
 export const prerender = true;
 
+// ⭐⭐ DEUX NOMS POUR LE MEME SECRET — corrige au lot 94.
+// `veveid` lit `ID_SERVICE`, ce depot lisait `VEVEID_SERVICE`. C'est la MEME
+// valeur, et rien ne le disait : recopier la variable sous son nom d'origine
+// — le geste evident — laissait `x-service` vide, veveid repondait 401, et la
+// page affichait « nous n'avons pas pu envoyer le lien ».
+// ⭐⭐⭐ UN SECRET PARTAGE QUI PORTE DEUX NOMS SELON LE COTE EST UNE ERREUR DE
+//   RECOPIE EN ATTENTE. On accepte donc les deux, et `VEVEID_SERVICE` reste
+//   le nom recommande — celui qui dit A QUI on parle.
+const secretDeService = () => process.env.VEVEID_SERVICE || process.env.ID_SERVICE || '';
+
+
 // ⚠️ MÊMES ATTRIBUTS QUE `api/deconnexion.js`, AU CARACTÈRE PRÈS. Un cookie
 // posé avec `path:'/'` et effacé avec un autre chemin n'est pas effacé : le
 // navigateur considère que ce sont deux cookies. C'est la raison n°1 des
@@ -64,7 +75,7 @@ export async function GET({ url, cookies, redirect }) {
         'content-type': 'application/json',
         // ⭐ Le secret partagé ne sert QU'À LIRE et à échanger : il ne signe
         // rien. Un site compromis ne peut usurper personne.
-        'x-service': process.env.VEVEID_SERVICE || '',
+        'x-service': secretDeService(),
       },
       body: JSON.stringify({ code }),
       // ⚠️ Sans délai maximum, un service muet retient la requête du visiteur
