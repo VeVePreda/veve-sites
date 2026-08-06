@@ -5,6 +5,7 @@ import routesCompte from './engine/lib/astro_routes_compte.mjs';
 import reserveAnalytics from './engine/lib/astro_reserve_analytics.mjs';
 import { satteri } from '@astrojs/markdown-satteri';
 import figuresMarkdown from './engine/lib/figures_markdown.mjs';
+import { siteUrl } from './engine/lib/manifest.mjs';
 
 // Rendu HYBRIDE : chaque site choisit son mode via la variable RENDERING
 //   static  (defaut) = tout est pre-genere, aucun serveur
@@ -22,10 +23,47 @@ const mode = process.env.RENDERING || 'static';
 // ⚠️ A CONNAITRE : une route `prerender = false` FAIT ECHOUER le build en mode
 // static (aucun adaptateur, erreur NoAdapterInstalled). Une telle route doit
 // donc conditionner son propre `prerender` au mode — cf. src/pages/api/sante.js.
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴 LE 403 « Cross-site POST form submissions are forbidden » (lot 91)
+// ═══════════════════════════════════════════════════════════════════════════
+// LE SYMPTOME : page blanche au clic sur « créer mon compte », en production
+// seulement. Le formulaire est pourtant sur le même domaine que sa cible.
+//
+// LE MECANISME, lu dans `astro/dist/core/app/origin-check.js` :
+//     const isSameOrigin = request.headers.get("origin") === url.origin;
+// Le navigateur envoie `Origin: https://veveprice.com`. Mais nginx parle
+// **http** à Node (`proxy_pass http://127.0.0.1:4321`), et l'adaptateur
+// reconstruit `url` depuis le protocole de la CONNEXION — donc
+// `http://veveprice.com`. Deux origines identiques au schéma près : 403.
+//
+// ⭐⭐ nginx transmettait déjà `X-Forwarded-Proto: https`. **Astro l'IGNORE**
+//    tant qu'on ne lui a pas dit à quel proxy se fier
+//    (`validateForwardedHeaders`, dans `core/app/node.js` : sans
+//    `allowedDomains`, l'en-tête est jeté sans un mot).
+//
+// ⛔ CE N'EST PAS `checkOrigin: false`. Désactiver la protection CSRF pour
+//    faire passer un formulaire, c'est retirer le garde-fou au lieu de le
+//    renseigner. Ici on ne l'affaiblit pas : on lui donne l'origine de
+//    référence qui lui manquait, et il continue de refuser tout le reste.
+//
+// ⚠️ DERIVE DU MANIFESTE, jamais écrite en dur : ce moteur sert plusieurs
+//    sites, et un domaine codé ici ferait échouer tous les autres — en
+//    silence, et seulement en production.
+const origineDuSite = (() => {
+  try { return new URL(siteUrl()); }
+  catch { return new URL('https://veveprice.com'); }
+})();
+
 export default defineConfig({
   site: process.env.SITE_URL || 'https://veveprice.com',
   output: 'static',
   adapter: mode === 'server' ? node({ mode: 'standalone' }) : undefined,
+  security: {
+    allowedDomains: [{
+      protocol: origineDuSite.protocol.replace(':', ''),
+      hostname: origineDuSite.hostname,
+    }],
+  },
   // Retire les talons de redirection des fonctionnalites eteintes par le
   // manifeste (un wiki n'a pas de pages de prix). Sans quoi Astro emet
   // /movers/ et /collections/ en pages fantomes. Cf.

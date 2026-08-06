@@ -134,6 +134,54 @@ for (const f of ['src/pages/api/inscription.js', 'src/pages/inscription/index.as
     s.includes('SESSION_API') ? '' : 'il ouvrirait l’inscription sans pouvoir la terminer');
 }
 
+// ── 7. LE PROXY ET LE CONTRÔLE D'ORIGINE — deux fichiers, une seule vérité ─
+console.log('\n7. nginx parle http à Node : Astro doit le savoir');
+/**
+ * 🔴🔴 LA PANNE DU 06/08, ET ELLE N'EXISTAIT QU'EN PRODUCTION.
+ *
+ * Astro refuse un POST de formulaire dont l'`Origin` diffère de `url.origin`
+ * (`core/app/origin-check.js`). Le navigateur envoie `https://veveprice.com` ;
+ * nginx fait `proxy_pass http://127.0.0.1:4321`, et l'adaptateur reconstruit
+ * l'URL depuis le protocole de la CONNEXION — donc `http://…`. Deux origines
+ * identiques au schéma près : 403 « Cross-site POST form submissions are
+ * forbidden », page blanche au clic sur « créer mon compte ».
+ *
+ * ⭐⭐ nginx transmettait DÉJÀ `X-Forwarded-Proto`. Astro le JETTE tant que
+ *    `security.allowedDomains` est vide — sans un mot dans le journal.
+ * ⛔ Le correctif n'est PAS `checkOrigin: false` : on ne retire pas le
+ *    garde-fou, on lui donne l'origine de référence qui lui manquait.
+ *
+ * ⭐⭐⭐ MÊME FAMILLE QUE LE 404 DE `/compte/` : Astro décide, nginx sert, et
+ *    les deux moitiés vivent dans deux fichiers. Ce contrôle-ci les tient
+ *    ensemble — c'est la seule façon qu'aucune des deux ne dérive seule.
+ */
+const conf = lire(join(RACINE, 'astro.config.mjs'));
+const nginxServeur = lire(join(RACINE, 'nginx.server.conf'));
+const enHttp = /proxy_pass\s+http:\/\/127\.0\.0\.1/.test(nginxServeur);
+const transmetProto = /proxy_set_header\s+X-Forwarded-Proto/i.test(nginxServeur);
+dit(enHttp, 'nginx parle bien http à Node (c’est la cause du décalage)', enHttp ? '' : 'proxy_pass introuvable — ce contrôle ne mesure plus rien');
+dit(transmetProto, 'nginx transmet X-Forwarded-Proto', transmetProto ? '' : 'sans lui, Astro ne PEUT pas connaître le vrai schéma');
+dit(/security\s*:\s*\{[\s\S]{0,400}allowedDomains/.test(conf),
+  'astro.config.mjs déclare security.allowedDomains',
+  'sans lui, X-Forwarded-Proto est jeté ⇒ 403 sur TOUT POST de formulaire, en production seulement');
+/**
+ * ⚠️ ON NE CHERCHE QUE DU CODE VIVANT — piège payé deux fois dans ce même
+ *    fichier. La v1 lisait le fichier entier, or `astro.config.mjs` EXPLIQUE
+ *    en commentaire pourquoi `checkOrigin: false` serait la mauvaise réponse.
+ *    Le banc accusait donc le texte qui le lui interdisait.
+ * ⭐⭐ Un dépôt a le droit de NOMMER ce qu'il refuse de faire. Un contrôle qui
+ *    lit les commentaires transforme chaque avertissement en infraction — et
+ *    pousse à effacer les explications pour passer au vert.
+ */
+const codeVivant = (src) => src.split('\n')
+  .filter((l) => !/^\s*(\/\/|\*|\/\*|#)/.test(l)).join('\n');
+dit(!/checkOrigin\s*:\s*false/.test(codeVivant(conf)),
+  'la protection CSRF n’a PAS été désactivée',
+  '⛔ checkOrigin:false ferait passer le formulaire en retirant le garde-fou');
+dit(/siteUrl\(\)/.test(conf),
+  'le domaine autorisé est DÉRIVÉ du manifeste',
+  'un domaine en dur casserait les autres sites du moteur — en silence, et en production seulement');
+
 // ── 6. AUTO-CONTRÔLE ───────────────────────────────────────────────────────
 console.log('\n6. Auto-contrôle — ce banc a-t-il quelque chose à inspecter ?');
 // ⭐ Un verdict rendu sur zéro élément n'a rien prouvé. Si `sources` était
