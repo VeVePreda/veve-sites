@@ -27,7 +27,24 @@ import sys
 
 RACINE = pathlib.Path(__file__).resolve().parents[2]
 PRIX = RACINE / 'engine' / 'data' / 'sample' / 'prices.csv'
-DIST = RACINE / 'dist'
+# ═══════════════════════════════════════════════════════════════════════════
+# 🔴🔴 `dist` OU `dist/client` — LA MEME ERREUR, POUR LA TROISIEME FOIS.
+# ═══════════════════════════════════════════════════════════════════════════
+# En mode `static`, Astro pose les pages dans `dist/`. En mode `server`, il les
+# pose dans `dist/client/` et met le serveur dans `dist/server/`. Ce fichier ne
+# regardait que `dist/` : lance apres un build `server`, il ne trouvait AUCUNE
+# fiche et rendait « aucune fiche produite : test invalide ».
+#
+# ⭐ ET LE DEPOT SAVAIT DEJA. `audit_seo.py`, dans ce meme dossier, porte la
+#    lecon en toutes lettres depuis le 30/07 : « il avait deja lu `dist` au lieu
+#    de `dist/client` ». La connaissance existait a trois fichiers d'ici.
+#
+# ⭐⭐ CE BANC A EU RAISON DE CRIER. Il a refuse de rendre un verdict sur zero
+#     element, au lieu de dire « tout est vert, 0 fiche verifiee » — ce qui est
+#     exactement ce qu'on demande a un controle. On corrige OU il regarde, pas
+#     ce qu'il exige.
+_DIST = RACINE / 'dist'
+DIST = _DIST / 'client' if (_DIST / 'client').is_dir() else _DIST
 
 
 def construire():

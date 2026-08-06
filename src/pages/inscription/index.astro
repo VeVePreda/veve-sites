@@ -41,14 +41,25 @@ const { tiers } = acces();
 // Une page d'inscription qui se croit inutile est une page d'inscription morte.
 const connecte = sessionDe(Astro.locals) === 'reelle';
 
-// ⛔ AUCUN SERVICE D'IDENTITÉ N'EXISTE ENCORE, ET LA PAGE LE DIT.
-// `veveid` ne connaît que le parcours par wallet : ni mot de passe, ni
-// `/oauth/start`. Arbitrage Preda du 03/08 : le courriel + mot de passe se fera
-// EN DERNIER. D'ici là le formulaire est celui qui servira, et un bandeau dit
-// qu'il ne crée rien.
-// ⭐⭐ UN FORMULAIRE QUI A L'AIR DE MARCHER ET QUI NE MARCHE PAS COÛTE PLUS
-// CHER QU'UNE PAGE ABSENTE : l'absence se voit, la panne muette se croit.
-const inscriptionOuverte = Boolean(process.env.INSCRIPTION_API);
+// ⭐⭐ OUVERTE POUR DE BON DEPUIS LE LOT 90 — le commentaire qui vivait ici
+// (« aucun service d'identité n'existe encore ») a survécu deux jours à sa
+// cause. Le lot 89 a posé l'inscription par e-mail dans `veveid`.
+// ⭐ UN AVERTISSEMENT QUI SURVIT À SA CAUSE DEVIENT UN MENSONGE QUI SE CITE.
+//
+// 🔴 LES DEUX VARIABLES VONT ENSEMBLE, et la page le sait comme la route.
+// Avec `INSCRIPTION_API` seule, quelqu'un s'inscrirait, recevrait son
+// courriel, cliquerait — et `api/entrer.js` n'aurait rien pour échanger le
+// code : un lien à usage unique BRÛLÉ POUR RIEN. Mieux vaut un formulaire
+// fermé qu'une inscription perdue.
+const inscriptionOuverte = Boolean(process.env.INSCRIPTION_API && process.env.SESSION_API);
+
+// ⭐ L'ÉTAT APRÈS ENVOI. La route redirige ici avec `?envoye=1` plutôt que de
+// rendre une page à elle : une seule page d'inscription, un seul texte à
+// traduire, et un rafraîchissement ne repost pas le formulaire.
+// ⚠️ ON N'AFFICHE PAS L'ADRESSE SAISIE. Elle serait dans l'URL, donc dans
+// l'historique et dans les journaux du proxy.
+const envoye = Astro.url.searchParams.get('envoye') === '1';
+const erreur = Astro.url.searchParams.get('e') || '';
 
 // ── LE CHAMP DE PROFONDEUR ────────────────────────────────────────────────
 // 16 pièces sur 3 plans, positions en unités de FENÊTRE (la colonne 36–64 %
@@ -130,15 +141,33 @@ const cguMorceaux = t(lang, 'signup.cgu').split(/(\{terms\}|\{privacy\})/);
 
       {!inscriptionOuverte && (
         /* ⭐ LE BANDEAU EST AU-DESSUS DU FORMULAIRE, PAS EN DESSOUS.
-           Un avertissement placé après les champs se lit une fois qu'on a déjà
-           tapé son mot de passe — c'est-à-dire trop tard pour servir. */
+           Un avertissement placé après le champ se lit une fois qu'on a déjà
+           tapé son adresse — c'est-à-dire trop tard pour servir. */
         <p class="inscr__avis">
           <b>{t(lang, 'signup.closed')}</b><br />{t(lang, 'signup.closed.d')}
         </p>
       )}
 
+      {envoye && (
+        /* 🔴 CE TEXTE EST LE MÊME QUE L'ADRESSE EXISTE OU NON, que le compte
+           soit neuf ou ancien, et même si l'envoi a échoué. Une page qui
+           dirait « compte créé » d'un côté et « content de vous revoir » de
+           l'autre ferait de ce formulaire un outil pour savoir qui est
+           inscrit — avec une liste d'adresses achetée, c'est une fuite à
+           l'échelle. */
+        <p class="inscr__avis">
+          <b>{t(lang, 'signup.sent')}</b><br />{t(lang, 'signup.sent.d')}
+        </p>
+      )}
+
+      {erreur && !envoye && (
+        <p class="inscr__avis">
+          {erreur === '1' ? t(lang, 'signup.err.mail') : t(lang, 'signup.err.svc')}
+        </p>
+      )}
+
       {/* ⚠️ MÉTHODE POST, ET `action` EXPLICITE. Un formulaire sans `method`
-          part en GET : le mot de passe se retrouverait dans l'URL, donc dans
+          part en GET : l'adresse se retrouverait dans l'URL, donc dans
           l'historique du navigateur, dans le Referer et dans les journaux du
           serveur. C'est la faute la plus banale et la plus chère de la page. */}
       <form class="inscr__form" method="POST" action="/api/inscription">
@@ -147,24 +176,16 @@ const cguMorceaux = t(lang, 'signup.cgu').split(/(\{terms\}|\{privacy\})/);
           <label class="etiq" for="c-mail">{t(lang, 'signup.mail')}</label>
           <input id="c-mail" name="courriel" type="email" autocomplete="email"
                  required placeholder={t(lang, 'signup.mail.ph')} />
+          <span class="champ__aide">{t(lang, 'signup.nopass')}</span>
         </div>
 
-        <div class="champ">
-          <label class="etiq" for="c-pseudo">{t(lang, 'signup.pseudo')}</label>
-          <input id="c-pseudo" name="pseudo" type="text" autocomplete="nickname"
-                 required maxlength="40" placeholder={t(lang, 'signup.pseudo.ph')} />
-        </div>
-
-        <div class="champ">
-          <label class="etiq" for="c-mdp">{t(lang, 'signup.pass')}</label>
-          {/* ⭐ `autocomplete="new-password"` — sans lui, le gestionnaire de
-              mots de passe propose l'ancien au lieu d'en fabriquer un neuf.
-              ⛔ `minlength` SEUL NE PROTÈGE RIEN : c'est un confort de saisie,
-              la règle vraie se réapplique côté serveur, toujours. */}
-          <input id="c-mdp" name="motdepasse" type="password" autocomplete="new-password"
-                 required minlength="12" placeholder={t(lang, 'signup.pass.ph')} />
-          <span class="champ__aide">{t(lang, 'signup.pass.help')}</span>
-        </div>
+        {/* ⛔ NI MOT DE PASSE, NI PSEUDO — lot 90, et les deux pour la même
+            raison. Le mot de passe : arbitrage du lot 89, un lien à usage
+            unique ne se vole pas et ne se réutilise pas ailleurs. Le pseudo :
+            `veveid` ne le stocke nulle part, le demander revenait à collecter
+            une donnée pour la jeter — le douzième cas de la même famille dans
+            ce projet. Le jour où un nom d'affichage servira, il se demandera
+            depuis « Mon compte », à quelqu'un qui existe déjà. */}
 
         <label class="inscr__cgu">
           <input type="checkbox" name="cgu" required />

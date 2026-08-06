@@ -55,13 +55,26 @@ if (!comptesActifs()) return Astro.redirect('/');
 const session = sessionDe(Astro.locals);
 const connecte = session === 'reelle';
 const palier = palierVisiteur(Astro.locals);
-const idBase = process.env.VEVEID_URL || '';
-
-// ⚠️ LE RETOUR EST CONSTRUIT CÔTÉ SERVEUR, JAMAIS REPRIS D'UN PARAMÈTRE.
-// Un `?retour=` accepté tel quel est une redirection ouverte : il suffit d'un
-// lien pour renvoyer la personne, jeton en main, vers un site tiers.
-const retour = new URL('/compte/', Astro.site || 'https://veveprice.com').href;
-const lien = idBase ? `${idBase}/oauth/start?retour=${encodeURIComponent(retour)}` : '';
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴 `/oauth/start` N'A JAMAIS EXISTÉ — corrigé au lot 90.
+// ═══════════════════════════════════════════════════════════════════════════
+// Cette page construisait `${VEVEID_URL}/oauth/start?retour=…`. Vérifié dans
+// le `server.ts` de veveid : cette route n'y est pas, et n'y a jamais été.
+//
+// ⭐⭐⭐ CE N'ÉTAIT PAS UNE ROUTE OUBLIÉE, C'ÉTAIT UNE MÉPRISE SUR LA NATURE
+// DU SERVICE. `veveid` n'est pas un fournisseur de connexion à la Google : sa
+// table `comptes` n'avait ni e-mail ni mot de passe, seulement un
+// portefeuille. Attendre un `/oauth/start` de sa part revenait à attendre
+// d'une clé qu'elle soit une serrure.
+//
+// ⭐ CE QU'ON FAIT À LA PLACE : exactement le même geste que l'inscription —
+// une adresse, un lien à usage unique. « Se connecter » et « s'inscrire » sont
+// LA MÊME ACTION quand il n'y a pas de mot de passe : la seule différence est
+// qu'un compte existe déjà au bout, ou non. Deux formulaires pour un seul
+// geste feraient hésiter devant un choix qui n'en est pas un.
+const ouvert = Boolean(process.env.INSCRIPTION_API && process.env.SESSION_API);
+const erreur = Astro.url.searchParams.get('e') || '';
+const envoye = Astro.url.searchParams.get('envoye') === '1';
 ---
       {/* ⛔ UNE SEULE LANGUE DÉCLARÉE, ET C'EST LE CORRECTIF DU 404.
           `/compte/` et `/connexion/` sont rendues À LA DEMANDE et lisent
@@ -94,8 +107,31 @@ const lien = idBase ? `${idBase}/oauth/start?retour=${encodeURIComponent(retour)
   ) : (
     <section class="panneau">
       <p class="respire">{t(lang, 'login.lead')}</p>
-      {lien
-        ? <a class="btn btn--principal btn--sm" href={lien} rel="nofollow">{t(lang, 'login.veveid')}</a>
+
+      {envoye && (
+        /* 🔴 Même texte que l'adresse existe ou non — voir /inscription/. */
+        <p class="respire"><b>{t(lang, 'signup.sent')}</b><br />{t(lang, 'signup.sent.d')}</p>
+      )}
+      {erreur && !envoye && (
+        <p class="respire">{erreur === '1' ? t(lang, 'signup.err.mail') : t(lang, 'signup.err.svc')}</p>
+      )}
+
+      {ouvert
+        ? (
+          /* ⚠️ MÊME `action` QUE `/inscription/`, ET C'EST VOULU. Sans mot de
+             passe, se connecter et s'inscrire sont le même geste : une
+             adresse, un lien. Une seconde route ferait un second endroit où
+             la règle « la même réponse dans tous les cas » peut diverger. */
+          <form class="champ" method="POST" action="/api/inscription">
+            <label class="etiq" for="l-mail">{t(lang, 'signup.mail')}</label>
+            <input id="l-mail" name="courriel" type="email" autocomplete="email"
+                   required placeholder={t(lang, 'signup.mail.ph')} />
+            <p style="margin-top:var(--s3)">
+              <button type="submit" class="btn btn--principal btn--sm">{t(lang, 'login.send')}</button>
+            </p>
+            <p class="muted" style="font-size:13px">{t(lang, 'signup.nopass')}</p>
+          </form>
+        )
         : /* ⛔ Pas de service d'identité configuré : on le DIT. Un bouton mort
              ferait croire à une panne du site plutôt qu'à une étape à venir. */
           <p class="muted">{t(lang, 'login.nosvc')}</p>}

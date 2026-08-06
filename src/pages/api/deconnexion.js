@@ -1,4 +1,4 @@
-// ⚠️ VeVePreda/veve-sites — src/pages/api/deconnexion.js  (FICHIER NEUF)
+// ⚠️ VeVePreda/veve-sites — src/pages/api/deconnexion.js
 // Effacer la session. ⛔ POST UNIQUEMENT.
 // Un GET destructeur est déclenchable par un simple <img src="…">, et les
 // préchargeurs de liens du navigateur le suivent d'eux-mêmes : on déconnecterait
@@ -11,7 +11,36 @@
 // ne peut pas rendre cette route a la demande.
 export const prerender = true;
 
-export const POST = ({ cookies, redirect }) => {
+export const POST = async ({ cookies, redirect }) => {
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 🔴🔴 SE DÉCONNECTER, C'EST RÉVOQUER — PAS EFFACER UN COOKIE (lot 90).
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Effacer le cookie ne ferme que CE navigateur. La session, elle, reste
+  // ouverte chez veveid pendant trente jours : quiconque aurait copié le `sid`
+  // — un ordinateur partagé, une sauvegarde de navigateur, un journal mal
+  // configuré — continuerait d'entrer. « Déconnecté » décrirait alors ce que
+  // la personne CROIT, pas ce qui est.
+  // ⭐ On ferme donc à la source, PUIS on efface le cookie.
+  const sid = cookies.get('vp_session')?.value || null;
+  const base = process.env.SESSION_API || '';
+  if (sid && base) {
+    try {
+      await fetch(`${base}/api/deconnexion`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-service': process.env.VEVEID_SERVICE || '' },
+        body: JSON.stringify({ sid }),
+        signal: AbortSignal.timeout(3000),
+      });
+    } catch (e) {
+      // ⚠️ ON EFFACE LE COOKIE QUAND MÊME. Ici, échouer OUVERT est le bon
+      // choix — et c'est l'inverse de `api/entrer.js`, pour une raison
+      // précise : refuser de déconnecter parce que le réseau est tombé
+      // laisserait la personne connectée sur un poste qu'elle quitte.
+      // ⭐⭐ « Échouer fermé » veut dire « refuser le DROIT en cas de doute ».
+      //    Retirer un droit n'est jamais le geste risqué.
+      console.error(`[deconnexion] révocation impossible : ${e?.message}`);
+    }
+  }
   // ⚠️ Les attributs doivent être IDENTIQUES à ceux de la pose, sinon le
   // navigateur considère que c'est un AUTRE cookie et laisse l'original vivre.
   // C'est la raison n°1 des « déconnexions qui ne déconnectent pas ».

@@ -71,6 +71,12 @@ const ROUTES_COMPTE = [
   'pages/inscription/index.astro',
   'pages/api/demo.js',
   'pages/api/inscription.js',
+  // ⭐⭐ AJOUTÉE AU LOT 90 — LA ROUTE QUI POSE `vp_session`.
+  // ⚠️ L'oublier ici la pré-générerait EN SILENCE : elle deviendrait un
+  // fichier figé, incapable de lire `?code=` et incapable de poser un cookie.
+  // Le symptôme aurait été « le lien du courriel ne connecte pas », et on
+  // aurait cherché du côté de veveid, qui aurait pourtant fait son travail.
+  'pages/api/entrer.js',
   // ⭐⭐ LOT 44 — les modules abonnés d'Analytics. Arbitrage Preda du 03/08 :
   // TOUT est derrière le mur. Cette route lit la session et sert `.reserve/` ;
   // pré-générée, elle deviendrait un fichier figé répondant « pas de session »
