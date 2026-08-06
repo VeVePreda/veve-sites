@@ -224,6 +224,21 @@ export const palierParDefaut = () => 'visitor';
 // DECLARE et ce qu'une personne PORTE sont deux choses.
 export const palierDemo = () => acces().demo;
 
+// ⭐⭐⭐ QUI EST CETTE PERSONNE ? — a ne PAS confondre avec `palierVisiteur()`,
+// qui repond « qu'a-t-elle le droit de voir ? ». Les deux ont ete la MEME
+// variable jusqu'au 06/08/2026, et c'est ce qui a fait repondre « vous etes
+// deja connecte » a quelqu'un qui n'avait jamais de compte.
+//   'reelle' -> vraie session · 'demo' -> jeton nominatif · null -> personne.
+// ⛔ `access.demo` du manifeste ne rend JAMAIS 'reelle' : il donne un palier a
+// tout le monde, donc il n'identifie personne. Un droit collectif n'est pas une
+// identite. C'est le seul endroit ou cette regle est ecrite.
+export const sessionDe = (locals) => (locals && locals.session) || null;
+
+// A-t-on quelqu'un a deconnecter ? ⭐ La question que le bouton « Se
+// deconnecter » aurait du poser depuis le debut : il s'affichait sur un palier,
+// et un palier n'a pas de porte de sortie.
+export const connecte = (locals) => sessionDe(locals) !== null;
+
 // Un visiteur au palier `a` franchit-il une porte qui exige `requis` ?
 // Comparaison par RANG, pas par egalite : un membre franchit une porte `free`.
 export function auMoins(a, requis) {

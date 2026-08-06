@@ -95,7 +95,38 @@ access:
   # ⛔ ELLE NE S'APPLIQUE PAS SI `SESSION_API` EST CONFIGURÉ. Ce n'est pas une
   #    expiration déguisée : une démo qui écraserait un vrai service de session
   #    transformerait une panne réseau en abonnements gratuits.
-  demo: crevette
+  # ⛔⛔ ÉTEINTE LE 06/08/2026 SUR DÉCISION DE PREDA — ET CE N'ÉTAIT PAS
+  # QU'UNE DÉMO, C'ÉTAIT UNE FUITE. Mesuré en production le jour même, sans
+  # aucun cookie, depuis une machine quelconque :
+  #     GET /api/historique/d31aea9d-… → 200 {"ok":true,"palier":"crevette",…}
+  # La RÉSERVE — l'historique complet, celui qui s'achète — était servie à qui
+  # connaissait l'adresse. ⭐⭐⭐ UNE PORTE OUVERTE POUR SE MONTRER LE PRODUIT
+  # EST UNE PORTE OUVERTE. « Démonstration » décrit l'INTENTION, jamais l'effet.
+  #
+  # ⭐ ET ELLE CACHAIT LE SITE À SON PROPRE AUTEUR : tout visiteur valant
+  # `crevette`, il n'existait plus AUCUN visiteur. `/connexion/` répondait
+  # « vous êtes déjà connecté », `/inscription/` se mettait en mode connecté, et
+  # la déconnexion effaçait un cookie qui n'avait jamais existé — donc ne
+  # déconnectait rien, par construction. Preda a cru à trois pannes ; c'était
+  # cette ligne, trois fois.
+  #
+  # ⭐⭐ CE QU'ON NE PERD PAS. Les ~8 500 pages PRÉ-GÉNÉRÉES étaient déjà
+  # construites au palier `visitor` (le middleware sort sur `isPrerendered`
+  # depuis le 03/08) : elles ne changent donc PAS. Seules les 9 routes rendues à
+  # la demande retrouvent leur vrai palier.
+  #
+  # ⭐⭐ ET PREDA GARDE SA VUE D'ABONNÉ — c'est exactement ce pour quoi le jeton
+  # NOMINATIF a été écrit (lot 42) : `DEMO_CLE` est posée dans Coolify, donc
+  #     /api/demo?cle=<DEMO_CLE>&palier=whale     ouvre, 7 jours, pour LUI
+  #     /api/demo?cle=<DEMO_CLE>&sortir=1         referme
+  # ⭐ Le collectif s'éteint, le nominatif reste : c'est la distinction que le
+  # lot 42 avait posée sans jamais pouvoir servir, puisque le collectif couvrait
+  # tout le monde par-dessus.
+  #
+  # ⛔ POUR LA RALLUMER : décommenter la ligne ci-dessous, redéployer (~5 min).
+  # ⛔ NE PAS la rallumer « le temps d'une capture d'écran » : c'est un accès
+  # public, il n'a pas de durée. Le jeton nominatif fait ça mieux, et il expire.
+  # demo: crevette
 
   gates:
     # L'historique : 3 jours pour qui ne paie pas (arbitrage Preda du 30/07).
@@ -334,13 +365,27 @@ identity:
   # sans qu'aucun build ne s'en plaigne. `vitrine` ne pose que des variables,
   # donc il bascule par construction.
   theme: vitrine
-  # 🌐 OÙ VIT LE SÉLECTEUR DE LANGUE : "entete" (défaut) | "pied".
+  # 🌐 OÙ VIT LE SÉLECTEUR DE LANGUE : "entete" (défaut) | "pied" | "compte".
   # ⛔ La maquette l'a sorti de l'en-tête sur demande de Preda ; le moteur ne
   # l'avait jamais suivi. Les liens hreflang RESTENT dans le DOM — ils
   # changent de place, pas d'existence — sinon Google perd les traductions.
   # ⚠️ vevewiki ne déclare rien et garde donc sa barre dans l'en-tête, que son
   # thème `encyclopedie` style depuis toujours (8 règles).
-  langues_dans: pied
+  #
+  # ⭐ "compte" — AJOUTÉ LE 06/08/2026, DEMANDE DE PREDA. Le réglage descend
+  # dans l'espace compte, et le menu ne garde qu'un accès DISCRET (un globe qui
+  # déplie la liste). ⛔⛔ LES LIENS NE QUITTENT PAS LE DOM, MÊME LÀ : c'est par
+  # eux que Google découvre /fr/, /es/, /de/ ; les enfermer derrière un compte
+  # ferait disparaître le multilingue des résultats, et personne ne le verrait
+  # avant des mois. Ils sont repliés, jamais retirés.
+  langues_dans: compte
+  # 🎨 OÙ VIT LA BASCULE JOUR/NUIT : "entete" (défaut) | "compte".
+  # ⛔ Même dispositif, même raison : `encyclopedie` garde sa bascule dans
+  # l'en-tête, veveprice la descend dans l'espace compte (demande de Preda du
+  # 06/08). ⚠️ Le script qui RESTAURE le choix au chargement reste dans le
+  # <head> dans tous les cas : déplacer la commande ne doit pas oublier le
+  # visiteur qui a déjà choisi la nuit.
+  theme_dans: compte
   # ✏️ L'ACCROCHE DE L'EN-TÊTE (sous le nom). Courte, une carte par langue.
   # ⛔ Ce n'est PAS `site.tagline` — celle-là est la description SEO.
   # ⭐ Sans chiffre : « 1 200 pièces » se périmerait en silence.

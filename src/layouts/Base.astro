@@ -1,7 +1,7 @@
 ---
 import { createHash } from 'node:crypto';
 import { manifest, siteUrl } from '../../engine/lib/manifest.mjs';
-import { acces } from '../../engine/lib/access.mjs';
+import { acces, connecte } from '../../engine/lib/access.mjs';
 import { jsonld, websiteLd, pageTitle, homeTitle, breadcrumbLd } from '../../engine/lib/seo.mjs';
 import { locales, t, pick, localize, localeNames, dateLocale } from '../../engine/lib/i18n.mjs';
 import { degradesSpark } from '../../engine/lib/vitrine.mjs';
@@ -253,7 +253,19 @@ const statsOn = Boolean(analytics.website_id) && Boolean(statsSrc);
 // multilingue des résultats — un dégât invisible pendant des mois. Ils
 // changent de PLACE, jamais d'EXISTENCE. (Les `<link rel="alternate">` du
 // <head>, eux, ne bougent pas du tout.)
-const langAuPied = (m.identity.langues_dans || 'entete') === 'pied';
+const langueOu = m.identity.langues_dans || 'entete';
+const langAuPied = langueOu === 'pied';
+const langAuCompte = langueOu === 'compte';
+// 🎨 Même dispositif pour la bascule jour/nuit (demande de Preda, 06/08/2026).
+// ⚠️ Ne décide QUE de la place de la COMMANDE. Le script du <head> qui restaure
+// le choix reste posé quoi qu'il arrive : déplacer un bouton ne doit pas
+// rhabiller en clair quelqu'un qui lisait en nuit depuis trois semaines.
+const themeAuCompte = (m.identity.theme_dans || 'entete') === 'compte';
+// ⭐ QUI REGARDE, ET NON QUE PEUT-IL VOIR. Les 8 500 pages pré-générées n'ont
+// pas de visiteur : `connecte()` y rend faux, donc elles portent l'appel à
+// l'inscription. C'est exactement ce qu'on veut d'une page servie à un anonyme.
+const aUneSession = connecte(Astro.locals);
+const comptesOuverts = acces().tiers.length > 1;
 const suggestData = alternates.filter((a) => a.lang !== lang).map((a) => ({ l: a.lang, h: a.href, n: localeNames[a.lang] || a.lang }));
 
 // ⭐ Le menu, lu UNE fois. Une entree non prete est ECARTEE et DITE : un menu
@@ -522,13 +534,60 @@ const menuComplet = wikiNav
          aria-label={t(lang, 'search.placeholder')}>
         <span>{t(lang, 'search.placeholder')}</span><span class="kbd">⌘K</span>
       </a>
-      {pNuit && (
+      {pNuit && !themeAuCompte && (
       <button type="button" id="bascule-theme" class="bascule"
               aria-label={t(lang, 'theme.toggle')} title={t(lang, 'theme.toggle')}
               aria-pressed="false"></button>
     )}
+      {/* 🌐 L'ACCÈS DISCRET AUX LANGUES — demande de Preda du 06/08/2026.
+         ⛔⛔ LES LIENS RESTENT DANS LE DOM, REPLIÉS, JAMAIS RETIRÉS. C'est par
+         eux que Google découvre /fr/, /es/, /de/ ; un `<details>` fermé reste
+         parfaitement lisible par un robot, un `display:none` conditionnel en
+         JavaScript ne l'aurait pas été. Le réglage PERSISTANT, lui, vit dans
+         l'espace compte — c'est ce qui a été demandé, et ce que la maquette
+         écrivait déjà depuis des semaines.
+         ⭐ `<details>` et pas un bouton : il s'ouvre SANS JavaScript. Une
+         commande de langue qui exige un script est une commande qui manque
+         exactement aux gens qui en ont le plus besoin. */}
+      {langAuCompte && alternates.length > 1 && (
+      <details class="globe">
+        <summary aria-label={t(lang, 'lang.pick')} title={t(lang, 'lang.pick')}>
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6">
+            <circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c2.5 2.6 2.5 15.4 0 18M12 3c-2.5 2.6-2.5 15.4 0 18" />
+          </svg>
+          <span>{lang.toUpperCase()}</span>
+        </summary>
+        <div class="globe__m">
+          {alternates.map((a) => (
+            <a href={a.href} hreflang={a.lang}
+               aria-current={a.lang === lang ? 'true' : undefined}>{localeNames[a.lang] || a.lang.toUpperCase()}</a>
+          ))}
+        </div>
+      </details>
+    )}
+      {/* ⭐⭐ L'APPEL À L'INSCRIPTION — demande de Preda du 06/08/2026.
+         ⛔ IL N'EXISTAIT PAS, ET IL NE POUVAIT PAS EXISTER : sous
+         `access.demo: crevette`, tout visiteur portait un palier, donc il n'y
+         avait plus aucun visiteur à qui le montrer. Éteindre la démo est ce qui
+         rend ce bouton possible — les deux moitiés vont ensemble.
+         ⭐ UN SEUL appel à l'action plein, et la connexion en retrait : deux
+         boutons de même poids n'en font aucun, et c'est l'inscription qu'on
+         veut. */}
+      {comptesOuverts && !aUneSession && (
+      <span class="h-cta">
+        <a class="btn btn--principal btn--sm" href="/inscription/">{t(lang, 'nav.signup')}</a>
+        <a class="h-cta__b" href="/connexion/">{t(lang, 'signup.signin')}</a>
+      </span>
+    )}
     </div>
-    {!langAuPied && (
+    {/* 🔴 `langueOu === 'entete'` ET NON `!langAuPied` — CORRIGÉ DANS LE LOT
+        MÊME QUI L'A INTRODUIT. Ce réglage avait DEUX valeurs ; il en a TROIS.
+        Une négation qui voulait dire « l'autre cas » se met à vouloir dire
+        « tous les autres cas » le jour où on en ajoute un — et `compte` serait
+        retombé dans l'en-tête, en silence, à côté du globe qui le remplace.
+        ⭐⭐ UN BOOLÉEN QUI DEVIENT UNE ÉNUMÉRATION LAISSE DERRIÈRE LUI TOUTES
+        SES NÉGATIONS, ET CHACUNE EST UN CAS PAR DÉFAUT QUE PERSONNE N'A CHOISI. */}
+    {langueOu === 'entete' && (
     <span class="langbar">
       {alternates.map((a) => (
         <a href={a.href} hreflang={a.lang} aria-current={a.lang === lang ? 'true' : undefined}>{a.lang.toUpperCase()}</a>

@@ -125,9 +125,34 @@ export async function onRequest(context, next) {
   // qu'elle EST le service, les deux autres parce qu'elles ne tiennent la place
   // que d'un service absent. Cette condition vit dans les modules appelés, pas
   // ici : la dupliquer serait s'offrir une occasion de l'oublier d'un côté.
-  const brut = (await palierDeLaSession(sid, env))
-    || lireDemo(context.cookies.get(COOKIE_DEMO)?.value || null, env)
-    || palierDeDemonstration(env);
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 🔴🔴 LE PALIER ET LA SESSION SONT DEUX QUESTIONS — séparées le 06/08/2026.
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CE QUE ÇA A COÛTÉ. Avec `access.demo: crevette`, tout visiteur PORTAIT un
+  // palier. L'interface, qui n'avait qu'une variable, en concluait « cette
+  // personne est connectée » : `/connexion/` répondait « vous êtes déjà
+  // connecté », `/inscription/` se mettait en mode connecté, et le bouton de
+  // déconnexion effaçait un cookie qui n'avait jamais existé. Preda a vu trois
+  // pannes ; il n'y en avait aucune — une seule variable répondait à deux
+  // questions, et elle répondait juste à la mauvaise.
+  //
+  // ⭐⭐⭐ LE PALIER DIT CE QU'ON A LE DROIT DE VOIR. LA SESSION DIT QUI ON EST.
+  // Un jeton de démonstration donne le premier sans le second, et c'est
+  // exactement ce qu'on veut : voir la vue d'un abonné sans prétendre en être un.
+  //
+  // ⚠️ `locals.session` reste ABSENTE sur les ~8 500 pages pré-générées (le
+  // middleware sort plus haut sur `isPrerendered`). C'est correct et voulu : une
+  // page pré-générée n'a pas de visiteur, elle doit donc porter l'appel à
+  // l'inscription — celui de quelqu'un qui n'est pas connecté.
+  //   'reelle' -> une vraie session, chez le service d'identité
+  //   'demo'   -> le jeton NOMINATIF signé (il faut la clé pour l'obtenir)
+  //   absente  -> personne. Y compris sous `access.demo`, qui est COLLECTIF :
+  //               un palier donné à tout le monde n'identifie personne.
+  const reelle = await palierDeLaSession(sid, env);
+  const nominative = reelle ? null : lireDemo(context.cookies.get(COOKIE_DEMO)?.value || null, env);
+  const brut = reelle || nominative || palierDeDemonstration(env);
+  if (reelle) context.locals.session = 'reelle';
+  else if (nominative) context.locals.session = 'demo';
 
   // ⭐ On dépose la valeur BRUTE. C'est `palierVisiteur()` d'access.mjs qui
   // décide ce qu'elle vaut : il vérifie qu'elle existe, qu'elle est déclarée

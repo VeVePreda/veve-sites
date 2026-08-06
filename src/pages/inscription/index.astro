@@ -11,7 +11,7 @@
 export const prerender = true;
 
 import Base from '../../layouts/Base.astro';
-import { acces, palierVisiteur } from '../../../engine/lib/access.mjs';
+import { acces, sessionDe } from '../../../engine/lib/access.mjs';
 import { t, localize, locales } from '../../../engine/lib/i18n.mjs';
 import { comptesActifs } from '../../../engine/lib/features.mjs';
 import { getCatalogue } from '../../../engine/data/warehouse.mjs';
@@ -36,7 +36,10 @@ const lang = souhait.find((l) => active.includes(l)) || def;
 if (!comptesActifs()) return Astro.redirect('/');
 
 const { tiers } = acces();
-const connecte = palierVisiteur(Astro.locals) !== 'visitor';
+// 🔴 MÊME CORRECTION QUE `/connexion/` (06/08/2026) : cette page se mettait en
+// mode « déjà connecté » pour un visiteur que la démo avait doté d'un palier.
+// Une page d'inscription qui se croit inutile est une page d'inscription morte.
+const connecte = sessionDe(Astro.locals) === 'reelle';
 
 // ⛔ AUCUN SERVICE D'IDENTITÉ N'EXISTE ENCORE, ET LA PAGE LE DIT.
 // `veveid` ne connaît que le parcours par wallet : ni mot de passe, ni

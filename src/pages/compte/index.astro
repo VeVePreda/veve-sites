@@ -19,8 +19,8 @@ export const prerender = true;
 
 import Base from '../../layouts/Base.astro';
 import { manifest } from '../../../engine/lib/manifest.mjs';
-import { acces, palierVisiteur, porte, franchit } from '../../../engine/lib/access.mjs';
-import { t, localize, locales } from '../../../engine/lib/i18n.mjs';
+import { acces, palierVisiteur, porte, franchit, sessionDe } from '../../../engine/lib/access.mjs';
+import { t, localize, locales, localeNames } from '../../../engine/lib/i18n.mjs';
 import { comptesActifs } from '../../../engine/lib/features.mjs';
 
 // ⭐ CES PAGES SONT RENDUES À LA DEMANDE : elles peuvent donc lire l'en-tête
@@ -45,7 +45,23 @@ const { tiers } = acces();
 if (!comptesActifs()) return Astro.redirect('/');
 
 const palier = palierVisiteur(Astro.locals);
-const connecte = palier !== 'visitor';
+// 🔴🔴 CORRIGÉ LE 06/08/2026 — `connecte` LISAIT LE PALIER, DONC IL MENTAIT.
+// Sous `access.demo: crevette`, tout visiteur portait un palier : cette page
+// annonçait « connecté » à quelqu'un qui n'avait jamais eu de compte, et
+// `/connexion/` lui proposait de se déconnecter de rien.
+// ⭐⭐⭐ LE PALIER DIT CE QU'ON A LE DROIT DE VOIR, LA SESSION DIT QUI ON EST.
+const session = sessionDe(Astro.locals);
+const connecte = session === 'reelle';
+const enDemo = session === 'demo';
+// 🌐🎨 Les réglages descendent ICI (demande de Preda du 06/08). Le gabarit ne
+// le décide pas : le manifeste le dit, comme pour tout le reste du moteur.
+const reglagesIci = (m.identity?.langues_dans === 'compte') || (m.identity?.theme_dans === 'compte');
+const langueIci = m.identity?.langues_dans === 'compte';
+const themeIci = m.identity?.theme_dans === 'compte';
+// ⚠️ Cette page n'a QU'UNE adresse (elle lit `Accept-Language`) : pour changer
+// de langue on envoie vers l'ACCUEIL de la langue voulue, pas vers /xx/compte/
+// qui n'existe pas. C'est la même raison qui impose `langs={[def]}` plus bas.
+const languesDispo = active.map((l) => ({ l, n: localeNames[l] || l.toUpperCase(), h: localize(l, '/') }));
 
 // ⭐ LES MODULES SONT TOUJOURS LISTÉS, MÊME VERROUILLÉS. Un membre non payant
 // voit le NOM et la promesse de chaque module, jamais son contenu. C'est la
@@ -117,6 +133,66 @@ const MODULES = ['price_history', 'extremes', 'modules', 'alerts', 'wallet_watch
       );
     })}
   </div>
+
+  {enDemo && (
+    /* ⭐⭐ LE JETON NOMINATIF SE DIT. Un palier prêté qui ne s'annonce pas est
+       une capture d'écran qu'on croira être la page d'un abonné — et c'est
+       comme ça qu'on finit par livrer une promesse qu'on n'a pas tenue. */
+    <section class="panneau champ" style="margin-bottom:var(--s5)">
+      <h2 style="margin-top:0">{t(lang, 'account.demo')}</h2>
+      <p class="respire" style="margin-bottom:var(--s4)">{t(lang, 'account.demo.d')}</p>
+      <a class="btn btn--fantome btn--sm" href="/api/demo?sortir=1" rel="nofollow">{t(lang, 'account.demo.out')}</a>
+    </section>
+  )}
+
+  {reglagesIci && (
+    /* ═════════════════════════════════════════════════════════════════════
+       LES RÉGLAGES DESCENDENT DU HEADER ET DU PIED DE PAGE — Preda, 06/08.
+       ═════════════════════════════════════════════════════════════════════
+       ⭐ La maquette portait déjà cette phrase depuis des semaines : « le
+       sélecteur de langue a quitté l'en-tête […] et le réglage persistant est
+       dans les paramètres du compte. » Le moteur ne l'avait jamais appliquée.
+       ⛔ CE BLOC N'INVENTE PAS UN RÉGLAGE : il DÉPLACE deux commandes qui
+       existaient. La langue reste atteignable par le globe du menu (les liens
+       ne quittent jamais le DOM, sinon Google perd les traductions) ; la
+       bascule jour/nuit, elle, n'a plus qu'ici.
+       ⚠️ AUJOURD'HUI PERSONNE N'EST CONNECTÉ — aucun service d'identité n'est
+       branché. Réserver le bloc aux membres le rendrait donc invisible à tout
+       le monde, y compris à Preda. On le MONTRE, verrouillé, en le disant : un
+       réglage annoncé et fermé se comprend, un réglage absent se croit perdu. */
+    <>
+      <div class="sect-t sect-t--gd"><h2>{t(lang, 'account.settings')}</h2></div>
+      <section class="panneau champ" style="margin-bottom:var(--s5)">
+        {!connecte && <p class="etiq" style="margin-bottom:var(--s4)">🔒 {t(lang, 'account.locked')}</p>}
+        <p class="muted respire" style="margin-bottom:var(--s4)">{t(lang, 'account.settings.d')}</p>
+
+        {langueIci && languesDispo.length > 1 && (
+        <div style="margin-bottom:var(--s5)">
+          <span class="etiq" style="display:block;margin-bottom:6px">{t(lang, 'account.language')}</span>
+          {languesDispo.map((x) => (
+            <a class="tag" href={x.h} hreflang={x.l}
+               aria-current={x.l === lang ? 'true' : undefined}>{x.n}</a>
+          ))}
+        </div>
+        )}
+
+        {themeIci && (
+        <div>
+          <span class="etiq" style="display:block;margin-bottom:6px">{t(lang, 'account.theme')}</span>
+          {/* ⛔ LE BOUTON GARDE L'IDENTIFIANT `bascule-theme` ET LA CLASSE
+              `bascule` — le script du pied de page les cherche par ces deux
+              noms-là, et le thème n'habille que celui-là. Le renommer « parce
+              qu'il a déménagé » aurait produit un bouton parfaitement visible
+              et parfaitement inerte : la panne qui se croit une réussite. */}
+          <button type="button" id="bascule-theme" class="bascule"
+                  aria-label={t(lang, 'theme.toggle')} title={t(lang, 'theme.toggle')}
+                  aria-pressed="false"></button>
+          <p class="muted" style="font-size:13px;margin-top:var(--s3)">{t(lang, 'account.theme.d')}</p>
+        </div>
+        )}
+      </section>
+    </>
+  )}
 
   {/* ⭐ LA TRANSPARENCE EST UN ARGUMENT DE VENTE, PAS UNE CONCESSION. Dire quels
       paliers existent, y compris ceux qu'on n'a pas, est ce qui rend crédible

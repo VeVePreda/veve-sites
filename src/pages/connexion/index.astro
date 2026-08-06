@@ -21,7 +21,7 @@
 export const prerender = true;
 
 import Base from '../../layouts/Base.astro';
-import { palierVisiteur } from '../../../engine/lib/access.mjs';
+import { palierVisiteur, sessionDe } from '../../../engine/lib/access.mjs';
 import { t, localize, locales } from '../../../engine/lib/i18n.mjs';
 import { comptesActifs } from '../../../engine/lib/features.mjs';
 
@@ -44,6 +44,16 @@ const lang = souhait.find((l) => active.includes(l)) || def;
 // l'audit SEO rouge en permanence (le défaut du 27/07).
 if (!comptesActifs()) return Astro.redirect('/');
 
+// 🔴🔴 CORRIGÉ LE 06/08/2026 — CETTE PAGE LISAIT UN PALIER POUR RÉPONDRE À UNE
+// QUESTION D'IDENTITÉ. Sous `access.demo: crevette`, elle annonçait « vous êtes
+// connecté » à tout le monde et offrait un bouton « Se déconnecter » qui
+// effaçait un cookie jamais posé : au coup d'après la démo redonnait le palier.
+// ⭐⭐ SE DÉCONNECTER ÉTAIT IMPOSSIBLE, ET CE N'ÉTAIT PAS UNE PANNE — c'était la
+// conséquence exacte d'une porte ouverte à tout le monde. Preda l'a signalé
+// comme un bug ; c'était la démo, vue par le seul écran qui pouvait la trahir.
+// ⭐⭐⭐ LE PALIER DIT CE QU'ON A LE DROIT DE VOIR, LA SESSION DIT QUI ON EST.
+const session = sessionDe(Astro.locals);
+const connecte = session === 'reelle';
 const palier = palierVisiteur(Astro.locals);
 const idBase = process.env.VEVEID_URL || '';
 
@@ -69,7 +79,7 @@ const lien = idBase ? `${idBase}/oauth/start?retour=${encodeURIComponent(retour)
   <span class="logo logo--xl" aria-hidden="true">VP</span>
   <h1 class="mono-t">{t(lang, 'login.title')}</h1>
 
-  {palier !== 'visitor' ? (
+  {connecte ? (
     <section class="panneau">
       <p>{t(lang, 'login.already')}</p>
       <a class="btn btn--principal btn--sm" href={localize(lang, '/compte/')}>{t(lang, 'account.title')}</a>
