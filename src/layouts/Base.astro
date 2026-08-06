@@ -397,6 +397,53 @@ const menuComplet = wikiNav
     })();
   </script>
 )}
+{/* ═══════════════════════════════════════════════════════════════════════
+    🔴 LE CLIGNOTEMENT « INSCRIPTION → AVATAR » — corrigé au lot 100.
+    ═══════════════════════════════════════════════════════════════════════
+    LE SYMPTÔME, vu par Preda en production : en changeant de page, le bouton
+    « Inscription » APPARAÎT une fraction de seconde, puis cède la place à
+    l'avatar.
+    ⭐⭐ LA CAUSE N'EST PAS UN BUG DU SCRIPT, C'EST SA PLACE. Le script du lot
+    98 vit en bas du `<body>` : le navigateur a donc DÉJÀ peint l'en-tête
+    quand il l'exécute. Sur une page pré-générée le HTML dit « visiteur » —
+    c'est voulu, c'est ce qui la rend cachable et indexable — et la correction
+    arrivait après le premier rendu. ⛔ Aucun réglage de `defer`, `async` ou
+    d'ordre des balises n'y change quoi que ce soit : un script qui touche le
+    DOM ne peut pas s'exécuter avant que le DOM existe.
+    ⭐⭐⭐ LA PARADE EST DE NE PAS TOUCHER AU DOM. On pose un ATTRIBUT sur
+    `<html>` — qui, lui, existe déjà quand le `<head>` s'exécute — et c'est la
+    FEUILLE DE STYLE qui décide de l'affichage. Le style est appliqué avant le
+    premier rendu, par construction : il n'y a plus d'instant où la mauvaise
+    version est visible, parce qu'il n'y a plus de correction.
+    ⭐ LA MAISON AVAIT DÉJÀ LA BONNE FORME : le script juste au-dessus pose
+    `data-theme="nuit"` exactement pour cette raison, et le commentaire du 30/07
+    raconte déjà la même panne en version couleurs. Je ne l'avais pas suivie. */}
+<script is:inline>
+  (function () {
+    try {
+      /* ⚠️ `vp_membre=1` ET RIEN D'AUTRE — un `indexOf` dirait vrai pour
+         `vp_membre_ancien`, et `vp_membre=` accepterait la valeur vide que
+         pose l'effacement dans certains navigateurs. */
+      if (/(?:^|;\s*)vp_membre=1(?:;|$)/.test(document.cookie)) {
+        document.documentElement.setAttribute('data-membre', '1');
+      }
+    } catch (e) { /* pas de cookies : on reste sur la version visiteur */ }
+  })();
+</script>
+{/* ⛔ CES DEUX RÈGLES NE VONT PAS DANS LE THÈME, ET C'EST DÉLIBÉRÉ. Elles
+    n'habillent rien : elles n'existent que pour supprimer un instant de
+    mauvais affichage, et elles doivent arriver AVANT la première peinture.
+    Une règle posée dans `theme.css` arriverait avec la feuille externe, donc
+    parfois après — et le clignotement reviendrait de temps en temps, ce qui
+    est pire qu'à chaque fois : on cesserait de savoir le reproduire.
+    ⚠️ `!important` assumé : on écrase `[hidden]` de la feuille du navigateur,
+    et rien d'autre. Ces sélecteurs ne peuvent toucher que des éléments qui
+    portent `data-anonyme` ou `data-membre`, c'est-à-dire trois éléments de
+    l'en-tête. */}
+<style is:inline>
+  html[data-membre] [data-anonyme] { display: none !important; }
+  html[data-membre] .globe[data-membre] { display: block !important; }
+</style>
 {fontFace && <style is:inline set:html={fontFace}></style>}
 <style is:inline set:html={vars}></style>
 <style is:inline set:html={themeCss}></style>
@@ -954,19 +1001,29 @@ const menuComplet = wikiNav
     // ⚠️ `vp_membre=1` ET RIEN D'AUTRE. Un `indexOf('vp_membre')` dirait vrai
     // pour un cookie nommé `vp_membre_ancien`, et un `vp_membre=` accepterait
     // la valeur vide que pose l'effacement dans certains navigateurs.
-    var membre = /(?:^|;\s*)vp_membre=1(?:;|$)/.test(document.cookie);
+    // ⭐⭐ ON RELIT L'ATTRIBUT POSÉ DANS LE `<head>`, PAS LE COOKIE. Le
+    // clignotement du lot 98 venait de ce que la décision se prenait ici, en
+    // bas du `<body>`, après la première peinture. Elle se prend maintenant
+    // dans l'en-tête du document et l'AFFICHAGE est réglé par deux règles
+    // CSS. ⛔ Relire le cookie ici donnerait une SECONDE source de vérité
+    // pour la même question — et le jour où les deux divergeraient (cookie
+    // effacé dans un autre onglet, par exemple), l'écran se contredirait
+    // lui-même sans qu'on sache lequel croire.
+    var membre = document.documentElement.hasAttribute('data-membre');
 
-    // 👤 L'AVATAR — le seul geste de ce script sur une page dynamique est
-    // nul : le serveur a déjà rendu ce qu'il fallait, et `hidden` est déjà
-    // dans le bon état. Le script ne CHOISIT rien, il APPLIQUE ce que le
-    // cookie dit, et seulement là où le serveur ne pouvait pas le savoir.
+    // 👤 L'AVATAR — le CSS l'a déjà montré ou caché avant la peinture ; ce qui
+    // suit remet l'ATTRIBUT `hidden` en accord avec ce qui est affiché.
+    // ⭐ Ce n'est pas de la cosmétique : `hidden` n'est pas qu'un style, il
+    // retire l'élément de l'arbre d'accessibilité. Un avatar visible à l'œil
+    // et absent pour un lecteur d'écran serait un bouton qui n'existe que
+    // pour les voyants.
     var av = document.querySelector('.globe[data-membre]');
     if (av) av.hidden = !membre;
 
-    // ⛔ ET CE QUI DOIT DISPARAÎTRE QUAND ON EST MEMBRE : l'appel à
-    // l'inscription et le globe des langues (le réglage vit dans le compte).
-    // ⭐ Les liens de langue ne quittent PAS le DOM pour autant — le globe est
-    // `hidden`, ses `<a hreflang>` restent lisibles par un robot, et les
+    // ⛔ MÊME RAISON POUR CE QUI DOIT DISPARAÎTRE : l'appel à l'inscription et
+    // le globe des langues (le réglage de langue vit dans le compte).
+    // ⭐ Les liens de langue ne quittent PAS le DOM — le globe est `hidden`,
+    // ses `<a hreflang>` restent lisibles par un robot, et les
     // `<link rel="alternate">` du <head> n'ont jamais bougé. Les retirer
     // ferait disparaître le multilingue des résultats de recherche, un dégât
     // invisible pendant des mois.

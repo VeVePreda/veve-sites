@@ -386,6 +386,35 @@ dit(/action="\/api\/deconnexion"/.test(base_) && /method="POST"/.test(base_),
 dit(/mouseenter/.test(base_) && /<details class="globe" data-membre/.test(base_),
   'le survol est un confort POSÉ SUR un <details> qui s’ouvre au clic');
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴 LE CLIGNOTEMENT — lot 100. Un banc, parce qu'un commentaire ne s'exécute pas.
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐⭐⭐ CE QUI SE RÉPARE ICI N'EST PAS UNE LIGNE, C'EST UN ORDRE. La décision
+// « membre ou pas » doit être prise dans le `<head>` — avant la première
+// peinture — et l'AFFICHAGE réglé par du CSS. Prise en bas du `<body>`, elle
+// est juste, elle arrive simplement trop tard : le navigateur a déjà montré la
+// version visiteur. ⛔ Aucun `defer`, `async` ni ordre de balises n'y change
+// rien : un script qui touche le DOM ne peut pas s'exécuter avant qu'il existe.
+// ⚠️ Un banc qui vérifierait seulement « le script existe » serait vert
+//    aujourd'hui ET le jour où quelqu'un le redescendra en bas du corps.
+//    Celui-ci mesure la POSITION.
+const iHead = base_.indexOf('</head>');
+const iCookieHead = base_.indexOf("setAttribute('data-membre'");
+dit(iCookieHead > 0 && iHead > 0 && iCookieHead < iHead,
+  'la décision « membre » est prise dans le <head>',
+  'plus bas, le navigateur peint « Inscription » avant de la corriger — le clignotement vu en prod');
+dit(/html\[data-membre\] \[data-anonyme\]\s*\{\s*display:\s*none/.test(base_),
+  'et c\'est le CSS qui masque, pas le script',
+  'un script qui corrige après coup ne peut pas être plus rapide que la première peinture');
+dit(base_.indexOf('<style is:inline>') < iHead,
+  'les deux règles sont EN LIGNE dans le <head>, pas dans le thème',
+  'une feuille externe arrive parfois après la peinture ⇒ un clignotement intermittent, pire qu’un permanent');
+// ⭐ Et le script du bas ne doit PLUS relire le cookie : deux sources de
+// vérité pour la même question finissent par se contredire.
+dit(/hasAttribute\('data-membre'\)/.test(base_),
+  'le script du bas relit l’ATTRIBUT, pas le cookie',
+  'deux lectures du même fait divergent le jour où un autre onglet efface le cookie');
+
 for (const r of ['pages/api/veveid.js', 'pages/api/supprimer.js'])
   dit(routes.includes(`'${r}'`), `${r} est déclarée dans ROUTES_COMPTE`,
     routes.includes(`'${r}'`) ? '' : 'elle serait PRÉ-GÉNÉRÉE en silence : un fichier figé, incapable de lire un cookie');
