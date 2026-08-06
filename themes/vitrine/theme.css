@@ -528,7 +528,18 @@ a:hover{text-decoration:underline;text-underline-offset:3px}
 .site-f ul{list-style:none;margin:0;padding:0;display:grid;gap:8px}
 .site-f a{color:var(--text-2)}
 .f-legal{border-top:1px solid var(--rule);padding-top:var(--s4);font-size:var(--t-xs);line-height:1.8}
-main{padding:var(--s7) 0 0;display:block;position:relative}
+/* 🔴 `padding-bottom` AJOUTÉ LE 06/08/2026 — ET C'EST LA VRAIE DEMANDE.
+   Le lot 87 a retiré les 88 px de marge du footer : l'espace a disparu, mais
+   ce n'était pas ça qu'il fallait. Preda voulait l'espace, avec LE FOND DE LA
+   PAGE dedans — pas la bande noire du `body`.
+   ⭐⭐⭐ UNE MARGE MONTRE CE QU'IL Y A DERRIÈRE, UN PADDING MONTRE L'ÉLÉMENT.
+   La marge du footer laissait voir `body{background:#0E0E0E}`, c'est-à-dire le
+   noir hors cadre. Le même espace posé en padding sur `main` est PEINT par le
+   fond du cadre (`body > main{background:var(--bg)}`), et le fond de la page
+   touche donc le footer sans discontinuité.
+   ⛔ Ne pas le rendre au footer sous forme de marge « puisque c'était là
+   avant » : on remettrait la bande noire, et le symptôme avec. */
+main{padding:var(--s7) 0 var(--s8);display:block;position:relative}
 main::before{content:"";position:absolute;inset:0 0 auto;height:240px;pointer-events:none;z-index:0; background:linear-gradient(180deg,var(--sect-1v),transparent)}
 main>*{position:relative;z-index:1}
 h1,h2,h3{font-family:var(--geo);font-weight:600;margin:0;letter-spacing:-.028em}
