@@ -84,10 +84,25 @@ console.log('\n2. La pose et l’effacement décrivent-ils LE MÊME cookie ?');
 // parfaitement imaginaire — ou pire, l'inverse : deux cookies mal appariés
 // jugés identiques. ⭐ Un banc qui lit « le premier » lit en réalité « celui
 // qu'il y avait quand je l'ai écrit ».
+// ⚠️ LOT 98 — TROISIÈME RÉPARATION DE CE LECTEUR, ET LA MÊME LEÇON.
+// `api/supprimer.js` écrit `cookies.delete('vp_session', SESSION)` : les
+// attributs sont une CONSTANTE NUE, sans accolades. Le lecteur rendait `null`,
+// et déclarait en échec la façon la plus sûre d'écrire — celle qui garantit
+// justement que la pose et l'effacement décrivent le même cookie.
+// ⭐⭐ UN BANC QUI POUSSE À RECOPIER CE QU'IL VÉRIFIE TRAVAILLE CONTRE
+//   LUI-MÊME. On corrige l'instrument, jamais le code, pour lui faire plaisir.
 const attributs = (s, verbe, nom) => {
   const m = s.match(new RegExp(`cookies\\.${verbe}\\(\\s*['"]${nom}['"][^)]*?\\{([^}]*)\\}`, 's'));
-  if (!m) return null;
-  let corps = m[1];
+  let corps;
+  if (m) corps = m[1];
+  else {
+    // `cookies.delete('vp_session', SESSION)` → on résout la constante.
+    const n = s.match(new RegExp(`cookies\\.${verbe}\\(\\s*['"]${nom}['"]\\s*,\\s*([A-Za-z_$][\\w$]*)\\s*\\)`));
+    if (!n) return null;
+    const def = s.match(new RegExp(`const\\s+${n[1]}\\s*=\\s*\\{([^}]*)\\}`, 's'));
+    if (!def) return null;
+    corps = def[1];
+  }
   // `{ ...ATTRIBUTS, maxAge: … }` → on remplace le spread par la constante.
   for (const nom of [...corps.matchAll(/\.\.\.\s*([A-Za-z_$][\w$]*)/g)].map((x) => x[1])) {
     const def = s.match(new RegExp(`const\\s+${nom}\\s*=\\s*\\{([^}]*)\\}`, 's'));
@@ -345,6 +360,65 @@ const iPre = mw.indexOf('isPrerendered) return next()');
 const iFlag = mw.indexOf("locals.rendu = 'demande'");
 dit(iPre >= 0 && iFlag > iPre, 'le drapeau est posé APRÈS la sortie sur isPrerendered',
   'posé avant, il figerait la redirection dans les pages pré-générées');
+
+// ── 11. L'AVATAR ET LES DEUX ROUTES DE SERVICE (lot 98) ────────────────────
+console.log('\n11. L’avatar, la passerelle et la suppression');
+const base_ = lire(join(RACINE, 'src/layouts/Base.astro'));
+// ⭐⭐ LE MÊME EN-TÊTE PARTOUT, ET C'ÉTAIT LE VRAI DÉFAUT. L'avatar est rendu
+// sur TOUTES les pages, masqué par défaut : le HTML servi reste identique pour
+// tout le monde (donc cachable, indexable, rapide), et c'est le navigateur qui
+// découvre s'il faut le montrer. Une condition `aUneSession` seule aurait
+// produit deux en-têtes différents selon le mode de rendu — exactement ce que
+// Preda a vu sur /compte/.
+dit(/<details class="globe" data-membre hidden=\{!aUneSession\}>/.test(base_),
+  'l’avatar est rendu partout, masqué tant qu’on ne sait pas',
+  'un avatar rendu SEULEMENT si connecté ferait deux en-têtes différents');
+dit(/av\.hidden = !membre/.test(base_), 'le script révèle l’avatar sur les pages pré-générées');
+dit((base_.match(/data-anonyme/g) || []).length >= 3,
+  'le globe ET l’appel à l’inscription portent data-anonyme',
+  'sans ça, un membre garde le sélecteur de langue dans l’en-tête — deux commandes pour un réglage');
+dit(/action="\/api\/deconnexion"/.test(base_) && /method="POST"/.test(base_),
+  'la déconnexion du menu est un POST',
+  'un GET destructeur part tout seul dans un <img> et les préchargeurs le suivent');
+// ⛔ LE SURVOL NE DOIT PAS ÊTRE LE SEUL MOYEN D'OUVRIR. `<details>` s'ouvre au
+// clic et au clavier sans JavaScript ; un menu qui n'existe qu'au survol
+// n'existe pas sur un téléphone.
+dit(/mouseenter/.test(base_) && /<details class="globe" data-membre/.test(base_),
+  'le survol est un confort POSÉ SUR un <details> qui s’ouvre au clic');
+
+for (const r of ['pages/api/veveid.js', 'pages/api/supprimer.js'])
+  dit(routes.includes(`'${r}'`), `${r} est déclarée dans ROUTES_COMPTE`,
+    routes.includes(`'${r}'`) ? '' : 'elle serait PRÉ-GÉNÉRÉE en silence : un fichier figé, incapable de lire un cookie');
+
+const vid = lire(join(RACINE, 'src/pages/api/veveid.js'));
+// 🔴 UNE REDIRECTION VERS UNE ADRESSE RENDUE PAR UN TIERS EST UNE REDIRECTION
+// OUVERTE tant qu'on ne vérifie pas d'où elle vient — et elle porterait NOTRE
+// domaine dans la barre d'adresse de départ.
+dit(/j\.url\.startsWith\(base\)/.test(vid), 'on ne redirige que vers une adresse fabriquée par veveid');
+dit(/export const GET = \(\) => new Response/.test(vid), '/api/veveid refuse le GET',
+  'un préchargeur de liens brûlerait un jeton à usage unique sans que personne ait cliqué');
+
+const sup = lire(join(RACINE, 'src/pages/api/supprimer.js'));
+dit(/cookies\.delete\('vp_session'/.test(sup) && /cookies\.delete\('vp_membre'/.test(sup),
+  'la suppression efface LES DEUX cookies',
+  'laisser vp_membre afficherait un avatar « connecté » à qui vient de supprimer son compte');
+const supP = attributs(sup, 'delete', 'vp_session');
+const supM = attributs(sup, 'delete', 'vp_membre');
+dit(supP === aPose, 'vp_session : mêmes attributs qu’à la pose', `${supP} contre ${aPose}`);
+dit(supM === mPose, 'vp_membre : mêmes attributs qu’à la pose', `${supM} contre ${mPose}`);
+// ⭐⭐ LA CONFIRMATION NE SE JUGE PAS ICI. Ce site connaît l'adresse du compte,
+// il vient de l'afficher : un contrôle fait par celui qui détient déjà la
+// réponse compare une chaîne à elle-même et ne prouve rien.
+dit(!/confirmation\s*===|confirmation\s*!==/.test(sup),
+  'la confirmation est JUGÉE par veveid, pas par ce site');
+
+const cpt2 = lire(join(RACINE, 'src/pages/compte/index.astro'));
+dit(!/const MODULES =/.test(cpt2), 'la liste des modules a quitté /compte/ (Preda, 06/08)');
+dit(/\/api\/session\?sid=/.test(cpt2), '/compte/ lit l’état du compte chez veveid, avec le sid',
+  'un identifiant de compte porté par le site le laisserait DÉSIGNER n’importe quel compte');
+dit(/x-service/.test(cpt2), 'et il porte le secret de service');
+dit(/VeVe ID/.test(lire(join(RACINE, 'engine/i18n/fr.json'))),
+  'la page nomme VeVe ID comme service indépendant (demande de Preda)');
 
 // ── 6. AUTO-CONTRÔLE ───────────────────────────────────────────────────────
 console.log('\n6. Auto-contrôle — ce banc a-t-il quelque chose à inspecter ?');

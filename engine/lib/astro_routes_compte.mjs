@@ -82,6 +82,14 @@ const ROUTES_COMPTE = [
   // pré-générée, elle deviendrait un fichier figé répondant « pas de session »
   // à un abonné parfaitement connecté. C'est la panne du lot 24, mot pour mot.
   'pages/api/analytics/[module].js',
+  // ⭐⭐ AJOUTÉES AU LOT 98 — la passerelle vers VeVe ID et la suppression.
+  // ⚠️ Les oublier ici les pré-générerait EN SILENCE : deux fichiers figés,
+  // incapables de lire un cookie, incapables de poser un en-tête. Le symptôme
+  // serait « le bouton ne fait rien », et on chercherait du côté de veveid —
+  // qui n'aurait jamais reçu la requête. C'est la panne du lot 24, la
+  // quatrième fois qu'on l'écrit.
+  'pages/api/veveid.js',
+  'pages/api/supprimer.js',
 ];
 
 const normalise = (p) => String(p || '').replace(/\\/g, '/');

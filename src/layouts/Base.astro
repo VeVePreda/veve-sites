@@ -557,8 +557,17 @@ const menuComplet = wikiNav
       {/* ⛔ `!aUneSession` : une fois connecté, le réglage de langue vit dans
           l'espace compte — le garder ici donnerait DEUX commandes pour un seul
           réglage, et deux commandes pour un réglage finissent par diverger. */}
+      {/* 🔴 `data-anonyme` — AJOUTÉ AU LOT 98. La condition `!aUneSession` est
+         juste, et elle ne suffit pas : sur les ~8 500 pages PRÉ-GÉNÉRÉES,
+         `aUneSession` vaut faux pour TOUT LE MONDE, membres compris. Un membre
+         y voyait donc le globe, alors que son réglage de langue vit dans son
+         compte — deux commandes pour un seul réglage, ce que le lot 88 avait
+         justement voulu éviter.
+         ⭐⭐ LA MÊME CONDITION S'ÉVALUE DEUX FOIS : au build pour le HTML servi,
+         puis dans le navigateur pour la personne réelle. Le serveur ne peut pas
+         savoir, le script ne doit pas décider — chacun fait la moitié. */}
       {langAuCompte && !aUneSession && alternates.length > 1 && (
-      <details class="globe">
+      <details class="globe" data-anonyme>
         <summary aria-label={t(lang, 'lang.pick')} title={t(lang, 'lang.pick')}>
           <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6">
             <circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c2.5 2.6 2.5 15.4 0 18M12 3c-2.5 2.6-2.5 15.4 0 18" />
@@ -596,9 +605,61 @@ const menuComplet = wikiNav
          compilateur, et une classe ajoutée ici sans règle dans les thèmes les
          ferait crier — à juste titre. */}
       {comptesOuverts && !aUneSession && (
-      <span class="h-cta" data-membre={t(lang, 'account.title')} data-membre-href="/compte/">
+      <span class="h-cta" data-anonyme>
         <a class="btn btn--principal btn--sm" href="/inscription/">{t(lang, 'nav.signup')}</a>
       </span>
+    )}
+      {/* ═══════════════════════════════════════════════════════════════════
+         👤 L'AVATAR ET SON MENU — demande de Preda du 06/08/2026, lot 98.
+         ═══════════════════════════════════════════════════════════════════
+         ⭐⭐⭐ IL EST RENDU SUR TOUTES LES PAGES, MASQUÉ PAR DÉFAUT — et c'est
+         ce qui règle les trois symptômes d'un coup. Le HTML servi reste
+         IDENTIQUE pour tout le monde (donc cachable, donc indexable, donc
+         rapide) ; c'est le navigateur qui découvre, après coup, s'il faut le
+         montrer. Sur une route dynamique le serveur le sait déjà et le rend
+         visible tout de suite : aucun clignotement pour un membre.
+         ⭐⭐ « La page compte n'a pas la même navigation que le reste » : elle
+         l'a maintenant, parce que ce bloc-ci ne dépend plus du mode de rendu.
+         C'était ça, le vrai défaut — un en-tête qui se construisait
+         différemment selon que la page était un fichier ou un calcul.
+         ⛔ AUCUNE CLASSE NEUVE : on réemploie `globe` / `globe__m`, le
+         vocabulaire du menu de langues, déjà habillé par le thème. Les trois
+         contrôles CSS tournent avant le compilateur — une classe émise sans
+         règle les ferait crier, à juste titre.
+         ⚠️ Un `details` et non une balise de bloc ordinaire : il s'ouvre AU
+         CLIC SANS JavaScript,
+         et au clavier. Le survol demandé par Preda est un CONFORT ajouté par
+         le script — jamais le seul moyen d'ouvrir, sinon le menu n'existe pas
+         pour qui navigue au doigt ou au clavier. */}
+      {comptesOuverts && (
+      <details class="globe" data-membre hidden={!aUneSession}>
+        <summary aria-label={t(lang, 'account.avatar')} title={t(lang, 'account.avatar')}
+                 style="width:38px;padding:0;justify-content:center;border-radius:999px">
+          {/* Une silhouette neutre, la même pour tous — arbitrage Preda. */}
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor"
+               stroke-width="1.7" stroke-linecap="round">
+            <circle cx="12" cy="9" r="3.2" /><path d="M5.5 19.5a6.5 6.5 0 0 1 13 0" />
+          </svg>
+        </summary>
+        <div class="globe__m">
+          <a href="/compte/">{t(lang, 'account.title')}</a>
+          {/* 🔴 UN FORMULAIRE, ET PAS UN LIEN. `api/deconnexion` refuse le GET
+              exprès : un GET destructeur part tout seul dans un `<img>` et les
+              préchargeurs de liens du navigateur le suivent d'eux-mêmes — on
+              déconnecterait des gens qui n'ont rien cliqué.
+              ⭐ Le bouton emprunte l'habillage des liens du menu par un style
+              en ligne : le thème habille `.globe__m a`, pas `button`, et on
+              n'ajoute pas une règle pour un seul bouton. */}
+          <form method="POST" action="/api/deconnexion" style="margin:0">
+            <button type="submit"
+                    style="width:100%;text-align:left;background:none;border:0;cursor:pointer;
+                           padding:8px 12px;border-radius:var(--r-sm);color:var(--text-2);
+                           font-family:inherit;font-size:var(--t-sm);white-space:nowrap">
+              {t(lang, 'login.out')}
+            </button>
+          </form>
+        </div>
+      </details>
     )}
     </div>
     {/* 🔴 `langueOu === 'entete'` ET NON `!langAuPied` — CORRIGÉ DANS LE LOT
@@ -893,30 +954,55 @@ const menuComplet = wikiNav
     // ⚠️ `vp_membre=1` ET RIEN D'AUTRE. Un `indexOf('vp_membre')` dirait vrai
     // pour un cookie nommé `vp_membre_ancien`, et un `vp_membre=` accepterait
     // la valeur vide que pose l'effacement dans certains navigateurs.
-    if (!/(?:^|;\s*)vp_membre=1(?:;|$)/.test(document.cookie)) return;
+    var membre = /(?:^|;\s*)vp_membre=1(?:;|$)/.test(document.cookie);
 
-    var s = document.querySelector('.h-cta[data-membre]');
-    if (s) {
-      var a = s.querySelector('a');
-      // ⭐ On ne réécrit que si les deux étiquettes sont là. Un attribut
-      // absent produirait `href="null"` et un bouton sans texte : le
-      // dispositif tomberait en panne PLUS BAS que là où il a échoué.
-      if (a && s.getAttribute('data-membre') && s.getAttribute('data-membre-href')) {
-        a.href = s.getAttribute('data-membre-href');
-        a.textContent = s.getAttribute('data-membre');
-      }
+    // 👤 L'AVATAR — le seul geste de ce script sur une page dynamique est
+    // nul : le serveur a déjà rendu ce qu'il fallait, et `hidden` est déjà
+    // dans le bon état. Le script ne CHOISIT rien, il APPLIQUE ce que le
+    // cookie dit, et seulement là où le serveur ne pouvait pas le savoir.
+    var av = document.querySelector('.globe[data-membre]');
+    if (av) av.hidden = !membre;
+
+    // ⛔ ET CE QUI DOIT DISPARAÎTRE QUAND ON EST MEMBRE : l'appel à
+    // l'inscription et le globe des langues (le réglage vit dans le compte).
+    // ⭐ Les liens de langue ne quittent PAS le DOM pour autant — le globe est
+    // `hidden`, ses `<a hreflang>` restent lisibles par un robot, et les
+    // `<link rel="alternate">` du <head> n'ont jamais bougé. Les retirer
+    // ferait disparaître le multilingue des résultats de recherche, un dégât
+    // invisible pendant des mois.
+    if (membre) {
+      var anon = document.querySelectorAll('[data-anonyme]');
+      for (var i = 0; i < anon.length; i++) anon[i].hidden = true;
     }
 
-    // ⭐ LA BARRE MOBILE AUSSI. Sur téléphone, `.onglets` est la navigation
-    // réelle ; sur une page pré-générée elle n'a que 3 entrées puisque le
-    // gabarit n'ajoute `/compte/` qu'à quelqu'un qu'il sait connecté. Sa
-    // grille est déjà en 4 colonnes — la quatrième était simplement vide.
+    // ⭐ LA BARRE MOBILE. Sur téléphone, `.onglets` est la navigation réelle ;
+    // sur une page pré-générée elle n'a que 3 entrées, puisque le gabarit
+    // n'ajoute `/compte/` qu'à quelqu'un qu'il sait connecté. Sa grille est
+    // déjà en 4 colonnes — la quatrième était simplement vide.
     var nav = document.querySelector('nav.onglets');
-    if (nav && s && !nav.querySelector('a[href="/compte/"]')) {
+    if (membre && nav && av && !nav.querySelector('a[href="/compte/"]')) {
       var lien = document.createElement('a');
-      lien.href = s.getAttribute('data-membre-href') || '/compte/';
-      lien.textContent = s.getAttribute('data-membre') || '';
+      lien.href = '/compte/';
+      lien.textContent = av.querySelector('summary').getAttribute('aria-label') || '';
       if (lien.textContent) nav.appendChild(lien);
+    }
+
+    // 🖱️ LE SURVOL — demande de Preda. ⭐ C'EST UN CONFORT POSÉ PAR-DESSUS,
+    // jamais le seul moyen d'ouvrir : `<details>` s'ouvre au clic et au
+    // clavier sans une ligne de JavaScript, et il continue de le faire ici.
+    // Un menu qui n'existe qu'au survol n'existe pas sur un téléphone.
+    if (av) {
+      var fermeture = null;
+      av.addEventListener('mouseenter', function () {
+        if (fermeture) { clearTimeout(fermeture); fermeture = null; }
+        av.open = true;
+      });
+      // ⚠️ LE DÉLAI N'EST PAS UNE COQUETTERIE. Entre le bouton et le menu il y
+      // a quelques pixels de vide ; sans ce répit, le menu se referme pendant
+      // que la souris le traverse, et l'entrée devient impossible à cliquer.
+      av.addEventListener('mouseleave', function () {
+        fermeture = setTimeout(function () { av.open = false; }, 250);
+      });
     }
   })();
 </script>

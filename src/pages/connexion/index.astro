@@ -98,6 +98,22 @@ const marqueTemps = sceau();
   <span class="logo logo--xl" aria-hidden="true">VP</span>
   <h1 class="mono-t">{t(lang, 'login.title')}</h1>
 
+  {/* 🔴 LE RETOUR APRÈS UNE SUPPRESSION — lot 98.
+      La personne vient de supprimer son compte : `veveid` a révoqué toutes ses
+      sessions dans la seconde, elle atterrit donc ici, déconnectée. Sans ce
+      bloc, elle verrait un formulaire de connexion nu après un geste grave —
+      et se demanderait si quelque chose a échoué.
+      ⚠️ ET IL DIT OÙ ANNULER. Le délai de grâce est de sept jours, mais il ne
+      s'annule PAS d'ici : une session fermée ne rouvre pas, et `veveid` refuse
+      un compte marqué supprimé. C'est chez lui, avec un lien par courriel, que
+      la décision se reprend. Ne pas l'écrire ferait du délai de grâce une
+      promesse invérifiable. */}
+  {Astro.url.searchParams.get('supprime') === '1' && (
+    <section class="panneau champ" style="margin-bottom:var(--s5)">
+      <p class="respire" style="margin:0">{t(lang, 'account.del.after')}</p>
+    </section>
+  )}
+
   {connecte ? (
     <section class="panneau">
       <p>{t(lang, 'login.already')}</p>

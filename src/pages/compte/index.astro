@@ -19,7 +19,11 @@ export const prerender = true;
 
 import Base from '../../layouts/Base.astro';
 import { manifest } from '../../../engine/lib/manifest.mjs';
-import { acces, palierVisiteur, porte, franchit, sessionDe } from '../../../engine/lib/access.mjs';
+// ⛔ `porte` et `franchit` ont quitté cet import au lot 98, avec la liste des
+// modules qui les employait. Un import qui survit à son usage n'est pas
+// inoffensif : `imports-orphelins` le signale, et surtout il laisse croire que
+// cette page décide encore de droits d'accès — elle n'en décide plus aucun.
+import { acces, palierVisiteur, sessionDe } from '../../../engine/lib/access.mjs';
 import { t, localize, locales, localeNames } from '../../../engine/lib/i18n.mjs';
 import { comptesActifs } from '../../../engine/lib/features.mjs';
 
@@ -97,17 +101,54 @@ const themeIci = m.identity?.theme_dans === 'compte';
 // qui n'existe pas. C'est la même raison qui impose `langs={[def]}` plus bas.
 const languesDispo = active.map((l) => ({ l, n: localeNames[l] || l.toUpperCase(), h: localize(l, '/') }));
 
-// ⭐ LES MODULES SONT TOUJOURS LISTÉS, MÊME VERROUILLÉS. Un membre non payant
-// voit le NOM et la promesse de chaque module, jamais son contenu. C'est la
-// différence entre « il n'y a rien ici » et « il y a quelque chose ici, et
-// c'est à vous » — et c'est ce qui fait qu'un mur vend au lieu de frustrer.
-// ⚠️ CE TABLEAU ÉTAIT EN FRANÇAIS, EN DUR — donc en français sur la page
-// anglaise, en production. ⭐ Dans un dépôt multilingue, tout texte destiné à
-// être lu est soit une clé i18n, soit une carte par langue. Jamais une chaîne
-// nue dans un gabarit : c'est invisible au build, et `test:langues` ne le voit
-// pas non plus (il mesure la couverture éditoriale, pas le code).
-const MODULES = ['price_history', 'extremes', 'modules', 'alerts', 'wallet_watch']
-  .map((cle) => ({ cle, nom: t(lang, `mod.${cle}`), d: t(lang, `mod.${cle}.d`) }));
+// ⛔ LA LISTE DES MODULES A QUITTÉ CETTE PAGE — arbitrage Preda du 06/08/2026.
+// Elle y était pour vendre : montrer le nom et la promesse de chaque module,
+// verrouillés, « pour qu'un mur vende au lieu de frustrer ». L'argument était
+// bon et il reste vrai — mais sa PLACE n'est pas ici. Un espace compte répond
+// à « qui suis-je, et que puis-je régler » ; l'argumentaire de vente vit sur
+// `/offre/`, où il s'adresse aussi aux gens qui n'ont pas de compte.
+// ⭐ Les clés `mod.*` RESTENT dans les cinq langues : `/offre/` les emploie.
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐⭐⭐ L'ÉTAT DU COMPTE VIENT DE VeVe ID — il n'est écrit nulle part ici.
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴 LE COOKIE NE PORTE QU'UN IDENTIFIANT DE SESSION. Recopier l'adresse
+// e-mail ou l'état du portefeuille dans un cookie signé les FIGERAIT : un
+// portefeuille vérifié ce matin s'afficherait « non vérifié » pendant trente
+// jours. La même raison qui interdit d'y mettre le palier interdit d'y mettre
+// le reste. On demande, à chaque affichage, au service qui sait.
+//
+// ⭐⭐ ET ON DEMANDE AVEC LE `sid`, PAS AVEC UN IDENTIFIANT DE COMPTE. Ce site
+// ne DÉTIENT pas l'identifiant du compte : il a un cookie, et c'est tout. Lui
+// faire porter l'identifiant reviendrait à le laisser DÉSIGNER un compte — et
+// avec le secret de service, il pourrait alors lire n'importe lequel.
+//
+// ⚠️ UN APPEL RÉSEAU DE PLUS, SUR CETTE PAGE SEULEMENT. Les ~8 500 pages de
+// contenu restent des fichiers et ne passent jamais par là. Délai maximum et
+// échec FERMÉ : sans réponse, on n'invente pas un compte, on affiche ce que
+// la session garantit déjà — le palier — et on le dit.
+const sid = Astro.cookies.get('vp_session')?.value || null;
+const idApi = process.env.SESSION_API || '';
+const secretDeService = process.env.VEVEID_SERVICE || process.env.ID_SERVICE || '';
+let dossier = null;
+if (aLaDemande && connecte && sid && idApi) {
+  try {
+    const r = await fetch(`${idApi}/api/session?sid=${encodeURIComponent(sid)}`, {
+      headers: { accept: 'application/json', 'x-service': secretDeService },
+      signal: AbortSignal.timeout(2500),
+    });
+    if (r.ok) dossier = await r.json();
+  } catch {
+    // ⚠️ ÉCHOUER FERMÉ, comme le middleware. `dossier` reste nul, la page le
+    // dit, et rien ne se devine. Un repli qui afficherait « aucun
+    // portefeuille » sur une panne réseau enverrait quelqu'un refaire une
+    // vérification qu'il a déjà faite.
+    dossier = null;
+  }
+}
+// ⭐ Les codes d'erreur des routes de service reviennent ICI : la personne doit
+// retrouver son compte, jamais un cul-de-sac. Un seul endroit les traduit.
+const echec = Astro.url.searchParams.get('e');
 ---
       {/* ⛔ UNE SEULE LANGUE DÉCLARÉE, ET C'EST LE CORRECTIF DU 404.
           `/compte/` et `/connexion/` sont rendues À LA DEMANDE et lisent
@@ -139,35 +180,79 @@ const MODULES = ['price_history', 'extremes', 'modules', 'alerts', 'wallet_watch
       et `account.soon` RESTENT dans les cinq langues, exprès : le mur de vente
       les reprendra le jour où `offer.url` existera, et une clé retirée puis
       réécrite est une traduction perdue cinq fois. */}
-  {connecte && (
-    <div class="stats">
-      <div class="stat"><div class="k">{t(lang, 'account.tier')}</div><div class="v">{palier}</div></div>
-      <div class="stat"><div class="k">{t(lang, 'account.alerts')}</div>
-        {/* ⚠️ `-1` veut dire ILLIMITÉ et il faut le traduire ici : afficher
-            « -1 alerte » serait un bug visible depuis la page d'accueil. */}
-        <div class="v">{(() => { const c = porte('alerts').caps?.[palier]; return c === -1 ? '∞' : (c ?? 0); })()}</div></div>
-    </div>
+  {/* ⛔ LE COMPTEUR D'ALERTES A ÉTÉ RETIRÉ AVEC LES MODULES (lot 98). Il
+      annonçait un quota d'un module qui n'existe pas encore — quatre des sept
+      alertes sont muettes à ce jour. ⭐ Un chiffre affiché est une promesse :
+      celui-ci en faisait une qu'on ne tient pas, sur la première page que voit
+      un nouveau membre. Il reviendra avec le module, pas avant. */}
+  {echec && (
+    /* ⚠️ UN ÉCHEC SE DIT SUR LA PAGE OÙ ON L'A PROVOQUÉ. Renvoyer vers une
+       page d'erreur ferait perdre le fil à quelqu'un qui voulait juste
+       vérifier son portefeuille. */
+    <p class="etiq" style="margin-bottom:var(--s5)">
+      ⚠️ {echec === 'mail' ? t(lang, 'account.err.mail') : t(lang, 'account.err')}
+    </p>
   )}
 
-  {/* ⛔ `titre-affiche` etait un nom v3 : le theme ne l'habille plus.
-      Le vocabulaire de la maquette dit `sect-t sect-t--gd`. */}
-  <div class="sect-t sect-t--gd"><h2>{t(lang, 'account.modules')}</h2></div>
-  <div class="modules">
-    {MODULES.map((mo) => {
-      const ouvert = franchit(mo.cle, Astro.locals);
-      return (
-        <div class={ouvert ? 'module module--ouvert' : 'module'}>
-          <span class="module__n">{mo.nom}</span>
-          <span class="module__d">{mo.d}</span>
-          <div class="f" style="font-size:12px">
-            {ouvert
-              ? <span class="up">✓ {t(lang, 'account.open')}</span>
-              : <span class="muted">🔒 {porte(mo.cle).tier}</span>}
-          </div>
-        </div>
-      );
-    })}
-  </div>
+  {/* ⭐ CE QUE LA PERSONNE EST — trois faits, rien d'autre. Un espace compte
+      qui commence par un argumentaire fait douter qu'on soit au bon endroit. */}
+  <div class="sect-t sect-t--gd"><h2>{t(lang, 'account.title')}</h2></div>
+  <section class="panneau champ" style="margin-bottom:var(--s5)">
+    <div class="stats">
+      <div class="stat"><div class="k">{t(lang, 'account.tier')}</div><div class="v">{palier}</div></div>
+      {dossier?.email && (
+        <div class="stat"><div class="k">{t(lang, 'account.email')}</div>
+          {/* ⚠️ Une adresse e-mail est longue : sans coupure, elle déborde la
+              carte sur un téléphone et pousse la mise en page. */}
+          <div class="v" style="font-size:15px;word-break:break-all">{dossier.email}</div></div>
+      )}
+      {dossier?.cree_le && (
+        <div class="stat"><div class="k">{t(lang, 'account.since')}</div>
+          <div class="v" style="font-size:15px">{String(dossier.cree_le).slice(0, 10)}</div></div>
+      )}
+    </div>
+  </section>
+
+  {/* ═══════════════════════════════════════════════════════════════════════
+      🔗 LE PORTEFEUILLE — et la seule carte de cette page qui parle d'un TIERS.
+      ═══════════════════════════════════════════════════════════════════════
+      ⭐⭐⭐ ON DIT QUE VeVe ID EST UN SERVICE INDÉPENDANT, ET CE N'EST PAS UNE
+      FORMULE DE POLITESSE. C'est la description exacte de l'architecture : le
+      parcours de preuve vit chez lui, il rend le même service à plusieurs
+      sites, et VeVePrice ne reçoit jamais que la réponse — oui ou non. Le
+      taire donnerait l'impression que VeVePrice lit les portefeuilles de ses
+      membres, ce qu'il ne fait pas et ne doit pas pouvoir faire.
+      ⚠️ ET ON PRÉVIENT QU'ON CHANGE DE DOMAINE. Un bouton qui emmène ailleurs
+      sans le dire, sur une page qui parle de portefeuille, ressemble
+      exactement à ce contre quoi on met les gens en garde. */}
+  <div class="sect-t sect-t--gd"><h2>{t(lang, 'account.wallet')}</h2></div>
+  <section class="panneau champ" style="margin-bottom:var(--s5)">
+    {dossier?.verifie ? (
+      <>
+        <p class="respire" style="margin:0 0 var(--s3)">
+          <span class="up">✓ {t(lang, 'account.wallet.ok')}</span>
+        </p>
+        {/* ⭐ On montre l'adresse en entier : c'est une donnée PUBLIQUE par
+            nature (elle est sur la chaîne), et la tronquer empêcherait de
+            vérifier qu'on a bien associé le bon portefeuille. */}
+        <p class="mono-t" style="margin:0;font-size:14px;word-break:break-all">{dossier.wallet}</p>
+      </>
+    ) : (
+      <>
+        <p class="etiq" style="margin:0 0 var(--s4)">
+          {dossier?.wallet ? t(lang, 'account.wallet.wait') : t(lang, 'account.wallet.none')}
+        </p>
+        <h3 style="margin:0 0 var(--s3)">{t(lang, 'account.id.title')}</h3>
+        <p class="muted respire" style="margin:0 0 var(--s3)">{t(lang, 'account.id.who')}</p>
+        <p class="muted respire" style="margin:0 0 var(--s4)">{t(lang, 'account.id.how')}</p>
+        <form method="POST" action="/api/veveid" style="margin:0">
+          <input type="hidden" name="vers" value="verifier" />
+          <button class="btn btn--principal btn--sm" type="submit">{t(lang, 'account.id.go')}</button>
+        </form>
+        <p class="muted" style="font-size:13px;margin:var(--s3) 0 0">{t(lang, 'account.id.leaves')}</p>
+      </>
+    )}
+  </section>
 
   {enDemo && (
     /* ⭐⭐ LE JETON NOMINATIF SE DIT. Un palier prêté qui ne s'annonce pas est
@@ -238,6 +323,41 @@ const MODULES = ['price_history', 'extremes', 'modules', 'alerts', 'wallet_watch
         )}
       </section>
     </>
+  )}
+
+  {/* ═══════════════════════════════════════════════════════════════════════
+      🔴 SUPPRIMER SON COMPTE — le seul geste destructeur de ce site.
+      ═══════════════════════════════════════════════════════════════════════
+      ⭐⭐ IL EST REPLIÉ, ET IL EST EN BAS. Ce n'est pas de la pudeur : un
+      bouton destructeur à portée de pouce se clique par accident, et un
+      `details` fermé demande un geste délibéré avant même de voir le
+      formulaire. ⛔ Mais il n'est PAS caché — un droit qu'on doit chercher
+      n'en est pas un.
+      ⭐⭐⭐ ET IL FAUT RECOPIER SON ADRESSE. Un second bouton « êtes-vous
+      sûr ? » ne fait que déplacer le clic ; RECOPIER quelque chose oblige à
+      lire. MightysArena demandait de recopier l'adresse du portefeuille, pour
+      la même raison — et c'est `veveid` qui juge la réponse, jamais ce site :
+      un contrôle fait par celui qui détient déjà la réponse ne prouve rien. */}
+  {connecte && (
+  <details style="margin-top:var(--s5)">
+    <summary class="etiq" style="cursor:pointer;padding:var(--s3) 0">{t(lang, 'account.del')}</summary>
+    <section class="panneau champ" style="margin-top:var(--s3)">
+      <p class="respire" style="margin:0 0 var(--s4)">{t(lang, 'account.del.d')}</p>
+      <form method="POST" action="/api/supprimer" style="margin:0">
+        <label class="etiq" for="conf" style="display:block;margin-bottom:6px">{t(lang, 'account.del.ask')}</label>
+        {/* ⚠️ `type="email"` et non `text` : le clavier des téléphones change,
+            et c'est exactement le genre de détail qui fait abandonner une
+            saisie qu'on n'a déjà pas envie de faire. */}
+        <input class="champ" id="conf" name="confirmation" type="email" required
+               autocomplete="off" spellcheck="false"
+               style="width:100%;max-width:340px;margin-bottom:var(--s3)" />
+        <div>
+          <button class="btn btn--fantome btn--sm" type="submit">{t(lang, 'account.del.go')}</button>
+        </div>
+      </form>
+      <p class="muted" style="font-size:13px;margin:var(--s3) 0 0">{t(lang, 'account.del.after')}</p>
+    </section>
+  </details>
   )}
 
   {/* ⭐ LA TRANSPARENCE EST UN ARGUMENT DE VENTE, PAS UNE CONCESSION. Dire quels
