@@ -581,8 +581,22 @@ const menuComplet = wikiNav
          ⭐ UN SEUL appel à l'action plein, et la connexion en retrait : deux
          boutons de même poids n'en font aucun, et c'est l'inscription qu'on
          veut. */}
+      {/* 🍪 LES DEUX ÉTIQUETTES VOYAGENT AVEC LA PAGE — lot 97, 06/08/2026.
+         Un membre connecté qui ouvre une des ~8 500 pages PRÉ-GÉNÉRÉES voyait
+         « Inscription » : ces pages sont des fichiers, elles n'ont pas de
+         visiteur, et c'est ce qui fait le SEO. Le script du bas échange le
+         libellé une fois la page chargée, si le cookie d'affichage est là.
+         ⭐ LE TEXTE TRADUIT EST POSÉ ICI, AU BUILD, PAS DANS LE SCRIPT. Un
+         script qui choisirait la langue lui-même en aurait une deuxième
+         source de vérité — et rendrait « My account » sur la page française
+         le jour où les deux divergent. La page connaît sa langue ; elle le
+         dit une fois, en attribut.
+         ⛔ `data-…` ET NON UNE CLASSE : les trois contrôles CSS (`css-mort`,
+         `imports-orphelins`, `cascade-aplatie`) tournent AVANT le
+         compilateur, et une classe ajoutée ici sans règle dans les thèmes les
+         ferait crier — à juste titre. */}
       {comptesOuverts && !aUneSession && (
-      <span class="h-cta">
+      <span class="h-cta" data-membre={t(lang, 'account.title')} data-membre-href="/compte/">
         <a class="btn btn--principal btn--sm" href="/inscription/">{t(lang, 'nav.signup')}</a>
       </span>
     )}
@@ -855,5 +869,57 @@ const menuComplet = wikiNav
     });
   })();
 </script>
+{/* ═══════════════════════════════════════════════════════════════════════
+    🍪 LE COOKIE D'AFFICHAGE — lot 97, demande de Preda du 06/08/2026.
+    ═══════════════════════════════════════════════════════════════════════
+    ⭐⭐⭐ CE SCRIPT NE DONNE AUCUN DROIT ET NE LIT AUCUNE DONNÉE. Il échange
+    un libellé et une adresse, rien d'autre. `vp_membre` ne porte que `1` ;
+    quelqu'un qui le pose à la main depuis la console verra « Mon compte » au
+    lieu de « Inscription », et RIEN de plus : tout contenu réservé passe par
+    `/api/historique/`, `/api/analytics/` ou une route dynamique, qui lisent
+    `vp_session` — `HttpOnly`, illisible d'ici — côté serveur.
+    ⛔ NE JAMAIS lui faire décider d'un CONTENU. Le jour où il masquerait ou
+    révélerait autre chose qu'un libellé, il faudrait le signer, et ce ne
+    serait plus un cookie d'affichage.
+    ⚠️ IL AGIT APRÈS CHARGEMENT, DONC LE HTML SERVI RESTE CELUI D'UN ANONYME.
+    C'est ce que Google doit voir, c'est ce que nginx et Cloudflare peuvent
+    mettre en cache partagé sans risque, et c'est pourquoi la personnalisation
+    ne peut PAS vivre dans le fichier lui-même.
+    ⭐ Sans JavaScript, le bouton reste « Inscription » et mène à une page qui
+    fonctionne. Une dégradation qui ne casse rien. */}
+{comptesOuverts && (
+<script is:inline>
+  (function () {
+    // ⚠️ `vp_membre=1` ET RIEN D'AUTRE. Un `indexOf('vp_membre')` dirait vrai
+    // pour un cookie nommé `vp_membre_ancien`, et un `vp_membre=` accepterait
+    // la valeur vide que pose l'effacement dans certains navigateurs.
+    if (!/(?:^|;\s*)vp_membre=1(?:;|$)/.test(document.cookie)) return;
+
+    var s = document.querySelector('.h-cta[data-membre]');
+    if (s) {
+      var a = s.querySelector('a');
+      // ⭐ On ne réécrit que si les deux étiquettes sont là. Un attribut
+      // absent produirait `href="null"` et un bouton sans texte : le
+      // dispositif tomberait en panne PLUS BAS que là où il a échoué.
+      if (a && s.getAttribute('data-membre') && s.getAttribute('data-membre-href')) {
+        a.href = s.getAttribute('data-membre-href');
+        a.textContent = s.getAttribute('data-membre');
+      }
+    }
+
+    // ⭐ LA BARRE MOBILE AUSSI. Sur téléphone, `.onglets` est la navigation
+    // réelle ; sur une page pré-générée elle n'a que 3 entrées puisque le
+    // gabarit n'ajoute `/compte/` qu'à quelqu'un qu'il sait connecté. Sa
+    // grille est déjà en 4 colonnes — la quatrième était simplement vide.
+    var nav = document.querySelector('nav.onglets');
+    if (nav && s && !nav.querySelector('a[href="/compte/"]')) {
+      var lien = document.createElement('a');
+      lien.href = s.getAttribute('data-membre-href') || '/compte/';
+      lien.textContent = s.getAttribute('data-membre') || '';
+      if (lien.textContent) nav.appendChild(lien);
+    }
+  })();
+</script>
+)}
 </body>
 </html>

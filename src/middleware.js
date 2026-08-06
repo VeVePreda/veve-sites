@@ -111,6 +111,16 @@ export async function onRequest(context, next) {
   //    trente-et-unième oubliera. La règle vit ICI, en un seul endroit.
   if (context.isPrerendered) return next();
 
+  // ⭐⭐ LE SEUL ENDROIT DU DÉPÔT QUI SAIT SI LA PAGE A UN VISITEUR — lot 97.
+  // ⛔ NE PAS remplacer ça par `Astro.isPrerendered` dans les gabarits : cette
+  // propriété change de nom et de sémantique d'une version majeure à l'autre,
+  // et une page qui se trompe ICI se ferme à tout le monde (ou s'ouvre à tout
+  // le monde) sans erreur. Le drapeau est posé par le code du dépôt, juste
+  // sous la ligne qui décide — les deux se relisent ensemble.
+  // ⭐ Il vaut `undefined` sur les ~8 500 pages pré-générées : le `return`
+  // au-dessus n'arrive jamais ici. C'est précisément ce qu'on veut lire.
+  context.locals.rendu = 'demande';
+
   // ═══════════════════════════════════════════════════════════════════════════
   // L'ORDRE DE CES TROIS SOURCES EST UN CHOIX DE SÉCURITÉ — lot 42, 03/08/2026
   // ═══════════════════════════════════════════════════════════════════════════

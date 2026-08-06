@@ -49,6 +49,41 @@ const secretDeService = () => process.env.VEVEID_SERVICE || process.env.ID_SERVI
 // « déconnexions qui ne déconnectent pas », et elle se paie ici, à la pose.
 const ATTRIBUTS = { path: '/', sameSite: 'lax', secure: true, httpOnly: true };
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 🍪 LE COOKIE D'AFFICHAGE — lot 97, demande de Preda du 06/08/2026.
+// ═══════════════════════════════════════════════════════════════════════════
+// LE SYMPTÔME : un membre connecté voyait « Inscription » dès qu'il quittait
+// les 9 routes dynamiques.
+// ⛔ CE N'ÉTAIT PAS UN BUG. `src/middleware.js` sort sur `isPrerendered` : les
+// ~8 500 pages sont des FICHIERS, identiques pour tout le monde et pour
+// Google — et c'est exactement ce qui fait le référencement. Les rendre à la
+// demande pour personnaliser un bouton coûterait le SEO et la vitesse.
+//
+// ⭐⭐⭐ CE COOKIE N'ACCORDE AUCUN DROIT, ET C'EST LA SEULE CHOSE QUI REND LE
+// DISPOSITIF ACCEPTABLE. Il ne porte QUE `1` : ni palier, ni identifiant, ni
+// date. Il est falsifiable depuis la console du navigateur — quelqu'un qui le
+// pose à la main verra « Mon compte » au lieu de « Inscription », ET RIEN
+// D'AUTRE : chaque donnée réservée passe par `/api/historique/`,
+// `/api/analytics/` ou une route dynamique, qui lisent toutes `vp_session`
+// côté serveur. ⛔ LE JOUR OÙ CE COOKIE DÉCIDERAIT D'UN CONTENU, IL FAUDRAIT
+// LE SIGNER — et à ce moment-là ce ne serait plus un cookie d'affichage.
+//
+// 🔴 `httpOnly: false` EST LE POINT, PAS UN OUBLI. C'est un script de page qui
+// doit le lire ; un cookie d'affichage `httpOnly` serait un cookie que
+// personne ne peut afficher. C'est aussi la raison pour laquelle il ne peut
+// RIEN porter d'autre que ce `1`.
+//
+// ⚠️ MÊMES ATTRIBUTS QU'À L'EFFACEMENT, AU CARACTÈRE PRÈS — même règle que
+// `vp_session` juste au-dessus, et `test:session` la vérifie maintenant pour
+// LES DEUX cookies.
+// ⚠️ LE NOM EST ÉCRIT EN TOUTES LETTRES DANS LES TROIS FICHIERS QUI LE
+// TOUCHENT (ici, `api/deconnexion.js`, `layouts/Base.astro`) — exactement
+// comme `vp_session` depuis le lot 42. Un identifiant partagé se lirait mieux,
+// mais il rendrait le `grep vp_membre` MUET : c'est ce grep-là qui a fini par
+// dire, le 06/08, que personne ne posait `vp_session`. On garde la chaîne
+// cherchable, et `test:session` compte les trois bouts.
+const ATTRIBUTS_MEMBRE = { path: '/', sameSite: 'lax', secure: true, httpOnly: false };
+
 export async function GET({ url, cookies, redirect }) {
   const code = url.searchParams.get('code') || '';
   const base = process.env.SESSION_API || '';
@@ -97,7 +132,14 @@ export async function GET({ url, cookies, redirect }) {
   // deux fois, ou une heure plus tard. On le dit sans accuser la personne.
   if (!sid) return redirect('/connexion/?e=2', 303);
 
-  cookies.set('vp_session', sid, { ...ATTRIBUTS, maxAge: 30 * 24 * 3600 });
+  // ⭐ LES DEUX COOKIES ONT LA MÊME DURÉE DE VIE, ET C'EST OBLIGATOIRE. S'ils
+  // divergent, le navigateur oublie l'un avant l'autre : soit un membre
+  // parfaitement connecté se voit proposer de s'inscrire (durée d'affichage
+  // trop courte), soit un ex-membre garde « Mon compte » vers une page qui le
+  // renvoie à la connexion (durée trop longue). Une seule constante décide.
+  const DUREE = 30 * 24 * 3600;
+  cookies.set('vp_session', sid, { ...ATTRIBUTS, maxAge: DUREE });
+  cookies.set('vp_membre', '1', { ...ATTRIBUTS_MEMBRE, maxAge: DUREE });
 
   // ⭐ ON NETTOIE L'URL PAR UNE REDIRECTION. Sans elle, `?code=…` resterait
   // dans la barre d'adresse, dans l'historique, et partirait dans le `Referer`

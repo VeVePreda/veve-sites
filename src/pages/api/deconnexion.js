@@ -56,6 +56,17 @@ export const POST = async ({ cookies, redirect }) => {
   // navigateur considère que c'est un AUTRE cookie et laisse l'original vivre.
   // C'est la raison n°1 des « déconnexions qui ne déconnectent pas ».
   cookies.delete('vp_session', { path: '/', sameSite: 'lax', secure: true, httpOnly: true });
+  // 🍪 LE COOKIE D'AFFICHAGE PART AVEC LA SESSION — lot 97.
+  // ⛔ Il n'accorde aucun droit : l'oublier ne laisserait aucune porte
+  // ouverte. Il laisserait quelque chose de pire à sa façon — un bouton
+  // « Mon compte » sur 8 500 pages, chez quelqu'un qui vient de cliquer
+  // « Se déconnecter ». Une interface qui contredit le geste qu'on vient de
+  // faire est la panne la plus sûre de toutes : elle se voit.
+  // 🔴 `httpOnly: false` ET LE MÊME `path` QU'À LA POSE, AU CARACTÈRE PRÈS.
+  // Un cookie effacé avec d'autres attributs n'est pas effacé : le navigateur
+  // y voit un second cookie et laisse vivre le premier. `test:session`
+  // compare maintenant les deux côtés POUR LES DEUX cookies.
+  cookies.delete('vp_membre', { path: '/', sameSite: 'lax', secure: true, httpOnly: false });
   return redirect('/', 303);
 };
 

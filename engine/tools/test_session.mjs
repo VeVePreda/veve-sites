@@ -77,8 +77,15 @@ console.log('\n2. La pose et l’effacement décrivent-ils LE MÊME cookie ?');
 //    clair dans le fichier pour faire plaisir au banc. Un contrôle qui pousse
 //    à dupliquer ce qu'il vérifie travaille contre lui-même.
 // ⭐ On corrige l'INSTRUMENT. Un banc doit savoir lire ce qu'il regarde.
-const attributs = (s, verbe) => {
-  const m = s.match(new RegExp(`cookies\\.${verbe}\\([^)]*?\\{([^}]*)\\}`, 's'));
+// ⚠️ LOT 97 — LE LECTEUR VISE MAINTENANT UN COOKIE PRÉCIS. Sa v1 prenait le
+// PREMIER `cookies.set(…)` du fichier. Tant qu'il n'y en avait qu'un, elle
+// avait raison ; le jour où `api/entrer.js` en pose deux, elle aurait comparé
+// les attributs de `vp_session` à ceux de `vp_membre` et déclaré un écart
+// parfaitement imaginaire — ou pire, l'inverse : deux cookies mal appariés
+// jugés identiques. ⭐ Un banc qui lit « le premier » lit en réalité « celui
+// qu'il y avait quand je l'ai écrit ».
+const attributs = (s, verbe, nom) => {
+  const m = s.match(new RegExp(`cookies\\.${verbe}\\(\\s*['"]${nom}['"][^)]*?\\{([^}]*)\\}`, 's'));
   if (!m) return null;
   let corps = m[1];
   // `{ ...ATTRIBUTS, maxAge: … }` → on remplace le spread par la constante.
@@ -92,13 +99,69 @@ const attributs = (s, verbe) => {
       return `${a}=${v ? v[1].trim().replace(/['"]/g, '') : '?'}`;
     }).join(' ');
 };
-const aPose = pose.length ? attributs(lire(join(RACINE, pose[0])), 'set') : null;
-const aEfface = efface.length ? attributs(lire(join(RACINE, efface[0])), 'delete') : null;
+const aPose = pose.length ? attributs(lire(join(RACINE, pose[0])), 'set', 'vp_session') : null;
+const aEfface = efface.length ? attributs(lire(join(RACINE, efface[0])), 'delete', 'vp_session') : null;
 dit(!!aPose && !!aEfface && aPose === aEfface,
   'mêmes path / sameSite / secure / httpOnly des deux côtés',
   aPose === aEfface ? aPose : `pose « ${aPose} » ≠ effacement « ${aEfface} »`);
 dit(!!aPose && aPose.includes('httpOnly=true'), 'le cookie est httpOnly', 'sinon un script de page peut le lire');
 dit(!!aPose && aPose.includes('secure=true'), 'le cookie est secure', 'sinon il part en clair sur une requête http');
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🍪 2 bis. LE COOKIE D'AFFICHAGE — lot 97
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐⭐⭐ MÊME QUESTION QU'AU §1, POSÉE À UN COOKIE NEUF : QUI ÉCRIT, QUI LIT ?
+// `vp_session` a vécu quatre lots lu et effacé sans que personne ne le pose,
+// avec 21 bancs verts. On ne recommence pas : le contrôle est écrit EN MÊME
+// TEMPS que le cookie, pas quatre lots plus tard.
+console.log('\n2 bis. Le cookie d’AFFICHAGE vp_membre a-t-il ses trois bouts ?');
+const poseM = [], litM = [], effaceM = [];
+for (const f of sources) {
+  const src = lire(f);
+  if (!src.includes('vp_membre')) continue;
+  if (/cookies\.set\(\s*['"]vp_membre['"]/.test(src)) poseM.push(relatif(f));
+  if (/cookies\.delete\(\s*['"]vp_membre['"]/.test(src)) effaceM.push(relatif(f));
+  // ⚠️ CELUI-CI SE LIT EN JAVASCRIPT DE PAGE, pas par `cookies.get()` : c'est
+  // sa raison d'être. On cherche donc le lecteur là où il est — dans le
+  // gabarit — sinon le banc conclurait « personne ne lit » sur un dispositif
+  // qui fonctionne, et on retirerait un cookie utile.
+  if (/document\.cookie/.test(src) && /vp_membre/.test(src)) litM.push(relatif(f));
+}
+dit(poseM.length > 0, 'quelqu’un POSE vp_membre', poseM.join(', ') || 'PERSONNE — le bouton ne changera jamais');
+dit(litM.length > 0, 'quelqu’un LIT vp_membre (script de page)', litM.join(', ') || 'personne — le cookie serait posé pour rien');
+dit(effaceM.length > 0, 'quelqu’un EFFACE vp_membre', effaceM.join(', ')
+  || 'personne — « Mon compte » resterait affiché après une déconnexion');
+
+const mPose = poseM.length ? attributs(lire(join(RACINE, poseM[0])), 'set', 'vp_membre') : null;
+const mEfface = effaceM.length ? attributs(lire(join(RACINE, effaceM[0])), 'delete', 'vp_membre') : null;
+dit(!!mPose && !!mEfface && mPose === mEfface,
+  'vp_membre : mêmes attributs à la pose et à l’effacement',
+  mPose === mEfface ? mPose : `pose « ${mPose} » ≠ effacement « ${mEfface} »`);
+// ⭐ CELUI-CI DOIT ÊTRE LISIBLE PAR UN SCRIPT — c'est l'inverse exact de
+// l'attente sur `vp_session`, et c'est pourquoi il est écrit noir sur blanc.
+// Un `httpOnly: true` recopié par mimétisme rendrait le dispositif inerte :
+// le cookie serait parfaitement posé et parfaitement invisible.
+dit(!!mPose && mPose.includes('httpOnly=false'), 'vp_membre est LISIBLE par le script (httpOnly=false)',
+  'un cookie d’affichage httpOnly est un cookie que personne ne peut afficher');
+dit(!!mPose && mPose.includes('secure=true'), 'vp_membre est secure');
+
+// 🔴🔴 LA GARANTIE QUI REND LE DISPOSITIF ACCEPTABLE : IL N'ACCORDE RIEN.
+// Ce cookie est falsifiable depuis la console du navigateur. Tant qu'il ne
+// décide que d'un libellé, c'est sans conséquence. Le jour où un `franchit()`,
+// un `palier`, un `Gate` ou une route d'API le regarderait, il faudrait le
+// SIGNER — et ce banc doit crier AVANT que la ligne parte en production.
+const cotePalier = sources.filter((f) => {
+  const src = lire(f);
+  if (!src.includes('vp_membre')) return false;
+  return /vp_membre/.test(src) && /(franchit|palierVisiteur|locals\.palier|porte\()/.test(src);
+}).map(relatif);
+dit(cotePalier.length === 0, 'vp_membre n’approche AUCUNE décision de droit',
+  cotePalier.join(', ') || 'il ne décide que d’un libellé — c’est ce qui permet qu’il soit falsifiable');
+// ⛔ Et il ne porte que « 1 » : ni palier, ni identifiant, ni date. Une valeur
+// riche appelle une lecture, une lecture appelle une décision.
+const posé = poseM.length ? lire(join(RACINE, poseM[0])) : '';
+dit(/cookies\.set\(\s*['"]vp_membre['"]\s*,\s*'1'/.test(posé), 'vp_membre ne porte que « 1 »',
+  'toute autre valeur serait une donnée exposée en clair, modifiable par son porteur');
 
 // ── 3. LA ROUTE D'ENTRÉE EST-ELLE RENDUE À LA DEMANDE ? ────────────────────
 console.log('\n3. Les routes de session sont-elles rendues à la demande ?');
@@ -257,6 +320,32 @@ dit(/timingSafeEqual/.test(rb), 'le sceau est comparé à durée constante');
 dit(/DELAI_MAX_MS/.test(rb), 'le sceau EXPIRE',
   'un sceau éternel se récolte une fois et se rejoue mille fois');
 
+// ── 10. IL N'Y A PAS DE PAGE COMPTE PUBLIQUE (lot 97) ──────────────────────
+console.log('\n10. /compte/ se ferme à qui n’a pas de session');
+const cpt = lire(join(RACINE, 'src/pages/compte/index.astro'));
+const mw = lire(join(RACINE, 'src/middleware.js'));
+// ⭐⭐ « QUI ÉCRIT, QUI LIT ? » — appliqué au drapeau de rendu. La page décide
+// de se fermer d'après `locals.rendu` ; si personne ne le POSE, la condition
+// est éternellement fausse et la page reste ouverte. Vert des deux côtés,
+// inerte au milieu : exactement la panne de `vp_session`.
+dit(/locals\.rendu\s*=\s*'demande'/.test(mw), 'le middleware POSE locals.rendu',
+  'sans lui, la fermeture de /compte/ ne se déclenche jamais');
+dit(/locals\?\.rendu === 'demande'/.test(cpt), '/compte/ LIT locals.rendu');
+dit(/Astro\.redirect\('\/connexion\/'/.test(cpt), '/compte/ redirige l’anonyme vers /connexion/',
+  'une page de compte servie à quelqu’un sans session est une page publique');
+dit(/!connecte && !enDemo/.test(cpt), 'le jeton de démonstration garde son accès',
+  'sinon la démo s’enferme : le bouton pour en sortir vit sur cette page');
+dit(/\{reglagesIci && connecte &&/.test(cpt), 'les réglages sont réservés aux membres (Preda, 06/08)');
+dit(/<Base noindex/.test(cpt), '/compte/ est en noindex');
+// ⚠️ Le drapeau est posé APRÈS la sortie sur `isPrerendered`, et cet ordre EST
+// le contrôle : posé avant, il vaudrait « demande » sur les 8 500 fichiers, et
+// /compte/ deviendrait une redirection figée dans le build — pour tout le
+// monde, abonnés compris.
+const iPre = mw.indexOf('isPrerendered) return next()');
+const iFlag = mw.indexOf("locals.rendu = 'demande'");
+dit(iPre >= 0 && iFlag > iPre, 'le drapeau est posé APRÈS la sortie sur isPrerendered',
+  'posé avant, il figerait la redirection dans les pages pré-générées');
+
 // ── 6. AUTO-CONTRÔLE ───────────────────────────────────────────────────────
 console.log('\n6. Auto-contrôle — ce banc a-t-il quelque chose à inspecter ?');
 // ⭐ Un verdict rendu sur zéro élément n'a rien prouvé. Si `sources` était
@@ -264,6 +353,9 @@ console.log('\n6. Auto-contrôle — ce banc a-t-il quelque chose à inspecter ?
 dit(sources.length > 20, 'des sources ont bien été lues', `${sources.length} fichiers`);
 dit(sources.some((f) => lire(f).includes('vp_session')),
   'le nom du cookie est bien celui qu’on croit', 'sinon on cherchait une chaîne qui n’existe plus');
+dit(sources.some((f) => lire(f).includes('vp_membre')),
+  'le cookie d’affichage porte bien le nom vp_membre (choix de Preda, 06/08)',
+  'un banc qui cherche une chaîne absente rend tous ses verdicts sur du vide');
 
 console.log(echecs === 0
   ? `\n✅ session : tout est vert (le circuit est fermé)\n`

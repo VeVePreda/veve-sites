@@ -53,6 +53,40 @@ const palier = palierVisiteur(Astro.locals);
 const session = sessionDe(Astro.locals);
 const connecte = session === 'reelle';
 const enDemo = session === 'demo';
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴 IL N'Y A PAS DE PAGE COMPTE PUBLIQUE — arbitrage Preda du 06/08/2026.
+// ═══════════════════════════════════════════════════════════════════════════
+// Jusqu'ici cette page servait DEUX choses à qui n'avait pas de session : un
+// panneau « vous n'êtes pas connecté » et la liste des réglages, affichée
+// verrouillée. C'était le bon choix TANT QU'AUCUN SERVICE D'IDENTITÉ N'EXISTAIT
+// — le commentaire ci-dessous le disait : « réserver le bloc aux membres le
+// rendrait invisible à tout le monde, y compris à Preda ».
+// ⭐⭐ CETTE JUSTIFICATION A EXPIRÉ LE 06/08 À 15 h, quand l'inscription par
+// courriel est passée en production. Un avertissement qui survit à sa cause
+// devient un mensonge qui se cite : la raison d'être du repli, c'était
+// l'absence du service ; le service existe.
+//
+// ⭐ ON REDIRIGE VERS `/connexion/` ET NON VERS `/inscription/` : quelqu'un qui
+// tape `/compte/` a déjà un compte, dans neuf cas sur dix. La page de connexion
+// porte le lien vers l'inscription ; l'inverse n'est pas vrai.
+// ⛔ ET NON UN 404 : un membre dont la session a expiré au bout de trente jours
+// tomberait sur une erreur au lieu d'une porte.
+//
+// 🔴🔴 `locals.rendu` ET NON `Astro.isPrerendered`. Sur une page PRÉ-GÉNÉRÉE,
+// il n'y a pas de visiteur : personne n'est jamais connecté, donc cette
+// redirection se figerait DANS LE FICHIER et /compte/ deviendrait un renvoi
+// permanent — y compris pour un abonné. Le drapeau est posé par
+// `src/middleware.js`, juste sous la ligne qui décide (`isPrerendered`), et
+// vaut `undefined` partout ailleurs. ⭐ On lit le signal du dépôt, pas une
+// propriété du framework dont le nom et le sens changent de version en
+// version : ici, se tromper ferme la porte à tout le monde sans une erreur.
+const aLaDemande = Astro.locals?.rendu === 'demande';
+// ⭐ `enDemo` PASSE, ET IL LE DOIT. Le jeton nominatif signé donne un palier
+// sans identité — et c'est SUR CETTE PAGE que vit le seul bouton pour en
+// sortir (`/api/demo?sortir=1`). L'oublier enfermerait la démonstration : on
+// verrait la vue d'un abonné sans plus aucun moyen de la refermer.
+if (aLaDemande && !connecte && !enDemo) return Astro.redirect('/connexion/', 302);
 // 🌐🎨 Les réglages descendent ICI (demande de Preda du 06/08). Le gabarit ne
 // le décide pas : le manifeste le dit, comme pour tout le reste du moteur.
 const reglagesIci = (m.identity?.langues_dans === 'compte') || (m.identity?.theme_dans === 'compte');
@@ -85,25 +119,26 @@ const MODULES = ['price_history', 'extremes', 'modules', 'alerts', 'wallet_watch
           est une promesse rompue faite à un moteur, et le sélecteur de langue,
           qui lit la même liste, y envoyait le visiteur ». Je l'ai recommis en
           créant deux pages neuves sans lire ce que le gabarit savait déjà. */}
-<Base langs={[def]} lang={lang} path="/compte/" title={t(lang, 'account.title')}
+{/* ⭐ `noindex` — lot 97. La page ne peut plus être atteinte sans session,
+    donc un robot n'y verra jamais qu'une redirection ; l'en-tête le dit quand
+    même, parce qu'une page de membre indexée est une promesse de contenu qu'on
+    ne peut pas tenir. `follow` reste : les liens du gabarit gardent leur rôle. */}
+<Base noindex langs={[def]} lang={lang} path="/compte/" title={t(lang, 'account.title')}
       crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') }, { name: t(lang, 'account.title') }]}>
 
   <span class="logo logo--xl" aria-hidden="true">VP</span>
   <h1 class="mono-t">{t(lang, 'account.title')}</h1>
 
-  {!connecte && (
-    <section class="panneau champ" style="margin-bottom:var(--s5)">
-      <h2 style="margin-top:0">{t(lang, 'account.signedout')}</h2>
-      <p class="respire" style="margin-bottom:var(--s4)">{t(lang, 'account.signedout.d')}</p>
-      {/* ⛔ UN BOUTON QUI NE MÈNE NULLE PART COÛTE PLUS CHER EN CONFIANCE QU'IL
-          NE RAPPORTE EN PROMESSE. Tant que `offer.url` est vide, on n'affiche
-          PAS d'appel à l'action — on affiche ce qui existe, et rien de plus. */}
-      {m.offer?.url
-        ? <a class="btn btn--principal btn--sm" href={m.offer.url}>{t(lang, 'account.subscribe')}</a>
-        : <p class="muted">{t(lang, 'account.soon')}</p>}
-    </section>
-  )}
-
+  {/* ⛔ LE PANNEAU « VOUS N'ÊTES PAS CONNECTÉ » A ÉTÉ RETIRÉ AU LOT 97, et
+      pas parce qu'il était laid : il est devenu INATTEIGNABLE. La redirection
+      du haut renvoie tout anonyme vers `/connexion/`. Un bloc conservé « au
+      cas où » derrière une condition qui ne peut plus être vraie est du code
+      mort qui se relit comme une fonctionnalité — on le lit, on le croit, on
+      cherche pourquoi il ne s'affiche jamais.
+      ⚠️ Les clés `account.signedout`, `account.signedout.d`, `account.subscribe`
+      et `account.soon` RESTENT dans les cinq langues, exprès : le mur de vente
+      les reprendra le jour où `offer.url` existera, et une clé retirée puis
+      réécrite est une traduction perdue cinq fois. */}
   {connecte && (
     <div class="stats">
       <div class="stat"><div class="k">{t(lang, 'account.tier')}</div><div class="v">{palier}</div></div>
@@ -145,7 +180,19 @@ const MODULES = ['price_history', 'extremes', 'modules', 'alerts', 'wallet_watch
     </section>
   )}
 
-  {reglagesIci && (
+  {/* 🔴 `&& connecte` — LES RÉGLAGES SONT RÉSERVÉS AUX MEMBRES (Preda, 06/08).
+      Aujourd'hui la redirection du haut suffirait : seul un membre ou un jeton
+      de démonstration atteint cette ligne. ⭐ ON L'ÉCRIT QUAND MÊME, parce que
+      la condition dit ce que la page GARANTIT, et non ce que le chemin d'accès
+      rend improbable aujourd'hui. Un garde-fou qui ne tient que par la route
+      qui y mène tombe le jour où quelqu'un ajoute une deuxième route.
+      ⛔ CONSÉQUENCE ASSUMÉE, TRANCHÉE PAR PREDA : avec `theme_dans: compte`, la
+      bascule jour/nuit n'existe QUE dans ce bloc — un visiteur non connecté ne
+      peut donc plus passer en mode jour du tout. C'est un argument
+      d'inscription, pas un oubli. La langue, elle, reste atteignable par le
+      globe de l'en-tête, qui ne quitte jamais le DOM (sinon Google perd les
+      traductions). */}
+  {reglagesIci && connecte && (
     /* ═════════════════════════════════════════════════════════════════════
        LES RÉGLAGES DESCENDENT DU HEADER ET DU PIED DE PAGE — Preda, 06/08.
        ═════════════════════════════════════════════════════════════════════
@@ -163,7 +210,6 @@ const MODULES = ['price_history', 'extremes', 'modules', 'alerts', 'wallet_watch
     <>
       <div class="sect-t sect-t--gd"><h2>{t(lang, 'account.settings')}</h2></div>
       <section class="panneau champ" style="margin-bottom:var(--s5)">
-        {!connecte && <p class="etiq" style="margin-bottom:var(--s4)">🔒 {t(lang, 'account.locked')}</p>}
         <p class="muted respire" style="margin-bottom:var(--s4)">{t(lang, 'account.settings.d')}</p>
 
         {langueIci && languesDispo.length > 1 && (
