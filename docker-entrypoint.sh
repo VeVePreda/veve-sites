@@ -105,6 +105,34 @@ case "$SANTE" in
   *) echec "/api/sante annonce un mode different de « $MODE » : $SANTE" ;;
 esac
 
+# --- Les pages rendues a la demande sont-elles JOIGNABLES ? -----------------
+# 🔴 LE CONTROLE NE DE LA PANNE DU 06/08/2026. /compte/, /connexion/ et
+# /inscription/ rendaient 404 en production pendant que TOUT le reste etait
+# correct : le manifeste disait `server`, l'integration posait bien
+# `prerender = false`, Node servait les trois routes — et `nginx.server.conf`
+# ne deleguait que /api/. Une route a la demande n'ecrit aucun fichier dans
+# dist/client : `try_files … =404` la declarait absente, et nginx servait notre
+# propre 404.html avec un code parfaitement sincere.
+#
+# ⭐⭐ AUCUN CONTROLE EXISTANT NE POUVAIT LE VOIR. Le garde-fou du Dockerfile
+# compte les pages PRE-GENEREES — ces trois-la n'en sont pas, par construction.
+# `/api/sante` traverse nginx mais passe par le SEUL bloc qui existait. Et
+# `npm test` ne tourne pas pendant le build de Coolify.
+# ⭐⭐⭐ « LA ROUTE EST-ELLE RENDUE ? » ET « LA ROUTE EST-ELLE DEMANDEE ? » SONT
+# DEUX QUESTIONS, ET ELLES VIVENT DANS DEUX FICHIERS DIFFERENTS.
+#
+# ⚠️ ON TESTE « PAS 404 », PAS « 200 ». Un site en mode serveur qui n'aurait pas
+# de comptes (`access.tiers: [visitor]`) rend une REDIRECTION vers l'accueil :
+# c'est correct, et exiger 200 ferait echouer un conteneur parfaitement sain.
+# Ce qu'on refuse, c'est l'introuvable.
+if [ "$MODE" = "server" ]; then
+  for page in /compte/ /connexion/ /inscription/; do
+    wget -q -O /dev/null "http://127.0.0.1:80$page" 2>/dev/null \
+      || echec "$page est INTROUVABLE a travers nginx alors que Node la rend. Il manque sa regle dans nginx.server.conf — cf. le bloc « pages de compte ». (Node repond bien : /api/sante a deja ete verifie.)"
+  done
+  echo "[demarrage] pages de compte joignables a travers nginx : /compte/ /connexion/ /inscription/"
+fi
+
 if [ "$MODE" = "server" ]; then
   echo "[demarrage] ✅ nginx (80) devant Node (4321), pages pre-generees servies par nginx"
 else

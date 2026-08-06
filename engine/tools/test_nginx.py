@@ -26,6 +26,7 @@ Dependance : crossplane, l'analyseur officiel de NGINX Inc.
     pip install crossplane
 """
 import pathlib
+import re
 import sys
 
 try:
@@ -207,5 +208,98 @@ verifie('aucun repli attrape-tout vers Node', not attrape_tout,
         'les adresses inconnues restent un 404 nginx' if not attrape_tout
         else 'try_files renvoie vers un @bloc : tout robot reveillerait Node')
 
-print(f"\n{'✅ les deux configurations sont jumelles' if echecs == 0 else f'❌ {echecs} echec(s)'}")
+# =============================================================================
+# 6. LE CONTROLE QUI MANQUAIT — ajoute le 06/08/2026 apres une panne de PROD.
+# =============================================================================
+# CE QU'IL FERME. Le 06/08, `/compte/`, `/connexion/` et `/inscription/`
+# rendaient 404 en production. Le manifeste disait `rendering: server`,
+# l'integration `veve:routes-compte` posait bien `prerender = false`, Node
+# servait bel et bien les trois routes — et nginx ne lui a jamais rien demande.
+# Une route rendue a la demande n'ecrit AUCUN fichier dans dist/client : le
+# `try_files … =404` la trouvait absente et servait notre propre 404.html.
+#
+# ⭐⭐⭐ ET LES CINQ SECTIONS AU-DESSUS ETAIENT VERTES. Elles ont ete ecrites
+# pour prouver que les deux configurations sont JUMELLES ; elles n'ont jamais
+# eu a dire si le mode serveur sert bien tout ce qu'il rend. La section 5
+# affirmait meme « le mode serveur delegue a Node — et seulement ou il le
+# declare » : la seconde moitie de la phrase etait gardee, la premiere non.
+# ⭐⭐ UN BANC SE JUGE SUR CE QU'IL LAISSE PASSER, PAS SUR CE QU'IL VERIFIE.
+#
+# ⭐ SON ATTENTE VIENT DU MOTEUR, PAS D'UNE LISTE RECOPIEE ICI. Une liste
+# recopiee vieillirait avec le premier ajout, et ce banc redeviendrait vert
+# pour la meme mauvaise raison. Il lit `ROUTES_COMPTE` dans
+# `engine/lib/astro_routes_compte.mjs` — la SEULE source qui decide quelles
+# routes sont dynamiques. Ajouter une page de compte sans regle nginx fait
+# desormais ECHOUER le banc, donc le deploiement.
+# ⭐ Il sort en echec s'il n'a extrait AUCUNE route : un banc qui n'a rien
+# inspecte n'a rien prouve, et son vert est le plus cher de tous.
+print('\n6. tout ce que Node REND, nginx le DEMANDE')
+
+ROUTES_MJS = RACINE / 'engine' / 'lib' / 'astro_routes_compte.mjs'
+
+
+def routes_dynamiques():
+    """Les URL rendues a la demande, lues dans le moteur (jamais recopiees)."""
+    if not ROUTES_MJS.exists():
+        return []
+    src = ROUTES_MJS.read_text(encoding='utf-8')
+    bloc = re.search(r'const\s+ROUTES_COMPTE\s*=\s*\[(.*?)\];', src, re.S)
+    if not bloc:
+        return []
+    urls = []
+    for fichier in re.findall(r"'([^']+\.(?:astro|js|ts))'", bloc.group(1)):
+        # `pages/compte/index.astro` -> `/compte/` ; `pages/api/sante.js` ->
+        # `/api/sante` ; `pages/api/historique/[uuid].js` -> `/api/historique/x`.
+        u = re.sub(r'^.*?pages/', '/', fichier)
+        u = re.sub(r'/index\.(astro|js|ts)$', '/', u)
+        u = re.sub(r'\.(astro|js|ts)$', '', u)
+        u = re.sub(r'\[[^\]]+\]', 'x', u)
+        urls.append(u)
+    return sorted(set(urls))
+
+
+def sert(url, locs):
+    """Une regle de `locs` delegue-t-elle `url` a Node ? (semantique nginx)
+
+    ⚠️ APPROXIMATION ASSUMEE, ET ELLE PENCHE DU BON COTE : on ne reimplemente
+    pas l'ordre de priorite de nginx (c'est le role du controle de demarrage,
+    qui interroge A TRAVERS un vrai nginx). On demande seulement qu'AU MOINS
+    UNE regle proxy corresponde. Une regle qui perdrait la priorite passerait
+    ici — mais l'ABSENCE TOTALE de regle, qui est la panne reelle du 06/08, ne
+    passe plus.
+    """
+    for cle, contenu in locs.items():
+        if not any('127.0.0.1:4321' in a for d, a in contenu if d == 'proxy_pass'):
+            continue
+        motif = cle.split(' ', 1)[-1] if ' ' in cle else cle
+        regex = cle.startswith('~')
+        if regex and re.search(motif, url):
+            return cle
+        if not regex and url.startswith(motif):
+            return cle
+    return None
+
+
+dynamiques = routes_dynamiques()
+verifie('la liste des routes dynamiques a bien ete lue dans le moteur',
+        len(dynamiques) >= 5,
+        f'{len(dynamiques)} route(s) : {", ".join(dynamiques)}' if dynamiques
+        else f'ROUTES_COMPTE introuvable dans {ROUTES_MJS.name} — banc creux')
+
+for url in dynamiques:
+    regle = sert(url, loc_serveur)
+    verifie(f'{url} est servie par nginx en mode serveur', regle is not None,
+            f'via `location {regle}`' if regle
+            else 'AUCUNE regle ne la delegue a Node — Node la rend, personne ne la demande, '
+                 'nginx sert un 404')
+
+# ⛔ ET LE MODE STATIQUE NE DOIT SURTOUT PAS LES CONNAITRE. En statique il n'y a
+# pas de Node : ces pages sont des FICHIERS pre-generes, servis par le bloc `/`.
+# Une regle proxy cote statique pointerait vers un port ou personne n'ecoute.
+fautives = [u for u in dynamiques if sert(u, loc_statique)]
+verifie('le mode statique ne delegue aucune de ces routes', not fautives,
+        'aucun proxy applicatif en statique' if not fautives
+        else f'proxy inattendu pour : {", ".join(fautives)}')
+
+print(f"\n{'✅ configurations jumelles, et tout ce que Node rend est demande' if echecs == 0 else f'❌ {echecs} echec(s)'}")
 sys.exit(0 if echecs == 0 else 1)
