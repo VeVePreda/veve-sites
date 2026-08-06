@@ -14,6 +14,7 @@ import Base from '../../layouts/Base.astro';
 import { acces, sessionDe } from '../../../engine/lib/access.mjs';
 import { t, localize, locales } from '../../../engine/lib/i18n.mjs';
 import { comptesActifs } from '../../../engine/lib/features.mjs';
+import { sceau, champPiegeHtml } from '../../../engine/lib/robots.mjs';
 import { getCatalogue } from '../../../engine/data/warehouse.mjs';
 
 // ⭐ RENDUE À LA DEMANDE : elle peut lire `Accept-Language`, ce qu'une page
@@ -99,6 +100,11 @@ try {
 // langue les placer où sa grammaire les veut, au lieu de figer l'ordre du
 // français dans le gabarit.
 const cguMorceaux = t(lang, 'signup.cgu').split(/(\{terms\}|\{privacy\})/);
+
+// ⭐ Recalculé à CHAQUE rendu : ces pages sont servies à la demande, donc
+// l'horodatage est celui de l'affichage. Sur une page pré-générée il
+// serait figé au build — et périmé pour tout le monde dès le lendemain.
+const marqueTemps = sceau();
 ---
     {/* ⛔ UNE SEULE LANGUE DÉCLARÉE — même correctif que /compte/ et
         /connexion/. Cette page est rendue à la demande et lit `Accept-Language` :
@@ -176,6 +182,8 @@ const cguMorceaux = t(lang, 'signup.cgu').split(/(\{terms\}|\{privacy\})/);
           <label class="etiq" for="c-mail">{t(lang, 'signup.mail')}</label>
           <input id="c-mail" name="courriel" type="email" autocomplete="email"
                  required placeholder={t(lang, 'signup.mail.ph')} />
+          <Fragment set:html={champPiegeHtml()} />
+          <input type="hidden" name="sceau" value={marqueTemps} />
           <span class="champ__aide">{t(lang, 'signup.nopass')}</span>
         </div>
 

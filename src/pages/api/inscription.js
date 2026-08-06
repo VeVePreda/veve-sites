@@ -39,6 +39,7 @@ const secretDeService = () => process.env.VEVEID_SERVICE || process.env.ID_SERVI
 
 
 import { t, locales } from '../../../engine/lib/i18n.mjs';
+import { CHAMP_PIEGE, verdict, adresseVisiteur } from '../../../engine/lib/robots.mjs';
 
 const langueDe = (request) => {
   const { active, def } = locales();
@@ -79,10 +80,29 @@ export async function POST(context) {
   // ⚠️ ON NE LIT QUE L'ADRESSE. Pas de pseudo « pour plus tard », pas de
   // journal du corps. Une donnée qu'on ne lit pas est une donnée qu'on ne peut
   // pas écrire dans un journal par accident.
-  let email = '';
-  try { email = String((await context.request.formData()).get('courriel') ?? '').trim(); }
-  catch { email = ''; }
+  let email = '', piege = '', sceau = '';
+  try {
+    const form = await context.request.formData();
+    email = String(form.get('courriel') ?? '').trim();
+    piege = String(form.get(CHAMP_PIEGE) ?? '');
+    sceau = String(form.get('sceau') ?? '');
+  } catch { email = ''; }
   if (!email) return context.redirect('/inscription/?e=1', 303);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ⭐⭐ LES GARDE-FOUS ANTI-ROBOTS — voir engine/lib/robots.mjs pour le POURQUOI.
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ⛔ ON REND LA MÊME PAGE QU'UN SUCCÈS. Dire « vous êtes un robot »
+  //    apprendrait à son auteur ce qui l'a trahi, donc comment corriger. Et un
+  //    humain que le contrôle écarterait à tort (onglet resté ouvert deux
+  //    heures) ne mérite pas une accusation : il mérite de recommencer.
+  // ⭐ Le journal, lui, a le droit de savoir — et c'est là qu'on ira voir si
+  //    quelqu'un se plaint de ne rien recevoir.
+  const vr = verdict(piege, sceau);
+  if (!vr.ok) {
+    console.warn(`[inscription] écarté : ${vr.pourquoi}`);
+    return context.redirect('/inscription/?envoye=1', 303);
+  }
 
   // ⚠️ LE RETOUR EST CONSTRUIT CÔTÉ SERVEUR, JAMAIS REPRIS D'UN PARAMÈTRE.
   // Un `?retour=` accepté tel quel est une redirection ouverte. veveid le
@@ -95,11 +115,31 @@ export async function POST(context) {
   try {
     const r = await fetch(`${base}/api/inscription`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-service': secretDeService() },
+      headers: {
+        'content-type': 'application/json',
+        'x-service': secretDeService(),
+        /**
+         * 🔴 L'ADRESSE DU VISITEUR, SANS QUOI LE LIMITEUR DE veveid EST UN
+         *    SEAU PARTAGÉ PAR LE MONDE ENTIER : il s'indexe sur l'adresse de
+         *    la connexion, qui est celle de CE serveur. Cinq inscriptions par
+         *    dix minutes pour tous — une panne dès le sixième inscrit, et un
+         *    seul robot suffisait à fermer la porte à tout le monde.
+         * ⛔ Elle n'est ni journalisée ni stockée : elle sert de clé à un
+         *    seau en mémoire, chez veveid, et rien d'autre.
+         */
+        ...(adresseVisiteur(context.request, context.clientAddress)
+          ? { 'x-client-ip': adresseVisiteur(context.request, context.clientAddress) } : {}),
+      },
       body: JSON.stringify({
         email,
         site: process.env.VEVEID_SITE || process.env.SITE || '',
         retour,
+        // ⛔ NI `piege` NI `sceau` : ils ne voyagent PAS. Un sceau ne se
+        //   vérifie que par celui qui l'a émis — c'est CE dépôt qui a rendu le
+        //   formulaire, c'est donc lui qui juge, quelques lignes plus haut.
+        //   Les faire revérifier par veveid revenait à inventer un second
+        //   secret partagé sans le dire : mesuré, 100 % des inscriptions
+        //   étaient écartées pour « sceau invalide ».
       }),
       signal: AbortSignal.timeout(6000),
     });

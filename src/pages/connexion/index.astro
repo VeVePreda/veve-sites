@@ -24,6 +24,7 @@ import Base from '../../layouts/Base.astro';
 import { palierVisiteur, sessionDe } from '../../../engine/lib/access.mjs';
 import { t, localize, locales } from '../../../engine/lib/i18n.mjs';
 import { comptesActifs } from '../../../engine/lib/features.mjs';
+import { sceau, champPiegeHtml } from '../../../engine/lib/robots.mjs';
 
 // ⭐ CES PAGES SONT RENDUES À LA DEMANDE : elles peuvent donc lire l'en-tête
 // `Accept-Language`, ce qu'une page pré-générée ne peut pas faire. Autant s'en
@@ -75,6 +76,11 @@ const palier = palierVisiteur(Astro.locals);
 const ouvert = Boolean(process.env.INSCRIPTION_API && process.env.SESSION_API);
 const erreur = Astro.url.searchParams.get('e') || '';
 const envoye = Astro.url.searchParams.get('envoye') === '1';
+
+// ⭐ Recalculé à CHAQUE rendu : ces pages sont servies à la demande, donc
+// l'horodatage est celui de l'affichage. Sur une page pré-générée il
+// serait figé au build — et périmé pour tout le monde dès le lendemain.
+const marqueTemps = sceau();
 ---
       {/* ⛔ UNE SEULE LANGUE DÉCLARÉE, ET C'EST LE CORRECTIF DU 404.
           `/compte/` et `/connexion/` sont rendues À LA DEMANDE et lisent
@@ -126,6 +132,8 @@ const envoye = Astro.url.searchParams.get('envoye') === '1';
             <label class="etiq" for="l-mail">{t(lang, 'signup.mail')}</label>
             <input id="l-mail" name="courriel" type="email" autocomplete="email"
                    required placeholder={t(lang, 'signup.mail.ph')} />
+          <Fragment set:html={champPiegeHtml()} />
+          <input type="hidden" name="sceau" value={marqueTemps} />
             <p style="margin-top:var(--s3)">
               <button type="submit" class="btn btn--principal btn--sm">{t(lang, 'login.send')}</button>
             </p>

@@ -225,6 +225,38 @@ for (const f of ['src/pages/api/entrer.js', 'src/pages/api/inscription.js',
     tolere ? '' : 'une recopie sous le nom de veveid (ID_SERVICE) resterait sans effet');
 }
 
+// ── 9. LES GARDE-FOUS ANTI-ROBOTS ──────────────────────────────────────────
+console.log('\n9. Le formulaire d’inscription se défend');
+/**
+ * 🔴 LE DANGER N'EST PAS « des robots créent des comptes » — un compte naît à
+ *    la CONSOMMATION du lien. C'est le QUOTA D'ENVOI (300/jour) et le
+ *    BOMBARDEMENT D'UN TIERS (qui coûte la réputation du domaine).
+ */
+for (const f of ['src/pages/inscription/index.astro', 'src/pages/connexion/index.astro']) {
+  const src = lire(join(RACINE, f));
+  dit(/champPiegeHtml\(\)/.test(src) && /name="sceau"/.test(src),
+    `${f} porte le champ piège et le sceau`,
+    'un formulaire sans garde-fou laisse brûler le quota d’envoi en minutes');
+}
+const insc = lire(join(RACINE, 'src/pages/api/inscription.js'));
+dit(/verdict\(piege, sceau\)/.test(insc), 'la route juge le piège et le sceau AVANT de relayer');
+dit(/x-client-ip/.test(insc), 'la route transmet l’adresse du visiteur',
+  'sans elle, le limiteur de veveid est un seau partagé par le monde entier — 5 inscriptions / 10 min pour tous');
+/**
+ * ⛔ CE CONTRÔLE EXISTE PARCE QUE J'AI FAIT L'ERREUR. Ma v1 retransmettait le
+ *    sceau à veveid pour qu'il le revérifie — avec un secret différent de
+ *    chaque côté. Résultat mesuré : 100 % des inscriptions écartées pour
+ *    « sceau invalide ». Une protection qui bloque tout le monde n'est pas
+ *    stricte, elle est cassée.
+ * ⭐⭐⭐ UN SCEAU NE SE VÉRIFIE QUE PAR CELUI QUI L'A ÉMIS.
+ */
+dit(!/piege,\s*sceau,/.test(insc), 'le sceau ne voyage PAS vers veveid',
+  'un sceau vérifié par qui ne l’a pas émis suppose un second secret partagé, que personne n’a posé');
+const rb = lire(join(RACINE, 'engine/lib/robots.mjs'));
+dit(/timingSafeEqual/.test(rb), 'le sceau est comparé à durée constante');
+dit(/DELAI_MAX_MS/.test(rb), 'le sceau EXPIRE',
+  'un sceau éternel se récolte une fois et se rejoue mille fois');
+
 // ── 6. AUTO-CONTRÔLE ───────────────────────────────────────────────────────
 console.log('\n6. Auto-contrôle — ce banc a-t-il quelque chose à inspecter ?');
 // ⭐ Un verdict rendu sur zéro élément n'a rien prouvé. Si `sources` était
