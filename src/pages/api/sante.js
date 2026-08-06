@@ -55,6 +55,26 @@ const SITE = import.meta.env.SITE || 'veveprice';
 //
 // ⛔ ON NE REND AUCUN EN-TETE BRUT, ni IP, ni cookie : seulement l'origine
 //   reconstruite, que le visiteur connait deja puisque c'est la sienne.
+// ⭐⭐ ET CE QUI LUI MANQUE POUR SERVIR — ajoute au lot 93.
+// ⛔ DES BOOLEENS, JAMAIS DES VALEURS. Ni URL, ni secret, ni fragment : la
+//    question est « est-ce branche ? », pas « branche sur quoi ». Le jour ou
+//    quelqu'un voudra y mettre l'adresse « pour verifier plus vite », cette
+//    route cessera de pouvoir rester publique.
+// ⭐ Et l'information n'apprend rien a personne : la page /inscription/ dit
+//    deja en clair « la creation de compte n'est pas encore ouverte ».
+//
+// CE QUE CA A COUTE DE NE PAS L'AVOIR : la route rend 503 avec le MEME texte
+// que `INSCRIPTION_API` manque ou que `SESSION_API` manque. Deux causes, un
+// seul message — impossible de savoir laquelle depuis le navigateur.
+// ⭐⭐⭐ « CAUSE A » ET « CAUSE B » NE DOIVENT PAS EMPRUNTER LE MEME CHEMIN DE
+//   SORTIE, exactement comme « je ne sais pas » ne doit pas emprunter celui de
+//   « rien a signaler ».
+const branche = () => ({
+  inscription: Boolean(process.env.INSCRIPTION_API),
+  session: Boolean(process.env.SESSION_API),
+  service: Boolean(process.env.VEVEID_SERVICE),
+});
+
 export const GET = ({ url }) => new Response(
   JSON.stringify({
     ok: true,
@@ -62,6 +82,7 @@ export const GET = ({ url }) => new Response(
     site: SITE,
     origin: url.origin,
     proto: url.protocol.replace(':', ''),
+    comptes: branche(),
   }),
   { headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } },
 );
