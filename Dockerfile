@@ -238,6 +238,17 @@ RUN WAREHOUSE_OFFLINE=1 npm run test:phrases
 # ⚠️ AVANT le build : il lit la SOURCE, pas `dist/`. Reproduire le symptome
 # demanderait une vraie session serveur, donc le reseau — interdit aux bancs.
 RUN WAREHOUSE_OFFLINE=1 npm run test:entete
+# 🔥 `test:feuille` — LOT 105. Il tient le lot contre son propre défaisement.
+# ⭐⭐⭐ Réinliner du CSS est le geste le plus naturel du monde : plus simple,
+# marche tout de suite, une requête en moins, et ça ne casse RIEN. Le lot 105
+# se déferait donc tout seul, de bonne foi, au premier lot qui aura besoin
+# d'une règle « juste pour cette page » — et la seule alarme serait, trois
+# semaines plus tard, un déploiement qui échoue sur un cache Docker plein.
+# ⚠️ APRÈS le build (il lit `dist/`) et AVANT la précompression (sinon il
+# parcourt 8 500 `.gz` de plus pour rien).
+# ⭐ Il sort en rc=2 s'il n'a lu aucune feuille ou moins de 100 pages : un banc
+# qui n'a rien inspecté n'a rien prouvé.
+RUN WAREHOUSE_OFFLINE=1 npm run test:feuille
 
 # --- Precompression : le seul gain de vitesse qui restait ------------------
 # ⭐⭐ POURQUOI PRECOMPRESSER, PLUTOT QUE DE MONTER LE NIVEAU DE gzip.

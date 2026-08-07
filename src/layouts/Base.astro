@@ -11,6 +11,7 @@ import { priceEnabled, searchEnabled } from '../../engine/lib/features.mjs';
 import Figures from '../components/Figures.astro';
 import CoteScript from '../components/CoteScript.astro';
 import { blogEnabled, blogMeta, languesBlog } from '../../engine/lib/blog.mjs';
+import { feuilleTheme } from '../../engine/lib/feuille_theme.mjs';
 
 const m = manifest();
 const p = m.identity.palette || {};
@@ -133,36 +134,14 @@ const alternates = (altPaths
   ? active.filter((l) => altPaths[l]).map((l) => ({ lang: l, href: `${root}${localize(l, altPaths[l])}` }))
   : languesDeLaPage.map((l) => ({ lang: l, href: `${root}${localize(l, path)}` })));
 
-const themeFiles = import.meta.glob('../../themes/*/theme.css', { query: '?raw', import: 'default', eager: true });
-// ⭐⭐ GARDE-FOU (30/07/2026) — LE REPLI SILENCIEUX EST MORT.
-// Cette ligne s'écrivait `?? Object.values(themeFiles)[0]` : une faute de frappe
-// dans `identity.theme` ne levait AUCUNE erreur, le moteur retombait sur le
-// PREMIER thème du glob (aurora, par ordre alphabétique) et le site sortait
-// entièrement construit… dans le mauvais thème. Build vert, 344 pages, site
-// resté sombre — un symptôme rigoureusement identique à « le lot n'a pas été
-// déployé ». On ne devine plus : on s'arrête, et on dit quoi faire.
-const cleTheme = `../../themes/${m.identity.theme}/theme.css`;
-if (!themeFiles[cleTheme]) {
-  const dispo = Object.keys(themeFiles).map((k) => k.split('/')[3]).join(', ');
-  throw new Error(
-    `[theme] identity.theme = « ${m.identity.theme} » ne désigne aucun dossier. `
-    + `Thèmes disponibles : ${dispo}. `
-    + `Corriger sites/${process.env.SITE || '<site>'}/manifest.yml, ou créer themes/${m.identity.theme}/theme.css.`);
-}
-const themeCss = themeFiles[cleTheme];
-// ⭐ `color-scheme` DÉDUIT de la palette, jamais écrit en dur : ce dépôt sert
-// plusieurs sites et en servira d'autres. Sans cette déclaration, le navigateur
-// rend SES propres pièces — barres de défilement, champs, menus natifs — en
-// thème clair au-dessus d'une page noire. Mesuré le 27/07 : aucune des
-// 83 pages ne la portait.
-const luminance = (hex) => {
-  const h = String(hex || '').trim().replace('#', '');
-  const s = h.length === 3 ? h.split('').map((c) => c + c).join('') : h;
-  const v = [0, 2, 4].map((i) => parseInt(s.slice(i, i + 2), 16) / 255)
-    .map((x) => (x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4));
-  return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2];
-};
-const colorScheme = (pal) => (luminance(pal.bg) < 0.18 ? 'dark' : 'light');
+// ⭐ LE THÈME N'EST PLUS RECOPIÉ ICI — LOT 105. Le glob, le garde-fou du
+// thème introuvable, les variables de palette, les `@font-face` et le socle
+// vivent désormais dans `engine/lib/feuille_theme.mjs`, qui les concatène
+// dans le MÊME ordre et les sert comme une feuille unique portant son
+// empreinte. ⛔ Ne pas les ramener ici : ce serait réinliner 168 850 octets
+// dans chacune des 8 484 pages, et c'est exactement ce que `test:feuille`
+// refuse désormais.
+const feuilleCss = feuilleTheme();
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  DEUX PALETTES — ajouté le 30/07/2026, RÉTROCOMPATIBLE PAR CONSTRUCTION
@@ -178,10 +157,6 @@ const colorScheme = (pal) => (luminance(pal.bg) < 0.18 ? 'dark' : 'light');
 //  existent sur fond sombre et DISPARAISSENT sur fond clair. Un thème qui
 //  suppose son fond ne peut pas basculer. Un thème qui n'utilise que ses
 //  variables le peut. C'est la règle à tenir pour les 13 sites à venir.
-const varsDe = (pal) => `--primary:${pal.primary};--accent:${pal.accent};`
-  + `--danger:${pal.danger};--bg:${pal.bg};--surface:${pal.surface};`
-  + `--text:${pal.text};--muted:${pal.muted};`
-  + `--font-heading:${f.heading};--font-body:${f.body}`;
 // ⛔⛔ LA FONTE EST UNE DONNEE, COMME LE THEME ET LES PALIERS — 31/07/2026.
 // Le manifeste declarait `'Archivo'` depuis le debut et RIEN ne l'apportait :
 // zero @font-face, zero .woff2, zero preload. Le site s'affichait donc dans la
@@ -192,20 +167,8 @@ const varsDe = (pal) => `--primary:${pal.primary};--accent:${pal.accent};`
 // Un site obtient desormais ses fontes en declarant `identity.fonts.files`,
 // sans une ligne de code — c'est ce qui evitera de refaire ce travail 13 fois.
 const fontFiles = Array.isArray(f.files) ? f.files : [];
-const fontFace = fontFiles.map((ff) => `@font-face{font-family:'${ff.famille}';`
-  + `src:url('${ff.fichier}') format('woff2');`
-  + `font-weight:${ff.graisses || '400'};font-style:normal;`
-  // ⭐ `swap` : le texte est LISIBLE tout de suite dans le repli, puis la vraie
-  // fonte prend sa place. `block` cacherait le texte, `optional` pourrait ne
-  // jamais la charger. Sur un site dont l'identite est typographique, on veut
-  // la fonte — mais jamais au prix d'une page blanche.
-  + `font-display:swap;}`).join('');
 
 const pNuit = m.identity.palette_nuit || null;
-const vars = pNuit
-  ? `:root{color-scheme:${colorScheme(p)};${varsDe(p)}}`
-    + `:root[data-theme="nuit"]{color-scheme:${colorScheme(pNuit)};${varsDe(pNuit)}}`
-  : `:root{color-scheme:${colorScheme(p)};${varsDe(p)}}`;
 
 const canary = createHash('sha256')
   .update((process.env.CANARY_SALT || m.site.domain) + Astro.url.pathname)
@@ -446,54 +409,62 @@ const menuComplet = wikiNav
     parfois après — et le clignotement reviendrait de temps en temps, ce qui
     est pire qu'à chaque fois : on cesserait de savoir le reproduire.
     ⚠️ `!important` assumé : on écrase `[hidden]` de la feuille du navigateur,
-    et rien d'autre. Ces sélecteurs ne peuvent toucher que des éléments qui
+    et rien d'autre.
+    🔥 LOT 105 — LES COMMENTAIRES SONT SORTIS DU `<style>`, PAS LES RÈGLES.
+    Ce bloc pesait 2 966 octets dont 2 500 de commentaires CSS — et un
+    commentaire CSS, lui, EST ÉMIS : il partait dans les 8 484 pages, sur le
+    chemin critique, devant la première peinture. Ils vivent maintenant ici,
+    dans un commentaire JSX, que le compilateur ne rend jamais. Rien n'est
+    perdu pour qui lit le gabarit ; 21 Mo le sont pour le réseau.
+    ⭐ LES CINQ RÈGLES, DANS L'ORDRE, ET CE QU'ELLES GARDENT :
+      1. lot 100 — le cookie masque tout ce qui est marqué « visiteur ».
+      2. lot 100 — et fait apparaître l'avatar (`display:block`, c'est un bloc
+         d'en-tête et pas un bouton : recopier `inline-flex` le décalerait).
+      3. lot 103 — LE CAS SYMÉTRIQUE. Le bouton d'inscription est rendu sur
+         TOUTES les pages avec `hidden` quand le serveur sait qu'il y a une
+         session. Sans cette règle, un membre dont le cookie a expiré perdrait
+         l'avatar ET garderait le bouton masqué : un en-tête sans aucune porte
+         de compte, ce qui est pire que la mauvaise porte. On ne force donc
+         rien — on annule `hidden`, c'est-à-dire on rétablit le défaut du HTML.
+      4. lot 104 — les liens de menu réservés (`/market/`, `/dashboard/`).
+         `a[data-membre]` et non `[data-membre]` nu : le sélecteur nu
+         attraperait le globe, dont l'affichage est `block`. Un sélecteur trop
+         large ne lève rien, il déplace juste un voisin.
+      5. lot 104 — l'accueil DEVIENT le tableau de bord. `display:block` :
+         ce sont des blocs de page. La règle 1 fait déjà disparaître le `hero`
+         — rien à dupliquer, deux règles pour la même chose divergent un jour. Ces sélecteurs ne peuvent toucher que des éléments qui
     portent `data-anonyme` ou `data-membre`, c'est-à-dire trois éléments de
     l'en-tête. */}
 <style is:inline>
   html[data-membre] [data-anonyme] { display: none !important; }
   html[data-membre] .globe[data-membre] { display: block !important; }
-  /* 🔴 LOT 103 — LE CAS SYMÉTRIQUE, QUI MANQUAIT.
-     Depuis ce lot, le bouton d'inscription est rendu sur TOUTES les pages avec
-     `hidden` quand le serveur sait déjà qu'il y a une session. Sans la règle
-     ci-dessous, un visiteur ANONYME arrivant sur une page pré-générée verrait
-     ce bouton — c'est voulu — mais un membre dont le cookie a expiré verrait
-     l'avatar disparaître ET le bouton rester masqué par l'attribut `hidden`
-     hérité d'un rendu serveur mis en cache. Un en-tête sans aucune commande de
-     compte est pire que le mauvais bouton : il n'y a plus de porte du tout.
-     ⭐ On ne force donc PAS l'affichage ici : `hidden` est retiré côté serveur
-     dans le seul cas où il est faux. Cette règle ne fait qu'annuler `hidden`
-     pour l'anonyme, c'est-à-dire rétablir l'état par défaut du HTML. */
   html:not([data-membre]) .h-cta[hidden] { display: inline-flex !important; }
-  /* 🔴 LOT 104 — LES LIENS DE MENU RÉSERVÉS AUX COMPTES (/market/, /dashboard/).
-     Même dispositif exactement que `.globe[data-membre]` deux lignes plus haut,
-     et pour la même raison : le serveur pose `hidden` quand il SAIT qu'il n'y a
-     pas de session, mais sur une page pré-générée il ne sait rien — il pose
-     donc `hidden` pour tout le monde, et c'est le COOKIE qui rouvre, avant la
-     première peinture.
-     ⚠️ `a[data-membre]` et pas `[data-membre]` tout court : le sélecteur nu
-     attraperait le globe, dont l'affichage est `block` et non `inline-flex`.
-     Un sélecteur trop large ne lève rien — il change juste la mise en page
-     d'un élément voisin, et personne ne fait le lien. */
   html[data-membre] a[data-membre][hidden] { display: inline-flex !important; }
-  /* 🔴🔴 LOT 104 — L'ACCUEIL DEVIENT LE TABLEAU DE BORD (arbitrage Preda).
-     Les DEUX blocs sont dans le HTML de toutes les pages d'accueil, toujours :
-     `.hero[data-anonyme]` porte l'accroche commerciale et le <h1> que Google
-     lit, `.tableau-bord[data-membre]` porte le tableau de bord. Le cookie,
-     posé sur <html> par le script juste au-dessus, choisit lequel s'affiche —
-     AVANT la première peinture, donc sans clignotement.
-     ⚠️ `display:block` et non `inline-flex` : ce sont des blocs de page, pas
-     des éléments d'en-tête. Un sélecteur recopié du bouton voisin aurait mis
-     le tableau de bord sur une ligne — un défaut de mise en page que personne
-     n'aurait relié à cette règle.
-     ⭐ La première règle du fichier (`html[data-membre] [data-anonyme]`) fait
-     déjà disparaître le `hero` : rien à ajouter pour lui, et surtout rien à
-     DUPLIQUER — deux règles pour la même chose divergeraient un jour. */
   html[data-membre] .tableau-bord[data-membre][hidden] { display: block !important; }
 </style>
-{fontFace && <style is:inline set:html={fontFace}></style>}
-<style is:inline set:html={vars}></style>
-<style is:inline set:html={themeCss}></style>
-<style is:inline set:html={`.legal-links{margin:0 0 10px;font-size:12.5px;line-height:1.9;color:var(--muted)}.legal-links a{color:var(--muted);text-decoration:none;border-bottom:1px solid transparent}.legal-links a:hover,.legal-links a:focus-visible{color:var(--text);border-bottom-color:var(--muted)}.langbar{display:flex;gap:6px;margin-left:12px}.langbar a{font-size:13px;color:var(--muted);padding:2px 6px;border-radius:6px;min-height:24px;min-width:24px;display:inline-flex;align-items:center;justify-content:center}.langbar a[aria-current]{background:#ffffff14;color:var(--text)}.crumbs a{display:inline-block;padding:3px 0;min-height:24px}.legal-links a{display:inline-block;padding:3px 0;min-height:24px}.saut{position:absolute;left:-9999px;top:0;z-index:100;background:var(--surface);color:var(--text);border:1px solid var(--primary);border-radius:0 0 8px 0;padding:10px 16px;text-decoration:none}.saut:focus{left:0}#langsuggest{display:none;background:var(--surface);border:1px solid var(--primary);border-radius:10px;padding:10px 14px;margin:14px 0;font-size:14px}#langsuggest a{font-weight:500}#langsuggest button{background:none;border:0;color:var(--muted);cursor:pointer;font-size:13px;text-decoration:underline}`}></style>
+{/* ═══════════════════════════════════════════════════════════════════════
+    🔥 LOT 105 — LE THÈME QUITTE LE HTML, ET C'EST TOUT CE QUI CHANGE ICI.
+    ═══════════════════════════════════════════════════════════════════════
+    Quatre `<style is:inline>` vivaient là : les `@font-face`, les variables de
+    palette, le thème (166 721 o) et le socle. Ensemble, 168 850 octets — 75 %
+    d'une fiche — recopiés dans chacune des 8 484 pages. Ils sont maintenant
+    concaténés DANS LE MÊME ORDRE par `engine/lib/feuille_theme.mjs` et servis
+    par `src/pages/theme-[empreinte].css.js`.
+    ⭐ L'ORDRE EST CONSERVÉ AU CARACTÈRE PRÈS, et c'est la seule chose qui
+    comptait : à spécificité égale, la cascade se joue sur l'ordre. Un
+    regroupement « plus propre » (variables d'abord, socle avec le thème)
+    n'aurait produit aucune erreur — seulement quelques couleurs différentes
+    sur quelques éléments, sur 8 484 pages, sans rien à quoi les rattacher.
+    ⛔ CE `<link>` RESTE APRÈS le `<style is:inline>` anti-clignotement et le
+    script qui pose `data-membre`. Ces deux-là ne sont pas du thème : ils
+    n'existent que pour supprimer un instant de mauvais affichage, et ils
+    doivent arriver avant la première peinture. `test:entete` les exige en
+    ligne — il criera si un lot suivant les emporte avec le reste.
+    ⚠️ AUCUN `media`, AUCUN `onload`, AUCUN chargement différé. Une feuille
+    externe bloque le rendu, et c'est VOULU : la débloquer ferait apparaître
+    la page non habillée puis se rhabiller — le clignotement qu'on vient
+    justement de payer trois lots de suite. */}
+<link rel="stylesheet" href={feuilleCss.href} />
 <Fragment set:html={jsonld(websiteLd(m.site.brand, root, searchEnabled()))} />
 {/* ⭐ Le fil d'Ariane était AFFICHÉ mais jamais DÉCLARÉ : 23 pages sur 83
     montraient « Accueil › Glossaire » à l'écran sans que Google puisse le
