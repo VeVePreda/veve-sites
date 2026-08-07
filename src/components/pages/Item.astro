@@ -73,7 +73,14 @@ const relatedPosts = await postsForItem(lang, item.uuid);
 //
 // ⭐ Meme motif que le `dist` en dur du Dockerfile, corrige le meme jour : une
 // valeur juste, calculee en amont, recopiee en aval sans reverification.
-const colSlug = item.series ? item.serieSlug : null;
+// 🔴 LOT 102 — ON LIT `colSlug`, POSÉ PAR LA BOUCLE QUI CRÉE LA PAGE DE SET.
+// ⚠️ CE N'ÉTAIT PLUS `serieSlug`. La règle du 29/07 (« on lit, on ne
+// recalcule pas ») était respectée à la lettre — et le champ lu avait changé
+// de sens sous elle : depuis le lot 68, le set d'un comic est
+// « <série> #<numéro> », pas la série. 81 liens en cul-de-sac, mesurés par
+// l'audit SEO le 07/08, tous vers des pages jamais construites.
+// ⭐ `item.series` reste la garde : un item sans série n'a pas de set.
+const colSlug = item.series ? (item.colSlug || null) : null;
 // Chez beaucoup de comics le nom RECOPIE la serie (« Alias #1 (2001) ») :
 // repeter la serie dans le titre et le fil d'Ariane n'apprend rien.
 const norm = (v) => String(v || '').toLowerCase().replace(/[^a-z0-9]+/g, '');

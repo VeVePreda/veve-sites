@@ -66,7 +66,7 @@
   "brands.first_mint": "erster Mint",
   "brands.first_mint_hint": "erster On-Chain-Mint — das öffentliche Drop-Datum ist für diese Lizenz nicht belegt",
   "brands.series": "Serien",
-  "chart.label": "Verlauf des Bodenpreises",
+  "chart.label": "Bodenpreis-Trend, ohne Skala",
   "collection.tracked": "Collectibles in diesem Set",
   "collections.count": "verfolgte Sets",
   "collections.items": "Objekte",
@@ -76,10 +76,10 @@
   "desc.analytics": "Analysewerkzeuge für den VeVe-Markt: Spannweite der Extremwerte, Kataloggrafiken, vollständige Historie. Jede Zahl stammt aus eigenen Erhebungen.",
   "desc.blogIndex": "Analysen und Artikel zum VeVe-Markt, jeweils gestuetzt auf unsere eigenen Preisdaten.",
   "desc.blogTag": "Artikel ueber {name}: Analyse des VeVe-Marktes auf Basis der Bodenpreisdaten.",
-  "desc.collection": "{name}: Bodenpreis und Preisverlauf der VeVe-Collectibles dieses Sets.",
-  "desc.collections": "Durchsuchen Sie die {n} hier verfolgten VeVe-Sets, mit der Anzahl der Stücke und dem Bodenpreis.",
+  "desc.collection": "{name}: die VeVe-Sammelobjekte dieses Sets, Seltenheit und Auflage. Bodenpreis für Mitglieder erfasst.",
+  "desc.collections": "Durchsuche die {n} hier verfolgten VeVe-Sets, mit Stückzahl, Gesamtauflage und aktiven Angeboten je Set.",
   "desc.item": "{name}{series}: Bodenpreis {price}, {n} Messwerte seit {year}. Vollstaendiger Verlauf auf {brand}.",
-  "desc.itemShort": "{name}{series}: Preisverlauf und Bodenpreis-Tracking auf {brand}.",
+  "desc.itemShort": "{name}{series}: Seltenheit, Auflage und Bodenpreis-Tracking auf {brand}.",
   "desc.movers": "Die groessten Veraenderungen des Bodenpreises in 7 Tagen unter {n} verfolgten VeVe-Sammelobjekten, taeglich aktualisiert.",
   "fiche.apres": "kurz danach",
   "fiche.avant": "kurz davor",
@@ -169,7 +169,7 @@
   "item.season": "Staffel",
   "item.series": "Serie",
   "item.sheet": "Details",
-  "item.shown": "Werte angezeigt. Preise in Gems.",
+  "item.shown": "Werte in der Kurve",
   "item.startYear": "Startjahr",
   "item.storePrice": "Startpreis",
   "item.supply": "Auflage",
@@ -363,5 +363,5 @@
   "theme.day": "Hell",
   "theme.night": "Dunkel",
   "theme.toggle": "In den Nachtmodus wechseln",
-  "title.home": "VeVe Preisverlauf & Bodenpreis"
+  "title.home": "VeVe-Katalog: Sets, Seltenheit, Preisverfolgung"
 }

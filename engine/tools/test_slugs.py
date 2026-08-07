@@ -47,6 +47,47 @@ _DIST = RACINE / 'dist'
 DIST = _DIST / 'client' if (_DIST / 'client').is_dir() else _DIST
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# 🔴 LOT 102 — CE BANC SORT SUR LE MANIFESTE, PAS SUR UN DOSSIER VIDE
+# ═══════════════════════════════════════════════════════════════════════════
+# Mesure du 07/08 : sur vevewiki, ce banc echouait avec « aucune fiche produite :
+# test invalide ». Et il avait tort — non pas sur la forme (refuser un verdict
+# sur zero element est exactement ce qu'on lui demande) mais sur la QUESTION.
+# vevewiki ne publie AUCUNE fiche de prix, par construction : il n'a pas
+# d'adresses a geler, donc rien a verifier, donc rien a rater.
+#
+# ⭐⭐⭐ « ZERO FICHE PARCE QUE LE BUILD A CASSE » ET « ZERO FICHE PARCE QUE CE
+# SITE N'EN PUBLIE PAS » SE RESSEMBLENT SUR LE DISQUE ET SONT L'INVERSE L'UN DE
+# L'AUTRE. Seul le manifeste sait laquelle des deux on regarde. Le banc le lui
+# demande donc AVANT de construire quoi que ce soit — et il garde ses dents
+# entieres la ou elles servent : un site QUI publie des fiches et n'en produit
+# aucune fait toujours echouer, exactement comme avant.
+#
+# ⛔ NE PAS remplacer ce test par « le dossier collectibles/ existe-t-il ? » :
+# ce serait rededuire la reponse d'un artefact du disque, c'est-a-dire heriter
+# de tout ce que le disque a garde d'un build precedent.
+def publie_des_fiches():
+    """Le manifeste de CE site declare-t-il des pages de prix ?
+    On interroge `priceEnabled()` — la MEME fonction que le moteur — au lieu de
+    relire le YAML a la main : deux lectures du meme fait divergent un jour."""
+    r = subprocess.run(
+        ['node', '--input-type=module', '-e',
+         "const m = await import('./engine/lib/features.mjs');"
+         "process.exit(m.priceEnabled() ? 0 : 3);"],
+        cwd=RACINE, capture_output=True, text=True)
+    if r.returncode not in (0, 3):
+        sys.exit('impossible de lire le manifeste :\n' + r.stdout[-800:] + r.stderr[-800:])
+    return r.returncode == 0
+
+
+if not publie_des_fiches():
+    site = os.environ.get('SITE', '(defaut)')
+    print("site « %s » : aucune page de prix declaree au manifeste." % site)
+    print("Il n'a donc aucune adresse a geler, et rien a verifier ici.")
+    print("⚠️ Sur veveprice, ce message EST la panne — le site publie des fiches.")
+    sys.exit(0)
+
+
 def construire():
     env = {**os.environ, 'WAREHOUSE_OFFLINE': '1'}
     r = subprocess.run(['npm', 'run', 'build'], cwd=RACINE, env=env,

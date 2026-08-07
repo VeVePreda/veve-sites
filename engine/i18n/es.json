@@ -66,7 +66,7 @@
   "brands.first_mint": "primera acuñación",
   "brands.first_mint_hint": "primera acuñación on-chain — la fecha de salida pública no está corroborada para esta licencia",
   "brands.series": "series",
-  "chart.label": "Historial del precio minimo",
+  "chart.label": "Tendencia del precio mínimo, sin escala",
   "collection.tracked": "collectibles seguidos en este set",
   "collections.count": "sets seguidos",
   "collections.items": "artículos",
@@ -76,10 +76,10 @@
   "desc.analytics": "Herramientas de análisis del mercado VeVe: amplitud de los extremos, figuras del catálogo, historial completo. Cada cifra procede de nuestros registros.",
   "desc.blogIndex": "Analisis y articulos sobre el mercado VeVe, cada uno basado en nuestros propios registros de precios.",
   "desc.blogTag": "Articulos sobre {name}: analisis del mercado VeVe basado en los registros de precios.",
-  "desc.collection": "{name}: precio mínimo e historial de los collectibles VeVe de este set.",
-  "desc.collections": "Explora los {n} sets de VeVe seguidos aquí, con el número de piezas y el mínimo de cada uno.",
+  "desc.collection": "{name}: los coleccionables VeVe de este set, su rareza y su tirada. Mínimo seguido para los miembros.",
+  "desc.collections": "Explora los {n} sets VeVe seguidos aquí, con el número de piezas, la tirada total y las ofertas activas de cada uno.",
   "desc.item": "{name}{series}: precio minimo {price}, {n} registros desde {year}. Historial completo en {brand}.",
-  "desc.itemShort": "{name}{series}: historial de precios y seguimiento del minimo en {brand}.",
+  "desc.itemShort": "{name}{series}: rareza, tirada y seguimiento del mínimo en {brand}.",
   "desc.movers": "Las mayores variaciones del precio minimo en 7 dias entre {n} coleccionables VeVe seguidos, actualizadas cada dia.",
   "fiche.apres": "justo después",
   "fiche.avant": "justo antes",
@@ -169,7 +169,7 @@
   "item.season": "Temporada",
   "item.series": "Serie",
   "item.sheet": "Ficha",
-  "item.shown": "registros mostrados. Precios en gems.",
+  "item.shown": "registros en la curva",
   "item.startYear": "Año de inicio",
   "item.storePrice": "Precio de salida",
   "item.supply": "Tirada",
@@ -363,5 +363,5 @@
   "theme.day": "Claro",
   "theme.night": "Oscuro",
   "theme.toggle": "Cambiar al modo noche",
-  "title.home": "Historial de precios y minimo VeVe"
+  "title.home": "Catálogo VeVe: sets, rarezas y precios seguidos"
 }

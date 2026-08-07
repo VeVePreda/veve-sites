@@ -66,7 +66,7 @@
   "brands.first_mint": "first mint",
   "brands.first_mint_hint": "first on-chain mint — the public drop date is not corroborated for this licence",
   "brands.series": "series",
-  "chart.label": "Floor price history",
+  "chart.label": "Floor price trend, without scale",
   "collection.tracked": "collectibles tracked in this set",
   "collections.count": "sets tracked",
   "collections.items": "items",
@@ -76,10 +76,10 @@
   "desc.analytics": "VeVe market analysis tools: extreme amplitude, catalogue figures, full price history. Every number comes from our own records.",
   "desc.blogIndex": "Analysis and articles on the VeVe market, each one grounded in our own price readings.",
   "desc.blogTag": "Articles about {name}: VeVe market analysis grounded in floor price readings.",
-  "desc.collection": "{name}: floor price and price history for the VeVe collectibles in this set.",
-  "desc.collections": "Browse the {n} VeVe sets tracked here, with the number of pieces and the floor of each.",
+  "desc.collection": "{name}: the VeVe collectibles in this set, their rarity and mintage. Floor price tracked for members.",
+  "desc.collections": "Browse the {n} VeVe sets tracked here, with the number of pieces, total mintage and active listings for each.",
   "desc.item": "{name}{series}: floor price {price}, {n} readings recorded since {year}. Full price history on {brand}.",
-  "desc.itemShort": "{name}{series}: price history and floor price tracking on {brand}.",
+  "desc.itemShort": "{name}{series}: rarity, mintage and floor price tracking on {brand}.",
   "desc.movers": "The biggest 7-day floor price moves across {n} tracked VeVe collectibles, updated every day.",
   "fiche.apres": "just after",
   "fiche.avant": "just before",
@@ -169,7 +169,7 @@
   "item.season": "Season",
   "item.series": "Series",
   "item.sheet": "Details",
-  "item.shown": "records shown. Prices in gems.",
+  "item.shown": "records on the curve",
   "item.startYear": "Start Year",
   "item.storePrice": "Release price",
   "item.supply": "Supply",
@@ -363,5 +363,5 @@
   "theme.day": "Light",
   "theme.night": "Dark",
   "theme.toggle": "Switch to night mode",
-  "title.home": "VeVe price history & floor tracker"
+  "title.home": "VeVe catalogue: sets, rarities, price tracking"
 }

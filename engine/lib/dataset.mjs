@@ -745,6 +745,29 @@ async function construireDataset() {
     const s = slugify(cle);
     if (!collections.has(s)) collections.set(s, { slug: s, name: nom, brand: i.brand, items: [] });
     collections.get(s).items.push(i);
+    // ═══════════════════════════════════════════════════════════════════════
+    // 🔴 LOT 102 — L'ADRESSE DU SET, POSÉE PAR CELUI QUI LA FABRIQUE
+    // ═══════════════════════════════════════════════════════════════════════
+    // `Item.astro` renvoyait vers `/collection/${item.serieSlug}/`, c'est-à-dire
+    // le slug de la SÉRIE. Or depuis le lot 68 (05/08) le set d'un comic n'est
+    // plus la série : c'est `<série> #<numéro>` (`cleSet` ci-dessus). Les deux
+    // ont divergé le jour même, en silence — mesuré le 07/08 par l'audit SEO :
+    // **81 liens internes en cul-de-sac**, 27 par set, sur trois sets de comics.
+    //
+    // ⭐⭐⭐ ET LE FICHIER PORTAIT DÉJÀ LA LEÇON, ÉCRITE LE 29/07 : « ON LIT
+    // `serieSlug`, ON NE LE RECALCULE PAS » — après 52 liens cassés par une
+    // re-slugification à la main. La règle était juste et elle a été suivie.
+    // Elle ne protégeait simplement pas de LIRE LE BON CHAMP : `serieSlug`
+    // était devenu le mauvais, sans cesser d'être valide.
+    // ⭐⭐ UN CHAMP QUI CHANGE DE SENS NE CASSE RIEN — il continue de rendre une
+    // chaîne plausible. C'est la même famille que le tri sur `i.floor` du lot
+    // 101 : le calcul tourne, il ne veut simplement plus dire ce qu'on croit.
+    //
+    // ⛔ NE PAS le recalculer dans le gabarit « puisque `cleSet` est simple » :
+    // ce serait rouvrir exactement le défaut du 29/07, un cran plus loin.
+    // Le slug est posé ICI, par la boucle qui crée la page de destination —
+    // donc les deux ne peuvent plus diverger sans qu'aucune page n'existe.
+    i.colSlug = s;
   }
   const rarities = new Map();
   for (const i of items) {

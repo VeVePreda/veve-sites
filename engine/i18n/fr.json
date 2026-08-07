@@ -66,7 +66,7 @@
   "brands.first_mint": "première frappe",
   "brands.first_mint_hint": "première frappe on-chain — la date de sortie publique n'est pas corroborée pour cette licence",
   "brands.series": "séries",
-  "chart.label": "Historique du prix plancher",
+  "chart.label": "Tendance du prix plancher, sans échelle",
   "collection.tracked": "collectibles suivis dans ce set",
   "collections.count": "sets suivis",
   "collections.items": "items",
@@ -76,10 +76,10 @@
   "desc.analytics": "Les outils d'analyse du marché VeVe : amplitude des extrêmes, figures du catalogue, historique complet. Chaque chiffre vient de nos propres relevés.",
   "desc.blogIndex": "Analyses et articles sur le marche VeVe, chacun appuye sur nos propres releves de prix.",
   "desc.blogTag": "Articles a propos de {name} : analyse du marche VeVe appuyee sur les releves de prix.",
-  "desc.collection": "{name} : prix plancher et historique des collectibles VeVe de ce set.",
-  "desc.collections": "Parcourez les {n} sets VeVe suivis ici, avec le nombre de pièces et le plancher de chacun.",
+  "desc.collection": "{name} : les collectibles VeVe de ce set, leur rareté et leur tirage. Plancher suivi pour les membres.",
+  "desc.collections": "Parcourez les {n} sets VeVe suivis ici, avec le nombre de pièces, le tirage total et le nombre d'offres de chacun.",
   "desc.item": "{name}{series} : prix plancher {price}, {n} releves depuis {year}. Historique complet sur {brand}.",
-  "desc.itemShort": "{name}{series} : historique de prix et suivi du plancher sur {brand}.",
+  "desc.itemShort": "{name}{series} : rareté, tirage et suivi du plancher sur {brand}.",
   "desc.movers": "Les plus fortes variations de prix plancher sur 7 jours parmi {n} collectibles VeVe suivis, mises a jour chaque jour.",
   "fiche.apres": "juste après",
   "fiche.avant": "juste avant",
@@ -169,7 +169,7 @@
   "item.season": "Saison",
   "item.series": "Série",
   "item.sheet": "Fiche",
-  "item.shown": "relevés affichés. Prix en gems.",
+  "item.shown": "relevés sur la courbe",
   "item.startYear": "Année de lancement",
   "item.storePrice": "Prix de sortie",
   "item.supply": "Tirage",
@@ -363,5 +363,5 @@
   "theme.day": "Clair",
   "theme.night": "Sombre",
   "theme.toggle": "Passer en mode nuit",
-  "title.home": "Historique de prix et plancher VeVe"
+  "title.home": "Catalogue VeVe : sets, raretés, suivi des prix"
 }

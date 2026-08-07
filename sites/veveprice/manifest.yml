@@ -2,16 +2,31 @@
 site:
   domain: veveprice.com
   brand: "VeVe Price"
+  # ═══════════════════════════════════════════════════════════════════════
+  # 🔴 LOT 102 (07/08/2026) — LA PROMESSE DU SITE A CHANGÉ DE NATURE
+  # ═══════════════════════════════════════════════════════════════════════
+  # AVANT : « Track the floor price and price history of every VeVe
+  # collectible » — c'est-à-dire « venez VOIR le floor ». Depuis le lot 101,
+  # aucune page publique ne l'affiche.
+  # ⛔ UNE PAGE QUI PROMET UN PRIX QU'ELLE N'AFFICHE PLUS EST UNE PROMESSE
+  # ROMPUE FAITE À UN MOTEUR. Le visiteur arrive par cette phrase, ne trouve
+  # pas ce qu'elle annonce, et repart : Google appelle ça un « pogo-stick » et
+  # le compte contre la page. Ce n'est pas une coquetterie éditoriale, c'est le
+  # signal de qualité le plus direct qu'on puisse s'infliger.
+  # ⭐⭐⭐ ON NE VEND PLUS « VOIR » LE FLOOR, ON VEND « LE SUIVRE ». La phrase
+  # dit donc ce qui est LIBRE (le catalogue, la rareté, le tirage, le prix de
+  # sortie) puis ce qui est SUIVI POUR LES MEMBRES (le plancher, son historique,
+  # les extrêmes). Les deux moitiés sont vraies, et dans cet ordre.
   tagline:
-    en: "Price history and floor tracker for VeVe collectibles"
-    fr: "Historique de prix et floor des collectibles VeVe"
-    es: "Historial de precios y precio mínimo de los coleccionables VeVe"
-    de: "Preisverlauf und Bodenpreise für VeVe-Sammelobjekte"
+    en: "The VeVe catalogue, with floor price tracking for members"
+    fr: "Le catalogue VeVe, avec le suivi du plancher pour les membres"
+    es: "El catálogo VeVe, con seguimiento del mínimo para los miembros"
+    de: "Der VeVe-Katalog, mit Bodenpreis-Verfolgung für Mitglieder"
   description:
-    en: "Track the floor price and price history of every VeVe collectible: moves, all-time highs and lows, number of listings."
-    fr: "Suivez le prix plancher et l'historique des collectibles VeVe : évolution, plus hauts, plus bas, nombre d'offres."
-    es: "Sigue el precio mínimo y el historial de los coleccionables VeVe: evolución, máximos, mínimos y ofertas."
-    de: "Verfolge Bodenpreis und Preisverlauf jedes VeVe-Sammelobjekts: Entwicklung, Höchst- und Tiefststände, Angebote."
+    en: "Every VeVe collectible: set, rarity, mintage and release price, free to browse. The floor price, its history and the all-time extremes are tracked for members."
+    fr: "Tout le catalogue VeVe : set, rareté, tirage et prix de sortie, en accès libre. Le prix plancher, son historique et les extrêmes sont suivis pour les membres."
+    es: "Todo el catálogo VeVe: set, rareza, tirada y precio de salida, en abierto. El precio mínimo, su historial y los extremos se siguen para los miembros."
+    de: "Der ganze VeVe-Katalog: Set, Seltenheit, Auflage und Startpreis, frei zugänglich. Bodenpreis, Verlauf und Extremwerte werden für Mitglieder erfasst."
 
 # --- Langues : anglais par defaut, les autres en sous-dossier (/fr/, /es/, /de/)
 languages:
@@ -579,14 +594,20 @@ vitrine:
            en: "Chosen on the density of their history, with a guaranteed share for comics — 86 % of the catalogue.",
            es: "Elegidas por la densidad de su historial, con una parte garantizada a los cómics: 86 % del catálogo.",
            de: "Nach der Dichte ihrer Historie gewählt, mit garantiertem Anteil für Comics — 86 % des Katalogs." }
+    # 🔴 LOT 102 — CETTE BOÎTE DÉCRIVAIT LA JAUGE, ET LA JAUGE NE SE REND PLUS.
+    # « où se situe le prix du jour entre les deux » nommait exactement le
+    # curseur retiré par le lot 101 — parce que sa POSITION rendait le plancher
+    # à qui savait diviser. Le texte a donc survécu à la chose qu'il décrivait.
+    # ⭐ Il dit maintenant ce que le site FAIT des extrêmes (il les date et les
+    # garde), pas ce qu'il en MONTRE. C'est vrai, et c'est ce qui se vend.
     - n: "003"
       span: 5
       rang: 1
       t: { fr: "Les extrêmes", en: "The extremes", es: "Los extremos", de: "Die Extreme" }
-      d: { fr: "Plus haut et plus bas historiques, et où se situe le prix du jour entre les deux.",
-           en: "All-time high and low, and where today's price sits between them.",
-           es: "Máximo y mínimo históricos, y dónde se sitúa el precio de hoy.",
-           de: "Allzeithoch und -tief, und wo der heutige Preis dazwischen liegt." }
+      d: { fr: "Plus haut et plus bas historiques, datés au jour près, et conservés même quand la pièce n'intéresse plus personne.",
+           en: "All-time high and low, dated to the day, and kept long after a piece stops drawing attention.",
+           es: "Máximo y mínimo históricos, fechados al día, y conservados aunque la pieza deje de interesar.",
+           de: "Allzeithoch und -tief, auf den Tag datiert, und behalten, auch wenn ein Stück niemanden mehr interessiert." }
     - n: "004"
       span: 12
       rang: 2
@@ -604,12 +625,24 @@ vitrine:
   faq:
     - q: { fr: "D'où viennent les prix ?", en: "Where do the prices come from?",
            es: "¿De dónde vienen los precios?", de: "Woher kommen die Preise?" }
-      r: { fr: "Du marché VeVe : le plancher, c'est-à-dire l'offre la plus basse en vente, relevé toutes les trente minutes et horodaté. Aucune estimation, aucun modèle.",
-           en: "From the VeVe market: the floor — the lowest active listing — recorded every thirty minutes and timestamped. No estimate, no model.",
-           es: "Del mercado VeVe: el mínimo, es decir la oferta más baja activa, registrado cada treinta minutos y con hora.",
-           de: "Vom VeVe-Markt: der Bodenpreis, also das niedrigste aktive Angebot, alle dreißig Minuten erfasst und mit Zeitstempel." }
-    - q: { fr: "Le prix affiché est-il un prix de vente ?", en: "Is the price shown a sale price?",
-           es: "¿El precio mostrado es un precio de venta?", de: "Ist der gezeigte Preis ein Verkaufspreis?" }
+      # 🔴🔴 LOT 102 — « TOUTES LES TRENTE MINUTES », QUATRIÈME OCCURRENCE.
+      # Le lot 77 avait retiré cette cadence sur demande de Preda (« ne précise
+      # pas à quelle fréquence ») et sa notice affirmait tenir « la DERNIÈRE des
+      # trois mentions visibles ». Elle vivait ici aussi, dans QUATRE langues,
+      # et elle y est restée dix jours.
+      # ⭐⭐⭐ LA PARADE TENAIT EN UNE COMMANDE, ET C'EST TOUJOURS LA MÊME :
+      # `grep -rn "trente minutes" .` AVANT de déclarer un retrait terminé.
+      # Chercher la CHAÎNE, pas la cause — un texte se recopie, il ne s'importe pas.
+      r: { fr: "Du marché VeVe : le plancher, c'est-à-dire l'offre la plus basse en vente, relevé et horodaté. Aucune estimation, aucun modèle.",
+           en: "From the VeVe market: the floor — the lowest active listing — recorded and timestamped. No estimate, no model.",
+           es: "Del mercado VeVe: el mínimo, es decir la oferta más baja activa, registrado y con hora. Sin estimaciones ni modelos.",
+           de: "Vom VeVe-Markt: der Bodenpreis, also das niedrigste aktive Angebot, erfasst und mit Zeitstempel. Keine Schätzung." }
+    # ⭐ LOT 102 — LA QUESTION PARLAIT DU PRIX « AFFICHÉ ». Il n'y en a plus.
+    # Elle porte maintenant sur le prix SUIVI : la réponse, elle, ne change pas
+    # d'un mot — c'est la mise en garde la plus importante du site, et elle vaut
+    # exactement autant pour un abonné qui le voit que pour un visiteur qui non.
+    - q: { fr: "Le prix plancher est-il un prix de vente ?", en: "Is the floor price a sale price?",
+           es: "¿El precio mínimo es un precio de venta?", de: "Ist der Bodenpreis ein Verkaufspreis?" }
       r: { fr: "Non, et la nuance est essentielle. C'est le prix de l'offre la plus basse EN VENTE. Personne ne l'a forcément payé.",
            en: "No, and the distinction matters. It is the price of the lowest ACTIVE listing. Nobody has necessarily paid it.",
            es: "No, y el matiz es esencial. Es el precio de la oferta más baja ACTIVA. Nadie lo ha pagado necesariamente.",

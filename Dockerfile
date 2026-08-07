@@ -218,6 +218,16 @@ RUN WAREHOUSE_OFFLINE=1 npm run test:routes
 # bonne foi, pour une page neuve — et rien d'autre ne le verrait.
 # ⚠️ APRES le build, forcement : il lit `dist/`.
 RUN WAREHOUSE_OFFLINE=1 npm run test:fuite
+# 🔴 `test:phrases` — LOT 102. Il ne cherche que des chaines EXACTES, listees
+# a la main avec le lot qui les a retirees. ⭐ Il existe parce que le lot 77 a
+# declare avoir retire « toutes les 30 minutes » de la DERNIERE des trois
+# mentions visibles, et que la phrase vivait encore dans la FAQ, en QUATRE
+# langues, dix jours plus tard. UN TEXTE NE S'IMPORTE PAS, IL SE RECOPIE :
+# une fonction retiree casse ses appelants, une phrase retiree ne casse rien.
+# ⚠️ APRES le build, comme test:fuite : il lit `dist/`, pas les sources — une
+# phrase peut venir d'un manifeste, d'un dictionnaire, d'un gabarit ou d'un
+# Sheet recolte ce matin, et `dist/` est le seul endroit ou toutes se croisent.
+RUN WAREHOUSE_OFFLINE=1 npm run test:phrases
 
 # --- Precompression : le seul gain de vitesse qui restait ------------------
 # ⭐⭐ POURQUOI PRECOMPRESSER, PLUTOT QUE DE MONTER LE NIVEAU DE gzip.
