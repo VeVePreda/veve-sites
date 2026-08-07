@@ -32,6 +32,19 @@ import { join } from 'node:path';
 
 const R = new URL('../..', import.meta.url).pathname;
 const BASE = join(R, 'src/layouts/Base.astro');
+// 🔴 LOT 104 — UN SECOND EMETTEUR ENTRE DANS LA REGLE.
+// Ce banc ne lisait que `Base.astro`, et c'etait juste tant que l'en-tete etait
+// le seul endroit ou un element dependait du cookie. L'accueil en a un depuis
+// l'arbitrage du 07/08 : `.hero[data-anonyme]` et `.tableau-bord[data-membre]`
+// s'echangent selon le cookie. ⭐⭐⭐ UNE REGLE QUI GAGNE UN EMETTEUR SANS QUE
+// SON BANC LE SUIVE CESSE D'ETRE TENUE LA OU ELLE VIENT D'ARRIVER — et c'est
+// precisement la ou personne ne l'a encore relue. Le lot 100 a paye ca : la
+// regle etait ecrite, appliquee a un element sur trois, donc un defaut
+// « parfois », donc irreproductible malgre deux signalements.
+// ⛔ On n'elargit PAS a tout `src/` : une page de compte a le droit de se
+// construire differemment, elle n'est jamais pre-generee. On nomme les
+// fichiers qui portent la contrainte, et on exige qu'ils existent.
+const HOME = join(R, 'src/components/pages/Home.astro');
 
 let ko = 0;
 const dit = (bon, quoi, detail) => {
@@ -46,6 +59,11 @@ if (!existsSync(BASE)) {
   process.exit(2);
 }
 const src = readFileSync(BASE, 'utf8');
+if (!existsSync(HOME)) {
+  console.error(`\n❌ ${HOME} introuvable — ce banc ne peut plus rien prouver sur l'accueil.`);
+  process.exit(2);
+}
+const home = readFileSync(HOME, 'utf8');
 
 // ── 0. L'INSTRUMENT AVANT LA MESURE ───────────────────────────────────────
 // ⭐ « Un banc se juge sur ce qu'il LAISSE PASSER. » Si les marqueurs
@@ -65,18 +83,39 @@ dit(/aUneSession/.test(src), 'le gabarit connaît bien `aUneSession`',
 // tous les visiteurs et connue au build. `aUneSession`, non : elle est vide sur
 // une page pré-générée et pleine sur une route dynamique.
 const fautes = [];
-const re = /\{([^{}]*?)&&\s*\(/g;
-let m;
-while ((m = re.exec(src)) !== null) {
-  const condition = m[1];
-  if (!/aUneSession|locals|palierVisiteur|connecte\(/.test(condition)) continue;
-  // le corps : jusqu'à la fermeture `)}` la plus proche qui referme l'expression
-  const corps = src.slice(m.index, src.indexOf(')}', m.index) + 2);
-  const marque = corps.match(/data-(anonyme|membre)\b/);
-  if (marque) {
-    fautes.push(`condition « ${condition.trim().slice(0, 60)} » enveloppe un élément data-${marque[1]}`);
+for (const [nom, texte] of [['Base.astro', src], ['Home.astro', home]]) {
+  const re = /\{([^{}]*?)&&\s*\(/g;
+  let m;
+  while ((m = re.exec(texte)) !== null) {
+    const condition = m[1];
+    if (!/aUneSession|locals|palierVisiteur|connecte\(/.test(condition)) continue;
+    // le corps : jusqu'à la fermeture `)}` la plus proche qui referme l'expression
+    const corps = texte.slice(m.index, texte.indexOf(')}', m.index) + 2);
+    const marque = corps.match(/data-(anonyme|membre)\b/);
+    if (marque) {
+      fautes.push(`${nom} : condition « ${condition.trim().slice(0, 60)} » enveloppe un élément data-${marque[1]}`);
+    }
   }
 }
+
+// 🔴 LOT 104 — L'ACCUEIL PORTE BIEN SES DEUX BLOCS, ET ILS SONT INCONDITIONNELS.
+// ⭐⭐ Sans ce contrôle, le contrôle ci-dessus resterait vert si les marqueurs
+// DISPARAISSAIENT de l'accueil : « aucune faute » et « rien à juger » se
+// ressemblent exactement dans un compteur à zéro. Un banc sort sur une
+// DÉCLARATION — ici : ces deux blocs doivent exister.
+const heroAnon = /<div class="hero" data-anonyme>/.test(home);
+const bordMembre = /<div class="tableau-bord" data-membre hidden>/.test(home);
+dit(heroAnon && bordMembre,
+  'l\'accueil déclare ses deux blocs : accroche (data-anonyme) et tableau de bord (data-membre)',
+  heroAnon && bordMembre ? null
+    : `hero[data-anonyme] : ${heroAnon ? 'ok' : 'ABSENT'} · tableau-bord[data-membre] : ${bordMembre ? 'ok' : 'ABSENT'}`);
+// ⚠️ ET LA RÈGLE QUI LES BASCULE VIT DANS LE <head>, PAS DANS LE THÈME. Posée
+// dans `theme.css`, elle arriverait avec la feuille externe — donc parfois
+// après la première peinture, et le clignotement reviendrait « de temps en
+// temps », ce qui est pire qu'à chaque fois.
+dit(/html\[data-membre\] \.tableau-bord\[data-membre\]\[hidden\]/.test(src),
+  'la règle qui ouvre le tableau de bord est EN LIGNE dans le <head>',
+  'dans le thème, elle arriverait parfois après la première peinture');
 dit(fautes.length === 0,
   'aucun élément décidé par le cookie n\'est conditionné par la session',
   fautes.length === 0 ? null : fautes.join(' · '));

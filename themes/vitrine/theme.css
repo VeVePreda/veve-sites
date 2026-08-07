@@ -764,6 +764,18 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 .module__d{font-size:var(--t-xs);color:var(--muted);line-height:1.5;margin-top:3px}
 .module__c{margin-left:auto;color:var(--lock);flex:0 0 auto}
 .module__c svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2}
+/* 🔴 LOT 104 — LE TABLEAU DE BORD DE L'ACCUEIL (bloc membre).
+   ⭐ Il occupe la place du `hero`, donc il en reprend le rythme vertical — pas
+   son decor. Le hero a un champ noir, un panneau os et une piece qui deborde ;
+   un tableau de bord n'a rien a mettre en scene, il presente.
+   ⛔ AUCUN `display` ICI. Le bloc est rendu avec `hidden` et c'est la regle en
+   ligne du <head> qui l'ouvre — une regle d'affichage posee dans cette feuille
+   arriverait avec le CSS externe, donc PARFOIS apres la premiere peinture, et
+   le clignotement reviendrait de temps en temps. Pire qu'a chaque fois : on
+   cesserait de savoir le reproduire. */
+.tableau-bord{padding:var(--s6) 0 var(--s5)}
+.tableau-bord .panneau{max-width:64ch}
+
 /* 🔴 LOT 104 — LE MODULE ANNONCE MAIS PAS CONSTRUIT.
    ⭐ Il est ATTENUE, jamais barre ni grise a l'illisible : Preda a choisi de
    les montrer, et un module qu'on montre doit rester lisible. Le contraste du

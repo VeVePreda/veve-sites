@@ -77,6 +77,17 @@ process.stdout.write('###' + JSON.stringify({
   // code a tort.
   afficherait: p.actif ? ds.items.filter((i) => restant(i.totalPoints, i.points) > 0).length : 0,
   menteuses: ds.items.filter((i) => (i.points || 0) > (i.totalPoints || 0)).length,
+  // 🔴 LOT 104 — CE CONTROLE VIENT DE test:fuite, ET IL A CHANGE DE PLACE
+  // POUR UNE RAISON MESUREE. Il verifiait que \`projeter()\` a bien retire les
+  // champs de cote du jeu public. C'est un controle de CODE : il n'a besoin
+  // que d'un dataset, n'importe lequel. Mais il vivait dans un banc qui tourne
+  // APRES le build, ou l'appel a \`dataset()\` recalculait tout sur
+  // l'echantillon local et VIDAIT la reserve du vrai build (1 201 fichiers ->
+  // 0). Le controle etait juste ; l'endroit ou il s'executait le rendait
+  // destructeur. ⭐⭐⭐ UN CONTROLE VIT LA OU IL EST EXACT ET SANS EFFET DE
+  // BORD, pas la ou il a ete ecrit la premiere fois.
+  encorePrix: ds.items.filter((i) => i.floor !== undefined || i.ath !== undefined
+    || i.atl !== undefined || i.prixMedian !== undefined || i.history !== undefined).length,
   nan: ds.items.filter((i) => !Number.isFinite(i.points) || (i.history || []).some((h) => !Number.isFinite(h.floor))).length,
   paliers: acces().tiers,
   demo: acces().demo,
@@ -134,6 +145,14 @@ const ENTETE = [
 const ANCIEN = `${ENTETE}\n  public_points_max: 30\n  public_history_days: 90\n`;
 const NOUVEAU = `${ENTETE}\naccess:\n  tiers: [visitor, member]\n  gates:\n    price_history:\n      tier: member\n      public_max: 30\n      public_days: 90\n`;
 const GRATUIT = `${ENTETE}\naccess:\n  tiers: [visitor]\n`;
+// 🔴 LOT 104 — LE PROFIL QUI FERME LA COTE. Aucun scenario du banc ne
+// l'activait : `ANCIEN` est en retro-compat (pas de `crevette` dans `tiers`,
+// donc porte inactive) et `NOUVEAU` s'arrete a `member`. Le controle de
+// projection, deplace ici depuis test:fuite, aurait donc mesure des profils qui
+// gardent LEGITIMEMENT leurs prix — et accuse le code a tort.
+// ⭐⭐ « Zero parce que c'est casse » et « zero parce qu'il n'y a rien ici » :
+// premiere version de ce deplacement, le banc criait sur un comportement juste.
+const COTE_FERMEE = `${ENTETE}\naccess:\n  tiers: [visitor, member, crevette]\n  gates:\n    cote:\n      binaire: true\n      tier: crevette\n    price_history:\n      tier: crevette\n      public_max: 30\n      public_days: 3\n`;
 const AMBIGU = `${ENTETE}\n  public_points_max: 30\naccess:\n  tiers: [visitor, member]\n`;
 // Trois paliers, porte exigeant seulement `free` : le seul scenario ou l'ORDRE
 // des paliers change quelque chose (un membre franchit une porte `free`).
@@ -226,6 +245,31 @@ try {
     `${gratuit.nan} fiche(s) avec une valeur non finie`);
   verifie('les courbes ne s\'effondrent pas sur un seul point',
     gratuit.maxPoints >= ancien.maxPoints, `max ${gratuit.maxPoints} contre ${ancien.maxPoints}`);
+
+  // 🔴 LOT 104 — VENU DE test:fuite, ET LE DEPLACEMENT EST LE CORRECTIF.
+  // « `projeter()` a-t-il bien retire floor/ath/atl/prixMedian/history du jeu
+  // public ? » est une question de CODE : n'importe quel dataset y repond.
+  // Elle vivait dans un banc joue APRES le build, ou l'appel a `dataset()`
+  // recalculait sur l'echantillon local et VIDAIT la reserve du vrai build —
+  // 1 201 fichiers de cote a 0, mesure le 07/08. Le controle etait juste,
+  // l'endroit le rendait destructeur.
+  // ⚠️ `ancien` ET `gratuit` : la projection ne doit pas dependre du manifeste.
+  // Un site qui ne ferme pas sa cote garde ses champs — c'est `porte('cote')`
+  // qui decide — donc on ne l'exige QUE du profil qui la ferme.
+  const cotee = scenario('cote fermee', COTE_FERMEE);
+  verifie('la projection retire tous les champs de cote quand la porte est ACTIVE',
+    cotee.encorePrix === 0,
+    cotee.encorePrix === 0 ? `${cotee.items} fiches, aucun champ de cote`
+      : `${cotee.encorePrix} fiche(s) portent encore floor/ath/atl/history`);
+  // ⭐⭐⭐ ET LA CONTRE-EPREUVE, SANS LAQUELLE LA LIGNE AU-DESSUS NE PROUVE
+  // RIEN. Un `projeter()` qui retirerait les champs TOUJOURS — porte active ou
+  // non — passerait le premier controle et casserait le classement de la
+  // vitrine en silence, sur tous les sites gratuits. On exige donc aussi que
+  // les prix RESTENT la ou la porte est inactive.
+  verifie('et elle ne retire RIEN quand la porte est inactive',
+    ancien.encorePrix > 0,
+    ancien.encorePrix > 0 ? `${ancien.encorePrix} fiche(s) gardent leurs prix, comme prevu`
+      : 'AUCUNE fiche ne porte de prix alors que la porte est inactive — projeter() s\'applique trop largement');
 
   // =========================================================================
   // 4. LE GARDE-FOU DU MANIFESTE AMBIGU

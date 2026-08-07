@@ -131,12 +131,68 @@ const horo = maj ? `${String(maj.getUTCDate()).padStart(2,'0')}.${String(maj.get
       autorise les blocs à déborder de la colonne de texte. */}
   <div class="editorial">
 
+  {/* ═══════════════════════════════════════════════════════════════════════
+      🔴🔴 LOT 104 — L'ACCUEIL EST LE TABLEAU DE BORD, POUR QUI A UN COMPTE
+      ═══════════════════════════════════════════════════════════════════════
+      ARBITRAGE PREDA DU 07/08 : « je ne devrais pas voir la page d'accueil en
+      étant connecté ». Choisi parmi trois — pas une redirection vers une autre
+      adresse, mais l'accueil qui DEVIENT le tableau de bord.
+      ⭐ Le manifeste le disait déjà, depuis le lot 38 : `nav.dashboard → /`,
+      « l'accueil fait office de tableau de bord ». Ce n'était pas un mensonge,
+      c'était une INTENTION jamais réalisée. La voici.
+
+      ⭐⭐⭐ POURQUOI PAS UNE REDIRECTION. `/` est LA page indexée, la plus
+      partagée, et la plus lourde à reconstruire (282 Ko, 8 484 pages derrière).
+      La rendre dynamique la sortirait du pré-rendu : Node réveillé à chaque
+      visite, cache perdu, et Google servi par un chemin différent des lecteurs.
+      ⛔ Et une redirection par script aurait ENLEVÉ aux membres les mouvements,
+      les séries et le blog — qui vivent ici — contre une page qui dit « en
+      construction ». On n'échange pas du contenu réel contre une promesse.
+
+      ⭐⭐ CE BLOC ET LE `hero` SONT TOUS DEUX RENDUS, TOUJOURS, POUR TOUT LE
+      MONDE. C'est la règle du lot 100, celle que le lot 100 avait lui-même
+      violée : UNE PAGE PRÉ-GÉNÉRÉE N'A PAS DE VISITEUR. Les conditionner sur
+      la session donnerait deux DOM selon le mode de rendu, donc un défaut
+      « parfois », donc irreproductible. Le cookie d'affichage, lu dans le
+      `<head>`, ne décide que du `display` — avant la première peinture.
+      ⛔ CE N'EST PAS UN MUR. Ce bloc ne porte AUCUNE donnée réservée : il
+      annonce un module qui n'existe pas encore. Le jour où il portera des
+      chiffres, ils devront venir d'une route qui lit la session côté serveur,
+      comme `/api/cote/lot` — jamais d'ici.
+      ⚠️ `test:accueil` (neuf) refuse que ces deux blocs soient conditionnés. */}
+  <div class="tableau-bord" data-membre hidden>
+    <p class="etiq etiq--bleu">// {t(lang, 'dash.title').toUpperCase()}</p>
+    <h1 class="mono-t">{t(lang, 'dash.title')}</h1>
+    <div class="panneau" style="margin-top:var(--s4)">
+      <h2 class="mono-t">{t(lang, 'dash.empty')}</h2>
+      {/* ⭐ Le texte dit l'état réel et NE PROMET AUCUNE DATE. « Bientôt » est
+          un engagement qu'on tient rarement et qu'on ne mesure jamais ; « pas
+          encore construit » reste vrai tant qu'il l'est, et faux le jour exact
+          où on le change. */}
+      <p class="respire">{t(lang, 'dash.empty.d')}</p>
+    </div>
+    {/* ⭐ Et il renvoie vers ce qui existe DÉJÀ pour un membre. Sans ces deux
+        liens, ce bloc n'apporte qu'une déception à la place d'une accroche. */}
+    <p class="respire" style="margin-top:var(--s4)">
+      <a class="btn btn--principal btn--sm" href={localize(lang, '/market/')}>{t(lang, 'nav.movers')}</a>
+      <a class="btn btn--sm" href="/compte/" style="margin-left:10px">{t(lang, 'account.title')}</a>
+    </p>
+  </div>
+
   {/* ═══ LE PREMIER ÉCRAN ═══
       ⭐ Trois surfaces GRANDES, DÉCALÉES, qui se chevauchent, et rien d'autre :
       un champ noir qui déborde à droite, un panneau os décalé vers le bas qui
       le chevauche, une pièce qui casse le bord haut. La force vient du
-      DÉCALAGE, pas de l'accumulation — il a fallu quatre essais pour l'admettre. */}
-  <div class="hero">
+      DÉCALAGE, pas de l'accumulation — il a fallu quatre essais pour l'admettre.
+      🔴 LOT 104 — `data-anonyme` : l'accroche commerciale disparaît pour qui a
+      déjà un compte. ⛔ Elle reste dans le DOM (c'est elle que Google lit, et
+      un membre au cookie expiré doit la retrouver) : seul son affichage bouge.
+      ⚠️ ELLE PORTE LE <h1> DE LA PAGE. Le bloc membre en pose un autre, et
+      c'est voulu : un seul des deux est visible à la fois. Les deux sont dans
+      le HTML servi, ce qui est correct pour Google (il lit le premier, celui de
+      l'accroche, puisqu'il n'a pas de cookie) mais ⛔ interdit d'en ajouter un
+      TROISIÈME sans se reposer la question. */}
+  <div class="hero" data-anonyme>
     <span class="hero__champ" aria-hidden="true"></span>
     {/* ⛔ LOT 72 — « THE RECORD » ET « RECORDED EVERY 30 MIN » SONT PARTIS DU
         PREMIER ÉCRAN (demande de Preda, redite deux fois).

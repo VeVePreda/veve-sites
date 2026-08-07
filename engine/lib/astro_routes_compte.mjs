@@ -119,13 +119,6 @@ const ROUTES_COMPTE = [
   // il rapporte les usages de son époque, et ils ont l'air normaux.
   'pages/market/index.astro',
   'pages/[locale]/market/index.astro',
-  // ⭐ Le tableau de bord ne porte AUCUNE donnee reservee aujourd'hui — c'est
-  // une coquille. Il est ici quand meme : il lit la session pour decider s'il
-  // redirige, et une coquille qui se remplira un jour doit deja etre du bon
-  // cote du mur. ⛔ L'y mettre plus tard serait un lot « invisible » : rien ne
-  // casserait le jour ou le premier widget arrive.
-  'pages/dashboard/index.astro',
-  'pages/[locale]/dashboard/index.astro',
 ];
 
 const normalise = (p) => String(p || '').replace(/\\/g, '/');

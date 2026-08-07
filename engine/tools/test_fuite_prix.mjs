@@ -1,27 +1,58 @@
-// ⚠️ VeVePreda/veve-sites — engine/tools/test_fuite_prix.mjs  (FICHIER NEUF — lot 101)
+// ⚠️ VeVePreda/veve-sites — engine/tools/test_fuite_prix.mjs
 // ═══════════════════════════════════════════════════════════════════════════
 // LE BANC ANTI-FUITE — il lit `dist/`, pas le code
 // ═══════════════════════════════════════════════════════════════════════════
 //
 // ⭐⭐⭐ POURQUOI IL REGARDE LE PRODUIT ET PAS LA SOURCE. Tous les autres bancs
-// de ce lot prouvent des INTENTIONS : que `projeter()` retire les champs, que
+// du lot 101 prouvent des INTENTIONS : que `projeter()` retire les champs, que
 // la route refuse sans session, que `productLd` n'emet plus d'`offers`. Aucun
 // ne prouve le FAIT — « il n'y a pas un seul prix dans ce qu'on publie ». Or
-// c'est le seul enonce qui compte, et c'est le seul qu'un lot suivant peut
-// defaire sans toucher a une ligne de ce lot-ci : il suffira que quelqu'un
-// passe une valeur a un gabarit, de bonne foi, pour une page neuve.
+// c'est le seul enonce qui compte, et le seul qu'un lot suivant peut defaire
+// sans toucher a une ligne du lot 101 : il suffira que quelqu'un passe une
+// valeur a un gabarit, de bonne foi, pour une page neuve.
 //
-// ⭐⭐ ET IL CHERCHE DES VALEURS REELLES, PAS DES MOTIFS. Chercher « floor »
-// dans le HTML aurait attrape des libelles et rate les chiffres. On prend les
-// vrais montants dans `.reserve/cote/` — ceux qu'on vient de mettre a l'abri —
-// et on va voir s'ils se retrouvent dans la page de LEUR piece. C'est la seule
-// forme qui ne peut pas etre verte pour une mauvaise raison.
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 REECRIT AU LOT 104 — CE BANC TUAIT LE DEPLOIEMENT DEPUIS LE LOT 101
+// ═══════════════════════════════════════════════════════════════════════════
+// MESURE DU 07/08/2026, sur le depot `7cf15462` **SANS** le lot 104, dans les
+// conditions exactes du Dockerfile (build REEL, puis `WAREHOUSE_OFFLINE=1
+// npm run test:fuite`) :
+//     KO  la couverture est suffisante (0 fiches)
+//     FATAL ERROR: Reached heap limit — JavaScript heap out of memory
+// ⭐ Le lot 104 n'en est pas la cause : il l'a rendu VISIBLE en faisant tourner
+// le banc sur un vrai catalogue. Sur les 445 pages de l'echantillon local, il
+// passe ; sur les 8 484 pages de la production, il abandonne.
+// ⭐⭐⭐ UN INSTRUMENT VALIDE SUR UN ECHANTILLON N'EST PAS VALIDE. C'est toute
+// la famille de pieges de ce depot, retournee contre le banc lui-meme.
 //
-// ⛔ LIMITE ASSUMEE, ECRITE POUR NE PAS ETRE REDECOUVERTE : il ne verifie que
-// les pieces dont le montant est ASSEZ DISTINCTIF (au moins une decimale, ou
-// au moins 4 chiffres). Un plancher a « 12 » se retrouve dans n'importe quelle
-// page par hasard, et un banc qui crie au hasard finit desactive. La couverture
-// reelle est affichee a chaque execution : si elle tombe, c'est un signal.
+// ── DEFAUT 1, ET C'EST LE PLUS GRAVE : IL DETRUISAIT LA RESERVE DU BUILD ───
+// Il importait `dataset()`. Sous `WAREHOUSE_OFFLINE=1`, `dataset()` RECALCULE
+// tout depuis `engine/data/sample/` — et `projeter()` comme `reserve.fermer()`
+// s'executent pour de bon. Mesure : `.reserve/cote/` passe de **1 201 fichiers
+// a 0**, et `_projection.json` est remplace par les 90 « sample-… ».
+//   · d'ou le `0 fiche(s) verifiees, 1200 sautee(s)` : le banc comparait le
+//     journal du build REEL (lu avant) a un dataset d'ECHANTILLON (calcule
+//     apres). Deux populations qui ne se rencontrent jamais ;
+//   · et l'image de production aurait embarque une reserve VIDE — un site
+//     parfaitement vert ou SEULS LES ABONNES ne voient plus aucun prix. Seul le
+//     garde-fou du Dockerfile (`COPY .reserve` + comptage separe) l'arretait.
+// ⭐⭐⭐ UN BANC QUI RECALCULE CE QU'IL DOIT JUGER NE LE JUGE PLUS, IL LE
+// REMPLACE. Ce banc n'a jamais eu besoin de `dataset()` : il compare `dist/` a
+// `.reserve/`, deux choses deja ECRITES sur le disque par le build.
+// ⛔ NE JAMAIS reimporter `dataset()` ici.
+//
+// ── DEFAUT 2 : LA MEMOIRE ─────────────────────────────────────────────────
+// Chaque page etait lue jusqu'a trois fois, et la liste complete des chemins
+// retenue. UN SEUL PARCOURS desormais, en flux : aucun contenu n'est garde, que
+// des compteurs et cinq exemples.
+//
+// ── DEFAUT 3 : LA DISTINCTIVITE ───────────────────────────────────────────
+// Le critere « >= 1000 ou non entier » suffisait tant qu'on ne cherchait que
+// dans LA page de la piece. En balayant 8 484 pages, « 10,000 » et « 5,000 » se
+// retrouvent dans `/analytics/` par pur hasard — trois faux positifs mesures en
+// production. ⭐ Le lot 101 l'avait pourtant ecrit : « un banc qui crie au
+// hasard finit desactive ». La portee avait ete elargie sans resserrer le
+// critere ; les deux vont ensemble.
 
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -37,12 +68,12 @@ const dit = (bon, quoi, detail) => {
   console.log(`  ${bon ? 'ok ' : 'KO '} ${quoi}${detail ? ` — ${detail}` : ''}`);
 };
 
-console.log('\n═══ LOT 101 — aucune cote ne doit se trouver dans dist/ ═══');
+console.log('\n═══ LOT 101/104 — aucune cote ne doit se trouver dans dist/ ═══');
 
 // ── 0. L'INSTRUMENT AVANT LA MESURE ───────────────────────────────────────
 // ⭐⭐ « Un banc se juge sur ce qu'il LAISSE PASSER. » Sur un `dist/` vide ou
 // une reserve absente, tout ce qui suit serait vert. On refuse d'abord de
-// mesurer avec un instrument debranche — c'est la lecon du miroir perime.
+// mesurer avec un instrument debranche.
 if (!existsSync(RACINE)) {
   console.log(`  KO  dist/ introuvable (${RACINE}) — ce banc ne peut RIEN prouver`);
   process.exit(1);
@@ -50,13 +81,13 @@ if (!existsSync(RACINE)) {
 const JOURNAL = join(COTE, '_projection.json');
 
 // ── 0 bis. LE BANC SORT SUR LE MANIFESTE, PAS SUR L'ABSENCE D'UN DOSSIER ──
-// 🔴 PREMIERE VERSION : elle sortait si `.reserve/cote/` n'existait pas. Mesure
-// du 07/08 : sur vevewiki, ce dossier EXISTE — laisse par le build precedent de
-// veveprice dans le meme arbre — et le banc partait alors verifier une reserve
-// qui n'etait pas la sienne, puis echouait trois fois sur un site parfaitement
+// 🔴 Une premiere version sortait si `.reserve/cote/` n'existait pas. Mesure du
+// 07/08 : sur vevewiki ce dossier EXISTE — laisse par le build precedent de
+// veveprice dans le meme arbre — et le banc partait verifier une reserve qui
+// n'etait pas la sienne, puis echouait trois fois sur un site parfaitement
 // sain. ⭐⭐⭐ UN CONTROLE QUI DEDUIT SA RAISON D'ETRE D'UN ARTEFACT SUR LE
 // DISQUE HERITE DE TOUT CE QUE LE DISQUE A GARDE. La question « ce site
-// ferme-t-il sa cote ? » a une reponse EXACTE et elle est dans le manifeste.
+// ferme-t-il sa cote ? » a une reponse EXACTE, et elle est dans le manifeste.
 process.env.SITE = process.env.SITE || 'veveprice';
 const { coteFermee, uuidValide } = await import('../lib/cote.mjs');
 if (!coteFermee()) {
@@ -70,168 +101,144 @@ if (!existsSync(JOURNAL)) {
   process.exit(1);
 }
 
-const pages = [];
-(function marcher(d) {
-  for (const e of readdirSync(d, { withFileTypes: true })) {
-    const p = join(d, e.name);
-    if (e.isDirectory()) marcher(p);
-    else if (e.name.endsWith('.html') || e.name.endsWith('.json') || e.name.endsWith('.xml')) pages.push(p);
-  }
-})(RACINE);
-dit(pages.length > 50, `${pages.length} fichier(s) publie(s) a inspecter`,
-  pages.length > 50 ? null : 'TROP PEU — le banc serait vert par manque de matiere');
-
-// ── 1. LE JSON-LD NE DECLARE PLUS D'OFFRE ─────────────────────────────────
-// C'etait la fuite la plus couteuse : elle part chez Google et y reste.
-const avecOffre = pages.filter((f) => f.endsWith('.html')
-  && /"@type"\s*:\s*"Offer"/.test(readFileSync(f, 'utf8')));
-dit(avecOffre.length === 0, 'aucune page n\'emet un `Offer` en donnees structurees',
-  avecOffre.length === 0 ? null : `${avecOffre.length} page(s), dont ${avecOffre[0]}`);
-
-// ── 2. LES VRAIS MONTANTS NE SE RETROUVENT PAS DANS LEUR PAGE ─────────────
-// ⭐⭐⭐ ON LIT LE JOURNAL DE PROJECTION, PAS LES FICHIERS SERVIS — ET C'EST LA
-// DECISION QUI REND CE BANC UTILE EN CI. Hors reseau, l'echantillon porte des
-// identifiants `sample-0033-570553` : la liste blanche des uuid les refuse
-// tous, `.reserve/cote/` ne contient AUCUN fichier servi, et un banc branche
-// dessus n'aurait rien a comparer. Il serait vert pour toujours, pour la seule
-// raison qui rend un banc inutile. Le journal, lui, porte les montants de TOUS
-// les items — c'est ce qui a ete RETIRE, et c'est exactement ce qu'on doit ne
-// pas retrouver dans `dist/`.
+// ═══════════════════════════════════════════════════════════════════════════
+// LES MONTANTS TEMOINS — pris dans le journal, jamais recalcules
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐⭐⭐ ON LIT LE JOURNAL DE PROJECTION, PAS LES FICHIERS SERVIS. Hors reseau,
+// les uuid de l'echantillon valent « sample-0033-570553 » : la liste blanche
+// les refuse tous, `.reserve/cote/` sort VIDE de tout build local, et un banc
+// branche dessus n'aurait AUCUN montant a comparer. Il serait vert, en CI, pour
+// toujours, et pour la seule raison qui rend un banc inutile.
 const jrn = JSON.parse(readFileSync(JOURNAL, 'utf8'));
 const entrees = Object.entries(jrn.valeurs || {});
 dit(entrees.length > 0, `${entrees.length} cote(s) retiree(s) du public`,
   entrees.length ? `${jrn.ecrits || 0} servie(s), ${jrn.refuses || 0} uuid refuse(s)`
     : 'AUCUNE — soit la projection n\'a pas tourne, soit elle n\'ecrit rien');
-const fichiersCote = readdirSync(COTE).filter((f) => f.endsWith('.json') && !f.startsWith('_'));
 
-// ⭐ Le jeu de donnees redonne le chemin de chaque piece. On l'importe APRES
-// avoir lu la reserve : `dataset()` est en cache dans le processus de build,
-// pas ici, donc cet appel relit — c'est acceptable pour un banc, et c'est ce
-// qui garantit qu'on lit le MEME etat que celui qui a produit `dist/`.
-const { dataset } = await import('../lib/dataset.mjs');
-const ds = await dataset();
-const parUuid = new Map(ds.items.map((i) => [i.uuid, i]));
+// ── LE CRITERE DE DISTINCTIVITE, RESSERRE AU LOT 104 ──────────────────────
+// ⭐ Un montant n'est retenu que s'il est difficilement INVENTABLE :
+//   · non entier — « 10 000 » et « 5 000 » sont partout, « 627.95 » non ;
+//   · au moins 100 — en dessous, deux decimales ne distinguent plus rien ;
+//   · deuxieme decimale non nulle — ecarte les .50, .25, .10 du langage courant.
+// ⛔ ON PERD DE LA COUVERTURE, ET ON L'ASSUME. Le nombre de temoins retenus est
+// affiche a chaque execution et garde par un plancher : mieux vaut prouver
+// moins et etre cru, que crier souvent et finir desactive.
+const distinctif = (v) => Number.isFinite(v) && !Number.isInteger(v)
+  && Math.abs(v) >= 100 && Math.round(Math.abs(v) * 100) % 10 !== 0;
 
-// ⭐⭐ CONTROLE DE L'INSTRUMENT, ET IL EST INDISPENSABLE ICI : si `projeter()`
-// ne tournait pas, `ds.items[].floor` existerait encore et ce banc aurait
-// quand meme des chemins — il verifierait alors le HTML d'un site dont il n'a
-// pas constate le nettoyage. On mesure d'abord le jeu de donnees lui-meme.
-const encorePrix = ds.items.filter((i) => i.floor !== undefined || i.ath !== undefined
-  || i.atl !== undefined || i.prixMedian !== undefined || i.history !== undefined).length;
-dit(encorePrix === 0, 'le jeu de donnees public ne porte plus AUCUN champ de cote',
-  encorePrix === 0 ? `${ds.items.length} fiches` : `${encorePrix} fiche(s) portent encore floor/ath/atl/history`);
-
-// ⚠️ On formate comme les gabarits : `toLocaleString` avec la locale du site.
-// Un montant cherche au format brut (« 1234.5 ») ne serait trouve nulle part
-// alors qu'il s'affiche « 1,234.5 » — le banc serait vert et la fuite entiere.
+// ⚠️ ON CHERCHE LES QUATRE FORMES, PAS LE NOMBRE BRUT. `toLocaleString` rend
+// « 1 234,5 » en francais et « 1,234.5 » en anglais : chercher `1234.5` serait
+// vert sur une page qui affiche le montant en toutes lettres.
 const FORMATS = ['en-GB', 'fr-FR', 'es-ES', 'de-DE'];
 const formes = (v) => {
   const out = new Set();
   for (const l of FORMATS) out.add(Number(v).toLocaleString(l, { maximumFractionDigits: 2 }));
   return [...out];
 };
-// ⭐ « Assez distinctif » : au moins une decimale, ou au moins 4 chiffres.
-const distinctif = (v) => Number.isFinite(v) && (v >= 1000 || !Number.isInteger(v));
 
-let testees = 0, sautees = 0;
-const fuites = [];
+// ⭐ 60 temoins : une fuite de page ne fuit jamais UN prix, elle en fuit deux
+// cents. Un seul retrouve suffit a la dire. Borner le nombre de temoins borne
+// le cout du produit croise (temoins x pages) sans rien couter a la detection.
+const ECHANTILLON = 60;
+const temoins = [];
 for (const [uuid, c] of entrees) {
-  const item = parUuid.get(uuid);
-  if (!item || !item.path) { sautees++; continue; }
-  const valeurs = ['floor', 'ath', 'atl', 'prixMedian', 'p95']
-    .map((k) => c[k]).filter(distinctif);
-  if (!valeurs.length) { sautees++; continue; }
-
-  // La page de la piece, dans la langue pivot (les autres portent le meme
-  // gabarit : une fuite qui existe dans l'une existe dans les quatre).
-  const html = join(RACINE, item.path.replace(/^\//, ''), 'index.html');
-  if (!existsSync(html)) { sautees++; continue; }
-  const texte = readFileSync(html, 'utf8');
-  testees++;
-  for (const v of valeurs) {
-    for (const forme of formes(v)) {
-      if (texte.includes(forme)) { fuites.push(`${item.path} porte « ${forme} »`); break; }
-    }
+  if (temoins.length >= ECHANTILLON) break;
+  const v = ['floor', 'ath', 'atl', 'prixMedian', 'p95'].map((k) => c[k]).find(distinctif);
+  if (v !== undefined) {
+    for (const f of formes(v)) temoins.push([f, uuid, v]);
   }
 }
-dit(fuites.length === 0, `${testees} fiche(s) verifiees, aucun montant retrouve dans leur page`,
-  fuites.length === 0 ? `${sautees} sautee(s) (montant peu distinctif ou page absente)`
-    : `${fuites.length} FUITE(S) : ${fuites.slice(0, 5).join(' · ')}`);
-dit(testees >= 20, `la couverture est suffisante (${testees} fiches)`,
-  testees >= 20 ? null : 'TROP PEU de montants distinctifs — ce banc ne prouve presque rien');
+// ⭐ L'INSTRUMENT SE DECLARE. Sans temoins, tout ce qui suit serait vert pour la
+// seule raison qui rend un banc inutile : il n'a rien a mesurer. Et on le DIT.
+dit(temoins.length >= 20, `${temoins.length} forme(s) temoin(s) sur ${entrees.length} cote(s)`,
+  temoins.length >= 20 ? null
+    : 'TROP PEU de montants distinctifs — ce banc ne prouve presque rien');
 
-// ── 2 bis. ET AILLEURS ? — ELARGI AU LOT 104 ──────────────────────────────
 // ═══════════════════════════════════════════════════════════════════════════
-// 🔴🔴 LE CONTROLE 2 NE REGARDE QUE LA PAGE DE CHAQUE PIECE. C'etait suffisant
-// au lot 101 : les seules pages qui portaient un montant etaient les fiches.
-// Ca a CESSE d'etre vrai au lot 104, ou `/market/` revient avec 200 montants
-// rendus cote serveur.
-//
-// ⭐⭐⭐ ET C'EST LA FORME DE PANNE LA PLUS DANGEREUSE DE CE DEPOT : un oubli
-// dans `ROUTES_COMPTE` ne casse RIEN. La page reste pre-generee, elle ecrit ses
-// 200 montants dans `dist/`, nginx les sert en clair a qui connait l'adresse,
-// et le build est vert. Aucun run rouge, aucune plainte — la fuite du lot 101
-// rouverte par la porte d'a cote, silencieusement.
-// ⛔ « Un controle qui ne regarde que ce qui existe ne voit jamais ce qui
-// manque » : on ne demande donc plus « la fiche de cette piece porte-t-elle son
-// prix ? » mais « CE MONTANT EXISTE-T-IL QUELQUE PART DANS dist/ ? ».
-//
-// ⚠️ COUT ASSUME. C'est un produit croise : chaque montant distinctif contre
-// chaque page publiee. On borne donc l'echantillon de montants — pas les pages,
-// qui sont ce qu'on doit couvrir. ⭐ 40 montants suffisent : une fuite de page
-// ne fuit jamais UN prix, elle en fuit deux cents. Un seul retrouve suffit.
-const ECHANTILLON = 40;
-const aChercher = [];
-for (const [uuid, c] of entrees) {
-  if (aChercher.length >= ECHANTILLON) break;
-  const v = ['floor', 'ath', 'atl', 'prixMedian', 'p95'].map((k) => c[k]).filter(distinctif)[0];
-  if (v !== undefined) aChercher.push([uuid, v]);
-}
-// ⭐ On lit chaque page UNE fois et on y cherche les 40 montants, plutot que
-// l'inverse : 40 lectures de disque par page seraient 40 fois le meme fichier.
-const partout = [];
-const cibles = pages.filter((f) => f.endsWith('.html') || f.endsWith('.json'));
-for (const f of cibles) {
-  const texte = readFileSync(f, 'utf8');
-  for (const [uuid, v] of aChercher) {
-    for (const forme of formes(v)) {
-      if (texte.includes(forme)) {
-        partout.push(`${f.slice(RACINE.length)} porte « ${forme} » (${uuid.slice(0, 8)})`);
-        break;
+// LE PARCOURS UNIQUE — tout se mesure ici, rien ne se garde
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐⭐ UN SEUL `readFileSync` PAR FICHIER, ET SON CONTENU EST RELACHE AVANT LE
+// SUIVANT. La version precedente ouvrait chaque page jusqu'a trois fois et
+// retenait la liste complete : 3 Go de tas sur 8 484 pages, puis SIGABRT.
+let nbFichiers = 0;
+let nbOffre = 0;
+let nbMarqueurs = 0;
+let sousDist = 0;
+const exOffre = [];
+const exFuite = [];
+const exRempli = [];
+// ⛔ Un plafond d'exemples, pas un plafond de PARCOURS : on visite toutes les
+// pages meme apres huit fuites. S'arreter tot rendrait le compte final faux, et
+// un compte faux se cite ensuite comme un fait.
+const MAX_EX = 5;
+
+(function marcher(d) {
+  for (const e of readdirSync(d, { withFileTypes: true })) {
+    const p = join(d, e.name);
+    if (e.isDirectory()) { marcher(p); continue; }
+    if (!/\.(html|json|xml)$/.test(e.name)) continue;
+    nbFichiers++;
+    if (p.includes('.reserve')) sousDist++;
+    const texte = readFileSync(p, 'utf8');
+
+    // 1. Aucune page n'annonce un prix en donnees structurees.
+    if (e.name.endsWith('.html') && /"@type"\s*:\s*"Offer"/.test(texte)) {
+      nbOffre++;
+      if (exOffre.length < MAX_EX) exOffre.push(p.slice(RACINE.length));
+    }
+
+    // 2. Les emplacements de cote sont VIDES. ⭐ Le controle qui attrape la
+    // faute la plus probable des lots suivants : quelqu'un passe une prop
+    // `valeur` a <Cote> « juste pour cette page-la ».
+    if (e.name.endsWith('.html')) {
+      const m = texte.match(/<span class="cote[^"]*"[^>]*>.*?<\/span>/gs);
+      if (m) {
+        nbMarqueurs += m.length;
+        for (const bloc of m) {
+          if (!/>\s*—\s*</.test(bloc) && exRempli.length < MAX_EX) exRempli.push(p.slice(RACINE.length));
+        }
       }
     }
-    if (partout.length >= 8) break;
+
+    // 3. AUCUN MONTANT TEMOIN NULLE PART — le controle central du lot 104.
+    // ⭐⭐⭐ Il ne demande plus « la fiche de cette piece porte-t-elle son
+    // prix ? » mais « CE MONTANT EXISTE-T-IL QUELQUE PART DANS dist/ ? ».
+    // La premiere question etait suffisante au lot 101 — seules les fiches
+    // portaient un montant. Elle a cesse de l'etre quand `/market/` est
+    // revenue : une page de liste qui retomberait en pre-generee ecrirait 200
+    // montants d'un coup, et l'ancienne forme ne l'aurait jamais regarde.
+    // ⛔ « Un controle qui ne regarde que ce qui existe ne voit jamais ce qui
+    // manque » — et un oubli dans ROUTES_COMPTE ne produit AUCUN run rouge.
+    if (exFuite.length < MAX_EX) {
+      for (const [forme, uuid] of temoins) {
+        if (texte.includes(forme)) {
+          exFuite.push(`${p.slice(RACINE.length)} porte « ${forme} » (${uuid.slice(0, 8)})`);
+          break;
+        }
+      }
+    }
   }
-  if (partout.length >= 8) break;
-}
-dit(partout.length === 0,
-  `aucun des ${aChercher.length} montants temoins ne se retrouve dans les ${cibles.length} page(s) publiee(s)`,
-  partout.length === 0 ? null
-    : `${partout.length}+ FUITE(S) HORS FICHE : ${partout.slice(0, 4).join(' · ')}`);
-if (partout.length) {
+})(RACINE);
+
+dit(nbFichiers > 50, `${nbFichiers} fichier(s) publie(s) inspecte(s)`,
+  nbFichiers > 50 ? null : 'TROP PEU — le banc serait vert par manque de matiere');
+dit(nbOffre === 0, 'aucune page n\'emet un `Offer` en donnees structurees',
+  nbOffre === 0 ? null : `${nbOffre} page(s), dont ${exOffre.join(' · ')}`);
+dit(nbMarqueurs > 0, `${nbMarqueurs} emplacement(s) de cote emis`,
+  nbMarqueurs ? null : 'AUCUN — le composant <Cote> n\'est rendu nulle part, verifier les gabarits');
+dit(exRempli.length === 0, 'aucun emplacement de cote ne porte de valeur',
+  exRempli.length === 0 ? null : `rempli(s), dont ${exRempli.join(' · ')}`);
+dit(exFuite.length === 0,
+  `aucun des ${temoins.length} montants temoins ne se retrouve dans les ${nbFichiers} page(s) publiee(s)`,
+  exFuite.length === 0 ? null : `FUITE(S) : ${exFuite.join(' · ')}`);
+if (exFuite.length) {
   console.log('     🔴 UN MONTANT RESERVE EST DANS `dist/`, DONC SERVI EN CLAIR PAR NGINX.');
   console.log('     ➡️  Verifier d\'abord `engine/lib/astro_routes_compte.mjs` : une page qui lit');
   console.log('        la reserve et qui n\'y est PAS inscrite reste pre-generee, en silence.');
   console.log('        C\'est la panne du lot 24, et elle ne produit aucun run rouge.');
 }
-// ⭐ L'instrument se declare : sans montants temoins, tout ce bloc serait vert
-// pour la seule raison qui rend un banc inutile.
-dit(aChercher.length >= 10, `${aChercher.length} montant(s) temoin(s) — assez pour que ce bloc prouve quelque chose`,
-  aChercher.length >= 10 ? null : 'TROP PEU : ce controle ne garde presque rien');
 
-// ── 3. LES EMPLACEMENTS DE COTE SONT VIDES DANS LE HTML ───────────────────
-// ⭐ Le controle qui attrape la faute la plus probable des lots suivants :
-// quelqu'un ajoute une prop `valeur` a <Cote> « juste pour cette page-la ».
-const marqueurs = pages.filter((f) => f.endsWith('.html'))
-  .flatMap((f) => (readFileSync(f, 'utf8').match(/<span class="cote[^"]*"[^>]*>.*?<\/span>/gs) || [])
-    .map((s) => [f, s]));
-const remplis = marqueurs.filter(([, s]) => !/>\s*—\s*</.test(s));
-dit(marqueurs.length > 0, `${marqueurs.length} emplacement(s) de cote emis`,
-  marqueurs.length ? null : 'AUCUN — le composant <Cote> n\'est rendu nulle part, verifier les gabarits');
-dit(remplis.length === 0, 'aucun emplacement de cote ne porte de valeur',
-  remplis.length === 0 ? null : `${remplis.length} rempli(s), dont ${remplis[0][0]}`);
-
-// ── 3 bis. LE JOURNAL N'EST PAS ATTEIGNABLE PAR LES ROUTES ────────────────
+// ── 4. LE JOURNAL N'EST PAS ATTEIGNABLE PAR LES ROUTES ────────────────────
 // ⭐ Il porte, en clair, TOUS les montants du site. Il vit hors de `dist/` — mais
 // les deux routes de cote composent un chemin depuis l'URL, donc la seule chose
 // qui l'en protege vraiment est la liste blanche des uuid. On le PROUVE, ici,
@@ -242,10 +249,9 @@ dit(!uuidValide('_projection'), 'le journal ne passe pas la liste blanche des uu
 dit(!uuidValide('_projection.json') && !uuidValide('../.reserve/cote/_projection'),
   'aucune variante du nom du journal ne passe la liste blanche');
 
-// ── 4. LA RESERVE N'EST PAS SOUS dist/ ────────────────────────────────────
+// ── 5. LA RESERVE N'EST PAS SOUS dist/ ────────────────────────────────────
 // Meme garde que `test_reserve.mjs` pour l'historique : trois barrieres valent
-// mieux qu'une, et celle-ci couvre le dossier NEUF de ce lot.
-const sousDist = pages.filter((f) => f.includes(`${'.reserve'}`)).length;
+// mieux qu'une, et celle-ci couvre le dossier de cote.
 dit(sousDist === 0, '.reserve/ n\'apparait pas sous dist/',
   sousDist === 0 ? null : `${sousDist} fichier(s) de reserve SERVIS EN CLAIR`);
 

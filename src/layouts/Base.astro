@@ -475,6 +475,20 @@ const menuComplet = wikiNav
      Un sélecteur trop large ne lève rien — il change juste la mise en page
      d'un élément voisin, et personne ne fait le lien. */
   html[data-membre] a[data-membre][hidden] { display: inline-flex !important; }
+  /* 🔴🔴 LOT 104 — L'ACCUEIL DEVIENT LE TABLEAU DE BORD (arbitrage Preda).
+     Les DEUX blocs sont dans le HTML de toutes les pages d'accueil, toujours :
+     `.hero[data-anonyme]` porte l'accroche commerciale et le <h1> que Google
+     lit, `.tableau-bord[data-membre]` porte le tableau de bord. Le cookie,
+     posé sur <html> par le script juste au-dessus, choisit lequel s'affiche —
+     AVANT la première peinture, donc sans clignotement.
+     ⚠️ `display:block` et non `inline-flex` : ce sont des blocs de page, pas
+     des éléments d'en-tête. Un sélecteur recopié du bouton voisin aurait mis
+     le tableau de bord sur une ligne — un défaut de mise en page que personne
+     n'aurait relié à cette règle.
+     ⭐ La première règle du fichier (`html[data-membre] [data-anonyme]`) fait
+     déjà disparaître le `hero` : rien à ajouter pour lui, et surtout rien à
+     DUPLIQUER — deux règles pour la même chose divergeraient un jour. */
+  html[data-membre] .tableau-bord[data-membre][hidden] { display: block !important; }
 </style>
 {fontFace && <style is:inline set:html={fontFace}></style>}
 <style is:inline set:html={vars}></style>

@@ -147,7 +147,6 @@ if (venteOuverte && payantsEnAttente.length) {
 // qu'il n'y a rien ici », et elle se joue sur cette table.
 const PAGES = {
   market:    'src/pages/market/index.astro',
-  dashboard: 'src/pages/dashboard/index.astro',
   alerts:    'src/pages/alertes/index.astro',
   wallet_watch: 'src/pages/vault/index.astro',
 };
@@ -160,15 +159,12 @@ for (const mo of cat) {
   // pas de page, ET declarer absent ce qui en a une (le manifeste vieillirait
   // dans l'autre sens, et /offre/ sous-vendrait un module livre).
   if (!mo.bientot && !existe) menteurs.push(`${mo.cle} : declare LIVRE, mais ${page} n'existe pas`);
-  if (mo.bientot && existe && mo.cle !== 'dashboard') {
-    menteurs.push(`${mo.cle} : declare EN ATTENTE, mais ${page} existe`);
-  }
+  if (mo.bientot && existe) menteurs.push(`${mo.cle} : declare EN ATTENTE, mais ${page} existe`);
 }
-// ⭐ `dashboard` est l'exception ECRITE, pas l'exception oubliee : sa page
-// existe depuis le lot 104 et le module reste `bientot: true` a dessein — c'est
-// une coquille vide. UNE PAGE QUI EXISTE N'EST PAS UN MODULE QUI EXISTE, et
-// c'est le module qui se vend. Sans cette ligne, quelqu'un « corrigerait » le
-// drapeau de bonne foi et rendrait le tableau de bord vendable, vide.
+// ⭐ `dashboard` N'A PAS DE PAGE, ET C'EST LA CONCEPTION : arbitrage Preda du
+// 07/08 — « l'accueil DEVIENT le tableau de bord ». Il n'apparait donc pas dans
+// cette table. Le module reste `bientot: true` tant qu'aucun widget n'existe,
+// et le bloc membre de l'accueil dit lui-meme qu'il est vide.
 dit(menteurs.length === 0, 'chaque module declare livre a bien sa page sur le disque',
   menteurs.length ? menteurs.join(' · ') : `${Object.keys(PAGES).length} module(s) a page verifie(s)`);
 

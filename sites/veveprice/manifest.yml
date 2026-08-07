@@ -263,14 +263,16 @@ access:
 # d'un AFFICHAGE : la page, elle, lit `vp_session` (HttpOnly) côté serveur et
 # refuse toute seule. Un lien visible vers une porte fermée ne l'ouvre pas.
 nav:
-  # 🔴 LOT 104 — `/dashboard/` EXISTE ENFIN, et l'entrée cesse de mentir.
-  # Elle pointait sur `/` avec le commentaire « l'accueil fait office de
-  # tableau de bord » : un libellé qui promet une page et en sert une autre.
-  # ⚠️ LA COQUILLE EST VIDE, ET ELLE LE DIT. Arbitrage Preda du 07/08 : une
-  # page « en construction » réservée aux comptes plutôt que rien. ⛔ Elle
-  # reste `bientot: true` dans `offer.modules` — une page qui existe n'est pas
-  # un module qui existe, et c'est la seconde qui se vend.
-  - { cle: nav.dashboard, href: /dashboard/, pret: true, membre: true }
+  # 🔴 LOT 104 — L'ENTRÉE RESTE SUR `/`, ET ELLE CESSE DE MENTIR AUTREMENT.
+  # Arbitrage Preda du 07/08 : « l'accueil DEVIENT le tableau de bord ». Le
+  # commentaire d'origine — « l'accueil fait office de tableau de bord » —
+  # n'était donc pas un mensonge, c'était une intention jamais réalisée.
+  # ⭐ `membre: true` la rend invisible aux anonymes : un visiteur ne voit plus
+  # « Tableau de bord » pointer vers une page d'accroche. Pour un membre, le
+  # lien dit vrai — l'accueil affiche son tableau de bord.
+  # ⛔ Le module `dashboard` reste `bientot: true` dans `offer.modules` : le
+  # bloc existe, les widgets non, et c'est le widget qui se vend.
+  - { cle: nav.dashboard, href: /,          pret: true, membre: true }
   # 🔴 LOT 104 — `nav.movers` REVIENT, réservée aux comptes.
   # Le lot 101 l'avait RETIRÉE (pas passée à `pret: false`) faute d'avoir la
   # nuance : Preda, 07/08 — « pas visible en public, mais quand tu deviens
