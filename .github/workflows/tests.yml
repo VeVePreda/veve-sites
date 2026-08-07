@@ -55,7 +55,35 @@ concurrency:
 jobs:
   bancs:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
+    # ═════════════════════════════════════════════════════════════════════════
+    # 🔴🔴 LOT 102 (07/08/2026) — CE WORKFLOW NE TESTAIT QU'UN SEUL SITE, ET
+    # DANS LE MAUVAIS MODE. Mesure, pas soupçon :
+    #   · ni `SITE` ni `RENDERING` n'étaient posés ;
+    #   · `manifest.mjs` fait `SITE = process.env.SITE || 'veveprice'`
+    #     ⇒ **vevewiki n'a JAMAIS été testé ici**, alors que « corrigé sur un
+    #        site ≠ corrigé » est une règle écrite de ce dépôt ;
+    #   · `astro.config.mjs` fait `mode = process.env.RENDERING || 'static'`
+    #     ⇒ veveprice, dont le manifeste dit `rendering: server`, était
+    #        construit et vérifié **en static**. Les routes de compte restaient
+    #        pré-générées, le middleware ne tournait pas, et les bancs
+    #        rendaient leur verdict sur un build que la production ne fabrique
+    #        jamais.
+    #
+    # ⭐⭐⭐ CE N'ÉTAIT PAS UN TROU DE COUVERTURE, C'ÉTAIT UN INSTRUMENT BRANCHÉ
+    # AILLEURS. 354 assertions vertes sur une configuration qui n'existe pas.
+    # C'est la même famille que le miroir périmé d'`etat_reel.py` et que
+    # `languesDuSite()` dans `test:routes` : ce qu'on mesure n'est pas ce qu'on
+    # livre, et rien ne le dit.
+    #
+    # ⭐ `fail-fast: false` : si veveprice casse, on veut quand même savoir où
+    # en est vevewiki. Un seul verdict pour deux sites, c'est retomber dans le
+    # défaut qu'on vient de corriger.
+    strategy:
+      fail-fast: false
+      matrix:
+        site: [veveprice, vevewiki]
+    name: bancs (${{ matrix.site }})
     steps:
       - uses: actions/checkout@v4
 
@@ -97,11 +125,44 @@ jobs:
       - name: Dependances Python des bancs (crossplane pour test:nginx)
         run: pip install crossplane
 
+      # ⭐⭐ LE MODE DE RENDU SE LIT DANS LE MANIFESTE DU SITE, JAMAIS ICI.
+      # Un mode ecrit en dur dans ce fichier serait une SECONDE verite a cote de
+      # `sites/<site>/manifest.yml` — et le jour ou les deux divergent, c'est la
+      # CI qui aurait raison contre la production. C'est exactement la technique
+      # deja employee par `rebuild-daily.yml`, on n'en invente pas une seconde.
+      - name: Le mode de rendu vient du manifeste
+        run: |
+          set -eu
+          MODE=$(sed -n 's/^rendering:[[:space:]]*\([a-zA-Z]*\).*/\1/p' \
+                 "sites/${{ matrix.site }}/manifest.yml" | head -1)
+          MODE=${MODE:-static}
+          echo "site ${{ matrix.site }} -> rendering=$MODE"
+          echo "RENDERING=$MODE" >> "$GITHUB_ENV"
+
+      # ═════════════════════════════════════════════════════════════════════
+      # 🔴 ON CONSTRUIT AVANT DE TESTER, ET C'EST UNE CORRECTION EN SOI.
+      # ═════════════════════════════════════════════════════════════════════
+      # Quatre bancs lisent `dist/` : `test:cles`, `test:routes`, `test:fuite`,
+      # et `audit_seo`. Aucun ne le construisait. Ils lisaient donc le `dist/`
+      # laisse par `test:slugs`, qui tourne plus tot dans la chaine et enchaine
+      # ses propres builds pour ses propres besoins.
+      # ⛔ UN BANC QUI LIT L'ARTEFACT D'UN AUTRE BANC MESURE L'AUTRE BANC.
+      # Il suffisait que `test:slugs` change d'ordre, de mode, ou qu'il sorte
+      # tot — ce qu'il fait desormais sur vevewiki — pour que quatre controles
+      # se mettent a juger un `dist/` absent ou etranger, sans que rien ne
+      # l'annonce.
+      - name: Construire le dist que les bancs vont lire
+        env:
+          SITE: ${{ matrix.site }}
+          WAREHOUSE_OFFLINE: '1'
+        run: npm run build
+
       # ⭐ WAREHOUSE_OFFLINE=1 : les bancs ne doivent joindre AUCUNE source.
       # Un banc qui appelle le reseau ne prouve rien le jour ou le reseau tombe,
       # c'est-a-dire le seul jour ou le code de repli sert.
-      - name: npm test (17 bancs, hors reseau)
+      - name: npm test (la chaine complete, hors reseau)
         env:
+          SITE: ${{ matrix.site }}
           WAREHOUSE_OFFLINE: '1'
         run: npm test
 
@@ -116,8 +177,13 @@ jobs:
           set -u
           n=$(node -e "process.stdout.write(String(require('./package.json').scripts.test.split(' && ').length))")
           echo "chaine test : $n banc(s)"
-          [ "$n" -ge 17 ] || {
-            echo "ERREUR: la chaine est tombee a $n bancs (plancher 17)."
+          # 🔴 LOT 102 — PLANCHER RELEVE DE 17 A 24. Il valait 17 depuis le
+          # 30/07 ; la chaine en compte 24 depuis le lot 102. Un plancher qu'on
+          # oublie de relever autorise silencieusement sept suppressions — c'est
+          # un garde-fou qui se desarme tout seul, par le simple passage du temps.
+          # ⛔ Le relever fait partie de tout lot qui ajoute un banc.
+          [ "$n" -ge 24 ] || {
+            echo "ERREUR: la chaine est tombee a $n bancs (plancher 24)."
             echo "Un banc retire de \`npm test\` disparait SANS RIEN CASSER :"
             echo "ce plancher est la seule chose qui s'en plaigne."
             exit 1
