@@ -11,15 +11,36 @@
 // ⛔ ELLE NE S'AFFICHE PAS SI `offer.url` EST VIDE. Un bouton qui ne mène nulle
 // part coûte plus cher en confiance qu'il ne rapporte en promesse.
 import { manifest } from '../../engine/lib/manifest.mjs';
-import { acces, palierVisiteur } from '../../engine/lib/access.mjs';
+import { acces } from '../../engine/lib/access.mjs';
 import { t, localize } from '../../engine/lib/i18n.mjs';
 
 const { lang } = Astro.props;
 const m = manifest();
-const montrer = acces().tiers.length > 1 && palierVisiteur(Astro.locals) === 'visitor';
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴 LOT 103 — CETTE BARRE S'AFFICHAIT À UN MEMBRE, SUR CHAQUE PAGE.
+// ═══════════════════════════════════════════════════════════════════════════
+// Preda, 07/08 : « ce message apparaît sur chaque page alors que je suis
+// connecté ». La condition était `palierVisiteur(Astro.locals) === 'visitor'`.
+//
+// ⭐⭐⭐ ET C'EST EXACTEMENT LA RÈGLE DU LOT 100, LA TROISIÈME FOIS QU'ELLE SE
+// PAIE : **UNE PAGE PRÉ-GÉNÉRÉE N'A PAS DE VISITEUR.** Le middleware sort sur
+// `isPrerendered`, donc `Astro.locals` est vide au build, donc `palierVisiteur`
+// rend « visitor » — pour tout le monde, pour toujours, sur les 8 500 pages.
+// La condition n'était pas fausse : elle était posée AU MAUVAIS MOMENT.
+//
+// ⭐⭐ LA PARADE EST CELLE DE L'EN-TÊTE, ET ON NE LUI EN INVENTE PAS UNE
+// SECONDE : le composant se rend TOUJOURS, il porte `data-anonyme`, et c'est le
+// cookie lu dans le `<head>` qui décide de l'affichage — par du CSS, donc avant
+// la première peinture. Le HTML servi reste identique pour tout le monde (donc
+// cachable, donc indexable) et personne ne voit un état faux, même une fraction
+// de seconde.
+// ⛔ NE PAS revenir à un test sur `locals` « puisque ça marche sur /compte/ » :
+// ça remarcherait sur les 9 routes dynamiques et redeviendrait faux sur les
+// 8 500 autres — c'est-à-dire invisible pour qui teste en étant connecté.
+const montrer = acces().tiers.length > 1;
 ---
 {montrer && (
-  <div class="barre-acces">
+  <div class="barre-acces" data-anonyme>
     <span class="cadenas" aria-hidden="true">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
         <rect x="4.5" y="10.5" width="15" height="10" rx="2" /><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5" />

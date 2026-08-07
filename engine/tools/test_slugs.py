@@ -44,7 +44,27 @@ PRIX = RACINE / 'engine' / 'data' / 'sample' / 'prices.csv'
 #     exactement ce qu'on demande a un controle. On corrige OU il regarde, pas
 #     ce qu'il exige.
 _DIST = RACINE / 'dist'
-DIST = _DIST / 'client' if (_DIST / 'client').is_dir() else _DIST
+
+
+def dist():
+    """Ou sont les pages, DECIDE APRES le build et jamais avant.
+
+    🔴🔴 LOT 103 — QUATRIEME OCCURRENCE DU MEME DEFAUT EN UNE JOURNEE.
+    Ce chemin etait resolu AU CHARGEMENT DU MODULE, donc avant que
+    `construire()` ait tourne : il heritait de la disposition laissee par le
+    build PRECEDENT. Mesure le 07/08 : apres un build de vevewiki (`static`,
+    pages dans `dist/`), le banc de veveprice (`server`, pages dans
+    `dist/client/`) regardait `dist/` et rendait « aucune fiche produite : test
+    invalide » sur un site parfaitement sain.
+    ⭐⭐⭐ C'est exactement ce que l'en-tete de ce fichier raconte deja pour
+    `dist` contre `dist/client` — « la meme erreur, pour la troisieme fois ». La
+    cause residuelle n'etait plus OU il regarde, mais QUAND il decide ou
+    regarder. Un chemin deduit d'un artefact du disque herite de tout ce que le
+    disque a garde.
+    ⛔ NE PAS remettre une constante de module : la valeur doit etre relue apres
+    chaque construction, parce que c'est la construction qui la fabrique.
+    """
+    return _DIST / 'client' if (_DIST / 'client').is_dir() else _DIST
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -99,7 +119,8 @@ def construire():
 def carte():
     """uuid -> adresse, lu dans les donnees structurees des pages produites."""
     out = {}
-    fiches = list(DIST.glob('collectibles/*/*/index.html')) + list(DIST.glob('comics/*/*/index.html'))
+    D = dist()
+    fiches = list(D.glob('collectibles/*/*/index.html')) + list(D.glob('comics/*/*/index.html'))
     for f in fiches:
         h = f.read_text(encoding='utf-8', errors='ignore')
         for bloc in re.findall(r'<script type="application/ld\+json">(.*?)</script>', h, re.S):
@@ -108,7 +129,7 @@ def carte():
             except json.JSONDecodeError:
                 continue
             if n.get('@type') == 'Product':
-                out[n['sku']] = '/' + str(f.parent.relative_to(DIST)).replace('\\', '/') + '/'
+                out[n['sku']] = '/' + str(f.parent.relative_to(D)).replace('\\', '/') + '/'
     if not out:
         sys.exit('aucune fiche produite : test invalide')
     return out

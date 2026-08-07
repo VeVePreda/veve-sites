@@ -351,7 +351,19 @@ dit(/Astro\.redirect\('\/connexion\/'/.test(cpt), '/compte/ redirige l’anonyme
 dit(/!connecte && !enDemo/.test(cpt), 'le jeton de démonstration garde son accès',
   'sinon la démo s’enferme : le bouton pour en sortir vit sur cette page');
 dit(/\{reglagesIci && connecte &&/.test(cpt), 'les réglages sont réservés aux membres (Preda, 06/08)');
-dit(/<Base noindex/.test(cpt), '/compte/ est en noindex');
+// 🔴 LOT 103 — CE CONTRÔLE EXIGEAIT UN ORDRE D'ATTRIBUTS, PAS UN FAIT.
+// Il testait `/<Base noindex/` : ajouter `sect="general"` devant — ce que fait
+// le lot 103 pour aligner cette page sur les autres — le faisait rougir sur une
+// page toujours parfaitement en noindex.
+// ⭐⭐⭐ TROISIÈME FOIS AUJOURD'HUI QU'UN BANC MESURE LA FORME AU LIEU DU FAIT
+// (après le compteur de balises qui lisait les commentaires, et `test:session`
+// lui-même qui rougissait sur un commentaire). ⛔ On corrige l'INSTRUMENT.
+// ⭐ On cherche l'attribut DANS la balise ouvrante, où qu'il soit — c'est la
+// question qu'on voulait poser depuis le début : « cette page est-elle en
+// noindex ? », et non « est-il écrit en deuxième position ? ».
+const baliseBase = (cpt.match(/<Base\b[^>]*>/s) || [''])[0];
+dit(/\bnoindex\b/.test(baliseBase), '/compte/ est en noindex',
+  baliseBase ? `balise lue : ${baliseBase.slice(0, 70)}…` : 'aucune balise <Base> trouvée');
 // ⚠️ Le drapeau est posé APRÈS la sortie sur `isPrerendered`, et cet ordre EST
 // le contrôle : posé avant, il vaudrait « demande » sur les 8 500 fichiers, et
 // /compte/ deviendrait une redirection figée dans le build — pour tout le

@@ -262,24 +262,44 @@ const mcpJour = mcpPoints(item.rarity, item.type);
           Artists », « Characters » et « Pages » ne sont demandés à AUCUNE API
           aujourd'hui : ceux-là ne sont pas jetés, ils ne sont pas cueillis.
           C'est une autre décision, et elle t'appartient. */}
-      <table class="fiche-tbl"><tbody>
-        {item.rarity && <tr><th>{t(lang, 'item.rarity')}</th><td><Fragment set:html={rar(item.rarity)} /></td></tr>}
-        {item.tirage && <tr><th>{t(lang, 'item.supply')}</th><td>{item.tirage.toLocaleString(nf)}</td></tr>}
-      </tbody></table>
+      {/* ═══════════════════════════════════════════════════════════════════════
+          🔴🔴 LOT 103 — CE BLOC ÉMETTAIT UN <table>, LE THÈME STYLE UN <dl>.
+          ═══════════════════════════════════════════════════════════════════════
+          Preda, 07/08 : « la colonne à gauche a ses valeurs désordonnées, parfois
+          alignées au milieu parfois à droite ».
+          ⭐⭐⭐ LA CAUSE N'ÉTAIT PAS UN DÉSORDRE, C'ÉTAIT UN SÉLECTEUR QUI NE
+          MATCHAIT JAMAIS. Le thème porte QUATRE règles écrites `dl.fiche-tbl`,
+          `dl.fiche-tbl dt`, `dl.fiche-tbl dd` — dont le `text-align:right` et les
+          chiffres tabulaires qui donnent son ordre à cette colonne. Le gabarit, lui,
+          écrivait `<table class="fiche-tbl">`. **Aucune des quatre ne s'appliquait.**
+          Les valeurs retombaient sur le `th,td{text-align:left}` générique, et
+          celles qui contiennent un élément déjà centré par ailleurs (la pastille de
+          rareté, le tiret d'attente) gardaient LEUR alignement : d'où le « parfois
+          au milieu, parfois à droite ».
+          ⭐⭐ C'EST LA FAMILLE `Piece.astro` → `carte`, MOT POUR MOT : « des règles
+          appliquées à rien, sans la moindre erreur pour le dire ». Un contrat
+          gabarit ↔ thème rompu ne casse pas — il dégrade, et il se lit comme un
+          choix de design malheureux.
+          ⭐ ON CORRIGE LE GABARIT, PAS LE THÈME : `<dl>` est aussi le balisage JUSTE
+          pour des paires nom/valeur, et c'est ce que la maquette avait dessiné.
+          ⛔ `<>…</>` autour de chaque paire : une condition doit rendre UN nœud, et
+          `<dt>` + `<dd>` en sont deux. Sans le fragment, Astro n'accepte pas
+          l'expression. */}
+      <dl class="fiche-tbl">
+        {item.rarity && <><dt>{t(lang, 'item.rarity')}</dt><dd><Fragment set:html={rar(item.rarity)} /></dd></>}
+        {item.tirage && <><dt>{t(lang, 'item.supply')}</dt><dd>{item.tirage.toLocaleString(nf)}</dd></>}
+      </dl>
 
-      <table class="fiche-tbl"><tbody>
-        <tr><th>{t(lang, 'item.edition')}</th>
-          <td>{item.edition_type || <span data-attente title={enAttente}>—</span>}</td></tr>
+      <dl class="fiche-tbl">
+        <><dt>{t(lang, 'item.edition')}</dt><dd>{item.edition_type || <span data-attente title={enAttente}>—</span>}</dd></>
         {/* ⭐ Le MCP vient du BARÈME publié (`vitrine.mjs`), pas d'une collecte :
             c'est une constante, elle est donc juste sans dépendre d'un run.
             ⚠️ La colonne `daily_mcp_points` du Sheet, elle, est connue pour être
             fausse — on ne s'en sert pas, même le jour où elle arrivera ici. */}
-        <tr><th>{t(lang, 'item.mcpDaily')}</th>
-          <td>{mcpJour !== undefined ? mcpJour.toFixed(2) : <span class="muted">—</span>}</td></tr>
-        <tr><th>{t(lang, 'item.firstEdition')}</th>
-          <td>{item.premiereEdition != null
+        <><dt>{t(lang, 'item.mcpDaily')}</dt><dd>{mcpJour !== undefined ? mcpJour.toFixed(2) : <span class="muted">—</span>}</dd></>
+        <><dt>{t(lang, 'item.firstEdition')}</dt><dd>{item.premiereEdition != null
                 ? item.premiereEdition.toLocaleString(nf)
-                : <span data-attente title={enAttente}>—</span>}</td></tr>
+                : <span data-attente title={enAttente}>—</span>}</dd></>
         {/* ⛔ LA SAISON N'EST AFFICHÉE QUE SUR LES COLLECTIBLES, ET C'EST LA
             SEULE LIGNE DE CE BLOC QUI DISPARAÎT AU LIEU DE MONTRER UN TIRET.
             La règle de la maison — « on affiche le tiret plutôt que de masquer
@@ -290,59 +310,50 @@ const mcpJour = mcpPoints(item.rarity, item.type);
             ⭐ Masquer dit « ça ne s'applique pas » ; un tiret dit « ça vient ».
             Ce sont deux affirmations différentes, et une seule est vraie. */}
         {item.type !== 'comic' && (
-          <tr><th>{t(lang, 'item.season')}</th>
-            <td>{item.saison != null
+          <><dt>{t(lang, 'item.season')}</dt><dd>{item.saison != null
                   ? item.saison.toLocaleString(nf)
-                  : <span data-attente title={enAttente}>—</span>}</td></tr>
+                  : <span data-attente title={enAttente}>—</span>}</dd></>
         )}
-        <tr><th>{t(lang, 'item.storePrice')}</th>
-          <td>{item.storePrice ? money(item.storePrice) : <span data-attente title={enAttente}>—</span>}</td></tr>
-        <tr><th>{t(lang, 'item.release')}</th>
-          <td>{item.releaseDate || <span data-attente title={enAttente}>—</span>}</td></tr>
-        <tr><th>{t(lang, 'item.dropType')}</th>
-          <td>{item.methodeDrop
+        <><dt>{t(lang, 'item.storePrice')}</dt><dd>{item.storePrice ? money(item.storePrice) : <span data-attente title={enAttente}>—</span>}</dd></>
+        <><dt>{t(lang, 'item.release')}</dt><dd>{item.releaseDate || <span data-attente title={enAttente}>—</span>}</dd></>
+        <><dt>{t(lang, 'item.dropType')}</dt><dd>{item.methodeDrop
                 ? dropLisible(item.methodeDrop)
-                : <span data-attente title={enAttente}>—</span>}</td></tr>
+                : <span data-attente title={enAttente}>—</span>}</dd></>
         {/* ⚠️ `fraisMarche` est un NOMBRE (8.5), le `%` est posé ici : c'est le
             gabarit qui sait qu'on est en fr-FR et doit écrire « 8,5 % » avec sa
             virgule et son espace insécable, pas le moteur. */}
-        <tr><th>{t(lang, 'item.marketFee')}</th>
-          <td>{item.fraisMarche != null
+        <><dt>{t(lang, 'item.marketFee')}</dt><dd>{item.fraisMarche != null
                 ? `${item.fraisMarche.toLocaleString(nf)}\u00a0%`
-                : <span data-attente title={enAttente}>—</span>}</td></tr>
-        <tr><th>{t(lang, 'item.available')}</th>
-          <td><span data-attente title={enAttente}>—</span></td></tr>
-      </tbody></table>
+                : <span data-attente title={enAttente}>—</span>}</dd></>
+        <><dt>{t(lang, 'item.available')}</dt><dd><span data-attente title={enAttente}>—</span></dd></>
+      </dl>
 
       {/* ③ LA PROVENANCE — deux formes, parce qu'un comic et un collectible ne
           se décrivent pas pareil. ⭐ La série reste un LIEN vers son set : c'est
           la seule ligne de ce bloc qui mène quelque part. */}
       {item.type === 'comic' ? (
-        <table class="fiche-tbl"><tbody>
-          <tr><th>{t(lang, 'item.writers')}</th><td><span data-attente title={pasCollecte}>—</span></td></tr>
-          <tr><th>{t(lang, 'item.artists')}</th><td><span data-attente title={pasCollecte}>—</span></td></tr>
-          <tr><th>{t(lang, 'item.coverArtists')}</th><td><span data-attente title={pasCollecte}>—</span></td></tr>
-          <tr><th>{t(lang, 'item.characters')}</th><td><span data-attente title={pasCollecte}>—</span></td></tr>
+        <dl class="fiche-tbl">
+          <><dt>{t(lang, 'item.writers')}</dt><dd><span data-attente title={pasCollecte}>—</span></dd></>
+          <><dt>{t(lang, 'item.artists')}</dt><dd><span data-attente title={pasCollecte}>—</span></dd></>
+          <><dt>{t(lang, 'item.coverArtists')}</dt><dd><span data-attente title={pasCollecte}>—</span></dd></>
+          <><dt>{t(lang, 'item.characters')}</dt><dd><span data-attente title={pasCollecte}>—</span></dd></>
           {/* ⛔ PAS DE `toLocaleString` SUR UNE ANNÉE : en fr-FR il rendrait
               « 2 024 ». Un formateur de nombres appliqué à un millésime est
               une faute qui a l'air d'un soin. */}
-          <tr><th>{t(lang, 'item.startYear')}</th>
-            <td>{item.anneeDebut != null
+          <><dt>{t(lang, 'item.startYear')}</dt><dd>{item.anneeDebut != null
                   ? String(item.anneeDebut)
-                  : <span data-attente title={enAttente}>—</span>}</td></tr>
-          <tr><th>{t(lang, 'item.pages')}</th><td><span data-attente title={pasCollecte}>—</span></td></tr>
-          <tr><th>{t(lang, 'item.issue')}</th><td>{titreOeuvre}</td></tr>
-          {colSlug && <tr><th>{t(lang, 'item.series')}</th>
-            <td><a href={localize(lang, `/collection/${colSlug}/`)}>{item.series}</a></td></tr>}
-          {item.licensor && <tr><th>{t(lang, 'item.license')}</th><td>{item.licensor}</td></tr>}
-        </tbody></table>
+                  : <span data-attente title={enAttente}>—</span>}</dd></>
+          <><dt>{t(lang, 'item.pages')}</dt><dd><span data-attente title={pasCollecte}>—</span></dd></>
+          <><dt>{t(lang, 'item.issue')}</dt><dd>{titreOeuvre}</dd></>
+          {colSlug && <><dt>{t(lang, 'item.series')}</dt><dd><a href={localize(lang, `/collection/${colSlug}/`)}>{item.series}</a></dd></>}
+          {item.licensor && <><dt>{t(lang, 'item.license')}</dt><dd>{item.licensor}</dd></>}
+        </dl>
       ) : (
-        <table class="fiche-tbl"><tbody>
-          {colSlug && <tr><th>{t(lang, 'item.series')}</th>
-            <td><a href={localize(lang, `/collection/${colSlug}/`)}>{item.series}</a></td></tr>}
-          {item.brand && <tr><th>{t(lang, 'item.brand')}</th><td>{item.brand}</td></tr>}
-          {item.licensor && <tr><th>{t(lang, 'item.license')}</th><td>{item.licensor}</td></tr>}
-        </tbody></table>
+        <dl class="fiche-tbl">
+          {colSlug && <><dt>{t(lang, 'item.series')}</dt><dd><a href={localize(lang, `/collection/${colSlug}/`)}>{item.series}</a></dd></>}
+          {item.brand && <><dt>{t(lang, 'item.brand')}</dt><dd>{item.brand}</dd></>}
+          {item.licensor && <><dt>{t(lang, 'item.license')}</dt><dd>{item.licensor}</dd></>}
+        </dl>
       )}
     </div>
 

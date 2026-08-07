@@ -228,6 +228,16 @@ RUN WAREHOUSE_OFFLINE=1 npm run test:fuite
 # phrase peut venir d'un manifeste, d'un dictionnaire, d'un gabarit ou d'un
 # Sheet recolte ce matin, et `dist/` est le seul endroit ou toutes se croisent.
 RUN WAREHOUSE_OFFLINE=1 npm run test:phrases
+# 🔴 `test:entete` — LOT 103. Il tient la regle du lot 100 : « une page
+# pre-generee n'a pas de visiteur, son en-tete ne depend QUE du cookie ».
+# ⭐⭐⭐ Le lot 100 l'avait ecrite ET violee : l'avatar rendu inconditionnel,
+# le bouton d'inscription reste conditionnel — deux DOM differents, donc le
+# clignotement « parfois » que Preda a signale deux fois sans qu'on puisse le
+# reproduire. Ce banc a trouve une SECONDE occurrence a sa premiere execution
+# (le selecteur de langues, qui emportait les liens hreflang avec lui).
+# ⚠️ AVANT le build : il lit la SOURCE, pas `dist/`. Reproduire le symptome
+# demanderait une vraie session serveur, donc le reseau — interdit aux bancs.
+RUN WAREHOUSE_OFFLINE=1 npm run test:entete
 
 # --- Precompression : le seul gain de vitesse qui restait ------------------
 # ⭐⭐ POURQUOI PRECOMPRESSER, PLUTOT QUE DE MONTER LE NIVEAU DE gzip.

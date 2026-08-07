@@ -164,11 +164,27 @@ const echec = Astro.url.searchParams.get('e');
     donc un robot n'y verra jamais qu'une redirection ; l'en-tête le dit quand
     même, parce qu'une page de membre indexée est une promesse de contenu qu'on
     ne peut pas tenir. `follow` reste : les liens du gabarit gardent leur rôle. */}
-<Base noindex langs={[def]} lang={lang} path="/compte/" title={t(lang, 'account.title')}
+<Base sect="general" noindex langs={[def]} lang={lang} path="/compte/" title={t(lang, 'account.title')}
       crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') }, { name: t(lang, 'account.title') }]}>
 
-  <span class="logo logo--xl" aria-hidden="true">VP</span>
+  {/* 🔴 LOT 103 — « la page Mon Compte doit avoir la même présentation
+      structurelle que les autres pages (comme blog) » (Preda, 07/08).
+      ⭐ L'ossature du réseau tient en trois lignes, et toutes les pages
+      éditoriales la portent (`BlogIndexVitrine.astro:84`) :
+          étiquette de section · titre `mono-t` · phrase de conduite `respire`.
+      Cette page ouvrait par un logotype géant — un objet que PLUS AUCUNE autre
+      page n'émet. Ce n'était pas une variante de style : c'était une page qui
+      n'appartenait visuellement pas au site.
+      ⛔ `logo--xl` DISPARAÎT D'ICI mais la règle reste dans le thème : elle
+      habille encore le logotype de l'en-tête à une autre taille, et un
+      `css-mort` la signalerait à tort si on la retirait avec.
+      ⭐ `sect="general"` : la couleur de section vient du gabarit, comme
+      partout ailleurs — le blog déclare `sect="blog"`, le marché `sect="cotes"`.
+      Sans elle, cette page prenait la palette par défaut par hasard, pas par
+      décision. */}
+  <p class="etiq etiq--bleu">// {t(lang, 'account.title').toUpperCase()}</p>
   <h1 class="mono-t">{t(lang, 'account.title')}</h1>
+  <p class="respire" style="max-width:52ch">{t(lang, 'account.lead')}</p>
 
   {/* ⛔ LE PANNEAU « VOUS N'ÊTES PAS CONNECTÉ » A ÉTÉ RETIRÉ AU LOT 97, et
       pas parce qu'il était laid : il est devenu INATTEIGNABLE. La redirection
@@ -204,7 +220,35 @@ const echec = Astro.url.searchParams.get('e');
         <div class="stat"><div class="k">{t(lang, 'account.email')}</div>
           {/* ⚠️ Une adresse e-mail est longue : sans coupure, elle déborde la
               carte sur un téléphone et pousse la mise en page. */}
-          <div class="v" style="font-size:15px;word-break:break-all">{dossier.email}</div></div>
+          {/* ═══════════════════════════════════════════════════════════
+              🔴 LOT 103 — L'ADRESSE EST MASQUÉE PAR DÉFAUT (Preda, 07/08 :
+              « cache l'adresse e-mail pour les streamers »).
+              ═══════════════════════════════════════════════════════════
+              ⭐⭐ CE N'EST PAS UNE MESURE DE SÉCURITÉ, ET IL FAUT LE DIRE :
+              l'adresse est dans le HTML servi, quiconque ouvre la source la
+              lit. Elle est déjà chez la personne — c'est SON compte. Ce qu'on
+              protège, c'est la CAPTURE : une page ouverte en direct, une
+              capture d'écran, un partage d'écran. Le risque est le regard d'un
+              tiers sur l'épaule, pas l'attaquant.
+              ⛔ NE PAS « sécuriser » ça en la retirant du HTML pour la
+              rechercher par une route : on paierait un aller-retour réseau et
+              une route de plus pour une donnée que le porteur possède déjà.
+              La disproportion se paie en complexité, jamais en sécurité.
+              ⭐ LE MASQUE EST DU CSS, LA RÉVÉLATION EST UN BOUTON. Sans
+              JavaScript, l'adresse reste masquée et le bouton ne fait rien :
+              c'est le bon défaut — on ne révèle jamais par accident.
+              ⚠️ `aria-label` sur le bouton, pas seulement une icône : « afficher
+              » sans complément ne dit pas QUOI, et c'est la seule information
+              qu'un lecteur d'écran reçoit. */}
+          <div class="v" style="font-size:15px;word-break:break-all">
+            <span data-courriel data-masque>{dossier.email}</span>
+            <button type="button" class="lien-b" data-voir-courriel
+                    style="margin-left:8px;background:none;border:0;cursor:pointer;
+                           font-family:inherit;font-size:13px;padding:0"
+                    aria-label={t(lang, 'account.email.show')}
+                    data-libelle-cacher={t(lang, 'account.email.hide')}
+                    aria-pressed="false">{t(lang, 'account.email.show')}</button>
+          </div></div>
       )}
       {dossier?.cree_le && (
         <div class="stat"><div class="k">{t(lang, 'account.since')}</div>
@@ -366,4 +410,38 @@ const echec = Astro.url.searchParams.get('e');
   <p class="etiq" style="margin-top:var(--s5)">
     {t(lang, 'account.tiers')} : {tiers.join(' · ')}
   </p>
+{/* ⭐ LE MASQUE VIT ICI, EN LIGNE, ET PAS DANS LE THÈME. Il ne décore rien :
+    il existe pour qu'aucune peinture ne montre l'adresse, même une fraction de
+    seconde. Une règle venue d'une feuille externe arriverait parfois après la
+    première peinture — et une adresse qui clignote une fois sur dix est pire
+    qu'une adresse toujours visible : on cesse de savoir si la protection
+    marche. Même raisonnement que les deux règles anti-clignotement du `<head>`. */}
+<style is:inline>
+  [data-courriel][data-masque]{
+    filter: blur(5px);
+    user-select: none;
+    /* ⚠️ `select-none` seul ne suffit pas : sur mobile un appui long copie
+       quand même. Le pointeur inerte ferme le geste, et le bouton reste le
+       seul chemin. */
+    pointer-events: none;
+  }
+</style>
+<script is:inline>
+  (function () {
+    var b = document.querySelector('[data-voir-courriel]');
+    var c = document.querySelector('[data-courriel]');
+    if (!b || !c) return;
+    var cache = b.textContent, montre = b.getAttribute('data-libelle-cacher') || null;
+    b.addEventListener('click', function () {
+      var masque = c.hasAttribute('data-masque');
+      if (masque) { c.removeAttribute('data-masque'); }
+      else { c.setAttribute('data-masque', ''); }
+      b.setAttribute('aria-pressed', masque ? 'true' : 'false');
+      /* ⭐ Le libellé change avec l'état. Un bouton qui dit toujours la même
+         chose oblige à regarder l'adresse pour savoir ce qu'il va faire — or
+         c'est précisément ce qu'on ne veut pas avoir à faire ici. */
+      if (montre) b.textContent = masque ? montre : cache;
+    });
+  })();
+</script>
 </Base>

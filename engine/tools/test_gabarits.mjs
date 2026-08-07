@@ -121,17 +121,44 @@ function accolades(source) {
 /** ③ Balises de bloc équilibrées. On ne vérifie que celles qui portent la
  *  structure — pas les balises auto-fermantes ni celles qui tolèrent l'omission. */
 const BALISES = ['div', 'section', 'ol', 'ul', 'dl', 'nav', 'main', 'header', 'footer', 'figure', 'table'];
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴 LOT 103 — CE CONTRÔLE COMPTAIT LES BALISES ÉCRITES DANS LES COMMENTAIRES
+// ═══════════════════════════════════════════════════════════════════════════
+// Mesuré le 07/08 : le lot 103 remplace trois `<table class="fiche-tbl">` par
+// des `<dl>` et l'explique dans un commentaire JSX qui CITE les deux balises.
+// Ce contrôle a compté « <dl> : 6 ouvertes, 4 fermées » sur un fichier qui
+// construit parfaitement — les deux surnuméraires étaient dans la prose.
+//
+// ⭐⭐⭐ « UN BANC QUI POUSSE À RECOPIER CE QU'IL VÉRIFIE TRAVAILLE CONTRE
+// LUI-MÊME. » Ce dépôt porte déjà la leçon (le lecteur d'attributs de
+// `test:session`, réparé trois fois) et elle s'est repayée DEUX FOIS le 07/08 :
+// ici, et sur `test:session` qui rougissait sur un commentaire citant un nom de
+// cookie près d'un appel d'accès.
+// ⛔ LA RÉPONSE N'EST PAS DE NE PLUS DOCUMENTER. Un banc qui rend la
+// documentation coûteuse obtient exactement ce qu'il mérite : des fichiers
+// silencieux. On corrige l'INSTRUMENT — jamais le code, pour lui faire plaisir.
+//
+// ⚠️ On retire les commentaires JSX `{/* … */}` ET les commentaires de ligne
+// `//` du corps. ⭐ On les remplace par un ESPACE et non par du vide : les
+// numéros de ligne des autres contrôles se calculent sur des décalages, et
+// écraser des caractères sans les compter les décalerait tous.
+const sansCommentaires = (corps) => corps
+  .replace(/\{\/\*[\s\S]*?\*\//g, (bloc) => ' '.repeat(bloc.length))
+  .replace(/^\s*\/\/.*$/gm, (bloc) => ' '.repeat(bloc.length));
+
 function balises(source) {
   const c = corpsDe(source);
   if (!c) return [];
   const griefs = [];
+  const propre = sansCommentaires(c.corps);
   for (const t of BALISES) {
-    const o = (c.corps.match(new RegExp(`<${t}[\\s>]`, 'g')) || []).length;
-    const f = (c.corps.match(new RegExp(`</${t}>`, 'g')) || []).length;
+    // ⭐ `propre` et non `c.corps` : voir l'en-tête de ce bloc.
+    const o = (propre.match(new RegExp(`<${t}[\\s>]`, 'g')) || []).length;
+    const f = (propre.match(new RegExp(`</${t}>`, 'g')) || []).length;
     // ⚠️ Les AUTO-FERMANTES ne comptent pas : `<div class="legal" set:html={…} />`
     // est parfaitement valide en Astro et n'attend aucune fermeture. Sans cette
     // soustraction, le banc accusait LegalPage.astro d'un `<div>` non fermé.
-    const auto = (c.corps.match(new RegExp(`<${t}[^>]*/>`, 'g')) || []).length;
+    const auto = (propre.match(new RegExp(`<${t}[^>]*/>`, 'g')) || []).length;
     if (o - auto !== f) {
       griefs.push({ ligne: 0, quoi: `<${t}> : ${o - auto} ouverte(s), ${f} fermée(s)` });
     }

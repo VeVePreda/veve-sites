@@ -452,6 +452,18 @@ const menuComplet = wikiNav
 <style is:inline>
   html[data-membre] [data-anonyme] { display: none !important; }
   html[data-membre] .globe[data-membre] { display: block !important; }
+  /* 🔴 LOT 103 — LE CAS SYMÉTRIQUE, QUI MANQUAIT.
+     Depuis ce lot, le bouton d'inscription est rendu sur TOUTES les pages avec
+     `hidden` quand le serveur sait déjà qu'il y a une session. Sans la règle
+     ci-dessous, un visiteur ANONYME arrivant sur une page pré-générée verrait
+     ce bouton — c'est voulu — mais un membre dont le cookie a expiré verrait
+     l'avatar disparaître ET le bouton rester masqué par l'attribut `hidden`
+     hérité d'un rendu serveur mis en cache. Un en-tête sans aucune commande de
+     compte est pire que le mauvais bouton : il n'y a plus de porte du tout.
+     ⭐ On ne force donc PAS l'affichage ici : `hidden` est retiré côté serveur
+     dans le seul cas où il est faux. Cette règle ne fait qu'annuler `hidden`
+     pour l'anonyme, c'est-à-dire rétablir l'état par défaut du HTML. */
+  html:not([data-membre]) .h-cta[hidden] { display: inline-flex !important; }
 </style>
 {fontFace && <style is:inline set:html={fontFace}></style>}
 <style is:inline set:html={vars}></style>
@@ -591,9 +603,24 @@ const menuComplet = wikiNav
           promesse est tenue par le HTML seul. Le script le PROMEUT en palette
           modale. Un bouton, lui, serait inerte sans JS — une promesse rompue,
           exactement ce que le commentaire d'a cote interdit. */}
-      <a class="h-rech" id="ouvrir-palette" data-ouvrir-palette href={localize(lang, '/')}
-         aria-label={t(lang, 'search.placeholder')}>
-        <span>{t(lang, 'search.placeholder')}</span><span class="kbd">⌘K</span>
+      {/* 🔴 LOT 103 — « je veux que la barre de recherche dans le header soit
+          juste un bouton, pas une zone de recherche » (Preda, 07/08).
+          ⭐⭐ CE RESTE UN `<a>`, ET C'EST NON NÉGOCIABLE. Le commentaire du
+          03/08 le dit : sans JavaScript, ce lien mène à l'accueil, qui a une
+          VRAIE recherche — la promesse est tenue par le HTML seul, et le script
+          ne fait que la PROMOUVOIR en palette modale. Un `<button>` serait
+          inerte sans JS, c'est-à-dire une promesse rompue. Ce lot change
+          l'APPARENCE, pas la nature : `h-rech--b` retire la largeur minimale et
+          le libellé, il ne retire pas le lien.
+          ⭐ Le libellé quitte l'écran mais PAS l'accessibilité : `aria-label`
+          le porte déjà, et il est lu par les lecteurs d'écran comme avant.
+          ⛔ Le raccourci ⌘K continue de fonctionner (il est posé sur
+          `document`, pas sur cet élément) : on retire son RAPPEL, pas lui. */}
+      <a class="h-rech h-rech--b" id="ouvrir-palette" data-ouvrir-palette href={localize(lang, '/')}
+         aria-label={t(lang, 'search.placeholder')} title={t(lang, 'search.placeholder')}>
+        <svg viewBox="0 0 24 24" aria-hidden="true" stroke-linecap="round">
+          <circle cx="11" cy="11" r="7" /><path d="M20 20l-3.6-3.6" />
+        </svg>
       </a>
       {pNuit && !themeAuCompte && (
       <button type="button" id="bascule-theme" class="bascule"
@@ -622,8 +649,21 @@ const menuComplet = wikiNav
          ⭐⭐ LA MÊME CONDITION S'ÉVALUE DEUX FOIS : au build pour le HTML servi,
          puis dans le navigateur pour la personne réelle. Le serveur ne peut pas
          savoir, le script ne doit pas décider — chacun fait la moitié. */}
-      {langAuCompte && !aUneSession && alternates.length > 1 && (
-      <details class="globe" data-anonyme>
+      {/* 🔴 LOT 103 — DEUXIÈME OCCURRENCE DU MÊME DÉFAUT, TROUVÉE PAR `test:entete`
+         À SA PREMIÈRE EXÉCUTION. Ce sélecteur de langues portait `data-anonyme`
+         — donc « le cookie décide » — ET un `!aUneSession` — donc « le mode de
+         rendu décide ». Deux juges pour un affichage, et ils ne répondent pas
+         la même chose sur une page pré-générée.
+         ⛔⛔ ET ICI, LA CONSÉQUENCE N'EST PAS QU'UN CLIGNOTEMENT : sur une route
+         dynamique servie à un membre, ce bloc DISPARAISSAIT du DOM — donc les
+         liens `hreflang` avec lui. Le commentaire ci-dessous l'interdit en
+         toutes lettres depuis le 06/08 : « LES LIENS RESTENT DANS LE DOM,
+         REPLIÉS, JAMAIS RETIRÉS. C'est par eux que Google découvre /fr/, /es/,
+         /de/. » La règle était écrite, à trois lignes de la faute.
+         ⭐ Rendu inconditionnel, l'état porté par `hidden` : le DOM est le même
+         partout, et c'est le cookie — lui seul — qui masque. */}
+      {langAuCompte && alternates.length > 1 && (
+      <details class="globe" data-anonyme hidden={aUneSession}>
         <summary aria-label={t(lang, 'lang.pick')} title={t(lang, 'lang.pick')}>
           <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6">
             <circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c2.5 2.6 2.5 15.4 0 18M12 3c-2.5 2.6-2.5 15.4 0 18" />
@@ -660,8 +700,29 @@ const menuComplet = wikiNav
          `imports-orphelins`, `cascade-aplatie`) tournent AVANT le
          compilateur, et une classe ajoutée ici sans règle dans les thèmes les
          ferait crier — à juste titre. */}
-      {comptesOuverts && !aUneSession && (
-      <span class="h-cta" data-anonyme>
+      {/* ═══════════════════════════════════════════════════════════════════
+         🔴🔴 LOT 103 — LE CLIGNOTEMENT « INSCRIPTION → AVATAR », LA MOITIÉ QUI
+         MANQUAIT AU LOT 100.
+         ═══════════════════════════════════════════════════════════════════
+         Preda, 07/08 : « quand je passe rapidement d'une page à l'autre je vois
+         parfois le bouton s'inscrire à la place de l'avatar ».
+         ⭐⭐⭐ LE LOT 100 A RENDU L'AVATAR INCONDITIONNEL ET A LAISSÉ CE
+         BOUTON-CI CONDITIONNEL. Résultat : l'en-tête n'avait pas le même DOM
+         selon le mode de rendu — sur une page pré-générée le bouton EXISTE
+         (masqué par le CSS), sur une route dynamique servie à un membre il
+         N'EXISTE PAS. Or c'est précisément ce que le lot 100 nommait « le vrai
+         défaut : un en-tête qui se construisait différemment selon que la page
+         était un fichier ou un calcul ». Il l'a écrit, et il ne l'a corrigé
+         qu'à moitié.
+         ⭐ « PARFOIS » EST LA SIGNATURE. Un défaut de DOM ne se voit qu'au
+         moment où l'on passe d'un type de page à l'autre — donc par à-coups,
+         donc irreproductible à la demande, donc jamais diagnostiqué.
+         ➡️ Le bouton se rend TOUJOURS, comme l'avatar, et `hidden` porte
+         l'état connu du serveur. Les deux règles du `<head>` font le reste.
+         ⛔ `test:entete` (lot 103) REFUSE désormais qu'un élément marqué
+         `data-anonyme` ou `data-membre` dépende de `aUneSession` pour EXISTER. */}
+      {comptesOuverts && (
+      <span class="h-cta" data-anonyme hidden={aUneSession}>
         <a class="btn btn--principal btn--sm" href="/inscription/">{t(lang, 'nav.signup')}</a>
       </span>
     )}
@@ -698,7 +759,18 @@ const menuComplet = wikiNav
           </svg>
         </summary>
         <div class="globe__m">
-          <a href="/compte/">{t(lang, 'account.title')}</a>
+          {/* 🔴 LOT 103 — « sur la page Mon Compte, je vois dans le menu un lien
+              mon compte qui ne devrait pas y être » (Preda, 07/08).
+              ⭐ On le RETIRE au lieu de le marquer `aria-current` : un menu de
+              trois entrées n'a pas la place d'en gaspiller une pour dire « vous
+              êtes ici », et la page le dit déjà par son titre et son fil
+              d'Ariane. ⛔ La déconnexion, elle, RESTE — c'est la seule commande
+              du menu, et l'enlever laisserait un menu vide.
+              ⚠️ `path` et non `Astro.url.pathname` : `path` est la route
+              CANONIQUE que la page déclare, la même dans les quatre langues.
+              `pathname` vaudrait `/fr/compte/` et le test tomberait à faux sur
+              trois langues sur quatre — en silence. */}
+          {path !== '/compte/' && <a href="/compte/">{t(lang, 'account.title')}</a>}
           {/* 🔴 UN FORMULAIRE, ET PAS UN LIEN. `api/deconnexion` refuse le GET
               exprès : un GET destructeur part tout seul dans un `<img>` et les
               préchargeurs de liens du navigateur le suivent d'eux-mêmes — on

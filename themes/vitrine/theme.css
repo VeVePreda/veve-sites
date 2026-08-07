@@ -1947,3 +1947,17 @@ body > main{ background:var(--bg); }
    échelle restent publics ». Elle n'a pas d'axe des ordonnées, donc elle
    récupère l'espace que `.graph` réservait à gauche pour les graduations. */
 .graph--muet .axe{ opacity:.75; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LOT 103 — LA RECHERCHE EN BOUTON
+   ═══════════════════════════════════════════════════════════════════════════
+   ⭐ Un MODIFICATEUR, pas une seconde règle : `.h-rech` garde son fond, sa
+   bordure, son survol et son focus. `--b` ne fait que retirer ce qui la faisait
+   ressembler à un champ de saisie — la largeur minimale et le libellé.
+   ⛔ NE PAS remplacer `.h-rech` : elle sert encore ailleurs (l'accueil a sa
+   propre entrée `hero__rech` qui hérite de la même base), et deux classes
+   concurrentes pour un même objet divergent au premier ajustement. */
+.h-rech--b{ min-width:0; width:38px; padding:0; justify-content:center; }
+/* La loupe reprend la taille des autres pictogrammes de l'en-tête (le globe,
+   l'avatar), pour que les trois boutons ronds aient le même poids visuel. */
+.h-rech--b svg{ width:17px; height:17px; }
