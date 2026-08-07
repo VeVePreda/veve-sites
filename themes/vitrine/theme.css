@@ -764,6 +764,15 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 .module__d{font-size:var(--t-xs);color:var(--muted);line-height:1.5;margin-top:3px}
 .module__c{margin-left:auto;color:var(--lock);flex:0 0 auto}
 .module__c svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2}
+/* 🔴 LOT 104 — LE MODULE ANNONCE MAIS PAS CONSTRUIT.
+   ⭐ Il est ATTENUE, jamais barre ni grise a l'illisible : Preda a choisi de
+   les montrer, et un module qu'on montre doit rester lisible. Le contraste du
+   nom ne bouge donc pas — seule la bordure recule.
+   ⛔ AUCUN `pointer-events:none` ICI : ces cartes ne sont pas cliquables (ce
+   sont des `<div>`), et desarmer une interaction inexistante donnerait a
+   croire, au prochain lecteur, qu'elle existait. */
+.module--attente{border-style:dotted;opacity:.86}
+.module--attente .module__i{background:color-mix(in srgb,var(--lock) 10%,transparent)}
 .module--ouvert{border-style:solid;border-color:var(--rule);background:var(--surface)}
 .module--ouvert .module__i{background:var(--sect-1v);color:var(--sect-a)}
 .module--ouvert .module__c{color:var(--sect-a)}

@@ -230,3 +230,53 @@ export function projeter(items) {
   }
   return { actif: true, ecrits, refuses, projetes: items.length };
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴 LOT 104 — LIRE LA RESERVE DEPUIS UNE PAGE, ET PAS SEULEMENT DEPUIS UNE API
+// ═══════════════════════════════════════════════════════════════════════════
+// LE BESOIN. `/market/` rend jusqu'a 200 lignes chiffrees. Le motif habituel
+// — page pre-generee vide + `<Cote>` rempli par `/api/cote/lot` — ne tient pas
+// ici : cette route plafonne a 60 uuid (MAX_LOT), et le dupliquer a 200 ferait
+// d'un plafond de securite une variable d'affichage.
+//
+// ⭐⭐ LA PAGE EST DONC RENDUE A LA DEMANDE, ET ELLE LIT LA RESERVE ELLE-MEME.
+// C'est legitime, et a une condition qui n'est pas negociable : elle n'est
+// JAMAIS pre-generee. Une page pre-generee ecrirait 200 montants dans `dist/`,
+// servis en clair par nginx a qui connait l'adresse — la fuite exacte que le
+// lot 101 a fermee, par la porte d'a cote.
+// 🔴 TROIS VERROUS, PARCE QU'UN SEUL SE DEFAIT SANS BRUIT :
+//   1. `pages/market.astro` est inscrite dans ROUTES_COMPTE (astro_routes_compte.mjs) ;
+//   2. la page refuse et redirige quand `franchit()` dit non ;
+//   3. `test:fuite` balaie DESORMAIS tout `dist/`, plus seulement la page de
+//      chaque piece — si un montant reapparait ou que ce soit, il le voit.
+// ⛔ Retirer l'un des trois rend les deux autres insuffisants : le 1 empeche la
+// fuite, le 2 empeche l'acces, le 3 est le seul qui MESURE.
+
+/** Lit la reserve pour une liste d'uuid. Rend `{ uuid: cote }`, sans les absents.
+ *  ⚠️ AUCUN CONTROLE DE DROIT ICI, ET C'EST DELIBERE : cette fonction lit un
+ *  disque, elle ne juge personne. L'appelant DOIT avoir appele `franchit()`
+ *  avant. Melanger « lire » et « avoir le droit de lire » dans une meme
+ *  fonction est la faute qui produit les elevations de privilege — c'est ce que
+ *  `access.mjs` dit deja de `sessionDe()` contre `palierVisiteur()`. */
+export function lireCotes(uuids) {
+  const out = {};
+  let absents = 0;
+  for (const u of [...new Set(uuids || [])]) {
+    // ⭐ La liste blanche s'applique a CHAQUE element : un seul uuid mal forme
+    // suffit a composer un chemin. `_projection.json` est refuse par elle, donc
+    // le journal de controle reste illisible depuis toute voie servie.
+    if (!uuidValide(u)) { absents++; continue; }
+    const chemin = join(COTE_DIR, `${u}.json`);
+    if (!existsSync(chemin)) { absents++; continue; }
+    try { out[u] = JSON.parse(readFileSync(chemin, 'utf8')); }
+    catch (e) { absents++; console.warn(`[cote] reserve illisible pour ${u} : ${e.message}`); }
+  }
+  // ⚠️ MEME CAPTEUR QUE LES DEUX ROUTES D'API, et il compte autant ici : sans
+  // lui, une reserve non copiee dans l'image rendrait la page de marche
+  // integralement en tirets, pour les seuls abonnes, sur un deploiement vert.
+  const n = [...new Set(uuids || [])].length;
+  if (n && absents === n) {
+    console.warn(`[cote] AUCUNE des ${n} cotes demandees n'existe (${COTE_DIR}) — reserve absente de l'image ?`);
+  }
+  return out;
+}

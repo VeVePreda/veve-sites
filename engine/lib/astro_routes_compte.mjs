@@ -97,6 +97,35 @@ const ROUTES_COMPTE = [
   // quatrième fois qu'on l'écrit.
   'pages/api/veveid.js',
   'pages/api/supprimer.js',
+  // ═════════════════════════════════════════════════════════════════════════
+  // 🔴🔴 LOT 104 — LE MARCHE ET LE TABLEAU DE BORD
+  // ═════════════════════════════════════════════════════════════════════════
+  // ⛔⛔ CELLES-CI SONT LES PLUS DANGEREUSES DE LA LISTE, ET IL FAUT LE DIRE.
+  // Les seize au-dessus, oubliees ici, deviennent MUETTES : un fichier fige qui
+  // repond « pas de session » a un abonne. C'est une panne, elle se voit.
+  // `/market/` oubliee ici ne devient pas muette : elle devient PUBLIQUE, et
+  // elle ecrit 200 montants reserves dans `dist/`, servis en clair par nginx a
+  // qui connait l'adresse. Le build reste vert, la page a l'air correcte, et
+  // c'est EXACTEMENT la fuite que le lot 101 a passe une journee a fermer.
+  // ⭐ Un oubli qui rend muet se decouvre par une plainte ; un oubli qui rend
+  // public ne se decouvre par rien. `test:fuite` balaie tout `dist/` depuis ce
+  // lot pour cette seule raison.
+  // ⚠️ `market/index.astro` ET PAS `market.astro`. Le fichier restauré du
+  // commit ddab4376 était à plat — c'est la forme d'avant la convention. Or
+  // `test:nginx` dérive l'URL du CHEMIN : `market.astro` donne `/market`, sans
+  // barre finale, et aucune règle nginx ne sert cette forme-là. ⭐ Le banc a
+  // attrapé la divergence entre la convention du dépôt et un fichier venu du
+  // passé — c'est exactement ce qu'un fichier restauré fait de plus dangereux :
+  // il rapporte les usages de son époque, et ils ont l'air normaux.
+  'pages/market/index.astro',
+  'pages/[locale]/market/index.astro',
+  // ⭐ Le tableau de bord ne porte AUCUNE donnee reservee aujourd'hui — c'est
+  // une coquille. Il est ici quand meme : il lit la session pour decider s'il
+  // redirige, et une coquille qui se remplira un jour doit deja etre du bon
+  // cote du mur. ⛔ L'y mettre plus tard serait un lot « invisible » : rien ne
+  // casserait le jour ou le premier widget arrive.
+  'pages/dashboard/index.astro',
+  'pages/[locale]/dashboard/index.astro',
 ];
 
 const normalise = (p) => String(p || '').replace(/\\/g, '/');

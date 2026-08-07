@@ -796,6 +796,38 @@ async function construireDataset() {
     down: [...withChange].filter((i) => i.change7d < 0).sort((a, b) => a.change7d - b.change7d).slice(0, 20),
   };
 
+  // ═════════════════════════════════════════════════════════════════════════
+  // 🔴 LOT 104 — LA LISTE DU MARCHE, CALCULEE ICI ET PAS DANS LE GABARIT
+  // ═════════════════════════════════════════════════════════════════════════
+  // ⭐⭐⭐ C'EST EXACTEMENT LE PIEGE ANNONCE VINGT LIGNES PLUS BAS, ET IL
+  // ATTENDAIT. `Market.astro` (supprime au lot 101, restaure ici) faisait :
+  //     .filter((i) => i.floor !== null && i.floor !== undefined)
+  //     .sort((a, b) => (b.change7d ?? -Infinity) - (a.change7d ?? -Infinity))
+  // Apres `projeterCote()`, `i.floor` vaut `undefined` pour TOUT LE MONDE :
+  // le filtre aurait rendu une liste VIDE — une page de marche sans une seule
+  // ligne, sans erreur, sans avertissement, sur un build vert. Le tri, lui,
+  // aurait survecu (il porte sur `change7d`, qui reste public) : la panne
+  // n'aurait donc pas eu l'air d'une panne de prix.
+  // ⭐ On calcule TANT QUE LE PRIX EXISTE, et l'ORDRE DU TABLEAU porte
+  // l'information. Meme regle que `collections` et `rarities` au-dessus.
+  //
+  // ⚠️ LE PLAFOND EST ICI AUSSI, ET C'EST VOULU. Preda : « on ne doit pas
+  // charger les 1 200 lignes ». Le laisser au gabarit ferait voyager 1 200
+  // objets pour en rendre 200.
+  const MARCHE_MAX = 200;
+  const marche = items
+    .filter((i) => i.floor !== null && i.floor !== undefined)
+    .sort((a, b) => (b.change7d ?? -Infinity) - (a.change7d ?? -Infinity))
+    .slice(0, MARCHE_MAX);
+  // ⭐ Le TOTAL avant plafond : la page annonce « 200 sur N », et N ne peut pas
+  // se recalculer apres coup — `items` aura perdu `floor`.
+  const marcheTotal = items.filter((i) => i.floor !== null && i.floor !== undefined).length;
+  console.log(`[marche] ${marcheTotal} fiche(s) avec un plancher · ${marche.length} rendue(s) (plafond ${MARCHE_MAX})`);
+  if (marcheTotal === 0) {
+    console.log('[marche] ATTENTION AUCUNE fiche avec plancher : la page /market/ sortira vide. '
+      + 'Verifier que ce calcul est bien AVANT projeterCote().');
+  }
+
   // ═══ DIAGNOSTIC EMBARQUE ═══
   // Un seul deploiement doit suffire a comprendre ce que la vitrine a fait et
   // pourquoi. C'est ce journal, pas une intuition, qui a revele que « kind »
@@ -846,6 +878,7 @@ async function construireDataset() {
 
   _ds = {
     items, bySlug, collections, rarities, movers, cote,
+    marche, marcheTotal,
     catalogueSize: cat.length,
     windowDays: WINDOW_DAYS,
     maxPoints: MAX_POINTS,

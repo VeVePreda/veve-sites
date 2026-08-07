@@ -38,7 +38,7 @@
 //    raison pour laquelle elle est attendue — un echec doit se lire sans
 //    ouvrir le code.
 
-import { existsSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, statSync, readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -202,12 +202,70 @@ if (interdites.length) {
 // /compte/ prefixe par `localize` qui fabriquait /fr/compte/.
 // ⭐ Depuis le lot 38 le menu est une DONNEE (`nav:` du manifeste) : on peut
 // donc enfin le VERIFIER, au lieu de relire le gabarit a l'oeil.
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴 LOT 104 — CE BANC NE CHERCHAIT QUE DANS `dist/`, ET C'ETAIT SUFFISANT
+//    JUSQU'A CE QU'UNE ENTREE DE MENU DEVIENNE UNE ROUTE DYNAMIQUE.
+// ═══════════════════════════════════════════════════════════════════════════
+// `/market/` et `/dashboard/` sont rendues A LA DEMANDE par Node : elles
+// n'existent, par construction, dans AUCUN fichier de `dist/`. Le banc les
+// declarait donc « liens vers le vide » — un verdict FAUX sur des pages
+// parfaitement servies.
+//
+// ⭐⭐⭐ ON CORRIGE L'INSTRUMENT, PAS LE CODE POUR LUI PLAIRE. La tentation
+// etait de passer ces deux entrees a `pret: false` pour faire taire le banc :
+// le menu aurait cesse d'emettre les liens, la fonctionnalite serait morte, et
+// tout aurait ete vert. C'est la faute que ce depot nomme depuis le 07/08.
+//
+// ⭐⭐ ET IL SORT SUR UNE DECLARATION, PAS SUR L'ETAT D'UN DOSSIER : la liste
+// des routes dynamiques est lue dans `ROUTES_COMPTE`, la SEULE source qui
+// decide de ce qui est rendu a la demande — exactement ce que fait deja
+// `test:nginx`. ⛔ Une liste recopiee ici aurait diverge au premier ajout, et
+// la divergence aurait rendu ce banc vert pour une mauvaise raison.
+// ⚠️ UN OUBLI DANS `ROUTES_COMPTE` RESTE DONC ATTRAPE : la page ne serait ni
+// dans `dist/` (elle y serait, mais on ne l'y cherche plus... si), ni dans la
+// liste — non : elle SERAIT dans dist/, pre-generee, donc `existePage()` dirait
+// vrai. C'est `test:fuite` et `test:nginx` qui couvrent ce cas-la, pas celui-ci.
+const ROUTES_MJS_ROUTES = new URL('../lib/astro_routes_compte.mjs', import.meta.url).pathname;
+const routesDynamiques = (() => {
+  try {
+    const src = readFileSync(ROUTES_MJS_ROUTES, 'utf8');
+    const bloc = src.match(/const\s+ROUTES_COMPTE\s*=\s*\[([\s\S]*?)\];/);
+    if (!bloc) return null;                 // ⭐ `null` = « je n'ai pas pu lire »,
+    const out = new Set();                  //    surtout pas `[]` = « il n'y en a pas ».
+    for (const f of bloc[1].match(/'[^']+\.(?:astro|js|ts)'/g) || []) {
+      let u = f.slice(1, -1).replace(/^.*?pages\//, '/').replace(/\/index\.(astro|js|ts)$/, '/');
+      u = u.replace(/\.(astro|js|ts)$/, '');
+      // `[locale]` -> n'importe quelle langue : on garde la forme sans prefixe,
+      // et la comparaison ci-dessous retire le prefixe de langue de la cible.
+      if (u.startsWith('/[locale]/')) u = u.slice('/[locale]'.length);
+      out.add(u);
+    }
+    return out;
+  } catch (e) { return null; }
+})();
+// ⭐ L'INSTRUMENT SE DECLARE. Sans cette liste, l'assouplissement ci-dessous
+// n'aurait aucun effet et le banc redeviendrait faux — en silence, et dans le
+// sens qui fait perdre du temps plutot que dans celui qui laisse passer.
+dit(routesDynamiques !== null && routesDynamiques.size >= 5,
+  `${routesDynamiques ? routesDynamiques.size : 0} route(s) dynamique(s) lue(s) dans ROUTES_COMPTE`,
+  routesDynamiques === null ? 'ILLISIBLE — ce banc va reclamer des fichiers pour des routes servies par Node'
+    : (routesDynamiques.size >= 5 ? null : 'TROP PEU — la liste a-t-elle change de forme ?'));
+
+// Une cible localisee (`/fr/market/`) rendue a la demande ? On compare sur la
+// forme sans prefixe de langue.
+const estDynamique = (cible) => {
+  if (!routesDynamiques) return false;
+  const nu = cible.replace(/^\/[a-z]{2}(-[a-z]+)?\//, '/');
+  return routesDynamiques.has(nu) || routesDynamiques.has(cible);
+};
+
 const nav = Array.isArray(m.nav) ? m.nav : [];
 if (nav.length) {
   console.log(`\n2 bis. Le menu declare par le manifeste`);
   const prets = nav.filter((e) => e && e.pret);
   const attente = nav.filter((e) => e && !e.pret);
   const casses = [];
+  const dynamiquesVues = [];
   for (const e of prets) {
     for (const l of langsAccueil) {
       const cible = e.href === '/' ? localize(l, '/') : localize(l, e.href);
@@ -215,11 +273,17 @@ if (nav.length) {
       // voulu, et Base.astro porte la meme condition. On ne le reclame donc
       // que la ou il existe — sinon ce banc crierait sur un comportement juste.
       if (e.cle === 'nav.blog' && !langsBlog.includes(l)) continue;
+      // 🔴 LOT 104 — une route rendue A LA DEMANDE n'a pas de fichier, et c'est
+      // sa definition, pas un manque. On ne lui reclame donc pas de page.
+      if (estDynamique(cible)) { dynamiquesVues.push(cible); continue; }
       if (!existePage(cible)) casses.push(`${cible}  (${e.cle})`);
     }
   }
   dit(casses.length === 0, `${prets.length} entree(s) « pret: true » ont toutes leur page`,
-    casses.length === 0 ? `dans ${langsAccueil.length} langue(s)` : `${casses.length} LIEN(S) VERS LE VIDE`);
+    casses.length === 0
+      ? `dans ${langsAccueil.length} langue(s)`
+        + (dynamiquesVues.length ? ` · ${dynamiquesVues.length} cible(s) rendue(s) a la demande, non reclamee(s) : ${[...new Set(dynamiquesVues.map((c) => c.replace(/^\/[a-z]{2}\//, '/')))].join(', ')}` : '')
+      : `${casses.length} LIEN(S) VERS LE VIDE`);
   for (const c of casses) {
     console.log(`     🔴 ${c}`);
     console.log(`        le menu pointe vers une page que le build ne produit pas.`);

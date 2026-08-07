@@ -1,0 +1,63 @@
+---
+// ⚠️ VeVePreda/veve-sites — src/pages/[locale]/dashboard/index.astro
+// 🔴 LOT 104 — la variante par langue du tableau de bord.
+//
+// ⭐⭐⭐ ELLE EXISTE PARCE QUE `nav:` LOCALISE. Le menu du manifeste passe
+// chaque `href` dans `localize()` : déclarer `/dashboard/` y fabrique
+// automatiquement `/fr/dashboard/`, `/es/dashboard/`, `/de/dashboard/`. Sans ce
+// fichier, trois liens sur quatre pointaient vers le vide — et c'est
+// `test:routes` qui l'a dit, pas moi.
+// ⚠️ C'EST LA RAISON POUR LAQUELLE `/compte/` N'EST PAS DANS `nav:` : elle n'a
+// qu'une adresse, sans préfixe, et Base.astro la rend à la main pour cela. Deux
+// routes de compte, deux traitements opposés, et la différence tient à une
+// seule question : cette page a-t-elle des variantes par langue ?
+// ⛔ Un lien vers une page non émise est un 404 INVISIBLE au build — c'est un
+// lien, pas une route. Déjà payé trois fois sur ce dépôt.
+export const prerender = true;
+
+import Base from '../../../layouts/Base.astro';
+import { t, localize, locales } from '../../../../engine/lib/i18n.mjs';
+import { connecte } from '../../../../engine/lib/access.mjs';
+import { priceEnabled } from '../../../../engine/lib/features.mjs';
+
+export function getStaticPaths() {
+  // ⭐ Même réponse honnête que `/market/` : en mode static il n'y a pas de
+  // serveur, donc pas de session, donc pas d'espace membre. En mode server
+  // cette fonction n'est pas appelée.
+  return [];
+}
+
+const lang = Astro.params.locale;
+if (!priceEnabled()) return Astro.redirect('/');
+if (!connecte(Astro.locals)) {
+  return Astro.redirect(`/connexion/?suite=%2F${encodeURIComponent(lang)}%2Fdashboard%2F`, 302);
+}
+Astro.response.headers.set('cache-control', 'private, no-store');
+Astro.response.headers.set('vary', 'cookie');
+---
+<Base sect="dashboard" lang={lang} path={`/${lang}/dashboard/`} title={t(lang, 'dash.title')}
+      description={t(lang, 'dash.desc')} noindex
+      crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') }, { name: t(lang, 'dash.title') }]}>
+  <p class="etiq etiq--bleu">// {t(lang, 'dash.title').toUpperCase()}</p>
+  <h1 class="mono-t">{t(lang, 'dash.title')}</h1>
+  <div class="panneau">
+    <h2 class="mono-t">{t(lang, 'dash.empty')}</h2>
+    <p class="respire">{t(lang, 'dash.empty.d')}</p>
+  </div>
+  <div class="sect-t sect-t--gd"><h2 class="mono-t">{t(lang, 'dash.meanwhile')}</h2></div>
+  <span class="sep-v" aria-hidden="true"></span>
+  <div class="boites">
+    <a class="boite" href={localize(lang, '/market/')}>
+      <span class="boite__n">001</span><span class="boite__t">{t(lang, 'nav.movers')}</span>
+      <span class="boite__d">{t(lang, 'mod.market.d')}</span>
+    </a>
+    <a class="boite" href={localize(lang, '/analytics/')}>
+      <span class="boite__n">002</span><span class="boite__t">{t(lang, 'nav.analytics')}</span>
+      <span class="boite__d">{t(lang, 'mod.modules.d')}</span>
+    </a>
+    <a class="boite" href={localize(lang, '/collections/')}>
+      <span class="boite__n">003</span><span class="boite__t">{t(lang, 'nav.collections')}</span>
+      <span class="boite__d">{t(lang, 'dash.sets.d')}</span>
+    </a>
+  </div>
+</Base>

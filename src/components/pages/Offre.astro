@@ -19,12 +19,35 @@
 // qu'un bouton absent.
 import Base from '../../layouts/Base.astro';
 import { manifest } from '../../../engine/lib/manifest.mjs';
-import { acces, porte } from '../../../engine/lib/access.mjs';
+import { acces, porte, catalogueModules } from '../../../engine/lib/access.mjs';
 import { forme, iconePalier } from '../../../engine/lib/vitrine.mjs';
-const MODULES = ['modules', 'extremes', 'price_history', 'alerts', 'wallet_watch'];
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴 LOT 104 — LE CATALOGUE VIENT DU MANIFESTE, ET IL DIT CE QUI N'EXISTE PAS
+// ═══════════════════════════════════════════════════════════════════════════
+// CE QUI ÉTAIT ÉCRIT ICI : une liste de cinq noms en dur, celle des PORTES du
+// moteur. Elle avait le mérite d'être vraie — une porte existe forcément,
+// puisque le moteur la lit — et le défaut de ne décrire que le moteur : ni le
+// Market, ni les favoris, ni le calculateur MCP n'y figuraient, alors que ce
+// sont eux que Preda vend.
+//
+// ⭐⭐⭐ ARBITRAGE PREDA DU 07/08, PRIS CONTRE MON AVIS : on annonce TOUT, y
+// compris les sept modules qui n'existent pas, avec une pastille. Mon objection
+// est celle de son propre brief — « un palier qui promet un module absent est
+// une promesse rompue PAYANTE ». Elle reste juste, et ce qui la désamorce
+// aujourd'hui n'est pas un argument, c'est un FAIT MESURABLE : `offer.url` est
+// vide, donc rien n'est vendable, donc rien n'est promis contre de l'argent.
+// ⭐ Le jour où ce fait cesse d'être vrai, `test:promesses` casse le build.
+// C'est la seule forme d'avertissement qui survit à ce dépôt : celle qui se
+// mesure. Un commentaire à cet endroit aurait été lu une fois.
+const MODULES = catalogueModules();
 
 // Un module est « ouvert » quand il ne demande rien de plus qu'un visiteur.
-const ouvert = (mo) => !porte(mo).actif;
+// ⚠️ Un module qui n'est pas une porte du moteur (`porte: null`) n'a pas de
+// verrou technique : c'est son PALIER déclaré qui décide. ⛔ Appeler `porte()`
+// sur son nom lèverait — et c'est très bien : `porte()` doit continuer de
+// refuser les noms inconnus, c'est le contrat d'access.mjs.
+const ouvert = (mo) => (mo.porte ? !porte(mo.porte).actif : mo.tier === 'visitor');
 // Le nom LISIBLE d'un palier, dans la langue de la page. Retombe sur la clé
 // seulement si le manifeste ne declare pas ce plan — et alors c'est un vrai
 // defaut de manifeste, pas un cas normal a masquer.
@@ -149,24 +172,47 @@ const an = (v) => (v === 0 ? '—' : t(lang, 'offer.peryear', { v: Math.round(v 
        ⭐ `min-width:0` est indispensable : sans lui un enfant flex refuse de
        passer sous la largeur de son contenu et déborde en silence. */}
     {MODULES.map((mo) => (
-            <div class={`module${ouvert(mo) ? ' module--ouvert' : ''}`}>
+            <div class={`module${ouvert(mo) ? ' module--ouvert' : ''}${mo.bientot ? ' module--attente' : ''}`}
+                 data-bientot={mo.bientot ? '' : undefined}>
         <span class="module__i"><Fragment set:html={forme(ouvert(mo) ? 'RARE' : 'COMMON')} /></span>
         <span style="min-width:0;flex:1">
-          <span class="module__n">{t(lang, `mod.${mo}`)}</span>
-          <span class="module__d">{t(lang, `mod.${mo}.d`)}</span>
+          <span class="module__n">{t(lang, `mod.${mo.cle}`)}
+            {/* ⭐⭐ LA PASTILLE EST DANS LE NOM, PAS EN FIN DE LIGNE. Posée à
+                droite, elle tombait sous `.module__c` — la pastille de cadenas,
+                qui est en `margin-left:auto` : deux éléments se disputant la
+                même place, et c'est le second qui gagne, en silence. C'est le
+                défaut du 31/07 sur ce même fichier, à l'identique.
+                ⛔ ET LE TEXTE NE DIT PAS « BIENTÔT ». « Bientôt » est une
+                promesse de DATE, et une date qu'on ne tient pas se retourne.
+                « Pas encore construit » est un ÉTAT : il reste vrai tant qu'il
+                l'est, et faux le jour exact où on le change. */}
+            {mo.bientot && <span class="etiq" style="margin-left:8px;color:var(--lock)">{t(lang, 'offer.soon.badge')}</span>}
+          </span>
+          <span class="module__d">{t(lang, `mod.${mo.cle}.d`)}</span>
           {/* ⭐ LE NOM DU PALIER, TRADUIT. Le gabarit affichait `porte(mo).tier`,
               c'est-à-dire la CLÉ BRUTE : « crevette », « whale », en minuscules
               et dans aucune langue. Une clé technique qui fuit dans l'interface
               est le même défaut qu'un texte en dur — sauf qu'elle est laide
               dans TOUTES les langues au lieu d'une seule. */}
           <span class="etiq" style="display:block;margin-top:6px;color:var(--lock)">
-            {nomPlan(porte(mo).tier)}
+            {nomPlan(mo.tier)}
           </span>
         </span>
         <span class="module__c" aria-hidden="true"><Fragment set:html={cadenas()} /></span>
       </div>
     ))}
   </div>
+
+  {/* ⭐⭐⭐ LA NOTE EST OBLIGATOIRE, ET ELLE EST SOUS LA GRILLE, PAS EN BAS DE
+      PAGE. Une pastille seule se lit comme « ça arrive » ; la phrase dit
+      « ça n'existe pas aujourd'hui, et ce n'est pas vendu ». La différence est
+      tout ce qui sépare une feuille de route d'une promesse rompue.
+      ⛔ Elle ne s'affiche QUE s'il y a réellement un module en attente : une
+      mise en garde permanente cesse d'être lue, et le jour où tout sera livré
+      elle mentirait dans l'autre sens. */}
+  {MODULES.some((mo) => mo.bientot) && (
+    <p class="avertis" style="margin-top:var(--s4)">{t(lang, 'offer.soon.note')}</p>
+  )}
 
   <div class="panneau">
   <h2 class="mono-t">{t(lang, 'offer.promise')}</h2>

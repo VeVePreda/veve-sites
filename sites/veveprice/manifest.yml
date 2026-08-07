@@ -149,6 +149,24 @@ access:
       tier: crevette
       public_max: 30       # relevés RÉELLEMENT exposés
       public_days: 3       # ⭐ 3 jours, pas 90 : c'est la profondeur qui se vend
+      # ═══════════════════════════════════════════════════════════════════
+      # 🔴 LOT 104 (07/08/2026) — LES PLAGES DU GRAPHIQUE, arbitrage Preda
+      # ═══════════════════════════════════════════════════════════════════
+      # « Un Membre voit le cadenas dès 7 J ; une Crevette seulement à
+      # partir de 30 J. » ⭐ Langouste ouvre 30 J ET 90 J — les deux, pas
+      # l'une : le tableau de Preda écrit « 30 J + 90 J » sur une seule
+      # ligne, et le `+` est une conjonction, pas une plage de plus.
+      #
+      # ⛔ CETTE LISTE EST LA SEULE. `Item.astro` les écrivait EN DUR, sans
+      # « 7 J » et avec un verrou décoratif identique pour tout le monde.
+      # ⚠️ L'ORDRE DU TABLEAU EST L'ORDRE AFFICHÉ.
+      # ⚠️ `jours: null` = sans borne. Ce n'est pas « inconnu » : c'est Max.
+      plages:
+        - { cle: '3j',  jours: 3,    tier: visitor   }   # ouverte à tous
+        - { cle: '7j',  jours: 7,    tier: crevette  }
+        - { cle: '30j', jours: 30,   tier: langouste }
+        - { cle: '90j', jours: 90,   tier: langouste }
+        - { cle: 'max', jours: null, tier: whale     }
     # ═══════════════════════════════════════════════════════════════════════
     # 🔴🔴 LA COTE — LOT 101 (07/08/2026). Arbitrage Preda du 06/08 au soir :
     #     « on peut laisser le prix de drop mais pas le floor price actuel »
@@ -182,11 +200,19 @@ access:
     alerts:
       binaire: true   # ouvre ou non — ni troncature ni plafond
       tier: crevette
+      # 🔴 LOT 104 — 0 / 1 / 5 / 15 (arbitrage Preda du 07/08). Remplace le
+      # 0/2/10/illimité du 20/07. ⭐ `whale` n'est plus illimité : 15 est un
+      # nombre, et un nombre se tient. Le moteur d'alertes interroge une
+      # source tierce — « illimité » y est une promesse que la source peut
+      # refuser à notre place.
+      # ⛔ AUCUNE DE CES ALERTES N'EST LIVRÉE : `/alertes/` n'existe pas et
+      # les 4 muettes sur 7 de `jetonveve` ne sont reliées à aucun compte.
+      # C'est la GRILLE. `offer.modules` le dit à la page d'offre.
       caps:
         member:    0
-        crevette:  2
-        langouste: 10
-        whale:     -1     # -1 = illimité
+        crevette:  1
+        langouste: 5
+        whale:     15
     # Suivre le portefeuille de QUELQU'UN D'AUTRE — réservé au dernier palier.
     wallet_watch:
       binaire: true   # ouvre ou non — ni troncature ni plafond
@@ -229,8 +255,27 @@ access:
 #    dans la nav. Le jour où la page existe, on bascule le drapeau : une ligne.
 # ⭐⭐ ET `test:routes` REFUSE TOUTE ENTRÉE `pret: true` SANS PAGE PRODUITE.
 #    Le 404 invisible devient impossible, au lieu d'être seulement déconseillé.
+# ⭐ LOT 104 — `membre: true` : l'entrée est ÉMISE POUR TOUT LE MONDE, dans le
+# HTML de toutes les pages, et masquée par `hidden`. Le cookie `vp_membre` la
+# rouvre avant la première peinture (règle du <head> de Base.astro).
+# ⛔ CE N'EST PAS UN DROIT, ET ÇA NE DOIT PAS EN AVOIR L'AIR. `vp_membre` ne
+# porte que « 1 » et se pose à la main depuis la console. Il ne décide ici que
+# d'un AFFICHAGE : la page, elle, lit `vp_session` (HttpOnly) côté serveur et
+# refuse toute seule. Un lien visible vers une porte fermée ne l'ouvre pas.
 nav:
-  - { cle: nav.dashboard, href: /,            pret: true  }   # l'accueil fait office de tableau de bord
+  # 🔴 LOT 104 — `/dashboard/` EXISTE ENFIN, et l'entrée cesse de mentir.
+  # Elle pointait sur `/` avec le commentaire « l'accueil fait office de
+  # tableau de bord » : un libellé qui promet une page et en sert une autre.
+  # ⚠️ LA COQUILLE EST VIDE, ET ELLE LE DIT. Arbitrage Preda du 07/08 : une
+  # page « en construction » réservée aux comptes plutôt que rien. ⛔ Elle
+  # reste `bientot: true` dans `offer.modules` — une page qui existe n'est pas
+  # un module qui existe, et c'est la seconde qui se vend.
+  - { cle: nav.dashboard, href: /dashboard/, pret: true, membre: true }
+  # 🔴 LOT 104 — `nav.movers` REVIENT, réservée aux comptes.
+  # Le lot 101 l'avait RETIRÉE (pas passée à `pret: false`) faute d'avoir la
+  # nuance : Preda, 07/08 — « pas visible en public, mais quand tu deviens
+  # membre du site tu dois la voir ». La voici, avec sa condition.
+  - { cle: nav.movers,    href: /market/,    pret: true, membre: true }
   # 🔴 LOT 101 (07/08/2026) — `nav.movers` EST RETIREE, pas passee a `pret: false`.
   # ⭐ La nuance a un sens dans ce fichier : `pret: false` dit « la page arrive »,
   # et `etat_reel.py` le lit comme une intention en attente. Le Market ne revient
@@ -337,6 +382,15 @@ offer:
   # chaîne nue. ⭐ `nom` reste une chaîne : « Crevette » est un nom de MARQUE,
   # il ne se traduit pas. La distinction est éditoriale, pas grammaticale.
   plans:
+    # ═══════════════════════════════════════════════════════════════════════
+    # 🔴 LOT 104 (07/08/2026) — LES TARIFS PASSENT À 5 / 15 / 30 $
+    # ═══════════════════════════════════════════════════════════════════════
+    # Ils remplacent 15 / 35 / 50. ⛔ AUCUN N'EST ENCAISSABLE : `offer.url` est
+    # vide, il n'y a pas de prestataire de paiement, et c'est tranché (« plus
+    # tard, avec tes recommandations »). Ce bloc pose la GRILLE.
+    # ⭐ Les descriptions ne décrivent QUE ce qui existe. Ce qui n'existe pas
+    # est nommé dans `offer.modules` avec `bientot: true`, à un seul endroit —
+    # une description libre qui promet un module absent échapperait au banc.
     - cle: member
       nom:
         fr: "Membre"
@@ -346,51 +400,96 @@ offer:
       prix: 0
       alertes: 0
       d:
-        fr: "Le nom de chaque module, la vitrine libre, les trois derniers jours."
-        en: "Every module by name, the free showcase, the last three days."
-        es: "El nombre de cada módulo, el escaparate libre, los últimos tres días."
-        de: "Jedes Modul beim Namen, die freie Auswahl, die letzten drei Tage."
+        fr: "Trois jours d'historique, la page Market, les fiches complètes."
+        en: "Three days of history, the Market page, the full records."
+        es: "Tres días de historial, la página Market, las fichas completas."
+        de: "Drei Tage Historie, die Market-Seite, die vollständigen Blätter."
     - cle: crevette
       nom:
         fr: "Crevette"
         en: "Shrimp"
         es: "Gamba"
         de: "Garnele"
-      prix: 15
-      alertes: 2
+      prix: 5
+      alertes: 1
       d:
-        fr: "L'historique complet, les extrêmes, les modules d'analyse."
-        en: "The full history, the extremes, the analysis modules."
-        es: "El historial completo, los extremos, los módulos de análisis."
-        de: "Die volle Historie, die Extreme, die Analysemodule."
+        fr: "Sept jours d'historique, le prix plancher, les extrêmes."
+        en: "Seven days of history, the floor price, the extremes."
+        es: "Siete días de historial, el precio mínimo, los extremos."
+        de: "Sieben Tage Historie, der Bodenpreis, die Extreme."
     - cle: langouste
       nom:
         fr: "Langouste"
         en: "Lobster"
         es: "Langosta"
         de: "Languste"
-      prix: 35
-      alertes: 10
+      prix: 15
+      alertes: 5
       d:
-        fr: "Tout Crevette, plus dix alertes et les exports."
-        en: "Everything in Crevette, plus ten alerts and exports."
-        es: "Todo Crevette, más diez alertas y las exportaciones."
-        de: "Alles aus Crevette, plus zehn Warnungen und Exporte."
+        fr: "Trente et quatre-vingt-dix jours d'historique, et cinq alertes."
+        en: "Thirty and ninety days of history, and five alerts."
+        es: "Treinta y noventa días de historial, y cinco alertas."
+        de: "Dreißig und neunzig Tage Historie, und fünf Warnungen."
     - cle: whale
       nom:
         fr: "Whale"
         en: "Whale"
         es: "Ballena"
         de: "Wal"
-      prix: 50
-      alertes: -1        # ⚠️ -1 = ILLIMITÉ. Les gabarits le traduisent en « ∞ » :
-                         # afficher « -1 alerte » sur une page de tarifs est le
-                         # genre de bug qui se voit depuis la rue.
+      prix: 30
+      alertes: 15
       d:
-        fr: "Alertes illimitées et suivi de portefeuilles tiers."
-        en: "Unlimited alerts and third-party wallet watching."
-        es: "Alertas ilimitadas y seguimiento de carteras ajenas."
-        de: "Unbegrenzte Warnungen und Beobachtung fremder Wallets."
+        fr: "L'historique sans borne, quinze alertes, le suivi de portefeuilles."
+        en: "History with no limit, fifteen alerts, wallet watching."
+        es: "El historial sin límite, quince alertas, el seguimiento de carteras."
+        de: "Historie ohne Grenze, fünfzehn Warnungen, Wallet-Beobachtung."
+
+  # ═════════════════════════════════════════════════════════════════════════
+  # 🔴🔴 LE CATALOGUE DES MODULES — LOT 104, ET C'EST LE BLOC SENSIBLE
+  # ═════════════════════════════════════════════════════════════════════════
+  # ARBITRAGE PREDA DU 07/08 : la page d'offre annonce TOUS les modules, y
+  # compris ceux qui n'existent pas, avec une pastille « bientôt ». Pris contre
+  # mon avis, et appliqué — mon objection est celle de son propre brief : « un
+  # palier qui promet un module absent est une promesse rompue PAYANTE ».
+  #
+  # ⭐ CE QUI LA DÉSAMORCE AUJOURD'HUI : `offer.url` est VIDE. Rien n'est
+  # vendable, donc rien n'est promis contre de l'argent. Une feuille de route
+  # affichée n'est pas une promesse rompue.
+  # ⭐⭐⭐ CE QUI LA RÉARMERA : le jour où un prestataire est branché,
+  # `offer.url` se remplit et la même page devient exactement ce que le brief
+  # interdit — sans qu'une ligne ait changé ici. Un avertissement écrit ne
+  # survit pas à ça (mesuré quatre fois sur ce dépôt).
+  # ⇒ `npm run test:promesses` REFUSE le build si `offer.url` est renseigné
+  #   alors qu'un module `bientot: true` est attribué à un palier PAYANT.
+  #   Pour ouvrir la vente : livrer le module, ou le descendre à `member`, ou
+  #   le retirer d'ici. Trois sorties, toutes honnêtes, aucune silencieuse.
+  #
+  # ⚠️ `porte:` et `palier:` s'excluent. `porte:` délègue à la matrice d'accès
+  # (source unique, engine/lib/access.mjs) ; `palier:` sert aux modules qui ne
+  # sont pas des portes du moteur. Déclarer les deux LÈVE au build.
+  # ⚠️ `bientot: true` sans guillemets. `"false"` est une CHAÎNE, donc vrai en
+  # JavaScript — `catalogueModules()` ne teste que `=== true` pour cette raison.
+  modules:
+    # ── CE QUI EXISTE ET TOURNE ──────────────────────────────────────────
+    - { cle: price_history, porte: price_history, bientot: false }
+    - { cle: cote,          porte: cote,          bientot: false }
+    - { cle: extremes,      porte: extremes,      bientot: false }
+    - { cle: modules,       porte: modules,       bientot: false }
+    # ⭐ Le Market revient au lot 104, réservé aux comptes. Il EXISTE : sa page
+    # est rendue à la demande et ses montants viennent de /api/cote/lot.
+    - { cle: market,        palier: member,       bientot: false }
+    - { cle: metadata,      palier: member,       bientot: false }
+    # ── CE QUI N'EXISTE PAS — mesuré sur le dépôt le 07/08/2026 ───────────
+    # ⛔ Chaque ligne ci-dessous est une page ou un moteur ABSENT. Elles sont
+    # affichées sur /offre/ avec une pastille, sur décision de Preda, et le
+    # banc les empêche de devenir vendables.
+    - { cle: dashboard,     palier: crevette,     bientot: true }   # coquille livrée au 104, sans widget
+    - { cle: alerts,        porte: alerts,        bientot: true }   # /alertes/ absente · 4 muettes sur 7 dans jetonveve
+    - { cle: wallet_watch,  porte: wallet_watch,  bientot: true }   # /vault/ absente
+    - { cle: favoris,       palier: member,       bientot: true }   # rien nulle part
+    - { cle: mcp,           palier: crevette,     bientot: true }   # mcpPoints() existe, aucune page — et daily_mcp_points est connue FAUSSE
+    - { cle: mint,          palier: crevette,     bientot: true }   # dépend de token_id, donc de la fin du scan (~08/08)
+    - { cle: sanspub,       palier: crevette,     bientot: true }   # ⛔ aucun système de publicité : « sans pub » suppose d'en poser d'abord
 
 legal_info:
   contact: "contact@veveprice.com"   # <-- à activer via Cloudflare Email Routing (gratuit)

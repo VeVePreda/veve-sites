@@ -1,0 +1,876 @@
+---
+// ⚠️ VeVePreda/veve-sites — src/components/pages/Market.astro
+// ═══════════════════════════════════════════════════════════════════════════
+// LE MARCHÉ — balisage porté de la maquette par `outils/porter.mjs`
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐⭐⭐ CE FICHIER N'A PAS ÉTÉ ÉCRIT « DANS L'ESPRIT » DE LA MAQUETTE, il en
+// a été TRANSPILÉ. `tbl-hote`, `tbl-obj`, `rang`, `c-2`…`c-5`, `f-onglets`,
+// `f-b`, `cpt-f`, `seg-p`, `tuiles`, `tuile__hd/__off/__b/__n` : ce sont les
+// noms de `maquette-veveprice.html`, et le thème ne connaît qu'eux.
+//
+// ⛔ DEUX COLONNES DE LA MAQUETTE SONT RETIRÉES, PAS REMPLIES :
+//    · plancher StackR (OMI) — aucun collecteur ne le remonte ;
+//    · bouton favori        — demande un compte.
+// ⭐ Le transpileur les a signalées et a REFUSÉ de les traduire. Sur un site
+// de cotes, une valeur fabriquée est la seule faute qu'on ne rattrape jamais —
+// mieux vaut une colonne de moins qu'une colonne qui ment.
+//
+// ✅ 03/08/2026 — « $ par MCP » A QUITTÉ CETTE LISTE. Elle y était pour
+// « aucun taux de conversion dans le moteur », et c'était FAUX : le floor VeVe
+// est déjà en GEMS ≈ $, il n'y a aucune conversion à faire. Le seul obstacle
+// réel était le DÉNOMINATEUR — les points MCP — qu'on croyait devoir collecter
+// alors que c'est un barème publié, désormais dans `vitrine.mjs`.
+// ⭐⭐⭐ UNE COLONNE DÉCLARÉE IMPOSSIBLE MÉRITE D'ÊTRE RE-INSTRUITE : le motif
+// invoqué (« pas de taux ») avait survécu à sa cause et se citait tout seul.
+// ⏳ La 2ᵉ ligne (OMI/MCP) reste en attente : elle dépend du plancher StackR,
+// et lui manque vraiment.
+import Base from '../../layouts/Base.astro';
+import BarreAcces from '../BarreAcces.astro';
+import { dataset } from '../../../engine/lib/dataset.mjs';
+import { t, localize, numberLocale } from '../../../engine/lib/i18n.mjs';
+import { rar, forme, delta, gemsM, omiM, RAR, mcpPoints, sparkline, jourISO } from '../../../engine/lib/vitrine.mjs';
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴 LOT 104 (07/08/2026) — LA PAGE REVIENT, RÉSERVÉE AUX COMPTES
+// ═══════════════════════════════════════════════════════════════════════════
+// Elle avait été SUPPRIMÉE au lot 101 (commits f5c153e3, ddab4376, 9f1db5f) sur
+// « le market ne doit pas être visible en public ». Preda, 07/08 : « pas
+// visible en public, MAIS quand tu deviens membre du site tu dois la voir ».
+// La nuance manquait, pas la décision — et une page supprimée faute de nuance
+// se restaure, elle ne se réécrit pas : ce fichier est celui du commit
+// ddab4376, à l'octet près, plus les deux corrections ci-dessous.
+//
+// ⭐⭐⭐ CE QUI A CHANGÉ SOUS SES PIEDS PENDANT SON ABSENCE, ET QUI L'AURAIT
+// RENDUE VIDE. Le lot 101 a fait de `projeter()` la dernière étape de
+// `dataset()` : `i.floor` n'existe plus côté public. Or ce fichier
+// FILTRAIT dessus (`.filter((i) => i.floor !== null …)`). Restauré tel quel, il
+// aurait rendu un tableau à ZÉRO ligne — sans erreur, sans avertissement, sur
+// un build vert. ⛔ C'est le piège écrit noir sur blanc dans cote.mjs, et il
+// attendait exactement ce retour.
+//   ➡️ Le filtre et le tri ont descendu dans `dataset.mjs` (`ds.marche`), et
+//      les montants sont RÉINJECTÉS depuis la réserve, pour la seule personne
+//      qui a le droit de les voir.
+//
+// ⛔ CETTE PAGE N'EST JAMAIS PRÉ-GÉNÉRÉE. Elle écrirait 200 montants dans
+// `dist/`, servis en clair par nginx à qui connaît l'adresse — la fuite du lot
+// 101 par la porte d'à côté. Trois verrous la tiennent : l'inscription dans
+// ROUTES_COMPTE, le refus de la route elle-même, et `test:fuite` qui balaie
+// désormais TOUT `dist/`. Le troisième est le seul qui mesure.
+const { lang, cotes = {} } = Astro.props;
+const ds = await dataset();
+const nf = numberLocale[lang] || 'en-GB';
+const money = (v) => (v === null || v === undefined ? '—' : v.toLocaleString(nf, { maximumFractionDigits: 2 }));
+
+// ⭐ LE MCP EST UNE CONSTANTE DU BARÈME, PAS UNE DONNÉE À COLLECTER.
+// 🔴 MAIS IL Y A DEUX BARÈMES, ET CETTE PAGE N'EN SERVAIT QU'UN (corrigé le
+// 03/08/2026) : celui des comics, appliqué aussi aux collectibles. Un
+// collectible Common annonçait 0,25 quand il rapporte 1,00.
+// ⇒ `mcpPoints(rareté, type)` — le type vient de la fiche, jamais d'un défaut.
+// ⚠️ Une rareté inconnue rend un tiret NU, sans `data-attente` : ce n'est pas
+// une donnée en attente de collecte, c'est une rareté que le barème ne connaît
+// pas. Les deux tirets ne veulent pas dire la même chose, ils ne portent donc
+// pas la même marque — c'est toute la règle de cette page.
+const mcpDe = (r, type) => {
+  const v = mcpPoints(r, type);
+  return v === undefined ? '—' : `${v.toFixed(2)} ${t(lang, 'movers.mcp')}`;
+};
+
+// ⭐⭐ GEMS PAR POINT MCP — le prix d'un point de rendement quotidien.
+// `floor` est en GEMS ≈ $ : aucune conversion, aucun taux, une division.
+// ⛔ TROIS REFUS DÉLIBÉRÉS, chacun payé ailleurs dans ce projet :
+//   · pas de floor, ou barème muet -> on ne rend RIEN (l'appelant décide du
+//     tiret et de sa marque) ;
+//   · MCP à 0 ou négatif -> pas d'infini déguisé en aubaine ;
+//   · aucun arrondi avant l'affichage — arrondir tôt, c'est la virgule qui
+//     saute, en plus lent.
+// ⚠️ Le floor est un prix DEMANDÉ : ce ratio est un PLAFOND de rendement, pas
+// un rendement observé. L'infobulle le dit, et elle doit continuer de le dire.
+const parMcp = (i) => {
+  const m = mcpPoints(i.rarity, i.type);
+  if (!m || m <= 0) return null;
+  if (i.floor === null || i.floor === undefined) return null;
+  return i.floor / m;
+};
+const noteMcp = t(lang, 'movers.perMcpNote');
+
+// Le même libellé pour tous les tirets en attente : une seule phrase à
+// traduire, et surtout une seule à corriger le jour où elle change.
+const attente = t(lang, 'data.notCollected');
+
+// ⚠️ Les fiches SANS variation ne sont pas jetées, elles vont en fin de liste.
+// Une fiche neuve n'a pas sept jours d'historique ; la faire disparaître
+// donnerait un site qui cache ses nouveautés.
+// ⛔⛔ PLAFOND — demande de Preda : « on ne doit pas charger les 1 200 lignes ».
+// Le tableau les rendait TOUTES (les tuiles, elles, étaient plafonnées à 120
+// depuis le début : deux vues du même écran, deux politiques, une seule
+// documentée). 1 200 <tr> de 9 cellules = ~11 000 nœuds pour une page dont
+// l'intérêt décroît après la 50ᵉ ligne — c'est un classement par variation.
+// ⭐ 200 et pas 1 200 : au-delà, la « plus forte variation » ne dit plus rien.
+// ⛔ PAS DE NOUVELLES ADRESSES. Une vraie pagination `/market/2/` créerait des
+// URL, or les 1 200 adresses du site sont GELÉES et le gel est ce qui protège
+// le SEO d'un renommage. Ajouter des pages de liste est une décision à part.
+// Ici : plafond au rendu, puis dévoilement par tranches côté client.
+const PLAFOND = 200;
+// ⭐ 20 ET NON 50 (demande de Preda, 01/08). ⛔ Ce n'est PAS une pagination :
+// les 1 200 adresses du site sont gelees, et une vraie page `/market/2/`
+// creerait des URL. C'est un devoilement par tranches, sans nouvelle adresse.
+const PAR_PAGE = 20;
+// ⭐⭐ LA LISTE EST DÉJÀ FILTRÉE ET TRIÉE — `dataset.mjs` l'a faite AVANT
+// `projeterCote()`, quand `floor` existait encore. ⛔ NE PAS re-trier ni
+// re-filtrer ici : sur des champs projetés, le comparateur rendrait 0 pour
+// toutes les paires et le filtre viderait la page. L'ORDRE DU TABLEAU PORTE
+// L'INFORMATION.
+// ⭐ LES MONTANTS SONT RÉINJECTÉS ICI, ET SEULEMENT ICI. `cotes` vient de la
+// réserve, lue par la route après qu'elle a reconnu une session. Sur une page
+// servie à quelqu'un sans droit, `cotes` est vide : les lignes restent, les
+// montants deviennent des tirets. ⛔ Un `{...i, ...cote}` et pas une écriture
+// dans `i` : `ds.items` est mémoïsé pour la durée du build, le muter
+// contaminerait les 8 500 pages pré-générées construites après celle-ci.
+const toutes = ds.marche.map((i) => ({ ...i, ...(cotes[i.uuid] || {}) }));
+
+// ⭐ Les raretés dans l'ORDRE CANONIQUE DE VEVE, jamais alphabétique :
+// « Artist Proof, Common, Rare, Secret… » ne veut rien dire pour un collectionneur.
+// ⚠️ `PLAFOND` reste déclaré au-dessus pour la documentation qu'il porte, mais
+// la coupe se fait maintenant dans `dataset.mjs` — au même endroit que le tri,
+// donc sur la donnée complète. Re-couper ici serait sans effet aujourd'hui et
+// faux le jour où les deux valeurs divergeraient.
+const lignes = toutes;
+const presentes = new Set(toutes.map((i) => i.rarity).filter(Boolean));
+const rarete = Object.keys(RAR).filter((r) => presentes.has(r));
+const nbColl = toutes.filter((i) => i.type === 'collectible').length;
+const nbComic = toutes.length - nbColl;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LOT 68 — LES FILTRES QUI MANQUAIENT, ET POURQUOI ILS SONT CEUX-LÀ
+// ═══════════════════════════════════════════════════════════════════════════
+// La maquette (l. 2523-2600) déclare SIX groupes : Place · Type & rareté ·
+// Prix & valeur · Tirage & mint · Dates · Colonnes. Le moteur n'en servait
+// que deux (Rareté, Variation), sans le tri ni les jetons — d'où « il manque
+// des filtres et la présentation n'est pas fidèle ».
+//
+// ⭐⭐ CHAQUE CRITÈRE EST ADOSSÉ À UN CHAMP QUE `dataset.mjs` REND VRAIMENT :
+//   floor, listings, tirage, releaseDate, rarity, type, change7d.
+// ⛔ ET DEUX CRITÈRES DE LA MAQUETTE N'EN ONT PAS, DONC ILS NE FILTRENT RIEN :
+//   · « place : StackR » — aucun collecteur ne remonte le plancher StackR ;
+//   · « mint % »         — le pourcentage de mint n'est nulle part.
+//   Ils restent AFFICHÉS, verrouillés et dits (`data-verrou`), plutôt que
+//   supprimés : une case absente laisse croire que le critère n'existe pas,
+//   une case grisée dit qu'il existe et qu'il attend sa donnée. C'est la même
+//   règle que les tirets `data-attente` du tableau, appliquée aux filtres.
+//
+// ⚠️ LES BORNES SONT CALCULÉES SUR LE CORPUS PUBLIÉ, JAMAIS ÉCRITES EN DUR.
+// Un `placeholder="ex. 1 000"` gravé se périme le jour où le catalogue bouge,
+// en silence, et personne ne relit un placeholder.
+const bornes = (() => {
+  const nb = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+  const floors = toutes.map((i) => nb(i.floor)).filter((v) => v !== null);
+  const tirages = toutes.map((i) => nb(i.tirage)).filter((v) => v !== null && v > 0);
+  const dates = toutes.map((i) => jourISO(i.releaseDate)).filter(Boolean).sort();
+  return {
+    floorMin: floors.length ? Math.floor(Math.min(...floors)) : 0,
+    floorMax: floors.length ? Math.ceil(Math.max(...floors)) : 0,
+    tirageMin: tirages.length ? Math.min(...tirages) : 0,
+    tirageMax: tirages.length ? Math.max(...tirages) : 0,
+    dateMin: dates[0] || '',
+    dateMax: dates[dates.length - 1] || '',
+  };
+})();
+
+// ⭐ LES COLONNES OPTIONNELLES, DÉCLARÉES UNE FOIS. Le `<th>`, le `<td>` et la
+// case à cocher lisent la MÊME liste : impossible d'ajouter une colonne au
+// tableau et d'oublier son interrupteur, ou l'inverse. Le défaut « deux menus,
+// deux vérités » du 03/08 venait exactement de deux listes recopiées.
+const COLONNES = [
+  { c: 'rar',   l: t(lang, 'item.rarity') },
+  { c: 'sup',   l: t(lang, 'item.supply') },
+  { c: 'lst',   l: t(lang, 'item.listings') },
+  { c: 'd24',   l: t(lang, 'movers.24h') },
+  { c: 'c7',    l: t(lang, 'movers.7d') },
+  { c: 'mcp',   l: t(lang, 'movers.perMcp') },
+  { c: 'liens', l: t(lang, 'movers.links') },
+];
+
+// ⚠️ Le tri par défaut est celui du rendu serveur (variation 7 j décroissante).
+// Le sélecteur ne fait que RÉORDONNER ce qui est déjà là — il ne va pas
+// chercher de lignes au-delà du plafond de 200, et le libellé ne le promet pas.
+const TRIS = [
+  { v: 'ch-desc',   l: t(lang, 'movers.sort.var7') },
+  { v: 'floor-desc', l: t(lang, 'movers.sort.floorDesc') },
+  { v: 'floor-asc',  l: t(lang, 'movers.sort.floorAsc') },
+  { v: 'sup-asc',    l: t(lang, 'movers.sort.supplyAsc') },
+  { v: 'mcp-asc',    l: t(lang, 'movers.sort.mcpAsc') },
+  { v: 'nom-asc',    l: t(lang, 'movers.sort.nameAsc') },
+];
+
+// La date de sortie, en ISO court, pour le filtre par dates. Vide = jamais
+// écartée par une borne de date : une fiche sans date de sortie n'est pas une
+// fiche « d'avant 1970 ».
+// ⚠️ `jourISO` et PAS un `slice(0,10)` : voir le commentaire du 05/08 en bas
+// de `engine/lib/vitrine.mjs`. La donnée est en JJ/MM/AAAA, un découpage
+// naïf rendait un filtre par dates qui ne mordait jamais.
+const jour = (i) => jourISO(i.releaseDate);
+const chevron = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
+---
+<Base sect="cotes" lang={lang} path="/market/" title={t(lang, 'movers.title')}
+      description={t(lang, 'desc.movers', { n: ds.items.length.toLocaleString(nf) })}
+      updatedAt={ds.updatedAt}
+      crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') }, { name: t(lang, 'nav.movers') }]}>
+
+  {/* ⭐ Lien d'évitement — mesuré : 46 arrêts de tabulation avant le premier
+      résultat. Il ne réduit pas la densité, il la CONTOURNE.
+      ⛔ Il se cache par la GÉOMÉTRIE, jamais par `display:none` : un élément
+      masqué sort de l'ordre de focus, donc un lien d'évitement invisible au
+      clavier est un lien mort — inutile pour ceux à qui il s'adresse. */}
+  <a href="#resultats" class="saut evitement">{t(lang, 'movers.skip')}</a>
+
+  <BarreAcces lang={lang} />
+  {/* ⭐ L'ÉTIQUETTE DE SECTION, comme Analytics et le Blog. Elle n'est PAS
+      bleue malgré son nom : `.etiq--bleu` vaut `color:var(--sect-a)`, donc
+      elle prend la couleur de la section — ROUGE ici, puisque le Marché
+      déclare `sect="cotes"`. ⚠️ Le nom de la classe ment depuis toujours ;
+      il n'est pas renommé dans ce lot parce qu'il est employé 11 fois et que
+      ce lot parle d'autre chose. */}
+  <p class="etiq etiq--bleu">// {t(lang, 'movers.title').toUpperCase()}</p>
+  <h1 class="mono-t">{t(lang, 'movers.title')}</h1>
+  <p class="respire">{t(lang, 'desc.movers', { n: ds.items.length.toLocaleString(nf) })}</p>
+
+  {/* ═══════════════════════════════════════════════════════════════════════
+      LA BARRE DE FILTRES — portée de la maquette, groupe par groupe
+      ═══════════════════════════════════════════════════════════════════════
+      🔴 POURQUOI CE N'ÉTAIT PAS FIDÈLE, ET C'EST UNE SEULE LIGNE DE CAUSE.
+      L'ancienne version employait `<details><summary class="f-b">`. Le thème
+      allume le bouton du groupe ouvert par `.f-b[aria-expanded="true"]`
+      (theme.css l. 740) — or un `<summary>` n'a PAS d'attribut `aria-expanded`
+      dans le DOM : il l'expose à l'arbre d'accessibilité, ce qui ne suffit
+      jamais à un sélecteur d'attribut. Le bouton restait donc gris, le chevron
+      n'existait pas, et la barre n'avait ni tri ni jetons.
+      ⭐⭐ ENCORE « EST-CE LÀ ? » CONTRE « EST-CE CE QUI GAGNE ? » : la règle
+      était écrite, correcte, et ne pouvait pas s'appliquer. Un `<button>` avec
+      un vrai `aria-expanded` la réveille sans toucher au thème.
+      ⭐ Le repli reste RÉEL : le panneau fermé porte `hidden`, et le thème pose
+      `[hidden]{display:none!important}` — ses champs sortent donc de l'ordre de
+      tabulation, comme le faisait `<details>`. On ne perd pas l'accessibilité
+      en gagnant l'apparence. */}
+  <form class="barre-f" id="filtres" role="search" aria-label={t(lang, 'movers.filters')}>
+    {/* ⭐ Le CORPUS avant les filtres : « Tout / Collectibles / Comics » n'est
+        pas un filtre parmi d'autres, c'est l'ensemble sur lequel les autres
+        s'appliquent. Les mettre au même rang embrouillait la barre. */}
+    <div class="barre-f__l">
+      <span class="barre-f__t">{t(lang, 'movers.filters')}</span>
+      <div class="seg-p" role="group" aria-label={t(lang, 'movers.type')}>
+        <button type="button" data-corpus="" aria-pressed="true">{t(lang, 'movers.all')} <span class="etiq" style="opacity:.7">{toutes.length}</span>{/* ⭐ le nombre RENDU, pas le total : ce bouton filtre les lignes présentes */}</button>
+        <button type="button" data-corpus="collectible" aria-pressed="false">Collectibles <span class="etiq" style="opacity:.7">{nbColl}</span></button>
+        <button type="button" data-corpus="comic" aria-pressed="false">Comics <span class="etiq" style="opacity:.7">{nbComic}</span></button>
+      </div>
+      <span class="sep-v"></span>
+      <div class="champ champ--sm" style="flex:1;min-width:170px;max-width:260px">
+        <label class="sr-only" for="f-q">{t(lang, 'search.placeholder')}</label>
+        <input type="search" id="f-q" placeholder={t(lang, 'search.placeholder')} autocomplete="off" />
+      </div>
+      <span class="sep-v"></span>
+      <div class="seg-p" role="group" aria-label={t(lang, 'movers.view')}>
+        <button type="button" class="v-b" data-vue="tbl" aria-pressed="true">{t(lang, 'movers.table')}</button>
+        <button type="button" class="v-b" data-vue="tui" aria-pressed="false">{t(lang, 'movers.tiles')}</button>
+      </div>
+      {/* ⭐ LE TRI EST UN `<select>`, PAS SIX BOUTONS. Six ordres possibles en
+          boutons segmentés débordent sur tout écran sous 1 200 px, et un tri
+          n'est pas un état qu'on compare du regard — c'est un choix unique. */}
+      <div class="barre-f__tri">
+        <label for="f-tri">{t(lang, 'movers.sortBy')}</label>
+        <div class="champ champ--sm" style="width:190px">
+          <select id="f-tri">{TRIS.map((o) => (<option value={o.v}>{o.l}</option>))}</select>
+        </div>
+      </div>
+    </div>
+
+    {/* Un bouton par GROUPE, un seul panneau ouvert à la fois. */}
+    <div class="f-onglets" role="group" aria-label={t(lang, 'movers.filters')}>
+      <button type="button" class="f-b" data-g="place" aria-expanded="false" aria-controls="fp-place">{t(lang, 'movers.g.place')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevron} /></button>
+      <button type="button" class="f-b" data-g="type" aria-expanded="false" aria-controls="fp-type">{t(lang, 'movers.g.type')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevron} /></button>
+      <button type="button" class="f-b" data-g="prix" aria-expanded="false" aria-controls="fp-prix">{t(lang, 'movers.g.price')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevron} /></button>
+      <button type="button" class="f-b" data-g="mint" aria-expanded="false" aria-controls="fp-mint">{t(lang, 'movers.g.mint')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevron} /></button>
+      <button type="button" class="f-b" data-g="date" aria-expanded="false" aria-controls="fp-date">{t(lang, 'movers.g.date')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevron} /></button>
+      <button type="button" class="f-b" data-g="cols" aria-expanded="false" aria-controls="fp-cols">{t(lang, 'movers.g.cols')}<Fragment set:html={chevron} /></button>
+      <button type="reset" class="f-b" id="f-raz">{t(lang, 'movers.reset')}</button>
+    </div>
+
+    {/* ─── PLACE ─── ⛔ StackR est VERROUILLÉ, pas absent : le critère existe,
+        c'est sa donnée qui manque. Une case retirée dirait le contraire. */}
+    <div class="f-panneau" id="fp-place" hidden>
+      <div class="f-panneau__t">{t(lang, 'movers.g.place')}</div>
+      <div class="cols-l">
+        <label class="puce"><input type="checkbox" name="f-place" value="veve" checked /> VeVe</label>
+        <label class="puce" data-verrou title={attente}><input type="checkbox" disabled /> StackR — {attente}</label>
+      </div>
+    </div>
+
+    {/* ─── TYPE & RARETÉ ─── les raretés dans l'ORDRE CANONIQUE DE VEVE. */}
+    <div class="f-panneau" id="fp-type" hidden>
+      <div class="f-panneau__t">{t(lang, 'item.rarity')}</div>
+      <div class="cols-l">
+        {rarete.map((r) => (
+          <label class={`puce puce--rar ${RAR[r].cl}`}>
+            <input type="checkbox" name="f-rar" value={r} />
+            <Fragment set:html={forme(r)} />{RAR[r].l}
+          </label>
+        ))}
+      </div>
+    </div>
+
+    {/* ─── PRIX & VALEUR ─── */}
+    <div class="f-panneau" id="fp-prix" hidden>
+      <div class="f-panneau__t">{t(lang, 'movers.g.price')}</div>
+      <div class="tiroir__c">
+        <div class="champ champ--sm" style="width:150px"><label class="etiq" for="f-pmin">{t(lang, 'movers.floorMin')}</label>
+          <input id="f-pmin" name="f-pmin" type="number" min="0" step="any" placeholder={String(bornes.floorMin)} /></div>
+        <div class="champ champ--sm" style="width:150px"><label class="etiq" for="f-pmax">{t(lang, 'movers.floorMax')}</label>
+          <input id="f-pmax" name="f-pmax" type="number" min="0" step="any" placeholder={String(bornes.floorMax)} /></div>
+        <div class="champ champ--sm" style="width:150px"><label class="etiq" for="f-mcp">{t(lang, 'movers.mcpMax')}</label>
+          <input id="f-mcp" name="f-mcp" type="number" min="0" step="any" placeholder="∞" /></div>
+      </div>
+      <div class="cols-l" style="margin-top:12px">
+        <label class="puce"><input type="radio" name="f-var" value="" checked /> {t(lang, 'movers.all')}</label>
+        <label class="puce"><input type="radio" name="f-var" value="up" /> ▲ {t(lang, 'movers.up')}</label>
+        <label class="puce"><input type="radio" name="f-var" value="down" /> ▼ {t(lang, 'movers.down')}</label>
+      </div>
+    </div>
+
+    {/* ─── TIRAGE & OFFRES ─── ⚠️ « mint % » de la maquette n'est PAS ici :
+        aucun champ du moteur ne le porte. On ne met pas de curseur sur du vide. */}
+    <div class="f-panneau" id="fp-mint" hidden>
+      <div class="f-panneau__t">{t(lang, 'movers.g.mint')}</div>
+      <div class="tiroir__c">
+        <div class="champ champ--sm" style="width:150px"><label class="etiq" for="f-smin">{t(lang, 'movers.supplyMin')}</label>
+          <input id="f-smin" name="f-smin" type="number" min="0" step="1" placeholder={String(bornes.tirageMin)} /></div>
+        <div class="champ champ--sm" style="width:150px"><label class="etiq" for="f-smax">{t(lang, 'movers.supplyMax')}</label>
+          <input id="f-smax" name="f-smax" type="number" min="0" step="1" placeholder={String(bornes.tirageMax)} /></div>
+        <div class="champ champ--sm" style="width:150px"><label class="etiq" for="f-lmin">{t(lang, 'movers.listingsMin')}</label>
+          <input id="f-lmin" name="f-lmin" type="number" min="0" step="1" placeholder="0" /></div>
+      </div>
+    </div>
+
+    {/* ─── DATES ─── sur `releaseDate`. Une fiche SANS date n'est jamais
+        écartée par une borne : l'absence n'est pas une valeur. */}
+    <div class="f-panneau" id="fp-date" hidden>
+      <div class="f-panneau__t">{t(lang, 'movers.g.date')}</div>
+      <div class="tiroir__c">
+        <div class="champ champ--sm" style="width:180px"><label class="etiq" for="f-d1">{t(lang, 'movers.after')}</label>
+          <input id="f-d1" name="f-d1" type="date" min={bornes.dateMin} max={bornes.dateMax} /></div>
+        <div class="champ champ--sm" style="width:180px"><label class="etiq" for="f-d2">{t(lang, 'movers.before')}</label>
+          <input id="f-d2" name="f-d2" type="date" min={bornes.dateMin} max={bornes.dateMax} /></div>
+      </div>
+    </div>
+
+    {/* ─── COLONNES ─── ⭐ La liste vient de `COLONNES`, la même que le tableau. */}
+    <div class="f-panneau" id="fp-cols" hidden>
+      <div class="f-panneau__t">{t(lang, 'movers.g.cols')}</div>
+      <div class="cols-l">
+        {COLONNES.map((c) => (
+          <label class="puce"><input type="checkbox" name="f-col" value={c.c} checked /> {c.l}</label>
+        ))}
+      </div>
+      <p class="etiq" style="margin:10px 0 0;color:var(--muted)">{t(lang, 'movers.colsHint')}</p>
+    </div>
+
+    {/* ⭐ Sans cette ligne, on ne sait jamais si un filtre a mordu ou si le
+        résultat est vide par erreur. `aria-live` : un compteur muet ne sert
+        qu'aux voyants. Les filtres actifs deviennent des JETONS retirables. */}
+    <div class="actifs" id="actifs" aria-live="polite"></div>
+    <p class="etiq" id="cpt" role="status"></p>
+  </form>
+
+  {/* ⛔ LE TITRE INTERMÉDIAIRE A ÉTÉ RETIRÉ (demande de Preda, 05/08). Il
+      répétait le H1 trois centimètres plus bas et annonçait « tri : variation
+      7 jours » — une phrase devenue fausse le jour où le tri est devenu un
+      choix. ⭐ `id="resultats"` DÉMÉNAGE sur la table : le lien d'évitement
+      « aller directement aux résultats » vise une ancre, pas un titre, et une
+      ancre supprimée est un lien mort que rien ne signale. */}
+
+  <div id="vue-tbl" class="tbl-hote">
+    <table id="resultats" tabindex="-1">
+      {/* ═══════════════════════════════════════════════════════════════════
+          LE MARCHÉ À DEUX LIGNES — demande Preda du 03/08/2026 (lot 43)
+          ═══════════════════════════════════════════════════════════════════
+          Chaque pièce occupe DEUX lignes visuelles : la première porte VeVe,
+          la seconde StackR. ⭐⭐ MAIS C'EST UN SEUL `<tr>`, ET C'EST LA
+          DÉCISION STRUCTURANTE : tout le filtrage vit sur `tr[data-…]` et le
+          compteur « n résultats » compte des `<tr>`. Deux `<tr>` par pièce
+          auraient affiché « 2 400 pièces » pour 1 200.
+          ⛔ Une refonte visuelle ne doit jamais changer l'unité que la machine
+          compte.
+
+          🔴 CE QUE LA DONNÉE NE FOURNIT PAS — à lire avant de s'étonner des
+          tirets. `_DynState` de `catalog_export.py` ne rend que `floor` et
+          `listings` :
+            · plancher StackR en OMI ........ aucun collecteur
+            · OMI/MCP ....................... dépend de ce plancher
+            · variation 24 h ................ le moteur ne garde que 7 j et 30 j
+            · listings StackR ............... aucun collecteur
+            · liens VeVe et StackR .......... aucune URL dans la donnée
+          Arbitrage Preda : AFFICHER QUAND MÊME, avec des tirets.
+          ⭐⭐ ET C'EST POURQUOI CHAQUE TIRET EN ATTENTE PORTE `data-attente` ET
+          UN `title`. Un « — » qui veut dire « aucune offre » et un « — » qui
+          veut dire « pas encore collecté » se ressemblent et sont l'INVERSE
+          l'un de l'autre. Sur un site de cotes, les laisser se confondre est
+          la faute qu'on ne rattrape pas.
+
+          ═══ LOT 68 — CE QUI CHANGE DANS L'ORDRE DES COLONNES ═══
+          Demande de Preda : « pas besoin de la colonne 7 j · mets la courbe
+          après la colonne Var. 24 h et nomme-la 7 j ».
+          ⭐ La colonne de POURCENTAGE 7 j disparaît, la COURBE prend sa place
+          ET son nom, juste après Var. 24 h. Elle cesse d'être un ornement muet
+          en fin de ligne : elle EST la lecture de la semaine.
+          ⚠️ LE CHIFFRE N'EST PAS PERDU POUR AUTANT — il passe dans le `title`
+          de la cellule et dans `data-ch`. Le tri par défaut reste la variation
+          7 j : un classement dont on ne peut plus lire le critère n'importe où
+          serait un ordre inexplicable, et c'est ce qu'on évitait en gardant la
+          colonne. L'infobulle rend cette lecture sans reprendre une colonne.
+          ⛔ `data-ch` n'est PAS décoratif : c'est la clé du tri côté client. */}
+      <thead><tr>
+        <th scope="col" class="rang">#</th>
+        <th scope="col" class="tri">{t(lang, 'movers.item')}</th>
+        <th scope="col" class="c-3" data-col="rar">{t(lang, 'item.rarity')}</th>
+        <th scope="col" class="n c-4" data-col="sup">{t(lang, 'item.supply')}</th>
+        <th scope="col" class="n c-4" data-col="lst">{t(lang, 'item.listings')}</th>
+        <th scope="col" class="n">{t(lang, 'movers.floor')}</th>
+        <th scope="col" class="n c-5" data-col="d24">{t(lang, 'movers.24h')}</th>
+        <th scope="col" class="c-2 col-courbe" data-col="c7">{t(lang, 'movers.7d')}</th>
+        <th scope="col" class="n c-5" data-col="mcp">{t(lang, 'movers.perMcp')}</th>
+        <th scope="col" class="c-4" data-col="liens">{t(lang, 'movers.links')}</th>
+      </tr></thead>
+      <tbody>{lignes.map((i, k) => (
+        <tr data-type={i.type} data-rar={i.rarity} data-n={i.name.toLowerCase()}
+            data-var={i.change7d > 0 ? 'up' : i.change7d < 0 ? 'down' : ''}
+            data-ch={i.change7d === null || i.change7d === undefined ? '' : String(i.change7d)}
+            data-floor={i.floor === null || i.floor === undefined ? '' : String(i.floor)}
+            data-sup={i.tirage ? String(i.tirage) : ''}
+            data-lst={i.listings === null || i.listings === undefined ? '' : String(i.listings)}
+            data-mcp={parMcp(i) === null ? '' : String(parMcp(i))}
+            data-date={jour(i)}>
+          <td class="rang">{String(k + 1).padStart(3, '0')}</td>
+          <td><a class="tbl-obj" href={localize(lang, i.path)}>
+            <span><span class="tbl-obj__n">{i.name}</span><span class="tbl-obj__s">{i.series}</span></span>
+          </a></td>
+
+          {/* RARETÉ — ligne 1 : le symbole et le nom. ligne 2 : la valeur MCP.
+              ⭐ Le MCP vient du barème VeVe, il est RÉEL, pas collecté. */}
+          <td class="c-3" data-col="rar"><span class="m2">
+            <span class="m2__a"><Fragment set:html={rar(i.rarity)} /></span>
+            <span class="m2__b num">{mcpDe(i.rarity, i.type)}</span>
+          </span></td>
+
+          {/* SUPPLY — propriété de la PIÈCE, pas d'un marché : une seule
+              valeur, pas de seconde ligne inventée pour faire joli. */}
+          <td class="n c-4 muted" data-col="sup">{i.tirage ? i.tirage.toLocaleString(nf) : '—'}</td>
+
+          {/* LISTINGS — VeVe puis StackR */}
+          <td class="n c-4" data-col="lst"><span class="m2">
+            <span class="m2__a muted">{i.listings ?? '—'}</span>
+            <span class="m2__b muted" data-attente title={attente}>—</span>
+          </span></td>
+
+          {/* PLANCHER — gems chez VeVe, OMI chez StackR */}
+          <td class="n"><span class="m2">
+            <span class="m2__a"><span class="num"><Fragment set:html={gemsM()} /> {money(i.floor)}</span>
+              {i.listings <= 1 && <span class="alerte" title={t(lang, 'item.outlier')}>!</span>}</span>
+            <span class="m2__b muted" data-attente title={attente}><Fragment set:html={omiM()} /> —</span>
+          </span></td>
+
+          {/* VARIATION 24 H — absente des DEUX côtés : le moteur ne conserve
+              que 7 jours et 30 jours. Ce n'est pas un oubli de collecte, c'est
+              la profondeur de l'entrepôt. */}
+          <td class="n c-5" data-col="d24"><span class="m2">
+            <span class="m2__a muted" data-attente title={attente}>—</span>
+            <span class="m2__b muted" data-attente title={attente}>—</span>
+          </span></td>
+
+          {/* 7 j — LA COURBE, désormais la colonne elle-même.
+              ⚠️ Moins de 2 relevés => AUCUNE courbe, jamais une ligne plate :
+              une ligne plate AFFIRME une stabilité qu'on n'a pas observée.
+              ⭐ Le `title` porte le chiffre que la colonne de pourcentage
+              rendait : l'information change de place, elle ne disparaît pas. */}
+          <td class="c-2 col-courbe" data-col="c7"
+              title={i.change7d === null || i.change7d === undefined
+                ? t(lang, 'movers.trend7')
+                : `${t(lang, 'movers.trend7')} : ${i.change7d > 0 ? '+' : ''}${i.change7d.toFixed(1)} %`}>
+            <Fragment set:html={sparkline(i.history, i.change7d)} />
+          </td>
+
+          {/* $/MCP — ligne 1 : GEMS par point MCP (floor ÷ barème). Le floor
+              VeVe est déjà en gems ≈ $ : rien à convertir.
+              ⭐ Les deux tirets de cette cellule ne disent PAS la même chose :
+              celui du haut (sans `data-attente`) veut dire « le barème ne
+              connaît pas cette rareté », celui du bas « pas encore collecté ». */}
+          <td class="n c-5" data-col="mcp"><span class="m2">
+            {parMcp(i) === null
+              ? <span class="m2__a muted">—</span>
+              : <span class="m2__a num" title={noteMcp}>
+                  <Fragment set:html={gemsM()} /> {money(parMcp(i))}
+                </span>}
+            <span class="m2__b muted" data-attente title={attente}><Fragment set:html={omiM()} /> —</span>
+          </span></td>
+
+          {/* LIENS — LOT 68 : DEUX BOUTONS SUR UNE SEULE LIGNE, SÉPARÉS PAR UNE
+              BARRE (demande de Preda). Ils remplacent les deux lignes `m2` qui
+              recopiaient la structure VeVe/StackR du reste du tableau alors
+              qu'un lien n'est pas une cote — il n'a pas de « ligne VeVe » et de
+              « ligne StackR », il a deux destinations.
+              ⛔ AUCUNE URL DANS LA DONNÉE, ni VeVe ni StackR, ET JE N'EN
+              FABRIQUE PAS. Un motif d'URL deviné produit un lien qui a l'air bon
+              et rend 404 : le visiteur conclut que le SITE se trompe, pas que la
+              source manque.
+              ⭐ Ce sont donc des `<span>`, pas des `<a>` : un bouton désactivé
+              se voit (pointillés, opacité, curseur d'aide) et ne se clique pas.
+              Le jour où l'URL arrive, `<span>` devient `<a href>` et rien
+              d'autre ne bouge. */}
+          <td class="c-4" data-col="liens">
+            <span class="liens-2">
+              <span class="lien-b" data-attente title={attente}>VeVe</span>
+              <span class="liens-2__sep" aria-hidden="true">/</span>
+              <span class="lien-b" data-attente title={attente}>StackR</span>
+            </span>
+          </td>
+        </tr>
+      ))}</tbody>
+    </table>
+  </div>
+
+  {/* ⭐ DIRE QU'ON PLAFONNE. Un classement tronqué sans le dire laisse croire
+      que le catalogue fait 200 pièces. Le nombre réel est déjà sur le filtre,
+      mais il faut que la TRONCATURE soit énoncée là où elle s'applique —
+      c'est la même règle que « une donnée masquée est une donnée livrée ». */}
+  {/* 🔴 LOT 104 — `ds.marcheTotal` ET PAS `toutes.length`. La coupe a descendu
+      dans `dataset.mjs` : `toutes` VAUT déjà 200, donc `toutes.length > PLAFOND`
+      est faux par construction et cette mention aurait disparu en silence.
+      ⭐ Exactement le défaut que ce commentaire dénonce, retourné contre lui :
+      la troncature aurait cessé d'être énoncée le jour où elle a changé de
+      place. Le total ne se recalcule PAS ici — `ds.items` a perdu `floor`. */}
+  {ds.marcheTotal > lignes.length && (
+    <p class="etiq" style="margin:var(--s4) 0 0;color:var(--muted)">
+      {t(lang, 'movers.capped').replace('%s', ds.marcheTotal.toLocaleString(nf))}
+    </p>
+  )}
+  {/* ═══ LOT 71 — LES DEUX VUES MONTRENT DÉSORMAIS LE MÊME CORPUS ═══
+      🔴 Preda : « le filtre ne fonctionne pas en vue tuiles ». Deux causes, et
+      la seconde est la vraie.
+      ① Les tuiles ne portaient que 4 attributs `data-` sur 10 : ni `floor`, ni
+         `tirage`, ni `listings`, ni `$/MCP`, ni date. Les quatre nouveaux
+         groupes de filtres ne pouvaient donc rien mordre dessus — ils
+         laissaient tout passer, ce qui se lit exactement comme « le filtre ne
+         marche pas ».
+      ② ⭐⭐ ET SURTOUT : le tableau rendait 200 pièces, la grille 120. Filtrer
+         sur une rareté dont la première occurrence est au rang 150 donnait
+         « 3 résultats » en Tableau et RIEN en Tuiles. Deux vues du même écran
+         avec deux corpus, c'est un filtre qui ment une fois sur deux.
+      ⛔ Le commentaire d'origine assumait ces deux politiques (« 1 200
+         vignettes coûteraient 1 200 décodages d'image ») — il avait raison sur
+         1 200, pas sur 200 : les images sont en `loading="lazy"`, seules
+         celles à l'écran sont décodées, et le dévoilement par tranches n'en
+         montre que 20 au départ.
+      ⭐ UNE SEULE LISTE, UN SEUL PLAFOND, UN SEUL COMPTEUR. */}
+  <div id="vue-tui" class="tuiles" hidden>{lignes.map((i, k) => (
+    <a class="tuile revele" href={localize(lang, i.path)} style={`--i:${k}`}
+       data-type={i.type} data-rar={i.rarity} data-n={i.name.toLowerCase()}
+       data-var={i.change7d > 0 ? 'up' : i.change7d < 0 ? 'down' : ''}
+       data-ch={i.change7d === null || i.change7d === undefined ? '' : String(i.change7d)}
+       data-floor={i.floor === null || i.floor === undefined ? '' : String(i.floor)}
+       data-sup={i.tirage ? String(i.tirage) : ''}
+       data-lst={i.listings === null || i.listings === undefined ? '' : String(i.listings)}
+       data-mcp={parMcp(i) === null ? '' : String(parMcp(i))}
+       data-date={jour(i)}>
+      <span class="tuile__hd">
+        <span class="tuile__s">{i.series}</span>
+        <span class="tuile__off">{i.listings ?? 0} {t(lang, 'item.listings')}</span>
+      </span>
+      <div class="socle">
+        {i.image ? (
+          <>
+            <img class="socle__fond ok" src={i.image} alt="" aria-hidden="true" width="400" height="600" loading="lazy" decoding="async" />
+            <span class="socle__voile"></span>
+            <img class="socle__net ok" src={i.image} alt={i.name} width="400" height="600" loading="lazy" decoding="async" />
+          </>
+        ) : (
+          <>
+            <span class="socle__voile"></span>
+            <span style="position:absolute;inset:0;display:grid;place-items:center;z-index:3">
+              <span class="forme forme--xl" style="--c-a:var(--rule-2)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4">
+                  <path d="M12 2.9 19.9 7.5v9L12 21.1 4.1 16.5v-9Z" /></svg>
+            </span></span>
+          </>
+        )}
+      </div>
+      <span class="tuile__b">
+        {/* ⭐ Le symbole SUIT le titre au lieu de flotter sur l'image : la
+            rareté qualifie la pièce, elle ne la surmonte pas — et le titre
+            gagne toute la largeur de la vignette. */}
+        <span class="tuile__n">{i.name}<span class={RAR[i.rarity]?.cl || RAR.COMMON.cl}
+          style="display:inline-flex;margin-left:5px"><Fragment set:html={forme(i.rarity)} /></span></span>
+        <span class="tuile__p"><span class="num"><Fragment set:html={gemsM()} /> {money(i.floor)}</span>
+          <Fragment set:html={delta(i.change7d)} /></span>
+      </span>
+    </a>
+  ))}</div>
+
+  {/* ⛔⛔ LE BOUTON EST DESCENDU ICI LE 01/08/2026. Il etait ecrit entre le
+      tableau et la grille de tuiles : en vue Tableau il tombait bien en bas,
+      mais en vue Tuiles il s'affichait AU-DESSUS des vignettes — un « voir
+      plus » avant d'avoir rien vu.
+      ⭐ Le defaut ne venait pas du bouton mais de l'ordre du document : deux
+      vues alternatives se suivent dans le HTML, donc tout ce qui les CONCLUT
+      doit venir apres les deux, jamais entre. `hidden` masque la vue inactive,
+      il ne deplace pas ce qui est coince au milieu. */}
+  {lignes.length > PAR_PAGE && (
+    <p style="margin:var(--s4) 0 0;text-align:center">
+      <button type="button" id="plus" class="btn btn--sm"
+              data-pas={PAR_PAGE} data-total={lignes.length}>{t(lang, 'movers.more')}</button>
+      <span class="etiq" id="plus-cpt" style="display:block;margin-top:8px;color:var(--muted)"></span>
+    </p>
+  )}
+
+  <p class="respire" id="vide" hidden>{t(lang, 'movers.empty')}</p>
+
+  <script is:inline>
+    // ═══════════════════════════════════════════════════════════════════════
+    // LE PILOTE DE LA BARRE — filtrer, trier, masquer des colonnes
+    // ═══════════════════════════════════════════════════════════════════════
+    // ⛔ AUCUN CADRE, AUCUN MODULE. Cette page rend 200 lignes ; tout ce qui
+    // suit tourne sur des tableaux natifs et se lit d'un bout à l'autre.
+    // ⭐ UN SEUL ÉTAT, UN SEUL POINT D'ENTRÉE (`appliquer`). Le défaut du lot
+    // précédent était une fonction `tranche()` DÉFINIE ET JAMAIS APPELÉE : du
+    // code mort qui a l'air vivant, que rien ne signale. Ici chaque réglage
+    // passe par `appliquer()`, et `appliquer()` fait tout dans l'ordre —
+    // filtrer, trier, tronquer, compter, écrire.
+    (function () {
+      var f = document.getElementById('filtres'); if (!f) return;
+      var corps  = document.querySelector('#vue-tbl tbody');
+      var grille = document.getElementById('vue-tui');
+      var L      = [].slice.call(document.querySelectorAll('#vue-tbl tbody tr'));
+      var T      = [].slice.call(document.querySelectorAll('#vue-tui .tuile'));
+      var cpt    = document.getElementById('cpt');
+      var vide   = document.getElementById('vide');
+      var bPlus  = document.getElementById('plus');
+      var cPlus  = document.getElementById('plus-cpt');
+      var pas    = bPlus ? parseInt(bPlus.dataset.pas, 10) : 0;
+      var montre = pas;
+      var CLE = 'vp-filtres-2', corpus = '', vue = 'tbl';
+
+      // ⭐ NOUVELLE CLÉ DE STOCKAGE (`-2`). L'ancienne forme n'avait ni tri ni
+      // colonnes : la relire produirait un état à moitié rempli, donc des
+      // colonnes masquées sans case décochée. Une structure qui change change
+      // de nom — sinon c'est l'utilisateur qui hérite du bug.
+      function lire(){ try { return JSON.parse(localStorage.getItem(CLE)) || {}; } catch(e){ return {}; } }
+      function ecrire(o){ try { localStorage.setItem(CLE, JSON.stringify(o)); } catch(e){} }
+      function num(v){ var n = parseFloat(v); return isNaN(n) ? null : n; }
+      function val(id){ var e = document.getElementById(id); return e ? e.value.trim() : ''; }
+      function coches(nom){
+        return [].slice.call(f.querySelectorAll('input[name="' + nom + '"]:checked')).map(function(x){ return x.value; });
+      }
+
+      function etat(){
+        return {
+          q: (val('f-q') || '').toLowerCase(),
+          corpus: corpus, vue: vue,
+          tri: val('f-tri') || 'ch-desc',
+          vari: (f.querySelector('input[name=f-var]:checked') || {}).value || '',
+          rar: coches('f-rar'),
+          pmin: num(val('f-pmin')), pmax: num(val('f-pmax')), mcpMax: num(val('f-mcp')),
+          smin: num(val('f-smin')), smax: num(val('f-smax')), lmin: num(val('f-lmin')),
+          d1: val('f-d1'), d2: val('f-d2'),
+          cols: coches('f-col')
+        };
+      }
+
+      // ⭐ UNE ABSENCE N'EST PAS UN ZÉRO. Une fiche sans tirage connu ne doit
+      // pas être écartée par « tirage min = 1 » : on ne sait pas, donc on ne
+      // tranche pas. Le filtre ne mord que sur les valeurs qu'on possède.
+      function dans(v, mn, mx){
+        if (v === null) return true;
+        if (mn !== null && v < mn) return false;
+        if (mx !== null && v > mx) return false;
+        return true;
+      }
+      function garde(e, l){
+        var d = l.dataset;
+        if (e.q && d.n.indexOf(e.q) === -1) return false;
+        if (e.corpus && d.type !== e.corpus) return false;
+        if (e.vari && d.var !== e.vari) return false;
+        if (e.rar.length && e.rar.indexOf(d.rar) === -1) return false;
+        if (!dans(num(d.floor), e.pmin, e.pmax)) return false;
+        if (!dans(num(d.sup), e.smin, e.smax)) return false;
+        if (!dans(num(d.lst), e.lmin, null)) return false;
+        if (e.mcpMax !== null && num(d.mcp) !== null && num(d.mcp) > e.mcpMax) return false;
+        // ⚠️ Une pièce SANS date de sortie traverse les bornes de date. Une
+        // date absente n'est pas une date ancienne.
+        if (d.date) {
+          if (e.d1 && d.date < e.d1) return false;
+          if (e.d2 && d.date > e.d2) return false;
+        }
+        return true;
+      }
+
+      // ── LE TRI. ⛔ Il réordonne CE QUI EST DÉJÀ RENDU (200 lignes au plus),
+      //    il ne va rien chercher de plus : le libellé du plafond le dit.
+      var ORDRE = {
+        'ch-desc':    function(a,b){ return (num(b.dataset.ch) === null ? -Infinity : num(b.dataset.ch)) - (num(a.dataset.ch) === null ? -Infinity : num(a.dataset.ch)); },
+        'floor-desc': function(a,b){ return (num(b.dataset.floor) || 0) - (num(a.dataset.floor) || 0); },
+        'floor-asc':  function(a,b){ return (num(a.dataset.floor) || 0) - (num(b.dataset.floor) || 0); },
+        'sup-asc':    function(a,b){ return (num(a.dataset.sup) === null ? Infinity : num(a.dataset.sup)) - (num(b.dataset.sup) === null ? Infinity : num(b.dataset.sup)); },
+        'mcp-asc':    function(a,b){ return (num(a.dataset.mcp) === null ? Infinity : num(a.dataset.mcp)) - (num(b.dataset.mcp) === null ? Infinity : num(b.dataset.mcp)); },
+        'nom-asc':    function(a,b){ return a.dataset.n.localeCompare(b.dataset.n); }
+      };
+
+      // ── LES COLONNES. En-tête ET cellules portent le même `data-col`.
+      function colonnes(actives){
+        [].slice.call(document.querySelectorAll('#vue-tbl [data-col]')).forEach(function(c){
+          c.hidden = actives.indexOf(c.dataset.col) === -1;
+        });
+      }
+
+      function tranche(visibles){
+        if (!bPlus) { return; }
+        for (var i = 0; i < visibles.length; i++) visibles[i].hidden = i >= montre;
+        bPlus.hidden = visibles.length <= montre;
+        if (cPlus) cPlus.textContent = Math.min(montre, visibles.length) + ' / ' + visibles.length;
+      }
+
+      function appliquer(){
+        var e = etat(), n = 0, visT = [], visU = [];
+        L.forEach(function(l){ var ok = garde(e, l); l.hidden = !ok; if (ok) { n++; visT.push(l); } });
+        T.forEach(function(x){ var ok = garde(e, x); x.hidden = !ok; if (ok) visU.push(x); });
+
+        // ⭐ ON TRIE PUIS ON RÉINSÈRE, sans reconstruire le tableau : les nœuds
+        // sont les mêmes, donc les écouteurs et le focus survivent.
+        var cmp = ORDRE[e.tri] || ORDRE['ch-desc'];
+        visT.sort(cmp);
+        if (corps) visT.forEach(function(l){ corps.appendChild(l); });
+        // ⭐ LE TRI S'APPLIQUE AUX DEUX VUES. Un ordre qui change quand on
+        // bascule Tableau/Tuiles est un ordre auquel on cesse de faire
+        // confiance — et c'est le même reproche que le corpus à deux tailles.
+        visU.sort(cmp);
+        if (grille) visU.forEach(function(x){ grille.appendChild(x); });
+        // Le rang se RENUMÉROTE : « 001 » sur la troisième ligne d'un
+        // classement trié autrement serait un chiffre qui ment.
+        visT.forEach(function(l, k){
+          var r = l.querySelector('.rang'); if (r) r.textContent = String(k + 1).padStart(3, '0');
+        });
+
+        tranche(e.vue === 'tui' ? visU : visT);
+        colonnes(e.cols);
+        cpt.textContent = n + ' / ' + L.length;
+
+        // ── LES JETONS : un par filtre actif, cliquable pour le retirer.
+        var j = document.getElementById('actifs'); j.innerHTML = '';
+        function jeton(texte, retirer){
+          var b = document.createElement('button');
+          b.type = 'button'; b.className = 'jeton';
+          b.innerHTML = texte + ' <span aria-hidden="true">×</span>';
+          b.setAttribute('aria-label', b.textContent);
+          b.onclick = function(){ retirer(); montre = pas; appliquer(); };
+          j.appendChild(b);
+        }
+        e.rar.forEach(function(r){
+          jeton(r, function(){ var c = f.querySelector('input[name=f-rar][value="' + r + '"]'); if (c) c.checked = false; });
+        });
+        if (e.vari) jeton(e.vari === 'up' ? '▲' : '▼', function(){ var c = f.querySelector('input[name=f-var][value=""]'); if (c) c.checked = true; });
+        [['f-pmin', e.pmin], ['f-pmax', e.pmax], ['f-mcp', e.mcpMax],
+         ['f-smin', e.smin], ['f-smax', e.smax], ['f-lmin', e.lmin]].forEach(function(pair){
+          if (pair[1] === null) return;
+          var champ = document.getElementById(pair[0]);
+          var etiq = champ && champ.parentNode.querySelector('.etiq');
+          jeton((etiq ? etiq.textContent + ' ' : '') + pair[1], function(){ champ.value = ''; });
+        });
+        [['f-d1', e.d1], ['f-d2', e.d2]].forEach(function(pair){
+          if (!pair[1]) return;
+          var champ = document.getElementById(pair[0]);
+          var etiq = champ && champ.parentNode.querySelector('.etiq');
+          jeton((etiq ? etiq.textContent + ' ' : '') + pair[1], function(){ champ.value = ''; });
+        });
+
+        vide.hidden = n !== 0;
+        document.getElementById('vue-tbl').hidden = e.vue !== 'tbl';
+        document.getElementById('vue-tui').hidden = e.vue !== 'tui';
+
+        // Le compteur porté par CHAQUE bouton de groupe. ⭐ Sans lui, un filtre
+        // posé dans un panneau replié est un filtre qu'on a oublié d'avoir mis.
+        var actifsPar = {
+          place: 0,
+          type: e.rar.length,
+          prix: (e.pmin !== null) + (e.pmax !== null) + (e.mcpMax !== null) + (e.vari ? 1 : 0),
+          mint: (e.smin !== null) + (e.smax !== null) + (e.lmin !== null),
+          date: (e.d1 ? 1 : 0) + (e.d2 ? 1 : 0)
+        };
+        [].slice.call(f.querySelectorAll('.f-b[data-g]')).forEach(function(b){
+          var c = b.querySelector('.cpt-f'); if (!c) return;
+          var v = actifsPar[b.dataset.g] || 0;
+          c.textContent = v; c.hidden = !v;
+        });
+        ecrire(e);
+      }
+
+      // ── RESTITUTION DE L'ÉTAT MÉMORISÉ
+      var st = lire();
+      if (st.q) document.getElementById('f-q').value = st.q;
+      if (st.corpus) corpus = st.corpus;
+      if (st.vue) vue = st.vue;
+      if (st.tri) { var sel = document.getElementById('f-tri'); if (sel) sel.value = st.tri; }
+      if (st.vari) { var v = f.querySelector('input[name=f-var][value="' + st.vari + '"]'); if (v) v.checked = true; }
+      (st.rar || []).forEach(function(x){ var c = f.querySelector('input[name=f-rar][value="' + x + '"]'); if (c) c.checked = true; });
+      [['f-pmin','pmin'],['f-pmax','pmax'],['f-mcp','mcpMax'],['f-smin','smin'],['f-smax','smax'],['f-lmin','lmin'],['f-d1','d1'],['f-d2','d2']]
+        .forEach(function(pair){
+          var champ = document.getElementById(pair[0]);
+          if (champ && st[pair[1]] !== null && st[pair[1]] !== undefined && st[pair[1]] !== '') champ.value = st[pair[1]];
+        });
+      if (Array.isArray(st.cols)) {
+        [].slice.call(f.querySelectorAll('input[name=f-col]')).forEach(function(c){ c.checked = st.cols.indexOf(c.value) !== -1; });
+      }
+
+      // ── LES SEGMENTS (corpus, vue)
+      function seg(sel, get, set){
+        [].slice.call(f.querySelectorAll(sel)).forEach(function(b){
+          b.setAttribute('aria-pressed', get(b) ? 'true' : 'false');
+          b.addEventListener('click', function(){
+            set(b);
+            [].slice.call(f.querySelectorAll(sel)).forEach(function(o){ o.setAttribute('aria-pressed', o === b ? 'true' : 'false'); });
+            montre = pas; appliquer();
+          });
+        });
+      }
+      seg('[data-corpus]', function(b){ return b.dataset.corpus === corpus; }, function(b){ corpus = b.dataset.corpus; });
+      seg('.v-b',          function(b){ return b.dataset.vue === vue; },       function(b){ vue = b.dataset.vue; });
+
+      // ── LES PANNEAUX : un seul ouvert à la fois.
+      // ⚠️ Sinon la barre pousse le tableau hors de l'écran et on filtre à
+      // l'aveugle — mesuré sur la maquette avant de la porter.
+      var boutons = [].slice.call(f.querySelectorAll('.f-b[data-g]'));
+      boutons.forEach(function(b){
+        var panneau = document.getElementById('fp-' + b.dataset.g);
+        if (!panneau) return;
+        b.addEventListener('click', function(){
+          var ouvrir = panneau.hidden;
+          boutons.forEach(function(o){
+            var p2 = document.getElementById('fp-' + o.dataset.g);
+            if (p2) p2.hidden = true;
+            o.setAttribute('aria-expanded', 'false');
+          });
+          panneau.hidden = !ouvrir;
+          b.setAttribute('aria-expanded', String(ouvrir));
+        });
+      });
+
+      if (bPlus) bPlus.addEventListener('click', function(){ montre += pas; appliquer(); });
+      // ⛔ Changer de filtre REVIENT à la première tranche. Sans ça, quelqu'un
+      // qui a déplié 200 lignes puis restreint à une rareté garde un
+      // « 200 / 12 » absurde, et le bouton reste caché sur un corpus tout neuf.
+      f.addEventListener('input',  function(){ montre = pas; appliquer(); });
+      f.addEventListener('change', function(){ montre = pas; appliquer(); });
+      f.addEventListener('reset',  function(){ setTimeout(function(){ corpus = ''; montre = pas; appliquer(); }, 0); });
+      appliquer();
+    })();
+  </script>
+  {/* ⛔ LE SCEAU « REGISTRE INDÉPENDANT / jamais de publicité payée » A ÉTÉ
+      RETIRÉ DE CETTE PAGE (demande de Preda, 05/08). Il n'est PAS supprimé du
+      site : `offer.p2` reste sur /offre/, qui est la page dont c'est le sujet.
+      ⭐ Une promesse répétée sur chaque écran cesse d'être lue ; posée là où
+      quelqu'un se demande s'il doit payer, elle travaille. */}
+</Base>

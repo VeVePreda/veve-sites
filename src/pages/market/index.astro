@@ -1,0 +1,69 @@
+---
+// ⚠️ VeVePreda/veve-sites — src/pages/market.astro
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴 LOT 104 — LA PAGE DU MARCHÉ REVIENT, ET ELLE N'EST PAS PUBLIQUE
+// ═══════════════════════════════════════════════════════════════════════════
+// Arbitrage Preda du 07/08 : « pas visible en public, mais quand tu deviens
+// membre du site tu dois la voir ». Le lot 101 l'avait SUPPRIMÉE faute d'avoir
+// cette seconde moitié.
+//
+// ⛔⛔ `prerender = true` EN LITTÉRAL, ET C'EST VOULU — même dispositif que les
+// dix-sept autres routes de compte. Un `false` littéral fait échouer le build
+// en mode static (NoAdapterInstalled) et casserait vevewiki ; une EXPRESSION
+// n'est pas évaluée par Astro, qui retombe silencieusement sur `true` — c'est
+// la panne du lot 24, quatre fois payée. C'est
+// `engine/lib/astro_routes_compte.mjs` qui bascule cette route à la demande en
+// mode server, et qui le TRACE dans le journal de build.
+// 🔴 L'OUBLIER LÀ-BAS NE CASSE RIEN ICI : la page resterait pré-générée, elle
+// écrirait 200 montants dans `dist/`, et le build serait vert. C'est pour ça
+// que `test:routes` compte les routes basculées et que `test:fuite` balaie
+// tout `dist/` depuis ce lot.
+export const prerender = true;
+
+import { priceEnabled } from '../../../engine/lib/features.mjs';
+import Market from '../../components/pages/Market.astro';
+import { locales } from '../../../engine/lib/i18n.mjs';
+import { franchit, connecte } from '../../../engine/lib/access.mjs';
+import { lireCotes } from '../../../engine/lib/cote.mjs';
+import { dataset } from '../../../engine/lib/dataset.mjs';
+
+const lang = locales().def;
+if (!priceEnabled()) return Astro.redirect('/');
+
+// ═══ LE MUR ═══════════════════════════════════════════════════════════════
+// ⭐⭐⭐ ON REDIRIGE, ON NE REND PAS UNE VERSION DÉGRADÉE. Une page de marché
+// sans un seul montant n'est pas une page dégradée, c'est un tableau vide avec
+// des en-têtes — et elle serait indexée comme telle. Preda a demandé qu'elle
+// ne soit PAS visible en public : la seule lecture honnête de « pas visible »
+// est qu'elle n'existe pas pour qui n'a pas de compte.
+// ⚠️ `connecte()` ET `franchit()` répondent à deux questions différentes, et
+// les confondre est la faute qui produit les élévations de privilège :
+// « qui es-tu » n'est pas « à quoi as-tu droit ». Ici on exige les deux — une
+// session RÉELLE, et le rang.
+// ⛔ LE COOKIE D'AFFICHAGE N'ENTRE PAS DANS CETTE DÉCISION, et son nom n'est
+// même pas écrit ici : `test:session` refuse qu'il apparaisse dans un fichier
+// qui touche à un droit, et ce refus est le dispositif, pas un désagrément.
+// Il est falsifiable depuis la console ; le seul juge est la session serveur.
+const aLeDroit = connecte(Astro.locals) && franchit('cote', Astro.locals);
+if (!aLeDroit) {
+  // ⭐ 302 et pas 401 : ce n'est pas une erreur, c'est une porte. Et l'adresse
+  // de retour voyage, sinon on renvoie la personne à l'accueil après connexion
+  // — le moyen le plus sûr de perdre quelqu'un qui allait justement s'inscrire.
+  return Astro.redirect('/connexion/?suite=%2Fmarket%2F', 302);
+}
+
+// ⚠️ L'EN-TÊTE DE CACHE EST OBLIGATOIRE, ET IL N'EST PAS DÉCORATIF. Sans lui,
+// un cache intermédiaire (Cloudflare est devant ce site) peut servir la page
+// d'un abonné — 200 montants réservés — à un visiteur quelconque. C'est la
+// même précaution que sur `/api/cote/lot`, et elle doit être ICI AUSSI : une
+// page ne passe pas par le même chemin qu'une réponse d'API.
+Astro.response.headers.set('cache-control', 'private, no-store');
+Astro.response.headers.set('vary', 'cookie');
+
+// ⭐ On ne demande la réserve QUE pour les pièces réellement rendues. `ds.marche`
+// est déjà plafonné (200) : lire les 1 200 fichiers pour en afficher 200 serait
+// payer 1 000 lectures disque par visite.
+const ds = await dataset();
+const cotes = lireCotes(ds.marche.map((i) => i.uuid));
+---
+<Market lang={lang} cotes={cotes} />

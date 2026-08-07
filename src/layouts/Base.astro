@@ -464,6 +464,17 @@ const menuComplet = wikiNav
      dans le seul cas où il est faux. Cette règle ne fait qu'annuler `hidden`
      pour l'anonyme, c'est-à-dire rétablir l'état par défaut du HTML. */
   html:not([data-membre]) .h-cta[hidden] { display: inline-flex !important; }
+  /* 🔴 LOT 104 — LES LIENS DE MENU RÉSERVÉS AUX COMPTES (/market/, /dashboard/).
+     Même dispositif exactement que `.globe[data-membre]` deux lignes plus haut,
+     et pour la même raison : le serveur pose `hidden` quand il SAIT qu'il n'y a
+     pas de session, mais sur une page pré-générée il ne sait rien — il pose
+     donc `hidden` pour tout le monde, et c'est le COOKIE qui rouvre, avant la
+     première peinture.
+     ⚠️ `a[data-membre]` et pas `[data-membre]` tout court : le sélecteur nu
+     attraperait le globe, dont l'affichage est `block` et non `inline-flex`.
+     Un sélecteur trop large ne lève rien — il change juste la mise en page
+     d'un élément voisin, et personne ne fait le lien. */
+  html[data-membre] a[data-membre][hidden] { display: inline-flex !important; }
 </style>
 {fontFace && <style is:inline set:html={fontFace}></style>}
 <style is:inline set:html={vars}></style>
@@ -547,9 +558,27 @@ const menuComplet = wikiNav
                  plus sa condition PAR LANGUE : une entree peut etre prete
                  pour le site et absente dans une langue. Les deux conditions
                  se cumulent, elles ne se remplacent pas. */}
+          {/* ═══ LOT 104 — LES ENTRÉES RÉSERVÉES AUX COMPTES ═══
+              ⭐⭐⭐ `data-membre` + `hidden={!aUneSession}`, ET SURTOUT PAS
+              `{aUneSession && …}`. C'est la règle du lot 100, celle que le lot
+              100 avait lui-même violée : UNE PAGE PRÉ-GÉNÉRÉE N'A PAS DE
+              VISITEUR. Un lien enveloppé dans un test de session DISPARAÎT du
+              DOM sur les 9 routes dynamiques et RESTE sur les 8 500 pages
+              statiques — deux en-têtes, donc un défaut « parfois », donc
+              irreproductible. ⛔ `test:entete` refuse maintenant cette forme,
+              et il a raison de la refuser ici aussi.
+              ⭐ Le lien EXISTE donc toujours dans le HTML. Ce n'est pas une
+              fuite : `/market/` est une adresse, pas une donnée. Ce qu'elle
+              contient, elle le refuse elle-même côté serveur, en lisant
+              `vp_session` — un lien visible vers une porte fermée ne l'ouvre
+              pas. ⛔ Le cacher du DOM aurait coûté l'inverse : Google ne
+              suivrait plus le lien, et un membre au cookie expiré ne verrait
+              plus la page pour laquelle il paie. */}
           {navManifeste.map((e) => (
             (e.cle !== 'nav.blog' || blogDansCetteLangue) &&
-              <a href={e.href === '/' ? localize(lang, '/') : localize(lang, e.href)}>{t(lang, e.cle)}</a>
+              <a href={e.href === '/' ? localize(lang, '/') : localize(lang, e.href)}
+                 data-membre={e.membre ? '' : undefined}
+                 hidden={e.membre ? !aUneSession : undefined}>{t(lang, e.cle)}</a>
           ))}
           {/* ⚠️ MÊME CONDITION QUE LE BLOG, ET ELLE A DÉJÀ ÉTÉ PAYÉE DEUX FOIS.
               Un lien vers une page non émise dans cette langue est un 404

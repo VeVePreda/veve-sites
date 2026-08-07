@@ -13,9 +13,25 @@ import { manifest, siteUrl } from '../../../engine/lib/manifest.mjs';
 import { t, localize, numberLocale, dateLocale } from '../../../engine/lib/i18n.mjs';
 import { postsForItem } from '../../../engine/lib/blog.mjs';
 import { rar, forme, delta, gemsM, RAR, omiM, mcpPoints } from '../../../engine/lib/vitrine.mjs';
-import { franchit, porte } from '../../../engine/lib/access.mjs';
+import { franchit, porte, plages } from '../../../engine/lib/access.mjs';
 import { coteFermee as coteEstFermee } from '../../../engine/lib/cote.mjs';
 import BarreAcces from '../BarreAcces.astro';
+
+// ═══ LOT 104 — LES PLAGES DU GRAPHIQUE, LUES UNE FOIS ══════════════════════
+// ⭐ Le manifeste décide, ce fichier rend. Une liste vide (site qui ne déclare
+// aucune plage) émet zéro bouton, sans branche à écrire : la boucle ne tourne
+// simplement pas.
+const LES_PLAGES = plages();
+// ⭐ Le NOM du palier, traduit, jamais sa clé. `porte(mo).tier` affiché brut
+// donnait « crevette » en minuscules et dans aucune langue — le même défaut
+// qu'un texte en dur, sauf qu'il est laid dans les cinq langues à la fois.
+// ⚠️ Repli sur la clé si le manifeste ne déclare pas ce plan : c'est alors un
+// vrai défaut de manifeste, pas un cas normal qu'on masquerait.
+const nomDuPalier = (cle) => {
+  const p = (manifest().offer?.plans || []).find((x) => x.cle === cle);
+  const n = p?.nom;
+  return (n && (typeof n === 'string' ? n : n[lang] || n.en)) || cle;
+};
 // Les cinq modules d'analyse, dans l'ordre de la maquette.
 // ⛔ `MODULES` A ETE RETIRE LE 03/08/2026 (lot 43) : le bloc qui le lisait a
 // disparu au lot precedent, et la constante lui a survecu. ⭐ Un fichier
@@ -558,14 +574,50 @@ const mcpJour = mcpPoints(item.rarity, item.type);
             <h2 style="font-size:var(--t-lg)">{t(lang, 'item.chart')}</h2>
             <p class="etiq" style="margin-top:5px">{item.points} {t(lang, 'item.shown')}</p>
           </div>
-          {/* ⭐ Les PLAGES de la maquette. Celles au-delà du palier portent
-              `data-verrou` : elles restent visibles pour montrer ce qu'on achète,
-              et `aria-disabled` pour que le clavier sache qu'elles n'ouvrent pas. */}
-          <div class="plages" role="group" aria-label={t(lang, 'item.chart')}>
-            {['3 J', '30 J', '90 J', 'MAX'].map((pl, k) => (
+          {/* ═══════════════════════════════════════════════════════════════
+              🔴 LOT 104 — LES PLAGES VIENNENT DU MANIFESTE, PLUS DU GABARIT
+              ═══════════════════════════════════════════════════════════════
+              CE QUI ÉTAIT ÉCRIT ICI : `['3 J','30 J','90 J','MAX']`, avec
+              `data-verrou` sur tout sauf la première. Trois défauts, tous
+              silencieux :
+                · « 7 J » N'EXISTAIT PAS — et c'est précisément la plage que
+                  Crevette achète. La grille de Preda était invendable depuis
+                  cette ligne, sans qu'aucun banc n'ait de raison de le dire ;
+                · le verrou ne lisait AUCUN palier : il était identique pour
+                  l'abonné et le visiteur. Un verrou qui ne se lève jamais
+                  n'est pas un verrou, c'est un dessin de verrou ;
+                · et le jour où Preda change la grille, un gabarit ne le sait
+                  pas. Elle a changé le 07/08 — trois fois en trois semaines.
+              ⭐ `plages()` lit `access.gates.price_history.plages`. L'ordre du
+              tableau est l'ordre affiché, et le palier de chaque plage est une
+              DONNÉE, comme les prix et les plafonds.
+
+              ⭐⭐⭐ ET L'ÉTAT VERROUILLÉ EST CE QUE LE HTML CONTIENT — pour
+              tout le monde, abonné compris. UNE PAGE PRÉ-GÉNÉRÉE N'A PAS DE
+              VISITEUR : ces 8 500 fiches sont des fichiers, construits une
+              fois, servis à tous. Rendre le verrou selon un palier au build
+              reviendrait à figer le palier du BUILD dans le fichier — c'est
+              exactement la panne du lot 24, et le résultat serait « le site
+              ouvre tout à tout le monde » ou « il n'ouvre jamais rien ».
+              ⛔ ET ON NE LE DÉCIDE PAS NON PLUS SUR LE COOKIE D'AFFICHAGE :
+              il ne porte que « 1 », il ne dit pas QUEL palier, et il se pose à
+              la main. Il ne peut pas distinguer une Crevette d'une Whale.
+              ⚠️ Son nom n'apparaît volontairement pas dans ce fichier :
+              `test:session` refuse de le lire là où un droit se décide.
+              ➡️ Le déverrouillage se fait dans `Cadran.astro`, au retour de
+              `/api/historique/[uuid]` — la seule voie qui ait lu `vp_session`
+              côté serveur, et qui renvoie le palier RÉEL. Une seule voie, donc
+              pas de seconde vérité. */}
+          <div class="plages" role="group" aria-label={t(lang, 'item.chart')} data-plages>
+            {LES_PLAGES.map((pl, k) => (
               <button type="button" aria-pressed={k === 0 ? 'true' : 'false'}
-                      aria-disabled={k === 0 ? undefined : 'true'}
-                      data-verrou={k === 0 ? undefined : ''}>{pl}</button>
+                      data-plage={pl.cle}
+                      data-tier={pl.verrouillee ? pl.tier : undefined}
+                      aria-disabled={pl.verrouillee ? 'true' : undefined}
+                      title={pl.verrouillee
+                        ? t(lang, 'item.range.locked').replace('%s', nomDuPalier(pl.tier))
+                        : undefined}
+                      data-verrou={pl.verrouillee ? '' : undefined}>{t(lang, `item.range.${pl.cle}`)}</button>
             ))}
           </div>
           <div class="series" role="group" aria-label={t(lang, 'item.chart')}>

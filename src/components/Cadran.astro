@@ -32,7 +32,7 @@
 // n'était posé que sur UN des deux chemins d'export). Un min/max lu sur la
 // série observée ne peut pas être incohérent avec la courbe qu'il annote.
 import { t, numberLocale, dateLocale } from '../../engine/lib/i18n.mjs';
-import { porte } from '../../engine/lib/access.mjs';
+import { porte, PALIERS } from '../../engine/lib/access.mjs';
 
 const { lang, uuid, svgPublic, total, shown } = Astro.props;
 const p = porte('price_history');
@@ -49,7 +49,8 @@ const rendre = p.actif && Number(total) > Number(shown);
   <div class="dissout" data-cadran={uuid}
        data-nf={nf} data-df={df}
        data-l-haut={t(lang, 'item.high')} data-l-bas={t(lang, 'item.low')}
-       data-l-pts={t(lang, 'home.points')} data-l-refus={t(lang, 'hist.denied')}>
+       data-l-pts={t(lang, 'home.points')} data-l-refus={t(lang, 'hist.denied')}
+       data-paliers={PALIERS.join(',')}>
 
     {/* ⭐ L'ÉTAT VERROUILLÉ EST CE QUE LE HTML CONTIENT, ET C'EST VOULU.
         Sans JavaScript, un abonné voit ce panneau — dégradé, jamais faux, et
@@ -220,6 +221,47 @@ const rendre = p.actif && Number(total) > Number(shown);
       // Le sceau du <Gate> annonce ce qui manque : il n'a plus rien à annoncer.
       var sceau = document.querySelector('[data-sceau="price_history"]');
       if (sceau) sceau.remove();
+
+      // ═══════════════════════════════════════════════════════════════════
+      // 🔴 LOT 104 — LES PLAGES DU GRAPHIQUE PUBLIC SE DÉVERROUILLENT ICI
+      // ═══════════════════════════════════════════════════════════════════
+      // ⭐⭐⭐ ET SEULEMENT ICI. C'est le seul endroit de la page qui connaisse
+      // le palier RÉEL : `meta.palier` vient de `/api/historique/[uuid]`, qui
+      // l'a lu dans `vp_session` (HttpOnly) côté serveur. Les deux autres
+      // candidats étaient des pièges :
+      //   ⛔ le BUILD ne sait rien — une page pré-générée n'a pas de visiteur,
+      //      elle figerait le palier du build dans 8 500 fichiers ;
+      //   ⛔ le COOKIE D'AFFICHAGE ne porte que « 1 » : il ne distingue pas
+      //      une Crevette d'une Whale, et il se pose à la main depuis la
+      //      console. Son nom n'est pas écrit ici — `test:session` refuse de
+      //      le voir dans un fichier qui approche un droit, et il a raison.
+      // ⛔ NE JAMAIS déduire le palier d'autre chose que de cette réponse. Un
+      // second chemin serait une seconde vérité, et le jour où les deux
+      // divergent c'est la plus permissive qui gagne.
+      //
+      // ⚠️ CE QU'ON OUVRE N'EST QU'UN ÉTAT VISUEL. Les boutons restent inertes
+      // — le graphique n'est pas encore interactif, et il ne l'est pas devenu
+      // dans ce lot. On retire donc le cadenas et l'infobulle « s'ouvre avec…»,
+      // et on laisse `aria-disabled` : ⛔ un contrôle qui ne répond pas doit
+      // continuer à le DIRE, même quand on y a droit. Annoncer « ouvert » sur
+      // un bouton qui ignore le clic serait remplacer une frustration honnête
+      // par une panne apparente.
+      var rangs = (hote.getAttribute('data-paliers') || '').split(',');
+      var mien = rangs.indexOf(meta.palier || 'visitor');
+      var groupe = document.querySelector('[data-plages]');
+      if (groupe && mien >= 0) {
+        var boutons = groupe.querySelectorAll('button[data-tier]');
+        for (var b = 0; b < boutons.length; b++) {
+          var exige = rangs.indexOf(boutons[b].getAttribute('data-tier'));
+          // ⚠️ `exige < 0` = palier inconnu du tableau : on NE DÉVERROUILLE
+          // PAS. En cas de doute on ferme — ouvrir par défaut transformerait
+          // une faute de frappe dans le manifeste en accès offert.
+          if (exige >= 0 && mien >= exige) {
+            boutons[b].removeAttribute('data-verrou');
+            boutons[b].removeAttribute('title');
+          }
+        }
+      }
 
       var svg = svgHote.querySelector('svg');
       var lig = svg.querySelector('[data-curseur]');

@@ -84,16 +84,55 @@ targets = set(H)
 #
 # ⚠️ ON NE LES INVENTE PAS : la liste est LUE dans le moteur, pas recopiee ici.
 # Deux listes pour la meme verite finissent toujours par diverger.
+def _langues_publiees():
+    """Les prefixes de langue REELLEMENT produits par ce build.
+
+    ⭐ Un dossier de premier niveau de deux ou trois lettres qui contient un
+    `index.html` est une langue. ⛔ On ne devine pas une liste de codes ISO :
+    on regarde ce qui a ete publie, comme tout le reste de cet audit.
+    ⚠️ Si la liste sort vide, on ne remplace RIEN et l'audit redira ses faux
+    positifs — bruyamment, donc visiblement. Un repli silencieux vers une liste
+    en dur serait la panne suivante, deguisee en correction.
+    """
+    out = []
+    for d in D.iterdir():
+        if d.is_dir() and 2 <= len(d.name) <= 3 and d.name.isalpha() and (d / 'index.html').exists():
+            out.append(d.name)
+    return out
+
+
 _routes = pathlib.Path(__file__).resolve().parent.parent / 'lib' / 'astro_routes_compte.mjs'
 _a_la_demande = set()
 _mode_server = (D.parent / 'server' / 'entry.mjs').exists()
 if _mode_server and _routes.exists():
     for m in re.finditer(r"'pages/([^']+)'", _routes.read_text(encoding='utf-8')):
         chemin = m.group(1)
-        if '[' in chemin:          # route dynamique : pas d'adresse fixe a declarer
+        # 🔴 LOT 104 — `[locale]` N'EST PAS `[uuid]`, ET LES CONFONDRE COUTE
+        # 1 320 FAUX POSITIFS. La version precedente sautait tout chemin
+        # contenant un crochet, avec ce motif : « route dynamique : pas
+        # d'adresse fixe a declarer ». C'etait vrai de `[uuid]` — on ne peut
+        # pas enumerer 19 242 pieces — et FAUX de `[locale]`, dont les valeurs
+        # sont EXACTEMENT les langues du site, ecrites dans le manifeste.
+        # ⭐⭐⭐ TROISIEME FOIS QUE CET AUDIT SE TROMPE POUR LA MEME RAISON :
+        # `dist` au lieu de `dist/client` (7 933 liens inventes), puis le mode
+        # server ignore (1 290), maintenant le prefixe de langue. Et le
+        # commentaire du dessus l'annonce : « un rapport qui crie a tort cesse
+        # d'etre lu des la premiere nuit ». Il a un lecteur — le workflow
+        # nocturne — donc chaque faux positif coute la lecture des vrais.
+        # ⚠️ LES LANGUES SE LISENT DANS LE DISQUE PUBLIE, PAS DANS LE
+        # MANIFESTE : ce script est deja lance sans `SITE` dans le workflow, et
+        # importer le manifeste ici le rendrait dependant d'une variable
+        # d'environnement qu'il n'a jamais eue. Les dossiers de langue de
+        # `dist/client` sont ce que le build a REELLEMENT produit — c'est la
+        # meme source que le reste de l'audit.
+        if '[uuid]' in chemin or '[module]' in chemin:
             continue
-        url = '/' + chemin.replace('/index.astro', '/').replace('.js', '')
-        _a_la_demande.add(url)
+        base = '/' + chemin.replace('/index.astro', '/').replace('.js', '')
+        if '[locale]' in base:
+            for lg in _langues_publiees():
+                _a_la_demande.add(base.replace('[locale]', lg))
+            continue
+        _a_la_demande.add(base)
     if _a_la_demande:
         targets |= _a_la_demande
         print(f"  (mode server : {len(_a_la_demande)} route(s) rendue(s) a la demande, "

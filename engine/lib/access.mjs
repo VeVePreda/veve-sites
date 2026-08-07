@@ -36,7 +36,16 @@ const DEFAUTS_PORTES = {
   // ⭐ Ces portes ne se TRONQUENT pas : elles s'ouvrent ou non, pas de plafond.
   extremes:     { binaire: true, tier: 'crevette' },
   modules:      { binaire: true, tier: 'crevette' },
-  alerts:       { binaire: true, tier: 'crevette', caps: { member: 0, crevette: 2, langouste: 10, whale: -1 } },
+  // 🔴 LOT 104 (07/08/2026) — LES PLAFONDS CHANGENT : 0 / 1 / 5 / 15.
+  // Arbitrage Preda, et il REMPLACE le 0/2/10/illimite du 20/07. ⭐ `whale`
+  // n'est plus illimite : 15 est un NOMBRE, et un nombre se tient. « Illimite »
+  // sur un moteur d'alertes qui interroge une source tierce est une promesse
+  // que la source peut refuser a notre place — c'est le meme piege que le
+  // module absent, deplace dans le temps.
+  // ⛔ CES VALEURS NE SONT PAS VENDABLES AUJOURD'HUI : `/alertes/` n'existe
+  // pas, et les 4 alertes muettes sur 7 de `jetonveve` ne sont reliees a aucun
+  // compte. Elles sont la GRILLE, pas la livraison — cf. `offer.modules`.
+  alerts:       { binaire: true, tier: 'crevette', caps: { member: 0, crevette: 1, langouste: 5, whale: 15 } },
   wallet_watch: { binaire: true, tier: 'whale' },
   // 🔴 LOT 101 (07/08/2026) — LA COTE : prix plancher courant, extrêmes,
   // percentiles. Arbitrage Preda du 06/08 : « pas le floor price actuel ».
@@ -319,4 +328,123 @@ export function plafond(nomPorte, locals) {
   if (!p.actif) return -1;
   const v = p.caps?.[palierVisiteur(locals)];
   return v === undefined ? 0 : Number(v);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴 LOT 104 — LES PLAGES DU GRAPHIQUE, ET LE CATALOGUE DES MODULES
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ---------------------------------------------------------------------------
+// LES PLAGES — « 3 J / 7 J / 30 J / 90 J / Max », et qui ouvre laquelle.
+// ---------------------------------------------------------------------------
+// ⭐⭐⭐ POURQUOI ELLES DESCENDENT ICI ET PAS DANS LE GABARIT. Item.astro les
+// ecrivait EN DUR : `['3 J','30 J','90 J','MAX']`, avec `data-verrou` sur tout
+// sauf la premiere. Trois consequences, toutes silencieuses :
+//   · « 7 J » n'existait pas, alors que c'est LE palier Crevette ;
+//   · le verrou ne dependait d'aucun palier — il etait decoratif ;
+//   · et le jour ou Preda change la grille, le gabarit ne le sait pas.
+// ⛔ UN CONTROLE QUI NE REPOND PAS DOIT LE DIRE — la version en dur le disait
+// deja (`aria-disabled`), mais elle disait la MEME chose a tout le monde. Un
+// verrou identique pour l'abonne et le visiteur n'est pas un verrou, c'est un
+// dessin de verrou.
+//
+// ⭐ FORME DECLAREE (sites/<site>/manifest.yml, access.gates.price_history) :
+//     plages:
+//       - { cle: '3j',  jours: 3,    tier: member   }
+//       - { cle: 'max', jours: null, tier: whale    }
+// `jours: null` = sans borne. L'ORDRE DU TABLEAU EST L'ORDRE AFFICHE.
+//
+// ⛔ AUCUN DEFAUT INVENTE. Si le manifeste ne declare rien, on rend une liste
+// VIDE et le gabarit n'emet aucune plage. Fabriquer un 3/7/30/90/Max par
+// defaut donnerait a un site qui n'a rien demande une grille commerciale
+// plausible — et personne ne relit ce qui a l'air juste.
+export function plages() {
+  const m = manifest();
+  const brut = ((m.access || {}).gates || {}).price_history || {};
+  const liste = Array.isArray(brut.plages) ? brut.plages : [];
+  const { tiers } = acces();
+  return liste.map((p, i) => {
+    if (!p || !p.cle) {
+      throw new Error(`[acces] plage n°${i + 1} sans « cle » dans access.gates.price_history.plages`);
+    }
+    const tier = p.tier ?? 'visitor';
+    if (!PALIERS.includes(tier)) {
+      throw new Error(`[acces] plage « ${p.cle} » : palier inconnu « ${tier} » (attendus : ${PALIERS.join(', ')})`);
+    }
+    // ⭐ Une plage exigeant un palier que le site NE VEND PAS est ouverte, pas
+    // fermee. Meme regle que `porte().actif` : un verrou vers un palier
+    // inatteignable ne se leverait jamais, donc il ne se poserait pas.
+    const verrouillee = tier !== 'visitor' && tiers.includes(tier);
+    return { cle: String(p.cle), jours: p.jours ?? null, tier, verrouillee };
+  });
+}
+
+// ---------------------------------------------------------------------------
+// LE CATALOGUE DES MODULES — ce que /offre/ annonce, et ce qui existe.
+// ---------------------------------------------------------------------------
+// 🔴🔴 ARBITRAGE PREDA DU 07/08/2026, PRIS CONTRE MON AVIS, ET APPLIQUE.
+// La page d'offre annonce TOUS les modules, y compris ceux qui n'existent pas,
+// avec une pastille « bientot ». Mon objection etait ecrite dans son propre
+// brief — « un palier qui promet un module absent est une promesse rompue
+// PAYANTE ». Elle reste vraie. Ce qui la desamorce aujourd'hui, c'est que
+// `offer.url` est VIDE : rien n'est vendable, donc rien n'est promis contre de
+// l'argent. Une feuille de route affichee n'est pas une promesse rompue.
+//
+// ⭐⭐⭐ MAIS LA CONDITION QUI LA DESAMORCE N'EST PAS PERMANENTE, ET C'EST TOUT
+// LE PROBLEME. Le jour ou un prestataire de paiement est branche, `offer.url`
+// se remplit — et la meme page devient exactement ce que le brief interdit,
+// sans qu'une ligne ait change. Un avertissement ecrit ici n'y survivrait pas :
+// ce depot a mesure quatre fois qu'un avertissement qui ne se MESURE pas finit
+// lu sans etre suivi. ⇒ `engine/tools/test_promesses.mjs` REFUSE le build
+// quand `offer.url` est renseigne et qu'un module `bientot: true` est attribue
+// a un palier payant. La decision de Preda tient ; le piege se referme seul.
+//
+// ⭐ FORME DECLAREE (offer.modules) :
+//     - { cle: market, porte: cote, bientot: false }     <- palier lu dans la matrice
+//     - { cle: dashboard, palier: crevette, bientot: true }
+// `porte:` et `palier:` s'excluent : le premier delegue a la matrice d'acces
+// (source unique), le second sert aux modules qui ne sont pas des portes du
+// moteur. Declarer les deux serait deux verites — on LEVE.
+export function catalogueModules() {
+  const m = manifest();
+  const liste = Array.isArray(m.offer?.modules) ? m.offer.modules : [];
+  const { tiers } = acces();
+  return liste.map((mo, i) => {
+    if (!mo || !mo.cle) {
+      throw new Error(`[acces] module n°${i + 1} sans « cle » dans offer.modules`);
+    }
+    if (mo.porte && mo.palier) {
+      throw new Error(`[acces] module « ${mo.cle} » declare a la fois « porte: ${mo.porte} » et `
+        + `« palier: ${mo.palier} » : deux sources pour un meme palier. En garder UNE.`);
+    }
+    // ⭐ `porte()` LEVE deja sur un nom inconnu — on ne re-teste pas, on laisse
+    // l'erreur bruyante remonter avec son message, qui est meilleur que le mien.
+    const tier = mo.porte ? porte(mo.porte).tier : (mo.palier ?? 'member');
+    if (!PALIERS.includes(tier)) {
+      throw new Error(`[acces] module « ${mo.cle} » : palier inconnu « ${tier} »`);
+    }
+    if (!tiers.includes(tier)) {
+      throw new Error(`[acces] module « ${mo.cle} » est attribue au palier « ${tier} », `
+        + `absent de access.tiers (${tiers.join(', ')}). Il serait annonce sans jamais pouvoir s'ouvrir.`);
+    }
+    return {
+      cle: String(mo.cle),
+      tier,
+      // ⚠️ `Boolean(...)` et pas la valeur brute : `bientot: "false"` (une
+      // chaine, ce que YAML rend si on met des guillemets) est VRAI en
+      // JavaScript. Un module livre serait annonce « bientot » pour un
+      // guillemet — et la page aurait l'air correcte.
+      bientot: mo.bientot === true,
+      porte: mo.porte || null,
+    };
+  });
+}
+
+// Le palier est-il PAYANT sur ce site ? ⭐ « payant » ne se devine pas du nom :
+// il se lit dans `offer.plans`, ou le prix est ecrit. `member` est a 0, donc
+// gratuit, et c'est la seule facon de le savoir sans coder la liste en dur.
+export function palierPayant(cle) {
+  const m = manifest();
+  const p = (m.offer?.plans || []).find((x) => x.cle === cle);
+  return Boolean(p && Number(p.prix) > 0);
 }

@@ -160,6 +160,65 @@ dit(fuites.length === 0, `${testees} fiche(s) verifiees, aucun montant retrouve 
 dit(testees >= 20, `la couverture est suffisante (${testees} fiches)`,
   testees >= 20 ? null : 'TROP PEU de montants distinctifs — ce banc ne prouve presque rien');
 
+// ── 2 bis. ET AILLEURS ? — ELARGI AU LOT 104 ──────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴 LE CONTROLE 2 NE REGARDE QUE LA PAGE DE CHAQUE PIECE. C'etait suffisant
+// au lot 101 : les seules pages qui portaient un montant etaient les fiches.
+// Ca a CESSE d'etre vrai au lot 104, ou `/market/` revient avec 200 montants
+// rendus cote serveur.
+//
+// ⭐⭐⭐ ET C'EST LA FORME DE PANNE LA PLUS DANGEREUSE DE CE DEPOT : un oubli
+// dans `ROUTES_COMPTE` ne casse RIEN. La page reste pre-generee, elle ecrit ses
+// 200 montants dans `dist/`, nginx les sert en clair a qui connait l'adresse,
+// et le build est vert. Aucun run rouge, aucune plainte — la fuite du lot 101
+// rouverte par la porte d'a cote, silencieusement.
+// ⛔ « Un controle qui ne regarde que ce qui existe ne voit jamais ce qui
+// manque » : on ne demande donc plus « la fiche de cette piece porte-t-elle son
+// prix ? » mais « CE MONTANT EXISTE-T-IL QUELQUE PART DANS dist/ ? ».
+//
+// ⚠️ COUT ASSUME. C'est un produit croise : chaque montant distinctif contre
+// chaque page publiee. On borne donc l'echantillon de montants — pas les pages,
+// qui sont ce qu'on doit couvrir. ⭐ 40 montants suffisent : une fuite de page
+// ne fuit jamais UN prix, elle en fuit deux cents. Un seul retrouve suffit.
+const ECHANTILLON = 40;
+const aChercher = [];
+for (const [uuid, c] of entrees) {
+  if (aChercher.length >= ECHANTILLON) break;
+  const v = ['floor', 'ath', 'atl', 'prixMedian', 'p95'].map((k) => c[k]).filter(distinctif)[0];
+  if (v !== undefined) aChercher.push([uuid, v]);
+}
+// ⭐ On lit chaque page UNE fois et on y cherche les 40 montants, plutot que
+// l'inverse : 40 lectures de disque par page seraient 40 fois le meme fichier.
+const partout = [];
+const cibles = pages.filter((f) => f.endsWith('.html') || f.endsWith('.json'));
+for (const f of cibles) {
+  const texte = readFileSync(f, 'utf8');
+  for (const [uuid, v] of aChercher) {
+    for (const forme of formes(v)) {
+      if (texte.includes(forme)) {
+        partout.push(`${f.slice(RACINE.length)} porte « ${forme} » (${uuid.slice(0, 8)})`);
+        break;
+      }
+    }
+    if (partout.length >= 8) break;
+  }
+  if (partout.length >= 8) break;
+}
+dit(partout.length === 0,
+  `aucun des ${aChercher.length} montants temoins ne se retrouve dans les ${cibles.length} page(s) publiee(s)`,
+  partout.length === 0 ? null
+    : `${partout.length}+ FUITE(S) HORS FICHE : ${partout.slice(0, 4).join(' · ')}`);
+if (partout.length) {
+  console.log('     🔴 UN MONTANT RESERVE EST DANS `dist/`, DONC SERVI EN CLAIR PAR NGINX.');
+  console.log('     ➡️  Verifier d\'abord `engine/lib/astro_routes_compte.mjs` : une page qui lit');
+  console.log('        la reserve et qui n\'y est PAS inscrite reste pre-generee, en silence.');
+  console.log('        C\'est la panne du lot 24, et elle ne produit aucun run rouge.');
+}
+// ⭐ L'instrument se declare : sans montants temoins, tout ce bloc serait vert
+// pour la seule raison qui rend un banc inutile.
+dit(aChercher.length >= 10, `${aChercher.length} montant(s) temoin(s) — assez pour que ce bloc prouve quelque chose`,
+  aChercher.length >= 10 ? null : 'TROP PEU : ce controle ne garde presque rien');
+
 // ── 3. LES EMPLACEMENTS DE COTE SONT VIDES DANS LE HTML ───────────────────
 // ⭐ Le controle qui attrape la faute la plus probable des lots suivants :
 // quelqu'un ajoute une prop `valeur` a <Cote> « juste pour cette page-la ».
