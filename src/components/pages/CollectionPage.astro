@@ -6,11 +6,25 @@ import { itemListLd } from '../../../engine/lib/seo.mjs';
 import { siteUrl } from '../../../engine/lib/manifest.mjs';
 import { t, localize, numberLocale } from '../../../engine/lib/i18n.mjs';
 import { rar, gemsM } from '../../../engine/lib/vitrine.mjs';
+import { coteFermee as coteEstFermee } from '../../../engine/lib/cote.mjs';
+import Cote from '../Cote.astro';
 
 const { lang, col, updatedAt } = Astro.props;
 const root = siteUrl();
 const nf = numberLocale[lang] || 'en-GB';
-const items = [...col.items].sort((a, b) => (b.floor ?? 0) - (a.floor ?? 0));
+// 🔴 LOT 101 — `col.items` arrive DEJA trie par plancher decroissant depuis
+// `dataset.mjs`, ou le prix existe encore. ⛔ Ne pas re-trier ici.
+const items = col.items;
+const coteFermee = coteEstFermee();
+// ⭐ Deux agregats PUBLICS remplacent le plancher et le plus-haut du set.
+// ⛔ Un min de planchers EST un plancher : il ne pouvait pas rester, et il ne
+// pouvait pas non plus devenir un <Cote> — celui-ci sert une piece, pas une
+// somme, et il n'existe pas d'uuid pour un ensemble.
+// ⭐⭐ ON NE LAISSE PAS DEUX TROUS : le tirage total et le nombre d'offres
+// sont vrais, publics, et disent quelque chose du set — sa rarete et son
+// activite. Une case vide aurait juste eu l'air casse.
+const tirageTotal = items.reduce((n, i) => n + (i.tirage || 0), 0);
+const offresTotal = items.reduce((n, i) => n + (i.listings || 0), 0);
 const money = (v) => (v === null || v === undefined ? '—' : v.toLocaleString(nf, { maximumFractionDigits: 2 }));
 const path = `/collection/${col.slug}/`;
 const ld = [itemListLd(items.map((i) => ({ name: i.name, url: `${root}${localize(lang, i.path)}` })), `${root}${localize(lang, path)}`)];
@@ -37,8 +51,17 @@ const titreCollection = `${t(lang, 'item.collection')} : ${col.name}`;
   {/* ⭐ Les trois chiffres de la série, au format `stats` de la maquette. */}
   <div class="stats">
     <div class="stat stat--bleu"><div class="etiq">{t(lang, 'collections.items')}</div><div class="stat__v">{items.length}</div></div>
-    <div class="stat"><div class="etiq">{t(lang, 'movers.floor')}</div><div class="stat__v">{money(Math.min(...items.map((i) => i.floor ?? Infinity)))}</div></div>
-    <div class="stat"><div class="etiq">{t(lang, 'item.high')}</div><div class="stat__v">{money(Math.max(...items.map((i) => i.ath ?? 0)))}</div></div>
+    {coteFermee ? (
+      <>
+        <div class="stat"><div class="etiq">{t(lang, 'item.supply')}</div><div class="stat__v">{tirageTotal ? tirageTotal.toLocaleString(nf) : '—'}</div></div>
+        <div class="stat"><div class="etiq">{t(lang, 'item.listings')}</div><div class="stat__v">{offresTotal ? offresTotal.toLocaleString(nf) : '—'}</div></div>
+      </>
+    ) : (
+      <>
+        <div class="stat"><div class="etiq">{t(lang, 'movers.floor')}</div><div class="stat__v">{money(Math.min(...items.map((i) => i.floor ?? Infinity)))}</div></div>
+        <div class="stat"><div class="etiq">{t(lang, 'item.high')}</div><div class="stat__v">{money(Math.max(...items.map((i) => i.ath ?? 0)))}</div></div>
+      </>
+    )}
   </div>
 
   {/* ⭐ LA SÉRIE SE REGARDE AVANT DE SE LIRE. Un tableau compare des chiffres ;
@@ -46,7 +69,7 @@ const titreCollection = `${t(lang, 'item.collection')} : ${col.name}`;
       la grille passe donc en premier, et le tableau reste dessous pour qui veut
       comparer ligne à ligne. */}
   <div class="grille">{items.slice(0, 24).map((i, k) => (
-    <Carte item={i} href={localize(lang, i.path)} nf={nf} i={k} />
+    <Carte item={i} lang={lang} href={localize(lang, i.path)} nf={nf} i={k} />
   ))}</div>
 
   {items.length > 24 && (
@@ -67,7 +90,9 @@ const titreCollection = `${t(lang, 'item.collection')} : ${col.name}`;
             <td class="c-2"><span class="puce puce--rar">
               {i.rarity && <Fragment set:html={rar(i.rarity)} />}
             </span></td>
-            <td class="n c-5"><span class="prix"><Fragment set:html={gemsM()} /><b>{money(i.floor)}</b>{i.prixAberrant && <span class="alerte" title={t(lang, 'item.outlier')}>!</span>}</span></td>
+            <td class="n c-5"><span class="prix"><Fragment set:html={gemsM()} /><b>{coteFermee
+              ? <Cote lang={lang} uuid={i.uuid} champ="floor" />
+              : money(i.floor)}</b>{i.prixAberrant && <span class="alerte" title={t(lang, 'item.outlier')}>!</span>}</span></td>
             <td class="n c-4">{i.listings ?? '—'}</td>
           </tr>
         ))}</tbody>

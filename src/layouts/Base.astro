@@ -3,12 +3,13 @@ import { createHash } from 'node:crypto';
 import { manifest, siteUrl } from '../../engine/lib/manifest.mjs';
 import { acces, connecte } from '../../engine/lib/access.mjs';
 import { jsonld, websiteLd, pageTitle, homeTitle, breadcrumbLd } from '../../engine/lib/seo.mjs';
-import { locales, t, pick, localize, localeNames, dateLocale } from '../../engine/lib/i18n.mjs';
+import { locales, t, pick, localize, localeNames, dateLocale, numberLocale } from '../../engine/lib/i18n.mjs';
 import { degradesSpark } from '../../engine/lib/vitrine.mjs';
 import { DOCS, legalTitle } from '../../engine/lib/legal.mjs';
 import { activeSections, sectionMeta, languesDuSite } from '../../engine/lib/editorial_pages.mjs';
 import { priceEnabled, searchEnabled } from '../../engine/lib/features.mjs';
 import Figures from '../components/Figures.astro';
+import CoteScript from '../components/CoteScript.astro';
 import { blogEnabled, blogMeta, languesBlog } from '../../engine/lib/blog.mjs';
 
 const m = manifest();
@@ -315,7 +316,15 @@ const menuComplet = wikiNav
         ? [{ href: '/compte/', label: t(lang, 'account.title') }] : []);
 ---
 <!doctype html>
-<html lang={lang}>
+<!-- ⭐ `data-nf` — LOT 101. Le script des cotes met en forme des nombres et
+     doit donc connaitre la locale. ⛔ Il ne peut PAS la deduire de
+     `<html lang>` : le site sert `en`, `fr`, `es`, `de` alors que les
+     formats attendus sont `en-GB`, `fr-FR`… — c'est `numberLocale` qui
+     fait la correspondance, cote serveur, et lui seul. Un `toLocaleString`
+     nourri d'un code de langue nu ne plante pas : il rend un format
+     plausible et faux, ce qui est exactement le genre de defaut qu'on ne
+     voit jamais depuis la langue par defaut. -->
+<html lang={lang} data-nf={numberLocale[lang] || 'en-GB'}>
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
@@ -1064,5 +1073,14 @@ const menuComplet = wikiNav
   })();
 </script>
 )}
+{/* 🔴 LOT 101 — LE REMPLISSAGE DES COTES VIT DANS SON PROPRE FICHIER.
+    ⭐⭐⭐ ET CE N'EST PAS UN RANGEMENT. `test:session` refuse qu'un fichier
+    melange le cookie d'affichage et une decision de palier ; ce gabarit porte
+    deja le premier. Ecrire le script ici aurait fait rougir ce banc — et il
+    aurait eu RAISON : la question « ce site vend-il sa cote ? » et la question
+    « cette personne y a-t-elle droit ? » ne doivent pas se croiser dans le meme
+    fichier, meme quand la seconde n'est pas posee. Le composant decide s'il
+    s'emet ; ce gabarit-ci ne sait rien des paliers, et c'est mieux ainsi. */}
+<CoteScript />
 </body>
 </html>

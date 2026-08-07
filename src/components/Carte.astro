@@ -9,8 +9,15 @@
 // appliquées à rien, sans la moindre erreur pour le dire.
 // ⛔ SUPPRIMER `src/components/Piece.astro` après dépôt.
 import { rar, delta, gemsM, esc } from '../../engine/lib/vitrine.mjs';
+import { coteFermee as coteEstFermee } from '../../engine/lib/cote.mjs';
+import Cote from './Cote.astro';
 
-const { item, href, nf, i = 0, ed = false, libre = false } = Astro.props;
+const { item, lang, href, nf, i = 0, ed = false, libre = false } = Astro.props;
+// 🔴 LOT 101 — la carte ne porte plus de montant quand la cote est fermee.
+// ⭐ ELLE NE TESTE PAS `item.floor` : apres `projeter()` ce champ est absent
+// pour TOUT LE MONDE, donc un test sur sa valeur confondrait « ferme » et
+// « pas encore collecte » — deux etats qui meritent deux affichages.
+const coteFermee = coteEstFermee();
 const money = (v) => (v === null || v === undefined ? '—' : v.toLocaleString(nf, { maximumFractionDigits: 2 }));
 
 // ⚠️ `--i` porte le rang dans la grille : le thème s'en sert pour décaler
@@ -48,12 +55,17 @@ const money = (v) => (v === null || v === undefined ? '—' : v.toLocaleString(n
     {/* Le bandeau ATL/ATH sur la vignette. ⭐ Sur une CARTE il est la seule
         information d'amplitude disponible ; sur la FICHE il serait redondant —
         le même composant, deux contextes, deux verdicts. */}
-    {item.atl != null && item.ath != null && (
+    {coteFermee ? (
+      <span class="socle__ext" aria-hidden="true">
+        <span class="b"><i>ATL</i><b><Cote lang={lang} uuid={item.uuid} champ="atl" /></b></span>
+        <span class="h"><i>ATH</i><b><Cote lang={lang} uuid={item.uuid} champ="ath" /></b></span>
+      </span>
+    ) : (item.atl != null && item.ath != null && (
       <span class="socle__ext" aria-hidden="true">
         <span class="b"><i>ATL</i><b>{money(item.atl)}</b></span>
         <span class="h"><i>ATH</i><b>{money(item.ath)}</b></span>
       </span>
-    )}
+    ))}
     {libre && <span class="socle__coin etiq">Libre</span>}
   </div>
 
@@ -67,7 +79,12 @@ const money = (v) => (v === null || v === undefined ? '—' : v.toLocaleString(n
       <span class="cartouche__s">{ed && item.edition_type ? item.edition_type : ''}</span>
     </div>
     <div class="cartouche__l" style="border:0;padding-top:0">
-      <span class="prix"><Fragment set:html={gemsM()} />{money(item.floor)}</span>
+      {/* ⭐ LE PICTOGRAMME GEMS RESTE, MEME FERME. Il dit dans quelle UNITE se
+          compte ce qui est cache — et une unite n'est pas un montant. Le retirer
+          rendrait le tiret muet : on ne saurait meme plus de quoi il s'agit. */}
+      <span class="prix"><Fragment set:html={gemsM()} />{coteFermee
+        ? <Cote lang={lang} uuid={item.uuid} champ="floor" />
+        : money(item.floor)}</span>
       <Fragment set:html={delta(item.change7d, { blanc: true })} />
     </div>
   </div>

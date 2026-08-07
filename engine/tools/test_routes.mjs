@@ -85,6 +85,12 @@ console.log(`     langues du site ${langsSite.join(', ')} · prix ${prix ? 'ON' 
 // --- La construction des attentes -------------------------------------------
 const attentes = [];   // { chemin, pourquoi }
 const veut = (p, pourquoi) => attentes.push({ chemin: p, pourquoi });
+// 🔴 LOT 101 — L'ATTENTE INVERSE. Ce banc ne savait que reclamer des pages ;
+// il lui manquait de savoir en INTERDIRE. ⭐ Un arbitrage de retrait n'est
+// tenu que s'il est verifie : sinon il ne survit qu'aussi longtemps que la
+// memoire de celui qui l'a pris.
+const interdites = [];   // { chemin, pourquoi }
+const refuse = (p, pourquoi) => interdites.push({ chemin: p, pourquoi });
 
 // ═══════════════════════════════════════════════════════════════════════════
 // L'ACCUEIL — ET LE PIEGE QUE CE BANC S'ETAIT TENDU A LUI-MEME.
@@ -130,7 +136,14 @@ for (const l of langsAccueil) {
 // LES PAGES DE PRIX, si le site en publie.
 if (prix) {
   for (const l of active) {
-    veut(localize(l, '/market/'), 'le manifeste declare data_modules (movers)');
+    // 🔴🔴 LOT 101 — CE BANC EXIGEAIT `/market/`. IL EXIGE MAINTENANT SON
+    // ABSENCE, et ce n'est pas la meme chose que de le supprimer.
+    // ⭐⭐⭐ Un banc qu'on efface parce qu'il gene ne protege plus rien ; un
+    // banc qu'on RETOURNE protege la decision. Sans cette ligne, le jour ou
+    // quelqu'un recree `src/pages/market.astro` — par un portage de maquette,
+    // par un retour en arriere sur un lot — la page repartirait en production
+    // avec ses floors, et la CI serait verte.
+    refuse(localize(l, '/market/'), 'arbitrage Preda du 06/08 : le Market n\'est pas visible en public');
     veut(localize(l, '/collections/'), 'le manifeste declare data_modules (collection_index)');
   }
 }
@@ -159,6 +172,25 @@ dit(manquantes.length === 0, `${attentes.length} route(s) attendue(s) presente(s
 for (const a of manquantes) {
   console.log(`     🔴 ${a.chemin}`);
   console.log(`        attendue parce que : ${a.pourquoi}`);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 2 ter. LES PAGES QUI NE DOIVENT PAS EXISTER — lot 101
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐⭐⭐ « Un banc se juge sur ce qu'il LAISSE PASSER. » Celui-ci laissait
+// passer la reapparition d'une page retiree sur arbitrage. Le Market a ete
+// ferme parce qu'il donnait gratuitement ce que le site vend ; rien, jusqu'ici,
+// n'aurait signale son retour — ni le compilateur (une page en plus n'est pas
+// une erreur), ni la section 2 (elle ne sait que reclamer).
+if (interdites.length) {
+  console.log(`\n2 ter. Les pages RETIREES sur arbitrage ne sont pas revenues`);
+  const revenues = interdites.filter((a) => existePage(a.chemin));
+  dit(revenues.length === 0, `${interdites.length} route(s) interdite(s) absente(s) de dist/`,
+    revenues.length === 0 ? 'aucune n\'est revenue' : `${revenues.length} REVENUE(S)`);
+  for (const a of revenues) {
+    console.log(`     🔴 ${a.chemin}`);
+    console.log(`        cette page NE DOIT PAS etre produite : ${a.pourquoi}`);
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

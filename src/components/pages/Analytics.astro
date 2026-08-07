@@ -39,6 +39,7 @@ import Figures from '../Figures.astro';
 import { dataset } from '../../../engine/lib/dataset.mjs';
 import { registreFigures, figureHTML, contexteFigure } from '../../../engine/lib/figures.mjs';
 import { franchit, porte, acces } from '../../../engine/lib/access.mjs';
+import { coteFermee as coteEstFermee } from '../../../engine/lib/cote.mjs';
 import { t, localize, numberLocale, dateLocale } from '../../../engine/lib/i18n.mjs';
 import { rar, gemsM } from '../../../engine/lib/vitrine.mjs';
 
@@ -65,9 +66,25 @@ const toutOuvert = MODULES.every((mo) => ouvert[mo]);
 // montre un plus-bas au-dessus d'un plus-haut détruit la confiance qu'elle
 // existe pour construire. ⛔ On ne les CORRIGE pas ici — corriger à l'affichage
 // masquerait la panne au lieu de la soigner. On les écarte, et on le dit.
-const avecExtremes = ds.items.filter((i) => i.ath && i.atl && i.atl <= i.ath);
-const ecartes = ds.items.filter((i) => i.ath && i.atl && i.atl > i.ath).length;
-const amplitude = (i) => (i.atl > 0 ? i.ath / i.atl : 0);
+// 🔴 LOT 101 — L'OUTIL D'AMPLITUDE SURVIT, SES DEUX COLONNES DE PRIX NON.
+// ⭐⭐ C'ETAIT LE VRAI RISQUE DE CE LOT SUR CETTE PAGE : `ath` et `atl` ayant
+// disparu du jeu public, ce tableau se serait rendu VIDE — huit lignes en
+// moins, aucune erreur, et une page de demonstration qui ne demontre plus
+// rien. Un tableau vide ne se signale pas : il a l'air correct.
+// ⭐ La parade n'est pas de le retirer : c'est de garder ce qui ne fuit pas.
+// `item.amplitude` (le rapport) est calcule dans `dataset.mjs` AVANT la
+// projection, il n'a pas d'unite, il ne rend aucun montant — et c'est LUI qui
+// portait deja l'information (le classement se fait dessus, pas sur les bornes).
+const coteFermee = coteEstFermee();
+const avecExtremes = coteFermee
+  ? ds.items.filter((i) => i.amplitude)
+  : ds.items.filter((i) => i.ath && i.atl && i.atl <= i.ath);
+// ⚠️ `ecartes` compte les paires INCOHERENTES (atl > ath). Cote fermee, on ne
+// peut plus les compter — les deux champs n'existent plus. On rend 0 plutot
+// qu'un chiffre invente : la phrase « n paires ecartees » disparait alors,
+// au lieu d'annoncer un filtre qu'on n'a pas applique.
+const ecartes = coteFermee ? 0 : ds.items.filter((i) => i.ath && i.atl && i.atl > i.ath).length;
+const amplitude = (i) => (coteFermee ? (i.amplitude || 0) : (i.atl > 0 ? i.ath / i.atl : 0));
 const demoExtremes = [...avecExtremes].sort((a, b) => amplitude(b) - amplitude(a)).slice(0, 8);
 
 // Les figures publiques : de la donnée agrégée, déjà sourcée et datée.
@@ -130,15 +147,17 @@ const figuresPro = [...reg.values()].filter((f) => !FIG_DEMO.includes(f.id));
   <div class="tbl-hote"><table>
     <thead><tr>
       <th class="rang">#</th><th>{t(lang, 'movers.item')}</th>
-      <th class="n">{t(lang, 'item.atl')}</th><th class="n">{t(lang, 'item.ath')}</th>
+      {!coteFermee && <><th class="n">{t(lang, 'item.atl')}</th><th class="n">{t(lang, 'item.ath')}</th></>}
       <th class="n">×</th>
     </tr></thead>
     <tbody>{demoExtremes.map((i, k) => (
       <tr>
         <td class="rang">{String(k + 1).padStart(2, '0')}</td>
         <td><a href={localize(lang, i.path)}>{i.name}</a></td>
-        <td class="n"><span class="num">{i.atl.toLocaleString(nf, { maximumFractionDigits: 2 })}</span></td>
-        <td class="n"><span class="num">{i.ath.toLocaleString(nf, { maximumFractionDigits: 2 })}</span></td>
+        {!coteFermee && <>
+          <td class="n"><span class="num">{i.atl.toLocaleString(nf, { maximumFractionDigits: 2 })}</span></td>
+          <td class="n"><span class="num">{i.ath.toLocaleString(nf, { maximumFractionDigits: 2 })}</span></td>
+        </>}
         <td class="n"><span class="num">{amplitude(i).toFixed(1)}</span></td>
       </tr>
     ))}</tbody>

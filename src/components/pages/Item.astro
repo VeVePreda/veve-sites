@@ -6,13 +6,15 @@ import Gate from '../Gate.astro';
 // reste du frontmatter n'est toujours pas retouché.
 import Cadran from '../Cadran.astro';
 import { dataset } from '../../../engine/lib/dataset.mjs';
-import { priceChartSVG } from '../../../engine/lib/chart.mjs';
+import { priceChartSVG, courbeSVG } from '../../../engine/lib/chart.mjs';
+import Cote from '../Cote.astro';
 import { productLd, breadcrumbLd } from '../../../engine/lib/seo.mjs';
 import { manifest, siteUrl } from '../../../engine/lib/manifest.mjs';
 import { t, localize, numberLocale, dateLocale } from '../../../engine/lib/i18n.mjs';
 import { postsForItem } from '../../../engine/lib/blog.mjs';
 import { rar, forme, delta, gemsM, RAR, omiM, mcpPoints } from '../../../engine/lib/vitrine.mjs';
-import { franchit } from '../../../engine/lib/access.mjs';
+import { franchit, porte } from '../../../engine/lib/access.mjs';
+import { coteFermee as coteEstFermee } from '../../../engine/lib/cote.mjs';
 import BarreAcces from '../BarreAcces.astro';
 // Les cinq modules d'analyse, dans l'ordre de la maquette.
 // ⛔ `MODULES` A ETE RETIRE LE 03/08/2026 (lot 43) : le bloc qui le lisait a
@@ -34,11 +36,24 @@ const path = item.path;
 const url = `${root}${localize(lang, path)}`;
 const nf = numberLocale[lang] || 'en-GB';
 const df = dateLocale[lang] || 'en-GB';
-const svg = priceChartSVG(item.history, { label: t(lang, 'chart.label') });
+// 🔴 LOT 101 — DEUX COURBES, ET LE MANIFESTE CHOISIT.
+// Cote fermee : `item.courbe` est deja normalisee 0..1000 par `cote.mjs`, il
+// n'existe plus un seul montant a tracer, et `courbeSVG` n'ecrit aucune
+// graduation chiffree. Cote ouverte : rien ne change, ancien chemin.
+// ⛔ NE PAS faire une fonction unique qui devine : un rendu qui decide seul
+// s'il a le droit d'ecrire un prix est un verrou pose sur une heuristique.
+const coteFermee = coteEstFermee();
+const svg = coteFermee
+  ? courbeSVG(item.courbe, { label: t(lang, 'chart.label') })
+  : priceChartSVG(item.history, { label: t(lang, 'chart.label') });
 const money = (v) => (v === null || v === undefined ? '—' : v.toLocaleString(nf, { maximumFractionDigits: 2 }));
 const pct = (v) => (v === null || v === undefined ? '—' : `${v > 0 ? '+' : ''}${v.toFixed(1)} %`);
 const cls = (v) => (v === null || v === undefined ? '' : v > 0 ? 'up' : v < 0 ? 'down' : '');
-const recent = [...item.history].slice(-10).reverse();
+// ⚠️ `?? []` OBLIGATOIRE DEPUIS LE LOT 101 : `projeter()` supprime
+// `item.history`, et `[...undefined]` LEVE. Ce tableau n'est plus rendu
+// (retire le 03/08 a la demande de Preda) mais il reste calcule — un
+// frontmatter qui plante fait echouer les 1 200 pages, pas une.
+const recent = [...(item.history || [])].slice(-10).reverse();
 const relatedPosts = await postsForItem(lang, item.uuid);
 // L'appel a l'action (total, reste cache, lien d'offre) vit desormais dans
 // <Gate> : la page ne calcule plus rien qui touche au palier.
@@ -115,7 +130,15 @@ const titreItem = (() => {
 })();
 const anneeDebut = item.since ? new Date(item.since).getFullYear() : null;
 const serieTxt = item.series ? ` (${item.series})` : '';
-const descItem = (item.floor && item.totalPoints && anneeDebut)
+// 🔴 LOT 101 — LA DESCRIPTION NE PROMET PLUS UN PRIX QU'ELLE N'AFFICHE PLUS.
+// `desc.item` porte `{price}` : la laisser aurait ecrit le plancher dans la
+// balise <meta description> — c'est-a-dire dans le resultat Google, donc dans
+// la seule vitrine qu'on ne peut pas rappeler. ⭐ `desc.itemShort` existe
+// deja et ne cite aucun montant : on bascule dessus, on n'invente rien.
+// ⚠️ La reecriture des ~25 cles par langue qui PROMETTENT un prix est le
+// LOT 102 — celle-ci est traitee ici parce qu'elle FUIT une valeur, les
+// autres ne font que mentir sur ce que la page montre.
+const descItem = (!coteFermee && item.floor && item.totalPoints && anneeDebut)
   ? t(lang, 'desc.item', { name: item.qualifie || item.name, series: serieTxt, price: money(item.floor), n: item.totalPoints.toLocaleString(nf), year: anneeDebut, brand: m.site.brand })
   : t(lang, 'desc.itemShort', { name: item.qualifie || item.name, series: serieTxt, brand: m.site.brand });
 
@@ -386,7 +409,9 @@ const mcpJour = mcpPoints(item.rarity, item.type);
                  style="margin-left:auto">{t(lang, 'item.viewVeve')} ↗</a>
             )}
           </div>
-          <div class="mur__v">{money(item.floor)}<span class="mur__u">gems</span></div>
+          <div class="mur__v">{coteFermee
+            ? <Cote lang={lang} uuid={item.uuid} champ="floor" />
+            : money(item.floor)}<span class="mur__u">gems</span></div>
           <div class="mur__eq">{item.listings ?? '—'} {t(lang, 'item.listings')}</div>
           <div class="mur__d">
             {[['item.7d', item.change7d], ['item.30d', item.change30d]].map(([k, v]) => (
@@ -437,7 +462,16 @@ const mcpJour = mcpPoints(item.rarity, item.type);
           que j'avais manqué deux fois. L'ATH et l'ATL n'ont de sens QUE par
           rapport au prix du jour : les isoler dans deux cartouches les coupe de
           leur seule référence. Le curseur EST l'information. */}
-      {item.atl != null && item.ath != null && (
+      {/* 🔴 LOT 101 — LA JAUGE NE SE REND PAS QUAND LA COTE EST FERMEE.
+          ⛔ Elle ne pouvait pas devenir une suite de <Cote> : sa VALEUR est la
+          POSITION du curseur, calculee `(floor - atl) / (ath - atl)` — trois
+          prix dans une seule coordonnee CSS. Un curseur place a 63 % le long
+          d'une amplitude connue REND le plancher a qui sait diviser. La cacher
+          par du CSS l'aurait laissee dans l'attribut `style`, servie a tous.
+          ⭐ On ne la remplace par rien ici : le <Gate> et le <Cadran> plus bas
+          portent deja l'appel a l'action, et un deuxieme verrou sur la meme
+          page se lit comme un site qui ne montre rien, pas comme une offre. */}
+      {!coteFermee && item.atl != null && item.ath != null && (
         <div class="jauge">
           <div class="jauge__b">
             <div class="jauge__r"></div>

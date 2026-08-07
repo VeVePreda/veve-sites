@@ -38,11 +38,22 @@ const DEFAUTS_PORTES = {
   modules:      { binaire: true, tier: 'crevette' },
   alerts:       { binaire: true, tier: 'crevette', caps: { member: 0, crevette: 2, langouste: 10, whale: -1 } },
   wallet_watch: { binaire: true, tier: 'whale' },
+  // 🔴 LOT 101 (07/08/2026) — LA COTE : prix plancher courant, extrêmes,
+  // percentiles. Arbitrage Preda du 06/08 : « pas le floor price actuel ».
+  // ⚠️ CE DÉFAUT SUFFIT À L'ACTIVER, et il faut le savoir : `actif` vaut
+  // `tier !== visitor && tiers.includes(tier)`. Tout site qui VEND le palier
+  // `crevette` ferme donc sa cote sans avoir écrit une ligne — c'est-à-dire
+  // veveprice, et lui seul (vevewiki déclare `tiers: [visitor]`, mesuré).
+  // ⛔ Ne pas lire cette ligne comme « inerte par défaut » : les cinq portes
+  // au-dessus se comportent pareil, et c'est le contrat de ce fichier.
+  // ⭐ veveprice la déclare quand même EXPLICITEMENT dans son manifeste : un
+  // arbitrage commercial doit se lire là où Preda le relira, pas ici.
+  cote:         { binaire: true, tier: 'crevette' },
 };
 
 // Ce que le moteur sait faire. Une porte inconnue est une faute de frappe,
 // pas une fonctionnalite a venir : on prefere l'erreur bruyante.
-const PORTES_CONNUES = new Set(['price_history', 'extremes', 'modules', 'alerts', 'wallet_watch']);
+const PORTES_CONNUES = new Set(['price_history', 'extremes', 'modules', 'alerts', 'wallet_watch', 'cote']);
 
 let _cache = null;
 

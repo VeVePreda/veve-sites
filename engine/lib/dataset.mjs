@@ -7,6 +7,7 @@
 //    taille du fichier, qui grandit indefiniment avec le backfill.
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { projeter as projeterCote } from './cote.mjs';
 import { getCatalogue, getBaselines, streamPrices } from '../data/warehouse.mjs';
 import { manifest, SITE } from './manifest.mjs';
 import { porte } from './access.mjs';
@@ -475,6 +476,18 @@ async function construireDataset() {
     // une echelle globale (un objet a 5 000 gems n'a rien d'anormal en soi).
     const repere = item.p95 || item.prixMedian;
     item.prixAberrant = !!(repere && item.floor && item.floor > repere * FACTEUR_ABERRANT);
+    // ⭐⭐ LOT 101 — L'AMPLITUDE EST CALCULEE ICI, ET C'EST DELIBERE.
+    // `ath / atl` est un RAPPORT : il ne porte aucune unite et ne permet pas
+    // de reconstituer un montant (« ce jouet a fait ×12 » ne dit pas s'il vaut
+    // 3 gems ou 3 000). Il reste donc public, et c'est ce qui permet a l'outil
+    // d'amplitude d'`/analytics/` de continuer a faire ce pour quoi il existe :
+    // montrer un VRAI outil sur de la VRAIE donnee a qui ne paie pas encore.
+    // ⛔ Il DOIT etre calcule avant `projeter()` — apres, `ath` et `atl` ont
+    // disparu et le rapport vaudrait `NaN`, sur toutes les lignes, en silence.
+    // ⚠️ On garde le filtre historique `atl <= ath` : une paire incoherente
+    // rend `null`, jamais un nombre qu'il faudrait ensuite ecarter a l'ecran.
+    item.amplitude = (item.atl > 0 && item.ath > 0 && item.atl <= item.ath)
+      ? item.ath / item.atl : null;
     item.offreUnique = (item.listings ?? 0) <= 1;
     item.score = scoreUtilite(item);
     candidates.push(item);
@@ -741,6 +754,19 @@ async function construireDataset() {
     rarities.get(s).items.push(i);
   }
 
+  // ⭐⭐ LOT 101 — LES TRIS DESCENDENT ICI, ET C'EST OBLIGATOIRE.
+  // `Collections.astro` et `CollectionPage.astro` triaient eux-mêmes sur
+  // `i.floor`. Après `projeterCote()` ce champ n'existe plus côté public :
+  // le comparateur aurait rendu `0` pour toutes les paires et le tri serait
+  // devenu l'ordre d'insertion — SANS erreur, sans avertissement, et sur les
+  // 8 500 pages à la fois. ⛔ C'est la signature exacte des pannes que ce dépôt
+  // paie le plus cher : un calcul qui continue de tourner sur du vide.
+  // ⭐ On trie donc TANT QUE LE PRIX EXISTE, et l'ORDRE DU TABLEAU devient le
+  // porteur de l'information. Les gabarits ne trient plus, ils rendent.
+  const parFloorDesc = (a, b) => (b.floor ?? 0) - (a.floor ?? 0);
+  for (const c of collections.values()) c.items.sort(parFloorDesc);
+  for (const r of rarities.values()) r.items.sort(parFloorDesc);
+
   const withChange = items.filter((i) => i.change7d !== null);
   const movers = {
     up: [...withChange].filter((i) => i.change7d > 0).sort((a, b) => b.change7d - a.change7d).slice(0, 20),
@@ -783,8 +809,20 @@ async function construireDataset() {
   // tout — sans qu'aucune erreur ne le dise.
   reserve.fermer(new Set(items.map((i) => i.uuid)));
 
+  // ═════════════════════════════════════════════════════════════════════════
+  //  🔴 LA PROJECTION PUBLIQUE — DERNIÈRE ÉTAPE, ET ELLE DOIT LE RESTER
+  // ═════════════════════════════════════════════════════════════════════════
+  // Tout ce qui dépend du prix est calculé au-dessus : le score de vitrine, le
+  // repère d'aberration, le tri des sets et des raretés, les mouvements. À
+  // partir d'ici le prix courant n'a plus aucun lecteur légitime côté public —
+  // il part dans `.reserve/cote/`, et les champs quittent les objets.
+  // ⛔ NE JAMAIS remonter cet appel : au-dessus, il casserait le classement de
+  // la vitrine en silence. ⛔ NE JAMAIS ajouter un calcul sur `i.floor`
+  // en dessous : il lirait `undefined`.
+  const cote = projeterCote(items);
+
   _ds = {
-    items, bySlug, collections, rarities, movers,
+    items, bySlug, collections, rarities, movers, cote,
     catalogueSize: cat.length,
     windowDays: WINDOW_DAYS,
     maxPoints: MAX_POINTS,

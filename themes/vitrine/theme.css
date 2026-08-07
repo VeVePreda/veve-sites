@@ -1919,3 +1919,31 @@ body > main{ background:var(--bg); }
    dès que la largeur disponible devient indéfinie. */
 .tuiles{ min-width:0; }
 .tuile__n, .tuile__s{ overflow-wrap:anywhere; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LOT 101 — L'EMPLACEMENT D'UNE COTE FERMÉE
+   ═══════════════════════════════════════════════════════════════════════════
+   ⭐ Le composant `<Cote>` rend un tiret. Ces règles ne CACHENT rien — il n'y
+   a rien à cacher, le montant n'est plus dans le HTML : elles disent
+   simplement que ce tiret est un emplacement réservé, et non une donnée
+   manquante. La distinction est éditoriale et elle compte : le site doit avoir
+   l'air de retenir un chiffre, pas d'en avoir perdu un.
+   ⚠️ `font-variant-numeric` et `font-family` héritent volontairement de
+   `.prix` / `.num` : quand le chiffre arrive par JavaScript, il ne doit pas
+   changer de fonte ni décaler la ligne. Un remplissage qui fait sauter la mise
+   en page se lit comme un défaut, même quand tout marche. */
+.cote{ display:inline-flex; align-items:center; font:inherit; color:var(--muted);
+       letter-spacing:inherit; }
+.cote__v{ font-variant-numeric:tabular-nums; }
+/* ⭐ Une fois la cote reçue, l'emplacement redevient du texte courant : c'est
+   `[data-ouverte]` que le script pose, jamais une classe — un attribut se teste
+   sans lire de CSS, et les trois thèmes honorent déjà ce genre de crochet. */
+.cote[data-ouverte]{ color:inherit; }
+/* ⛔ PAS DE CURSEUR `help` NI DE SOULIGNÉ POINTILLÉ sur l'emplacement fermé :
+   le `title` suffit, et un ornement d'interactivité sur un élément qui ne
+   répond à aucun clic est un mensonge d'interface. */
+
+/* La courbe SANS ÉCHELLE — arbitrage Preda du 07/08 : « les graphes sans
+   échelle restent publics ». Elle n'a pas d'axe des ordonnées, donc elle
+   récupère l'espace que `.graph` réservait à gauche pour les graduations. */
+.graph--muet .axe{ opacity:.75; }

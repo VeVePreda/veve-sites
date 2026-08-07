@@ -134,6 +134,27 @@ access:
       tier: crevette
       public_max: 30       # relevés RÉELLEMENT exposés
       public_days: 3       # ⭐ 3 jours, pas 90 : c'est la profondeur qui se vend
+    # ═══════════════════════════════════════════════════════════════════════
+    # 🔴🔴 LA COTE — LOT 101 (07/08/2026). Arbitrage Preda du 06/08 au soir :
+    #     « on peut laisser le prix de drop mais pas le floor price actuel »
+    # et du 07/08 : « ATL/ATH derrière le mur, les graphes sans échelle restent
+    # publics ».
+    # ═══════════════════════════════════════════════════════════════════════
+    # CE QU'ELLE FERME, mot pour mot : `floor`, `ath`, `atl`, leurs dates,
+    # `prixMedian` et `p95` — la liste vit dans `CHAMPS_COTE` (engine/lib/cote.mjs)
+    # et NULLE PART AILLEURS.
+    # CE QU'ELLE LAISSE : le prix de DROP (`store_price`), le tirage, la rareté,
+    # la date de sortie, le nombre d'offres, les variations en %, et la courbe
+    # publique — dont l'échelle a été retirée à la source.
+    #
+    # ⛔⛔ CETTE PORTE NE SE FRANCHIT PAS AU BUILD, ELLE RETIRE. Les ~8 500 pages
+    # sont PRÉ-GÉNÉRÉES : un `<Gate>` y aurait laissé la donnée dans le HTML, dans
+    # le JSON-LD et dans le cache de Google. La rendre publique à nouveau ne se
+    # fait donc PAS en changeant `tier:` — il faut passer `tiers:` sans `crevette`,
+    # ou commenter ce bloc ET relancer un build complet.
+    cote:
+      binaire: true   # ouvre ou non — la cote ne se tronque pas, elle se donne ou non
+      tier: crevette
     # Les extrêmes et les modules d'analyse.
     extremes:
       binaire: true   # ouvre ou non — ni troncature ni plafond
@@ -195,7 +216,14 @@ access:
 #    Le 404 invisible devient impossible, au lieu d'être seulement déconseillé.
 nav:
   - { cle: nav.dashboard, href: /,            pret: true  }   # l'accueil fait office de tableau de bord
-  - { cle: nav.movers,    href: /market/,     pret: true  }
+  # 🔴 LOT 101 (07/08/2026) — `nav.movers` EST RETIREE, pas passee a `pret: false`.
+  # ⭐ La nuance a un sens dans ce fichier : `pret: false` dit « la page arrive »,
+  # et `etat_reel.py` le lit comme une intention en attente. Le Market ne revient
+  # pas — Preda, 06/08 : « le market ne doit pas être visible en public ». Une
+  # entree en attente aurait fait croire a un chantier, et quelqu'un l'aurait
+  # rouverte de bonne foi. ⛔ La cle i18n `nav.movers` RESTE dans les cinq
+  # dictionnaires : /offre/ et /compte/ nomment encore les modules, et
+  # `test:cles` ne dirait le contraire qu'apres un build — c'est la panne du lot 34.
   # ⭐ LOT 68 (05/08/2026) — LES SETS ENTRENT AU MENU, demande de Preda.
   # La page existe depuis toujours (`/collections/`, `Collections.astro`) et
   # l'accueil y renvoyait déjà — elle n'était atteignable QUE par ce lien.

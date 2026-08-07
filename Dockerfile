@@ -208,6 +208,16 @@ RUN WAREHOUSE_OFFLINE=1 npm run test:cles
 # restait verte : l'attente retrecissait avec la panne. Un instrument branche en
 # aval de ce qu'il mesure ne mesure rien.
 RUN WAREHOUSE_OFFLINE=1 npm run test:routes
+# 🔴🔴 `test:fuite` — LE BANC DU LOT 101, ET IL EST DIFFERENT DES 22 AUTRES.
+# Tous les autres prouvent une INTENTION (le code fait-il ce qu'on a ecrit ?).
+# Celui-ci prouve un FAIT sur le produit fini : « il n'y a pas un seul montant
+# dans ce qu'on publie ». Il ouvre les fichiers de `dist/`, prend les vrais
+# prix dans `.reserve/cote/` et va voir s'ils s'y retrouvent.
+# ⭐⭐⭐ C'est le seul controle qu'un lot FUTUR ne peut pas defaire sans le
+# faire echouer : il suffira que quelqu'un passe une valeur a un gabarit, de
+# bonne foi, pour une page neuve — et rien d'autre ne le verrait.
+# ⚠️ APRES le build, forcement : il lit `dist/`.
+RUN WAREHOUSE_OFFLINE=1 npm run test:fuite
 
 # --- Precompression : le seul gain de vitesse qui restait ------------------
 # ⭐⭐ POURQUOI PRECOMPRESSER, PLUTOT QUE DE MONTER LE NIVEAU DE gzip.
@@ -304,19 +314,34 @@ COPY --from=build /app/sites ./sites
 # ⚠️ `[^/]*` : le dossier commence par un point, et `COPY /app/.reserve` sur une
 # source absente fait echouer le build avec un message clair. C'est voulu : une
 # reserve vide doit arreter le deploiement, pas le laisser passer.
+# 🔴🔴 LOT 101 — DEUX RESERVES, DEUX COMPTES, ET C'EST OBLIGATOIRE.
+# Ce controle comptait `find .reserve -name '*.json'`, c'est-a-dire TOUT le
+# dossier. En y ajoutant `.reserve/cote/`, ce total serait devenu positif meme
+# avec ZERO historique : le garde-fou de l'historique se serait tu TOUT SEUL,
+# sans qu'une ligne le concernant ne change, et personne n'aurait pu le relier
+# au lot qui l'a eteint.
+# ⭐⭐⭐ UN CONTROLE QUI AGREGE DEUX POPULATIONS MESURE LEUR SOMME, PAS CHACUNE —
+# et c'est toujours la plus petite qui disparait dedans. On compte les deux
+# separement, et on exige les deux.
+# ⭐ La cote vide est aussi grave que l'historique vide, et plus difficile a
+# voir : le site s'affiche parfaitement, seuls LES ABONNES ne voient plus aucun
+# prix. Un deploiement vert qui ne casse que pour ceux qui paient.
 COPY --from=build /app/.reserve ./.reserve
 RUN set -e; \
     MODE=$(cat /app/.rendering); \
     if [ "$MODE" = "server" ]; then \
-      n=$(find .reserve -name '*.json' | wc -l); \
+      n=$(find .reserve/historique -name '*.json' 2>/dev/null | wc -l); \
+      nc=$(find .reserve/cote -name '*.json' 2>/dev/null | wc -l); \
       if [ "${RESERVE_OFF:-0}" = "1" ]; then \
-        echo "⚠️ RESERVE_OFF=1 : la reserve est VOLONTAIREMENT desactivee."; \
-        echo "   /api/historique/[uuid] rendra 404 pour TOUT LE MONDE."; \
+        echo "⚠️ RESERVE_OFF=1 : les reserves sont VOLONTAIREMENT desactivees."; \
+        echo "   /api/historique/[uuid] ET /api/cote/[uuid] rendront 404 pour TOUT LE MONDE."; \
         echo "   ⛔ C'est un CONTOURNEMENT, pas un reglage : le retirer des que la cause est connue."; \
       else \
-        [ "$n" -gt 0 ] || { echo "ERREUR: mode server mais la reserve est VIDE — les abonnes n'auraient aucun historique"; exit 1; }; \
+        [ "$n" -gt 0 ] || { echo "ERREUR: mode server mais la reserve d'HISTORIQUE est VIDE — les abonnes n'auraient aucun historique"; exit 1; }; \
+        [ "$nc" -gt 0 ] || { echo "ERREUR: mode server mais la reserve de COTE est VIDE — les abonnes ne verraient AUCUN prix, sur un site parfaitement vert"; exit 1; }; \
       fi; \
       echo "reserve : $n fiche(s) d'historique complet, hors de dist/"; \
+      echo "cotes   : $nc fiche(s) de prix courant, hors de dist/"; \
     fi
 # Les deux configurations voyagent dans l'image ; le lanceur choisit.
 COPY nginx.conf nginx.server.conf ./

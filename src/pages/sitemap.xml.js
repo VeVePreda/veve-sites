@@ -112,7 +112,14 @@ export async function GET() {
   // Pages de PRIX : uniquement si le site en publie. Leur texte vient de
   // engine/i18n (pas d'un Sheet) : elles existent dans toutes les langues du site.
   if (price) {
-    for (const p of ['/market/', '/collections/']) paths.push({ p, langs: langsSite });
+    // 🔴 LOT 101 — `/market/` A DISPARU DU SITEMAP EN MEME TEMPS QUE DE
+    // `src/pages/`. Un sitemap qui declare une page absente n'est pas une
+    // coquette : Search Console le compte comme une ERREUR d'exploration, et
+    // c'est le genre d'erreur qui fait baisser la confiance accordee au
+    // sitemap ENTIER. ⛔ Les 4 URL /market/ restent dans indexnow_veveprice.json
+    // et c'est VOULU : ce fichier est un JOURNAL de ce qu'on a deja soumis,
+    // pas une liste de ce qui existe. Le reecrire effacerait la trace.
+    for (const p of ['/collections/']) paths.push({ p, langs: langsSite });
     for (const i of ds.items) paths.push({ p: i.path, langs: langsSite });
     for (const c of ds.collections.values()) paths.push({ p: `/collection/${c.slug}/`, langs: langsSite });
     // ⛔ 03/08/2026 — LES PAGES /rarity/ SONT SUPPRIMEES (arbitrage assume :

@@ -15,7 +15,9 @@ const cols = [...ds.collections.values()].sort((a, b) => b.items.length - a.item
 // seule façon de dire « ceci est un ENSEMBLE » sans écrire le mot — et ça
 // distingue d'un coup d'œil une collection d'une pièce, ce que trois lignes de
 // texte identiques ne faisaient pas.
-const pile = (c) => [...c.items].sort((a, b) => (b.floor ?? 0) - (a.floor ?? 0)).slice(0, 3);
+// 🔴 LOT 101 — voir Home.astro : le tri vit desormais dans `dataset.mjs`,
+// tant que `floor` existe encore. Re-trier ici trierait sur `undefined`.
+const pile = (c) => c.items.slice(0, 3);
 
 // ═══════════════════════════════════════════════════════════════════════════
 // LOT 68 — LE MODULE DE FILTRES DES SETS (demande de Preda, 05/08/2026)

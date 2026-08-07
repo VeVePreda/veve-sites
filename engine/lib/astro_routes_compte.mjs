@@ -60,6 +60,13 @@ const ROUTES_COMPTE = [
   // la pré-générerait en silence — le fichier serait figé au build, à vide,
   // et répondrait « pas de session » à un abonné parfaitement connecté.
   'pages/api/historique/[uuid].js',
+  // 🔴 LOT 101 — LA COTE. Même famille, même raison : elle lit `locals.palier`,
+  // donc elle n'a de sens qu'en mode server. ⛔ L'oublier ici ne casse RIEN au
+  // build : la route resterait pré-générée et répondrait le refus de tout le
+  // monde, en silence, sur un site par ailleurs vert. C'est la panne du lot 24,
+  // et c'est pour ça que `test:routes` compte les routes basculées.
+  'pages/api/cote/[uuid].js',
+  'pages/api/cote/lot.js',
   // ⭐⭐ AJOUTÉES LE 03/08/2026 — LOT 42.
   // `/inscription/` lit `Accept-Language` comme `/compte/` et `/connexion/` :
   // elle DOIT être à la demande, sinon elle sert la langue du build à tout le

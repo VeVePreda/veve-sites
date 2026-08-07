@@ -19,6 +19,8 @@ import { dataset } from '../../../engine/lib/dataset.mjs';
 import { manifest } from '../../../engine/lib/manifest.mjs';
 import { t, pick, localize, numberLocale } from '../../../engine/lib/i18n.mjs';
 import { pli, delta, gemsM } from '../../../engine/lib/vitrine.mjs';
+import { coteFermee as coteEstFermee } from '../../../engine/lib/cote.mjs';
+import Cote from '../Cote.astro';
 // ⭐ AJOUT SEUL (lot 45). `serie` rend les articles d'une etiquette dans leur
 // ordre de lecture ; `dureeLecture` donne les minutes, dites ou calculees.
 import { serie, dureeLecture, SEUIL_PAGE_TAG } from '../../../engine/lib/blog.mjs';
@@ -60,8 +62,14 @@ const tick = [...up, ...down];
 // survécu, comme le module en double du 05/08.
 // ⭐ La leçon n'est pas « attention aux parenthèses » : c'est qu'un correctif
 // se cherche AUSSI dans les gabarits voisins, par le motif et pas par le nom.
-const pile = (c) => [...c.items].sort((a, b) => (b.floor ?? 0) - (a.floor ?? 0)).slice(0, 3);
+// 🔴 LOT 101 — LE TRI A DESCENDU DANS `dataset.mjs`. `c.items` arrive DEJA
+// trie par plancher decroissant, tant que le prix existait encore. ⛔ Ne pas
+// re-trier ici : apres `projeter()`, `i.floor` vaut `undefined`, le
+// comparateur rendrait 0 pour toutes les paires et l'ordre deviendrait celui
+// de l'insertion — sans erreur, sans avertissement, sur toutes les pages.
+const pile = (c) => c.items.slice(0, 3);
 const piece = featured.find((i) => i.image) || null;
+const coteFermee = coteEstFermee();
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 🔴 LES VISUELS DES QUATRE BOÎTES — le défaut signalé par Preda le 03/08.
@@ -202,7 +210,9 @@ const horo = maj ? `${String(maj.getUTCDate()).padStart(2,'0')}.${String(maj.get
           <a class="tick" href={localize(lang, i.path)}>
             <Fragment set:html={pli(i.rarity)} />
             <b>{i.name.slice(0, 26)}</b>
-            <span class="num"><Fragment set:html={gemsM()} /> {money(i.floor)}</span>
+            <span class="num"><Fragment set:html={gemsM()} /> {coteFermee
+              ? <Cote lang={lang} uuid={i.uuid} champ="floor" />
+              : money(i.floor)}</span>
             <Fragment set:html={delta(i.change7d)} />
           </a>
         ))}</>
@@ -242,9 +252,20 @@ const horo = maj ? `${String(maj.getUTCDate()).padStart(2,'0')}.${String(maj.get
     {V.boites?.length > 0 && (
       <>
         <div class="sect-t sect-t--gd"><h2 class="mono-t">{t(lang, 'home.what')}</h2></div>
+        {/* 🔴 LOT 101 — LES QUATRE BOITES NE MENENT PLUS AU MARCHE : il n'existe
+            plus (Preda, 06/08 : « le market ne doit pas être visible en public »).
+            Elles menent aux SETS, qui restent publics et qui sont la vraie porte
+            d'entree du catalogue.
+            ⛔ Ne pas les laisser pointer vers `/market/` « le temps de voir » : un
+            lien vers une page non emise est un 404 INVISIBLE AU BUILD — c'est un
+            lien, pas une route, donc rien ne le verifie. Le defaut a deja ete paye
+            deux fois sur ce depot.
+            ⚠️ ET LE COMMENTAIRE EST ICI, PAS DANS LE `.map()` : un commentaire JSX
+            place en tete d'un retour entre parentheses n'est pas un commentaire,
+            c'est un objet — « Expected `,` or `)` », build casse. */}
         <div class="boites">
           {V.boites.map((b, i) => (
-            <a href={localize(lang, '/market/')}
+            <a href={localize(lang, '/collections/')}
                style={`grid-column:span ${b.span || 6};grid-row:span ${b.rang || 1}`}
                class:list={['boite', 'revele', b.n === '001' ? 'boite--sect' : b.n === '002' ? 'boite--os' : b.n === '004' ? 'boite--damier damier' : '']}>
               <span class="boite__n">{b.n}</span>
@@ -300,7 +321,7 @@ const horo = maj ? `${String(maj.getUTCDate()).padStart(2,'0')}.${String(maj.get
         conditionnel sortirait fige pour tout le monde, y compris Google. Un
         seul titre vrai vaut mieux que deux dont un ne s'affiche jamais. */}
     <div class="sect-t sect-t--gd"><h2 class="mono-t">{t(lang, 'home.featured')}</h2></div>
-    <div class="grille">{featured.map((i, k) => <Carte item={i} href={localize(lang, i.path)} nf={nf} i={k} ed />)}</div>
+    <div class="grille">{featured.map((i, k) => <Carte item={i} lang={lang} href={localize(lang, i.path)} nf={nf} i={k} ed />)}</div>
 
 
     {/* ═══ HAUSSES ET BAISSES SUR LA MEME LIGNE — lot 45, demande Preda ═══
@@ -320,12 +341,12 @@ const horo = maj ? `${String(maj.getUTCDate()).padStart(2,'0')}.${String(maj.get
         hierarchie qui n'existe pas. */}
     <div class="deux-col">
       <section>
-        <div class="sect-t sect-t--gd" style="margin-top:0"><h2 class="mono-t">{t(lang, 'home.up')}</h2><a href={localize(lang, '/market/')}>{t(lang, 'home.allMarket')} →</a></div>
-        <div class="grille">{up.map((i, k) => <Carte item={i} href={localize(lang, i.path)} nf={nf} i={k} />)}</div>
+        <div class="sect-t sect-t--gd" style="margin-top:0"><h2 class="mono-t">{t(lang, 'home.up')}</h2></div>
+        <div class="grille">{up.map((i, k) => <Carte item={i} lang={lang} href={localize(lang, i.path)} nf={nf} i={k} />)}</div>
       </section>
       <section>
-        <div class="sect-t sect-t--gd" style="margin-top:0"><h2 class="mono-t">{t(lang, 'home.down')}</h2><a href={localize(lang, '/market/')}>{t(lang, 'home.allMarket')} →</a></div>
-        <div class="grille">{down.map((i, k) => <Carte item={i} href={localize(lang, i.path)} nf={nf} i={k} />)}</div>
+        <div class="sect-t sect-t--gd" style="margin-top:0"><h2 class="mono-t">{t(lang, 'home.down')}</h2></div>
+        <div class="grille">{down.map((i, k) => <Carte item={i} lang={lang} href={localize(lang, i.path)} nf={nf} i={k} />)}</div>
       </section>
     </div>
 
