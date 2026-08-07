@@ -42,7 +42,7 @@
 #    COOLIFY_DEPLOY_URL            URL de déploiement Coolify de veveprice (déjà
 #                                  utilisée par rebuild-daily — ⛔ ne pas la dupliquer)
 #    COOLIFY_TOKEN                 jeton Coolify (déjà utilisé par rebuild-daily)
-#    DISCORD_WEBHOOK               webhook d'alerte (déjà utilisé par rebuild-daily)
+#    DISCORD_ALERTE_TECH_WEBHOOK               webhook d'alerte (déjà utilisé par rebuild-daily)
 # =============================================================================
 name: Récolte éditoriale + déploiement (tous les sites)
 
@@ -378,6 +378,6 @@ jobs:
           set -u
           run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           payload=$(printf '{"content":"🔴 **%s** : la récolte éditoriale ou le déploiement a échoué.\\n%s"}' "${{ matrix.site }}" "$run_url")
-          curl -sS -X POST -H 'Content-Type: application/json' -d "$payload" "${DISCORD_WEBHOOK}" || true
+          curl -sS -X POST -H 'Content-Type: application/json' -d "$payload" "${DISCORD_ALERTE_TECH_WEBHOOK}" || true
         env:
-          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          DISCORD_ALERTE_TECH_WEBHOOK: ${{ secrets.DISCORD_ALERTE_TECH_WEBHOOK }}

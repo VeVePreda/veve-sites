@@ -140,3 +140,23 @@ jobs:
             exit 1
           fi
           echo "Table gelee et poussee pour ${{ matrix.site }}."
+
+      # 🔊 AJOUTÉ LE 07/08/2026 — MUTUALISATION DU CANAL DE PANNES.
+      # ⭐⭐⭐ Un échec qui n'arrive nulle part n'est pas une alerte, c'est une
+      # archive. Mesuré ce jour-là : 4 workflows sur 50 alertaient. Le ledger
+      # est resté gelé deux semaines derrière un run rouge que personne ne
+      # regardait. ⛔ Tout workflow écrit ou modifié repart avec cette étape.
+      - name: Alerter sur Discord en cas d'echec
+        if: failure()
+        env:
+          DISCORD_ALERTE_TECH_WEBHOOK: ${{ secrets.DISCORD_ALERTE_TECH_WEBHOOK }}
+        run: |
+          set -u
+          if [ -z "${DISCORD_ALERTE_TECH_WEBHOOK:-}" ]; then
+            echo "⚠️ DISCORD_ALERTE_TECH_WEBHOOK absent — alerte NON envoyee."
+            exit 0
+          fi
+          run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          payload=$(printf '{"content":"🔴 **veve-sites** : le gel hebdomadaire des adresses a échoué.\\nLes adresses des fiches peuvent bouger au prochain build — c'est du SEO qui se perd en silence.\\n%s"}' "$run_url")
+          curl -sS -X POST -H 'Content-Type: application/json' \
+               -d "$payload" "${DISCORD_ALERTE_TECH_WEBHOOK}" || true

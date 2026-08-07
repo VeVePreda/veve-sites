@@ -1,5 +1,23 @@
 # ⚠️ DEPOT : VeVePreda/veve-sites
 #
+# 🔴🔴🔴 CE FICHIER EST UNE FUSION — NE PAS LE REMPLACER PAR UNE VERSION PARTIELLE.
+# ═══════════════════════════════════════════════════════════════════════════
+# Le 07/08 à 09 h 16, une session parallèle a produit un `tests.yml` qui ajoutait
+# l'alerte Discord — bâti sur la version d'AVANT le lot 102. Le déposer aurait
+# effacé, en silence, la matrice `SITE` / `RENDERING` et le build préalable
+# déposés quarante minutes plus tôt : la CI serait retournée tester UN site dans
+# le MAUVAIS mode, et rien ne l'aurait dit.
+# ⭐⭐⭐ DEUX SESSIONS QUI TOUCHENT LE MÊME FICHIER NE SE CONTREDISENT PAS : LA
+# DERNIÈRE DÉPOSÉE GAGNE, ET L'AUTRE DISPARAÎT SANS ERREUR. C'est le mode de
+# panne le plus silencieux de ce projet — un réglage posé à un endroit,
+# silencieusement écrasé par un autre.
+# ⛔ AVANT DE DÉPOSER UN WORKFLOW : le diff contre le dépôt, pas contre sa
+# mémoire. Ce qui compte n'est pas ce qu'on ajoute, c'est ce qu'on RETIRE sans
+# le vouloir.
+# ⭐ Cette version porte LES DEUX : la matrice du lot 102 ET l'alerte du canal
+# de pannes.
+#
+#
 # A7 BIS — LES 17 BANCS TOURNENT ENFIN QUELQUE PART (30/07/2026).
 #
 # LE DEFAUT. `npm test` enchaine 17 bancs, tous verts, et AUCUN des trois
@@ -177,14 +195,39 @@ jobs:
           set -u
           n=$(node -e "process.stdout.write(String(require('./package.json').scripts.test.split(' && ').length))")
           echo "chaine test : $n banc(s)"
-          # 🔴 LOT 102 — PLANCHER RELEVE DE 17 A 24. Il valait 17 depuis le
-          # 30/07 ; la chaine en compte 24 depuis le lot 102. Un plancher qu'on
+          # 🔴 LOT 102/103 — PLANCHER RELEVE DE 17 A 25. Il valait 17 depuis le
+          # 30/07 ; la chaine en compte 25 depuis le lot 103. Un plancher qu'on
           # oublie de relever autorise silencieusement sept suppressions — c'est
           # un garde-fou qui se desarme tout seul, par le simple passage du temps.
           # ⛔ Le relever fait partie de tout lot qui ajoute un banc.
-          [ "$n" -ge 24 ] || {
-            echo "ERREUR: la chaine est tombee a $n bancs (plancher 24)."
+          [ "$n" -ge 25 ] || {
+            echo "ERREUR: la chaine est tombee a $n bancs (plancher 25)."
             echo "Un banc retire de \`npm test\` disparait SANS RIEN CASSER :"
             echo "ce plancher est la seule chose qui s'en plaigne."
             exit 1
           }
+
+      # 🔊 AJOUTÉ LE 07/08/2026 — MUTUALISATION DU CANAL DE PANNES.
+      # ⭐⭐⭐ Un échec qui n'arrive nulle part n'est pas une alerte, c'est une
+      # archive. Mesuré ce jour-là : 4 workflows sur 50 alertaient. Le ledger
+      # est resté gelé deux semaines derrière un run rouge que personne ne
+      # regardait. ⛔ Tout workflow écrit ou modifié repart avec cette étape.
+      - name: Alerter sur Discord en cas d'echec
+        if: failure() && github.event_name != 'pull_request'
+        env:
+          DISCORD_ALERTE_TECH_WEBHOOK: ${{ secrets.DISCORD_ALERTE_TECH_WEBHOOK }}
+        run: |
+          set -u
+          if [ -z "${DISCORD_ALERTE_TECH_WEBHOOK:-}" ]; then
+            echo "⚠️ DISCORD_ALERTE_TECH_WEBHOOK absent — alerte NON envoyee."
+            exit 0
+          fi
+          run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          # ⚠️ LE NOM DU SITE EST DANS LE MESSAGE, ET CE N'EST PAS UN DETAIL.
+          # Depuis le lot 102 ce job tourne en MATRICE sur les deux sites : sans
+          # lui, deux echecs produisent deux alertes rigoureusement identiques,
+          # et on ne sait pas laquelle relire. Une alerte qu'on ne sait pas
+          # attribuer coute le temps qu'elle pretendait faire gagner.
+          payload=$(printf '{"content":"🔴 **veve-sites / %s** : les bancs sont tombés sur `main`.\\nLe prochain build part sur du code non gardé.\\n%s"}' "${{ matrix.site }}" "$run_url")
+          curl -sS -X POST -H 'Content-Type: application/json' \
+               -d "$payload" "${DISCORD_ALERTE_TECH_WEBHOOK}" || true

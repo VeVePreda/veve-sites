@@ -183,9 +183,9 @@ jobs:
           run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           msg="🟠 **VeVePrice** : l'entrepôt s'est replié sur la release **N-1** (${sources}).\\nLe site est reconstruit sur les données de la VEILLE — elles ne sont pas fausses, elles ont un jour de retard.\\nSi ça se reproduit demain, c'est la publication amont qui est cassée, pas le réseau.\\n${run_url}"
           payload=$(printf '{"content":"%s"}' "$msg")
-          curl -sS -X POST -H 'Content-Type: application/json' -d "$payload" "${DISCORD_WEBHOOK}" || true
+          curl -sS -X POST -H 'Content-Type: application/json' -d "$payload" "${DISCORD_ALERTE_TECH_WEBHOOK}" || true
         env:
-          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          DISCORD_ALERTE_TECH_WEBHOOK: ${{ secrets.DISCORD_ALERTE_TECH_WEBHOOK }}
 
       # ⭐ UN REPLI QUI CRIE. Les deux etapes ci-dessus sont `continue-on-error`
       # parce qu'un journal de dates absent ne doit pas empecher le site d'etre
@@ -199,9 +199,9 @@ jobs:
           run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           msg="🟠 **VeVePrice** : le journal des dates (lastmod) n'a pas pu être calculé.\\nLe site sera reconstruit avec les dates de la veille — elles ne sont pas fausses, elles vieillissent.\\n${run_url}"
           payload=$(printf '{"content":"%s"}' "$msg")
-          curl -sS -X POST -H 'Content-Type: application/json' -d "$payload" "${DISCORD_WEBHOOK}" || true
+          curl -sS -X POST -H 'Content-Type: application/json' -d "$payload" "${DISCORD_ALERTE_TECH_WEBHOOK}" || true
         env:
-          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          DISCORD_ALERTE_TECH_WEBHOOK: ${{ secrets.DISCORD_ALERTE_TECH_WEBHOOK }}
 
       # ⭐⭐⭐ L'HEURE DE DEPART SE PREND AVANT LE COMMIT — DEPLACEE LE 06/08/2026.
       # Elle etait prise APRES, et sa justification etait juste tant qu'un seul
@@ -356,6 +356,6 @@ jobs:
           set -u
           run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           payload=$(printf '{"content":"🔴 **VeVePrice** : la reconstruction quotidienne a échoué.\\nLe site sert des données périmées.\\n%s"}' "$run_url")
-          curl -sS -X POST -H 'Content-Type: application/json' -d "$payload" "${DISCORD_WEBHOOK}" || true
+          curl -sS -X POST -H 'Content-Type: application/json' -d "$payload" "${DISCORD_ALERTE_TECH_WEBHOOK}" || true
         env:
-          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          DISCORD_ALERTE_TECH_WEBHOOK: ${{ secrets.DISCORD_ALERTE_TECH_WEBHOOK }}
