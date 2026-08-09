@@ -497,6 +497,44 @@ const menuComplet = wikiNav
       en capitales par le CSS, jamais dans le HTML — la source reste lisible,
       le copier-coller correct, et un lecteur d'écran énonce « VeVe Price »
       plutôt que « V-E-V-E ». */}
+  {/* ═══════════════════════════════════════════════════════════════════
+      🔴🔴 LOT 111 — L'ACCORDÉON PASSE DEVANT LE LOGO, ET IL NE DÉPEND PLUS
+      D'UNE LARGEUR D'ÉCRAN.
+      ═══════════════════════════════════════════════════════════════════
+      Demande de Preda (09/08) : « quelle que soit la résolution, un symbole
+      accordéon dans le header, tout à gauche avant le logo ».
+      ⭐⭐⭐ CE DÉPLACEMENT RÉPARE PLUS QU'UNE DEMANDE D'ERGONOMIE. Ce dépliant
+      était le SEUL chemin vers le menu sous 1040 px (`.nav__liens{display:none}`)
+      — et son panneau partait d'une `opacity:0` que rien ne rouvrait. Sous
+      1040 px, il n'y avait donc AUCUN accès visible au Market, aux Sets ni à
+      l'Abonnement : les liens existaient, le bouton répondait, et l'écran ne
+      montrait rien. C'est très probablement ce que Preda a signalé comme
+      « le Market n'existe pas ».
+      ⛔ IL N'Y A TOUJOURS QU'UN SEUL MENU. Ce bloc n'est pas un ajout : il est
+      DÉPLACÉ depuis l'intérieur de `<nav class="nav main">`. Il lit
+      `menuComplet`, la même liste qu'avant, la même que `.nav__liens`.
+      ⭐ LE CHEVRON EST EN DERNIÈRE POSITION, ET C'EST DÉLIBÉRÉ. Le thème porte
+      depuis le lot 68 la règle `.deplie__b[aria-expanded="true"] svg:last-child
+      {transform:rotate(180deg)}` — elle n'avait JAMAIS pu s'appliquer : le
+      dernier enfant était le `<span>`, donc aucun `svg` n'était `:last-child`.
+      La règle existait, elle était morte, et rien ne pouvait le dire.
+      *Un sélecteur qui ne matche jamais ne lève rien.* En posant le chevron
+      après le libellé, elle devient enfin ce qu'elle prétendait être.
+      ⛔ `hidden` et pas une classe : le thème pose `[hidden]{display:none
+      !important}`, et un menu fermé doit SORTIR de l'ordre de tabulation —
+      sinon on tabule dans six liens invisibles. C'est aussi `[hidden]` qui
+      gouverne l'opacité depuis ce lot : un seul attribut, un seul juge. */}
+  <div class="deplie nav__deplie">
+    <button type="button" class="deplie__b" id="menu-b" aria-expanded="false"
+            aria-controls="menu-m" aria-haspopup="true">
+      <svg viewBox="0 0 24 24" aria-hidden="true" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
+      <span>{t(lang, 'nav.menu')}</span>
+      <svg viewBox="0 0 24 24" aria-hidden="true" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6" /></svg>
+    </button>
+    <div class="deplie__m" id="menu-m" hidden>
+      {menuComplet.map((e) => (<a href={e.href}>{e.label}</a>))}
+    </div>
+  </div>
   <a class="marque" href={localize(lang, '/')}>
     <span class="logo logo--sm" aria-hidden="true">VP</span>
     {/* ⭐ L'ACCROCHE SOUS LE LOGO, comme la maquette. Elle dit en cinq mots ce
@@ -588,21 +626,6 @@ const menuComplet = wikiNav
           {comptesOuverts && aUneSession && <a href="/compte/">{t(lang, 'account.title')}</a>}
         </>)}
     </span>
-    {/* ⭐ LE DÉPLIANT DE SECOURS — il n'apparaît QUE là où `.nav__liens` se
-        cache (thème, `.nav__deplie`), donc il ne double jamais le menu.
-        ⛔ `hidden` et pas une classe : le thème pose `[hidden]{display:none
-        !important}`, et un menu fermé doit SORTIR de l'ordre de tabulation —
-        sinon on tabule dans six liens invisibles. */}
-    <div class="deplie nav__deplie">
-      <button type="button" class="deplie__b" id="menu-b" aria-expanded="false"
-              aria-controls="menu-m" aria-haspopup="true">
-        <svg viewBox="0 0 24 24" aria-hidden="true" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
-        <span>{t(lang, 'nav.menu')}</span>
-      </button>
-      <div class="deplie__m" id="menu-m" hidden>
-        {menuComplet.map((e) => (<a href={e.href}>{e.label}</a>))}
-      </div>
-    </div>
     <div class="h-outils filtres">
       {/* ⭐ La barre de recherche de la maquette : un BOUTON, pas un champ.
           Il annonce le raccourci `⌘K` et donne le focus au vrai champ.

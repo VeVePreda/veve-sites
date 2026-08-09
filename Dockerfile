@@ -249,6 +249,24 @@ RUN WAREHOUSE_OFFLINE=1 npm run test:entete
 # ⭐ Il sort en rc=2 s'il n'a lu aucune feuille ou moins de 100 pages : un banc
 # qui n'a rien inspecté n'a rien prouvé.
 RUN WAREHOUSE_OFFLINE=1 npm run test:feuille
+# 🔴🔴🔴 `test:opacite` — LOT 111, ET C'EST LE PREMIER BANC QUI REGARDE CE QUI
+#    S'AFFICHE PLUTOT QUE CE QUI EXISTE.
+#    Le 09/08, Preda signale « le bouton menu ne fonctionne pas ». Il
+#    fonctionnait : `.deplie__m` partait d'une `opacity:0` que rien ne rouvrait.
+#    Le HTML etait juste, le script etait juste, la structure etait juste — et
+#    les 27 bancs etaient verts. ⭐⭐⭐ UN ELEMENT TRANSPARENT PASSE TOUS LES
+#    CONTROLES DE STRUCTURE : il est la, bien forme, au bon endroit.
+#    A son PREMIER run il a trouve deux autres cas, dont un que personne
+#    n'aurait jamais signale : les cartes de l'accueil etaient invisibles pour
+#    qui a active « reduire les animations ».
+#    ⚠️ Il lit `themes/` et `engine/lib/`, jamais `dist/` : il peut donc tourner
+#    AVANT le build. Il est place ici pour rester avec les bancs de la feuille.
+RUN WAREHOUSE_OFFLINE=1 npm run test:opacite
+# 🟠 DETTE DU 07/08 RAMASSEE AU PASSAGE — `test:promesses` etait dans `npm test`
+#    et PAS ici, seul des 27 dans ce cas. *Un garde-fou qui ne tourne pas en
+#    production ne garde rien.* Il casse le build si `offer.url` se remplit
+#    alors qu'un module `bientot: true` est attribue a un palier PAYANT.
+RUN WAREHOUSE_OFFLINE=1 npm run test:promesses
 
 # --- Precompression : le seul gain de vitesse qui restait ------------------
 # ⭐⭐ POURQUOI PRECOMPRESSER, PLUTOT QUE DE MONTER LE NIVEAU DE gzip.

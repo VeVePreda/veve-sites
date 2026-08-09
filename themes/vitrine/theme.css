@@ -481,9 +481,17 @@ a:hover{text-decoration:underline;text-underline-offset:3px}
 .globe>summary:focus-visible{outline:var(--foc-proche) solid var(--sect-pur);outline-offset:2px}
 .globe>summary svg{width:16px;height:16px;flex:0 0 16px}
 .globe[open]>summary{border-color:var(--sect-a);color:var(--text)}
+/* 🔴 LOT 111 — LE MENU DE LANGUE ETAIT LE SEUL PANNEAU SUR FOND CLAIR.
+   Il portait `background:var(--carte)` — #EEEDE8, la couleur du PAPIER des
+   fiches — quand les deux autres panneaux de l'en-tete (`.deplie__m`,
+   l'avatar) sont sur `--surface-2`. En theme nuit il s'ouvrait donc en blanc
+   cassé au milieu d'un en-tete sombre, avec un texte `--text-2` clair PAR
+   DESSUS : illisible autant que deplace.
+   ⭐ `--carte` n'est pas une surface d'interface, c'est la matiere d'un
+   contenu. Un menu n'est pas un contenu. */
 .globe__m{position:absolute;top:calc(100% + 6px);right:0;z-index:60;display:flex;flex-direction:column;
-  min-width:150px;padding:6px;background:var(--carte);border:1px solid var(--rule-2);
-  border-radius:var(--r-md);box-shadow:var(--sh-2)}
+  min-width:150px;padding:6px;background:var(--surface-2);border:1px solid var(--rule-2);
+  border-radius:var(--r-lg);box-shadow:var(--sh-3)}
 .globe__m a{padding:8px 12px;border-radius:var(--r-sm);color:var(--text-2);font-size:var(--t-sm);white-space:nowrap}
 .globe__m a:hover{background:var(--survol);color:var(--sect-a);text-decoration:none}
 .globe__m a[aria-current="true"]{color:var(--sect-a);font-weight:600}
@@ -491,7 +499,27 @@ a:hover{text-decoration:underline;text-underline-offset:3px}
 /* ⭐⭐ L'APPEL A L'INSCRIPTION. Un seul bouton plein, la connexion en retrait :
    deux appels a l'action de meme poids n'en font aucun. */
 .h-cta{display:inline-flex;align-items:center;gap:10px;flex:0 0 auto;margin-left:2px}
-.h-cta__b{color:var(--muted);font-size:var(--t-sm);white-space:nowrap}
+/* 🔴🔴 LOT 111 — LE TEXTE DU BOUTON « S'INSCRIRE » DEVENAIT ILLISIBLE
+   SELON LA PAGE, ET C'EST MESURABLE.
+   `.btn--principal` peint `--sect-sur` sur un degrade `--sect-pur` →
+   `--sect-fonce`. Ces trois variables sont REDEFINIES par section :
+       general     encre #1A1A1A sur #0A8FA9  →  4,6:1   (limite)
+       comics      encre #1A1A1A sur #086C30  →  2,7:1   ⛔ ECHEC
+       collectibles encre #1A1A1A sur #004B91 →  2,3:1   ⛔ ECHEC
+   Autrement dit : le bouton etait lisible sur l'accueil et ne l'etait plus sur
+   une fiche de comic. Personne ne compare deux pages cote a cote, donc le
+   defaut ne ressemblait pas a un defaut — juste a « pas tres visible ».
+   ⭐⭐⭐ L'EN-TETE N'EST PAS DU CONTENU : il est identique sur les 8 484
+   pages, il n'a aucune raison de changer de palette avec la section. En le
+   detachant de `--sect-*` on corrige le contraste ET on retire une source de
+   variation que personne n'avait demandee.
+   ⭐ `--cyan` / `--nuit` s'INVERSENT ensemble avec le theme : en nuit,
+   encre sombre sur cyan vif (5,0:1) ; en jour, encre claire sur cyan profond
+   (7,5:1). Une seule regle tient les deux, sans valeur en dur. */
+.h-cta .btn--principal{ background:linear-gradient(100deg,var(--cyan),var(--cyan-fonce));
+  color:var(--nuit); }
+.h-cta .btn--principal:hover{ box-shadow:var(--lueur); }
+.h-cta__b{color:var(--text-2);font-size:var(--t-sm);white-space:nowrap}
 .h-cta__b:hover{color:var(--sect-a)}
 
 .kbd{font-family:var(--tech);font-size:10px;padding:3px 6px;border-radius:5px;background:var(--nuit); border:1px solid var(--rule-2);color:var(--muted)}
@@ -510,6 +538,24 @@ a:hover{text-decoration:underline;text-underline-offset:3px}
 .deplie__m svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.7;flex:0 0 16px}
 .deplie__m{transition:opacity var(--d-base) var(--e-out),transform var(--d-base) var(--e-out)}
 .deplie__m{opacity:0;transform:translateY(-8px) scale(.98)}
+/* 🔴🔴🔴 LOT 111 — LA LIGNE QUI MANQUAIT, ET QUI RENDAIT LE MENU INVISIBLE.
+   La declaration du dessus est un ETAT DE DEPART d'animation. Son etat
+   d'ARRIVEE n'a jamais ete ecrit : rien, nulle part dans cette feuille, ne
+   remettait `opacity:1` sur `.deplie__m`. Le JavaScript retirait bien
+   `hidden`, le menu passait bien en `display:grid`, il occupait sa place et
+   repondait au clavier — et il etait TRANSPARENT.
+   ⭐⭐⭐ C'EST POURQUOI LE BOUTON « NE FAISAIT RIEN » : il faisait tout, sauf
+   se montrer. Aucun banc ne pouvait le voir — le HTML est juste, le script est
+   juste, la structure est juste. Un element transparent passe tous les
+   controles de structure.
+   ⭐⭐ ON SE LIE A `[hidden]`, PAS A `aria-expanded`. C'est le MEME attribut
+   qui gouverne `display` : une seule source pour l'affichage et pour
+   l'opacite. Se lier a `aria-expanded` aurait fabrique un second juge, et
+   deux juges pour un affichage finissent par ne pas repondre pareil (la
+   lecon du lot 103, sur ce meme en-tete).
+   ⛔ NE PAS SUPPRIMER LES DEUX LIGNES DU DESSUS « puisqu'elles ne servaient a
+   rien » : elles servent, maintenant. C'est l'ouverture en fondu. */
+.deplie__m:not([hidden]){opacity:1;transform:none}
 /* ⛔ `margin-top` RETIRE LE 03/08/2026 (lot 45, Preda) : « le contenu doit
    toucher le pied de page ». Il valait `var(--s8)` = 88 px de vide entre la
    derniere ligne et le filet du pied — sur une page courte (/legal/, une fiche
@@ -1105,7 +1151,39 @@ dl.fiche-tbl dt:last-of-type,dl.fiche-tbl dd:last-of-type{border-bottom:0}
 .boite--sect::after{display:none}
 .boite--damier::after{display:none}
 .grille>*{transition:opacity var(--d-slow) var(--e-out),transform var(--d-slow) var(--e-out); transition-delay:calc(var(--i,0)*40ms)}
-.grille>*{opacity:0;transform:translateY(10px)}
+/* 🔴🔴 LOT 111 — MEME FAMILLE, ET CELUI-CI N'ETAIT DANS AUCUNE REMONTEE.
+   `.grille>*` partait a `opacity:0` A LA RACINE, et ce qui la rouvre —
+   l'animation `monte` portee par `.revele` — vit dans
+   `@media (prefers-reduced-motion: no-preference)`. Pour qui a active
+   « reduire les animations » dans son systeme, l'etat de depart s'appliquait
+   et rien ne l'annulait : LES CARTES DE L'ACCUEIL, DES SETS ET DU MARKET
+   ETAIENT INVISIBLES. Le site etait vide pour ces gens, et ils croyaient a
+   une panne.
+   ⭐⭐⭐ L'ETAT DE DEPART DOIT VIVRE SOUS LA MEME CONDITION QUE L'ANIMATION
+   QUI LE LEVE. Ecrits sous deux conditions differentes, ils se separent le
+   jour ou l'une des deux ne s'applique pas — et ce jour-la, personne dans
+   l'equipe n'est concerne, donc personne ne le voit. */
+/* 🔴🔴🔴 LOT 111 — L'ETAT DE REPOS CHANGE DE SELECTEUR, ET C'EST LE POINT.
+   Il etait sur `.grille>*` ; ce qui le leve — l'animation `monte` — est sur
+   `.revele`, et vit sous `@media (prefers-reduced-motion: no-preference)`.
+   Deux selecteurs differents, deux conditions differentes : pour qui a demande
+   de reduire les animations, l'etat de repos s'appliquait et RIEN ne le levait.
+   LES CARTES DE L'ACCUEIL, DES SETS ET DU MARKET ETAIENT INVISIBLES. Le site
+   etait vide pour ces gens, et ils croyaient a une panne.
+   ⛔ Personne dans l'equipe n'a ce reglage, donc personne ne l'a vu, donc ce
+   defaut n'est dans aucune remontee de Preda. Il a ete trouve par le banc.
+   ⭐⭐⭐ LA REPARATION N'EST PAS D'AJOUTER UNE REGLE, C'EST DE POSER L'ETAT DE
+   REPOS SUR L'ELEMENT QUI SERA REVELE. `.grille>*` etait un PROXY pour « les
+   cartes » ; `.revele` est le vrai marqueur, celui qui porte l'animation.
+   Un etat de depart et son animation sur le meme selecteur ne peuvent plus se
+   separer — c'est structurel, pas une regle de plus a se rappeler.
+   ⭐ `.grille>*` garde la transition et l'echelonnement (`--i`) : c'est la
+   grille qui decide de l'ORDRE, l'element qui decide de son ETAT.
+   ⭐⭐ Et la moitie `reduce` copie l'idiome de `.flottantes img` (l. 1550),
+   deja present dix lignes plus bas. Deux façons de resoudre le meme probleme
+   dans une meme feuille, c'est une de trop. */
+.revele{opacity:0;transform:translateY(10px)}
+@media (prefers-reduced-motion: reduce){ .revele{opacity:1;transform:none} }
 @media (max-width:640px){ .decor,  .banniere{display:none!important} }
 @media (prefers-reduced-motion: no-preference){ .carte,.col-carte,.tarif,.module{will-change:transform} }
 @media (prefers-reduced-motion: reduce){ *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important; transition-duration:.001ms!important;scroll-behavior:auto!important} .ticker__piste{animation:none!important} }
@@ -1675,13 +1753,34 @@ body > main{ flex:1 0 auto; }
    ⭐ LE MÊME SEUIL QUE `.nav__liens`, ÉCRIT JUSTE EN DESSOUS. Deux seuils qui
    doivent coïncider et qui vivent à 400 lignes d'écart finissent par diverger —
    c'est exactement ce qui a créé le trou 641-1040 qu'on répare ici. */
-.nav__deplie{ display:none; }
-@media (max-width:1040px){
-  .nav__liens{ display:none; }
-  .nav__deplie{ display:block; }
+/* 🔴🔴 LOT 111 — L'ACCORDEON EST VISIBLE A TOUTE LARGEUR, ET IL EST A GAUCHE.
+   Demande de Preda (09/08) : « quelle que soit la resolution, un symbole
+   accordeon dans le header, tout a gauche avant le logo ».
+   ⭐⭐⭐ ET CA SUPPRIME UN INTERVALLE MORTEL. Avant : au-dessus de 1040 px le
+   depliant etait `display:none` et la nav complete s'affichait ; en dessous,
+   la nav disparaissait et le depliant prenait le relais — SAUF qu'il etait
+   transparent (voir l. 512). Sous 1040 px, il ne restait donc AUCUN chemin
+   visible vers le Market, les Sets ou l'Abonnement. Une largeur de fenetre
+   suffisait a rendre la moitie du site inatteignable, et rien ne le disait.
+   ⛔ ON NE GARDE PAS DEUX MENUS. Le depliant portait DEJA la liste entiere ;
+   l'afficher partout ne double pas la navigation, il lui donne un seul point
+   d'entree stable. Les deux lisent `menuComplet` — meme source, aucune
+   divergence possible.
+   ⚠️ `.nav__liens` garde son seuil : au-dessus de 1040 px les liens rapides
+   restent, l'accordeon est un RACCOURCI vers la liste complete, pas un
+   remplacant. */
+.nav__deplie{ display:block; margin-right:var(--s3); }
+@media (max-width:1040px){ .nav__liens{ display:none; } }
+/* ⭐ Le panneau s'ouvre sous le bord GAUCHE, puisque le bouton y est passe.
+   `right:auto` est indispensable : `.deplie__m` pose `right:0` a la racine,
+   et une seule des deux proprietes suffit a le renvoyer hors-ecran. */
+.nav__deplie .deplie__m{ left:0; right:auto; min-width:min(260px,78vw); }
+/* ⛔ Sous 420 px, le libelle « Menu » part et le bouton devient une pastille
+   de la meme famille que la recherche et le globe — pas une quatrieme forme. */
+@media (max-width:420px){
+  .nav__deplie .deplie__b > span{ display:none; }
+  .nav__deplie .deplie__b{ width:38px; padding:0; justify-content:center; }
 }
-/* Le dépliant se rabat sous le bord droit de l'en-tête, jamais hors-écran. */
-.nav__deplie .deplie__m{ right:0; min-width:min(240px,72vw); }
 
 /* ───────────────────────────────────────────────────────────────────────────
    4. LES CASES D'ARTICLE DU BLOG RESPIRENT
@@ -1978,7 +2077,20 @@ body > main{ background:var(--bg); }
    ⛔ NE PAS remplacer `.h-rech` : elle sert encore ailleurs (l'accueil a sa
    propre entrée `hero__rech` qui hérite de la même base), et deux classes
    concurrentes pour un même objet divergent au premier ajustement. */
-.h-rech--b{ min-width:0; width:38px; padding:0; justify-content:center; }
+/* 🔴 LOT 111 — IL CHANGEAIT DE NATURE SELON LA LARGEUR.
+   `.h-rech--b` en faisait une pastille de 38 px bordee ; la regle d'ecran
+   etroit (l. 1120) lui retirait sa bordure ET son fond et la portait a 44 px.
+   Resultat : une pastille au-dessus de 900 px, une icone nue en dessous —
+   deux objets differents pour une meme commande, a cote de deux VRAIES
+   pastilles (le globe, le menu) qui, elles, ne bougeaient pas.
+   ⭐ Ce n'est pas un gout : c'est la seule commande de l'en-tete dont la forme
+   ne survivait pas au redimensionnement. On la fige. */
+.h-rech--b{ min-width:0; width:38px; height:38px; padding:0; justify-content:center;
+  background:var(--surface-2); border:1px solid var(--rule-2); border-radius:var(--r-full); }
+@media (max-width:900px){
+  .h-rech--b{ width:38px; height:38px; background:var(--surface-2);
+    border-color:var(--rule-2); }
+}
 /* La loupe reprend la taille des autres pictogrammes de l'en-tête (le globe,
    l'avatar), pour que les trois boutons ronds aient le même poids visuel. */
 .h-rech--b svg{ width:17px; height:17px; }
