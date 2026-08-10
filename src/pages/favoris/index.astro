@@ -1,6 +1,60 @@
 ---
+// ⚠️ VeVePreda/veve-sites — src/pages/favoris/index.astro
+// ═══════════════════════════════════════════════════════════════════════════
+// ❤️ LOT 118 — LES FAVORIS PASSENT DERRIÈRE LE MUR
+// ═══════════════════════════════════════════════════════════════════════════
+// Preda, 10/08 : « la page favoris ne doit pas être visible en public, ni se
+// trouver dans le menu ». Les deux moitiés comptent, et elles vivent à deux
+// endroits différents :
+//   · le LIEN     → `nav.favoris` gagne `membre: true` dans le manifeste ;
+//   · la PORTE    → ce fichier, plus l'inscription dans `ROUTES_COMPTE`.
+// ⛔ Masquer le lien sans fermer la route aurait été un AFFICHAGE, pas une
+// porte. C'est la confusion exacte des filtres de sets : la barre est grisée,
+// et les 910 lignes sont toujours dans le HTML public.
+//
+// ⛔⛔ `prerender = true` EN LITTÉRAL, ET C'EST VOULU — même dispositif que les
+// dix-huit autres routes de compte. Un `false` littéral fait échouer le build
+// en mode static (NoAdapterInstalled) et casserait vevewiki ; une EXPRESSION
+// n'est pas évaluée par Astro, qui retombe silencieusement sur `true` — la
+// panne du lot 24, quatre fois payée. C'est
+// `engine/lib/astro_routes_compte.mjs` qui bascule cette route à la demande.
+// 🔴 L'OUBLIER LÀ-BAS NE CASSE RIEN ICI : la page resterait pré-générée, la
+// redirection ci-dessous serait évaluée UNE fois au build (au niveau visiteur,
+// donc toujours vraie) et figée dans un fichier — une page qui redirige tout
+// le monde, membres compris. `test:routes` compte les routes basculées.
+export const prerender = true;
+
 import Favoris from '../../components/pages/Favoris.astro';
 import { locales } from '../../../engine/lib/i18n.mjs';
+import { connecte } from '../../../engine/lib/access.mjs';
+
 const lang = locales().def;
+
+// ═══ LE MUR ═══════════════════════════════════════════════════════════════
+// ⭐ `connecte()` SEUL, PAS `franchit()`, et la différence est le produit.
+// « Qui es-tu » n'est pas « à quoi as-tu droit ». Les favoris ne sont pas un
+// module qui se vend : ils ne coûtent rien à servir et ne révèlent aucun prix
+// — ils vivent dans le `localStorage` du navigateur. Preda demande qu'ils
+// soient réservés aux comptes, pas aux abonnés. Exiger un palier ici
+// ajouterait un mur que personne n'a demandé, sur une page qui n'a rien à
+// vendre. ⛔ Et les confondre est la faute qui produit les élévations de
+// privilège, dans un sens comme dans l'autre.
+// ⛔ LE COOKIE D'AFFICHAGE N'ENTRE PAS DANS CETTE DÉCISION, et son nom n'est
+// même pas écrit ici : `test:session` refuse qu'il apparaisse dans un fichier
+// qui touche à un droit. Il est falsifiable depuis la console ; le seul juge
+// est la session serveur.
+if (!connecte(Astro.locals)) {
+  // ⭐ 302 et pas 401 : ce n'est pas une erreur, c'est une porte. Et l'adresse
+  // de retour voyage, sinon on renvoie à l'accueil quelqu'un qui allait
+  // justement se connecter pour retrouver ses favoris.
+  return Astro.redirect('/connexion/?suite=%2Ffavoris%2F', 302);
+}
+
+// ⚠️ OBLIGATOIRE, ET PAS DÉCORATIF. Cloudflare est devant ce site : sans cet
+// en-tête, un cache intermédiaire peut servir la page d'un membre à un
+// visiteur. Une page ne passe pas par le même chemin qu'une réponse d'API, et
+// c'est pour ça que la précaution est répétée ici plutôt que centralisée.
+Astro.response.headers.set('cache-control', 'private, no-store');
+Astro.response.headers.set('vary', 'cookie');
 ---
 <Favoris lang={lang} />

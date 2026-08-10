@@ -19,7 +19,17 @@ const { lang } = Astro.props;
 const ds = await dataset();
 const nf = numberLocale[lang] || 'en-GB';
 
-const sets = [...ds.collections.values()].sort((a, b) => b.items.length - a.items.length).slice(0, 6);
+// 🖼️ LOT 118 — CHAQUE SET EMPORTE UN VISUEL. Preda, 10/08 : « pas de visuel
+//    pour les sets ». ⭐ Un set n'a pas d'image à lui : il en emprunte une à
+//    l'une de ses pièces. ⛔ PAS `items[0].image` : `items` est trié par prix
+//    décroissant (`dataset.mjs`), et la pièce la plus chère est justement celle
+//    qui a le plus de chances d'être une variante rare SANS couverture publiée
+//    — 6 609 comics n'ont pas d'`image_url`. On prend LA PREMIÈRE QUI EN A UNE.
+//    *Prendre le premier élément d'une liste triée, c'est hériter du critère de
+//    tri sans le vouloir.*
+const sets = [...ds.collections.values()]
+  .sort((a, b) => b.items.length - a.items.length).slice(0, 6)
+  .map((c) => ({ ...c, visuel: (c.items.find((i) => i.image) || {}).image || '' }));
 // ⭐ On pioche dans `ds.items` (les 1 200 PUBLIÉES) et non dans `ds.rayon` :
 //   une vitrine montre ce qui se clique. Le rayon complet est à un lien de là.
 const parType = (k) => ds.items.filter((i) => (k === 'comic' ? i.type === 'comic' : i.type !== 'comic')).slice(0, 6);
@@ -35,7 +45,15 @@ const rangees = [
       crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') },
                { name: t(lang, 'collections.title') }]}>
 
-  <div class="sect-t sect-t--gd"><h1 class="mono-t">{t(lang, 'collections.title')}</h1></div>
+  {/* 🔠 LOT 118 — LE TITRE REDESCEND D'UN CRAN. Preda, 10/08 : « titre de
+      catégorie trop gros ». `sect-t--gd` est le format des TÊTES DE PAGE
+      éditoriales (blog, offre), où le titre est le seul contenu au-dessus de
+      la ligne de flottaison. Ici il coiffe trois rangées de cartes : il leur
+      volait la vedette. ⛔ On ne touche pas au thème pour ça — la classe
+      `sect-t--gd` est juste, elle était appliquée au mauvais endroit.
+      *Corriger la règle CSS aurait rapetissé les titres des pages où elle a
+      raison, sur les deux sites.* */}
+  <div class="sect-t"><h1 class="mono-t">{t(lang, 'collections.title')}</h1></div>
 
   <AVenir lang={lang} />
 
@@ -51,6 +69,18 @@ const rangees = [
         ? <div class="grille grille--series">
             {sets.map((c) => (
               <a class="col-carte revele" href={localize(lang, `/collection/${c.slug}/`)}>
+                {/* ⭐ L'IMAGE EST DÉCORATIVE ICI, DONC `alt=""` ET
+                    `aria-hidden` : le nom du set est juste en dessous, en
+                    texte. Un `alt` qui répète le texte voisin fait entendre le
+                    même mot deux fois à un lecteur d'écran.
+                    ⚠️ `loading="lazy"` et `decoding="async"` : six vignettes
+                    sur une page d'orientation ne doivent pas retarder la
+                    première peinture.
+                    ⛔ AUCUN CADRE VIDE QUAND L'IMAGE MANQUE — la carte reprend
+                    exactement sa forme d'avant. Un emplacement gris « image
+                    absente » ressemble à une panne de chargement. */}
+                {c.visuel && <img class="col-carte__v" src={c.visuel} alt=""
+                                  aria-hidden="true" loading="lazy" decoding="async" />}
                 <span class="col-carte__n">{c.name}</span>
                 <span class="col-carte__c">{c.items.length} {t(lang, 'collections.items')}</span>
               </a>

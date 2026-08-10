@@ -12,7 +12,7 @@ import { productLd, breadcrumbLd } from '../../../engine/lib/seo.mjs';
 import { manifest, siteUrl } from '../../../engine/lib/manifest.mjs';
 import { t, localize, numberLocale, dateLocale } from '../../../engine/lib/i18n.mjs';
 import { postsForItem } from '../../../engine/lib/blog.mjs';
-import { rar, forme, delta, gemsM, RAR, omiM, mcpPoints } from '../../../engine/lib/vitrine.mjs';
+import { rar, forme, delta, gemsM, RAR, omiM, mcpPoints, mentionEdition } from '../../../engine/lib/vitrine.mjs';
 import { franchit, porte, plages } from '../../../engine/lib/access.mjs';
 import { coteFermee as coteEstFermee } from '../../../engine/lib/cote.mjs';
 import BarreAcces from '../BarreAcces.astro';
@@ -307,7 +307,18 @@ const mcpJour = mcpPoints(item.rarity, item.type);
       </dl>
 
       <dl class="fiche-tbl">
-        <><dt>{t(lang, 'item.edition')}</dt><dd>{item.edition_type || <span data-attente title={enAttente}>—</span>}</dd></>
+        {/* 🔴 LOT 118 — LA MENTION, ET UN TIRET NU SINON.
+            ⭐ `data-attente` A ÉTÉ RETIRÉ ICI, ET C'EST LA MOITIÉ QUI COMPTE :
+            il signifie « cette donnée n'est pas encore collectée » et déclenche
+            une infobulle qui le dit. Or la donnée EST là — c'est un numéro
+            d'édition, qui n'est simplement pas une mention. Laisser
+            `data-attente` aurait promis une collecte qui n'arrivera jamais, et
+            personne n'aurait su que la promesse était morte.
+            *Absent, et « pas encore là », sont deux états différents.* Même
+            distinction que le tiret nu du MCP d'un Artist Proof, dix lignes
+            plus bas. */}
+        <><dt>{t(lang, 'item.edition')}</dt><dd>{mentionEdition(item.edition_type)
+          || <span class="muted">—</span>}</dd></>
         {/* ⭐ Le MCP vient du BARÈME publié (`vitrine.mjs`), pas d'une collecte :
             c'est une constante, elle est donc juste sans dépendre d'un run.
             ⚠️ La colonne `daily_mcp_points` du Sheet, elle, est connue pour être

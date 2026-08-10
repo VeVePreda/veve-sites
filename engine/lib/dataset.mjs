@@ -953,6 +953,24 @@ async function construireDataset() {
     brand: c.brand || '',
     tirage: Number(c.tirage) || null,
     releaseDate: c.release_date || '',
+    // 🖼️ LOT 118 — L'IMAGE ENTRE DANS LA LISTE BLANCHE DU RAYON.
+    // Preda, 10/08 : « pas de visuel pour les sets, ni pour Coming up ». La
+    // cause n'était pas le gabarit : `rayonDe()` ne nommait pas `image`, donc
+    // les drops à venir n'en avaient aucune à rendre. ⭐ C'est la liste
+    // blanche qui fonctionne comme prévu — on n'ajoute que ce qu'on nomme, et
+    // il fallait le nommer.
+    // ⚠️ MÊME ASSAINISSEMENT QUE PARTOUT : https et rien d'autre. La colonne
+    // vient d'un Sheet ; un `javascript:` ou un `data:text/html` dans un `src`
+    // est une injection servie par notre propre domaine. Une liste blanche de
+    // protocoles ne se contourne pas, une liste noire si.
+    // ⛔ CE N'EST PAS UN PRIX et ça ne le devient pas : `test:rayon` tient la
+    // liste des champs INTERDITS ici (floor, listings, ath, atl…) et `image`
+    // n'en fait pas partie. Le vérifier avant d'ajouter est le geste, pas le
+    // fait de se le rappeler.
+    image: (() => {
+      const u = String(c.image || '').trim();
+      return u.startsWith('https://') ? u : '';
+    })(),
     // ⭐ LE LIEN N'EXISTE QUE SI LA FICHE EXISTE. `bySlug` ne contient que les
     //   1 200 publiées : `path` vaut null pour les 18 212 autres, et le gabarit
     //   rend alors un <div>, pas un <a>. ⛔ Fabriquer l'adresse à la main
@@ -980,6 +998,13 @@ async function construireDataset() {
     if (!j || new Date(j) <= auj) continue;
     const cle = `${j}|${r.name}`;
     if (!aVenirParDrop.has(cle)) aVenirParDrop.set(cle, { ...r, jour: j, raretes: 0 });
+    // ⭐ LE REPRÉSENTANT N'A PAS FORCÉMENT L'IMAGE. On groupe 5 raretés d'un
+    //   même comic ; la première rencontrée peut être celle dont la couverture
+    //   manque (6 609 comics sont sans `image_url` — `ARCHIVE_HEADER` en jette
+    //   14 champs sur 25). On garde donc LA PREMIÈRE IMAGE NON VIDE du groupe
+    //   plutôt que celle du premier élément. ⛔ Sans ça, un drop dont une seule
+    //   rareté est illustrée sortirait sans visuel, au hasard de l'ordre.
+    if (!aVenirParDrop.get(cle).image && r.image) aVenirParDrop.get(cle).image = r.image;
     aVenirParDrop.get(cle).raretes++;
   }
   const aVenir = [...aVenirParDrop.values()].sort((a, b) => a.jour.localeCompare(b.jour));

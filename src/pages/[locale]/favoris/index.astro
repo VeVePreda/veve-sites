@@ -1,9 +1,34 @@
 ---
+// ⚠️ VeVePreda/veve-sites — src/pages/[locale]/favoris/index.astro
+// 🔴 LOT 118 — la variante par langue. Même mur, mêmes raisons : tout est dit
+// dans `src/pages/favoris/index.astro`, et ce fichier ne le redit pas.
+//
+// ⛔⛔ `getStaticPaths()` EST OBLIGATOIRE ET IL REND UNE LISTE VIDE EN STATIC.
+// Astro : « GetStaticPathsRequired » sur toute route dynamique pré-générée.
+// ⭐ Et la réponse honnête EST « aucun » : en mode static il n'y a pas de
+// serveur, donc pas de session — une page réservée n'y a pas de sens.
+// ⛔ NE PAS y remettre les langues « pour que ça marche aussi en static » :
+// ça écrirait dans `dist/` un fichier par langue répondant 200 à tout le
+// monde, c'est-à-dire exactement la porte qu'on vient de poser. Même forme,
+// même raison que `[locale]/market/index.astro`.
+export const prerender = true;
+
 import Favoris from '../../../components/pages/Favoris.astro';
-import { locales } from '../../../../engine/lib/i18n.mjs';
+import { connecte } from '../../../../engine/lib/access.mjs';
+
 export function getStaticPaths() {
-  const { active, def } = locales();
-  return active.filter((l) => l !== def).map((l) => ({ params: { locale: l } }));
+  // ⭐ En mode server cette fonction n'est pas appelée ; en static elle rend
+  // vide. Une seule forme, deux modes, aucune branche à maintenir.
+  return [];
 }
+
+const lang = Astro.params.locale;
+
+if (!connecte(Astro.locals)) {
+  return Astro.redirect(`/connexion/?suite=%2F${encodeURIComponent(lang)}%2Ffavoris%2F`, 302);
+}
+
+Astro.response.headers.set('cache-control', 'private, no-store');
+Astro.response.headers.set('vary', 'cookie');
 ---
-<Favoris lang={Astro.params.locale} />
+<Favoris lang={lang} />

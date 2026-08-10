@@ -305,6 +305,17 @@ RUN WAREHOUSE_OFFLINE=1 npm run test:opacite
 #    production ne garde rien.* Il casse le build si `offer.url` se remplit
 #    alors qu'un module `bientot: true` est attribue a un palier PAYANT.
 RUN WAREHOUSE_OFFLINE=1 npm run test:promesses
+# ═══════════════════════════════════════════════════════════════════════════
+# 🖥️ `test:affichage` — LOT 118. APRES LE BUILD, et pour une seule raison.
+# ═══════════════════════════════════════════════════════════════════════════
+# Il n'importe PAS `dataset()` : il pourrait vivre n'importe ou. Mais son §2
+# lit `dist/` — il verifie que les visuels des sets et des drops arrivent
+# vraiment dans le HTML, ce qu'aucune lecture de gabarit ne peut dire (la cause
+# du defaut n'etait pas dans le .astro : `rayonDe()` ne nommait pas `image`).
+# ⭐ Sans `dist/`, il ecrit INDECIDABLE et ne passe pas au vert par defaut.
+# ⛔ Ne pas le remonter avant le build « puisqu'il lit surtout des sources » :
+#    on perdrait le seul controle qui regarde le PRODUIT.
+RUN WAREHOUSE_OFFLINE=1 npm run test:affichage
 
 # --- Precompression : le seul gain de vitesse qui restait ------------------
 # ⭐⭐ POURQUOI PRECOMPRESSER, PLUTOT QUE DE MONTER LE NIVEAU DE gzip.

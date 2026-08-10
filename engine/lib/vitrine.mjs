@@ -71,6 +71,44 @@ const MCP = {
 export const mcpPoints = (rarete, type) =>
   MCP[type === 'comic' ? 'comic' : 'collectible'][rarete];
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴 LOT 118 — `edition_type` PORTE DEUX CHOSES, ET ON N'EN AFFICHE QU'UNE
+// ═══════════════════════════════════════════════════════════════════════════
+// Preda, 10/08 : « les comics affichent le numéro de comic à la place de la
+// mention FA/FE/AP » et « les comics qui n'ont pas de mention, il ne faut rien
+// mettre à cet emplacement ».
+//
+// ⭐⭐⭐ LE DÉFAUT N'EST PAS UN MAUVAIS AFFICHAGE, C'EST UNE COLONNE QUI PORTE
+// DEUX POPULATIONS SOUS UN SEUL NOM. Mesuré sur les 19 415 lignes de
+// `elements_v3.csv` :
+//     4 350× « 1 » · 2 053× « 2 » · 1 791× « 3 » …   ← un NUMÉRO d'édition
+//       978× « FE » · 784× « FA » · 301× « CE » · 107× « AP »  ← une MENTION
+//       639× vide  ·  7 valeurs aberrantes (« 1&2 », « 65.DEATHS »…)
+// Le gabarit rendait la cellule telle quelle : sous une étiquette qui promet
+// une mention, il écrivait un numéro. *Un champ qui porte deux sens ne casse
+// rien — il fait dire au gabarit une chose vraie sous une étiquette fausse.*
+//
+// ⛔ LA LISTE EST CELLE DE PREDA, ET RIEN D'AUTRE : FA, FE, AP. Une règle plus
+// large (« toute valeur non numérique ») aurait attrapé « 65.DEATHS » ; une
+// règle « deux lettres majuscules » aurait ajouté CE (301 comics), EE et VE
+// sans qu'il l'ait demandé. ⭐ On n'affiche QUE ce qu'on nomme — et le jour où
+// CE doit apparaître, c'est UNE ligne à ajouter ici, à un seul endroit, et
+// `test:edition` compte alors ce qui change.
+// ⚠️ CETTE FONCTION NE TOUCHE PAS AUX ADRESSES. `dataset.mjs` compose des
+// slugs depuis `edition_type` (l. ~681) et les 1 200 adresses sont GELÉES :
+// filtrer là-bas renommerait des URL indexées. Ici on ne décide que de ce qui
+// s'AFFICHE.
+export const MENTIONS_EDITION = ['FA', 'FE', 'AP'];
+
+/** La mention d'édition à afficher, ou `''` s'il n'y en a pas.
+ *  ⭐ Rend une CHAÎNE VIDE et jamais `undefined` : un gabarit qui écrirait
+ *  `{mention(x)}` avec `undefined` rendrait le mot « undefined » dans une
+ *  cellule sur deux, et Astro ne s'en plaindrait pas. */
+export const mentionEdition = (v) => {
+  const s = String(v ?? '').trim().toUpperCase();
+  return MENTIONS_EDITION.includes(s) ? s : '';
+};
+
 // Les six géométries, en 24×24, CREUSES.
 // ⭐ Creuses et non pleines : une forme pleine devient une pastille de couleur
 // et crie plus fort que le prix, qui est le sujet de la page.

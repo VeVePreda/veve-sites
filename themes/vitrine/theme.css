@@ -1188,7 +1188,16 @@ dl.fiche-tbl dt:last-of-type,dl.fiche-tbl dd:last-of-type{border-bottom:0}
 @media (prefers-reduced-motion: no-preference){ .carte,.col-carte,.tarif,.module{will-change:transform} }
 @media (prefers-reduced-motion: reduce){ *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important; transition-duration:.001ms!important;scroll-behavior:auto!important} .ticker__piste{animation:none!important} }
 @media (max-width:640px){ .wrap{padding:0 16px} }
-@media (max-width:1040px){ .nav__liens{display:none} }
+/* 🔴 LOT 118 — LA RÈGLE `.nav__liens` À 1040 px A ÉTÉ RETIRÉE D'ICI.
+   Elle existait TROIS fois dans cette feuille (l. 1191, l. 1773, et la
+   nouvelle). Trois copies d'un seuil qui doit coïncider avec celui du bouton
+   de menu, dans un fichier de 2 300 lignes : c'est la configuration exacte qui
+   a produit le trou 641–1040 px du lot 111.
+   ⭐⭐⭐ ET C'EST LE POINT : j'allais en ajouter une QUATRIÈME sous un
+   commentaire disant « ne séparez jamais ces deux lignes ». *Écrire la règle
+   et laisser vivre ses contre-exemples, c'est fabriquer l'avertissement qu'on
+   citera en le contredisant.* Elle vit désormais en un seul endroit, avec le
+   bouton, à la fin de ce fichier — cherchez « LE MENU DEVIENT UN TIROIR ». */
 /* ⛔ SUR ETROIT ON NE RETIRE PAS L'APPEL A L'ACTION, ON RETIRE CE QUI L'ENTOURE.
    Le lien « Se connecter » et le code de langue s'effacent ; le bouton reste.
    ⚠️ `display` n'est PAS declare a la racine pour ces deux selecteurs — sinon
@@ -1769,12 +1778,16 @@ body > main{ flex:1 0 auto; }
    ⚠️ `.nav__liens` garde son seuil : au-dessus de 1040 px les liens rapides
    restent, l'accordeon est un RACCOURCI vers la liste complete, pas un
    remplacant. */
-.nav__deplie{ display:block; margin-right:var(--s3); }
-@media (max-width:1040px){ .nav__liens{ display:none; } }
-/* ⭐ Le panneau s'ouvre sous le bord GAUCHE, puisque le bouton y est passe.
-   `right:auto` est indispensable : `.deplie__m` pose `right:0` a la racine,
-   et une seule des deux proprietes suffit a le renvoyer hors-ecran. */
-.nav__deplie .deplie__m{ left:0; right:auto; min-width:min(260px,78vw); }
+/* 🔴 LOT 118 — LES TROIS RÈGLES QUI ÉTAIENT ICI ONT DÉMÉNAGÉ EN FIN DE
+   FICHIER, ensemble : `.nav__deplie{display:block}`, le seuil `.nav__liens`,
+   et l'ancrage à gauche du panneau. Le panneau est devenu un TIROIR
+   (`position:fixed`), donc `.nav__deplie .deplie__m{left:0}` n'a plus d'objet
+   — un enfant positionné en `fixed` ne s'ancre plus sur son parent.
+   ⛔ Laisser cette règle ici aurait été pire qu'inutile : elle porte un
+   `min-width:min(260px,78vw)` qui aurait combattu la largeur du tiroir, avec
+   une spécificité PLUS FORTE (deux classes contre une). *« Est-ce là ? » et
+   « est-ce ce qui gagne ? » sont deux questions* — et une règle qu'on croit
+   morte parce qu'on a déplacé son voisin est toujours vivante. */
 /* ⛔ Sous 420 px, le libelle « Menu » part et le bouton devient une pastille
    de la meme famille que la recherche et le globe — pas une quatrieme forme. */
 @media (max-width:420px){
@@ -2250,3 +2263,91 @@ body > main{ background:var(--bg); }
    qui manque et pourquoi, il ne fait pas semblant d'être une commande. */
 .filtres-mur{ margin:var(--s4) 0 var(--s5); padding:11px 14px; border:1px dashed var(--rule-2);
   border-radius:var(--r-md); color:var(--muted); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LOT 118 — LES VISUELS DES SETS ET DES DROPS À VENIR
+   ═══════════════════════════════════════════════════════════════════════════
+   Preda, 10/08 : « pas de visuel pour les sets, ni de visuel pour Coming up ».
+   ⛔ CES DEUX RÈGLES SONT ÉMISES, ET ELLES LE RESTENT. `.col-carte__v` et
+   `.avenir__v` ne sont posées que par `Orientation.astro` et `AVenir.astro`,
+   et seulement quand l'URL existe. Le contrat gabarit↔thème vaut dans les deux
+   sens : une classe qu'aucun gabarit n'émet est morte, une classe émise
+   qu'aucune règle n'habille est un élément nu. `test:feuille` tient le premier
+   sens ; celui-ci se vérifie en regardant la page. */
+.col-carte__v{ display:block; width:100%; aspect-ratio:1/1; object-fit:cover;
+  background:var(--nuit); border-bottom:1px solid var(--rule); }
+/* ⭐ `aspect-ratio` ET NON une hauteur fixe : la place est réservée AVANT que
+   l'image arrive, donc la grille ne saute pas au chargement. Une hauteur en
+   pixels ferait la même chose et mentirait le jour où la carte change de
+   largeur. ⛔ Et pas de `min-height` sur le conteneur : quand l'image manque,
+   la carte doit reprendre EXACTEMENT sa forme d'avant, pas garder un trou. */
+
+.avenir__v{ display:block; width:34px; height:34px; flex:0 0 34px; object-fit:cover;
+  border-radius:var(--r-sm); background:var(--nuit); }
+/* ⭐ `flex:0 0 34px` : `.avenir__c` est un conteneur flex, et une image sans
+   base fixe s'y écrase ou s'y étire selon le voisinage. `width` seul ne suffit
+   pas dans un flex — c'est `flex-basis` qui décide. */
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   🔴🔴 LOT 118 — LE MENU DEVIENT UN TIROIR, ET LE BOUTON SE TAIT QUAND LA
+   NAVIGATION EST DÉJÀ LÀ
+   ═══════════════════════════════════════════════════════════════════════════
+   Preda, 10/08 : « le bouton menu accordéon ne doit être visible que quand le
+   menu du header n'est pas dispo » et « il doit s'ouvrir en drawer menu
+   gauche ».
+
+   ⭐⭐⭐ LE SEUIL EST ÉCRIT UNE FOIS, ET LES DEUX RÈGLES SONT VOISINES.
+   `.nav__liens{display:none}` bascule à 1040 px ; le bouton doit apparaître
+   EXACTEMENT là. Le lot 111 avait payé le contraire : deux seuils qui devaient
+   coïncider vivaient à 400 lignes d'écart, et l'intervalle 641–1040 px n'avait
+   AUCUN accès visible au menu — les liens existaient, le bouton répondait,
+   l'écran ne montrait rien. ⛔ Ne jamais séparer ces deux lignes.
+   ⚠️ `test:menu` (lot 118) lit la feuille et échoue si les deux seuils
+   divergent : un commentaire qui dit « ne les séparez pas » ne peut pas
+   rougir, et *un avertissement qu'on ne peut pas faire rougir finit lu sans
+   être suivi.*
+
+   ⛔ CE N'EST PAS UNE RÉGRESSION DU LOT 111. Ce lot-là avait rendu le bouton
+   visible partout POUR RÉPARER LE TROU ci-dessus, pas parce que le doublon
+   était souhaitable. Le trou est fermé par le seuil commun ; au-dessus de
+   1040 px les six liens sont là, et un second chemin vers les mêmes six liens
+   n'apporte rien qu'un doublon à maintenir. */
+.nav__deplie{ display:none; margin-right:var(--s3); }
+@media (max-width:1040px){ .nav__liens{ display:none; } .nav__deplie{ display:block; } }
+
+/* ── LE TIROIR ─────────────────────────────────────────────────────────────
+   ⭐ `position:fixed` et non `absolute` : un panneau absolu est ancré à
+   `.deplie{position:relative}` et se ferait rogner par le `overflow` de
+   l'en-tête. Un tiroir sort du flux de la page, sinon ce n'est pas un tiroir.
+   ⛔ `left:0` et `translateX(-100%)` À LA FERMETURE, pas `display:none` : on
+   veut un GLISSEMENT. Mais `[hidden]` reste le seul juge de l'existence —
+   c'est lui qui retire le panneau de l'ordre de tabulation. Sans ça on tabule
+   dans six liens qu'on ne voit pas, et le lot 111 l'a déjà payé.
+   ⚠️ LA TRANSITION NE PORTE PAS SUR `display`. Un panneau à `display:none` ne
+   s'anime pas ; c'est `transform` et `opacity` qui bougent, et `[hidden]` qui
+   décide. C'est déjà le dispositif de `.deplie__m` depuis le lot 111. */
+.deplie__m{ position:fixed; inset:0 auto 0 0; top:0; right:auto; bottom:0; left:0;
+  width:min(310px, 84vw); min-width:0; max-width:none; z-index:120;
+  border-radius:0; border:0; border-right:1px solid var(--rule-2);
+  padding:calc(var(--s6) + 8px) var(--s3) var(--s3);
+  align-content:start; overflow-y:auto; overscroll-behavior:contain;
+  transform:translateX(-100%); }
+.deplie__m:not([hidden]){ transform:none; }
+
+/* 🔴 LE VOILE. Sans lui, le tiroir se pose sur un texte qui reste lisible et
+   cliquable : on croit avoir cliqué à côté d'un lien alors qu'on a cliqué
+   DANS la page, derrière le panneau.
+   ⭐ Il est porté par le `<body>` et non par un élément en plus : un nœud
+   ajouté par JavaScript n'existerait pas sans JavaScript, et le tiroir ne
+   s'ouvre justement que par JavaScript — mais un voile orphelin resterait
+   affiché si le script échouait entre les deux gestes.
+   ⚠️ `pointer-events` bascule avec l'opacité : un voile transparent qui garde
+   ses évènements intercepte tous les clics de la page, en silence. C'est
+   exactement la panne de l'élément transparent du lot 111, vue de l'autre
+   côté. */
+body::after{ content:""; position:fixed; inset:0; z-index:110; background:rgba(0,0,0,.52);
+  opacity:0; pointer-events:none; transition:opacity var(--d-base) var(--e-out); }
+body[data-tiroir]::after{ opacity:1; pointer-events:auto; }
+/* ⛔ On ne bloque PAS le défilement du document (`overflow:hidden` sur body) :
+   sur iOS ça fait sauter la page en haut à la fermeture, et l'utilisateur perd
+   sa place dans une liste de 835 pages. Le voile suffit à empêcher les clics. */

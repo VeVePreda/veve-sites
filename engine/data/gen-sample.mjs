@@ -93,10 +93,72 @@ for (let i = 0; i < N; i++) {
   const q = (p) => fl[Math.min(fl.length - 1, Math.floor(fl.length * p))];
   const last = hist[hist.length - 1];
   baselines.push(`${uuid},${hist.length},${fl[0]},${q(0.05)},${q(0.25)},${q(0.5)},${q(0.75)},${q(0.95)},${fl[fl.length-1]},${last.listings},${last.listings},${last.floor},${last.listings}`);
-  cat.push([uuid,s.kind,name,'Standard',rarity,start.toISOString().slice(0,10),s.name,s.brand,s.licensor,tirage,store,last.floor,last.listings,fl[fl.length-1],fl[0]].join(','));
+  // ═══════════════════════════════════════════════════════════════════════
+  // 🔴🔴🔴 LOT 118 — L'ÉCHANTILLON AVAIT 15 COLONNES, LA PRODUCTION EN A 22
+  // ═══════════════════════════════════════════════════════════════════════
+  // Mesuré le 10/08 : `dataset.mjs` lit `c.image`, `c.veve_url`, `c.ath_date`,
+  // `c.atl_date`, `c.description`, `c.season`, `c.start_year` — SEPT colonnes
+  // qui n'existaient pas ici. Tout banc joué hors réseau les voyait donc
+  // TOUJOURS vides, c'est-à-dire qu'il ne pouvait pas distinguer « ce champ
+  // est absent du catalogue » de « ce champ n'est pas dans l'échantillon ».
+  // ⭐⭐⭐ UN ÉCHANTILLON QUI N'A PAS LA FORME DE LA PRODUCTION NE MESURE PAS
+  // LA PRODUCTION — c'est la QUATRIÈME fois sur ce fichier, après `kind`
+  // ('comic' contre 'Comic'), l'en-tête de `prices_baselines`, et les uuid
+  // `sample-…` qui font sortir la réserve vide. La règle est écrite dix lignes
+  // plus bas depuis le 18/07 : *l'échantillon copie le schéma de la SOURCE.*
+  // ⚠️ L'ORDRE DES COLONNES N'A AUCUN EFFET : `warehouse.mjs` construit un
+  // objet PAR NOM d'en-tête (l. ~150). Ce qui compte est que les noms soient
+  // exacts, pas leur rang.
+  //
+  // ⭐ `edition_type` NE VAUT PLUS « Standard » POUR TOUT LE MONDE, et c'est
+  // le cœur du lot 118. Le vrai catalogue y met SOIT un numéro, SOIT une
+  // mention. Répartition mesurée sur les 19 415 lignes de `elements_v3.csv` :
+  //     numéros 1..N ≈ 60 %  ·  FE 978  ·  FA 784  ·  CE 301  ·  AP 107
+  //     vides 639  ·  7 aberrations (« 1&2 », « 65.DEATHS »)
+  // On reproduit LES CINQ FORMES, y compris celles qui font mal : sans elles,
+  // `test:edition` serait vert sans avoir rien vu passer.
+  // ⛔⛔ ON NE TIRE PAS DANS `rnd()` ICI, ET C'EST UNE LEÇON PAYÉE À L'INSTANT.
+  //    `rnd()` est une suite pseudo-aléatoire SEMÉE : chaque appel décale tous
+  //    les suivants. Ma première version tirait l'édition et l'image dedans —
+  //    résultat, `prices.csv` changeait sur 54 525 lignes alors que je n'avais
+  //    touché qu'au catalogue. Le fichier restait juste ; le DIFF, lui,
+  //    devenait illisible, et un diff illisible est un diff qu'on ne relit pas.
+  //    ⭐⭐⭐ *Consommer une suite déterministe au milieu d'un générateur
+  //    déplace tout ce qui vient après, sans rien casser.* Même famille que le
+  //    paramètre ajouté au milieu d'une signature : rien n'échoue, tout glisse.
+  //    ⇒ On DÉRIVE de l'uuid, qui est déjà stable. Aucun tirage consommé, le
+  //      reste de l'échantillon ne bouge pas d'un octet.
+  const EDITIONS = ['1', '2', '3', 'FA', 'FE', 'AP', 'CE', '', '65.DEATHS'];
+  let semence = 0;
+  for (let k = 0; k < uuid.length; k++) semence = (semence * 31 + uuid.charCodeAt(k)) >>> 0;
+  const edition = EDITIONS[semence % EDITIONS.length];
+  // ⭐ Une image sur six MANQUE, délibérément : 6 609 comics du catalogue réel
+  //   n'ont pas d'`image_url` (`ARCHIVE_HEADER` jette 14 des 25 champs). Un
+  //   échantillon où toutes les images existent laisserait passer un gabarit
+  //   qui plante ou qui réserve un cadre vide quand elle manque.
+  const image = (semence % 6 === 0) ? '' : `https://exemple.invalid/i/${uuid}.jpg`;
+  cat.push([uuid,s.kind,name,edition,rarity,start.toISOString().slice(0,10),s.name,s.brand,s.licensor,tirage,store,last.floor,last.listings,fl[fl.length-1],fl[0],
+    // ath_date, atl_date : ISO court, comme la source.
+    hist[hist.length-1].ts.slice(0,10), hist[0].ts.slice(0,10),
+    image,
+    // ⚠️ `veve_url` : le vrai catalogue porte `https://www.veve.me/...`. On
+    //   garde un domaine `.invalid` (RFC 2606) — un échantillon ne doit pas
+    //   pouvoir émettre une requête réelle si un banc suivait ses liens.
+    `https://exemple.invalid/veve/${uuid}`,
+    // description / season / start_year : lues par `dataset.mjs`, jamais
+    // présentes ici jusqu'ici. Vides pour `season` : c'est le cas MAJORITAIRE
+    // en production, et un échantillon qui remplit tout ne teste jamais le
+    // repli « pas de saison ».
+    'Description de demonstration.', '', String(start.getUTCFullYear()),
+  ].join(','));
 }
 
-writeFileSync(join(OUT, 'catalogue.csv'), 'uuid,kind,name,edition_type,rarity,release_date,series,brand,licensor,tirage,store_price,floor,listings,ath,atl\n' + cat.join('\n') + '\n');
+// 🔴 LOT 118 — 22 COLONNES, comme la production. Voir le bloc au-dessus.
+// ⛔ Toute colonne ajoutée ici doit l'être AUSSI dans le `cat.push(...)`, dans
+//    le même ordre : un en-tête plus long que ses lignes décale TOUT ce qui
+//    suit, silencieusement, et `warehouse.mjs` associera des valeurs à des noms
+//    voisins sans qu'aucune erreur ne soit levée.
+writeFileSync(join(OUT, 'catalogue.csv'), 'uuid,kind,name,edition_type,rarity,release_date,series,brand,licensor,tirage,store_price,floor,listings,ath,atl,ath_date,atl_date,image,veve_url,description,season,start_year\n' + cat.join('\n') + '\n');
 writeFileSync(join(OUT, 'prices.csv'), 'veve_uuid,ts_utc,floor,listings\n' + prices.join('\n') + '\n');
 // ⚠️ EN-TETE REEL de prices_baselines, copie de scraper/price_baseline.py.
 // Mon en-tete invente (p50, p95 sans prefixe) a produit un defaut MUET : le

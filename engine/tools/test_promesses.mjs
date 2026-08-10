@@ -168,5 +168,78 @@ for (const mo of cat) {
 dit(menteurs.length === 0, 'chaque module declare livre a bien sa page sur le disque',
   menteurs.length ? menteurs.join(' · ') : `${Object.keys(PAGES).length} module(s) a page verifie(s)`);
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 LOT 118 — LES PORTES « PROVISOIRES » NE SURVIVENT PAS À LA VENTE
+// ═══════════════════════════════════════════════════════════════════════════
+// LE 10/08, `cote` est passee de `crevette` a `member`. Pas par choix produit :
+// `crevette` se gagne par `abonne_jusqu_a > maintenant`, et dans tout `veveid`
+// PERSONNE n'appelle `ajouterAbonnement()` — un grep rend une seule ligne, sa
+// propre definition. Aucun compte au monde ne pouvait devenir crevette, donc
+// `/market/` etait ferme a 100 % des humains ET a 100 % des robots.
+// ⭐⭐⭐ UNE PROTECTION QUI BLOQUE TOUT LE MONDE N'EST PAS STRICTE, ELLE EST
+// CASSEE — de l'exterieur les deux se ressemblent exactement.
+//
+// ⛔ CE CONTROLE N'EXISTE PAS POUR L'OUVERTURE, IL EXISTE POUR LA FERMETURE.
+// La demo « temporaire » du 01/08 est restee ouverte jusqu'a devenir une fuite
+// mesuree en production : la reserve servie a qui connaissait l'adresse. Elle
+// n'est pas restee par negligence — elle est restee parce que RIEN NE POUVAIT
+// LA RAPPELER. ⭐ « On ne supprime pas une protection, on la RENSEIGNE » ne
+// vaut que si le renseignement se MESURE : un champ dans le manifeste peut
+// rougir, un commentaire non.
+//
+// ⭐⭐ LE DECLENCHEUR EST LA VENTE, ET C'EST LE SEUL HONNETE. On ne peut pas
+// dater la fin d'une bequille — on ne sait pas quand le paiement arrive. Mais
+// on sait ce qui doit etre vrai LE JOUR OU IL ARRIVE : on ne peut pas encaisser
+// un abonnement pendant qu'on donne gratuitement ce qu'il achete. Le jour ou
+// `offer.url` se remplit, ce controle CASSE LE BUILD tant qu'une porte
+// provisoire subsiste. Meme dispositif, meme fichier, meme raison que
+// `offer.legal` juste au-dessus.
+const acces = m.access || {};
+const provisoires = Object.entries(acces.gates || {})
+  .filter(([, g]) => g && g.provisoire)
+  .map(([nom, g]) => ({ nom, tier: g.tier, pourquoi: String(g.provisoire) }));
+
+if (provisoires.length) {
+  // ⚠️ ON L'ANNONCE A CHAQUE BUILD, MEME QUAND C'EST CONFORME. Une bequille
+  // silencieuse redevient invisible en trois semaines — c'est exactement
+  // comme ca que la demo a tenu. Ce n'est pas un echec : c'est un rappel qui
+  // ne peut pas se perdre, puisqu'il est dans le journal de chaque
+  // deploiement.
+  for (const p of provisoires) {
+    console.log(`  ⏳ porte PROVISOIRE : « ${p.nom} » ouverte a « ${p.tier} » — ${p.pourquoi}`);
+  }
+}
+dit(!(provisoires.length && offre.url),
+  'aucune porte provisoire ne survit au jour ou l\'abonnement se vend',
+  provisoires.length && offre.url
+    ? `offer.url est rempli (${offre.url}) alors que ${provisoires.length} porte(s) restent ouvertes : `
+      + provisoires.map((p) => `${p.nom}→${p.tier}`).join(', ')
+      + ' — refermer AVANT de vendre, ou retirer offer.url'
+    : (provisoires.length ? `${provisoires.length} porte(s) provisoire(s), et rien n'est encore vendu`
+                          : 'aucune porte provisoire'));
+
+// ⛔ ET LA CONTRE-EPREUVE — ecrite deux fois, parce que la premiere ne pouvait
+//    pas rougir. Elle comparait le palier de la porte a `palierPayant()`, qui
+//    rend `false` tant que la vente est fermee : la comparaison etait donc
+//    fausse pour TOUTE porte, et le controle vert par construction.
+//    ⭐⭐⭐ *Un banc qui ne peut pas rougir ne mesure rien* — et celui-la
+//    l'annoncait meme fierement, « palier payant : false », sans que la ligne
+//    ait le moindre sens.
+//
+// ⭐ LA BONNE PROPRIETE EST « ATTEIGNABLE », et c'est tout le sujet du lot.
+//    Le defaut repare aujourd'hui n'est pas « la porte etait trop haute » :
+//    c'est que son palier ne pouvait etre ATTEINT PAR PERSONNE. Une porte
+//    marquee provisoire doit donc etre a un palier qu'un humain peut obtenir
+//    sans paiement : `visitor` (rien a faire) ou `member` (creer un compte).
+//    Au-dessus, le marquage decrit une intention et ne change rien — et un
+//    champ qui decore finit recopie sans effet.
+const ATTEIGNABLES = ['visitor', 'member'];
+const fausses = provisoires.filter((p) => !ATTEIGNABLES.includes(p.tier));
+dit(fausses.length === 0, 'une porte marquee provisoire est ouverte a un palier ATTEIGNABLE',
+  fausses.length
+    ? fausses.map((p) => `${p.nom} → « ${p.tier} »`).join(', ')
+      + ` : marquee(s) provisoire(s) mais hors de ${ATTEIGNABLES.join('/')} — personne ne peut y arriver sans payer, donc rien n'est ouvert`
+    : (provisoires.length ? `${provisoires.map((p) => `${p.nom}→${p.tier}`).join(', ')}` : 'aucune porte provisoire'));
+
 console.log(ko === 0 ? '\n✅ rien n\'est vendu qui n\'existe pas\n' : `\n🔴 ${ko} controle(s) en echec\n`);
 process.exit(ko === 0 ? 0 : 1);

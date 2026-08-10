@@ -119,6 +119,14 @@ const ROUTES_COMPTE = [
   // il rapporte les usages de son époque, et ils ont l'air normaux.
   'pages/market/index.astro',
   'pages/[locale]/market/index.astro',
+  // ❤️ LOT 118 — `/favoris/` REJOINT LE MUR. Preda, 10/08 : « pas visible en
+  // public, ni dans le menu ». ⛔ L'oublier ici laisserait la page
+  // PRÉ-GÉNÉRÉE : elle répondrait 200 à tout le monde, la redirection écrite
+  // dans le fichier serait figée au build au niveau visiteur, et le lien
+  // masqué du menu donnerait l'illusion d'une porte. C'est la panne du lot 24,
+  // et c'est la même que `/dashboard/` au lot 104.
+  'pages/favoris/index.astro',
+  'pages/[locale]/favoris/index.astro',
 ];
 
 const normalise = (p) => String(p || '').replace(/\\/g, '/');

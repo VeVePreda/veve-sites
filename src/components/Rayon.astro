@@ -20,7 +20,7 @@ import Base from '../layouts/Base.astro';
 import AVenir from './AVenir.astro';
 import { dataset } from '../../engine/lib/dataset.mjs';
 import { t, localize, numberLocale } from '../../engine/lib/i18n.mjs';
-import { rar } from '../../engine/lib/vitrine.mjs';
+import { rar, mentionEdition } from '../../engine/lib/vitrine.mjs';
 
 const { lang, rayon, page = 1 } = Astro.props;
 export const PAR_PAGE = 20;
@@ -50,7 +50,9 @@ const lignes = rayon === 'sets'
       //    catalogue reste entier, l'ordre cesse d'être hostile.
       .sort((a, b) => (a.path ? 0 : 1) - (b.path ? 0 : 1)
         || (a.series || '').localeCompare(b.series || '') || a.name.localeCompare(b.name))
-      .map((r) => ({ nom: r.name, sous: r.edition_type || '', path: r.path,
+      // 🔴 LOT 118 — `sous` porte la MENTION d'édition, pas le numéro : voir
+      //    `mentionEdition()` dans engine/lib/vitrine.mjs.
+      .map((r) => ({ nom: r.name, sous: mentionEdition(r.edition_type), path: r.path,
                      rarity: r.rarity, tirage: r.tirage, serie: r.series }));
 
 const total = lignes.length;

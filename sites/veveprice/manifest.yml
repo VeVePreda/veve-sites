@@ -185,9 +185,37 @@ access:
     # le JSON-LD et dans le cache de Google. La rendre publique à nouveau ne se
     # fait donc PAS en changeant `tier:` — il faut passer `tiers:` sans `crevette`,
     # ou commenter ce bloc ET relancer un build complet.
+    # ═══════════════════════════════════════════════════════════════════════
+    # 🔴🔴🔴 LOT 118 (10/08/2026) — OUVERTE AUX MEMBRES, ET C'EST PROVISOIRE
+    # ═══════════════════════════════════════════════════════════════════════
+    # LA MESURE QUI A FORCÉ CETTE LIGNE. `crevette` se gagne par
+    # `abonne_jusqu_a > maintenant` (veveid, `src/avoirs.ts`). Or
+    # `ajouterAbonnement()` n'est appelée par PERSONNE dans tout `veveid` — un
+    # grep rend une seule ligne : sa propre définition. L'`/admin` ne fait que
+    # la LIRE (SELECT). ⇒ AUCUN COMPTE AU MONDE NE POUVAIT DEVENIR CREVETTE, et
+    # `/market/` était fermée à 100 % des humains comme à 100 % des robots.
+    # ⭐⭐⭐ UNE PROTECTION QUI BLOQUE TOUT LE MONDE N'EST PAS STRICTE, ELLE EST
+    # CASSÉE — de l'extérieur, les deux se ressemblent exactement. C'est le
+    # circuit ouvert, dans sa forme la plus chère : le côté « qui accorde »
+    # n'existait pas.
+    #
+    # ⛔⛔ CE N'EST PAS UN ARBITRAGE PRODUIT, C'EST UNE BÉQUILLE DATÉE. Preda,
+    # 10/08 : ouvrir aux membres en attendant le paiement. Le vrai correctif
+    # reste de câbler `ajouterAbonnement()` à l'admin de veveid.
+    # ⭐ `provisoire:` N'EST PAS UN COMMENTAIRE, C'EST UNE DONNÉE. Un commentaire
+    # ne se mesure pas ; `outils/etat_reel.py` et `test:promesses` lisent ce
+    # champ. La démo « temporaire » du 01/08 est restée ouverte jusqu'à devenir
+    # une fuite parce que personne ne pouvait la VOIR depuis un banc.
+    # 🔴 `test:promesses` CASSE LE BUILD si une porte `provisoire` survit au
+    #    jour où `offer.url` se remplit : on ne peut pas vendre un abonnement
+    #    pendant qu'on donne ce qu'il achète.
+    # ⚠️ `tier: member` ET NON `tiers:` SANS CREVETTE : la porte reste ACTIVE,
+    #    donc `projeter()` continue de retirer les prix des 12 380 pages
+    #    pré-générées. Changer `tiers:` les REPUBLIERAIT en clair.
     cote:
       binaire: true   # ouvre ou non — la cote ne se tronque pas, elle se donne ou non
-      tier: crevette
+      tier: member
+      provisoire: "ouverte aux membres le 10/08/2026 faute de voie d'abonnement dans veveid ; refermer a crevette des que ajouterAbonnement() est cablee" 
     # Les extrêmes et les modules d'analyse.
     extremes:
       binaire: true   # ouvre ou non — ni troncature ni plafond
@@ -294,13 +322,20 @@ nav:
   #    dans le gel. Renommer le chemin pour qu'il ressemble au libellé casserait
   #    le SEO — c'est exactement ce que le gel protège.
   - { cle: nav.collections, href: /collections/, pret: true  }
-  # ❤️ LOT 116 — LES FAVORIS ENTRENT AU MENU.
-  # ⛔ PAS `membre: true`, ET C'EST VOLONTAIRE : les favoris vivent dans le
-  # NAVIGATEUR, pas dans le compte. Les réserver aux membres aurait promis une
-  # porte qui n'existe pas — la page marche pour tout le monde, tout de suite.
-  # ⭐ Le jour où ils passent dans le compte, l'entrée ne bouge pas ; c'est son
-  # CONTENU qui gagne une session, pas son adresse.
-  - { cle: nav.favoris,   href: /favoris/,    pret: true  }
+  # ❤️ LOT 116 — LES FAVORIS ENTRENT AU MENU. 🔴 LOT 118 — ILS EN SORTENT.
+  # Preda, 10/08 : « la page favoris ne doit pas être visible en public, ni se
+  # trouver dans le menu ». `membre: true` masque le lien aux anonymes ET la
+  # route passe dans ROUTES_COMPTE (astro_routes_compte.mjs) : le lien ET la
+  # porte, pas l'un sans l'autre.
+  # ⭐⭐⭐ CE QUE ÇA COÛTE, ET IL FAUT LE DIRE : une page rendue à la demande a
+  # besoin du serveur. `/favoris/` NE MARCHERA PLUS HORS LIGNE — c'était sa
+  # propriété la plus intéressante (lot 116 : statique, `localStorage`, lisible
+  # dans un avion). Les favoris eux-mêmes restent dans le navigateur ; c'est
+  # l'ACCÈS À LA PAGE qui devient une porte.
+  # ⛔ Masquer le lien SANS fermer la route aurait été un AFFICHAGE, pas une
+  # porte — la confusion exacte des filtres de sets, où les 910 lignes restent
+  # dans le HTML public sous une barre grisée.
+  - { cle: nav.favoris,   href: /favoris/,    pret: true, membre: true }
   - { cle: nav.analytics, href: /analytics/,  pret: true  }   # ✅ lot 39 — démo publique + partie abonnée
   - { cle: nav.blog,      href: /blog/,       pret: true  }
   - { cle: nav.alerts,    href: /alertes/,    pret: false }   # ⏳ demande un compte

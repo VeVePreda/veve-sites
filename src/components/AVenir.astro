@@ -38,6 +38,17 @@ const jour = (iso) => new Date(`${iso}T00:00:00Z`)
   <ul class="avenir__l">
     {liste.map((d) => (
       <li class="avenir__c">
+        {/* 🖼️ LOT 118 — LE VISUEL DU DROP. Preda, 10/08 : « ni de visuel pour
+            Coming up ». La cause n'était pas ici : `rayonDe()` ne nommait pas
+            `image` dans sa liste blanche, donc `ds.aVenir` n'en portait
+            aucune. Le gabarit ne pouvait rien rendre.
+            ⛔ ON NE RÉSERVE PAS DE PLACE QUAND ELLE MANQUE : un drop non
+            illustré garde exactement la mise en page d'avant. Un cadre gris
+            « visuel à venir » sur une carte qui annonce justement quelque
+            chose « à venir » dirait deux attentes différentes avec le même
+            dessin. */}
+        {d.image && <img class="avenir__v" src={d.image} alt=""
+                         aria-hidden="true" loading="lazy" decoding="async" />}
         <span class="avenir__j">{jour(d.jour)}</span>
         <span class="avenir__n">{d.name}</span>
         {d.series && <span class="avenir__s">{d.series}</span>}

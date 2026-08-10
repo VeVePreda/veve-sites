@@ -8,7 +8,7 @@
 // porté visait donc une classe que le HTML n'écrivait jamais — 95 règles
 // appliquées à rien, sans la moindre erreur pour le dire.
 // ⛔ SUPPRIMER `src/components/Piece.astro` après dépôt.
-import { rar, delta, gemsM, esc } from '../../engine/lib/vitrine.mjs';
+import { rar, delta, gemsM, esc, mentionEdition } from '../../engine/lib/vitrine.mjs';
 import { coteFermee as coteEstFermee } from '../../engine/lib/cote.mjs';
 import Cote from './Cote.astro';
 
@@ -76,7 +76,12 @@ const money = (v) => (v === null || v === undefined ? '—' : v.toLocaleString(n
           blanc de la page, et la forme y bascule sur son encre foncée. Sans
           cette classe, le tracé clair sur blanc tombe à 1,22:1 — invisible. */}
       <Fragment set:html={rar(item.rarity, { blanc: true })} />
-      <span class="cartouche__s">{ed && item.edition_type ? item.edition_type : ''}</span>
+      {/* 🔴 LOT 118 — LA MENTION, JAMAIS LE NUMÉRO. `edition_type` vaut soit
+          « FA »/« FE »/« AP », soit « 1 », « 2 », « 3 »… La carte écrivait la
+          cellule telle quelle : 4 350 pièces affichaient un numéro d'édition à
+          la place d'une mention. ⭐ `mentionEdition()` rend `''` pour tout le
+          reste, et un `<span>` vide n'occupe aucune place. */}
+      <span class="cartouche__s">{ed ? mentionEdition(item.edition_type) : ''}</span>
     </div>
     <div class="cartouche__l" style="border:0;padding-top:0">
       {/* ⭐ LE PICTOGRAMME GEMS RESTE, MEME FERME. Il dit dans quelle UNITE se
