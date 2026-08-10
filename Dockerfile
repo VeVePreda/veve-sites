@@ -394,6 +394,27 @@ RUN WAREHOUSE_OFFLINE=1 npm run test:membre
 #   vider la reserve comme l'ont fait `test:fuite` (lot 101) et `test:rayon`
 #   (lot 113).
 RUN WAREHOUSE_OFFLINE=1 npm run test:pages
+# 🐌🔴 `test:tuiles` — LOT 127. LE POIDS DE `/market/`, ET LE PREMIER BANC QUI
+# ═══════════════════════════════════════════════════════════════════════════
+# EXECUTE LE SCRIPT DE LA PAGE.
+# MESURE DU 10/08 (serveur reel, session simulee, curl) : la page pesait
+# 1 066 071 o NON compresses, dont 374 450 o (35,1 %) pour les MEMES 200 pieces
+# rendues une seconde fois en tuiles `hidden`, et 135 699 o pour 600 `<svg>`
+# dessinant SIX geometries. 47,8 % de la page etait de la repetition.
+# ⚠️ gzip ramenait tout ca a ~80 Ko : le fil n'a jamais souffert, c'est le DOM
+#   qui payait. ⇒ CE BANC MESURE LES OCTETS SERVIS ET LE NOMBRE DE NOEUDS,
+#   jamais la taille compressee.
+# ⭐⭐⭐ ET IL JOUE LE `<script is:inline>` DE LA PAGE DANS UN VRAI DOM. Sans
+#   ca il serait vert le jour ou la vue Tuiles rend une grille VIDE : moins
+#   d'octets, plus de fonction — l'instrument qui recompense la regression
+#   qu'on craint. Il clique « Tuiles », coche une rarete, et exige que la
+#   grille montre les memes pieces que le tableau.
+# ⛔ IL VA APRES `npm run build` : il lui faut `dist/server/entry.mjs`.
+# ⛔ IL LEVE UN FAUX `SESSION_API` : sans session `/market/` repond 302, et
+#   `test:pages` ne l'atteint donc JAMAIS. Deux bancs demandent la meme
+#   adresse et n'y voient pas la meme chose.
+# ⚠️ IL N'IMPORTE PAS `dataset.mjs` — il ne peut pas vider la reserve.
+RUN WAREHOUSE_OFFLINE=1 npm run test:tuiles
 
 # --- Precompression : le seul gain de vitesse qui restait ------------------
 # ⭐⭐ POURQUOI PRECOMPRESSER, PLUTOT QUE DE MONTER LE NIVEAU DE gzip.

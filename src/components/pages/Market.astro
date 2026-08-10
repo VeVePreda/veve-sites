@@ -216,6 +216,99 @@ const TRIS = [
 // naïf rendait un filtre par dates qui ne mordait jamais.
 const jour = (i) => jourISO(i.releaseDate);
 const chevron = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴 LOT 127 ① — LE SPRITE : CHAQUE GÉOMÉTRIE ÉCRITE UNE FOIS
+// ═══════════════════════════════════════════════════════════════════════════
+// MESURÉ LE 10/08/2026 sur la page réellement servie : 600 `<svg>` dans le
+// `<tbody>` pour SIX géométries distinctes — 135 699 o, dont 134 970 o de pure
+// recopie. Le diamant des gems, 286 o, était écrit QUATRE CENTS fois.
+//
+// ⚠️ CE N'EST PAS UNE AFFAIRE DE BANDE PASSANTE : gzip écrase les répétitions.
+// C'est le DOM qui paie — 600 éléments `<svg>` construits, mis en page, gardés
+// en mémoire, pour dessiner six formes.
+//
+// ⭐⭐⭐ LA SOURCE DE VÉRITÉ NE BOUGE PAS. On ne recopie AUCUN tracé ici : on
+// appelle `forme()` / `gemsM()` de `vitrine.mjs` comme avant, et on en EXTRAIT
+// le `<svg>` pour le poser une fois en `<symbol>`. Le jour où une géométrie
+// change dans `vitrine.mjs`, elle change ici sans que personne y pense — c'est
+// tout l'intérêt, et c'est la différence avec un sprite recopié à la main, qui
+// serait une septième copie promise à diverger.
+//
+// ⚠️ POURQUOI LE CSS CONTINUE DE MARCHER, et c'est vérifié, pas supposé :
+// `themes/vitrine/theme.css` ne stylise QUE l'élément `<svg>` lui-même
+// (`.forme svg{fill:none;stroke:currentColor;stroke-width:2.1}`), jamais ses
+// enfants. Or `fill`, `stroke`, `stroke-width`, `stroke-linejoin` et
+// `stroke-linecap` sont des propriétés HÉRITÉES en SVG : elles traversent la
+// frontière du `<use>` et atteignent le tracé cloné. ⛔ Une règle qui viserait
+// `.forme svg path{…}` ne la traverserait PAS — si quelqu'un en écrit une un
+// jour, le symbole deviendra invisible sans que rien ne casse.
+// 🔴 `test:tuiles` §2 exige que chaque `<use href="#x">` trouve son `<symbol
+//    id="x">` : une référence orpheline ne lève rien, elle rend un TROU.
+const SPRITE = [];
+const DECOUPE = /^([\s\S]*?)<svg([^>]*)>([\s\S]*)<\/svg>([\s\S]*)$/;
+function sprite(id, html) {
+  const m = DECOUPE.exec(html);
+  // ⭐ REPLI EXPLICITE : pas de `<svg>` reconnaissable ⇒ on rend le balisage
+  // TEL QUEL. On perd le gain, on ne perd pas le dessin.
+  if (!m) return html;
+  const [, avant, attrs, dedans, apres] = m;
+  if (!SPRITE.some((x) => x.id === id)) {
+    const vb = /viewBox="([^"]*)"/.exec(attrs);
+    SPRITE.push({ id, vb: vb ? vb[1] : '0 0 24 24', dedans });
+  }
+  return `${avant}<svg${attrs}><use href="#${id}"/></svg>${apres}`;
+}
+// ⛔ TOUT SE PRÉ-CALCULE ICI, PAS DANS LE GABARIT. Le `<svg>` du sprite est
+// émis AVANT le tableau ; si on n'enregistrait les symboles qu'en rendant les
+// lignes, il serait déjà écrit — vide — quand la première forme arrive.
+const cleRar = (r) => (RAR[r] ? r : 'COMMON');
+const gemsU = sprite('s-gems', gemsM());
+const chevronU = sprite('s-chevron', chevron);
+const formeU = new Map();
+const rarU = new Map();
+for (const i of lignes) {
+  const c = cleRar(i.rarity);
+  if (!formeU.has(c)) formeU.set(c, sprite(`s-r-${c}`, forme(i.rarity)));
+  if (!rarU.has(c)) rarU.set(c, sprite(`s-r-${c}`, rar(i.rarity)));
+}
+// Le losange du socle sans couverture : c'est FORMES.ULTRA_RARE. On l'enregistre
+// explicitement — la vue tuiles le bâtit dans le navigateur et doit pouvoir le
+// référencer même si aucune pièce ULTRA_RARE n'est au tableau ce jour-là.
+sprite('s-r-ULTRA_RARE', forme('ULTRA_RARE'));
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴 LOT 127 ② — LES TUILES NE SONT PLUS RENDUES PAR LE SERVEUR
+// ═══════════════════════════════════════════════════════════════════════════
+// MESURÉ : `#vue-tui` pesait 374 450 o — 35,1 % de la page — pour 200 tuiles
+// portant `hidden`, c'est-à-dire la MÊME liste que le tableau, rendue une
+// seconde fois, que la plupart des visiteurs ne regarderont jamais.
+//
+// ⭐⭐⭐ ET LE LOT 71 RESTE INTÉGRALEMENT VRAI : « une seule liste, un seul
+// plafond, un seul compteur ». Il l'est même DAVANTAGE. Les tuiles se bâtissent
+// désormais À PARTIR DES LIGNES DU TABLEAU, en RECOPIANT leur `dataset` en
+// bloc : les deux vues ne partagent plus le même corpus par discipline, elles
+// le partagent par CONSTRUCTION. La divergence que `test:tuiles` a trouvée le
+// 10/08 — `data-ch` à « 300 » côté tuile contre « 300.00 » côté ligne, parce
+// que le lot 125 n'avait arrondi que le tableau — ne peut plus se reproduire :
+// il n'y a plus deux endroits où écrire l'attribut.
+//
+// ⛔ CE QUI NE PEUT PAS VENIR DE LA LIGNE, ET QUI VOYAGE DONC ICI :
+//   · l'image — le tableau n'en porte aucune ;
+//   · le pourcentage AFFICHÉ — `data-ch` est une clé de TRI arrondie à deux
+//     décimales ; recalculer « +12,3 % » depuis elle serait arrondir deux fois.
+//     ⭐ « On arrondit l'attribut de tri, jamais la valeur affichée » : la règle
+//     du lot 125 vaut dans ce sens-là aussi.
+// ⚠️ CETTE ÎLE NE PORTE AUCUN MONTANT — ni floor, ni ATH, ni ATL. Le prix
+// affiché est CLONÉ depuis la cellule de la ligne, il ne transite pas ici.
+// `test:fuite` balaie `dist/` ; cette page n'y est jamais, mais la règle
+// s'applique quand même : on ne recopie pas un prix pour se simplifier la vie.
+const ILE_TUILES = JSON.stringify({
+  img: lignes.map((i) => i.image || ''),
+  pct: lignes.map((i) => (i.change7d === null || i.change7d === undefined
+    ? '—' : `${i.change7d > 0 ? '+' : ''}${i.change7d.toFixed(1)} %`)),
+  lst: t(lang, 'item.listings'),
+});
 ---
 <Base sect="cotes" lang={lang} path="/market/" title={t(lang, 'movers.title')}
       description={t(lang, 'desc.movers', { n: ds.itemsTotal.toLocaleString(nf) })}
@@ -228,6 +321,17 @@ const chevron = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6
       masqué sort de l'ordre de focus, donc un lien d'évitement invisible au
       clavier est un lien mort — inutile pour ceux à qui il s'adresse. */}
   <a href="#resultats" class="saut evitement">{t(lang, 'movers.skip')}</a>
+
+  {/* 🔴🔴 LOT 127 — LE SPRITE. Six géométries, écrites UNE FOIS chacune, que
+      600 `<use>` référencent ensuite. Mesuré : 134 970 o de recopie retirés.
+      ⛔ `width="0" height="0"` ET `position:absolute` : `display:none` sur le
+      porteur d'un sprite empêche certains moteurs de résoudre les `<use>` —
+      un sprite invisible parce qu'on l'a caché trop fort est un sprite qui
+      rend 600 trous, sans erreur, sur un build vert.
+      ⚠️ `aria-hidden` : ce n'est pas du contenu, c'est un magasin de formes. */}
+  <svg width="0" height="0" style="position:absolute;overflow:hidden" aria-hidden="true" focusable="false">
+    <defs>{SPRITE.map((f) => (<symbol id={f.id} viewBox={f.vb} set:html={f.dedans} />))}</defs>
+  </svg>
 
   <BarreAcces lang={lang} />
   {/* ⭐ L'ÉTIQUETTE DE SECTION, comme Analytics et le Blog. Elle n'est PAS
@@ -291,12 +395,12 @@ const chevron = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6
 
     {/* Un bouton par GROUPE, un seul panneau ouvert à la fois. */}
     <div class="f-onglets" role="group" aria-label={t(lang, 'movers.filters')}>
-      <button type="button" class="f-b" data-g="place" aria-expanded="false" aria-controls="fp-place">{t(lang, 'movers.g.place')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevron} /></button>
-      <button type="button" class="f-b" data-g="type" aria-expanded="false" aria-controls="fp-type">{t(lang, 'movers.g.type')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevron} /></button>
-      <button type="button" class="f-b" data-g="prix" aria-expanded="false" aria-controls="fp-prix">{t(lang, 'movers.g.price')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevron} /></button>
-      <button type="button" class="f-b" data-g="mint" aria-expanded="false" aria-controls="fp-mint">{t(lang, 'movers.g.mint')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevron} /></button>
-      <button type="button" class="f-b" data-g="date" aria-expanded="false" aria-controls="fp-date">{t(lang, 'movers.g.date')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevron} /></button>
-      <button type="button" class="f-b" data-g="cols" aria-expanded="false" aria-controls="fp-cols">{t(lang, 'movers.g.cols')}<Fragment set:html={chevron} /></button>
+      <button type="button" class="f-b" data-g="place" aria-expanded="false" aria-controls="fp-place">{t(lang, 'movers.g.place')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevronU} /></button>
+      <button type="button" class="f-b" data-g="type" aria-expanded="false" aria-controls="fp-type">{t(lang, 'movers.g.type')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevronU} /></button>
+      <button type="button" class="f-b" data-g="prix" aria-expanded="false" aria-controls="fp-prix">{t(lang, 'movers.g.price')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevronU} /></button>
+      <button type="button" class="f-b" data-g="mint" aria-expanded="false" aria-controls="fp-mint">{t(lang, 'movers.g.mint')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevronU} /></button>
+      <button type="button" class="f-b" data-g="date" aria-expanded="false" aria-controls="fp-date">{t(lang, 'movers.g.date')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevronU} /></button>
+      <button type="button" class="f-b" data-g="cols" aria-expanded="false" aria-controls="fp-cols">{t(lang, 'movers.g.cols')}<Fragment set:html={chevronU} /></button>
       <button type="reset" class="f-b" id="f-raz">{t(lang, 'movers.reset')}</button>
     </div>
 
@@ -317,7 +421,7 @@ const chevron = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6
         {rarete.map((r) => (
           <label class={`puce puce--rar ${RAR[r].cl}`}>
             <input type="checkbox" name="f-rar" value={r} />
-            <Fragment set:html={forme(r)} />{RAR[r].l}
+            <Fragment set:html={formeU.get(cleRar(r)) ?? forme(r)} />{RAR[r].l}
           </label>
         ))}
       </div>
@@ -466,7 +570,7 @@ const chevron = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6
           {/* RARETÉ — ligne 1 : le symbole et le nom. ligne 2 : la valeur MCP.
               ⭐ Le MCP vient du barème VeVe, il est RÉEL, pas collecté. */}
           <td class="c-3" data-col="rar"><span class="m2">
-            <span class="m2__a"><Fragment set:html={rar(i.rarity)} /></span>
+            <span class="m2__a"><Fragment set:html={rarU.get(cleRar(i.rarity))} /></span>
             <span class="m2__b num">{mcpDe(i.rarity, i.type)}</span>
           </span></td>
 
@@ -481,8 +585,15 @@ const chevron = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6
           </span></td>
 
           {/* PLANCHER — gems chez VeVe, OMI chez StackR */}
-          <td class="n"><span class="m2">
-            <span class="m2__a"><span class="num"><Fragment set:html={gemsM()} /> {money(i.floor)}</span>
+          {/* ⭐ `data-prix` — 11 o par ligne, et il achète une CERTITUDE :
+              `batirTuiles()` CLONE cette cellule au lieu de refabriquer le
+              prix. Sans marqueur il faudrait viser « le 6ᵉ `<td>` » ou « le
+              premier `.num` », deux repères qu'un ajout de colonne casse en
+              silence. ⛔ Ce n'est PAS un `data-col` : la barre « colonnes »
+              masque tout `[data-col]` absent de la liste — le plancher
+              disparaîtrait le jour où quelqu'un l'y ajoute par symétrie. */}
+          <td class="n" data-prix><span class="m2">
+            <span class="m2__a"><span class="num"><Fragment set:html={gemsU} /> {money(i.floor)}</span>
               {i.listings <= 1 && <span class="alerte" title={t(lang, 'item.outlier')}>!</span>}</span>
             <span class="m2__b muted" data-attente title={attente}><Fragment set:html={omiM()} /> —</span>
           </span></td>
@@ -520,7 +631,7 @@ const chevron = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6
             {parMcp(i) === null
               ? <span class="m2__a muted">—</span>
               : <span class="m2__a num" title={noteMcp}>
-                  <Fragment set:html={gemsM()} /> {money(parMcp(i))}
+                  <Fragment set:html={gemsU} /> {money(parMcp(i))}
                 </span>}
             <span class="m2__b muted" data-attente title={attente}><Fragment set:html={omiM()} /> —</span>
           </span></td>
@@ -583,49 +694,23 @@ const chevron = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6
          celles à l'écran sont décodées, et le dévoilement par tranches n'en
          montre que 20 au départ.
       ⭐ UNE SEULE LISTE, UN SEUL PLAFOND, UN SEUL COMPTEUR. */}
-  <div id="vue-tui" class="tuiles" hidden>{lignes.map((i, k) => (
-    <a class="tuile revele" href={localize(lang, i.path)} style={`--i:${k}`}
-       data-type={i.type} data-rar={i.rarity} data-n={i.name.toLowerCase()}
-       data-var={i.change7d > 0 ? 'up' : i.change7d < 0 ? 'down' : ''}
-       data-ch={i.change7d === null || i.change7d === undefined ? '' : String(i.change7d)}
-       data-floor={i.floor === null || i.floor === undefined ? '' : String(i.floor)}
-       data-sup={i.tirage ? String(i.tirage) : ''}
-       data-lst={i.listings === null || i.listings === undefined ? '' : String(i.listings)}
-       data-mcp={parMcp(i) === null ? '' : String(parMcp(i))}
-       data-date={jour(i)}>
-      <span class="tuile__hd">
-        <span class="tuile__s">{i.series}</span>
-        <span class="tuile__off">{i.listings ?? 0} {t(lang, 'item.listings')}</span>
-      </span>
-      <div class="socle">
-        {i.image ? (
-          <>
-            <img class="socle__fond ok" src={i.image} alt="" aria-hidden="true" width="400" height="600" loading="lazy" decoding="async" />
-            <span class="socle__voile"></span>
-            <img class="socle__net ok" src={i.image} alt={i.name} width="400" height="600" loading="lazy" decoding="async" />
-          </>
-        ) : (
-          <>
-            <span class="socle__voile"></span>
-            <span style="position:absolute;inset:0;display:grid;place-items:center;z-index:3">
-              <span class="forme forme--xl" style="--c-a:var(--rule-2)">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4">
-                  <path d="M12 2.9 19.9 7.5v9L12 21.1 4.1 16.5v-9Z" /></svg>
-            </span></span>
-          </>
-        )}
-      </div>
-      <span class="tuile__b">
-        {/* ⭐ Le symbole SUIT le titre au lieu de flotter sur l'image : la
-            rareté qualifie la pièce, elle ne la surmonte pas — et le titre
-            gagne toute la largeur de la vignette. */}
-        <span class="tuile__n">{i.name}<span class={RAR[i.rarity]?.cl || RAR.COMMON.cl}
-          style="display:inline-flex;margin-left:5px"><Fragment set:html={forme(i.rarity)} /></span></span>
-        <span class="tuile__p"><span class="num"><Fragment set:html={gemsM()} /> {money(i.floor)}</span>
-          <Fragment set:html={delta(i.change7d)} /></span>
-      </span>
-    </a>
-  ))}</div>
+  {/* 🔴🔴🔴 LOT 127 — LA GRILLE EST VIDE, ET C'EST LE LOT.
+      Elle portait 200 `<a class="tuile">` — 374 450 o mesurés, 35,1 % de la
+      page — tous avec `hidden`. Le pilote les BÂTIT au premier clic sur
+      « Tuiles », depuis les lignes du tableau (cf. `batirTuiles()` plus bas).
+      ⛔ ON NE LA SUPPRIME PAS : `appliquer()` la montre et la masque, et le
+      thème stylise `.tuiles`. C'est son CONTENU qui part, pas son existence. */}
+  <div id="vue-tui" class="tuiles" hidden></div>
+
+  {/* ⭐ L'ÎLE — ce que la ligne du tableau ne peut PAS fournir, et rien d'autre :
+      l'image (le tableau n'en porte aucune) et le pourcentage AFFICHÉ (`data-ch`
+      est une clé de tri arrondie à 2 décimales ; en déduire « +12,3 % » serait
+      arrondir deux fois). ⚠️ AUCUN MONTANT n'y transite : le prix de la tuile
+      est CLONÉ depuis la cellule de la ligne.
+      ⛔ `type="application/json"` : le navigateur ne l'exécute pas, aucun
+      analyseur ne le lit comme du script — et `test:opacite` ne le confond pas
+      avec du code. */}
+  <script type="application/json" id="tui-src" set:html={ILE_TUILES}></script>
 
   {/* ⛔⛔ LE BOUTON EST DESCENDU ICI LE 01/08/2026. Il etait ecrit entre le
       tableau et la grille de tuiles : en vue Tableau il tombait bien en bas,
@@ -661,7 +746,7 @@ const chevron = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6
       var corps  = document.querySelector('#vue-tbl tbody');
       var grille = document.getElementById('vue-tui');
       var L      = [].slice.call(document.querySelectorAll('#vue-tbl tbody tr'));
-      var T      = [].slice.call(document.querySelectorAll('#vue-tui .tuile'));
+      var T      = [];   // 🔴 LOT 127 — rempli par `batirTuiles()`, plus par le serveur
       var cpt    = document.getElementById('cpt');
       var vide   = document.getElementById('vide');
       var bPlus  = document.getElementById('plus');
@@ -677,6 +762,149 @@ const chevron = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6
       function lire(){ try { return JSON.parse(localStorage.getItem(CLE)) || {}; } catch(e){ return {}; } }
       function ecrire(o){ try { localStorage.setItem(CLE, JSON.stringify(o)); } catch(e){} }
       function num(v){ var n = parseFloat(v); return isNaN(n) ? null : n; }
+
+      // ═══════════════════════════════════════════════════════════════════
+      // 🔴🔴🔴 LOT 127 — LE BÂTISSEUR DES TUILES
+      // ═══════════════════════════════════════════════════════════════════
+      // Le serveur rendait 200 tuiles `hidden` : 374 450 o mesurés, 35,1 % de
+      // la page, pour une vue que la plupart des visiteurs n'ouvrent jamais.
+      // Elles se bâtissent désormais au PREMIER passage en vue Tuiles, et une
+      // seule fois — `tuilesFaites` n'est jamais remis à faux : le corpus ne
+      // change pas, seuls les filtres bougent, et ils opèrent sur les nœuds.
+      //
+      // ⭐⭐⭐ CHAQUE TUILE EST BÂTIE DEPUIS SA LIGNE, PAS DEPUIS LES DONNÉES.
+      // C'est la décision centrale du lot. Le lot 71 exigeait « une seule
+      // liste, un seul plafond, un seul compteur » et le tenait par DISCIPLINE
+      // — deux gabarits à garder d'accord. Le 10/08, `test:tuiles` a montré
+      // qu'ils avaient déjà divergé : `data-ch` valait « 300 » côté tuile et
+      // « 300.00 » côté ligne, parce que le lot 125 n'avait arrondi que le
+      // tableau. Personne ne l'avait vu — deux vues qui trient légèrement
+      // différemment ne cassent rien, elles mentent.
+      // ⇒ Il n'y a plus qu'un endroit où l'attribut s'écrit.
+      //
+      // ⛔ ON CLONE, ON NE REFABRIQUE PAS. Le prix, la forme de rareté : ce
+      // sont des nœuds RECOPIÉS de la ligne. Réécrire « le même » balisage en
+      // JavaScript, c'est une seconde source qui attend de diverger — celle
+      // qu'on vient précisément de supprimer.
+      var ile = null;
+      try { ile = JSON.parse(document.getElementById('tui-src').textContent); } catch (e) { ile = null; }
+      var tuilesFaites = false;
+
+      function batirTuiles(){
+        // ⚠️ REPLI HONNÊTE : sans île, on ne bâtit RIEN et la grille reste
+        // vide. ⛔ Surtout pas une tuile « dégradée » sans image : une grille
+        // de rectangles gris ressemble à un site cassé, et `test:tuiles` §3
+        // exige autant de tuiles que de lignes — le repli se VOIT.
+        if (tuilesFaites || !grille || !ile) return;
+        tuilesFaites = true;
+        var frag = document.createDocumentFragment();
+        for (var k = 0; k < L.length; k++) {
+          var l = L[k];
+          var a = document.createElement('a');
+          a.className = 'tuile revele';
+          var lien = l.querySelector('a.tbl-obj');
+          a.setAttribute('href', lien ? lien.getAttribute('href') : '#');
+          a.setAttribute('style', '--i:' + k);
+
+          // ⭐⭐⭐ LES ATTRIBUTS DE FILTRAGE, RECOPIÉS EN BLOC. Pas dix
+          // affectations nommées : une BOUCLE sur ce que la ligne porte. Le
+          // jour où un onzième filtre arrive, la tuile l'a sans qu'on y pense
+          // — c'est exactement la panne ① du lot 71 (4 attributs sur 10, donc
+          // quatre groupes de filtres qui laissaient tout passer) rendue
+          // structurellement impossible.
+          for (var q = 0; q < l.attributes.length; q++) {
+            var at = l.attributes[q];
+            if (at.name.indexOf('data-') === 0) a.setAttribute(at.name, at.value);
+          }
+
+          var hd = document.createElement('span'); hd.className = 'tuile__hd';
+          var se = document.createElement('span'); se.className = 'tuile__s';
+          var srcSe = l.querySelector('.tbl-obj__s');
+          se.textContent = srcSe ? srcSe.textContent : '';
+          var of = document.createElement('span'); of.className = 'tuile__off';
+          // ⚠️ `|| '0'` et pas `|| 0` : `data-lst` vaut '' quand le nombre
+          // d'offres est INCONNU. Le gabarit d'origine écrivait `?? 0`, donc
+          // « 0 listings ». On garde le comportement à l'identique — le
+          // corriger serait un autre lot, avec sa propre mesure.
+          of.textContent = (a.getAttribute('data-lst') || '0') + ' ' + (ile.lst || '');
+          hd.appendChild(se); hd.appendChild(of);
+
+          var socle = document.createElement('div'); socle.className = 'socle';
+          var url = ile.img[k];
+          if (url) {
+            // ⛔ `.src = url`, JAMAIS une concaténation dans `innerHTML` : une
+            // URL de couverture qui contiendrait un guillemet ferait de cette
+            // ligne une injection. La propriété ne peut pas sortir de
+            // l'attribut, la chaîne si.
+            var nom = (l.querySelector('.tbl-obj__n') || {}).textContent || '';
+            var fond = document.createElement('img');
+            fond.className = 'socle__fond ok'; fond.src = url; fond.alt = '';
+            fond.setAttribute('aria-hidden', 'true');
+            var net = document.createElement('img');
+            net.className = 'socle__net ok'; net.src = url; net.alt = nom;
+            var voile = document.createElement('span'); voile.className = 'socle__voile';
+            // ⭐ `width`/`height` posés en ATTRIBUTS : ils réservent la place
+            // et évitent le décalage de mise en page. `loading="lazy"` fait
+            // que bâtir 200 tuiles ne décode que celles à l'écran — c'est ce
+            // qui rend ce lot possible sans rendre la bascule lente.
+            [fond, net].forEach(function (x) {
+              x.setAttribute('width', '400'); x.setAttribute('height', '600');
+              x.setAttribute('loading', 'lazy'); x.setAttribute('decoding', 'async');
+            });
+            socle.appendChild(fond); socle.appendChild(voile); socle.appendChild(net);
+          } else {
+            var voile2 = document.createElement('span'); voile2.className = 'socle__voile';
+            var cage = document.createElement('span');
+            cage.setAttribute('style', 'position:absolute;inset:0;display:grid;place-items:center;z-index:3');
+            cage.innerHTML = '<span class="forme forme--xl" style="--c-a:var(--rule-2)">'
+              + '<svg viewBox="0 0 24 24"><use href="#s-r-ULTRA_RARE"/></svg></span>';
+            socle.appendChild(voile2); socle.appendChild(cage);
+          }
+
+          var bas = document.createElement('span'); bas.className = 'tuile__b';
+          var titre = document.createElement('span'); titre.className = 'tuile__n';
+          var srcN = l.querySelector('.tbl-obj__n');
+          titre.textContent = srcN ? srcN.textContent : '';
+          var srcR = l.querySelector('.m2__a .rar');
+          if (srcR) {
+            // ⭐ La classe de couleur se LIT sur la ligne (`rar--secret`…), elle
+            // ne se re-déduit pas d'une table `rareté → classe` recopiée ici.
+            var cl = (srcR.className.match(/rar--[a-z]+/) || ['rar--common'])[0];
+            var pastille = document.createElement('span');
+            pastille.className = cl;
+            pastille.setAttribute('style', 'display:inline-flex;margin-left:5px');
+            var f = srcR.querySelector('.forme');
+            if (f) pastille.appendChild(f.cloneNode(true));
+            titre.appendChild(pastille);
+          }
+
+          var prix = document.createElement('span'); prix.className = 'tuile__p';
+          var srcP = l.querySelector('[data-prix] .num');
+          if (srcP) prix.appendChild(srcP.cloneNode(true));
+          // ── LA VARIATION. ⛔ Le POURCENTAGE vient de l'île, pas de
+          // `data-ch` : `data-ch` est arrondi à 2 décimales pour le TRI, et
+          // l'afficher avec une décimale l'arrondirait une seconde fois.
+          // « On arrondit la clé de tri, jamais la valeur affichée. »
+          // La FLÈCHE, elle, vient de `data-var` — la même source que le filtre
+          // ▲/▼, donc un badge qui ne peut pas contredire le filtre.
+          var sens = a.getAttribute('data-var') || 'flat';
+          var trace = sens === 'up' ? 'M6 2 11 9H1z' : sens === 'down' ? 'M6 10 1 3h10z' : 'M2 6h8';
+          var badge = document.createElement('span');
+          badge.className = 'delta delta--' + sens;
+          badge.innerHTML = '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="' + trace + '"/></svg>';
+          badge.appendChild(document.createTextNode(ile.pct[k] || '—'));
+          prix.appendChild(badge);
+
+          bas.appendChild(titre); bas.appendChild(prix);
+          a.appendChild(hd); a.appendChild(socle); a.appendChild(bas);
+          frag.appendChild(a);
+        }
+        grille.appendChild(frag);
+        // ⛔ AFFECTATION, PAS DÉCLARATION. `var T = …` ici créerait une seconde
+        // variable et `appliquer()` continuerait de balayer un tableau vide :
+        // la grille serait bâtie ET jamais filtrée.
+        T = [].slice.call(grille.querySelectorAll('.tuile'));
+      }
       function val(id){ var e = document.getElementById(id); return e ? e.value.trim() : ''; }
       function coches(nom){
         return [].slice.call(f.querySelectorAll('input[name="' + nom + '"]:checked')).map(function(x){ return x.value; });
@@ -751,6 +979,9 @@ const chevron = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6
 
       function appliquer(){
         var e = etat(), n = 0, visT = [], visU = [];
+        // ⭐ AU PLUS TARD, ET UNE SEULE FOIS. Tant que personne n'ouvre la vue
+        // Tuiles, aucun de ces 200 nœuds n'existe. C'est le lot entier.
+        if (e.vue === 'tui') batirTuiles();
         L.forEach(function(l){ var ok = garde(e, l); l.hidden = !ok; if (ok) { n++; visT.push(l); } });
         T.forEach(function(x){ var ok = garde(e, x); x.hidden = !ok; if (ok) visU.push(x); });
 
