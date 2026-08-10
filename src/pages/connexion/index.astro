@@ -50,6 +50,22 @@ const demande = new URL(Astro.request.url).searchParams.get('lang');
 // ⭐⭐⭐ C'EST EXACTEMENT LA DÉCISION DE PREDA : « le contenu de base en
 // anglais, l'interface traduite ». L'espace membre est le seul endroit où
 // « l'interface » est encore une page à part entière.
+// 🔴🔴🔴 LOT 124 — `dispo` A ÉTÉ REDÉCLARÉE ICI, ET SON ABSENCE A MIS LE SITE
+// ENTIER HORS LIGNE PENDANT UNE HEURE.
+// Le lot 123 a remplacé `const dispo = languesInterface(); const lang = …` par
+// l'appel à `choisirLangue()` — qui ne déclarait plus `dispo`. Le sélecteur de
+// langue, deux cents lignes plus bas, l'utilise toujours : `ReferenceError:
+// dispo is not defined` → 500 sur cette page.
+// ⇒ `docker-entrypoint.sh` teste `/compte/ /connexion/ /inscription/` à travers
+//   nginx au DÉMARRAGE : `wget` échoue sur un 500, le conteneur refuse de
+//   démarrer, Coolify réessaie 12 fois puis s'arrête. **503 sur tout le site.**
+// ⭐⭐⭐ NI LE BUILD NI LES 31 BANCS NE POUVAIENT LE VOIR : aucun ne REND ces
+//   pages. Elles sont à la demande, donc absentes de `dist/`, donc invisibles
+//   à tout contrôle qui lit des fichiers. *Une page qu'aucun banc ne demande
+//   n'est vérifiée qu'en production, par le premier visiteur — ici, par le
+//   garde-fou du démarrage, qui a eu raison de tout arrêter.*
+// ⇒ `npm run test:pages` (lot 124) lance le serveur et DEMANDE les cinq.
+const dispo = languesInterface();
 // 🌍 LOT 123 — `?lang=` → cookie → Accept-Language. Voir `choisirLangue()`.
 const _ch = choisirLangue({
   demande: new URL(Astro.request.url).searchParams.get('lang'),

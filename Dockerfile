@@ -316,6 +316,23 @@ RUN WAREHOUSE_OFFLINE=1 npm run test:promesses
 # ⛔ Ne pas le remonter avant le build « puisqu'il lit surtout des sources » :
 #    on perdrait le seul controle qui regarde le PRODUIT.
 RUN WAREHOUSE_OFFLINE=1 npm run test:affichage
+# ═══════════════════════════════════════════════════════════════════════════
+# 🔴🔴🔴 `test:pages` — LOT 124. IL LANCE LE SERVEUR ET DEMANDE LES PAGES.
+# ═══════════════════════════════════════════════════════════════════════════
+# LE 10/08, `/connexion/` et `/inscription/` ont rendu 500 (`ReferenceError`).
+# Le build passait, les 31 bancs passaient — AUCUN NE REND CES PAGES : elles
+# sont a la demande, donc absentes de `dist/`, donc invisibles a tout controle
+# qui lit des fichiers. Le garde-fou de `docker-entrypoint.sh` les a testees au
+# DEMARRAGE, a refuse de servir, et Coolify a arrete le conteneur au bout de
+# 12 essais : **503 sur tout le site pendant une heure.**
+# ⭐⭐⭐ *Une page qu'aucun banc ne demande n'est verifiee qu'en production.*
+# ⭐ Ce banc pose la meme question ici, en 15 s, au lieu de la poser sur le VPS
+#   apres quatre minutes de build.
+# ⛔ IL VA APRES `npm run build` (il lui faut `dist/server/entry.mjs`), et il
+#   ne recalcule RIEN : il parle a un serveur deja demarre, il ne peut donc pas
+#   vider la reserve comme l'ont fait `test:fuite` (lot 101) et `test:rayon`
+#   (lot 113).
+RUN WAREHOUSE_OFFLINE=1 npm run test:pages
 
 # --- Precompression : le seul gain de vitesse qui restait ------------------
 # ⭐⭐ POURQUOI PRECOMPRESSER, PLUTOT QUE DE MONTER LE NIVEAU DE gzip.
