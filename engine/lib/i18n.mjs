@@ -14,6 +14,65 @@ export function locales() {
   return { active, def };
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 LOT 120 — TROIS LISTES DE LANGUES, ET ELLES NE DISENT PAS LA MÊME
+// CHOSE
+// ═══════════════════════════════════════════════════════════════════════════
+// Décision de Preda du 10/08 : « le multilingue ne vaut pas son coût, car à
+// part l'interface et la description de l'item il n'y a rien à traduire ».
+// Mesuré : ~9 300 des 12 376 pages étaient des localisations, pour 433 clés
+// d'interface et un champ `description`. Le cas d'école du contenu mince
+// démultiplié.
+//
+// ⭐⭐⭐ MAIS « LES LANGUES DU SITE » RECOUVRAIT TROIS QUESTIONS DIFFÉRENTES,
+// et c'est de les avoir confondues que venait le coût :
+//   · `active`    — quelles langues ont une ADRESSE ? (→ `/fr/comics/…`)
+//   · `interface` — quelles langues ont des LIBELLÉS ? (les 433 clés)
+//   · `blog`      — quelles langues ont des ARTICLES écrits ?
+// Elles avaient une seule réponse pour les trois. Les séparer, c'est pouvoir
+// répondre `[en]` à la première (le gain SEO), `[en,fr,es,de]` à la deuxième
+// (rien ne se perd) et `[en,fr]` à la troisième (le seul vrai contenu
+// multilingue du réseau).
+//
+// ⛔ CHACUNE RETOMBE SUR `active` QUAND LE MANIFESTE SE TAIT. `vevewiki` ne
+// déclare ni `interface` ni `blog` : il garde EXACTEMENT le comportement
+// d'avant ce lot, sans qu'une ligne de son manifeste bouge. *Un réglage neuf
+// dont l'absence change quelque chose est un piège pour l'autre site.*
+
+/** Les langues dans lesquelles l'INTERFACE existe — libellés, pas adresses.
+ *  ⭐ Ne sert QUE là où une langue est NÉGOCIÉE à la demande (`?lang=`,
+ *  `Accept-Language`) : les pages de compte, qui ne sont pas mises en cache.
+ *  ⛔ NE JAMAIS s'en servir pour composer une URL ou un `hreflang` : ces
+ *  langues n'ont pas d'adresse, et annoncer une page qui n'existe pas est une
+ *  promesse rompue faite à un moteur. */
+export function languesInterface() {
+  const l = manifest().languages || {};
+  const i = Array.isArray(l.interface) && l.interface.length ? l.interface : null;
+  return i || locales().active;
+}
+
+/** Les langues d'articles que le manifeste DÉCLARE.
+ *  ═════════════════════════════════════════════════════════════════════════
+ *  ⛔⛔ ELLE NE S'APPELLE PAS `languesBlog()`, ET C'EST DÉLIBÉRÉ : ce nom-là
+ *  EXISTE DÉJÀ dans `engine/lib/blog.mjs`, et il répond à une autre question.
+ *  Je l'ai découvert en écrivant celle-ci — j'allais poser une SECONDE
+ *  définition de « qu'est-ce qu'une langue de blog », dans un autre fichier.
+ *  ⭐⭐⭐ *Deux définitions de la même notion divergent un jour, et ce jour-là
+ *  c'est la plus permissive qui est en production.* (Écrit noir sur blanc au
+ *  lot 101 pour `CHAMPS_COTE`, et j'allais le repayer.)
+ *
+ *  LA DIFFÉRENCE, ET ELLE COMPTE :
+ *    · ICI          — ce que le manifeste DÉCLARE. Une intention.
+ *    · `blog.mjs`   — ce qui EXISTE vraiment : il ne garde une langue que si
+ *                     `postsFor(l)` rend au moins un article. Une mesure.
+ *  ⭐ La seconde consomme la première. Une intention sans article ne produit
+ *  aucune page — c'est ce qui empêche d'annoncer un `/de/blog/` vide. */
+export function languesDeclareesBlog() {
+  const l = manifest().languages || {};
+  const b = Array.isArray(l.blog) && l.blog.length ? l.blog : null;
+  return b || locales().active;
+}
+
 export function dict(lang) {
   if (cache.has(lang)) return cache.get(lang);
   let d = {};

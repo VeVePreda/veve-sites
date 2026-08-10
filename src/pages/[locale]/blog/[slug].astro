@@ -1,10 +1,15 @@
 ---
 import BlogPost from '../../../components/pages/BlogPost.astro';
-import { postsFor } from '../../../../engine/lib/blog.mjs';
-import { locales } from '../../../../engine/lib/i18n.mjs';
+import { postsFor, languesBlog } from '../../../../engine/lib/blog.mjs';
+import { locales} from '../../../../engine/lib/i18n.mjs';
 import { dataset } from '../../../../engine/lib/dataset.mjs';
 export async function getStaticPaths() {
-  const { active, def } = locales();
+  // 🔴 LOT 120 — `languesBlog()` ET NON `active` : `active` ne contient plus
+  //    qu'`en` (les langues qui ont une adresse sur le SITE), alors que le
+  //    blog garde `en` + `fr`. ⭐ Et `languesBlog()` mesure les articles qui
+  //    EXISTENT — une langue déclarée sans article ne produit aucune page.
+  const { def } = locales();
+  const active = await languesBlog();
   const ds = await dataset();
   const out = [];
   for (const l of active.filter((x) => x !== def)) {

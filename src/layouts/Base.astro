@@ -130,8 +130,18 @@ const canon = `${root}${localize(lang, path)}`;
 //   langs    -> la page connait ses langues (sections : meme adresse partout)
 //   defaut   -> les langues du site
 const languesDeLaPage = langs || languesDuSite();
+// 🔴 LOT 120 — `Object.keys(altPaths)` ET NON `active.filter(...)`.
+// `altPaths` ne contient QUE les langues où la page existe vraiment — c'est
+// déjà la mesure. Le filtre sur `active` ajoutait une seconde condition qui
+// disait la même chose... jusqu'à ce lot : `active` ne vaut plus que `[en]`,
+// et les articles français auraient perdu leur `hreflang` alors que les pages
+// existent et sont dans le plan du site.
+// ⭐⭐ Une condition redondante n'est pas gratuite : elle est correcte tant que
+// les deux sources coïncident, et elle devient fausse en silence le jour où
+// l'une des deux change de sens. Ici la source la plus proche du fait —
+// « cette page existe-t-elle dans cette langue ? » — suffit seule.
 const alternates = (altPaths
-  ? active.filter((l) => altPaths[l]).map((l) => ({ lang: l, href: `${root}${localize(l, altPaths[l])}` }))
+  ? Object.keys(altPaths).map((l) => ({ lang: l, href: `${root}${localize(l, altPaths[l])}` }))
   : languesDeLaPage.map((l) => ({ lang: l, href: `${root}${localize(l, path)}` })));
 
 // ⭐ LE THÈME N'EST PLUS RECOPIÉ ICI — LOT 105. Le glob, le garde-fou du

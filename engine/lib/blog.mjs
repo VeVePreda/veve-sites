@@ -33,7 +33,7 @@
 //  Le reste du réseau ne bouge pas : un site sans onglet Blog (veveprice) n'a
 //  pas de `editorial/blog.json` → source 1 vide, comportement identique à avant.
 // =============================================================================
-import { locales } from './i18n.mjs';
+import { locales, languesDeclareesBlog } from './i18n.mjs';
 import { manifest } from './manifest.mjs';
 import { collection, parseDay, estRepli } from './editorial.mjs';
 import { renderMarkdown, stripMarkdown } from './markdown.mjs';
@@ -359,9 +359,22 @@ export const allLangs = async () => [...new Set((await loadAll()).map((p) => p.l
  * quand il est vide, et le sitemap la traite déjà à part (`langsAvecArticles`).
  */
 export async function languesBlog() {
-  const { active, def } = locales();
+  // 🔴 LOT 120 — LA LISTE DE DÉPART N'EST PLUS `active`, ET C'EST TOUT LE LOT.
+  // `active` ne contient plus qu'`en` : ce sont les langues qui ont une
+  // ADRESSE SUR LE SITE. Le blog, lui, garde `en` + `fr` — c'est le seul
+  // endroit du réseau où le contenu diffère vraiment d'une langue à l'autre,
+  // donc le seul où une adresse par langue se justifie encore.
+  // ⭐ CETTE FONCTION NE CHANGE PAS DE RÔLE : elle rend toujours ce qui
+  //   EXISTE, pas ce qui est déclaré. `languesDeclareesBlog()` porte
+  //   l'intention, ce filtre-ci porte la mesure — une langue déclarée sans
+  //   article ne produit toujours aucune page.
+  // ⛔ NE PAS revenir à `active` « pour simplifier » : le blog français
+  //   disparaîtrait, et ses URL sont dans les redirections 301 comme des
+  //   EXCEPTIONS. On aurait alors `/fr/blog/` ni généré, ni redirigé.
+  const { def } = locales();
+  const declarees = languesDeclareesBlog();
   const out = [];
-  for (const l of active) {
+  for (const l of declarees) {
     if (l === def || (await postsFor(l)).length) out.push(l);
   }
   return out;

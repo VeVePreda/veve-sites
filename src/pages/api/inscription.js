@@ -38,14 +38,16 @@ export const prerender = true;
 const secretDeService = () => process.env.VEVEID_SERVICE || process.env.ID_SERVICE || '';
 
 
-import { t, locales } from '../../../engine/lib/i18n.mjs';
+import { t, locales, languesInterface } from '../../../engine/lib/i18n.mjs';
 import { CHAMP_PIEGE, verdict, adresseVisiteur } from '../../../engine/lib/robots.mjs';
 
 const langueDe = (request) => {
   const { active, def } = locales();
   const souhait = (request.headers.get('accept-language') || '')
     .split(',').map((x) => x.split(';')[0].trim().slice(0, 2).toLowerCase());
-  return souhait.find((l) => active.includes(l)) || def;
+  // 🌍 LOT 120 — voir `src/pages/inscription/index.astro` : la langue des
+  //    libellés n'est plus celle des adresses.
+  return souhait.find((l) => languesInterface().includes(l)) || def;
 };
 
 const texte = (corps, status) => new Response(corps, {

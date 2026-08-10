@@ -30,8 +30,46 @@ site:
 
 # --- Langues : anglais par defaut, les autres en sous-dossier (/fr/, /es/, /de/)
 languages:
+  # ═══════════════════════════════════════════════════════════════════════
+  # 🌍 LOT 120 — LE CONTENU PASSE EN ANGLAIS, L'INTERFACE RESTE TRADUITE
+  # ═══════════════════════════════════════════════════════════════════════
+  # Preda, 10/08 : « le multilingue ne vaut pas son coût, car à part
+  # l'interface et la description de l'item il n'y a rien à traduire ».
+  # MESURÉ avant de couper : ~9 300 des 12 376 pages étaient des
+  # localisations, pour 433 clés d'interface et un champ `description`.
+  # Le même nom de pièce, la même rareté, le même tirage, le même prix.
+  #
+  # ⚠️ `it` N'A JAMAIS ÉTÉ ACTIF. Il a ses 433 clés et des articles de blog,
+  # et zéro page générée. Ce genre d'écart entre ce qu'on croit publier et ce
+  # qu'on publie ne se voit qu'en comptant les fichiers de `dist/`.
   default: en
-  active: [en, fr, es, de]
+  # LES LANGUES QUI ONT UNE ADRESSE. C'est cette liste, et elle seule, que
+  # lisent les `getStaticPaths`, le sitemap et les `hreflang`.
+  # 🔴 LES ~9 300 URL SUPPRIMÉES SONT REDIRIGÉES EN 301 par nginx, pas
+  #    abandonnées en 404. Elles n'ont pas disparu : elles ont FUSIONNÉ avec
+  #    leur équivalent anglais, qui portait déjà le même contenu — et le 301
+  #    est la phrase qui dit exactement ça. ⛔ Rajouter une langue ici sans
+  #    retirer sa règle de redirection créerait une boucle : nginx renverrait
+  #    `/fr/x` vers `/x` pendant qu'Astro génère `/fr/x`.
+  active: [en]
+  # LES LANGUES DES LIBELLÉS. Aucune adresse, aucun `hreflang`, aucune page.
+  # ⭐ Elles servent aux pages NÉGOCIÉES à la demande — connexion, inscription,
+  #   compte — qui lisent `?lang=` ou `Accept-Language` et ne sont jamais mises
+  #   en cache partagé. Un francophone garde son espace membre en français.
+  # ⛔ CE QUE ÇA NE FAIT PAS, ET IL FAUT LE DIRE : les 12 000 pages PUBLIQUES
+  #   sont pré-générées et servies depuis un cache — leur interface reste en
+  #   anglais. Les traduire là demanderait soit une adresse par langue (ce
+  #   qu'on vient de supprimer), soit de marquer 534 appels `t()` pour un
+  #   remplacement côté navigateur. C'est un autre lot, et une autre décision.
+  interface: [en, fr, es, de]
+  # LES LANGUES DES ARTICLES. Preda, 10/08 : « on peut garder les différentes
+  # pages du blog dans différentes langues si c'est vraiment intéressant » —
+  # et ses articles sont écrits ou relus en `en` et `fr`, pas dans les autres.
+  # ⭐ C'est le SEUL endroit du réseau où le contenu diffère vraiment d'une
+  #   langue à l'autre, donc le seul où une adresse par langue se justifie.
+  # 🔴 `/fr/blog/` DOIT ÊTRE EXCLUE des redirections 301 de nginx : ces pages
+  #   existent. C'est le piège de ce lot, et un banc le tient.
+  blog: [en, fr]
 
 rendering: server          # static | server
 features:

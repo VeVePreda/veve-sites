@@ -12,7 +12,7 @@ export const prerender = true;
 
 import Base from '../../layouts/Base.astro';
 import { acces, sessionDe } from '../../../engine/lib/access.mjs';
-import { t, localize, locales } from '../../../engine/lib/i18n.mjs';
+import { t, localize, locales, languesInterface } from '../../../engine/lib/i18n.mjs';
 import { comptesActifs } from '../../../engine/lib/features.mjs';
 import { sceau, champPiegeHtml } from '../../../engine/lib/robots.mjs';
 import { getCatalogue } from '../../../engine/data/warehouse.mjs';
@@ -36,8 +36,17 @@ const souhait = (Astro.request.headers.get('accept-language') || '')
 // ⛔ `?lang=` PRIME sur tout : sans ça, le sélecteur de langue de cette page
 // serait inerte — un contrôle qui ne répond pas est pire qu'un contrôle absent.
 const demande = new URL(Astro.request.url).searchParams.get('lang');
-const lang = (demande && active.includes(demande)) ? demande
-  : (active.includes('en') ? 'en' : def);
+// 🌍 LOT 120 — `languesInterface()` ET NON `active`.
+// `active` ne contient plus qu'`en` : ce sont les langues qui ont une ADRESSE.
+// Cette page-ci n'a qu'une adresse et négocie sa langue à la demande — elle
+// n'est jamais mise en cache partagé (`private, no-store`), donc elle peut
+// servir des libellés différents sans risque et sans URL supplémentaire.
+// ⭐⭐⭐ C'EST EXACTEMENT LA DÉCISION DE PREDA : « le contenu de base en
+// anglais, l'interface traduite ». L'espace membre est le seul endroit où
+// « l'interface » est encore une page à part entière.
+const dispo = languesInterface();
+const lang = (demande && dispo.includes(demande)) ? demande
+  : (dispo.includes('en') ? 'en' : def);
 
 // ⛔ UN SITE SANS PALIERS N'A RIEN À INSCRIRE.
 // ⭐ ET UNE PAGE NE SE RETIRE PAS D'UN SITE EN LA REDIRIGEANT : tant qu'elle est
@@ -164,7 +173,13 @@ const marqueTemps = sceau();
           et un lecteur d'écran les annonce comme une navigation — ce qu'ils
           sont. */}
       <p class="lang-choix">
-        {active.map((l) => (
+        {/* 🌍 LOT 120 — `dispo` (les langues d'INTERFACE) et non `active`
+            (les langues qui ont une adresse). Ces liens ne créent AUCUNE URL :
+            `?lang=` est un paramètre sur la MÊME adresse, et la page est
+            servie `private, no-store`. C'est exactement pour ça que le
+            sélecteur peut rester complet ici alors que le site est passé à
+            l'anglais. */}
+        {dispo.map((l) => (
           <a href={`?lang=${l}`} hreflang={l}
              aria-current={l === lang ? 'true' : undefined}>{l.toUpperCase()}</a>
         ))}

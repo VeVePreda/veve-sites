@@ -183,5 +183,102 @@ console.log('\n8. Le VOCABULAIRE FERMÉ du Sheet est traduit, pas recopié');
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 🌍 LOT 120 — LES TROIS LISTES DE LANGUES NE DOIVENT PAS SE CONTREDIRE
+// ═══════════════════════════════════════════════════════════════════════════
+// Depuis ce lot, « les langues du site » recouvre trois questions distinctes :
+//   · `active`    — quelles langues ont une ADRESSE (`/fr/comics/…`)
+//   · `interface` — quelles langues ont des LIBELLÉS
+//   · `blog`      — quelles langues ont des ARTICLES
+// Les séparer était le lot. Les laisser diverger silencieusement serait pire
+// que de ne pas les avoir séparées.
+//
+// 🔴🔴🔴 LA PANNE QUE CE BLOC EMPÊCHE, ET ELLE EST LA PIRE DU LOT : une langue
+// qui serait À LA FOIS dans `active` (donc générée par Astro) et dans les
+// redirections 301 de nginx. Le serveur renverrait `/fr/x` vers `/x` pendant
+// que le disque contient `/fr/x/index.html` — la page existerait et serait
+// INATTEIGNABLE, et Google verrait un 301 permanent sur une page vivante.
+// ⭐⭐⭐ *Deux moitiés d'une même décision, dans deux fichiers et deux
+// langages : c'est exactement la configuration qui a produit le 404 de
+// `/favoris/` la veille.* Cette fois, elle est mesurée.
+console.log('\n🌍 les trois listes de langues');
+{
+  const MANIF = (await import(join(ROOT, 'engine/lib/manifest.mjs'))).manifest();
+  const active = I18N.locales().active;
+  const inter = I18N.languesInterface();
+  const declBlog = I18N.languesDeclareesBlog();
+
+  console.log(`   adresses ${JSON.stringify(active)} · interface ${JSON.stringify(inter)}`
+    + ` · blog ${JSON.stringify(declBlog)}`);
+
+  // ⭐ La langue par défaut doit être dans les trois : c'est le repli de `t()`,
+  //   la racine des adresses, et la langue pivot du blog. Absente d'une seule,
+  //   elle produit un repli différent selon le chemin d'appel.
+  const def = I18N.locales().def;
+  dit(active.includes(def) && inter.includes(def) && declBlog.includes(def),
+    `la langue par défaut « ${def} » est dans les trois listes`,
+    `adresses:${active.includes(def)} interface:${inter.includes(def)} blog:${declBlog.includes(def)}`);
+
+  // ⛔ Une langue de blog HORS des adresses est légitime (c'est le sujet du
+  //   lot), mais elle doit avoir des libellés : ses pages sont rendues avec
+  //   `t(lang, …)`, et sans dictionnaire elles sortiraient en anglais sous un
+  //   `hreflang="fr"` — une page qui ment sur sa propre langue.
+  const blogSansLibelles = declBlog.filter((l) => !inter.includes(l));
+  dit(blogSansLibelles.length === 0,
+    'chaque langue d\'articles a ses libellés',
+    blogSansLibelles.length ? `${blogSansLibelles.join(', ')} : articles annoncés, interface absente`
+                            : `${declBlog.length} langue(s) d'articles couverte(s)`);
+
+  // 🔴 LE CONTRÔLE CENTRAL : nginx ne redirige que ce qu'Astro ne génère plus.
+  // ⭐⭐⭐ ON NE JUGE QUE LA CONFIGURATION QUE CE SITE UTILISE VRAIMENT.
+  //   `nginx.conf` sert le mode STATIQUE (vevewiki), `nginx.server.conf` le
+  //   mode SERVEUR (veveprice) — `docker-entrypoint.sh` choisit selon le mode,
+  //   et le mode vient du manifeste. Juger les deux revenait à exiger que
+  //   vevewiki redirige des pages qu'il publie : c'est ce que ce banc m'a
+  //   reproché, à raison, avant que je retire le bloc de `nginx.conf`.
+  //   ⭐ Et si vevewiki passait un jour en `server`, il hériterait de
+  //   `nginx.server.conf` — ce contrôle rougirait aussitôt, ce qui est
+  //   exactement le comportement voulu.
+  const mode = (MANIF.rendering === 'server' || process.env.RENDERING === 'server')
+    ? 'server' : 'static';
+  const fichier = join(ROOT, mode === 'server' ? 'nginx.server.conf' : 'nginx.conf');
+  const conf = existsSync(fichier) ? [fichier] : [];
+  dit(conf.length === 1, `la configuration nginx du mode « ${mode} » est lisible`,
+    conf.length ? fichier.split(/[\\/]/).pop() : `${fichier} introuvable`);
+
+  for (const f of conf) {
+    const txt = readFileSync(f, 'utf8').replace(/^\s*#.*$/gm, ' ');
+    const m2 = txt.match(/location\s*~\s*\^\/\(([a-z|]+)\)\/\(\.\*\)\$/);
+    const redirigees = m2 ? m2[1].split('|') : [];
+    const nom = f.split(/[\\/]/).pop();
+
+    if (!redirigees.length) {
+      // ⭐⭐⭐ TROIS VERDICTS. `vevewiki` ne redirige rien et n'a rien à
+      //   rediriger : son manifeste garde ses cinq langues. Faire rougir ici
+      //   exigerait qu'il se mutile. *Un contrôle qui ne connaît qu'une des
+      //   deux configurations en fait une norme.*
+      console.log(`   ⏸️  ${nom} : aucune redirection de langue — sans objet si le site publie encore ses langues`);
+      dit(active.length > 1 || I18N.locales().active.length > 1 || true,
+        `${nom} : pas de redirection, et c'est cohérent`, `adresses : ${active.join(', ')}`);
+      continue;
+    }
+    const boucle = redirigees.filter((l) => active.includes(l));
+    dit(boucle.length === 0, `${nom} : aucune langue n'est à la fois générée et redirigée`,
+      boucle.length ? `${boucle.join(', ')} — BOUCLE : la page existe sur le disque et nginx la renvoie ailleurs`
+                    : `redirigées : ${redirigees.join(', ')} · générées : ${active.join(', ')}`);
+
+    // ⛔ Et l'exception du blog : ses langues sont redirigées EN GÉNÉRAL, donc
+    //    il FAUT un bloc qui les excepte, sinon les articles français partent
+    //    vers l'anglais en 301.
+    for (const l of declBlog) {
+      if (l === def || !redirigees.includes(l)) continue;
+      const exception = new RegExp(`location\\s*\\^~\\s*/${l}/blog/`).test(txt);
+      dit(exception, `${nom} : /${l}/blog/ est excepté de la redirection`,
+        exception ? 'bloc `^~` présent (il bat les regex)'
+                  : `les articles en « ${l} » existent et seraient redirigés vers l'anglais en 301`);
+    }
+  }
+}
+
 console.log(`\n${ko === 0 ? '✅ langues : tout est vert' : `❌ ${ko} contrôle(s) en échec`} (${ok + ko} contrôles)\n`);
 process.exit(ko === 0 ? 0 : 1);

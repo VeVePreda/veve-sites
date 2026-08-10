@@ -24,7 +24,7 @@ import { manifest } from '../../../engine/lib/manifest.mjs';
 // inoffensif : `imports-orphelins` le signale, et surtout il laisse croire que
 // cette page décide encore de droits d'accès — elle n'en décide plus aucun.
 import { acces, palierVisiteur, sessionDe } from '../../../engine/lib/access.mjs';
-import { t, localize, locales, localeNames } from '../../../engine/lib/i18n.mjs';
+import { t, localize, locales, localeNames, languesInterface } from '../../../engine/lib/i18n.mjs';
 import { comptesActifs } from '../../../engine/lib/features.mjs';
 
 // ⭐ CES PAGES SONT RENDUES À LA DEMANDE : elles peuvent donc lire l'en-tête
@@ -36,7 +36,28 @@ import { comptesActifs } from '../../../engine/lib/features.mjs';
 const { active, def } = locales();
 const souhait = (Astro.request.headers.get('accept-language') || '')
   .split(',').map((x) => x.split(';')[0].trim().slice(0, 2).toLowerCase());
-const lang = souhait.find((l) => active.includes(l)) || def;
+// 🌍 LOT 120 — `languesInterface()` ET NON `active`.
+// `active` ne contient plus qu'`en` : ce sont les langues qui ont une ADRESSE.
+// Cette page-ci n'a qu'une adresse et négocie sa langue à la demande — elle
+// n'est jamais mise en cache partagé (`private, no-store`), donc elle peut
+// servir des libellés différents sans risque et sans URL supplémentaire.
+// ⭐⭐⭐ C'EST EXACTEMENT LA DÉCISION DE PREDA : « le contenu de base en
+// anglais, l'interface traduite ». L'espace membre est le seul endroit où
+// « l'interface » est encore une page à part entière.
+const dispo = languesInterface();
+// 🔴 `?lang=` EST LU ICI, ET SANS LUI LE SÉLECTEUR NE COMMANDERAIT RIEN.
+//    Les liens de réglage posent `?lang=fr` sur cette même adresse ; si
+//    personne ne lit ce paramètre, ils rechargent la page à l'identique et
+//    l'utilisateur conclut que le réglage est cassé — ou pire, que la langue
+//    n'existe pas. ⭐⭐ *Une commande dont personne ne lit la sortie est un
+//    bouton peint sur le mur.* (Même défaut que le cookie `vp_actif` que
+//    personne ne posait, vu de l'autre côté.)
+// ⚠️ L'ORDRE COMPTE : un choix EXPLICITE bat toujours une préférence de
+//    navigateur. L'inverse rendrait le réglage inopérant pour qui a déjà un
+//    `Accept-Language` reconnu — c'est-à-dire pour presque tout le monde.
+const demande = new URL(Astro.request.url).searchParams.get('lang');
+const lang = (demande && dispo.includes(demande)) ? demande
+  : (souhait.find((l) => dispo.includes(l)) || def);
 const m = manifest();
 const { tiers } = acces();
 // ⛔ DÉCISION PREDA DU 03/08/2026 : vevewiki n'aura JAMAIS d'espace membre.
@@ -96,10 +117,19 @@ if (aLaDemande && !connecte && !enDemo) return Astro.redirect('/connexion/', 302
 const reglagesIci = (m.identity?.langues_dans === 'compte') || (m.identity?.theme_dans === 'compte');
 const langueIci = m.identity?.langues_dans === 'compte';
 const themeIci = m.identity?.theme_dans === 'compte';
-// ⚠️ Cette page n'a QU'UNE adresse (elle lit `Accept-Language`) : pour changer
-// de langue on envoie vers l'ACCUEIL de la langue voulue, pas vers /xx/compte/
-// qui n'existe pas. C'est la même raison qui impose `langs={[def]}` plus bas.
-const languesDispo = active.map((l) => ({ l, n: localeNames[l] || l.toUpperCase(), h: localize(l, '/') }));
+// 🔴🔴 LOT 120 — LE SÉLECTEUR NE FABRIQUE PLUS D'ADRESSE LOCALISÉE.
+// Il envoyait vers `localize(l, '/')`, c'est-à-dire `/fr/`, `/es/`, `/de/`.
+// Ces accueils N'EXISTENT PLUS : nginx les redirige désormais en 301 vers `/`.
+// ⛔ Le sélecteur aurait donc proposé de « passer en français » et livré la
+//    page anglaise, après un aller-retour de redirection. Un réglage qui ne
+//    règle rien et qui a l'air de marcher — la pire des deux façons d'échouer.
+// ⭐ Il pose maintenant `?lang=` sur CETTE page, comme `/connexion/` et
+//   `/inscription/` : une seule adresse, aucune URL créée, et la langue est un
+//   RÉGLAGE, ce qu'elle a toujours été ici.
+// ⚠️ `languesInterface()` et non `active` : ce sont deux questions
+//   différentes depuis ce lot — « quelles langues existent en libellés » n'est
+//   plus « quelles langues ont une adresse ».
+const languesDispo = languesInterface().map((l) => ({ l, n: localeNames[l] || l.toUpperCase(), h: `?lang=${l}` }));
 
 // ⛔ LA LISTE DES MODULES A QUITTÉ CETTE PAGE — arbitrage Preda du 06/08/2026.
 // Elle y était pour vendre : montrer le nom et la promesse de chaque module,

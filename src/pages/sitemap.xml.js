@@ -5,7 +5,7 @@ import { DOCS, languesLegales } from '../../engine/lib/legal.mjs';
 import { priceEnabled } from '../../engine/lib/features.mjs';
 import { activeSections, sectionMeta, languesDeSection, languesDuSite } from '../../engine/lib/editorial_pages.mjs';
 import { ficheSections, fichesDe, cheminFiche } from '../../engine/lib/editorial_entries.mjs';
-import { postsFor, tagsFor, translationPaths, SEUIL_INDEX_TAG } from '../../engine/lib/blog.mjs';
+import { postsFor, tagsFor, translationPaths, SEUIL_INDEX_TAG, languesBlog } from '../../engine/lib/blog.mjs';
 // ⭐⭐ LE `lastmod` NE PEUT PAS ÊTRE « AUJOURD'HUI » POUR TOUT LE MONDE.
 // Avant le 27/07 les 82 URL portaient la date du build : les mentions légales,
 // inchangées depuis des mois, se déclaraient modifiées chaque matin. Un moteur
@@ -138,12 +138,22 @@ export async function GET() {
   // porte ses propres alternates, calcules depuis translationKey.
   // L'index d'articles n'est declare QUE dans les langues qui ont vraiment des
   // articles : ailleurs la page est en noindex, l'annoncer serait contradictoire.
+  // 🔴 LOT 120 — LE PLAN DU SITE SUIT LE BLOG, PLUS `active`.
+  //    `active` ne contient plus qu'`en` : ce sont les langues qui ont une
+  //    adresse sur le SITE. Le blog garde `en` + `fr`. Continuer à boucler sur
+  //    `active` ici aurait retiré du plan les articles français — qui EXISTENT
+  //    et sont générés. ⭐⭐⭐ *Un plan du site qui omet des pages réelles est
+  //    pire qu'un plan absent : il affirme que ces pages n'existent pas.*
+  //    ⛔ Et l'inverse est vrai aussi : ce lot RETIRE du plan les ~9 300 URL
+  //    localisées du site, parce qu'elles n'existent plus. Les deux moitiés
+  //    comptent — annoncer ce qui n'existe pas, et taire ce qui existe.
+  const langsBlog = await languesBlog();
   const langsAvecArticles = [];
-  for (const l of active) { if ((await postsFor(l)).length) langsAvecArticles.push(l); }
+  for (const l of langsBlog) { if ((await postsFor(l)).length) langsAvecArticles.push(l); }
   // ⭐ L'index d'articles est daté par son article le plus récent, pas par le
   // build : c'est la seule chose qui le fait vraiment changer.
   const datesArticles = [];
-  for (const l of active) {
+  for (const l of langsBlog) {
     for (const p of await postsFor(l)) {
       datesArticles.push(new Date(p.data.updated || p.data.date).toISOString().slice(0, 10));
     }
@@ -153,7 +163,7 @@ export async function GET() {
     const alts = langsAvecArticles.map((a) => `<xhtml:link rel="alternate" hreflang="${a}" href="${root}${localize(a, '/blog/')}"/>`).join('');
     entries.push(`<url><loc>${root}${localize(l, '/blog/')}</loc><lastmod>${dateBlog}</lastmod>${alts}</url>`);
   }
-  for (const l of active) {
+  for (const l of langsBlog) {
     for (const p of await postsFor(l)) {
       const tp = await translationPaths(p.data.translationKey);
       const alts = Object.keys(tp).map((a) => `<xhtml:link rel="alternate" hreflang="${a}" href="${root}${localize(a, tp[a])}"/>`).join('');
