@@ -25,6 +25,7 @@ import { palierVisiteur, sessionDe } from '../../../engine/lib/access.mjs';
 import { t, localize, locales, languesInterface, choisirLangue, COOKIE_LANGUE } from '../../../engine/lib/i18n.mjs';
 import { comptesActifs } from '../../../engine/lib/features.mjs';
 import { sceau, champPiegeHtml } from '../../../engine/lib/robots.mjs';
+import { retourSur, COOKIE_RETOUR, RETOUR_DUREE } from '../../../engine/lib/retour.mjs';
 
 // ⭐ CES PAGES SONT RENDUES À LA DEMANDE : elles peuvent donc lire l'en-tête
 // `Accept-Language`, ce qu'une page pré-générée ne peut pas faire. Autant s'en
@@ -128,6 +129,28 @@ const envoye = Astro.url.searchParams.get('envoye') === '1';
 // ⭐ Recalculé à CHAQUE rendu : ces pages sont servies à la demande, donc
 // l'horodatage est celui de l'affichage. Sur une page pré-générée il
 // serait figé au build — et périmé pour tout le monde dès le lendemain.
+// 🔴🔴🔴 LOT 126 — `suite=` EST ENFIN LU, ET IL EST LU ICI.
+// Quatre pages l'écrivent depuis les lots 104 et 118 (`/market/`, `/favoris/`
+// et leurs jumeaux localisés) ; PERSONNE ne le lisait. `api/entrer.js` finissait
+// par `redirect('/compte/')`, sans condition. ⭐ Même famille que le lot 122 :
+// un paramètre posé et jamais lu ne produit ni erreur, ni run rouge, ni banc
+// qui tombe — juste un membre qu'on renvoie ailleurs, à chaque connexion.
+// ⭐⭐ ON LE MET DANS UN COOKIE, pas dans le `state` OAuth : le `state` est
+// fabriqué et vérifié par le service d'identité, il ne nous appartient pas.
+// ⛔ `retourSur()` N'ACCEPTE QUE CINQ DESTINATIONS. Recopier `suite=` tel quel
+// serait une redirection ouverte : `?suite=https://ailleurs.example/` ferait de
+// notre page de connexion un tremplin d'hameçonnage, à notre nom de domaine.
+const _suite = retourSur(Astro.url.searchParams.get('suite'));
+if (_suite) {
+  Astro.cookies.set(COOKIE_RETOUR, _suite, {
+    path: '/', httpOnly: true, sameSite: 'lax',
+    // ⚠️ `secure` D'APRÈS L'ORIGINE DÉCLARÉE, jamais d'après `$scheme` : derrière
+    //    Cloudflare, nginx voit du http et poserait un cookie non sécurisé.
+    secure: Astro.url.protocol === 'https:',
+    maxAge: RETOUR_DUREE,
+  });
+}
+
 const marqueTemps = sceau();
 ---
       {/* ⛔ UNE SEULE LANGUE DÉCLARÉE, ET C'EST LE CORRECTIF DU 404.

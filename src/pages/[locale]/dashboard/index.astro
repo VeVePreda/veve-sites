@@ -1,0 +1,24 @@
+---
+// ⚠️ VeVePreda/veve-sites — src/pages/[locale]/dashboard/index.astro (lot 126)
+// ⭐ Le jumeau localisé de `/dashboard/`. `getStaticPaths()` rend une liste
+//   VIDE : aucune adresse n'est pré-générée, la route n'existe qu'à la demande,
+//   basculée par `astro_routes_compte.mjs`. Même dispositif que `/favoris/`.
+export const prerender = true;
+
+import Dashboard from '../../../components/pages/Dashboard.astro';
+import { connecte } from '../../../../engine/lib/access.mjs';
+
+export function getStaticPaths() {
+  return [];
+}
+
+const lang = Astro.params.locale;
+
+if (!connecte(Astro.locals)) {
+  return Astro.redirect(`/connexion/?suite=%2F${encodeURIComponent(lang)}%2Fdashboard%2F`, 302);
+}
+
+Astro.response.headers.set('cache-control', 'private, no-store');
+Astro.response.headers.set('vary', 'cookie');
+---
+<Dashboard lang={lang} />

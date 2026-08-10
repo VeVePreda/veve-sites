@@ -127,6 +127,15 @@ const ROUTES_COMPTE = [
   // et c'est la même que `/dashboard/` au lot 104.
   'pages/favoris/index.astro',
   'pages/[locale]/favoris/index.astro',
+  // 🧭 LOT 126 — `/dashboard/` ENTRE ICI, ET C'EST LE PREMIER DES TROIS
+  // ENDROITS. Les deux autres : la regex `location` de `nginx.server.conf`, et
+  // `engine/tools/test_pages.mjs`. ⛔ L'oublier ICI laisse la page
+  // PRÉ-GÉNÉRÉE : elle répondrait 200 à un anonyme, et la redirection écrite
+  // dans le fichier serait figée au build, au niveau visiteur. L'oublier dans
+  // NGINX la laisse hors de `dist/` sans que personne la demande à Node —
+  // 404, sur un build vert. Les deux pannes ont déjà été payées (lots 24, 119).
+  'pages/dashboard/index.astro',
+  'pages/[locale]/dashboard/index.astro',
 ];
 
 const normalise = (p) => String(p || '').replace(/\\/g, '/');

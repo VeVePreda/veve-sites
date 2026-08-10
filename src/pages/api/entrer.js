@@ -30,6 +30,8 @@
 // `veve:routes-compte` (engine/lib/astro_routes_compte.mjs) selon le mode du
 // manifeste. `true` ici est le defaut SUR : sans adaptateur, un build static
 // ne peut pas rendre cette route a la demande.
+import { retourSur, COOKIE_RETOUR, RETOUR_DEFAUT } from '../../../engine/lib/retour.mjs';
+
 export const prerender = true;
 
 // ⭐⭐ DEUX NOMS POUR LE MEME SECRET — corrige au lot 94.
@@ -146,7 +148,19 @@ export async function GET({ url, cookies, redirect }) {
   // du premier lien cliqué depuis la page. Le code est déjà consommé, mais on
   // ne laisse pas traîner un secret usagé : la prochaine version pourrait
   // l'être moins.
-  return redirect('/compte/', 303);
+  // 🔴🔴🔴 LOT 126 — ON RESTITUE LA DESTINATION, ET LE DÉFAUT DEVIENT
+  // `/dashboard/`. Cette ligne rendait `/compte/` sans condition : les quatre
+  // `?suite=…` écrits par `/market/` et `/favoris/` mouraient ici, en silence.
+  // ⭐ On REVALIDE au retour, alors que `/connexion/` avait déjà validé à
+  // l'aller. Ce n'est pas de la superstition : entre les deux il y a un cookie,
+  // c'est-à-dire quelque chose que le navigateur porte et qu'un autre script de
+  // la même origine peut avoir écrit. « Validé une fois, quelque part » n'est
+  // pas « valide ici ».
+  // ⛔ ET ON L'EFFACE. Un cookie de retour qui survit ramènerait quelqu'un sur
+  // `/market/` trois connexions plus tard, sans qu'il comprenne pourquoi.
+  const _brut = cookies.get(COOKIE_RETOUR)?.value || '';
+  cookies.delete(COOKIE_RETOUR, { path: '/' });
+  return redirect(retourSur(_brut) || RETOUR_DEFAUT, 303);
 }
 
 // Un POST ici n'est pas une entrée. Un 405 explicite plutôt qu'un 404, qui

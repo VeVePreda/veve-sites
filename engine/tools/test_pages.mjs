@@ -60,6 +60,11 @@ const ROUTES = [
   { p: '/inscription/', quoi: 'l\'inscription' },
   { p: '/market/', quoi: 'le marché' },
   { p: '/favoris/', quoi: 'les favoris' },
+  // 🧭 LOT 126 — LA TROISIÈME PLACE DE `/dashboard/`. Les deux autres :
+  //   `astro_routes_compte.mjs` (Node la REND) et `nginx.server.conf` (nginx la
+  //   DEMANDE). ⛔ Une route qui n'est demandée par aucun banc n'est vérifiée
+  //   qu'en production, par le premier visiteur — c'est le 503 du lot 123.
+  { p: '/dashboard/', quoi: 'le tableau de bord' },
   // ⭐ Avec un paramètre de langue : c'est le chemin qui a explosé le 10/08,
   //   et il ne s'emprunte que si quelqu'un le demande.
   { p: '/connexion/?lang=fr', quoi: 'la connexion en français' },

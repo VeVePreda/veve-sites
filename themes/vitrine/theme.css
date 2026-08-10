@@ -664,7 +664,16 @@ h3{font-size:var(--t-lg)}
 .socle--carre{aspect-ratio:1/1}
 .socle__fav{position:absolute;top:8px;right:8px;z-index:3;width:32px;height:32px;display:grid;place-items:center; background:#000000A6;backdrop-filter:blur(8px);border:1px solid var(--rule-2);border-radius:var(--r-full); cursor:pointer;color:var(--text-2);opacity:0;transition:all var(--d-base) var(--e-out)}
 .socle__fav svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.8}
-.carte:hover .socle__fav,.socle__fav:focus-visible,.socle__fav[aria-pressed="true"]{opacity:1}
+/* ❤️ LOT 126 — `.carte-h` : l'enveloppe qui rend le cœur possible sur une carte.
+   `.carte` EST un <a> ; un <button> dedans est du HTML invalide. Le bouton est
+   donc un FRÈRE du lien, et cette enveloppe est le seul ancrage `relative`.
+   ⚠️ `display:flex` + `flex:1` sur l'enfant : l'enveloppe devient l'élément de
+   grille et la carte l'occupe entièrement — la grille ne voit pas la différence. */
+.carte-h{position:relative;display:flex;min-width:0}
+.carte-h>.carte{flex:1 1 auto;min-width:0}
+/* 🔴 LE SURVOL SUIT L'ENVELOPPE. Sans `.carte-h:hover`, le cœur resterait à
+   `opacity:0` sur les cartes : il n'est plus un descendant de `.carte`. */
+.carte:hover .socle__fav,.carte-h:hover .socle__fav,.socle__fav:focus-visible,.socle__fav[aria-pressed="true"]{opacity:1}
 .socle__fav:hover,.socle__fav[aria-pressed="true"]{color:var(--sect-a);border-color:var(--sect-a)}
 .socle__fav[aria-pressed="true"] svg{fill:var(--sect-a)}
 .socle__coin{position:absolute;top:8px;left:8px;z-index:3}

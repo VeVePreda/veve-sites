@@ -328,6 +328,21 @@ RUN WAREHOUSE_OFFLINE=1 npm run test:affichage
 # ⚠️ ET IL N'IMPORTE PAS `dataset.mjs` — sinon il recalculerait la vitrine et
 #    VIDERAIT `.reserve/cote/`, la panne que le Dockerfile decrit plus haut.
 RUN WAREHOUSE_OFFLINE=1 npm run test:marche
+# 🧭🔴 `test:membre` — LOT 126. LE PARCOURS D'UN MEMBRE, DE BOUT EN BOUT.
+# Quatre pannes, toutes deja payees ailleurs sur ce depot :
+#   §1 `retourSur()` n'accepte que la liste blanche — 13 temoins hostiles,
+#      dont la redirection ouverte `?suite=https://ailleurs.example/` ;
+#   §2 tout `?suite=` ecrit a un LECTEUR (il n'en avait aucun depuis le lot
+#      104 : parametre pose et jamais lu, la famille du lot 122) ;
+#   §3 chaque route de compte est dans les TROIS endroits — ROUTES_COMPTE,
+#      nginx, et un banc. L'oubli nginx = 404 sur build vert (lot 119) ;
+#   §4 aucun `<button>` dans un `<a>` dans dist/ (`.carte` EST un `<a>`) ;
+#   §5 le coeur est EMIS sur les cartes — `.socle__fav` etait stylee depuis le
+#      lot 15 et n'avait aucun emetteur. Une regle CSS sans emetteur ne se voit
+#      pas dans une feuille de 2 300 lignes.
+# ⛔ IL VA APRES `npm run build` : les §4 et §5 lisent `dist/`.
+# ⚠️ IL N'IMPORTE PAS `dataset.mjs` — il ne peut donc pas vider la reserve.
+RUN WAREHOUSE_OFFLINE=1 npm run test:membre
 # 🔴🔴🔴 `test:pages` — LOT 124. IL LANCE LE SERVEUR ET DEMANDE LES PAGES.
 # ═══════════════════════════════════════════════════════════════════════════
 # LE 10/08, `/connexion/` et `/inscription/` ont rendu 500 (`ReferenceError`).

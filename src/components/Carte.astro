@@ -10,6 +10,10 @@
 // ⛔ SUPPRIMER `src/components/Piece.astro` après dépôt.
 import { rar, delta, gemsM, esc, mentionEdition } from '../../engine/lib/vitrine.mjs';
 import { coteFermee as coteEstFermee } from '../../engine/lib/cote.mjs';
+// ⭐ LOT 126 — `t()` arrive ici POUR LE CŒUR : ses libellés sont lus par un
+//   lecteur d'écran, ils ne peuvent pas rester en anglais sur une carte
+//   française. Les clés `fav.add` / `fav.remove` existent depuis le lot 15.
+import { t } from '../../engine/lib/i18n.mjs';
 import Cote from './Cote.astro';
 
 const { item, lang, href, nf, i = 0, ed = false, libre = false } = Astro.props;
@@ -24,7 +28,30 @@ const money = (v) => (v === null || v === undefined ? '—' : v.toLocaleString(n
 // l'apparition. Sans lui, les cartes surgissent toutes en même temps — et une
 // apparition simultanée n'est pas une animation, c'est un clignotement.
 ---
-<a class="carte revele" href={href} style={`--i:${i}`}>
+{/* ═══════════════════════════════════════════════════════════════════════
+    ❤️ LOT 126 — LE CŒUR ARRIVE SUR LES CARTES, ET IL EST DEHORS DU LIEN
+    ═══════════════════════════════════════════════════════════════════════
+    ⛔⛔ `.carte` **EST** UN `<a>`. Un `<button>` à l'intérieur d'un `<a>` est du
+    HTML invalide (contenu interactif imbriqué) : les navigateurs le réparent
+    chacun à leur façon, et le clic sur le cœur suivrait le lien.
+    ⇒ Le bouton est un FRÈRE du lien, dans une enveloppe `position:relative`.
+
+    ⭐⭐⭐ ET LE THÈME L'ATTENDAIT DEPUIS LE LOT 15. `.socle__fav` y est stylé
+    `position:absolute; top:8px; right:8px; opacity:0`, avec une règle
+    `.carte:hover .socle__fav` — c'est-à-dire un cœur DE CARTE. Seule la fiche
+    l'émettait, via la variante `--fiche` qui le repasse en `position:static`.
+    *Une règle CSS sans émetteur n'est pas du style mort : c'est une intention
+    en attente, et elle ne se voit pas dans une feuille de 2 300 lignes.*
+
+    ⚠️ `revele` ET `--i` PASSENT SUR L'ENVELOPPE, pas sur le lien : c'est
+    `.grille>*` qui porte le `transition-delay:calc(var(--i)*40ms)`, et l'enfant
+    direct de la grille est désormais l'enveloppe. Les laisser en bas ferait
+    apparaître le cœur AVANT sa carte.
+    ⛔ AUCUNE DONNÉE RÉSERVÉE NE TRANSITE : le favori ne mémorise qu'un uuid,
+    un chemin et un nom — trois choses déjà publiques sur la carte elle-même.
+    Le gestionnaire est global (Base.astro, `[data-fav]`) : rien à brancher. */}
+<div class="carte-h revele" style={`--i:${i}`}>
+<a class="carte" href={href}>
   <div class="socle">
     {item.image ? (
       <>
@@ -97,3 +124,14 @@ const money = (v) => (v === null || v === undefined ? '—' : v.toLocaleString(n
     </div>
   </div>
 </a>
+  <button type="button" class="socle__fav" data-fav={item.uuid}
+          data-fav-path={item.path} data-fav-nom={item.qualifie || item.name}
+          aria-pressed="false"
+          data-l={t(lang, 'fav.add')}
+          data-l-on={t(lang, 'fav.remove')} data-l-off={t(lang, 'fav.add')}
+          aria-label={t(lang, 'fav.add')} title={t(lang, 'fav.add')}>
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 20.3 4.7 13a4.6 4.6 0 0 1 6.5-6.5l.8.8.8-.8A4.6 4.6 0 0 1 19.3 13Z" />
+    </svg>
+  </button>
+</div>

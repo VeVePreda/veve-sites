@@ -1,0 +1,45 @@
+---
+// ⚠️ VeVePreda/veve-sites — src/pages/dashboard/index.astro  (NEUF — lot 126)
+// ═══════════════════════════════════════════════════════════════════════════
+// 🧭 LE TABLEAU DE BORD — LA PAGE D'ARRIVÉE D'UN MEMBRE
+// ═══════════════════════════════════════════════════════════════════════════
+// ⛔⛔ `prerender = true` EN LITTÉRAL, ET C'EST VOULU — même dispositif que les
+// dix-huit autres routes de compte. Un `false` littéral fait échouer le build
+// en mode static (NoAdapterInstalled) et casserait vevewiki ; une EXPRESSION
+// n'est pas évaluée par Astro, qui retombe silencieusement sur `true` — la
+// panne du lot 24, quatre fois payée. C'est `astro_routes_compte.mjs` qui
+// bascule cette route à la demande en mode server, et qui le TRACE.
+//
+// 🔴🔴🔴 TROIS ENDROITS, PAS UN. Cette page n'existe vraiment que si elle est
+// inscrite dans LES TROIS :
+//   1. `engine/lib/astro_routes_compte.mjs` — pour que Node la RENDE ;
+//   2. `nginx.server.conf` (la regex `location`) — pour que nginx la DEMANDE ;
+//   3. `engine/tools/test_pages.mjs` — pour qu'un banc la RÉCLAME.
+// ⭐⭐⭐ OUBLIER LE 2 NE CASSE RIEN AU BUILD : la page quitte `dist/`, nginx ne
+// la demande jamais à Node, et `try_files … =404` finit le travail. Build vert,
+// déploiement vert, page morte. C'est mot pour mot le lot 119 sur `/favoris/`,
+// et `npm run test:nginx` l'avait vu — il était MUET faute de `crossplane`.
+// ⇒ `npm run test:nginx` AVANT le dépôt, et vérifier qu'il parle.
+export const prerender = true;
+
+import Dashboard from '../../components/pages/Dashboard.astro';
+import { locales, COOKIE_LANGUE, languesInterface } from '../../../engine/lib/i18n.mjs';
+import { connecte } from '../../../engine/lib/access.mjs';
+
+const { def } = locales();
+const _l = Astro.cookies.get(COOKIE_LANGUE)?.value;
+const lang = (_l && languesInterface().includes(_l)) ? _l : def;
+
+// ⭐ `connecte()` SEUL, pas `franchit()`. Le tableau de bord n'ouvre rien : il
+// montre des liens et une liste tirée du navigateur. Exiger un palier ici
+// fermerait la page d'arrivée à un membre qui vient justement de s'inscrire.
+// ⚠️ « qui es-tu » n'est pas « à quoi as-tu droit » — les portes sont derrière
+// chacun des liens, là où elles ont un sens.
+if (!connecte(Astro.locals)) {
+  return Astro.redirect('/connexion/?suite=%2Fdashboard%2F', 302);
+}
+
+Astro.response.headers.set('cache-control', 'private, no-store');
+Astro.response.headers.set('vary', 'cookie');
+---
+<Dashboard lang={lang} />

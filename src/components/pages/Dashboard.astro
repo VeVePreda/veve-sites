@@ -1,0 +1,130 @@
+---
+// ⚠️ VeVePreda/veve-sites — src/components/pages/Dashboard.astro  (NEUF — lot 126)
+//
+// 🧭 LE TABLEAU DE BORD, ET IL CESSE D'ÊTRE UNE PROMESSE
+//
+// ⭐⭐⭐ IL EXISTAIT DÉJÀ DANS LE MENU, ET IL POINTAIT SUR L'ACCUEIL.
+//    `nav.dashboard → /` portait le commentaire « l'accueil DEVIENT le tableau
+//    de bord » (arbitrage du 07/08). L'accueil n'est pas devenu un tableau de
+//    bord : c'est une page d'accroche, identique pour un membre et pour un
+//    anonyme. L'entrée disait donc vrai *au futur* depuis un mois.
+//    ⇒ Ce lot fabrique la page et repointe l'entrée. Une entrée de menu qui
+//      décrit une intention se lit comme un état, et personne ne la revérifie.
+//
+// ⭐⭐ CE QU'IL CONTIENT, ET RIEN DE PLUS : les favoris, et l'accès rapide.
+//    L'arbitrage est pris (SUIVI, D4 laissé ouvert pour les modules d'analyse).
+//    ⛔ On ne pose PAS de widget vide « bientôt » : un bloc vide sur la page
+//      d'arrivée d'un membre est une déception à chaque connexion, et il coûte
+//      exactement le même clic qu'un bloc utile.
+//
+// ⛔ AUCUN PRIX, AUCUNE COTE, MÊME ICI. Les favoris viennent de `localStorage`
+//    (arbitrage Preda : « le navigateur d'abord ») et n'y portent qu'un nom et
+//    un chemin — deux choses déjà publiques sur la fiche qui les a écrits.
+//    Le mur ne bouge pas d'un pouce. → `test:fuite` balaie tout `dist/`.
+//
+// ⚠️ AUCUNE CLASSE NOUVELLE DANS CE FICHIER, ET C'EST DÉLIBÉRÉ. Le contrat
+//    gabarit↔thème (`test:gabarits`) veut qu'une classe émise existe dans la
+//    feuille, et l'inverse. Tout ce qui suit réutilise `rayon*`, déjà stylé et
+//    déjà servi par `/favoris/` — un tableau de bord n'a pas besoin d'un
+//    vocabulaire à lui pour exister.
+import Base from '../../layouts/Base.astro';
+import { t, localize } from '../../../engine/lib/i18n.mjs';
+
+const { lang } = Astro.props;
+
+// ⭐ L'ordre est celui de l'usage, pas celui du menu : ce qu'un membre vient
+//   chercher en se connectant d'abord, les réglages en dernier.
+// ⚠️ `localize()` sur CHAQUE adresse : un membre en français doit rester en
+//   français en traversant son tableau de bord. C'est le défaut que Preda a
+//   signalé au lot 123 — « réglage en français, puis retour à l'anglais » —
+//   et il naît toujours d'un lien écrit en dur.
+const raccourcis = [
+  { href: '/market/',   cle: 'nav.movers',    desc: 'dash.market.d' },
+  { href: '/favoris/',  cle: 'fav.title',     desc: 'dash.fav.d' },
+  // ⚠️ `account.title` ET NON `nav.account` : cette clé-là N'EXISTE PAS. Les
+  //    onze clés `nav.*` sont celles du menu, et le compte n'y figure pas — il
+  //    vit dans l'en-tête. Un `t()` sur une clé absente rend la clé elle-même,
+  //    en silence : « nav.account » se serait affiché en toutes lettres sur la
+  //    page d'arrivée de chaque membre, sans casser ni build ni banc.
+  { href: '/compte/',   cle: 'account.title', desc: 'dash.account.d' },
+  { href: '/offre/',    cle: 'nav.offer',     desc: 'dash.offer.d' },
+];
+---
+<Base sect="general" lang={lang} path="/dashboard/" noindex={true}
+      title={t(lang, 'dash.title')} description={t(lang, 'dash.lead')}
+      crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') },
+               { name: t(lang, 'dash.title') }]}>
+
+  <div class="sect-t sect-t--gd"><h1 class="mono-t">{t(lang, 'dash.title')}</h1></div>
+  <p class="respire">{t(lang, 'dash.lead')}</p>
+
+  {/* ═══ ACCÈS RAPIDE ═══════════════════════════════════════════════════════
+      ⭐ Rendu au BUILD, entièrement. Aucune de ces quatre entrées ne dépend de
+      qui regarde : ce sont des adresses, et les portes sont derrière elles.
+      ⛔ Masquer un lien dont la porte est fermée serait un affichage qui se
+      fait passer pour un droit — le mur est côté serveur, il n'a pas besoin
+      d'aide ici. */}
+  <div class="sect-t"><h2 class="mono-t">{t(lang, 'dash.quick')}</h2></div>
+  <ul class="rayon">
+    {raccourcis.map((r) => (
+      <li class="rayon__l">
+        <a class="rayon__c" href={localize(lang, r.href)}>
+          <span class="rayon__n">{t(lang, r.cle)}</span>
+          <span class="rayon__s">{t(lang, r.desc)}</span>
+        </a>
+      </li>
+    ))}
+  </ul>
+
+  {/* ═══ FAVORIS ════════════════════════════════════════════════════════════
+      ⭐ L'ÉTAT VIDE EST RENDU AU BUILD ET VISIBLE PAR DÉFAUT ; le script le
+      masque s'il trouve quelque chose. Le motif inverse — page nue que le
+      script remplit — montre un écran blanc à qui n'a pas de JavaScript, et
+      un clignotement à tous les autres. Même dispositif que `/favoris/`. */}
+  <div class="sect-t"><h2 class="mono-t">{t(lang, 'dash.fav')}</h2></div>
+  <p class="filtres-mur" id="tb-vide">{t(lang, 'dash.fav.empty')}</p>
+  <ul class="rayon" id="tb-fav"></ul>
+  <p class="etiq" id="tb-tout" hidden>
+    <a href={localize(lang, '/favoris/')}>{t(lang, 'dash.fav.all')}</a>
+  </p>
+</Base>
+
+{/* ⚠️ `try/catch` AUTOUR DE `localStorage` : en navigation privée, sur certains
+    navigateurs, la simple LECTURE lève. Sans ce garde, l'exception arrêterait
+    tous les scripts qui suivent — dont ceux de l'en-tête. Payé une fois. */}
+<script is:inline>
+  (function () {
+    var hote = document.getElementById('tb-fav');
+    var vide = document.getElementById('tb-vide');
+    var tout = document.getElementById('tb-tout');
+    if (!hote) return;
+    var favs = {};
+    try { favs = JSON.parse(localStorage.getItem('vp_fav') || '{}') || {}; } catch (e) { favs = {}; }
+    var cles = Object.keys(favs).sort(function (a, b) { return (favs[b].t || 0) - (favs[a].t || 0); });
+    if (!cles.length) return;
+    if (vide) vide.hidden = true;
+    // ⭐ HUIT, PAS TOUT. Le tableau de bord est un point de départ, pas la
+    //   liste complète — celle-ci vit sur `/favoris/`, et le lien vers elle
+    //   n'apparaît QUE s'il y a plus à voir. Un « voir tout » qui mène à la
+    //   même chose est un lien qui ment.
+    var COUPE = 8;
+    cles.slice(0, COUPE).forEach(function (u) {
+      var f = favs[u] || {};
+      var li = document.createElement('li');
+      li.className = 'rayon__l';
+      // ⛔ `textContent`, JAMAIS `innerHTML` : le nom vient du stockage local,
+      //    donc d'une source qu'un autre script de la même origine a pu
+      //    écrire. On ne rend jamais du HTML issu d'une donnée.
+      var a = document.createElement(f.p ? 'a' : 'div');
+      a.className = 'rayon__c' + (f.p ? '' : ' rayon__c--muet');
+      if (f.p) a.setAttribute('href', f.p);
+      var n = document.createElement('span');
+      n.className = 'rayon__n';
+      n.textContent = f.n || u;
+      a.appendChild(n);
+      li.appendChild(a);
+      hote.appendChild(li);
+    });
+    if (tout && cles.length > COUPE) tout.hidden = false;
+  })();
+</script>

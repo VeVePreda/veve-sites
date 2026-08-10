@@ -252,8 +252,17 @@ access:
     #    pré-générées. Changer `tiers:` les REPUBLIERAIT en clair.
     cote:
       binaire: true   # ouvre ou non — la cote ne se tronque pas, elle se donne ou non
+      # 🔴🔴🔴 LOT 126 — LA LIGNE `provisoire:` EST RETIRÉE, ET CE N'EST PAS UN
+      # NETTOYAGE : C'EST UNE DÉCISION QUI ENTRE DANS LA DONNÉE.
+      # Preda, 10/08/2026 : « le market doit être visible une fois qu'on est
+      # membre, pas besoin d'avoir un grade payant. »
+      # ⭐⭐ `tier: member` n'était donc pas un pis-aller en attendant que
+      # `accorderAbonnement()` soit câblée (elle l'est depuis le lot 122) : c'est
+      # le réglage voulu. La ligne `provisoire:` affirmait le contraire — elle
+      # envoyait « refermer a crevette » — et `test:promesses` la LIT à chaque
+      # build. ⛔ Une note périmée qui se cite est pire qu'une note absente :
+      # elle donne un ordre, avec l'autorité d'une donnée.
       tier: member
-      provisoire: "ouverte aux membres le 10/08/2026 faute de voie d'abonnement dans veveid ; refermer a crevette des que ajouterAbonnement() est cablee" 
     # Les extrêmes et les modules d'analyse.
     extremes:
       binaire: true   # ouvre ou non — ni troncature ni plafond
@@ -338,7 +347,13 @@ nav:
   # lien dit vrai — l'accueil affiche son tableau de bord.
   # ⛔ Le module `dashboard` reste `bientot: true` dans `offer.modules` : le
   # bloc existe, les widgets non, et c'est le widget qui se vend.
-  - { cle: nav.dashboard, href: /,          pret: true, membre: true }
+  # 🔴🔴 LOT 126 — L'ENTRÉE POINTE ENFIN SUR UNE PAGE QUI EXISTE.
+  # Elle a pointé sur `/` pendant un mois, sous le commentaire « l'accueil
+  # DEVIENT le tableau de bord » (07/08). L'accueil n'est pas devenu un tableau
+  # de bord : c'est une page d'accroche, la même pour un membre et pour un
+  # anonyme. ⭐⭐⭐ Une entrée de menu qui décrit une INTENTION se lit comme un
+  # ÉTAT, et plus personne ne la revérifie — elle a l'air juste.
+  - { cle: nav.dashboard, href: /dashboard/, pret: true, membre: true }
   # 🔴 LOT 104 — `nav.movers` REVIENT, réservée aux comptes.
   # Le lot 101 l'avait RETIRÉE (pas passée à `pret: false`) faute d'avoir la
   # nuance : Preda, 07/08 — « pas visible en public, mais quand tu deviens
