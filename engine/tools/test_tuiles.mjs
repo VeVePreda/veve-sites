@@ -266,22 +266,23 @@ if (!refs.length) {
 console.log('\n3. la vue Tuiles marche-t-elle ENCORE ? (le script de la page est exécuté)');
 arreter();
 
-let parseHTML = null;
-try { ({ parseHTML } = await import('linkedom')); } catch {}
-if (!parseHTML) {
+// 🔴 LOT 133 — LE CORRECTIF D'INSTRUMENT A DÉMÉNAGÉ DANS `_dom_banc.mjs`.
+// Il était écrit ICI depuis le lot 127, et je l'ai REDÉCOUVERT à l'identique en
+// écrivant `test:series` : même panne (`undefined.trim()` sur un `<select>`),
+// même cause, même remède, à 60 lignes d'écart dans un autre fichier.
+// ⛔ Le recopier une deuxième fois aurait été la 4ᵉ occurrence de « deux
+// endroits qui font la même chose divergent en silence » — et elle se serait
+// payée le jour où l'un des deux gagne un correctif que l'autre n'a pas.
+// ⭐⭐ `monterDOM()` porte désormais DEUX correctifs, pas un : le second
+// (`:checked` qui suit l'ATTRIBUT et non la propriété) n'existait nulle part et
+// aurait manqué ici aussi le jour où ce banc cochera une case.
+const { monterDOM } = await import('./_dom_banc.mjs');
+const dom = await monterDOM(html);
+if (!dom) {
   indecis('l\'exécution du pilote', 'linkedom absent — `npm i -D linkedom`. Le poids est mesuré, le COMPORTEMENT ne l\'est pas.');
   fin();
 }
-
-const { document, window } = parseHTML(html);
-// ⚠️ LE CORRECTIF D'INSTRUMENT (cf. en-tête) : `.value` sur <select>.
-if (window.HTMLSelectElement) {
-  Object.defineProperty(window.HTMLSelectElement.prototype, 'value', {
-    get() { const o = this.querySelector('option[selected]') || this.querySelector('option'); return o ? (o.getAttribute('value') ?? o.textContent) : ''; },
-    set(v) { for (const o of this.querySelectorAll('option')) { if ((o.getAttribute('value') ?? o.textContent) === v) o.setAttribute('selected', ''); else o.removeAttribute('selected'); } },
-    configurable: true,
-  });
-}
+const { document, window } = dom;
 
 const src = [...document.querySelectorAll('script')].map((s) => s.textContent).find((t) => t && t.includes('function appliquer'));
 if (!src) { indecis('le pilote de la barre', 'aucun <script> ne contient `function appliquer`'); fin(); }

@@ -745,7 +745,16 @@ async function construireDataset() {
     if (!i.series) continue;
     const { cle, nom } = cleSet(i);
     const s = slugify(cle);
-    if (!collections.has(s)) collections.set(s, { slug: s, name: nom, brand: i.brand, items: [] });
+    // 🔴🔴 LOT 133 — `brand` N'EST PLUS PRIS SUR LA PREMIÈRE PIÈCE RENCONTRÉE.
+    // Il l'était depuis toujours, et c'est le même piège que le visuel de set
+    // du lot 118 : *prendre le premier élément d'une liste, c'est hériter de
+    // son ordre sans le vouloir.* Mesuré le 10/08 sur le catalogue complet
+    // (19 412 lignes, 5 154 sets) : **2 sets portent plusieurs marques**. Deux,
+    // c'est peu — et c'est exactement le nombre qui ne se voit jamais.
+    // ⇒ La marque ET la licence sont désormais calculées APRÈS la boucle, par
+    //   MAJORITÉ, au même endroit et de la même façon. Deux champs de même
+    //   nature calculés différemment finissent par se contredire.
+    if (!collections.has(s)) collections.set(s, { slug: s, name: nom, brand: '', licensor: '', items: [] });
     collections.get(s).items.push(i);
     // ═══════════════════════════════════════════════════════════════════════
     // 🔴 LOT 102 — L'ADRESSE DU SET, POSÉE PAR CELUI QUI LA FABRIQUE
@@ -771,6 +780,58 @@ async function construireDataset() {
     // donc les deux ne peuvent plus diverger sans qu'aucune page n'existe.
     i.colSlug = s;
   }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 🔴🔴 LOT 133 — LA MARQUE ET LA LICENCE D'UN SET, DÉRIVÉES DE SES PIÈCES
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ⭐⭐ UN SET NE DÉCLARE NI L'UNE NI L'AUTRE : il les hérite de ce qu'il
+  // contient. C'est déjà la règle de `anneeDe()` et `typeDe()` dans
+  // `Collections.astro` — « chaque axe est dérivé des pièces du set, jamais
+  // déclaré sur le set ». Ces deux-là descendent ici parce qu'elles servent
+  // maintenant à TROIS endroits (la carte, le filtre, le tri), et qu'un axe
+  // calculé dans trois gabarits diverge au premier lot qui n'en touche que deux.
+  //
+  // ⭐ MESURÉ AVANT DE CODER, sur le catalogue RÉEL du 10/08 (19 412 lignes) :
+  //     · `licensor` est rempli à **100 %** — aucun trou à gérer ;
+  //     · **96 licences** distinctes, contre **1 492 marques** : c'est la
+  //       licence qui est un axe de navigation utilisable, pas la marque ;
+  //     · **5 154 sets, dont 0 à licence multiple** et **2 à marque multiple**.
+  // ⛔ ET ON CODE QUAND MÊME LA MAJORITÉ, alors que 0 set en a besoin
+  //    aujourd'hui. Un `items[0].licensor` serait juste ce matin et faux en
+  //    silence le jour où VeVe publie un set co-licencié — sans erreur, sans
+  //    banc rouge, avec une carte parfaitement plausible. *Le pire échec n'est
+  //    pas celui qui plante, c'est celui qui a l'air de marcher.*
+  // ⭐⭐ ET LE NOMBRE S'AFFICHE À CHAQUE BUILD. Une phrase (« aucun set n'est
+  //    mixte ») se relit ; un compteur se vérifie. Le jour où il quitte zéro,
+  //    le journal de build le dit — c'est la leçon des cartes « À venir » du
+  //    lot 132, appliquée avant d'en avoir besoin.
+  const majoritaire = (liste, champ) => {
+    const c = new Map();
+    for (const x of liste) {
+      const v = String(x[champ] || '').trim();
+      if (!v) continue;
+      c.set(v, (c.get(v) || 0) + 1);
+    }
+    let gagnant = '', n = 0;
+    // ⚠️ `>` et non `>=` : à égalité on garde le PREMIER rencontré, donc un
+    //    résultat stable d'un build à l'autre. Un `>=` ferait dépendre l'axe de
+    //    l'ordre d'itération — c'est-à-dire d'un tri de prix, une couche plus
+    //    haut, qui change tous les jours.
+    for (const [v, k] of c) if (k > n) { gagnant = v; n = k; }
+    return { valeur: gagnant, distinctes: c.size };
+  };
+  let setsMarqueMixte = 0, setsLicenceMixte = 0, setsSansLicence = 0;
+  for (const c of collections.values()) {
+    const m = majoritaire(c.items, 'brand');
+    const l = majoritaire(c.items, 'licensor');
+    c.brand = m.valeur;
+    c.licensor = l.valeur;
+    if (m.distinctes > 1) setsMarqueMixte++;
+    if (l.distinctes > 1) setsLicenceMixte++;
+    if (!l.valeur) setsSansLicence++;
+  }
+  console.log(`[sets] ${collections.size} set(s) · marque mixte : ${setsMarqueMixte}`
+    + ` · licence mixte : ${setsLicenceMixte} · sans licence : ${setsSansLicence}`);
   const rarities = new Map();
   for (const i of items) {
     if (!i.rarity) continue;

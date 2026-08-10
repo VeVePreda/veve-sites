@@ -31,6 +31,9 @@
 // donc émis ICI, et SEULEMENT quand la page les demande (prop `axes`) : une
 // page d'orientation n'a pas de filtres, et poser des attributs que personne ne
 // lit est exactement le « paramètre posé et jamais lu » du lot 126.
+// 🆕 LOT 133 — `data-lic` rejoint la liste. ⚠️ Il vient de `col.licensor`, posé
+// par `dataset.mjs` (majorité des pièces), et surtout PAS recalculé ici : un axe
+// calculé dans deux endroits diverge au premier lot qui n'en touche qu'un.
 //
 // ⚠️ AUCUNE CLASSE NOUVELLE. `.col-carte`, `.col-carte__pile`, `.socle`,
 // `.cartouche` existent déjà dans le thème et sont déjà servies. ⛔ En revanche
@@ -63,6 +66,7 @@ const vignettes = [...avec, ...sans];
 <a class="col-carte revele" href={localize(lang, `/collection/${col.slug}/`)}
    data-n={axes ? col.name.toLowerCase() : undefined}
    data-brand={axes ? (col.brand || '') : undefined}
+   data-lic={axes ? (col.licensor || '') : undefined}
    data-an={axes ? axes.an : undefined}
    data-ty={axes ? axes.ty : undefined}
    data-taille={axes ? String(col.items.length) : undefined}>

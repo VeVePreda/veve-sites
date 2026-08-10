@@ -61,6 +61,38 @@ const axes = cols.map((c) => ({ c, an: anneeDe(c), ty: typeDe(c) }));
 const annees = [...new Set(axes.map((x) => x.an).filter(Boolean))].sort();
 const marques = [...new Set(cols.map((c) => (c.brand || '').trim()).filter(Boolean))]
   .sort((a, b) => a.localeCompare(b));
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴 LOT 133 — LA LICENCE, LE QUATRIÈME AXE (demande Preda, 10/08)
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐⭐ POURQUOI LA LICENCE ET PAS AUTRE CHOSE — c'est une MESURE, pas un goût.
+// Sur le catalogue réel du 10/08 (19 412 lignes, 5 154 sets) :
+//     licences distinctes au niveau set :    96
+//     marques  distinctes au niveau set : 1 492
+// Le filtre « marque » a donc besoin d'un champ de recherche pour être
+// utilisable (lot 115b) ; la licence tient à l'écran. C'est l'axe par lequel
+// un collectionneur pense — « je cherche du Marvel » — et il n'existait pas.
+// ⚠️ `licensor` est rempli à **100 %** au catalogue : il n'y a pas de cas
+// « sans licence » à traiter à l'affichage. On garde quand même `filter(Boolean)`
+// — la vitrine ne publie pas tout le catalogue, et une liste blanche future
+// pourrait le vider. *Un champ plein aujourd'hui n'est pas un champ garanti.*
+//
+// ⭐⭐⭐ TRIÉES PAR NOMBRE DE SETS, PAS ALPHABÉTIQUEMENT, et c'est délibéré :
+// Marvel porte 58 % des sets, Dynamite 16 %. Un ordre alphabétique mettrait
+// « ABLAZE Publishing » en tête et enterrerait Marvel au milieu d'une liste de
+// cinquante. ⛔ Le filtre « marque », lui, RESTE alphabétique : avec 1 492
+// entrées et un champ de recherche, on cherche un nom qu'on connaît déjà.
+// Deux listes, deux usages, deux ordres — et c'est écrit ici parce que la
+// différence a l'air d'une incohérence quand on lit les deux à la suite.
+const parLicence = new Map();
+for (const c of cols) {
+  const l = (c.licensor || '').trim();
+  if (!l) continue;
+  parLicence.set(l, (parLicence.get(l) || 0) + 1);
+}
+const licences = [...parLicence.entries()]
+  .sort((a, b) => (b[1] - a[1]) || a[0].localeCompare(b[0]))
+  .map(([nom, n]) => ({ nom, n }));
 const tailles = cols.map((c) => c.items.length);
 const tailleMax = tailles.length ? Math.max(...tailles) : 0;
 const nbComicSets = axes.filter((x) => x.ty === 'comic').length;
@@ -180,12 +212,25 @@ const PAR_TRANCHE = 60;
             <option value="taille">{t(lang, 'sets.sortSize')}</option>
             <option value="annee">{t(lang, 'sets.sortYear')}</option>
             <option value="nom">{t(lang, 'sets.sortName')}</option>
+            {/* 🆕 LOT 133 — le tri par licence. ⚠️ Il n'est proposé QUE s'il y a
+                de quoi trier : avec une seule licence au catalogue publié, cette
+                option rendrait une liste identique à l'ordre d'avant, et un
+                contrôle qui ne change rien apprend à ne plus cliquer dessus. */}
+            {licences.length > 1 && <option value="licence">{t(lang, 'sets.sortLicence')}</option>}
           </select>
         </div>
       </div>
     </div>
 
     <div class="f-onglets" role="group" aria-label={t(lang, 'sets.filters')}>
+      {/* 🆕 LOT 133 — LA LICENCE PASSE DEVANT LA MARQUE, et l'ordre est une
+          mesure : 96 licences contre 1 492 marques au niveau set. L'axe le plus
+          court est celui par lequel on commence. ⛔ Un filtre n'apparaît que
+          s'il a au moins DEUX valeurs : à une seule, il ne sépare rien et il
+          occupe la place d'un contrôle utile. */}
+      {licences.length > 1 && (
+        <button type="button" class="f-b" data-g="licence" aria-expanded="false" aria-controls="sp-licence">{t(lang, 'sets.licence')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevron} /></button>
+      )}
       {marques.length > 1 && (
         <button type="button" class="f-b" data-g="marque" aria-expanded="false" aria-controls="sp-marque">{t(lang, 'sets.brand')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevron} /></button>
       )}
@@ -195,6 +240,29 @@ const PAR_TRANCHE = 60;
       <button type="button" class="f-b" data-g="taille" aria-expanded="false" aria-controls="sp-taille">{t(lang, 'sets.size')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevron} /></button>
       <button type="reset" class="f-b">{t(lang, 'movers.reset')}</button>
     </div>
+
+    {licences.length > 1 && (
+      <div class="f-panneau" id="sp-licence" hidden>
+        <div class="f-panneau__t">{t(lang, 'sets.licence')}</div>
+        {/* ⭐⭐ CHAQUE LICENCE PORTE SON NOMBRE DE SETS, et c'est ce qui rend la
+            liste lisible : « Marvel 2 986 » dit d'un coup d'œil où est la
+            matière. ⛔ Le nombre est celui des SETS, pas des pièces — c'est ce
+            que la grille en dessous va montrer, et annoncer un chiffre qui ne
+            correspond pas à ce qui s'affiche est la faute la plus coûteuse d'un
+            filtre : il n'a pas l'air cassé, il a l'air faux.
+            ⚠️ `data-b` COMME LE PANNEAU MARQUE : le champ de recherche du lot
+            115b cherche cet attribut. Un second nom d'attribut aurait demandé un
+            second script, pour le même geste. */}
+        <div class="cols-l" id="s-lics">
+          {licences.map((l) => (
+            <label class="puce" data-b={l.nom.toLowerCase()}>
+              <input type="checkbox" name="s-lic" value={l.nom} /> {l.nom}
+              <span class="etiq" style="opacity:.65;margin-left:5px">{l.n}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+    )}
 
     {marques.length > 1 && (
       <div class="f-panneau" id="sp-marque" hidden>
@@ -298,6 +366,12 @@ const PAR_TRANCHE = 60;
           if (vide) vide.hidden = n > 0;
         });
       })();
+      // 🆕 LOT 133 — LE PANNEAU LICENCE N'A PAS DE CHAMP DE RECHERCHE, ET C'EST
+      // UNE DÉCISION MESURÉE : 96 licences tiennent à l'écran, 1 492 marques
+      // non. ⛔ Ajouter un champ « par symétrie » aurait posé un contrôle que
+      // personne n'utilise sur une liste qu'on parcourt à l'œil — et il aurait
+      // fallu le maintenir. *Deux listes de nature différente n'ont pas droit
+      // au même habillage sous prétexte qu'elles se ressemblent.*
       var G = document.getElementById('s-grille');
       var C = [].slice.call(G.querySelectorAll('.col-carte'));
       var cpt = document.getElementById('s-cpt'), vide = document.getElementById('s-vide');
@@ -309,7 +383,8 @@ const PAR_TRANCHE = 60;
       }
       function etat(){
         return { q:(val('s-q')||'').toLowerCase(), corpus:corpus, tri:val('s-tri')||'taille',
-                 brands:coches('s-brand'), a1:num(val('s-a1')), a2:num(val('s-a2')),
+                 brands:coches('s-brand'), lics:coches('s-lic'),
+                 a1:num(val('s-a1')), a2:num(val('s-a2')),
                  tmin:num(val('s-tmin')), tmax:num(val('s-tmax')) };
       }
       // ⚠️ Un set SANS année connue traverse les bornes d'année : l'absence
@@ -319,6 +394,11 @@ const PAR_TRANCHE = 60;
         if (e.q && d.n.indexOf(e.q) === -1) return false;
         if (e.corpus && d.ty !== e.corpus) return false;
         if (e.brands.length && e.brands.indexOf(d.brand) === -1) return false;
+        // 🆕 LOT 133 — la licence. ⚠️ `d.lic` est ce que `CarteSet.astro` a
+        //    ÉMIS ; il n'est pas recalculé ici. Un filtre qui redérive son axe
+        //    depuis le nom du set aurait divergé de la carte au premier set dont
+        //    la licence majoritaire n'est pas celle de sa première pièce.
+        if (e.lics.length && e.lics.indexOf(d.lic) === -1) return false;
         if (d.an) {
           if (e.a1 !== null && parseInt(d.an, 10) < e.a1) return false;
           if (e.a2 !== null && parseInt(d.an, 10) > e.a2) return false;
@@ -331,7 +411,18 @@ const PAR_TRANCHE = 60;
       var ORDRE = {
         taille: function(a,b){ return parseInt(b.dataset.taille,10) - parseInt(a.dataset.taille,10); },
         annee:  function(a,b){ return (b.dataset.an || '').localeCompare(a.dataset.an || ''); },
-        nom:    function(a,b){ return a.dataset.n.localeCompare(b.dataset.n); }
+        nom:    function(a,b){ return a.dataset.n.localeCompare(b.dataset.n); },
+        // 🆕 LOT 133 — TRI PAR LICENCE, et il a un SECOND critère.
+        // ⛔ Trier sur la seule licence laisserait les 2 986 sets Marvel dans
+        //    l'ordre où le DOM les a rendus, c'est-à-dire dans l'ordre du tri
+        //    PRÉCÉDENT : la page changerait d'aspect selon d'où l'on vient, sans
+        //    que rien ne l'explique. Un tri instable se lit comme un bug.
+        // ⭐ À licence égale, on retombe donc sur la taille décroissante — le tri
+        //    par défaut de cette page, donc celui qu'on connaît déjà.
+        licence: function(a,b){
+          var d = (a.dataset.lic || '').localeCompare(b.dataset.lic || '');
+          return d !== 0 ? d : (parseInt(b.dataset.taille,10) - parseInt(a.dataset.taille,10));
+        }
       };
       var bPlus = document.getElementById('s-plus');
       var cPlus = document.getElementById('s-plus-cpt');
@@ -360,13 +451,14 @@ const PAR_TRANCHE = 60;
           j.appendChild(b);
         }
         e.brands.forEach(function(v){ jeton(v, function(){ var c = f.querySelector('input[name=s-brand][value="' + v + '"]'); if (c) c.checked = false; }); });
+        e.lics.forEach(function(v){ jeton(v, function(){ var c = f.querySelector('input[name=s-lic][value="' + v + '"]'); if (c) c.checked = false; }); });
         [['s-a1', e.a1], ['s-a2', e.a2], ['s-tmin', e.tmin], ['s-tmax', e.tmax]].forEach(function(pr){
           if (pr[1] === null) return;
           var ch = document.getElementById(pr[0]);
           var et = ch && ch.parentNode.querySelector('.etiq');
           jeton((et ? et.textContent + ' ' : '') + pr[1], function(){ ch.value = ''; });
         });
-        var par = { marque: e.brands.length,
+        var par = { licence: e.lics.length, marque: e.brands.length,
                     annee: (e.a1 !== null) + (e.a2 !== null),
                     taille: (e.tmin !== null) + (e.tmax !== null) };
         [].slice.call(f.querySelectorAll('.f-b[data-g]')).forEach(function(b){
