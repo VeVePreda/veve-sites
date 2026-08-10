@@ -48,6 +48,41 @@ RUN set -e; \
 
 # Verifie que le jeu de donnees n'est construit qu'UNE fois (sinon le build
 # lit le fichier de prix autant de fois qu'il y a de routes -> panne memoire).
+# ═══════════════════════════════════════════════════════════════════════════
+# 🔴🔴🔴 LOT 126 — `test:nginx` ENTRE DANS LE BUILD, ET VOICI POURQUOI
+# ═══════════════════════════════════════════════════════════════════════════
+# CE QUE JE CROYAIS (note « P10 » du suivi) : « test:nginx est MUET sans
+# crossplane ». MESURE DU 10/08, en desinstallant vraiment la dependance :
+#     avec crossplane .... code 0
+#     sans crossplane .... code 1, « crossplane est absent », LA CHAINE S'ARRETE
+# ⭐⭐⭐ IL N'EST PAS MUET. `test_nginx.py` fait `sys.exit(...)` plutot que de
+# sauter le controle — un banc qui REFUSE de tourner vaut mille fois mieux
+# qu'un banc qui se declare vert sans rien verifier. La note etait fausse, et
+# elle m'aurait fait « corriger » un comportement deja correct.
+#
+# LE VRAI TROU EST AILLEURS, ET IL EST PLUS GRAVE : ce banc tourne dans la CI
+# (`.github/workflows/tests.yml`, avec python + crossplane) mais **PAS DANS CE
+# DOCKERFILE**. Or la CI se declenche sur `push: main` — c'est-a-dire APRES le
+# depot, EN MEME TEMPS que le deploiement Coolify. Une regle nginx manquante
+# partait donc en production, et la CI rougissait ensuite.
+# ⭐⭐ Le Dockerfile est la seule porte que le deploiement RESPECTE : un banc qui
+# n'y est pas ne bloque rien. La panne du lot 119 (`/favoris/` en 404) n'etait
+# pas un silence du BANC, c'etait un silence du NON-EXECUTE.
+# ⚠️ Le commentaire de `tests.yml` affirmait « le Dockerfile installe python3 » :
+# c'etait faux — le stage de build n'avait AUCUN `apk add`. Corrige la-bas.
+#
+# ⭐ IL EST PLACE ICI, AVANT TOUT LE RESTE, ET C'EST VOULU : il ne lit que deux
+# fichiers de configuration et la liste des routes. Il coute deux secondes, et
+# il echoue AVANT les quatorze bancs et les trente-cinq secondes de build.
+# ⚠️ `--break-system-packages` : alpine 3.19+ refuse un pip global sans lui.
+#    Ce stage-ci n'est PAS l'image servie — le runtime repart d'un FROM propre.
+# ⚠️ SUR UNE SEULE LIGNE, ET C'EST UNE CONVENTION DU FICHIER : aucun des 39
+#    RUN n'utilise de continuation `\`. `test:dockerfile` extrait chaque RUN
+#    et le passe a `sh -n` en aplatissant — une ligne qui commence par `&&`
+#    lui devient un `"&&" unexpected`. Il a rougi sur ma premiere version.
+RUN apk add --no-cache python3 py3-pip && pip install --no-cache-dir --break-system-packages crossplane
+RUN npm run test:nginx
+
 RUN WAREHOUSE_OFFLINE=1 npm run test:donnees
 # Verifie qu'aucun type n'est evince de la vitrine (le 18/07 la prod a
 # publie 400 fiches et ZERO comic sans qu'aucun controle ne s'en plaigne).
