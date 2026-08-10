@@ -494,9 +494,14 @@ const menuComplet = wikiNav
          `[data-membre]` nu : le sélecteur nu attraperait le globe et les liens
          de menu, dont l'affichage n'est PAS `block`. Un sélecteur trop large
          ne lève rien, il déplace juste un voisin — la leçon de la règle 4.
-      5. lot 104 — l'accueil DEVIENT le tableau de bord. `display:block` :
-         ce sont des blocs de page. La règle 1 fait déjà disparaître le `hero`
-         — rien à dupliquer, deux règles pour la même chose divergent un jour. Ces sélecteurs ne peuvent toucher que des éléments qui
+      5. ⛔ RETIRÉE AU LOT 134 — elle ouvrait `.tableau-bord[data-membre]`,
+         un bloc qui n'existe plus dans `Home.astro` depuis ce lot. Une règle
+         dont l'émetteur est parti ne lève rien, ne casse rien, et ne se voit
+         pas : c'est la « règle sans émetteur » du dépôt, et c'est aussi un
+         `!important` de moins sur les 23 comptés par l'audit du 10/08.
+         ⭐ La règle 1 (`html[data-membre] [data-anonyme] { display:none }`)
+         suffit toujours à effacer le `hero` pour un membre — c'est elle qui
+         portait le travail, l'autre ne faisait que rouvrir le remplaçant. Ces sélecteurs ne peuvent toucher que des éléments qui
     portent `data-anonyme` ou `data-membre`, c'est-à-dire trois éléments de
     l'en-tête. */}
 <style is:inline>
@@ -504,7 +509,6 @@ const menuComplet = wikiNav
   html[data-membre] .globe[data-membre] { display: block !important; }
   html:not([data-membre]) .h-cta[hidden] { display: inline-flex !important; }
   html[data-membre] a[data-membre][hidden] { display: inline-flex !important; }
-  html[data-membre] .tableau-bord[data-membre][hidden] { display: block !important; }
   html[data-membre] form[data-membre][hidden] { display: block !important; }
 </style>
 {/* ═══════════════════════════════════════════════════════════════════════

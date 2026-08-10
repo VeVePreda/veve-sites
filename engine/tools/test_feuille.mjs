@@ -56,6 +56,53 @@ const SEUIL = 8192;
 // 37 525 o (encyclopedie) à 168 850 o (vitrine).
 const PLAFOND_PAR_PAGE = 4096;
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴 LOT 134 — LE `<script>` N'AVAIT AUCUN PLAFOND, ET C'EST POUR ÇA QUE
+//                28,9 Ko SE SONT ACCUMULÉS EN SILENCE
+// ═══════════════════════════════════════════════════════════════════════════
+// Ce banc plafonne le `<style>` en ligne depuis le lot 105. Il n'a JAMAIS rien
+// dit du `<script>` en ligne, alors que le raisonnement est identique au mot
+// près : recopié dans chaque page, retéléchargé à chaque visite, jamais mis en
+// cache entre deux pages. Mesuré sur la production le 10/08 : **28 920 o par
+// fiche, 56,7 % du poids de la page**.
+// ⭐⭐⭐ *Une limite qui n'existe que pour une des deux ressources protège la
+// moitié du problème — et laisse croire que l'autre moitié est surveillée.*
+// C'est la même famille que « trois bancs sur quatre ne disent rien du
+// quatrième », appliquée non pas à des cas mais à des RESSOURCES.
+//
+// ⭐⭐ POURQUOI CES VALEURS ET PAS 8 192 COMME LE `<style>` (arbitrage Preda,
+// 10/08). Poser tout de suite la cible rendrait la chaîne rouge aujourd'hui :
+// le lot 134 ne pourrait pas être déposé tant qu'OPT‑3 (sortir les pilotes en
+// fichiers hachés) n'est pas fait, et OPT‑3 est un chantier, pas une ligne. Un
+// banc rouge en permanence n'est pas un banc, c'est un obstacle qu'on finit par
+// contourner. ⇒ **CLIQUET.** Le plafond est posé JUSTE AU-DESSUS du réel
+// mesuré : il est vert aujourd'hui, et il interdit la croissance — c'est-à-dire
+// exactement la panne qu'on vient de payer.
+// 🔴 MESURÉ le 10/08, `SITE=veveprice RENDERING=server WAREHOUSE_OFFLINE=1`,
+//    c'est-à-dire EXACTEMENT la configuration que la CI construit (`tests.yml`
+//    pose `WAREHOUSE_OFFLINE: '1'`) — un cliquet réglé sur un build que la CI
+//    ne fabrique pas rougirait chez elle le jour du dépôt, pas avant :
+//        pire page  34 589 o  (`/sets/`, ses filtres et son pilote de tri)
+//        moyenne    30 824 o/page sur 147 pages
+//    (vevewiki, mesuré dans la foulée, est très en dessous : ses gabarits
+//     d'encyclopédie n'embarquent ni cadran, ni favoris, ni filtres.)
+// ⚠️ CES DEUX NOMBRES EXCLUENT LE `ld+json` — la première mesure, qui le
+//    comptait, donnait 35 089 / 31 774. L'écart est petit et il aurait suffi à
+//    faire passer un cliquet pour une marge. *Un seuil hérité d'une mesure qui
+//    ne comptait pas la même chose est un seuil qui ne mesure rien.*
+// ⛔ ET LA RÈGLE DU CLIQUET EST ÉCRITE ICI : **CES DEUX NOMBRES NE MONTENT
+//    JAMAIS.** Le jour où un lot les fait rougir, on sort du JavaScript de la
+//    page ; on ne relève pas la barre. Un plafond relevé une fois de trop est un
+//    plafond désarmé — c'est déjà écrit vingt lignes plus haut pour le CSS, et
+//    ça vaut mot pour mot ici.
+// 🎯 LA CIBLE RESTE 8 192, comme le `<style>`, et ce banc l'imprime à chaque
+//    passage tant qu'elle n'est pas atteinte : une dette qu'on lit à chaque run
+//    est une dette qu'on finit par payer ; une dette écrite dans un audit ne se
+//    relit qu'une fois.
+const SEUIL_JS = 36864;            // 36 Ko — cliquet au-dessus des 35 089 o mesurés
+const PLAFOND_JS_PAR_PAGE = 33792; // 33 Ko — cliquet au-dessus des 31 774 o mesurés
+const CIBLE_JS = 8192;             // la symétrie avec le <style>, quand OPT‑3 sera fait
+
 let ko = 0;
 const dit = (bon, quoi, detail) => {
   if (!bon) ko++;
@@ -147,12 +194,29 @@ if (pages.length < 100) {
 
 const lien = new RegExp(`<link[^>]+href="/${nomFeuille}"`);
 const reStyle = /<style[^>]*>([\s\S]*?)<\/style>/g;
+// ⚠️ `(?![^>]*\bsrc=)` — ON NE COMPTE QUE LE JS **EN LIGNE**. Un
+// `<script src="/pilote-abc123.js">` est précisément ce qu'on VEUT : externe,
+// haché, `immutable`, mis en cache 30 jours. Le compter ferait rougir le banc
+// sur la correction qu'il réclame — l'instrument punirait le remède.
+// ⭐ Et `type="application/ld+json"` est EXCLU, avec une raison : les données
+// structurées sont du CONTENU, pas un pilote. Elles doivent rester dans la
+// page (Google les lit là), elles ne se factorisent pas dans un fichier
+// externe, et elles grandissent avec le catalogue. Les compter mélangerait
+// deux dettes dont une n'en est pas une. *Un champ à deux populations.*
+const reScript = /<script(?![^>]*\bsrc=)([^>]*)>([\s\S]*?)<\/script>/gi;
+const estDonnees = (attrs) => /type\s*=\s*["']application\/(ld\+json|json)["']/i.test(attrs);
 let sansLien = 0;
 let talons = 0;
 const gros = [];
 const nus = [];
 let cumul = 0;
 let pire = 0;
+const grosJs = [];
+let cumulJs = 0;
+let pireJs = 0;
+let pireJsOu = '';
+let blocsJs = 0;
+let cumulLd = 0;
 for (const p of pages) {
   const h = readFileSync(p, 'utf8');
   // ⭐⭐ LES TALONS DE REDIRECTION N'ONT RIEN À HABILLER — ET C'EST vevewiki
@@ -176,6 +240,18 @@ for (const p of pages) {
     if (n > pire) pire = n;
     if (n > SEUIL) gros.push(`${p.slice(DIST.length)} : <style> de ${n} o`);
   }
+  // ── LE MÊME COMPTAGE, POUR LE `<script>` EN LIGNE ──────────────────────
+  let totJs = 0;
+  reScript.lastIndex = 0;
+  while ((m = reScript.exec(h)) !== null) {
+    const n = Buffer.byteLength(m[2]);
+    if (estDonnees(m[1])) { cumulLd += n; continue; }
+    blocsJs++;
+    totJs += n;
+    if (n > SEUIL_JS) grosJs.push(`${p.slice(DIST.length)} : <script> de ${n} o`);
+  }
+  cumulJs += totJs;
+  if (totJs > pireJs) { pireJs = totJs; pireJsOu = p.slice(DIST.length); }
 }
 
 dit(sansLien === 0, `les ${pages.length - talons} pages de contenu référencent /${nomFeuille}`
@@ -195,6 +271,44 @@ dit(moyenne < PLAFOND_PAR_PAGE,
   moyenne < PLAFOND_PAR_PAGE ? null
     : `au-dessus de ${PLAFOND_PAR_PAGE} o par page — du CSS de site est revenu dans les pages`);
 
+// ═══ LE CLIQUET DU JAVASCRIPT EN LIGNE ════════════════════════════════════
+// ⭐ L'INSTRUMENT AVANT LA MESURE, UNE TROISIÈME FOIS. Si le motif cessait de
+// matcher — un lot qui passe tout en `<script src>`, une balise réécrite par
+// une intégration — les deux contrôles ci-dessous seraient verts sur ZÉRO
+// octet inspecté, et ils annonceraient une victoire. Ce site a des pilotes en
+// ligne sur toutes ses pages ; en lire zéro n'est pas un progrès, c'est une
+// panne d'instrument.
+dit(blocsJs >= (pages.length - talons),
+  `${blocsJs} bloc(s) <script> en ligne réellement lu(s) sur ${pages.length - talons} page(s)`,
+  blocsJs >= (pages.length - talons) ? null
+    : 'moins d\'un bloc par page — le motif ne matche plus, ce banc ne mesure plus rien');
+dit(grosJs.length === 0,
+  `aucun <script> en ligne au-dessus de ${SEUIL_JS} o (la pire page : ${pireJs} o — ${pireJsOu || 'n/a'})`,
+  grosJs.length === 0 ? null
+    : `${grosJs.length} bloc(s) : ${grosJs.slice(0, 5).join(' · ')}${grosJs.length > 5 ? ' …' : ''}`);
+const moyenneJs = Math.round(cumulJs / (pages.length - talons));
+dit(moyenneJs < PLAFOND_JS_PAR_PAGE,
+  `JS en ligne : ${moyenneJs} o par page en moyenne (${(cumulJs / 1024 / 1024).toFixed(2)} Mo sur tout dist/`
+  + `, hors ${(cumulLd / 1024).toFixed(0)} Ko de données structurées)`,
+  moyenneJs < PLAFOND_JS_PAR_PAGE ? null
+    : `au-dessus de ${PLAFOND_JS_PAR_PAGE} o par page — ⛔ LE CLIQUET NE SE RELÈVE PAS : `
+      + 'du JavaScript de site est entré dans les pages, il en ressort en fichier haché');
+// 🎯 LA DETTE SE LIT À CHAQUE PASSAGE, ET ELLE EST CHIFFRÉE. ⭐ *Une phrase se
+// relit ; un nombre se vérifie.* Tant que ce bloc s'imprime, OPT‑3 n'est pas
+// fait — et le jour où il l'est, ce sont ces deux lignes qui le diront, pas un
+// document.
+if (moyenneJs > CIBLE_JS) {
+  const aRecuperer = (moyenneJs - CIBLE_JS) * (pages.length - talons);
+  console.log(`     🎯 DETTE OPT‑3 — cible ${CIBLE_JS} o/page (celle du <style> depuis le lot 105) :`);
+  console.log(`        ${moyenneJs - CIBLE_JS} o de trop par page, soit ${(aRecuperer / 1024 / 1024).toFixed(2)} Mo sur ce dist/.`);
+  console.log('        Ces octets voyagent dans CHAQUE page : la compression les écrase à');
+  console.log('        l\'intérieur d\'une page, jamais ENTRE deux pages. Un visiteur qui ouvre');
+  console.log('        cinq fiches télécharge cinq fois le même pilote.');
+  console.log('     ➡️  Sortir les pilotes en fichiers hachés (favoris, cadran, filtres, i18n).');
+  console.log('        ⛔ Restent en ligne, et ce n\'est pas négociable : l\'anti-clignotement du');
+  console.log('        thème et tout ce qui lit un cookie d\'affichage AVANT la première peinture.');
+}
+
 if (gros.length) {
   console.log('     ⭐ Un thème recopié dans chaque page coûte deux fois : au réseau du');
   console.log('        visiteur (il le retélécharge à chaque page) et au cache de build');
@@ -205,6 +319,7 @@ if (gros.length) {
 }
 
 console.log(ko === 0
-  ? `\n✅ une feuille de ${octets.length} o pour ${pages.length} pages, et rien de recopié\n`
+  ? `\n✅ une feuille de ${octets.length} o pour ${pages.length} pages, rien de recopié,`
+    + ` et le JS en ligne sous son cliquet (${moyenneJs} o/page)\n`
   : `\n🔴 ${ko} contrôle(s) en échec\n`);
 process.exit(ko === 0 ? 0 : 1);

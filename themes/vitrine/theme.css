@@ -855,8 +855,10 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
    arriverait avec le CSS externe, donc PARFOIS apres la premiere peinture, et
    le clignotement reviendrait de temps en temps. Pire qu'a chaque fois : on
    cesserait de savoir le reproduire. */
-.tableau-bord{padding:var(--s6) 0 var(--s5)}
-.tableau-bord .panneau{max-width:64ch}
+/* ⛔ LOT 134 — `.tableau-bord` A ETE RETIREE : son unique emetteur (le bloc
+   membre de l'accueil, lot 104) est parti avec le lot 134. Deux regles qui ne
+   peuvent plus matcher aucun element ne changent rien a l'ecran et se relisent
+   comme une intention encore vivante. */
 
 /* 🔴 LOT 104 — LE MODULE ANNONCE MAIS PAS CONSTRUIT.
    ⭐ Il est ATTENUE, jamais barre ni grise a l'illisible : Preda a choisi de

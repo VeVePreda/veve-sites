@@ -1,5 +1,6 @@
 // Donnees structurees JSON-LD.
 import { coteFermee } from './cote.mjs';
+import { nu } from './i18n.mjs';
 export const jsonld = (o) => `<script type="application/ld+json">${JSON.stringify(o).replace(/</g, '\\u003c')}</script>`;
 
 // =============================================================================
@@ -44,18 +45,51 @@ export function couperMots(s, max) {
  * @param {string} secours   titre d'accueil quand `titre` est vide
  * @param {(msg:string)=>void} journal  ou signaler un raboutage (defaut console.warn)
  */
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 LOT 134 — LE BUDGET COMPTAIT DES CARACTERES QUE PERSONNE NE VOIT
+// ═══════════════════════════════════════════════════════════════════════════
+// TROUVE PAR `test:titres` A SON PREMIER PASSAGE EN CONDITION `I18N_MARQUAGE=1`
+// — c'est-a-dire par la quatrieme des quatre conditions de verification, celle
+// qu'on est tente de sauter parce que « c'est le meme code ».
+//
+// LE DEFAUT. Sous `I18N_MARQUAGE=1` — et le Dockerfile de PRODUCTION le pose
+// (ligne 245) — `t()` entoure chaque libelle de trois octets invisibles ET du
+// NOM DE LA CLE : `\x11item.collection\x12Set\x13`. `clen()` les comptait.
+// Un titre de 45 caracteres visibles en declarait 61, franchissait le budget de
+// 60, et se faisait COUPER. `marquer_i18n.mjs` retire ensuite les sentinelles —
+// donc la production servait un titre ampute pour une longueur qui n'a jamais
+// existe.
+// 🔴 ET LA COUPE FAISAIT COLLIDER DES PAGES. Mesure du 10/08 sur l'echantillon :
+// `/collection/…-3/`, `…-ap/` et `…-fe/` rendaient TOUS LES TROIS
+// « Set : Return of the Jedi #1: Poster… » — le suffixe qui les distingue etait
+// precisement ce que la coupe emportait. Google n'en indexe qu'une des trois.
+// ⭐⭐ C'est SEO-2 en plus grand : le meme defaut, sur des milliers de pages au
+// lieu de deux, et invisible parce qu'il ne se voit qu'en comparant des titres
+// entre eux — ce qu'aucun banc ne faisait avant celui-ci.
+//
+// ⚠️ ET UN SECOND RISQUE, CELUI QUI A DEJA COUTE 64 PAGES. `couperMots` sur une
+// chaine MARQUEE peut trancher AU MILIEU d'un marqueur. Au lot 129, une coupe a
+// 158 caracteres avait laisse un `\x11` orphelin que le post-traitement a suivi
+// jusqu'a un `\x13` sept mille octets plus loin, SUPPRIMANT TOUT LE `<head>` au
+// passage — sur un build vert. La branche de coupe rend donc du texte NU : on
+// ne tend pas au ciseau une chaine dont il ne comprend pas la grammaire.
+// ⛔ Les deux autres branches gardent leurs marqueurs : `marquer_i18n.mjs` les
+// retire de `<title>` juste apres, c'est son travail et il le fait bien. On ne
+// lui prend pas le sien — on cesse seulement de MESURER ce qu'il va effacer.
 export function pageTitle(titre, gabarit = '%s', secours = '', journal = null) {
   const brut = String(titre || '').trim();
   if (!brut) return secours;
   const complet = String(gabarit || '%s').replace('%s', brut);
-  if (clen(complet) <= TITLE_BUDGET) return complet;
+  // ⭐ `clen(nu(...))` PARTOUT : la longueur qui compte est celle que Google
+  // lira et que l'onglet du navigateur affichera, pas celle du tampon de build.
+  if (clen(nu(complet)) <= TITLE_BUDGET) return complet;
   const dire = journal || ((msg) => console.warn(`[seo] ${msg}`));
-  if (clen(brut) <= TITLE_BUDGET) {
-    dire(`titre > ${TITLE_BUDGET} avec le suffixe de marque, suffixe abandonne : "${brut}" (${clen(complet)})`);
+  if (clen(nu(brut)) <= TITLE_BUDGET) {
+    dire(`titre > ${TITLE_BUDGET} avec le suffixe de marque, suffixe abandonne : "${nu(brut)}" (${clen(nu(complet))})`);
     return brut;
   }
-  const coupe = couperMots(brut, TITLE_BUDGET);
-  dire(`titre > ${TITLE_BUDGET} caracteres, coupe : "${brut}" (${clen(brut)}) -> "${coupe}"`);
+  const coupe = couperMots(nu(brut), TITLE_BUDGET);
+  dire(`titre > ${TITLE_BUDGET} caracteres, coupe : "${nu(brut)}" (${clen(nu(brut))}) -> "${coupe}"`);
   return coupe;
 }
 

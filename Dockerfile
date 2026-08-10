@@ -337,6 +337,22 @@ RUN WAREHOUSE_OFFLINE=1 npm run test:entete
 # ⭐ Il sort en rc=2 s'il n'a lu aucune feuille ou moins de 100 pages : un banc
 # qui n'a rien inspecté n'a rien prouvé.
 RUN WAREHOUSE_OFFLINE=1 npm run test:feuille
+# 🔴🔴 LOT 134 — `test:titres` : UN `<h1>`, UN `<title>`, UNE DESCRIPTION.
+#    Il entre ici parce que les deux defauts qu'il attrape ont vecu des MOIS en
+#    production sans qu'aucun des 39 bancs ne bouge :
+#      · l'accueil servait DEUX `<h1>` (« My dashboard » en premier) depuis le
+#        lot 126, sous un texte devenu faux au lot 131 ;
+#      · `/collections/` et `/sets/` rendaient le MEME `<title>` depuis le
+#        lot 113 — Google n'en indexe qu'une des deux.
+#    ⭐⭐⭐ AUCUN NE CASSE RIEN : build vert, page qui s'affiche, humain qui ne
+#    voit rien (le second `<h1>` est `hidden`, le titre ne vit que dans
+#    l'onglet). *Ce qui n'a pas de lecteur humain n'a que des bancs pour
+#    lecteurs* — donc ce banc doit etre devant la porte, pas seulement dans la
+#    CI qui CONSTATE apres coup.
+# ⚠️ APRES le build (il lit `dist/`), au meme endroit que `test:feuille`.
+# ⭐ Il sort en rc=2 sous 100 pages de contenu : un vert qui n'a rien inspecte
+#    est le plus cher de tous.
+RUN WAREHOUSE_OFFLINE=1 npm run test:titres
 # 🔴🔴🔴 `test:opacite` — LOT 111, ET C'EST LE PREMIER BANC QUI REGARDE CE QUI
 #    S'AFFICHE PLUTOT QUE CE QUI EXISTE.
 #    Le 09/08, Preda signale « le bouton menu ne fonctionne pas ». Il

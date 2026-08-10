@@ -134,63 +134,40 @@ const horo = maj ? `${String(maj.getUTCDate()).padStart(2,'0')}.${String(maj.get
   <div class="editorial">
 
   {/* ═══════════════════════════════════════════════════════════════════════
-      🔴🔴 LOT 104 — L'ACCUEIL EST LE TABLEAU DE BORD, POUR QUI A UN COMPTE
+      🔴🔴 LOT 134 — LA COQUILLE DU TABLEAU DE BORD EST PARTIE D'ICI
       ═══════════════════════════════════════════════════════════════════════
-      ARBITRAGE PREDA DU 07/08 : « je ne devrais pas voir la page d'accueil en
-      étant connecté ». Choisi parmi trois — pas une redirection vers une autre
-      adresse, mais l'accueil qui DEVIENT le tableau de bord.
-      ⭐ Le manifeste le disait déjà, depuis le lot 38 : `nav.dashboard → /`,
-      « l'accueil fait office de tableau de bord ». Ce n'était pas un mensonge,
-      c'était une INTENTION jamais réalisée. La voici.
+      Un `<div class="tableau-bord" data-membre hidden>` vivait à cet endroit
+      depuis le lot 104, quand l'accueil DEVENAIT le tableau de bord. Le lot
+      126 a donné au tableau de bord sa propre adresse, `/dashboard/`, et a
+      repointé le menu — **sans retirer ce bloc**. Le lot 131 l'a rempli de
+      vrais modules, toujours sans revenir ici.
 
-      ⭐⭐⭐ POURQUOI PAS UNE REDIRECTION. `/` est LA page indexée, la plus
-      partagée, et la plus lourde à reconstruire (282 Ko, 8 484 pages derrière).
-      La rendre dynamique la sortirait du pré-rendu : Node réveillé à chaque
-      visite, cache perdu, et Google servi par un chemin différent des lecteurs.
-      ⛔ Et une redirection par script aurait ENLEVÉ aux membres les mouvements,
-      les séries et le blog — qui vivent ici — contre une page qui dit « en
-      construction ». On n'échange pas du contenu réel contre une promesse.
+      ⭐⭐⭐ CE QU'IL COÛTAIT, ET IL NE CASSAIT RIEN. ~6 000 o sur la page la
+      plus vue du site, mais surtout :
+        · un SECOND `<h1>` — « My dashboard » — que Google lisait EN PREMIER,
+          à la place de la promesse commerciale du site ;
+        · un texte « the configurable widgets are not built yet » resté vrai
+          huit lots et **faux depuis le lot 131** ;
+        · `hidden` : lu par le robot, invisible pour l'humain. La page disait
+          une chose au robot et une autre aux gens, donc personne ne pouvait
+          le voir en regardant l'écran.
+      ⭐⭐ AUCUN DES 39 BANCS NE L'A VU, et l'un d'eux EXIGEAIT sa présence
+      (`test:entete`, lot 104). *Un banc qui réclame un bloc protège aussi sa
+      survie : le jour où le bloc devient faux, il devient l'obstacle.*
+      ⇒ `test:titres` (neuf) exige désormais **exactement un `<h1>` par page**
+      dans `dist/`. Il rougissait sur cet accueil avant ce lot ; c'est comme ça
+      qu'on sait qu'il sert.
 
-      ⭐⭐ CE BLOC ET LE `hero` SONT TOUS DEUX RENDUS, TOUJOURS, POUR TOUT LE
-      MONDE. C'est la règle du lot 100, celle que le lot 100 avait lui-même
-      violée : UNE PAGE PRÉ-GÉNÉRÉE N'A PAS DE VISITEUR. Les conditionner sur
-      la session donnerait deux DOM selon le mode de rendu, donc un défaut
-      « parfois », donc irreproductible. Le cookie d'affichage, lu dans le
-      `<head>`, ne décide que du `display` — avant la première peinture.
-      ⛔ CE N'EST PAS UN MUR. Ce bloc ne porte AUCUNE donnée réservée : il
-      annonce un module qui n'existe pas encore. Le jour où il portera des
-      chiffres, ils devront venir d'une route qui lit la session côté serveur,
-      comme `/api/cote/lot` — jamais d'ici.
-      ⚠️ `test:accueil` (neuf) refuse que ces deux blocs soient conditionnés. */}
-  <div class="tableau-bord" data-membre hidden>
-    {/* 🔴 LOT 129 — `.toUpperCase()` RETIRÉ, ET IL NE MANQUERA À PERSONNE.
-          `.etiq` porte DÉJÀ `text-transform:uppercase` (theme.css l. 599) : les
-          capitales étaient faites DEUX FOIS, une fois dans le texte et une fois
-          dans le style. Le rendu est identique à l'octet près.
-          ⛔ MAIS LA VERSION MARKUP DÉTRUISAIT LA TRADUCTION : `t()` marque son
-          libellé d'une clé (lot 129), et `.toUpperCase()` mettait LA CLÉ en
-          capitales avec le reste — `analytics.title` devenait `ANALYTICS.TITLE`,
-          introuvable dans le dictionnaire, donc jamais échangé.
-          ⭐⭐ Et c'était déjà une faute avant ce lot : des capitales écrites dans le
-          texte se copient en capitales, et un lecteur d'écran peut les épeler
-          lettre par lettre. La casse est une affaire de STYLE. */}
-    <p class="etiq etiq--bleu">// {t(lang, 'dash.title')}</p>
-    <h1 class="mono-t">{t(lang, 'dash.title')}</h1>
-    <div class="panneau" style="margin-top:var(--s4)">
-      <h2 class="mono-t">{t(lang, 'dash.empty')}</h2>
-      {/* ⭐ Le texte dit l'état réel et NE PROMET AUCUNE DATE. « Bientôt » est
-          un engagement qu'on tient rarement et qu'on ne mesure jamais ; « pas
-          encore construit » reste vrai tant qu'il l'est, et faux le jour exact
-          où on le change. */}
-      <p class="respire">{t(lang, 'dash.empty.d')}</p>
-    </div>
-    {/* ⭐ Et il renvoie vers ce qui existe DÉJÀ pour un membre. Sans ces deux
-        liens, ce bloc n'apporte qu'une déception à la place d'une accroche. */}
-    <p class="respire" style="margin-top:var(--s4)">
-      <a class="btn btn--principal btn--sm" href={localize(lang, '/market/')}>{t(lang, 'nav.movers')}</a>
-      <a class="btn btn--sm" href="/compte/" style="margin-left:10px">{t(lang, 'account.title')}</a>
-    </p>
-  </div>
+      ⛔ ET ON RETIRE LES QUATRE MORCEAUX EN MÊME TEMPS, pas seulement le HTML :
+      la règle en ligne de `Base.astro`, les deux règles de `themes/vitrine`,
+      et les clés `dash.empty` / `dash.empty.d` / `dash.meanwhile` des cinq
+      dictionnaires. Un seul des quatre laissé derrière serait une « règle sans
+      émetteur » ou une clé « posée et jamais lue » — les deux silences que ce
+      dépôt paie le plus souvent.
+      ⭐ `.hero[data-anonyme]` RESTE, lui, et reste inconditionnel : l'accroche
+      s'efface pour qui a un compte, sans quitter le DOM. La règle du lot 100
+      (« une page pré-générée n'a pas de visiteur ») est intacte — c'est le
+      SECOND bloc qui est parti, pas le mécanisme. */}
 
   {/* ═══ LE PREMIER ÉCRAN ═══
       ⭐ Trois surfaces GRANDES, DÉCALÉES, qui se chevauchent, et rien d'autre :
@@ -200,11 +177,17 @@ const horo = maj ? `${String(maj.getUTCDate()).padStart(2,'0')}.${String(maj.get
       🔴 LOT 104 — `data-anonyme` : l'accroche commerciale disparaît pour qui a
       déjà un compte. ⛔ Elle reste dans le DOM (c'est elle que Google lit, et
       un membre au cookie expiré doit la retrouver) : seul son affichage bouge.
-      ⚠️ ELLE PORTE LE <h1> DE LA PAGE. Le bloc membre en pose un autre, et
-      c'est voulu : un seul des deux est visible à la fois. Les deux sont dans
-      le HTML servi, ce qui est correct pour Google (il lit le premier, celui de
-      l'accroche, puisqu'il n'a pas de cookie) mais ⛔ interdit d'en ajouter un
-      TROISIÈME sans se reposer la question. */}
+      ⚠️⚠️ ELLE PORTE LE SEUL `<h1>` DE LA PAGE — ET CE COMMENTAIRE DISAIT LE
+      CONTRAIRE JUSQU'AU LOT 134. Il expliquait qu'un second `<h1>` (celui du
+      tableau de bord) était « voulu, puisqu'un seul des deux est visible à la
+      fois ». ⭐⭐⭐ C'ÉTAIT UN RAISONNEMENT SUR L'ÉCRAN APPLIQUÉ À UN LECTEUR
+      QUI N'EN A PAS : Google et les lecteurs d'écran lisent le DOM, pas le
+      rendu — ils voyaient les deux, et retenaient le premier, c'est-à-dire le
+      mauvais. Le bloc est parti au lot 134.
+      ⛔ Il n'y a plus qu'un `<h1>` sur cette page, et `test:titres` le tient :
+      en ajouter un second fait rougir la chaîne, quel que soit son `hidden`.
+      *Un commentaire qui justifie un défaut le rend intouchable — on le relit,
+      on le croit, et on ne mesure pas.* */}
   <div class="hero" data-anonyme>
     <span class="hero__champ" aria-hidden="true"></span>
     {/* ⛔ LOT 72 — « THE RECORD » ET « RECORDED EVERY 30 MIN » SONT PARTIS DU
@@ -239,7 +222,19 @@ const horo = maj ? `${String(maj.getUTCDate()).padStart(2,'0')}.${String(maj.get
           relit un titre. Le nouveau dit le BÉNÉFICE, qui lui ne se périme pas.
           ⚠️ `home.pieces` et `home.tracked` restent dans les dictionnaires : le
           Marché et les fiches s'en servent encore. */}
-      <h1 class="mono-t">{t(lang, 'home.h1a')}<br /><em>{t(lang, 'home.h1b')}</em></h1>
+      {/* 🔴 LOT 134 — SEO‑3 : L'ESPACE AVANT LE `<br>`, ET ELLE N'EST PAS
+          COSMÉTIQUE. À l'écran, deux lignes, correct. Mais `<br>` ne produit
+          AUCUNE espace pour un extracteur de texte : Google et les lecteurs
+          d'écran lisaient **« Know what your collectionis worth »** — le titre
+          principal du site, collé, depuis qu'il existe.
+          ⭐⭐ L'espace est posée DANS LE GABARIT (`{' '}`), pas en fin de la clé
+          `home.h1a`. Une espace finale dans un dictionnaire survit mal : elle
+          se perd au `trim()` du premier outil qui relit le JSON, et elle ne se
+          voit pas en relisant la ligne. Ici elle est visible, et elle vaut pour
+          les cinq langues d'un coup.
+          ⛔ Et surtout PAS `&nbsp;` : une espace insécable empêcherait la
+          coupure de ligne qu'on veut justement obtenir. */}
+      <h1 class="mono-t">{t(lang, 'home.h1a')}{' '}<br /><em>{t(lang, 'home.h1b')}</em></h1>
       <p class="respire" style="margin:var(--s5) 0 0;color:var(--carte-ink-2);max-width:38ch">{pick(m.site.description, lang)}</p>
       {/* ⭐ UN LIEN, PAS UN BOUTON — et c'est le point, déjà tranché au lot 41.
           Sans JavaScript il mène à l'accueil ; le script le promeut en palette.

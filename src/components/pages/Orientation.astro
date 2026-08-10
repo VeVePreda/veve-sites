@@ -42,11 +42,32 @@ const rangees = [
   { cle: 'comics', href: '/comics/', total: ds.rayon.filter((r) => r.type === 'comic').length },
 ];
 ---
+{/* ═══════════════════════════════════════════════════════════════════════
+    🔴🔴 LOT 134 — SEO‑2 : CETTE PAGE PORTAIT LE TITRE DE `/sets/`
+    ═══════════════════════════════════════════════════════════════════════
+    `/collections/` et `/sets/` rendaient **le même `<title>`** — « Sets |
+    VeVe Price » — depuis le lot 113, c'est-à-dire depuis que cette page a
+    changé de rôle sans changer de titre. ⭐ Google n'en retient qu'une des
+    deux : l'autre est indexée puis désindexée, et rien dans le dépôt ne le
+    disait. C'est le défaut déjà corrigé le 29/07 pour les fiches, revenu par
+    une autre porte.
+    ⛔ ET LE `<h1>` CHANGE AVEC LE `<title>`, PAS APRÈS. Cette page n'est plus
+    la liste des sets : elle oriente vers trois rayons. Un `<h1>` qui annonce
+    « Sets » au-dessus de trois rangées dont une seule est faite de sets est
+    exactement la même confusion, en plus visible. *Corriger le titre seul
+    aurait laissé la page se contredire, et un titre qui ne dit pas ce que le
+    `<h1>` dit est un signal négatif de plus, pas un de moins.*
+    ⭐ `collections.title` (« Sets ») n'est pas perdue : elle reste le titre de
+    `/sets/`, qui est bien la liste des sets, et elle sert toujours au libellé
+    de rayon. Deux pages, deux clés — une clé partagée par deux pages qui
+    divergent est le doublon qui revient.
+    ⇒ `test:titres` (neuf) refuse désormais deux `<title>` identiques sur deux
+    pages différentes. Il rougissait sur celle-ci avant ce lot. */}
 <Base sect="sets" lang={lang} path="/collections/" updatedAt={ds.updatedAt}
-      title={t(lang, 'collections.title')}
+      title={t(lang, 'orient.title')}
       description={t(lang, 'orient.desc')}
       crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') },
-               { name: t(lang, 'collections.title') }]}>
+               { name: t(lang, 'orient.title') }]}>
 
   {/* 🔠 LOT 118 — LE TITRE REDESCEND D'UN CRAN. Preda, 10/08 : « titre de
       catégorie trop gros ». `sect-t--gd` est le format des TÊTES DE PAGE
@@ -56,7 +77,7 @@ const rangees = [
       `sect-t--gd` est juste, elle était appliquée au mauvais endroit.
       *Corriger la règle CSS aurait rapetissé les titres des pages où elle a
       raison, sur les deux sites.* */}
-  <div class="sect-t"><h1 class="mono-t">{t(lang, 'collections.title')}</h1></div>
+  <div class="sect-t"><h1 class="mono-t">{t(lang, 'orient.title')}</h1></div>
 
   <AVenir lang={lang} />
 

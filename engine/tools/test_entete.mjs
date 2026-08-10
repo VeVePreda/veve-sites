@@ -27,7 +27,7 @@
 // `!aUneSession` parfaitement légitimes ailleurs (une page de compte a le droit
 // de se construire différemment — elle n'est jamais pré-générée).
 
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 
 const R = new URL('../..', import.meta.url).pathname;
@@ -65,6 +65,61 @@ if (!existsSync(HOME)) {
 }
 const home = readFileSync(HOME, 'utf8');
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 ON DÉCOMMENTE AVANT DE CHERCHER — QUATRIÈME FOIS DANS CE DÉPÔT
+// ═══════════════════════════════════════════════════════════════════════════
+// Après un `grep` de cron le 07/08, le §5 de `test:projection`, et le §3 de ce
+// banc même au lot 123 : le lot 134 l'a repayé À L'ÉCRITURE. Le contrôle neuf
+// (« la coquille n'est revenue dans aucun de ses 3 émetteurs ») rougissait sur
+// les COMMENTAIRES qui expliquent son retrait — c'est-à-dire sur le code le
+// mieux documenté du lot, et pour la raison exacte qui le rend correct.
+// ⛔ LA RÉPARATION N'EST PAS DE REFORMULER LE COMMENTAIRE POUR LUI PLAIRE. Un
+// gabarit qui n'ose plus nommer ce qu'il a retiré est un gabarit qu'on relira
+// mal, et le prochain lot remettra le bloc en croyant l'inventer.
+// ⭐⭐ LE DÉCOMMENTEUR EST ÉCRIT UNE FOIS ET PARTAGÉ. Le §3 en avait déjà un,
+// local, et le §1 neuf en aurait fabriqué un second : deux copies d'une même
+// règle divergent — ce dépôt l'a payé trois fois sur des gabarits (`data-ch`,
+// les cartes de set, le corps de `AVenir`). *Le tag est une variable, le corps
+// s'écrit une fois* vaut aussi pour un banc.
+// ⚠️ ON REMPLACE PAR DES ESPACES DE MÊME LONGUEUR, on ne supprime pas : le §3
+// compare des POSITIONS. Retirer les commentaires décalerait tout ce qui suit,
+// et le banc mesurerait alors un ordre qui n'existe que dans sa copie.
+const blanc = (m) => ' '.repeat(m.length);
+const nuAstro = (txt) => txt
+  .replace(/\{?\/\*[\s\S]*?\*\/\}?/g, blanc)
+  .replace(/^\s*\/\/.*$/gm, blanc);
+// ⚠️ Le CSS n'a QUE les commentaires `/* … */` : `//` y est une valeur légale
+// (une URL de protocole relatif). Un décommenteur unique pour les deux langages
+// mangerait `url(//cdn…)`. Deux fonctions, parce que ce sont deux grammaires.
+const nuCss = (txt) => txt.replace(/\/\*[\s\S]*?\*\//g, blanc);
+const homeNu = nuAstro(home);
+const srcNu = nuAstro(src);
+
+// ⭐ ET L'INSTRUMENT SE PROUVE AVANT DE SERVIR. Un décommenteur qui ne
+// décommenterait rien laisserait tout ce qui suit vert pour la mauvaise
+// raison — c'est « est-ce là ? » contre « est-ce que ça marche ? », le défaut
+// d'instrument ② du lot 133. On monte un témoin et on lit ce qu'il rend.
+const TEMOIN_NU = '{/* class="tableau-bord" */}\n<div class="hero"></div>\n// .tableau-bord[x]\n';
+if (/tableau-bord/.test(nuAstro(TEMOIN_NU)) || !/class="hero"/.test(nuAstro(TEMOIN_NU))) {
+  console.error('\n❌ le décommenteur ne fait pas ce qu\'il dit — tout ce qui suit serait vert à tort.');
+  process.exit(2);
+}
+
+// ⭐ LES THÈMES SE LISENT TOUS, ET LEUR NOMBRE EST DIT. Un contrôle « la règle
+// n'est revenue dans aucun thème » serait vert sur zéro thème lu — « aucune
+// faute » et « rien à juger » se ressemblent exactement dans un compteur à
+// zéro. On sort en rc=2 si la liste est vide plutôt que d'annoncer un vert.
+const DOSSIER_THEMES = join(R, 'themes');
+const themesLus = existsSync(DOSSIER_THEMES)
+  ? readdirSync(DOSSIER_THEMES)
+      .filter((d) => existsSync(join(DOSSIER_THEMES, d, 'theme.css')))
+      .map((d) => ({ nom: d, css: readFileSync(join(DOSSIER_THEMES, d, 'theme.css'), 'utf8') }))
+  : [];
+if (themesLus.length === 0) {
+  console.error(`\n❌ aucun thème lu sous ${DOSSIER_THEMES} — racine invalide, ce banc ne prouve rien.`);
+  process.exit(2);
+}
+
 // ── 0. L'INSTRUMENT AVANT LA MESURE ───────────────────────────────────────
 // ⭐ « Un banc se juge sur ce qu'il LAISSE PASSER. » Si les marqueurs
 // disparaissaient du gabarit — renommés, retirés — tout ce qui suit serait vert
@@ -83,7 +138,7 @@ dit(/aUneSession/.test(src), 'le gabarit connaît bien `aUneSession`',
 // tous les visiteurs et connue au build. `aUneSession`, non : elle est vide sur
 // une page pré-générée et pleine sur une route dynamique.
 const fautes = [];
-for (const [nom, texte] of [['Base.astro', src], ['Home.astro', home]]) {
+for (const [nom, texte] of [['Base.astro', srcNu], ['Home.astro', homeNu]]) {
   const re = /\{([^{}]*?)&&\s*\(/g;
   let m;
   while ((m = re.exec(texte)) !== null) {
@@ -103,19 +158,51 @@ for (const [nom, texte] of [['Base.astro', src], ['Home.astro', home]]) {
 // DISPARAISSAIENT de l'accueil : « aucune faute » et « rien à juger » se
 // ressemblent exactement dans un compteur à zéro. Un banc sort sur une
 // DÉCLARATION — ici : ces deux blocs doivent exister.
+// 🔴🔴 LOT 134 — CE CONTRÔLE EXIGEAIT UN BLOC QUI ÉTAIT DEVENU UN DÉFAUT.
+// Il réclamait `.tableau-bord[data-membre]` dans l'accueil ET la règle qui
+// l'ouvre dans le `<head>`. Les deux étaient justes au lot 104. Au lot 126, le
+// tableau de bord a reçu sa propre adresse ; au lot 131, ses vrais modules. Ce
+// bloc n'était donc plus qu'un SECOND `<h1>` (« My dashboard ») lu par Google
+// à la place de la promesse commerciale, sous un texte devenu faux.
+// ⭐⭐⭐ ET CE BANC LE PROTÉGEAIT. *Un banc qui RÉCLAME un élément garantit
+// aussi sa survie : le jour où l'élément devient faux, l'instrument passe du
+// côté du défaut, et il faut le corriger AVANT le code.* C'est le pendant
+// exact de « corriger l'instrument, jamais le code pour lui plaire » — ici,
+// c'est l'instrument qui avait tort, et le retirer sans le dire aurait rendu
+// la chaîne verte sur un accueil devenu quelconque.
+// ⛔ ON NE SUPPRIME PAS LE CONTRÔLE, ON LE RETOURNE. La règle du lot 100 vit
+// toujours (« une page pré-générée n'a pas de visiteur ») et elle a encore un
+// porteur sur l'accueil : `.hero[data-anonyme]`. On exige donc celui-là — et
+// on exige EN PLUS que l'autre ne revienne pas, ni dans le gabarit, ni dans la
+// règle en ligne, ni dans le thème. Un circuit fermé dans les deux sens.
 const heroAnon = /<div class="hero" data-anonyme>/.test(home);
-const bordMembre = /<div class="tableau-bord" data-membre hidden>/.test(home);
-dit(heroAnon && bordMembre,
-  'l\'accueil déclare ses deux blocs : accroche (data-anonyme) et tableau de bord (data-membre)',
-  heroAnon && bordMembre ? null
-    : `hero[data-anonyme] : ${heroAnon ? 'ok' : 'ABSENT'} · tableau-bord[data-membre] : ${bordMembre ? 'ok' : 'ABSENT'}`);
-// ⚠️ ET LA RÈGLE QUI LES BASCULE VIT DANS LE <head>, PAS DANS LE THÈME. Posée
-// dans `theme.css`, elle arriverait avec la feuille externe — donc parfois
-// après la première peinture, et le clignotement reviendrait « de temps en
-// temps », ce qui est pire qu'à chaque fois.
-dit(/html\[data-membre\] \.tableau-bord\[data-membre\]\[hidden\]/.test(src),
-  'la règle qui ouvre le tableau de bord est EN LIGNE dans le <head>',
-  'dans le thème, elle arriverait parfois après la première peinture');
+dit(heroAnon,
+  'l\'accueil déclare toujours son accroche conditionnée par le cookie (hero[data-anonyme])',
+  heroAnon ? null : 'hero[data-anonyme] ABSENT — plus rien ne porte la règle du lot 100 sur cette page');
+
+// ── LE RETOUR DE LA COQUILLE, DANS SES TROIS ÉMETTEURS ────────────────────
+// ⭐⭐ TROIS FICHIERS, PAS UN. Le bloc HTML, la règle en ligne de `Base.astro`
+// et les deux règles de `themes/*/theme.css` sont partis ENSEMBLE au lot 134.
+// N'en surveiller qu'un laisserait les autres revenir en « règle sans
+// émetteur » — le silence que ce dépôt paie le plus souvent, parce qu'il ne
+// lève rien, ne casse rien et se relit comme une intention encore vivante.
+const revenus = [];
+if (/class="tableau-bord"/.test(homeNu)) revenus.push('Home.astro : le bloc HTML');
+if (/\.tableau-bord\[data-membre\]/.test(srcNu)) revenus.push('Base.astro : la règle en ligne');
+for (const th of themesLus) {
+  if (/^\s*\.tableau-bord[\s{.]/m.test(nuCss(th.css))) revenus.push(`themes/${th.nom}/theme.css`);
+}
+dit(revenus.length === 0,
+  `la coquille du tableau de bord n'est revenue dans aucun de ses 3 émetteurs`
+  + ` (${themesLus.length} thème(s) relu(s) : ${themesLus.map((t) => t.nom).join(', ')})`,
+  revenus.length === 0 ? null : revenus.join(' · '));
+if (revenus.length) {
+  console.log('     ⭐ Ce bloc a coûté un second <h1> sur la page la plus vue du site pendant');
+  console.log('        huit lots, et un texte faux lu par Google seul. Le tableau de bord a');
+  console.log('        son adresse depuis le lot 126 : `/dashboard/`.');
+  console.log('     ➡️  S\'il doit revenir sur l\'accueil, il revient en <h2>, et `test:titres`');
+  console.log('        doit rester vert — c\'est lui qui tient « un seul <h1> par page ».');
+}
 dit(fautes.length === 0,
   'aucun élément décidé par le cookie n\'est conditionné par la session',
   fautes.length === 0 ? null : fautes.join(' · '));
@@ -154,9 +241,9 @@ dit(/document\.documentElement\.setAttribute\('data-membre'/.test(src),
 // ⛔ LA RÉPARATION N'ÉTAIT PAS DE REFORMULER MON COMMENTAIRE POUR LUI PLAIRE :
 //    on corrige l'INSTRUMENT, jamais le code pour lui plaire. Un gabarit qui
 //    n'ose plus nommer la règle qu'il applique est un gabarit qu'on relira mal.
-const nu = src
-  .replace(/\{?\/\*[\s\S]*?\*\/\}?/g, (m) => ' '.repeat(m.length))
-  .replace(/^\s*\/\/.*$/gm, (m) => ' '.repeat(m.length));
+// ⭐ LOT 134 — CE §3 AVAIT SON PROPRE DÉCOMMENTEUR, RECOPIÉ. Il est remonté en
+// tête du fichier (`nuAstro`) et sert maintenant les deux contrôles.
+const nu = srcNu;
 // ⚠️ ON REMPLACE PAR DES ESPACES DE MÊME LONGUEUR, on ne supprime pas : ce
 //    contrôle compare des POSITIONS. Retirer les commentaires décalerait tout
 //    ce qui suit, et le banc mesurerait alors un ordre qui n'existe que dans
