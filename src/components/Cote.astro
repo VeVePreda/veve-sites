@@ -24,7 +24,26 @@ import { t } from '../../engine/lib/i18n.mjs';
 
 const { lang, uuid, champ = 'floor', classe = '' } = Astro.props;
 ---
+{/* 🔴 LOT 112 — LE TIRET DIT ENFIN POURQUOI IL EST LÀ (demande Preda) :
+    « les informations qui ne sont pas disponibles en public doivent être
+    signifiées par un cadenas à côté du — ».
+    ⭐ Un tiret nu est ambigu par construction : il veut dire « la donnée
+    n'existe pas » ailleurs sur ce site (un tirage inconnu, une offre absente).
+    Le même signe pour « je n'ai pas » et pour « je ne montre pas » enseigne au
+    visiteur que le site est incomplet, alors qu'il est FERMÉ. Deux causes
+    opposées derrière un seul signe — la confusion que ce projet paie le plus
+    souvent.
+    ⛔ `aria-hidden` sur le cadenas ET `title` sur le parent : le lecteur
+    d'écran entend la phrase entière (`cote.reserve`), pas le mot « cadenas ».
+    ⭐⭐ LE CADENAS DISPARAÎT QUAND LA VALEUR ARRIVE. `CoteScript` pose
+    `data-ouverte="1"` sur ce même élément au retour de `/api/cote/` : le thème
+    s'appuie dessus. Sans ça, un membre verrait son prix AVEC un cadenas à
+    côté — la porte ouverte et le verrou toujours dessiné. */}
 <span class={`cote ${classe}`.trim()} data-cote={uuid} data-champ={champ}
       title={t(lang, 'cote.reserve')}>
   <span class="cote__v" data-cote-v>—</span>
+  <span class="cote__l" aria-hidden="true">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+         stroke-linecap="round"><rect x="5" y="11" width="14" height="9" rx="1.8"/><path d="M8.2 11V8.6a3.8 3.8 0 0 1 7.6 0V11"/></svg>
+  </span>
 </span>

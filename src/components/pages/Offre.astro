@@ -18,6 +18,7 @@
 // oriente. Un bouton qui prétend faire payer sans savoir encaisser est pire
 // qu'un bouton absent.
 import Base from '../../layouts/Base.astro';
+import { dataset } from '../../../engine/lib/dataset.mjs';   // 🔴 LOT 112 — la date du pied de page, rien d'autre
 import { manifest } from '../../../engine/lib/manifest.mjs';
 import { acces, porte, catalogueModules } from '../../../engine/lib/access.mjs';
 import { forme, iconePalier } from '../../../engine/lib/vitrine.mjs';
@@ -103,8 +104,16 @@ const visibles = PLANS.filter((p) => tiers.includes(p.cle));
 // Un texte destiné à être lu ne s'écrit jamais dans un gabarit multilingue.
 const eur = (v) => (v === 0 ? t(lang, 'offer.free.price') : t(lang, 'offer.permonth', { v }));
 const an = (v) => (v === 0 ? '—' : t(lang, 'offer.peryear', { v: Math.round(v * 12 * (1 - REMISE_AN)) }));
+const dsOffre = await dataset();
 ---
-<Base sect="offre" lang={lang} path="/offre/" title={t(lang, 'offer.title')}
+{/* 🔴 LOT 112 — `updatedAt` pour que le pied de page porte la même première
+    ligne que partout ailleurs (voir Analytics.astro pour la mesure).
+    ⚠️ /offre/ NE LIT PAS L'ENTREPÔT et n'a aucune raison de le faire pour une
+    ligne de pied : elle appelle `dataset()` uniquement pour cette date, qui est
+    MÉMOÏSÉE (`_ds`) — l'entrepôt est déjà chargé quand cette page se rend, le
+    coût est nul. ⛔ Ne PAS en profiter pour y lire des prix : cette page est
+    publique et `projeter()` est passé. */}
+<Base sect="offre" lang={lang} path="/offre/" title={t(lang, 'offer.title')} updatedAt={dsOffre.updatedAt}
       description={t(lang, 'offer.desc')}
       crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') }, { name: t(lang, 'offer.title') }]}>
 
@@ -214,14 +223,16 @@ const an = (v) => (v === 0 ? '—' : t(lang, 'offer.peryear', { v: Math.round(v 
     <p class="avertis" style="margin-top:var(--s4)">{t(lang, 'offer.soon.note')}</p>
   )}
 
-  <div class="panneau">
-  <h2 class="mono-t">{t(lang, 'offer.promise')}</h2>
-  <ul class="promesses">
-    <li>{t(lang, 'offer.p1')}</li>
-    <li>{t(lang, 'offer.p2')}</li>
-    <li>{t(lang, 'offer.p3')}</li>
-  </ul>
-
-  </div>
-  <p class="etiq" style="margin-top:var(--s6)">{t(lang, 'offer.legal')}</p>
+  {/* ⛔ LOT 112 — « Ce que ce site ne fera pas » ET la mention « Prix en
+      dollars, taxes éventuelles en sus. Résiliable à tout moment. » sont
+      retirés (demande Preda, 10/08).
+      ⚠️ `offer.legal` PARLE DE TAXES ET DE RÉSILIATION. Tant que `offer.url`
+      est vide — la vente est fermée, `test:promesses` le prouve à chaque
+      build — elle n'engage rien. ⛔ LE JOUR OÙ LA VENTE S'OUVRE, CETTE
+      MENTION DOIT REVENIR, sous une forme ou une autre : c'est une obligation,
+      pas une ligne de mise en page. Écrit ici parce que c'est ici qu'on
+      reviendra.
+      ⭐ Les 4 clés restent vivantes dans les 5 dictionnaires (`offer.promise`,
+      `offer.p1..p3`, `offer.legal`) — `offer.p1` est d'ailleurs encore rendue
+      ailleurs. On retire l'affichage, jamais le vocabulaire. */}
 </Base>

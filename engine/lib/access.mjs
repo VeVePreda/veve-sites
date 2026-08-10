@@ -58,11 +58,19 @@ const DEFAUTS_PORTES = {
   // ⭐ veveprice la déclare quand même EXPLICITEMENT dans son manifeste : un
   // arbitrage commercial doit se lire là où Preda le relira, pas ici.
   cote:         { binaire: true, tier: 'crevette' },
+  // 🔴🔴 LOT 112 — `movers` : LE CLASSEMENT DES MOUVEMENTS.
+  // Il n'avait pas de porte parce qu'il n'était pas fermé — il était SERVI EN
+  // CLAIR sur l'accueil pendant que `/market/`, qui montre le même classement,
+  // était réservé aux membres. Une même donnée, deux régimes, et le régime
+  // ouvert était le plus visible.
+  // ⭐ `binaire` : un classement ne se tronque pas. En montrer les 5 premiers
+  // donnerait le podium, c'est-à-dire l'essentiel de ce qui se vend.
+  movers:       { binaire: true, tier: 'crevette' },
 };
 
 // Ce que le moteur sait faire. Une porte inconnue est une faute de frappe,
 // pas une fonctionnalite a venir : on prefere l'erreur bruyante.
-const PORTES_CONNUES = new Set(['price_history', 'extremes', 'modules', 'alerts', 'wallet_watch', 'cote']);
+const PORTES_CONNUES = new Set(['price_history', 'extremes', 'modules', 'alerts', 'wallet_watch', 'cote', 'movers']);
 
 let _cache = null;
 

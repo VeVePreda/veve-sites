@@ -167,6 +167,14 @@ let sousDist = 0;
 const exOffre = [];
 const exFuite = [];
 const exRempli = [];
+// 🔴 LOT 112 — la variation chiffree, ou qu'elle soit rendue. On vise la CLASSE
+// `.delta` et non « un pourcentage quelque part » : une page peut legitimement
+// ecrire « 30 % » dans une phrase. ⭐ Le selecteur est celui que `vitrine.mjs`
+// emet lui-meme (`delta()`), donc le banc et le rendu partagent une seule
+// verite — deux parseurs, c'est un qui ment.
+const RE_PCT = /class="delta[^"]*"[^>]*>(?:\s*<[^>]+>\s*)*[+-]?\d+[.,]\d+\s*%/g;
+let nbPct = 0;
+const exPct = [];
 // ⛔ Un plafond d'exemples, pas un plafond de PARCOURS : on visite toutes les
 // pages meme apres huit fuites. S'arreter tot rendrait le compte final faux, et
 // un compte faux se cite ensuite comme un fait.
@@ -181,6 +189,34 @@ const MAX_EX = 5;
     if (p.includes('.reserve')) sousDist++;
     const texte = readFileSync(p, 'utf8');
 
+    // 0. 🔴🔴🔴 LOT 112 — LES POURCENTAGES SONT DES PRIX, ET CE BANC NE LES
+    //    VOYAIT PAS. Mesure de production du 10/08 : les 84 emplacements de
+    //    prix de l'accueil affichaient « — », et la MEME page servait 44
+    //    variations exactes (+277.2 %, +192.9 %…). 2 par fiche, 1 par carte.
+    //    ⭐⭐⭐ ET CE BANC ETAIT VERT, A JUSTE TITRE SELON SA PROPRE
+    //    DEFINITION : il ne cherche que des MONTANTS « difficilement
+    //    inventables ». Un pourcentage n'est pas un montant — il ne figure
+    //    dans aucun temoin, il ne ressemble a aucun prix, il passe.
+    //    ⛔ Or `/market/` est reserve aux membres PRECISEMENT parce que « les
+    //    plus fortes variations » est le produit : on vendait derriere le mur
+    //    ce qu'on donnait devant. *Un banc anti-fuite qui ne connait qu'une
+    //    forme de fuite garantit surtout qu'on cherchera les autres ailleurs.*
+    //    ⚠️ IL EXISTE PARCE QUE `change7d` N'EST PAS ENCORE PROJETE HORS DES
+    //    OBJETS. Le lot 112 ferme la fuite dans les GABARITS ; or « on ne cache
+    //    pas un champ, on ne le projette pas » — une regle tenue par la
+    //    discipline seule se defait au lot suivant. C'est ce controle, et lui
+    //    seul, qui rend l'etat intermediaire tenable jusqu'au lot 114 (qui
+    //    projette le champ ET restitue la cle de tri du Market depuis la
+    //    reserve). ⛔ NE PAS LE SUPPRIMER ce jour-la : il deviendra le controle
+    //    qui PROUVE que la projection a bien eu lieu.
+    if (e.name.endsWith('.html')) {
+      const pc = texte.match(RE_PCT);
+      if (pc) {
+        nbPct += pc.length;
+        if (exPct.length < MAX_EX) exPct.push(`${p.slice(RACINE.length)} (${pc.length})`);
+      }
+    }
+
     // 1. Aucune page n'annonce un prix en donnees structurees.
     if (e.name.endsWith('.html') && /"@type"\s*:\s*"Offer"/.test(texte)) {
       nbOffre++;
@@ -191,7 +227,19 @@ const MAX_EX = 5;
     // faute la plus probable des lots suivants : quelqu'un passe une prop
     // `valeur` a <Cote> « juste pour cette page-la ».
     if (e.name.endsWith('.html')) {
-      const m = texte.match(/<span class="cote[^"]*"[^>]*>.*?<\/span>/gs);
+      // 🔴 LOT 112 — LE SELECTEUR ETAIT UN PREFIXE, ET IL S'EST MIS A MENTIR.
+      // `class="cote[^"]*"` attrape `cote`, mais aussi `cote__v` et — depuis ce
+      // lot — `cote__l`, le cadenas. Le cadenas ne contient pas « — » mais un
+      // <svg> : le banc a donc annonce 8 484 emplacements « remplis », c'est-a-
+      // dire une FUITE DE PRIX MASSIVE, sur un lot qui n'en introduit aucune.
+      // ⭐⭐⭐ IL ETAIT ROUGE POUR UNE MAUVAISE RAISON, et le reflexe naturel
+      // aurait ete de retirer le cadenas pour le faire taire. C'est
+      // l'instrument qu'on corrige, jamais le code pour lui plaire.
+      // ⭐ La faiblesse etait LATENTE depuis le lot 101 : toute classe
+      // commençant par « cote » l'aurait declenchee. Elle attendait qu'on en
+      // ajoute une. `(?: [^"]*)?` exige desormais soit la fin du nom, soit une
+      // ESPACE — c'est-a-dire une seconde classe, jamais un suffixe BEM.
+      const m = texte.match(/<span class="cote(?: [^"]*)?"[^>]*>.*?<\/span>/gs);
       if (m) {
         nbMarqueurs += m.length;
         for (const bloc of m) {
@@ -228,6 +276,11 @@ dit(nbMarqueurs > 0, `${nbMarqueurs} emplacement(s) de cote emis`,
   nbMarqueurs ? null : 'AUCUN — le composant <Cote> n\'est rendu nulle part, verifier les gabarits');
 dit(exRempli.length === 0, 'aucun emplacement de cote ne porte de valeur',
   exRempli.length === 0 ? null : `rempli(s), dont ${exRempli.join(' · ')}`);
+dit(nbPct === 0, `aucune variation chiffree dans les ${nbFichiers} page(s) publiee(s)`,
+  nbPct === 0 ? null
+    : `${nbPct} pourcentage(s) en clair, dont ${exPct.join(' · ')}`
+      + '\n     🔴 LE PRIX EST FERME ET LE MOUVEMENT EST OUVERT — c\'est le'
+      + '\n        classement que /market/ fait payer, donne devant le mur.');
 dit(exFuite.length === 0,
   `aucun des ${temoins.length} montants temoins ne se retrouve dans les ${nbFichiers} page(s) publiee(s)`,
   exFuite.length === 0 ? null : `FUITE(S) : ${exFuite.join(' · ')}`);
@@ -256,4 +309,29 @@ dit(sousDist === 0, '.reserve/ n\'apparait pas sous dist/',
   sousDist === 0 ? null : `${sousDist} fichier(s) de reserve SERVIS EN CLAIR`);
 
 console.log(ko === 0 ? '\n✅ aucune fuite de cote dans dist/\n' : `\n🔴 ${ko} controle(s) en echec\n`);
+// ═══════════════════════════════════════════════════════════════════════════
+//  🔴🔴🔴 LOT 112 — LES POURCENTAGES SONT DES PRIX, ET CE BANC NE LES VOYAIT PAS
+// ═══════════════════════════════════════════════════════════════════════════
+//  Mesuré en production le 10/08/2026 : les 84 emplacements de prix de
+//  l'accueil affichaient « — », et la même page servait 44 VARIATIONS EXACTES
+//  (+277.2 %, +192.9 %…). Chaque fiche en portait 2, chaque carte 1.
+//
+//  ⭐⭐⭐ ET CE BANC ÉTAIT VERT, À JUSTE TITRE SELON SA PROPRE DÉFINITION : il
+//  cherche des MONTANTS « difficilement inventables » (voir plus haut). Un
+//  pourcentage n'est pas un montant — il ne figure dans aucun témoin, il ne
+//  ressemble à aucun prix, il passe.
+//  ⛔ Or `/market/` est réservé aux membres PRÉCISÉMENT parce que « les plus
+//  fortes variations » est le produit. On vendait derrière le mur ce qu'on
+//  donnait devant. *Un banc anti-fuite qui ne connaît qu'une forme de fuite
+//  garantit surtout qu'on cherchera les autres ailleurs.*
+//
+//  ⚠️ IL EXISTE PARCE QUE `change7d` N'EST PAS ENCORE PROJETÉ HORS DES OBJETS.
+//  Le lot 112 ferme la fuite dans les GABARITS ; or « on ne cache pas un champ,
+//  on ne le projette pas » — une règle tenue par la discipline seule se défait
+//  au lot suivant. C'est ce contrôle, et lui seul, qui rend l'état intermédiaire
+//  tenable jusqu'au lot 114 (qui projette le champ ET restitue la clé de tri du
+//  Market depuis la réserve).
+//  ⛔ NE PAS LE SUPPRIMER quand le champ sera projeté : il deviendra alors le
+//  contrôle qui prouve que la projection a bien eu lieu.
+
 process.exit(ko === 0 ? 0 : 1);

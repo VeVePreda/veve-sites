@@ -228,11 +228,9 @@ const marqueTemps = sceau();
         <li><span class="inscr__oui" aria-hidden="true">✓</span>{t(lang, 'signup.o3')}</li>
         <li class="inscr__non"><span class="inscr__clos" aria-hidden="true">🔒</span>{t(lang, 'signup.o4')}</li>
       </ul>
-      {/* La transparence est un argument de vente, pas une concession : dire
-          quels paliers existent rend crédible la promesse de celui qu'on vend. */}
-      {tiers.length > 1 && (
-        <p class="etiq inscr__paliers">{t(lang, 'account.tiers')} : {tiers.join(' · ')}</p>
-      )}
+      {/* ⛔ LOT 112 — retiré (demande Preda). Voir /compte/ pour le pourquoi
+          détaillé : cette ligne montrait des noms de code internes à quelqu'un
+          qui vient créer un compte. */}
     </div>
 
   </div>

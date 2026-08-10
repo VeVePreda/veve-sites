@@ -73,8 +73,20 @@ const rendre = p.actif && Number(total) > Number(shown);
               appelle /api/historique/[uuid], qui lit la session cote serveur.
               Le supprimer rendrait la fiche muette pour la seule personne qui
               paie — et le build serait vert. */}
-          <div class="verrou__t">{Number(total).toLocaleString(nf)} {t(lang, 'offer.total')}</div>
-          <p class="verrou__d" style="margin:0">{t(lang, 'mod.price_history.d')}</p>
+          {/* 🔴 LOT 112 — LA SECONDE MOITIÉ DE LA DEMANDE, ET ELLE N'ÉTAIT PAS
+              DANS <Gate>. Preda a cité DEUX textes : « 26 records in total,
+              since 25/11/2021 » (le sceau) et « 26 records in total / The whole
+              curve, not the last three days » (celui-ci). Ils se ressemblent
+              parce qu'ils partagent `offer.total` — et ils vivent dans DEUX
+              composants différents, sur la même fiche, l'un sous l'autre.
+              ⭐⭐ Corriger le premier laissait le second, et la page aurait
+              gardé le comportement signalé. *Deux textes identiques à l'écran
+              ne viennent pas forcément du même endroit dans le code.*
+              ⭐ `total` reste reçu en props et `mod.price_history.d` reste
+              vivante dans les 5 dictionnaires (Analytics et /offre/ la
+              rendent) : rien à recâbler pour revenir. */}
+          <div class="verrou__t">{t(lang, 'gate.reserved')}</div>
+          <p class="verrou__d" style="margin:0">{t(lang, 'gate.reserved.d')}</p>
           {/* ⭐⭐ LE DÉCLENCHEUR EST UN CLIC, ET C'EST UNE DÉCISION.
               Ma première version testait un cookie « vp_actif » pour savoir
               s'il fallait appeler l'API. ⛔ Ce cookie N'EXISTE PAS : personne

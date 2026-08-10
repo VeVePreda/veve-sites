@@ -85,7 +85,10 @@ const money = (v) => (v === null || v === undefined ? '—' : v.toLocaleString(n
       <span class="prix"><Fragment set:html={gemsM()} />{coteFermee
         ? <Cote lang={lang} uuid={item.uuid} champ="floor" />
         : money(item.floor)}</span>
-      <Fragment set:html={delta(item.change7d, { blanc: true })} />
+      {/* 🔴 LOT 112 — la variation suit le prix. Elle apparaissait sur CHAQUE
+          carte du site, à côté d'un prix fermé : 44 pourcentages en clair sur
+          le seul accueil. */}
+      {!coteFermee && <Fragment set:html={delta(item.change7d, { blanc: true })} />}
     </div>
   </div>
 </a>

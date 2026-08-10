@@ -364,10 +364,11 @@ const PAR_TRANCHE = 60;
     </p>
   )}
 
-  <div class="sceau">
-    <div class="sceau__in">
-      <span class="puce">{t(lang, 'home.independent')}</span>
-      <p class="respire">{t(lang, 'offer.p1')}</p>
-    </div>
-  </div>
+  {/* ⛔ LOT 112 — LE SCEAU « REGISTRE INDÉPENDANT / jamais de prix modifié »
+      EST RETIRÉ (demande Preda, 10/08). Il était le DERNIER endroit du site à
+      le porter : `Market.astro` l'avait déjà perdu au lot 45.
+      ⭐ LES DEUX CLÉS RESTENT VIVANTES dans les cinq dictionnaires —
+      `home.independent` et `offer.p1`. `offer.p1` est encore rendue par
+      `/offre/`, et `test:cles` ne dirait le contraire qu'APRÈS un build :
+      c'est la panne du lot 34. On retire l'affichage, jamais le vocabulaire. */}
 </Base>

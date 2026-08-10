@@ -93,7 +93,16 @@ const FIG_DEMO = ['catalogue-raretes', 'tirages-catalogue', 'comics-par-annee'];
 const figuresDemo = FIG_DEMO.map((id) => reg.get(id)).filter(Boolean);
 const figuresPro = [...reg.values()].filter((f) => !FIG_DEMO.includes(f.id));
 ---
-<Base sect="analytics" lang={lang} path="/analytics/" title={t(lang, 'analytics.title')}
+{/* 🔴 LOT 112 — LE PIED DE PAGE N'ÉTAIT PAS « DIFFÉRENT », IL LUI MANQUAIT UNE
+    LIGNE. Mesuré le 10/08 : `<footer>` est UNIQUE (Base.astro l. 854) et
+    identique partout ; mais sa première ligne — « Données à jour au … » — est
+    conditionnée à `fresh`, donc au fait que la page passe `updatedAt`.
+    L'accueil, les fiches, les sets et le blog le passent ; /analytics/ et
+    /offre/ ne le passaient pas. Un pied plus court, et rien pour le dire.
+    ⭐⭐ *Une différence d'affichage qu'on attribue au composant alors qu'elle
+    vient de son APPELANT* — on cherche le défaut dans le pied, il est dans
+    l'appel. */}
+<Base sect="analytics" lang={lang} path="/analytics/" title={t(lang, 'analytics.title')} updatedAt={ds.updatedAt}
       description={t(lang, 'desc.analytics')}
       crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') }, { name: t(lang, 'analytics.title') }]}>
   <Figures />

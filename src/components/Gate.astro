@@ -37,7 +37,15 @@ const cache = restant(total, shown);
 // Cas 2 : uniquement pour qui ne passe pas, et seulement s'il reste vraiment
 // quelque chose. Annoncer « 0 releve cache » serait une insulte, et annoncer
 // un nombre tire du manifeste serait un mensonge.
-const teaser = !passe && p.actif && cache > 0;
+// 🔴 LOT 112 — UNE PORTE BINAIRE N'A RIEN À COMPTER, ET ELLE DOIT QUAND MÊME
+// S'ANNONCER. `cache > 0` supposait une porte à TRONCATURE (« 75 relevés de
+// plus »). Sur `movers` — un classement, qui s'ouvre ou non — `total` et
+// `shown` n'existent pas, `cache` vaut 0, et le sceau ne se serait JAMAIS
+// affiché. ⛔ Sans erreur, sans page blanche : un bloc simplement absent.
+// ⭐ C'est le même mode de panne que `hidden` sur une page pré-générée — la
+// condition était juste pour le cas qu'elle connaissait, et muette pour
+// l'autre.
+const teaser = !passe && p.actif && (p.binaire || cache > 0);
 
 const nf = numberLocale[lang] || 'en-GB';
 const df = dateLocale[lang] || 'en-GB';
@@ -92,12 +100,20 @@ const depuis = since ? new Date(since).toLocaleDateString(df) : null;
       {/* ⭐ LE NOMBRE RESTE LE COEUR DU MESSAGE. « 482 releves au total, vous
           en voyez 15 » convertit ; « contenu reserve » ne convertit pas. Le
           total vient de la donnee reelle, jamais du plafond du manifeste. */}
-      <div class="verrou__t">
-        {Number(total).toLocaleString(nf)} {t(lang, 'offer.total')}{depuis ? `, ${t(lang, 'offer.since')} ${depuis}` : ''}
-      </div>
-      <p class="verrou__d" style="margin:0">
-        {t(lang, 'offer.showing')} {shown}. {cache.toLocaleString(nf)} {t(lang, 'offer.hidden')}
-      </p>
+      {/* 🔴🔴 LOT 112 — LES COMPTES SORTENT (demande Preda, 10/08) :
+          « 80 records in total, since 18/05/2025 » et « This page shows 5.
+          75 earlier records… » disparaissent au profit d'un module qui DIT
+          simplement que ce contenu existe pour les membres.
+          ⚠️⚠️ ET CE LOT DÉFAIT UN ARBITRAGE ANTÉRIEUR, EN CONNAISSANCE DE
+          CAUSE. Le commentaire retiré ici disait : « LE NOMBRE RESTE LE CŒUR
+          DU MESSAGE — 482 relevés au total, vous en voyez 15 CONVERTIT ;
+          contenu réservé NE CONVERTIT PAS. » C'était juste, et c'est un
+          choix de conversion, pas une erreur. Preda tranche l'inverse.
+          ⭐ Ce qu'on perd est écrit ici pour que le retour arrière soit
+          possible sans réapprendre : `total`, `shown`, `since` et `cache`
+          restent CALCULÉS et reçus en props. Rien à recâbler pour revenir. */}
+      <div class="verrou__t">{t(lang, 'gate.reserved')}</div>
+      <p class="verrou__d" style="margin:0">{t(lang, 'gate.reserved.d')}</p>
       {offre.url
         ? <a class="btn btn--principal btn--sm" href={offre.url}>{t(lang, 'offer.cta')}</a>
         : <span class="btn btn--verrou btn--sm" aria-disabled="true">{t(lang, 'offer.soon')}</span>}

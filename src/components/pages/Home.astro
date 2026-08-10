@@ -21,6 +21,7 @@ import { t, pick, localize, numberLocale } from '../../../engine/lib/i18n.mjs';
 import { pli, delta, gemsM } from '../../../engine/lib/vitrine.mjs';
 import { coteFermee as coteEstFermee } from '../../../engine/lib/cote.mjs';
 import Cote from '../Cote.astro';
+import Gate from '../Gate.astro';   // 🔴 LOT 112 — le témoin du classement fermé
 // ⭐ AJOUT SEUL (lot 45). `serie` rend les articles d'une etiquette dans leur
 // ordre de lecture ; `dureeLecture` donne les minutes, dites ou calculees.
 import { serie, dureeLecture, SEUIL_PAGE_TAG } from '../../../engine/lib/blog.mjs';
@@ -269,7 +270,10 @@ const horo = maj ? `${String(maj.getUTCDate()).padStart(2,'0')}.${String(maj.get
             <span class="num"><Fragment set:html={gemsM()} /> {coteFermee
               ? <Cote lang={lang} uuid={i.uuid} champ="floor" />
               : money(i.floor)}</span>
-            <Fragment set:html={delta(i.change7d)} />
+            {/* 🔴 LOT 112 — la variation sort du bandeau : même mesure, même
+                raison que sur la fiche. Le prix était fermé, le mouvement
+                ouvert. */}
+            {!coteFermee && <Fragment set:html={delta(i.change7d)} />}
           </a>
         ))}</>
       ))}
@@ -395,14 +399,33 @@ const horo = maj ? `${String(maj.getUTCDate()).padStart(2,'0')}.${String(maj.get
         ⚠️ Le titre des baisses passe en `sect-t--gd` comme celui des hausses :
         cote a cote, deux titres de tailles differentes se lisent comme une
         hierarchie qui n'existe pas. */}
+    {/* 🔴🔴🔴 LOT 112 — LE CLASSEMENT DES MOUVEMENTS PASSE ENTIÈREMENT
+        DERRIÈRE LE MUR (arbitrage Preda du 10/08 : « tout fermer »).
+        ⭐⭐⭐ ET CACHER LE SEUL POURCENTAGE N'AURAIT PAS SUFFI. Ces deux
+        colonnes sont `movers.up` et `movers.down` : elles sont TRIÉES par
+        variation. Même sans un chiffre, l'ORDRE des vingt cartes dit qui a le
+        plus bougé — c'est-à-dire exactement le produit que `/market/` fait
+        payer. *Un classement est une donnée, même quand on efface ses
+        nombres.*
+        ⛔ On ne peut pas non plus servir le vrai bloc aux membres et le
+        témoin aux autres : cette page est PRÉ-GÉNÉRÉE, elle n'a pas de
+        visiteur. Les deux versions seraient dans le même HTML, donc lisibles
+        par tout le monde — la règle du lot 100, celle qui revient à chaque
+        fois qu'on croit pouvoir décider au build ce qui dépend de la session.
+        ➡️ Le classement vit sur `/market/`, rendu À LA DEMANDE et fermé côté
+        serveur. Ici, un témoin, et le chemin pour y accéder. */}
     <div class="deux-col">
       <section>
         <div class="sect-t sect-t--gd" style="margin-top:0"><h2 class="mono-t">{t(lang, 'home.up')}</h2></div>
-        <div class="grille">{up.map((i, k) => <Carte item={i} lang={lang} href={localize(lang, i.path)} nf={nf} i={k} />)}</div>
+        {coteFermee
+          ? <Gate lang={lang} gate="movers" />
+          : <div class="grille">{up.map((i, k) => <Carte item={i} lang={lang} href={localize(lang, i.path)} nf={nf} i={k} />)}</div>}
       </section>
       <section>
         <div class="sect-t sect-t--gd" style="margin-top:0"><h2 class="mono-t">{t(lang, 'home.down')}</h2></div>
-        <div class="grille">{down.map((i, k) => <Carte item={i} lang={lang} href={localize(lang, i.path)} nf={nf} i={k} />)}</div>
+        {coteFermee
+          ? <Gate lang={lang} gate="movers" />
+          : <div class="grille">{down.map((i, k) => <Carte item={i} lang={lang} href={localize(lang, i.path)} nf={nf} i={k} />)}</div>}
       </section>
     </div>
 

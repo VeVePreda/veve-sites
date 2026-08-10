@@ -2059,6 +2059,23 @@ body > main{ background:var(--bg); }
    `[data-ouverte]` que le script pose, jamais une classe — un attribut se teste
    sans lire de CSS, et les trois thèmes honorent déjà ce genre de crochet. */
 .cote[data-ouverte]{ color:inherit; }
+/* 🔴🔴 LOT 112 — LE CADENAS DU TIRET (demande Preda, 10/08).
+   Un « — » nu est ambigu PAR CONSTRUCTION : ailleurs sur ce site il veut dire
+   « la donnée n'existe pas » (un tirage inconnu, aucune offre). Le même signe
+   pour « je n'ai pas » et pour « je ne montre pas » enseigne au visiteur que
+   le site est INCOMPLET alors qu'il est FERMÉ — deux causes opposées derrière
+   un seul signe, la confusion que ce projet paie le plus souvent.
+   ⭐⭐ IL DISPARAÎT QUAND LA VALEUR ARRIVE, et c'est la moitié qui compte :
+   `CoteScript` pose `data-ouverte="1"` au retour de `/api/cote/`. Sans cette
+   seconde règle, un membre verrait son prix AVEC un cadenas à côté — la porte
+   ouverte et le verrou toujours dessiné.
+   ⛔ `[data-ouverte]`, jamais une classe : un attribut se teste des deux côtés
+   (thème et script) sans qu'aucun n'ait à connaître le vocabulaire de l'autre.
+   ⚠️ Pas d'`opacity` de repos ici : `test:opacite` (lot 111) refuserait un
+   état de départ sans releveur, et il aurait raison — `display` suffit. */
+.cote__l{ display:inline-flex; align-items:center; margin-left:5px; color:var(--lock); }
+.cote__l svg{ width:11px; height:11px; flex:0 0 11px; }
+.cote[data-ouverte] .cote__l{ display:none; }
 /* ⛔ PAS DE CURSEUR `help` NI DE SOULIGNÉ POINTILLÉ sur l'emplacement fermé :
    le `title` suffit, et un ornement d'interactivité sur un élément qui ne
    répond à aucun clic est un mensonge d'interface. */

@@ -447,11 +447,35 @@ const mcpJour = mcpPoints(item.rarity, item.type);
             ? <Cote lang={lang} uuid={item.uuid} champ="floor" />
             : money(item.floor)}<span class="mur__u">gems</span></div>
           <div class="mur__eq">{item.listings ?? '—'} {t(lang, 'item.listings')}</div>
+          {/* 🔴🔴 LOT 112 — LA VARIATION SORT DU PUBLIC.
+              Mesuré le 10/08 sur la production : les prix étaient tous fermés
+              (84 emplacements à « — » sur l'accueil) et les VARIATIONS étaient
+              servies en clair — 44 pourcentages exacts sur l'accueil, 2 par
+              fiche. ⭐⭐⭐ LE PRIX ÉTAIT FERMÉ, LE MOUVEMENT ÉTAIT OUVERT — et
+              `/market/` est réservé aux membres PRÉCISÉMENT parce que « les
+              plus fortes variations » est le produit. On vendait derrière le
+              mur ce qu'on donnait devant.
+              ⛔ `test:fuite` ne pouvait pas le voir : il cherche des MONTANTS
+              difficilement inventables. Un pourcentage n'est pas un montant.
+              Le banc est étendu dans ce lot — c'est lui, pas cette ligne, qui
+              tient la règle.
+              ⚠️ `coteFermee` est une constante de BUILD, pas un test de
+              visiteur : ces pages sont pré-générées, elles n'ont personne en
+              face. Le membre retrouve la variation par `/market/` et par le
+              <Cadran>, jamais par ce gabarit.
+              ⏳ `change7d` N'EST PAS ENCORE PROJETÉ HORS DES OBJETS, et c'est
+              délibéré : `Market.astro` trie côté client sur `data-ch`, rempli
+              au build depuis `i.change7d`. Le projeter ici casserait le tri
+              DES MEMBRES en silence — le piège connu (« re-trier sur un champ
+              projeté rend 0 ou VIDE, sans erreur »). Le lot 114 le projette
+              ET restitue la clé de tri depuis la réserve, d'un seul geste. */}
+          {!coteFermee && (
           <div class="mur__d">
             {[['item.7d', item.change7d], ['item.30d', item.change30d]].map(([k, v]) => (
               <Fragment set:html={delta(v, { plein: true, k: t(lang, k) })} />
             ))}
           </div>
+          )}
         </div>
         <span class="murs__sep" aria-hidden="true"></span>
         <div>
@@ -568,66 +592,81 @@ const mcpJour = mcpPoints(item.rarity, item.type);
           ⚠️ Les boutons de série sont RENDUS mais inertes — le graphique n'est pas
           encore interactif. Ils portent donc `disabled` : ⛔ un contrôle qui ne
           répond pas doit le DIRE plutôt qu'ignorer le clic en silence. */}
-      <div class="graph-hote" style="margin-top:var(--s6)">
-        <div class="graph-tete">
-          <div>
-            <h2 style="font-size:var(--t-lg)">{t(lang, 'item.chart')}</h2>
-            <p class="etiq" style="margin-top:5px">{item.points} {t(lang, 'item.shown')}</p>
-          </div>
-          {/* ═══════════════════════════════════════════════════════════════
-              🔴 LOT 104 — LES PLAGES VIENNENT DU MANIFESTE, PLUS DU GABARIT
-              ═══════════════════════════════════════════════════════════════
-              CE QUI ÉTAIT ÉCRIT ICI : `['3 J','30 J','90 J','MAX']`, avec
-              `data-verrou` sur tout sauf la première. Trois défauts, tous
-              silencieux :
-                · « 7 J » N'EXISTAIT PAS — et c'est précisément la plage que
-                  Crevette achète. La grille de Preda était invendable depuis
-                  cette ligne, sans qu'aucun banc n'ait de raison de le dire ;
-                · le verrou ne lisait AUCUN palier : il était identique pour
-                  l'abonné et le visiteur. Un verrou qui ne se lève jamais
-                  n'est pas un verrou, c'est un dessin de verrou ;
-                · et le jour où Preda change la grille, un gabarit ne le sait
-                  pas. Elle a changé le 07/08 — trois fois en trois semaines.
-              ⭐ `plages()` lit `access.gates.price_history.plages`. L'ordre du
-              tableau est l'ordre affiché, et le palier de chaque plage est une
-              DONNÉE, comme les prix et les plafonds.
+      {/* 🔴🔴 LOT 112 — LA COURBE PUBLIQUE EST RETIRÉE (demande Preda, 10/08).
+          « Aucun tableau Floor Price ne doit être disponible en public, mettre
+          juste un module qui dit que ce tableau existe en étant membre. »
+          ⭐ Le module demandé EXISTE DÉJÀ et n'a pas à être écrit : le <Gate>
+          juste en dessous dit ce qui est réservé, le <Cadran> en montre la
+          forme sous verrou. Ajouter un troisième bloc aurait redit une
+          troisième fois la même chose — c'est exactement ce que le lot 45
+          avait retiré ici (« le même titre trois fois de suite »).
+          ⛔ LE BLOC N'EST PAS SUPPRIMÉ, IL EST CONDITIONNÉ. Sur un site où la
+          porte `cote` est ouverte (vevewiki n'a pas de porte du tout, un site
+          futur pourrait l'ouvrir), la courbe publique reste ce qu'elle était.
+          Supprimer le code aurait fait de ce lot une décision permanente prise
+          pour un seul site. */}
+      {!coteFermee && (
+        <div class="graph-hote" style="margin-top:var(--s6)">
+          <div class="graph-tete">
+            <div>
+              <h2 style="font-size:var(--t-lg)">{t(lang, 'item.chart')}</h2>
+              <p class="etiq" style="margin-top:5px">{item.points} {t(lang, 'item.shown')}</p>
+            </div>
+            {/* ═══════════════════════════════════════════════════════════════
+                🔴 LOT 104 — LES PLAGES VIENNENT DU MANIFESTE, PLUS DU GABARIT
+                ═══════════════════════════════════════════════════════════════
+                CE QUI ÉTAIT ÉCRIT ICI : `['3 J','30 J','90 J','MAX']`, avec
+                `data-verrou` sur tout sauf la première. Trois défauts, tous
+                silencieux :
+                  · « 7 J » N'EXISTAIT PAS — et c'est précisément la plage que
+                    Crevette achète. La grille de Preda était invendable depuis
+                    cette ligne, sans qu'aucun banc n'ait de raison de le dire ;
+                  · le verrou ne lisait AUCUN palier : il était identique pour
+                    l'abonné et le visiteur. Un verrou qui ne se lève jamais
+                    n'est pas un verrou, c'est un dessin de verrou ;
+                  · et le jour où Preda change la grille, un gabarit ne le sait
+                    pas. Elle a changé le 07/08 — trois fois en trois semaines.
+                ⭐ `plages()` lit `access.gates.price_history.plages`. L'ordre du
+                tableau est l'ordre affiché, et le palier de chaque plage est une
+                DONNÉE, comme les prix et les plafonds.
 
-              ⭐⭐⭐ ET L'ÉTAT VERROUILLÉ EST CE QUE LE HTML CONTIENT — pour
-              tout le monde, abonné compris. UNE PAGE PRÉ-GÉNÉRÉE N'A PAS DE
-              VISITEUR : ces 8 500 fiches sont des fichiers, construits une
-              fois, servis à tous. Rendre le verrou selon un palier au build
-              reviendrait à figer le palier du BUILD dans le fichier — c'est
-              exactement la panne du lot 24, et le résultat serait « le site
-              ouvre tout à tout le monde » ou « il n'ouvre jamais rien ».
-              ⛔ ET ON NE LE DÉCIDE PAS NON PLUS SUR LE COOKIE D'AFFICHAGE :
-              il ne porte que « 1 », il ne dit pas QUEL palier, et il se pose à
-              la main. Il ne peut pas distinguer une Crevette d'une Whale.
-              ⚠️ Son nom n'apparaît volontairement pas dans ce fichier :
-              `test:session` refuse de le lire là où un droit se décide.
-              ➡️ Le déverrouillage se fait dans `Cadran.astro`, au retour de
-              `/api/historique/[uuid]` — la seule voie qui ait lu `vp_session`
-              côté serveur, et qui renvoie le palier RÉEL. Une seule voie, donc
-              pas de seconde vérité. */}
-          <div class="plages" role="group" aria-label={t(lang, 'item.chart')} data-plages>
-            {LES_PLAGES.map((pl, k) => (
-              <button type="button" aria-pressed={k === 0 ? 'true' : 'false'}
-                      data-plage={pl.cle}
-                      data-tier={pl.verrouillee ? pl.tier : undefined}
-                      aria-disabled={pl.verrouillee ? 'true' : undefined}
-                      title={pl.verrouillee
-                        ? t(lang, 'item.range.locked').replace('%s', nomDuPalier(pl.tier))
-                        : undefined}
-                      data-verrou={pl.verrouillee ? '' : undefined}>{t(lang, `item.range.${pl.cle}`)}</button>
-            ))}
+                ⭐⭐⭐ ET L'ÉTAT VERROUILLÉ EST CE QUE LE HTML CONTIENT — pour
+                tout le monde, abonné compris. UNE PAGE PRÉ-GÉNÉRÉE N'A PAS DE
+                VISITEUR : ces 8 500 fiches sont des fichiers, construits une
+                fois, servis à tous. Rendre le verrou selon un palier au build
+                reviendrait à figer le palier du BUILD dans le fichier — c'est
+                exactement la panne du lot 24, et le résultat serait « le site
+                ouvre tout à tout le monde » ou « il n'ouvre jamais rien ».
+                ⛔ ET ON NE LE DÉCIDE PAS NON PLUS SUR LE COOKIE D'AFFICHAGE :
+                il ne porte que « 1 », il ne dit pas QUEL palier, et il se pose à
+                la main. Il ne peut pas distinguer une Crevette d'une Whale.
+                ⚠️ Son nom n'apparaît volontairement pas dans ce fichier :
+                `test:session` refuse de le lire là où un droit se décide.
+                ➡️ Le déverrouillage se fait dans `Cadran.astro`, au retour de
+                `/api/historique/[uuid]` — la seule voie qui ait lu `vp_session`
+                côté serveur, et qui renvoie le palier RÉEL. Une seule voie, donc
+                pas de seconde vérité. */}
+            <div class="plages" role="group" aria-label={t(lang, 'item.chart')} data-plages>
+              {LES_PLAGES.map((pl, k) => (
+                <button type="button" aria-pressed={k === 0 ? 'true' : 'false'}
+                        data-plage={pl.cle}
+                        data-tier={pl.verrouillee ? pl.tier : undefined}
+                        aria-disabled={pl.verrouillee ? 'true' : undefined}
+                        title={pl.verrouillee
+                          ? t(lang, 'item.range.locked').replace('%s', nomDuPalier(pl.tier))
+                          : undefined}
+                        data-verrou={pl.verrouillee ? '' : undefined}>{t(lang, `item.range.${pl.cle}`)}</button>
+              ))}
+            </div>
+            <div class="series" role="group" aria-label={t(lang, 'item.chart')}>
+              <button class="serie-b" type="button" aria-pressed="true" disabled style="--c:var(--sect-pur)"><i></i>{t(lang, 'movers.floor')}</button>
+              <button class="serie-b serie-b--pointille" type="button" aria-pressed="true" disabled style="--c:var(--muted)"><i></i>{t(lang, 'item.listings')}</button>
+            </div>
           </div>
-          <div class="series" role="group" aria-label={t(lang, 'item.chart')}>
-            <button class="serie-b" type="button" aria-pressed="true" disabled style="--c:var(--sect-pur)"><i></i>{t(lang, 'movers.floor')}</button>
-            <button class="serie-b serie-b--pointille" type="button" aria-pressed="true" disabled style="--c:var(--muted)"><i></i>{t(lang, 'item.listings')}</button>
-          </div>
+          <Fragment set:html={svg} />
+          <div class="graph-pied"><span class="etiq">{item.totalPoints?.toLocaleString(nf)} {t(lang, 'home.points')}</span></div>
         </div>
-        <Fragment set:html={svg} />
-        <div class="graph-pied"><span class="etiq">{item.totalPoints?.toLocaleString(nf)} {t(lang, 'home.points')}</span></div>
-      </div>
+      )}
 
       {/* ⛔ LE BLOC « MODULES » A ETE RETIRE LE 03/08/2026 (demande Preda).
           Il portait le catalogue des 5 modules + les onglets `role="tablist"`.
