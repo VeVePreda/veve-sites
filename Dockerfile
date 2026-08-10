@@ -53,6 +53,25 @@ RUN WAREHOUSE_OFFLINE=1 npm run test:donnees
 # publie 400 fiches et ZERO comic sans qu'aucun controle ne s'en plaigne).
 RUN WAREHOUSE_OFFLINE=1 npm run test:quotas
 # Verifie que les paliers d'acces sont lus par la matrice, et par elle seule.
+# 🔴🔴🔴 `test:rayon` — LOT 113, ET IL EST ICI, AVANT LE BUILD, POUR UNE RAISON
+#    QUI A COUTE UN DEPLOIEMENT (10/08/2026).
+#    Il importe `dataset()`. Sous `WAREHOUSE_OFFLINE=1`, `dataset()` RECALCULE
+#    sur `engine/data/sample/` — et `projeter()` puis `reserve.fermer()`
+#    s'executent POUR DE BON : `.reserve/cote/` passe de 1 201 fichiers a 0.
+#    Place APRES le build, il DETRUISAIT donc la reserve que le build venait
+#    d'ecrire, et l'etape de controle plus bas rendait :
+#      « ERREUR: mode server mais la reserve de COTE est VIDE »
+#    ⭐⭐⭐ UN BANC QUI RECALCULE CE QU'IL DOIT JUGER NE LE JUGE PLUS, IL LE
+#    REMPLACE. C'est exactement la panne du lot 101 sur `test:fuite`, refaite a
+#    l'identique — et la regle etait ecrite. *Un avertissement qu'on ne peut pas
+#    faire rougir finit lu sans etre suivi.*
+#    ⛔ NE JAMAIS le redescendre apres `npm run build`. Les autres bancs qui
+#    importent `dataset()` (`test:donnees`, `test:quotas`, `test:acces`) sont
+#    ici pour la meme raison : le build qui suit reecrit la reserve.
+#    ⭐ Ce qui a sauve le deploiement : l'etape de controle de la reserve, qui a
+#    fait ECHOUER le build au lieu de mettre en ligne un site vert ou aucun
+#    abonne n'aurait vu un seul prix.
+RUN WAREHOUSE_OFFLINE=1 npm run test:rayon
 RUN WAREHOUSE_OFFLINE=1 npm run test:acces
 # ⭐⭐ `test:reserve` — LE BANC DU MUR (01/08/2026).
 # Il garde six pannes dont AUCUNE ne fait échouer un build Astro :
@@ -262,13 +281,6 @@ RUN WAREHOUSE_OFFLINE=1 npm run test:feuille
 #    ⚠️ Il lit `themes/` et `engine/lib/`, jamais `dist/` : il peut donc tourner
 #    AVANT le build. Il est place ici pour rester avec les bancs de la feuille.
 RUN WAREHOUSE_OFFLINE=1 npm run test:opacite
-# 🔴🔴 `test:rayon` — LOT 113. Le rayon expose les 19 412 lignes du catalogue,
-#    et `catalogue.csv` porte `floor`, `listings`, `ath`, `atl`. Une ligne brute
-#    passee a un gabarit publierait 19 412 prix, PAR UN CHEMIN QUE `projeter()`
-#    NE VOIT PAS (il mute `items`, jamais `cat`). Ce banc prouve la liste
-#    blanche, tient le piege JJ/MM/AAAA du filtre « A venir », et verifie que la
-#    pagination ne perd pas sa derniere ligne.
-RUN WAREHOUSE_OFFLINE=1 npm run test:rayon
 # 🟠 DETTE DU 07/08 RAMASSEE AU PASSAGE — `test:promesses` etait dans `npm test`
 #    et PAS ici, seul des 27 dans ce cas. *Un garde-fou qui ne tourne pas en
 #    production ne garde rien.* Il casse le build si `offer.url` se remplit
