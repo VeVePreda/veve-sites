@@ -301,5 +301,56 @@ verifie('le mode statique ne delegue aucune de ces routes', not fautives,
         'aucun proxy applicatif en statique' if not fautives
         else f'proxy inattendu pour : {", ".join(fautives)}')
 
+# ═══════════════════════════════════════════════════════════════════════════
+# 7. AUCUNE REDIRECTION NE RENVOIE LE VISITEUR EN CLAIR
+# ═══════════════════════════════════════════════════════════════════════════
+# 🔴🔴🔴 MESURE DE PRODUCTION, 10/08, UNE HEURE APRES LE LOT 120 :
+#     GET https://veveprice.com/fr/  ->  301  http://veveprice.com/
+# Un `return 301 /chemin` laisse nginx composer l'URL absolue avec `$scheme`.
+# Or ce serveur n'ecoute qu'en `listen 80` : Cloudflare lui parle en clair,
+# `$scheme` vaut TOUJOURS `http`, et CHAQUE redirection renvoyait d'abord en
+# clair avant qu'un second saut remette en `https`. Deux sauts au lieu d'un,
+# sur ~9 300 URL — et un instant en clair a chaque fois.
+#
+# ⭐⭐⭐ CE N'ETAIT PAS UN DEFAUT NEUF : les cinq redirections « adresse sans
+# barre finale » (/compte, /connexion, /inscription, /market, /favoris) avaient
+# le meme, depuis des semaines. Je ne les ai regardees que parce que je venais
+# d'en fabriquer une semblable. *Un defaut ancien ne se decouvre pas parce
+# qu'on le cherche : il se decouvre parce qu'on vient d'en fabriquer un
+# semblable et qu'on regarde enfin cet endroit-la.*
+#
+# ⭐⭐ ET L'AVERTISSEMENT EXISTAIT DEJA, EN HAUT DU MEME FICHIER : « derriere
+# Cloudflare, $scheme ment ». Il avait ete ecrit pour le CSRF, il etait juste,
+# et il n'a pas voyage jusqu'aux redirections. *Une regle apprise sur un
+# symptome reste attachee a l'endroit ou elle a fait mal — jusqu'a ce qu'un
+# banc la porte.*
+print("\n7. aucune redirection ne renvoie le visiteur en clair")
+import re as _re
+for nom, frag in (('statique', STATIQUE), ('serveur', SERVEUR)):
+    txt = frag.read_text(encoding='utf-8')
+    # On retire les commentaires : ce fichier documente ses propres pieges, et
+    # un controle qui lit ses explications rougit sur elles.
+    code = _re.sub(r'^\s*#.*$', '', txt, flags=_re.M)
+    a_la_map = 'map $http_x_forwarded_proto $proto_visiteur' in code
+    redirs = _re.findall(r'return\s+(30[128])\s+([^;]+);', code)
+    if not redirs:
+        # ⭐ TROIS VERDICTS : « aucune redirection » n'est pas « toutes bonnes ».
+        print(f'   ⏸️  {nom} : aucune redirection declaree — sans objet ici.')
+        continue
+    if not a_la_map:
+        print(f'   ⏸️  {nom} : pas de `$proto_visiteur` dans cette configuration —'
+              ' le controle ne sait pas quel protocole exiger.')
+        continue
+    nues = [c.strip() for _, c in redirs if not c.strip().startswith('$proto_visiteur://')]
+    verifie(f'{nom} : chaque `return 30x` compose une adresse ABSOLUE avec $proto_visiteur',
+            not nues,
+            f'{len(redirs)} redirection(s), toutes en $proto_visiteur://$host' if not nues
+            else 'renvoient en clair derriere Cloudflare : ' + ' · '.join(nues[:6]))
+    # ⛔ Et la contre-epreuve : un `http://` ECRIT EN DUR serait pire encore —
+    #    il forcerait le clair meme sur un site qui ne passe pas par Cloudflare.
+    durs = [c.strip() for _, c in redirs if c.strip().startswith('http://')]
+    verifie(f'{nom} : aucune redirection ne force `http://` en dur', not durs,
+            'aucune' if not durs else ' · '.join(durs[:4]))
+
 print(f"\n{'✅ configurations jumelles, et tout ce que Node rend est demande' if echecs == 0 else f'❌ {echecs} echec(s)'}")
 sys.exit(0 if echecs == 0 else 1)
