@@ -185,9 +185,43 @@ export const iconePalier = (cle, t = 18) => {
 // ⚠️ MOINS DE 2 POINTS => RIEN. Pas une ligne plate : une ligne plate AFFIRME
 // une stabilite qu'on n'a pas observee. L'absence de courbe dit « pas assez
 // de releves », ce qui est vrai.
-export function sparkline(history, change, { w = 100, h = 26, max = 26 } = {}) {
+export function sparkline(history, change, opts = {}) {
+  const max = opts.max ?? 26;
   if (!Array.isArray(history) || history.length < 2) return '';
-  const pts = history.slice(-max).map((p) => Number(p.floor)).filter((v) => Number.isFinite(v) && v > 0);
+  return tracer(history.slice(-max).map((p) => Number(p.floor)).filter((v) => Number.isFinite(v) && v > 0),
+    change, opts);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 LOT 117 — LA COURBE DU MARCHE ETAIT VIDE DEPUIS LE LOT 101
+// ═══════════════════════════════════════════════════════════════════════════
+// `Market.astro` appelait `sparkline(i.history, …)`. Or `projeter()` SUPPRIME
+// `history` et le remplace par `courbe` (normalisee 0..1000). La garde
+// `!Array.isArray(history)` rendait donc `''` — POUR LES 200 LIGNES, POUR LES
+// SEULS ABONNES, et la colonne « 7 j » est une COLONNE VIDE : elle ressemble
+// a « pas assez de releves », ce que le commentaire d'a cote AFFIRME.
+// ⭐⭐⭐ LE PIEGE N'EST PAS LA GARDE, C'EST QU'ELLE AVAIT DEJA UN SENS. Un
+// repli legitime (« moins de 2 points => rien ») a absorbe une panne
+// structurelle et lui a donne l'apparence d'un cas normal, documente.
+// *Un repli qui a une bonne raison d'exister est la meilleure cachette d'une
+// panne — il rend le symptome attendu.* Meme famille que le `try/catch` de
+// `lireCotes()` dans ce meme lot.
+// ⚠️ ON NE LUI REND PAS `history` : la reserve ne porte pas l'historique brut
+// (c'est `.reserve/historique/`, un autre mur, un autre palier). La FORME
+// suffit — le `title` de la cellule porte deja le pourcentage exact.
+// ⛔ `> 0` DEVIENT `>= 0` ICI, ET C'EST LA DIFFERENCE QUI COMPTE : une serie
+// normalisee vaut 0 a son minimum. Reprendre le filtre de `sparkline()` aurait
+// JETE LE POINT LE PLUS BAS de chaque courbe — un aplatissement silencieux.
+export function sparklineNormalisee(courbe, change, opts = {}) {
+  const max = opts.max ?? 26;
+  if (!Array.isArray(courbe) || courbe.length < 2) return '';
+  return tracer(courbe.slice(-max).map((p) => Number(Array.isArray(p) ? p[1] : p))
+    .filter((v) => Number.isFinite(v) && v >= 0), change, opts);
+}
+
+/** La GEOMETRIE, partagee — ecrite une fois, pour que les deux courbes ne
+ *  puissent pas diverger de dessin le jour ou l'une des deux est retouchee. */
+function tracer(pts, change, { w = 100, h = 26 } = {}) {
   if (pts.length < 2) return '';
   const mn = Math.min(...pts), mx = Math.max(...pts), sp = (mx - mn) || 1;
   const d = pts.map((v, i) => {

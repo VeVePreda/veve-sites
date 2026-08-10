@@ -73,6 +73,25 @@ RUN WAREHOUSE_OFFLINE=1 npm run test:quotas
 #    abonne n'aurait vu un seul prix.
 RUN WAREHOUSE_OFFLINE=1 npm run test:rayon
 RUN WAREHOUSE_OFFLINE=1 npm run test:acces
+# ═══════════════════════════════════════════════════════════════════════════
+# 🔴🔴🔴 `test:projection` — LOT 117. IL IMPORTE `dataset()` : IL EST **ICI**.
+# ═══════════════════════════════════════════════════════════════════════════
+# Il ferme le CIRCUIT que les controles precedents n'ouvraient qu'a une
+# extremite. Le controle de reserve de l'etape finale COMPTE LES FICHIERS de
+# `.reserve/cote/` : il prouve l'ECRITURE, et il a sauve le deploiement du
+# 10/08. Mais rien ne prouvait la LECTURE — et le 10/08, `lireCotes()`
+# appelait `readFileSync` SANS L'IMPORTER : l'erreur etait avalee par un
+# `try/catch` ecrit pour un JSON corrompu, `/market/` servait 200 lignes de
+# tirets aux seuls abonnes, tri par prix mort, sur un build parfaitement vert.
+# ⭐ Ce banc fait l'aller-retour : il depose une cote temoin (dans un
+#   `mktemp`, jamais dans `.reserve/`) et exige qu'elle revienne.
+# ⭐ Il verifie aussi que l'empreinte des prix est scellee AVANT la
+#   projection, que la courbe du Marche se trace, et qu'aucun gabarit ne lit
+#   `history` hors d'une liste blanche NOMMEE.
+# ⛔ NE JAMAIS le redescendre apres `npm run build` : sous
+#   `WAREHOUSE_OFFLINE=1` il RECALCULE et viderait `.reserve/cote/`. Meme
+#   raison, mot pour mot, que `test:rayon` juste au-dessus.
+RUN WAREHOUSE_OFFLINE=1 npm run test:projection
 # ⭐⭐ `test:reserve` — LE BANC DU MUR (01/08/2026).
 # Il garde six pannes dont AUCUNE ne fait échouer un build Astro :
 #   · un uuid d'URL qui sert de chemin de fichier (traversée) ;

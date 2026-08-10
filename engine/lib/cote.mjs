@@ -38,7 +38,23 @@
 // plus une seule valeur en gems côté public — la fuite n'est pas improbable,
 // elle est IMPOSSIBLE.
 
-import { mkdirSync, existsSync, writeFileSync, readdirSync, rmSync } from 'node:fs';
+// 🔴🔴🔴 LOT 117 — `readFileSync` MANQUAIT ICI, ET LA PAGE `/market/` ETAIT
+// MUETTE POUR LES SEULS ABONNES DEPUIS LE LOT 104.
+// `lireCotes()` (bas de fichier) l'appelait sans qu'il soit importe. L'appel
+// levait `ReferenceError: readFileSync is not defined` — DANS UN `try/catch`
+// ecrit pour un JSON corrompu. La reserve etait donc declaree ILLISIBLE pour
+// CHAQUE uuid, `lireCotes()` rendait `{}`, et `/market/` servait 200 lignes de
+// tirets avec un tri par prix mort. Build vert, Dockerfile vert (il compte les
+// FICHIERS de `.reserve/cote/`, il ne les LIT pas), aucune erreur nulle part.
+// ⭐⭐⭐ CE QU'IL FAUT EN RETENIR, ET C'EST PLUS GRAND QUE CETTE LIGNE :
+// UN CONTROLE QUI PROUVE L'ECRITURE NE PROUVE PAS LA LECTURE. Le circuit
+// n'etait ferme qu'a une extremite — « qui ecrit, qui lit ? ». `test:projection`
+// (lot 117) fait desormais l'aller-retour complet : il ecrit une cote temoin,
+// la relit par `lireCotes()`, et rougit si elle ne revient pas.
+// ⛔ ET LE MESSAGE DE DIAGNOSTIC ACCUSAIT LE MAUVAIS COUPABLE : « reserve
+// absente de l'image ? » aurait envoye chercher la panne dans le Dockerfile.
+// Une phrase de diagnostic qui ne nomme qu'UNE cause en exclut les autres.
+import { mkdirSync, existsSync, writeFileSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { porte } from './access.mjs';
 
@@ -64,15 +80,31 @@ export const CHAMPS_COTE = [
   'ath', 'atl',   // les extrêmes (Preda, 07/08 : derrière le mur)
   'athDate', 'atlDate',
   'prixMedian', 'p95',   // des prix aussi, même s'ils portent un nom de statistique
+  // 🔴🔴 LOT 117 — LA VARIATION REJOINT LA COTE. C'était la dette annoncée par
+  // le lot 112 (« ⏳ le lot suivant le projette ET restitue la clé de tri »).
+  // ⭐⭐⭐ L'ARGUMENT D'ORIGINE ÉTAIT CORRECT ET NE SUFFISAIT PAS : « une
+  // variation sans niveau ne permet pas de reconstituer un prix » — vrai, et
+  // hors sujet. `/market/` est réservé PARCE QUE « les plus fortes variations »
+  // EST le produit. La question n'était pas « peut-on en déduire un montant ? »
+  // mais « est-ce ce qu'on vend ? ». Mesuré le 10/08 : 1 700 pourcentages en
+  // clair sur l'accueil. Le lot 112 les a fermés DANS LES GABARITS ; ce lot-ci
+  // les retire DE LA DONNÉE — on ne cache pas un champ, on ne le projette pas.
+  'change7d', 'change30d',
 ];
 
 // ⛔ CE QUI RESTE PUBLIC, ET POURQUOI — à relire avant d'ajouter une ligne
 // au-dessus. `storePrice` : le PRIX DE DROP, explicitement conservé par Preda,
 // et il ne dit rien du marché d'aujourd'hui. `listings` : un COMPTE d'offres,
 // pas un montant — et c'est lui qui permet à la fiche d'avertir qu'une offre
-// isolée porte le plancher, ce que la FAQ promet. `change7d`/`change30d` : des
-// POURCENTAGES ; une variation sans niveau ne permet pas de reconstituer un
-// prix. `prixAberrant` : un drapeau d'honnêteté éditoriale, sans montant.
+// isolée porte le plancher, ce que la FAQ promet. `prixAberrant` : un drapeau
+// d'honnêteté éditoriale, sans montant. `courbe` : une forme normalisée 0..1000,
+// sans échelle — c'est la « pub partageable » voulue par Preda.
+// ⛔ `change7d`/`change30d` ONT QUITTÉ CETTE LISTE AU LOT 117. Ce paragraphe
+// les y a gardés pendant onze lots sur un raisonnement juste — « on n'en déduit
+// pas un montant » — qui ne répondait pas à la bonne question.
+// ⭐⭐⭐ *Un principe correct devient un angle mort dès qu'il dispense de
+// regarder.* La bonne question pour cette liste n'est pas « peut-on
+// reconstituer un prix ? » mais « est-ce que c'est ce qu'on VEND ? ».
 
 // ═══════════════════════════════════════════════════════════════════════════
 // LE PREDICAT — « la cote est-elle fermee sur ce site ? »
@@ -276,7 +308,14 @@ export function lireCotes(uuids) {
   // integralement en tirets, pour les seuls abonnes, sur un deploiement vert.
   const n = [...new Set(uuids || [])].length;
   if (n && absents === n) {
-    console.warn(`[cote] AUCUNE des ${n} cotes demandees n'existe (${COTE_DIR}) — reserve absente de l'image ?`);
+    // ⚠️ TROIS CAUSES, PAS UNE — et la version qui n'en nommait qu'une a coûté
+    // le lot 117 : elle envoyait chercher dans le Dockerfile une panne qui
+    // tenait à un import manquant six lignes plus haut.
+    console.warn(`[cote] AUCUNE des ${n} cotes demandees n'a pu etre lue (${COTE_DIR}). `
+      + `Trois causes possibles, dans cet ordre de cout : (1) une ERREUR DE LECTURE `
+      + `avalee par le catch ci-dessus — relire les lignes « reserve illisible » `
+      + `au-dessus, elles portent le vrai message ; (2) la reserve n'a pas ete `
+      + `copiee dans l'image ; (3) le build n'a depose aucune cote.`);
   }
   return out;
 }

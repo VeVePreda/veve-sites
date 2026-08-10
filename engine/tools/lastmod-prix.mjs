@@ -107,11 +107,38 @@ async function main() {
   const items = {};
   let bouges = 0;
 
+  // 🔴🔴🔴 LOT 117 — CINQ DES DIX-HUIT CHAMPS ETAIENT MORTS DEPUIS LE LOT 101.
+  // Cet outil tourne APRES `dataset()`, donc APRES `projeterCote()` :
+  // `i.floor`, `i.ath`, `i.atl`, `i.prixMedian` et `i.p95` valaient
+  // `undefined` pour TOUTES les fiches. Mesure du 10/08 sur l'echantillon :
+  // 5/18. Consequence exacte, et elle ne ressemblait pas a une panne :
+  // ⇒ UNE FICHE DONT SEUL LE PRIX BOUGEAIT GARDAIT SA VIEILLE DATE.
+  // Le sitemap restait valide, IndexNow ne reproposait rien, et le seul
+  // symptome etait un classement qui vieillit — invisible pendant des mois.
+  // ⭐ `dataset()` scelle desormais ces champs AVANT de les projeter et rend
+  //   l'empreinte dans `ds.empreintePrix`. On ne recupere pas les prix : on
+  //   recupere le fait qu'ils ont change, qui est tout ce qui compte ici.
+  // ⛔ SI `empreintePrix` EST ABSENTE, ON S'ARRETE. Un `?? ''` rendrait la
+  //   meme constante pour tout le monde : l'outil serait vert et de nouveau
+  //   muet, c'est-a-dire exactement la panne qu'on vient de payer.
+  //   *Un repli silencieux transforme une panne bruyante en panne durable.*
+  if (!(ds.empreinteCote instanceof Map)) {
+    console.error('[lastmod-prix] ERREUR: `dataset()` ne rend pas `empreinteCote`. '
+      + 'Sans elle, les prix sont deja projetes et l\'empreinte des fiches serait '
+      + 'CONSTANTE — le sitemap affirmerait que plus rien ne bouge. Voir le bloc '
+      + '« L\'EMPREINTE DES PRIX » dans engine/lib/dataset.mjs.');
+    return 1;
+  }
   for (const i of ds.items) {
     const substance = [
       i.path, i.qualifie || i.name, i.series, i.rarity, i.edition_type, i.kind,
       i.brand, i.licensor, i.releaseDate, i.tirage, i.storePrice,
-      i.floor, i.listings, i.ath, i.atl, i.prixMedian, i.p95, i.offresMedianes,
+      // ⭐ `listings` et `offresMedianes` SURVIVENT a la projection : ils
+      //   restent lus en clair ici, ce qui se verifie d'un coup d'oeil. Le
+      //   jeton ne couvre que les champs PROJETES (`CHAMPS_COTE`) — melanger
+      //   les deux avait rendu le banc du lot 117 incapable de rougir.
+      i.listings, i.offresMedianes,
+      ds.empreinteCote.get(i.uuid),
     ];
     const { entree, change } = majEmpreinte(ancienItems, i.path, sha(substance));
     items[i.path] = entree;
@@ -129,7 +156,13 @@ async function main() {
     // `ds.movers` (le nom du calcul dans le dataset). Renommer l'une sans
     // l'autre a fait echouer `test:lastmod` immediatement — le banc compare
     // ce qui est ECRIT a ce que le sitemap RELIT.
-    market: sha([...ds.movers.up, ...ds.movers.down].map((i) => [i.path, i.change7d])),
+    // 🔴 LOT 117 — `i.change7d` est PROJETE depuis ce lot : le lire ici aurait
+    //    rendu `[path, undefined]` pour les 40 lignes, donc une empreinte qui
+    //    ne bouge plus que si la COMPOSITION du classement change. Or un
+    //    classement dont les valeurs bougent sans que l'ordre change est
+    //    exactement ce que `/market/` publie. `dataset()` scelle l'empreinte
+    //    avant la projection, au meme endroit que `empreintePrix`.
+    market: ds.empreinteMarche,
     // ⛔ ON N'ECRIT PAS `donnees` ICI, ET C'EST DELIBERE.
     // `lastmod.py` la tient deja (agregats + figures). Deux outils qui
     // ecrivent la meme cle avec deux definitions differentes, c'est le

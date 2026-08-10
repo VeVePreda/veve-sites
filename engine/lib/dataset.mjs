@@ -6,8 +6,9 @@
 //  - l'historique des prix est lu EN FLUX : la memoire ne depend pas de la
 //    taille du fichier, qui grandit indefiniment avec le backfill.
 import { readFileSync, existsSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { join } from 'node:path';
-import { projeter as projeterCote } from './cote.mjs';
+import { projeter as projeterCote, CHAMPS_COTE } from './cote.mjs';
 import { getCatalogue, getBaselines, streamPrices } from '../data/warehouse.mjs';
 import { manifest, SITE } from './manifest.mjs';
 import { porte } from './access.mjs';
@@ -875,6 +876,51 @@ async function construireDataset() {
   // ⛔ NE JAMAIS remonter cet appel : au-dessus, il casserait le classement de
   // la vitrine en silence. ⛔ NE JAMAIS ajouter un calcul sur `i.floor`
   // en dessous : il lirait `undefined`.
+  // ═══════════════════════════════════════════════════════════════════════
+  //  🔴🔴🔴 LOT 117 — L'EMPREINTE DES PRIX, PRISE PENDANT QU'ILS EXISTENT
+  // ═══════════════════════════════════════════════════════════════════════
+  //  LA PANNE QU'ELLE REPARE, ET QUI DURAIT DEPUIS LE LOT 101.
+  //  `engine/tools/lastmod-prix.mjs` compose, pour chaque fiche, une
+  //  « substance » de 18 champs dont elle prend l'empreinte : quand
+  //  l'empreinte bouge, la fiche gagne une nouvelle date au sitemap et
+  //  IndexNow la repropose. Or elle tourne APRES `dataset()`, donc APRES
+  //  `projeterCote()` : `floor`, `ath`, `atl`, `prixMedian` et `p95` y
+  //  valaient `undefined`. Mesure du 10/08 : 5 des 18 champs morts.
+  //  ⇒ UNE FICHE DONT SEUL LE PRIX BOUGEAIT NE CHANGEAIT PLUS DE DATE.
+  //  Aucune erreur, aucun banc rouge, un sitemap parfaitement valide qui
+  //  affirmait « rien n'a change » — c'est la signature de ce depot :
+  //  ⭐⭐⭐ UN CALCUL QUI CONTINUE DE TOURNER SUR DU VIDE.
+  //
+  //  ⛔ POURQUOI UNE EMPREINTE ET PAS LES VALEURS. Rendre les prix a
+  //  `lastmod-prix` par un canal detourne recreerait exactement le chemin que
+  //  `projeter()` ferme. Une empreinte ne dit AUCUN montant ; elle dit
+  //  seulement « ce n'est plus le meme ». C'est tout ce dont une date de
+  //  derniere modification a besoin.
+  //  ⛔ ELLE DOIT RESTER ICI, AU-DESSUS DE `projeterCote()`. Un cran plus bas
+  //  elle prendrait l'empreinte de cinq `undefined` : constante, donc muette,
+  //  donc pire que son absence — elle aurait l'air de marcher.
+  //  ⚠️ Elle n'est PAS posee sur les items : un champ sur un item finit un
+  //  jour dans un gabarit. Elle voyage a cote, dans une Map indexee par uuid.
+  //  🔴🔴🔴 ELLE NE SCELLE QUE LES CHAMPS **PROJETÉS**, ET C'EST CE DÉTAIL QUI
+  //  REND LE BANC CAPABLE DE ROUGIR. Première version : elle scellait aussi
+  //  `listings` et `offresMedianes`. Ces deux-là SURVIVENT à la projection —
+  //  donc, l'empreinte descendue par erreur sous `projeterCote()` restait
+  //  DIFFÉRENTE d'une fiche à l'autre, et le contrôle « des prix différents
+  //  donnent des empreintes différentes » restait VERT sur une empreinte qui
+  //  ne portait plus un seul prix. Mesuré en réinjectant la panne le 10/08.
+  //  ⭐⭐⭐ *Un instrument dont le signal a une seconde source de variation
+  //  mesure la seconde.* Un champ survivant suffisait à maquiller neuf champs
+  //  morts. Les deux publics restent dans la substance de `lastmod-prix`, où
+  //  ils sont lisibles pour ce qu'ils sont.
+  //  ⭐ `CHAMPS_COTE` est LU, jamais recopié : le jour où un champ y entre, il
+  //  entre ici aussi, sans que personne ait à y penser.
+  const sceller = (v) => createHash('sha1').update(JSON.stringify(v)).digest('hex').slice(0, 16);
+  const empreinteCote = new Map(items.map((i) => [i.uuid, sceller(CHAMPS_COTE.map((c) => i[c]))]));
+  // ⭐ `/market/` est un CLASSEMENT de variations : il change des que l'ordre
+  //   ou les valeurs changent. Meme raison, meme place — `change7d` part avec
+  //   la cote a la ligne suivante.
+  const empreinteMarche = sceller([...movers.up, ...movers.down].map((i) => [i.path, i.change7d]));
+
   const cote = projeterCote(items);
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -941,6 +987,9 @@ async function construireDataset() {
 
   _ds = {
     items, bySlug, collections, rarities, movers, cote,
+    // ⭐ LOT 117 — voir le bloc « L'EMPREINTE DES PRIX » ci-dessus. Seul
+    //   `engine/tools/lastmod-prix.mjs` les lit ; aucun gabarit n'y touche.
+    empreinteCote, empreinteMarche,
     rayon, aVenir,
     marche, marcheTotal,
     catalogueSize: cat.length,

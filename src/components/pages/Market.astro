@@ -28,7 +28,7 @@ import Base from '../../layouts/Base.astro';
 import BarreAcces from '../BarreAcces.astro';
 import { dataset } from '../../../engine/lib/dataset.mjs';
 import { t, localize, numberLocale } from '../../../engine/lib/i18n.mjs';
-import { rar, forme, delta, gemsM, omiM, RAR, mcpPoints, sparkline, jourISO } from '../../../engine/lib/vitrine.mjs';
+import { rar, forme, delta, gemsM, omiM, RAR, mcpPoints, sparklineNormalisee, jourISO } from '../../../engine/lib/vitrine.mjs';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 🔴🔴 LOT 104 (07/08/2026) — LA PAGE REVIENT, RÉSERVÉE AUX COMPTES
@@ -493,7 +493,11 @@ const chevron = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6
               title={i.change7d === null || i.change7d === undefined
                 ? t(lang, 'movers.trend7')
                 : `${t(lang, 'movers.trend7')} : ${i.change7d > 0 ? '+' : ''}${i.change7d.toFixed(1)} %`}>
-            <Fragment set:html={sparkline(i.history, i.change7d)} />
+            {/* 🔴 LOT 117 — `i.courbe` ET NON `i.history` : `projeter()` supprime
+                `history` depuis le lot 101, et `sparkline()` rendait '' pour les
+                200 lignes. La colonne etait VIDE pour les abonnes, et elle avait
+                l'air normale (« moins de 2 releves => aucune courbe »). */}
+            <Fragment set:html={sparklineNormalisee(i.courbe, i.change7d)} />
           </td>
 
           {/* $/MCP — ligne 1 : GEMS par point MCP (floor ÷ barème). Le floor
