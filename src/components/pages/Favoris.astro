@@ -1,0 +1,73 @@
+---
+// ⚠️ VeVePreda/veve-sites — src/components/pages/Favoris.astro  (NEUF — lot 116)
+//
+// ❤️ LA VUE DES FAVORIS — et elle est ENTIÈREMENT STATIQUE.
+//
+// ⭐⭐⭐ ELLE N'EST PAS UNE ROUTE DE COMPTE, ET C'EST CE QUI LA REND SÛRE.
+//    Les favoris vivent dans `localStorage` (arbitrage Preda : « le navigateur
+//    d'abord »). Cette page n'a donc RIEN à demander au serveur : pas de
+//    session, pas de `ROUTES_COMPTE`, pas de bascule à la demande.
+//    ⛔ L'inscrire dans `ROUTES_COMPTE` aurait été le réflexe — et une erreur :
+//    une page qui n'a pas besoin de session ne doit pas en réclamer une, sinon
+//    elle devient indisponible le jour où le service d'identité tombe.
+//    ⚠️ C'est aussi pour ça qu'elle échappe à la panne du lot 104 : elle est
+//    pré-générée ET elle n'a rien à lire côté serveur — les deux moitiés du
+//    piège sont absentes, pas contournées.
+//
+// ⛔ AUCUN PRIX, AUCUNE COTE. La liste se construit à partir de ce que le
+//    navigateur a mémorisé : un nom et un chemin, deux choses déjà publiques
+//    sur la fiche qui les a écrits. Le mur ne bouge pas d'un pouce.
+import Base from '../../layouts/Base.astro';
+import { t, localize } from '../../../engine/lib/i18n.mjs';
+const { lang } = Astro.props;
+---
+<Base sect="general" lang={lang} path="/favoris/" noindex={true}
+      title={t(lang, 'fav.title')} description={t(lang, 'fav.desc')}
+      crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') },
+               { name: t(lang, 'fav.title') }]}>
+
+  <div class="sect-t sect-t--gd"><h1 class="mono-t">{t(lang, 'fav.title')}</h1></div>
+  <p class="etiq">{t(lang, 'fav.note')}</p>
+
+  {/* ⭐ L'ÉTAT VIDE EST RENDU AU BUILD, VISIBLE PAR DÉFAUT, et le script le
+      masque s'il trouve quelque chose. L'inverse — partir d'une page blanche
+      et laisser le script écrire — montrerait un écran nu à qui n'a pas de
+      JavaScript, et un clignotement à tous les autres. */}
+  <p class="filtres-mur" id="fav-vide">{t(lang, 'fav.empty')}</p>
+  <ul class="rayon" id="fav-l"></ul>
+</Base>
+
+{/* ⚠️ `try/catch` : en navigation privée, la simple LECTURE de `localStorage`
+    lève sur certains navigateurs. Sans ce garde, l'exception arrêterait les
+    scripts suivants — dont ceux de l'en-tête. */}
+<script is:inline>
+  (function () {
+    var hote = document.getElementById('fav-l');
+    var vide = document.getElementById('fav-vide');
+    if (!hote) return;
+    var favs = {};
+    try { favs = JSON.parse(localStorage.getItem('vp_fav') || '{}') || {}; } catch (e) { favs = {}; }
+    // ⭐ Le plus récemment ajouté en premier : c'est l'ordre dans lequel on
+    //   revient chercher ce qu'on vient de mettre de côté.
+    var cles = Object.keys(favs).sort(function (a, b) { return (favs[b].t || 0) - (favs[a].t || 0); });
+    if (!cles.length) return;
+    if (vide) vide.hidden = true;
+    cles.forEach(function (u) {
+      var f = favs[u] || {};
+      var li = document.createElement('li');
+      li.className = 'rayon__l';
+      // ⛔ `textContent`, JAMAIS `innerHTML` : le nom vient du stockage local,
+      //    donc d'une source qu'un autre script de la même origine peut avoir
+      //    écrite. On ne rend jamais du HTML issu d'une donnée.
+      var a = document.createElement(f.p ? 'a' : 'div');
+      a.className = 'rayon__c' + (f.p ? '' : ' rayon__c--muet');
+      if (f.p) a.setAttribute('href', f.p);
+      var n = document.createElement('span');
+      n.className = 'rayon__n';
+      n.textContent = f.n || u;
+      a.appendChild(n);
+      li.appendChild(a);
+      hote.appendChild(li);
+    });
+  })();
+</script>

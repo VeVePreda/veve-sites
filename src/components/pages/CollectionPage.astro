@@ -68,7 +68,14 @@ const titreCollection = `${t(lang, 'item.collection')} : ${col.name}`;
       une grille montre un ENSEMBLE. Sur une page dont le sujet EST l'ensemble,
       la grille passe donc en premier, et le tableau reste dessous pour qui veut
       comparer ligne à ligne. */}
-  <div class="grille">{items.slice(0, 24).map((i, k) => (
+  {/* 🔴 LOT 115b — L'ESPACE MANQUANT (demande Preda). Le bloc `.stats`
+      (« items / tirage / offres ») touchait la grille de cartes : deux blocs
+      de nature différente collés se lisent comme un seul.
+      ⛔ L'espacement est posé sur le CONTENEUR de la grille, pas sur `.stats` :
+      `.stats` sert aussi ailleurs (la fiche), et lui ajouter une marge la
+      déplacerait sur des pages qui n'ont rien demandé. *Une règle élargie peut
+      emporter ce qu'elle étendait.* */}
+  <div class="grille grille--apres-stats">{items.slice(0, 24).map((i, k) => (
     <Carte item={i} lang={lang} href={localize(lang, i.path)} nf={nf} i={k} />
   ))}</div>
 

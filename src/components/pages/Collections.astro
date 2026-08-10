@@ -171,9 +171,27 @@ const PAR_TRANCHE = 60;
     {marques.length > 1 && (
       <div class="f-panneau" id="sp-marque" hidden>
         <div class="f-panneau__t">{t(lang, 'sets.brand')}</div>
-        <div class="cols-l">
-          {marques.map((b) => (<label class="puce"><input type="checkbox" name="s-brand" value={b} /> {b}</label>))}
+        {/* 🔴 LOT 115b — UNE ZONE DE RECHERCHE DANS LE FILTRE MARQUE
+            (demande Preda). Avec {marques.length} marques, une liste de cases à
+            cocher se parcourt à l'œil ligne par ligne : chercher « Marvel »
+            demande de le trouver, pas de le taper.
+            ⭐ ELLE NE FILTRE QUE L'AFFICHAGE DES CASES, jamais les sets. Une
+            case décochée reste décochée quand elle réapparaît — sinon taper
+            trois lettres effacerait la sélection en cours, et personne ne
+            comprendrait pourquoi la grille a bougé.
+            ⛔ `type="search"` et non `type="text"` : le navigateur pose la
+            croix d'effacement et l'annonce comme un champ de recherche.
+            ⚠️ `form="..."` ABSENT ET `name` ABSENT : ce champ ne doit PAS
+            partir avec le formulaire. Sans `name`, il n'est pas soumis — et le
+            bouton `reset` du groupe ne le vide pas non plus, ce qui est le
+            comportement voulu (on remet les cases à zéro, pas la recherche). */}
+        <label class="sr-only" for="s-bq">{t(lang, 'sets.brandSearch')}</label>
+        <input type="search" id="s-bq" class="champ-f" autocomplete="off"
+               placeholder={t(lang, 'sets.brandSearch')} />
+        <div class="cols-l" id="s-brands">
+          {marques.map((b) => (<label class="puce" data-b={b.toLowerCase()}><input type="checkbox" name="s-brand" value={b} /> {b}</label>))}
         </div>
+        <p class="etiq" id="s-bq-vide" hidden>{t(lang, 'sets.brandNone')}</p>
       </div>
     )}
 
@@ -263,6 +281,28 @@ const PAR_TRANCHE = 60;
     // jours. Le Marché, lui, est un poste de travail : il mémorise.
     (function () {
       var f = document.getElementById('f-sets'); if (!f) return;
+      // 🔴 LOT 115b — la recherche DANS la liste des marques.
+      // ⭐ Elle ne touche ni aux cases cochées ni à la grille : elle masque des
+      //   étiquettes, rien de plus. `hidden` et pas une classe — une étiquette
+      //   masquée doit sortir de l'ordre de tabulation, sinon on tabule dans
+      //   quarante cases invisibles.
+      (function () {
+        var q = document.getElementById('s-bq');
+        var hote = document.getElementById('s-brands');
+        var vide = document.getElementById('s-bq-vide');
+        if (!q || !hote) return;
+        var etiquettes = hote.querySelectorAll('[data-b]');
+        q.addEventListener('input', function () {
+          var t = q.value.trim().toLowerCase();
+          var n = 0;
+          etiquettes.forEach(function (el) {
+            var on = !t || el.getAttribute('data-b').indexOf(t) !== -1;
+            el.hidden = !on;
+            if (on) n++;
+          });
+          if (vide) vide.hidden = n > 0;
+        });
+      })();
       var G = document.getElementById('s-grille');
       var C = [].slice.call(G.querySelectorAll('.col-carte'));
       var cpt = document.getElementById('s-cpt'), vide = document.getElementById('s-vide');

@@ -2229,3 +2229,24 @@ body > main{ background:var(--bg); }
    ⇒ C'est le CONTENU qu'on remonte, explicitement. */
 .centre{ position:relative; z-index:1; }
 .flottantes{ z-index:0; }
+
+/* ═══ LOT 115b — LA RECHERCHE DE MARQUE ET L'ESPACE DES SÉRIES ════════════ */
+/* ⭐ Le champ reprend la géométrie des autres champs de la barre de filtres :
+   une commande qui a sa propre forme se lit comme un objet d'une autre nature. */
+.champ-f{ width:100%; max-width:280px; min-height:var(--tap-min); margin:0 0 var(--s3);
+  padding:0 12px; background:var(--surface-2); border:1px solid var(--rule-2);
+  border-radius:var(--r-md); color:var(--text); font-family:var(--sans); font-size:var(--t-sm); }
+.champ-f:focus-visible{ outline:var(--foc-proche) solid var(--sect-pur); outline-offset:2px;
+  border-color:var(--sect-a); }
+.champ-f::placeholder{ color:var(--muted); }
+
+/* 🔴 L'ESPACE ENTRE « items / tirage / offres » ET LES CARTES.
+   ⛔ Posé sur la GRILLE, pas sur `.stats` : `.stats` sert aussi sur la fiche,
+   et lui donner une marge la déplacerait sur des pages qui n'ont rien demandé.
+   *Une règle élargie peut emporter ce qu'elle étendait.* */
+.grille--apres-stats{ margin-top:var(--s6); }
+
+/* ⛔ Le témoin qui remplace la barre de filtres pour un visiteur : il DIT ce
+   qui manque et pourquoi, il ne fait pas semblant d'être une commande. */
+.filtres-mur{ margin:var(--s4) 0 var(--s5); padding:11px 14px; border:1px dashed var(--rule-2);
+  border-radius:var(--r-md); color:var(--muted); }

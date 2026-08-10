@@ -294,6 +294,13 @@ nav:
   #    dans le gel. Renommer le chemin pour qu'il ressemble au libellé casserait
   #    le SEO — c'est exactement ce que le gel protège.
   - { cle: nav.collections, href: /collections/, pret: true  }
+  # ❤️ LOT 116 — LES FAVORIS ENTRENT AU MENU.
+  # ⛔ PAS `membre: true`, ET C'EST VOLONTAIRE : les favoris vivent dans le
+  # NAVIGATEUR, pas dans le compte. Les réserver aux membres aurait promis une
+  # porte qui n'existe pas — la page marche pour tout le monde, tout de suite.
+  # ⭐ Le jour où ils passent dans le compte, l'entrée ne bouge pas ; c'est son
+  # CONTENU qui gagne une session, pas son adresse.
+  - { cle: nav.favoris,   href: /favoris/,    pret: true  }
   - { cle: nav.analytics, href: /analytics/,  pret: true  }   # ✅ lot 39 — démo publique + partie abonnée
   - { cle: nav.blog,      href: /blog/,       pret: true  }
   - { cle: nav.alerts,    href: /alertes/,    pret: false }   # ⏳ demande un compte

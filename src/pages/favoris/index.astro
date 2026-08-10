@@ -1,0 +1,6 @@
+---
+import Favoris from '../../components/pages/Favoris.astro';
+import { locales } from '../../../engine/lib/i18n.mjs';
+const lang = locales().def;
+---
+<Favoris lang={lang} />

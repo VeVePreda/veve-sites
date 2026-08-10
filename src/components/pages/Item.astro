@@ -399,7 +399,8 @@ const mcpJour = mcpPoints(item.rarity, item.type);
           ⚠️ AUCUNE DONNÉE RÉSERVÉE NE TRANSITE : le favori ne mémorise qu'un
           `uuid` et un chemin, deux choses déjà publiques sur cette page. */}
       <button type="button" class="socle__fav socle__fav--fiche" data-fav={item.uuid}
-              data-fav-path={item.path} aria-pressed="false"
+              data-fav-path={item.path} data-fav-nom={item.qualifie || item.name}
+              aria-pressed="false"
               data-l={t(lang, 'fav.add')}
               data-l-on={t(lang, 'fav.remove')} data-l-off={t(lang, 'fav.add')}
               aria-label={t(lang, 'fav.add')} title={t(lang, 'fav.add')}>

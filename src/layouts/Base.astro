@@ -1239,7 +1239,15 @@ const menuComplet = wikiNav
       b.addEventListener('click', function () {
         favs = lire();                       // ⭐ on relit : un autre onglet a pu écrire
         if (favs[u]) delete favs[u];
-        else favs[u] = { p: b.getAttribute('data-fav-path') || '', t: Date.now() };
+        // ⭐⭐ ON MÉMORISE LE NOM ET LE CHEMIN, PAS SEULEMENT L'UUID.
+        //   La page /favoris/ est STATIQUE : elle ne peut pas retrouver le nom
+        //   d'une pièce à partir d'un uuid sans appeler le réseau. Trois
+        //   octets de plus ici évitent une requête là-bas — et la liste
+        //   s'affiche même hors ligne.
+        //   ⛔ On n'y met AUCUN prix : un favori est une intention, pas une
+        //   cote. Le mur reste exactement où il est.
+        else favs[u] = { p: b.getAttribute('data-fav-path') || '',
+                         n: b.getAttribute('data-fav-nom') || '', t: Date.now() };
         ecrire(favs);
         peindre(b, !!favs[u]);
       });
