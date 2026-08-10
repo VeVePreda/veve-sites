@@ -734,7 +734,34 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 .plages button{min-height:var(--tap-min);border:0;background:transparent;color:var(--muted);cursor:pointer;font-family:var(--tech); font-size:11px;padding:6px 11px;border-radius:var(--r-full);min-height:var(--tap-min);transition:all var(--d-fast);font-weight:500}
 .plages button:hover{color:var(--text)}
 .plages button[aria-pressed="true"]{background:var(--sect-pur);color:var(--sect-sur);font-weight:700}
-.plages button[data-verrou]{color:var(--lock)}
+/* 🔴🔴 LOT 132 — LE CADENAS DES DURÉES VERROUILLÉES.
+   Preda, 10/08 : « n'oublie pas un cadenas et une infobulle disant quel grade
+   débloque quoi ».
+   ⭐⭐ L'INFOBULLE EST DANS LE HTML (`title="Crevette l'ouvre"`, posé par
+   `Cadran.astro`) et le CADENAS EST ICI, en CSS. Ce partage n'est pas un
+   caprice : le dessin est le même sur les cinq boutons de 3 000 fiches. En SVG
+   dans le gabarit il pèserait 5 × 3 000 fois ; en `mask` il pèse UNE fois, dans
+   une feuille déjà mise en cache. C'est le calcul du sprite du lot 127, à plus
+   petite échelle.
+   ⛔ PAS UN GLYPHE (« 🔒 ») : il dépend d'une fonte à symboles que le thème ne
+   charge pas, et il se copie dans le presse-papier avec le libellé. Payé une
+   fois sur le bouton jour/nuit (lot 18).
+   ⚠️ `currentColor` VIA `background-color` + `mask` : un `background-image` en
+   data-URI garderait la couleur écrite dans le SVG et ignorerait `--lock`, donc
+   le thème jour. Le masque, lui, ne donne que la FORME.
+   ⭐ Le cadenas s'en va AVEC `data-verrou` : c'est le script qui retire
+   l'attribut quand le serveur a reconnu un droit — un seul juge, un seul geste,
+   et rien à synchroniser entre le dessin et l'état. */
+.plages button[data-verrou]{color:var(--lock);padding-right:8px}
+.plages button[data-verrou]::after{
+  content:"";display:inline-block;width:9px;height:9px;margin-left:5px;vertical-align:-1px;
+  background-color:currentColor;
+  -webkit-mask:var(--cadenas-m) center/contain no-repeat;
+          mask:var(--cadenas-m) center/contain no-repeat; }
+/* ⚠️ LA FORME VIT DANS UNE VARIABLE, et pas en double dans la règle : le jour
+   où un second contrôle verrouillé arrive, il la réutilise au lieu d'en
+   recopier une — c'est la divergence des deux gabarits de tuiles, en CSS. */
+:root{ --cadenas-m:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2.4" stroke-linecap="round"><rect x="4.5" y="10.5" width="15" height="10" rx="2"/><path d="M8 10.5V7.8a4 4 0 0 1 8 0v2.7"/></svg>'); }
 .series{display:flex;gap:var(--s3);flex-wrap:wrap}
 .serie-b{display:inline-flex;align-items:center;gap:7px;background:none;border:0;cursor:pointer; font-family:var(--tech);font-size:11px;color:var(--muted);padding:5px 2px;min-height:var(--tap-min);transition:color var(--d-fast)}
 .serie-b:hover{color:var(--text)}
@@ -965,6 +992,23 @@ dl.fiche-tbl{display:grid;grid-template-columns:auto 1fr;gap:0;margin:0;font-siz
 dl.fiche-tbl dt{padding:10px 15px 10px 0;border-bottom:1px solid var(--rule);white-space:nowrap;color:var(--muted)}
 dl.fiche-tbl dd{padding:10px 0;margin:0;border-bottom:1px solid var(--rule);text-align:right; font-variant-numeric:tabular-nums;color:var(--text-2)}
 dl.fiche-tbl dt:last-of-type,dl.fiche-tbl dd:last-of-type{border-bottom:0}
+/* 🔴 LOT 132 — LE FILET ENTRE LES BLOCS. Preda, 10/08 : « dans les fiches il
+   manque des lignes séparatrices dans la colonne gauche (entre tirage et
+   éditions par exemple) ».
+   ⭐ MESURÉ, ET IL DÉSIGNAIT EXACTEMENT LA JOINTURE : « tirage » est la
+   DERNIÈRE ligne du bloc ① et « édition » la PREMIÈRE du bloc ②. La règle
+   au-dessus retire le filet du dernier couple de CHAQUE `<dl>` — ce qui est
+   juste pour le dernier bloc et faux pour les deux autres : `.fiche__viz` les
+   sépare d'un `gap`, donc d'un blanc, et deux tableaux collés par un blanc se
+   lisent comme un seul tableau à trou.
+   ⛔ ON NE RÉTABLIT PAS `border-bottom` SUR `:last-of-type` : ça poserait aussi
+   un filet sous la DERNIÈRE ligne de la colonne, un trait qui ne sépare de
+   rien. Le filet appartient à la jointure, donc au bloc SUIVANT.
+   ⚠️ `+` et non `~` : seuls deux `<dl>` VOISINS forment une jointure. Avec `~`,
+   un troisième bloc en hériterait même séparé par autre chose.
+   ⭐ `padding-top` sur les deux premières cellules du bloc suivant : sans lui le
+   filet colle au texte, et un séparateur collé se lit comme un soulignement. */
+dl.fiche-tbl + dl.fiche-tbl{border-top:1px solid var(--rule);padding-top:2px}
 .holders{display:grid;gap:1px}
 .holder{display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--rule)}
 .holder:last-child{border-bottom:0}
@@ -2183,6 +2227,29 @@ body > main{ background:var(--bg); }
    Un cadre vide ressemble à une panne, et VeVe n'annonce qu'à quelques jours. */
 .avenir{ margin:var(--s5) 0; }
 .avenir__l{ list-style:none; margin:var(--s3) 0 0; padding:0; display:flex; flex-wrap:wrap; gap:var(--s2); }
+/* 🔴 LOT 132 — LES CARTES « À VENIR » DEVIENNENT DES LIENS (celles qui ont une
+   fiche). Preda, 10/08 : « améliore l'aspect des cartes À venir, elles devraient
+   aussi mener à des fiches ».
+   ⭐ LE `<li>` N'EST PLUS LA CARTE : il enveloppe un `<a>` ou un `<div>` selon
+   que le drop a une fiche ou non. `.avenir__l` est un `flex` ; sans cette
+   règle, chaque `<li>` deviendrait une boîte à sa propre largeur et la rangée
+   se disloquerait. `display:contents` fait disparaître le `<li>` de la mise en
+   page SANS le retirer du DOM — la liste reste une liste pour un lecteur
+   d'écran, et le flex continue de voir les cartes comme ses enfants directs.
+   ⚠️ Safari a longtemps retiré de l'arbre d'accessibilité les `<li>` mis en
+   `display:contents`. Le `role="listitem"` explicite le rattrape — il est posé
+   dans `AVenir.astro`, parce qu'un rôle est du BALISAGE. Cette règle-ci ne fait
+   que de la mise en page, et les deux moitiés se tiennent : retirer l'une sans
+   l'autre rend une liste que le CSS aplatit et que personne ne rattrape. */
+.avenir__l > li{ display:contents; }
+/* ⭐ L'ÉTAT LIEN : la carte cliquable se distingue au survol et au clavier.
+   ⛔ Elle ne se distingue PAS au repos par une couleur : une rangée où deux
+   cartes sur sept sont bleues laisserait croire que les cinq autres sont
+   désactivées, alors qu'elles annoncent la même chose. La différence se révèle
+   au geste, pas au coup d'œil. */
+.avenir__c--lien{ cursor:pointer; transition:border-color var(--d-fast), transform var(--d-base) var(--e-out); }
+.avenir__c--lien:hover{ border-color:var(--sect-a); transform:translateY(-1px); text-decoration:none; }
+.avenir__c--lien:focus-visible{ outline:var(--foc-proche) solid var(--sect-pur); outline-offset:2px; }
 .avenir__c{ display:flex; align-items:center; gap:10px; padding:9px 13px;
   background:var(--surface-2); border:1px solid var(--rule-2); border-radius:var(--r-full);
   font-size:var(--t-sm); color:var(--text-2); }
@@ -2200,7 +2267,16 @@ body > main{ background:var(--bg); }
 /* ═══ LOT 114 — LA BASCULE MOIS/ANNÉE, LE COMPARATIF, LE CHOIX DE LANGUE ═══
    ⛔ AUCUN `opacity:0` : `test:opacite` (lot 111) refuserait un état de repos
    sans releveur. Ces blocs n'ont pas d'animation d'entrée. */
-.bascule-p{ display:flex; align-items:center; gap:6px; margin:var(--s5) 0 var(--s4); flex-wrap:wrap; }
+/* 🔴 LOT 132 — `justify-content:center`. Preda, 10/08 : « dans les paliers, les
+   boutons à l'année ou au mois devraient être centrés au milieu ».
+   ⭐ Ils étaient collés à gauche par DÉFAUT, pas par décision : `display:flex`
+   sans `justify-content` vaut `flex-start`. La grille de tarifs, elle, est
+   centrée sur la largeur du contenu — la bascule qui la commande partait donc
+   du bord gauche pendant que ce qu'elle pilote occupait toute la largeur.
+   ⛔ Pas `margin:auto` sur les boutons : ça les écarterait l'un de l'autre au
+   lieu de centrer le groupe, et la bascule cesserait de se lire comme UN
+   contrôle à deux positions. */
+.bascule-p{ display:flex; align-items:center; justify-content:center; gap:6px; margin:var(--s5) 0 var(--s4); flex-wrap:wrap; }
 .bascule-p__b{ min-height:var(--tap-min); padding:0 16px; border:1px solid var(--rule-2);
   border-radius:var(--r-full); background:transparent; color:var(--text-2); cursor:pointer;
   font-family:var(--geo); font-size:var(--t-sm); font-weight:500; transition:all var(--d-fast); }
@@ -2277,19 +2353,22 @@ body > main{ background:var(--bg); }
    LOT 118 — LES VISUELS DES SETS ET DES DROPS À VENIR
    ═══════════════════════════════════════════════════════════════════════════
    Preda, 10/08 : « pas de visuel pour les sets, ni de visuel pour Coming up ».
-   ⛔ CES DEUX RÈGLES SONT ÉMISES, ET ELLES LE RESTENT. `.col-carte__v` et
-   `.avenir__v` ne sont posées que par `Orientation.astro` et `AVenir.astro`,
-   et seulement quand l'URL existe. Le contrat gabarit↔thème vaut dans les deux
-   sens : une classe qu'aucun gabarit n'émet est morte, une classe émise
-   qu'aucune règle n'habille est un élément nu. `test:feuille` tient le premier
-   sens ; celui-ci se vérifie en regardant la page. */
-.col-carte__v{ display:block; width:100%; aspect-ratio:1/1; object-fit:cover;
-  background:var(--nuit); border-bottom:1px solid var(--rule); }
-/* ⭐ `aspect-ratio` ET NON une hauteur fixe : la place est réservée AVANT que
-   l'image arrive, donc la grille ne saute pas au chargement. Une hauteur en
-   pixels ferait la même chose et mentirait le jour où la carte change de
-   largeur. ⛔ Et pas de `min-height` sur le conteneur : quand l'image manque,
-   la carte doit reprendre EXACTEMENT sa forme d'avant, pas garder un trou. */
+
+   🔴🔴 LOT 131 — `.col-carte__v` A ÉTÉ RETIRÉE, ET SON DÉPART EST LA MOITIÉ
+   VISIBLE D'UNE CORRECTION PLUS PROFONDE. Elle habillait l'image PLATE que
+   `/collections/` posait sur un set, pendant que `/sets/` rendait le même set
+   en pile de trois vignettes (`.col-carte__pile`). Preda a vu l'écart avant
+   nous. Les deux pages passent désormais par `CarteSet.astro`.
+   ⭐⭐ ET LE COMMENTAIRE QUI ÉTAIT ICI DISAIT LE CONTRAIRE : « ces deux règles
+   sont émises, et elles le restent ». Elle ne l'est plus. Une règle CSS qu'on
+   laisse derrière son dernier émetteur rejoint les ~13 classes jamais émises
+   qu'on traîne — et son commentaire, lui, continue d'affirmer qu'elle sert.
+   ⛔ Retirer le gabarit sans retirer la règle, c'est fabriquer la dette au
+   moment même où on croit la rembourser.
+   ⚠️ `.col-carte__n` et `.col-carte__c` étaient l'inverse : ÉMISES par
+   `Orientation.astro` et habillées par AUCUNE règle, dans aucun des trois
+   thèmes — des éléments nus depuis le lot 118. Elles disparaissent avec lui.
+   Le contrat vaut dans les deux sens ; ce lot paie les deux. */
 
 .avenir__v{ display:block; width:34px; height:34px; flex:0 0 34px; object-fit:cover;
   border-radius:var(--r-sm); background:var(--nuit); }

@@ -1,0 +1,103 @@
+---
+// ⚠️ VeVePreda/veve-sites — src/components/CarteSet.astro   (FICHIER NEUF — lot 131)
+// ═══════════════════════════════════════════════════════════════════════════
+// LA CARTE D'UN SET, ÉCRITE UNE FOIS, RENDUE PARTOUT
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// 🔴🔴🔴 POURQUOI CE FICHIER EXISTE — la mesure du 10/08/2026 (lot 131).
+// Preda : « dans la page collection les sets ne sont pas présentés de la façon
+// habituelle, il faut l'aspect conteneur qui avait 3 ou 4 représentations ».
+// Mesuré avant de coder, et c'est exact à la ligne près : DEUX gabarits
+// rendaient le même objet de DEUX façons différentes.
+//   · `/sets/`        (Collections.astro) → `.col-carte__pile` : trois
+//                       vignettes empilées, puis `.cartouche` (nom, marque,
+//                       nombre de pièces).
+//   · `/collections/` (Orientation.astro) → `.col-carte__v` : UNE image plate,
+//                       puis deux <span> sans cartouche.
+// Or c'est `/collections/` que le menu propose (`nav.collections`). Un membre
+// voit donc la forme PAUVRE en premier, et la forme riche seulement s'il va
+// jusqu'à `/sets/`.
+//
+// ⭐⭐⭐ CE N'EST PAS UN DÉFAUT DE STYLE, C'EST LA FAMILLE DU LOT 127.
+// « Deux gabarits qui rendent la même liste divergent en silence » — mesuré le
+// 10/08 sur les tuiles du marché, où `data-ch` valait `300` d'un côté et
+// `300.00` de l'autre depuis deux lots. Corriger Orientation.astro en RECOPIANT
+// le balisage de Collections.astro aurait refait le piège au lieu de le fermer :
+// deux copies au lieu d'une divergence, c'est la même chose avec un lot de
+// retard. ⇒ UN SEUL FICHIER écrit la carte d'un set ; les deux pages l'appellent.
+//
+// ⛔ CE COMPOSANT NE FILTRE PAS, NE TRIE PAS, NE COMPTE PAS. `/sets/` porte son
+// pilote de filtres, qui lit des attributs `data-*` sur `.col-carte`. Ils sont
+// donc émis ICI, et SEULEMENT quand la page les demande (prop `axes`) : une
+// page d'orientation n'a pas de filtres, et poser des attributs que personne ne
+// lit est exactement le « paramètre posé et jamais lu » du lot 126.
+//
+// ⚠️ AUCUNE CLASSE NOUVELLE. `.col-carte`, `.col-carte__pile`, `.socle`,
+// `.cartouche` existent déjà dans le thème et sont déjà servies. ⛔ En revanche
+// ce lot RETIRE le dernier émetteur de `.col-carte__v` : la règle correspondante
+// part du thème dans le MÊME lot, sinon elle rejoint les « ~13 classes jamais
+// émises » qu'on traîne déjà. Le contrat vaut dans les deux sens.
+import { t, localize } from '../../engine/lib/i18n.mjs';
+
+const { lang, col, axes = null, pile = 3 } = Astro.props;
+
+// ⭐ LA PILE : `pile` pièces de la série, décalées et décroissantes.
+// ⛔ `col.items` arrive DÉJÀ trié par plancher décroissant depuis `dataset.mjs`
+// (lot 101). Ne pas re-trier : sous la porte « cote », `floor` n'existe plus et
+// un tri local trierait sur `undefined`.
+// ⚠️ ON PREND LES PREMIÈRES QUI ONT UNE IMAGE, PAS LES PREMIÈRES TOUT COURT.
+// 6 609 comics n'ont pas d'`image_url` (`ARCHIVE_HEADER` jette 14 champs sur
+// 25) : un set dont les trois pièces les plus chères sont des variantes rares
+// non illustrées rendait trois hexagones gris — une carte qui a l'air cassée
+// alors que la donnée est là, deux rangs plus bas. Même leçon que le visuel de
+// set du lot 118 : *prendre le premier élément d'une liste triée, c'est
+// hériter de son critère de tri sans le vouloir.*
+// ⛔ On complète avec des pièces SANS image si le set n'en a pas assez : la
+// pile garde son épaisseur, et un repère gris dit « pas de couverture », pas
+// « pas de pièce ». Un set d'une seule pièce rend une seule vignette — on ne
+// fabrique pas de fausse épaisseur.
+const avec = col.items.filter((i) => i.image).slice(0, pile);
+const sans = col.items.filter((i) => !i.image).slice(0, Math.max(0, pile - avec.length));
+const vignettes = [...avec, ...sans];
+---
+<a class="col-carte revele" href={localize(lang, `/collection/${col.slug}/`)}
+   data-n={axes ? col.name.toLowerCase() : undefined}
+   data-brand={axes ? (col.brand || '') : undefined}
+   data-an={axes ? axes.an : undefined}
+   data-ty={axes ? axes.ty : undefined}
+   data-taille={axes ? String(col.items.length) : undefined}>
+
+  {/* 🔴 `pile(c).map(() => …)` — LE PARAMÈTRE ÉTAIT IGNORÉ (01/08/2026). Les
+      trois pièces étaient calculées correctement, puis jetées : la boucle
+      rendait trois fois le MÊME hexagone gris. ⭐ Une parenthèse vide dans un
+      `map` ne produit ni erreur, ni avertissement, ni page vide : elle produit
+      une page PLAUSIBLE. Gardé ici parce que c'est ici qu'on le referait.
+      ⛔ `dataset.mjs` n'accepte que du `https://` — on ne refait pas le
+      contrôle et on ne l'affaiblit pas. Une URL absente donne le repère,
+      JAMAIS un `src` vide : `src=""` recharge la PAGE COURANTE. */}
+  <span class="col-carte__pile" aria-hidden="true">
+    {vignettes.map((i) => (
+      <span class="socle">
+        {i.image ? (
+          <img class="socle__net ok" src={i.image} alt="" width="400" height="600"
+               loading="lazy" decoding="async" />
+        ) : (
+          <span class="forme forme--xl" style="--c-a:var(--rule-2)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+              <path d="M12 2.9 19.9 7.5v9L12 21.1 4.1 16.5v-9Z" />
+            </svg>
+          </span>
+        )}
+      </span>
+    ))}
+  </span>
+
+  {/* ⭐ LA CARTOUCHE PORTE LE NOM, ET C'EST ELLE QUI REND LA CARTE LISIBLE.
+      `aria-hidden` est sur la PILE (décorative) et surtout pas ici : le nom du
+      set est le seul contenu accessible de ce lien. */}
+  <span class="cartouche">
+    <span class="cartouche__n">{col.name}</span>
+    {col.brand && <span class="etiq">{col.brand}</span>}
+    <span class="etiq etiq--bleu"><b>{col.items.length}</b> {t(lang, 'collections.items')}</span>
+  </span>
+</a>

@@ -14,10 +14,25 @@
 //    qu'à quelques jours — ce module sera souvent vide, et *un cadre vide
 //    ressemble à une panne*. On ne rend rien plutôt qu'un « aucun résultat ».
 //
-// ⭐ LES CARTES NE SONT PAS CLIQUABLES, ET C'EST STRUCTUREL : un drop à venir
-//    n'a aucun relevé de prix, donc aucune fiche, donc aucune adresse.
+// 🔴🔴 LOT 132 — « LES CARTES NE SONT PAS CLIQUABLES, ET C'EST STRUCTUREL » :
+//    CETTE PHRASE ÉTAIT UNE GÉNÉRALISATION, PAS UNE MESURE.
+//    Preda, 10/08 : « améliore l'aspect des cartes À venir, elles devraient
+//    aussi mener à des fiches ». Vérifié dans `dataset.mjs` : `aVenir` est
+//    construit par `{ ...r }` depuis `rayon`, donc chaque drop emporte son
+//    `path` — et `path` vient de `bySlug`, il n'existe QUE si la pièce a une
+//    fiche publiée. Le raisonnement d'origine était juste pour la plupart des
+//    drops et faux pour certains : une pièce déjà cotée qui reçoit une nouvelle
+//    édition a une fiche AVANT sa date de sortie.
+//    ⭐⭐⭐ UN AVERTISSEMENT QUI SURVIT À SA CAUSE SE CITE ET EMPÊCHE DE
+//    REGARDER — et celui-ci se citait tout seul, en tête de fichier, depuis le
+//    lot 113. ⇒ On ne DÉCIDE plus, on REGARDE : `<a>` si `d.path` existe,
+//    `<div>` sinon, drop par drop.
+//    ⛔ ET ON LE MESURE : `deposerMarche()` dépose `aVenirCliquables` à chaque
+//    build, et `test:tableau` l'affiche. Une phrase se relit ; un nombre se
+//    vérifie. Si demain aucun drop n'est cliquable, le journal du build le dira
+//    au lieu de laisser croire que la fonctionnalité marche.
 import { dataset } from '../../engine/lib/dataset.mjs';
-import { t, numberLocale } from '../../engine/lib/i18n.mjs';
+import { t, numberLocale, localize } from '../../engine/lib/i18n.mjs';
 
 const { lang, rayon = null } = Astro.props;
 const ds = await dataset();
@@ -36,28 +51,42 @@ const jour = (iso) => new Date(`${iso}T00:00:00Z`)
 <section class="avenir">
   <div class="sect-t"><h2 class="mono-t">{t(lang, 'avenir.titre')}</h2></div>
   <ul class="avenir__l">
-    {liste.map((d) => (
-      <li class="avenir__c">
-        {/* 🖼️ LOT 118 — LE VISUEL DU DROP. Preda, 10/08 : « ni de visuel pour
-            Coming up ». La cause n'était pas ici : `rayonDe()` ne nommait pas
-            `image` dans sa liste blanche, donc `ds.aVenir` n'en portait
-            aucune. Le gabarit ne pouvait rien rendre.
-            ⛔ ON NE RÉSERVE PAS DE PLACE QUAND ELLE MANQUE : un drop non
-            illustré garde exactement la mise en page d'avant. Un cadre gris
-            « visuel à venir » sur une carte qui annonce justement quelque
-            chose « à venir » dirait deux attentes différentes avec le même
-            dessin. */}
-        {d.image && <img class="avenir__v" src={d.image} alt=""
-                         aria-hidden="true" loading="lazy" decoding="async" />}
-        <span class="avenir__j">{jour(d.jour)}</span>
-        <span class="avenir__n">{d.name}</span>
-        {d.series && <span class="avenir__s">{d.series}</span>}
-        {/* ⭐ MESURÉ : les 10 lignes « à venir » du catalogue sont 2 comics ×
-            5 raretés. `dataset.mjs` GROUPE ; on annonce le nombre de raretés
-            plutôt que de répéter cinq fois la même couverture. */}
-        {d.raretes > 1 && <span class="avenir__r">{t(lang, 'avenir.raretes', { n: d.raretes })}</span>}
+    {liste.map((d) => {
+      // ⛔⛔ UNE SEULE ÉCRITURE DE LA CARTE, ET UN CONTENANT QUI VARIE.
+      //    Ma première version de ce lot rendait le corps DEUX FOIS — une
+      //    branche `<a>`, une branche `<div>` — et c'est exactement la faute
+      //    que le lot 131 vient de payer sur les cartes de sets : « deux
+      //    gabarits qui rendent la même liste divergent en silence ». Elle se
+      //    réécrit toute seule, à trente minutes d'intervalle, dans le fichier
+      //    d'à côté. ⇒ Le TAG est une variable ; le corps est écrit une fois.
+      // ⚠️ `<a>` OU `<div>`, JAMAIS UN `<a>` SANS `href` : un lien sans
+      //    destination reste focusable et s'annonce comme un lien — pire qu'un
+      //    bloc inerte. Et pas de `href="#"`, qui casse le retour arrière.
+      const Boite = d.path ? 'a' : 'div';
+      return (
+      <li role="listitem">
+        <Boite class={`avenir__c${d.path ? ' avenir__c--lien' : ''}`}
+               href={d.path ? localize(lang, d.path) : undefined}>
+          {/* 🖼️ LOT 118 — LE VISUEL DU DROP. La cause n'était pas ici :
+              `rayonDe()` ne nommait pas `image` dans sa liste blanche, donc
+              `ds.aVenir` n'en portait aucune.
+              ⛔ ON NE RÉSERVE PAS DE PLACE QUAND ELLE MANQUE : un drop non
+              illustré garde exactement la mise en page d'avant. Un cadre gris
+              « visuel à venir » sur une carte qui annonce justement quelque
+              chose « à venir » dirait deux attentes avec le même dessin. */}
+          {d.image && <img class="avenir__v" src={d.image} alt=""
+                           aria-hidden="true" loading="lazy" decoding="async" />}
+          <span class="avenir__j">{jour(d.jour)}</span>
+          <span class="avenir__n">{d.name}</span>
+          {d.series && <span class="avenir__s">{d.series}</span>}
+          {/* ⭐ MESURÉ : les 10 lignes « à venir » du catalogue sont 2 comics ×
+              5 raretés. `dataset.mjs` GROUPE ; on annonce le nombre de raretés
+              plutôt que de répéter cinq fois la même couverture. */}
+          {d.raretes > 1 && <span class="avenir__r">{t(lang, 'avenir.raretes', { n: d.raretes })}</span>}
+        </Boite>
       </li>
-    ))}
+      );
+    })}
   </ul>
   <p class="etiq">{t(lang, 'avenir.note')}</p>
 </section>

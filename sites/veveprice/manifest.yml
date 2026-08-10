@@ -199,8 +199,21 @@ access:
       # « 7 J » et avec un verrou décoratif identique pour tout le monde.
       # ⚠️ L'ORDRE DU TABLEAU EST L'ORDRE AFFICHÉ.
       # ⚠️ `jours: null` = sans borne. Ce n'est pas « inconnu » : c'est Max.
+      # 🔴🔴 LOT 132 (10/08/2026) — `3j` PASSE DE `visitor` À `member`, arbitrage
+      # Preda du jour : « 3j=membre / 7j=crevette / 30j+90j=langouste / Max=Whale ».
+      # ⭐ Ce n'est pas un durcissement de plus : c'est la MÊME décision que le
+      # lot 126 sur la cote (« le market doit être visible une fois qu'on est
+      # membre »), appliquée à la profondeur. Le graphe ne s'ouvre de toute façon
+      # qu'à qui a une session — `Cadran.astro` sort si `<html>` ne porte pas
+      # `data-membre`, et `/api/cote/` exige une session. Laisser `visitor` ici
+      # décrivait donc une ouverture qui n'existait NULLE PART dans le code.
+      # ⛔ `public_days: 3` reste : il gouverne ce que la PAGE PRÉ-GÉNÉRÉE
+      # contient, c'est-à-dire ce qu'un robot peut lire. Deux réglages, deux
+      # questions — « qui peut demander la profondeur » n'est pas « ce qui est
+      # écrit dans le fichier statique ». Les confondre rouvrirait la fuite du
+      # lot 101 en croyant fermer une porte.
       plages:
-        - { cle: '3j',  jours: 3,    tier: visitor   }   # ouverte à tous
+        - { cle: '3j',  jours: 3,    tier: member    }
         - { cle: '7j',  jours: 7,    tier: crevette  }
         - { cle: '30j', jours: 30,   tier: langouste }
         - { cle: '90j', jours: 90,   tier: langouste }
@@ -588,10 +601,33 @@ offer:
     # ⛔ Chaque ligne ci-dessous est une page ou un moteur ABSENT. Elles sont
     # affichées sur /offre/ avec une pastille, sur décision de Preda, et le
     # banc les empêche de devenir vendables.
-    - { cle: dashboard,     palier: crevette,     bientot: true }   # coquille livrée au 104, sans widget
+    # 🔴🔴 LOT 131 — DEUX LIGNES CHANGENT, ET AUCUNE N'EST UN AJUSTEMENT
+    # D'HUMEUR : les deux étaient FAUSSES, et mesurées comme telles le 10/08.
+    #
+    # ① `dashboard` : `palier: crevette` ↔ le code dit `member`.
+    #    `src/pages/dashboard/index.astro` teste `connecte()` SEUL — pas
+    #    `franchit()` — depuis le lot 126, et le commentaire y explique
+    #    pourquoi : « exiger un palier fermerait la page d'arrivée à un membre
+    #    qui vient de s'inscrire ». Le manifeste annonçait donc, sur /offre/, un
+    #    module payant que le site donne gratuitement. ⭐ Ce n'est pas une fuite,
+    #    c'est pire commercialement : on FACTURE une chose qu'on offre déjà, et
+    #    seul un lecteur des deux fichiers à la fois pouvait le voir.
+    # ② `bientot` passe à `false` : les widgets EXISTENT depuis ce lot. Le
+    #    commentaire « coquille livrée au 104, sans widget » était vrai et a
+    #    cessé de l'être dans le même commit — *un commentaire qui décrit l'état
+    #    d'avant se lit comme une spécification.*
+    - { cle: dashboard,     palier: member,       bientot: false }
     - { cle: alerts,        porte: alerts,        bientot: true }   # /alertes/ absente · 4 muettes sur 7 dans jetonveve
     - { cle: wallet_watch,  porte: wallet_watch,  bientot: true }   # /vault/ absente
-    - { cle: favoris,       palier: member,       bientot: true }   # rien nulle part
+    # 🔴 LOT 131 — « rien nulle part » ÉTAIT VRAI AU 07/08, ET FAUX DEPUIS LE 119.
+    # Mesuré : `/favoris/` a sa page (`src/pages/favoris/index.astro`), son
+    # entrée dans `ROUTES_COMPTE`, sa `location` dans `nginx.server.conf` et un
+    # banc qui la réclame (`test:pages`) — les trois endroits d'une route de
+    # compte, plus le quatrième. Le cœur est sur 1 220 cartes depuis le 126.
+    # ⭐⭐ Une note périmée qui se cite est pire qu'une note absente : celle-ci
+    # affichait « bientôt » sur /offre/ à côté d'un module livré depuis trois
+    # lots, et elle a survécu à onze lots parce que rien ne la MESURAIT.
+    - { cle: favoris,       palier: member,       bientot: false }
     - { cle: mcp,           palier: crevette,     bientot: true }   # mcpPoints() existe, aucune page — et daily_mcp_points est connue FAUSSE
     - { cle: mint,          palier: crevette,     bientot: true }   # dépend de token_id, donc de la fin du scan (~08/08)
     - { cle: sanspub,       palier: crevette,     bientot: true }   # ⛔ aucun système de publicité : « sans pub » suppose d'en poser d'abord

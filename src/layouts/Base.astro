@@ -313,8 +313,30 @@ const menuComplet = wikiNav
       // ⛔ CE N'EST PAS UNE DÉCISION DE DROIT : ce lien mène à une page qui
       //   redirige elle-même qui n'a pas de session. Le cookie ne choisit
       //   qu'un LIBELLÉ, ce qu'il est fait pour faire.
-      .concat(comptesOuverts
-        ? [{ href: '/compte/', label: t(lang, 'account.title'), membre: true }] : []);
+      ;
+// 🔴🔴 LOT 132 — « MON COMPTE » QUITTE LE MENU. Preda, 10/08 : « il y a
+// toujours un lien MonCompte dans le menu alors qu'il existe pourtant l'avatar
+// pour y accéder ».
+// ⭐⭐⭐ AVANT DE RETIRER, ON COMPTE LES CHEMINS — c'est la règle qui manquait au
+// lot 119 (`/favoris/` retirée de nginx : 404 sur build vert). Mesuré le 10/08,
+// `/compte/` est atteignable par TROIS routes indépendantes :
+//   ① la nav de l'en-tête + le tiroir (cette ligne) ;
+//   ② l'avatar `<details class="globe">` — présent à TOUTES les largeurs (seul
+//      son libellé disparaît sous 640 px, thème l. 1215), et il porte déjà le
+//      lien plus la déconnexion ;
+//   ③ la barre `.onglets`, sous 640 px, qui pose son propre `<a href="/compte/"
+//      data-membre hidden>` — elle ne dépend PAS de cette ligne.
+// En retirer une en laisse deux, dont une visible partout. ⛔ Si l'avatar avait
+// été la SEULE autre porte et qu'il eût disparu sous un seuil, ce retrait aurait
+// fabriqué un espace membre sans sortie — « une protection qui bloque tout le
+// monde est cassée », dans sa version navigation.
+// ⭐ Et le lot 123 reste honoré : le HTML de cette nav est désormais IDENTIQUE
+// partout, puisqu'il n'y a plus une seule entrée qui dépende de qui regarde.
+// C'était déjà le cas depuis le 123 (`membre: true` + cookie d'affichage) ; ici
+// on supprime carrément la question au lieu de la répondre.
+// ⚠️ La clé `account.title` RESTE dans les cinq dictionnaires : l'avatar, la
+// barre mobile et le tableau de bord la lisent tous les trois. `test:cles` ne le
+// dirait qu'après un build — c'est la panne du lot 34.
 ---
 <!doctype html>
 <!-- ⭐ `data-nf` — LOT 101. Le script des cotes met en forme des nombres et
@@ -687,7 +709,22 @@ const menuComplet = wikiNav
               session — ce que Preda a signalé le 10/08. ⭐ Il est maintenant dans le
               HTML de toutes les pages, `hidden`, et la règle CSS `html[data-membre]`
               du <head> décide. Un seul juge, un HTML identique partout, donc cachable. */}
-          {comptesOuverts && <a href="/compte/" data-membre hidden>{t(lang, 'account.title')}</a>}
+          {/* 🔴🔴 LOT 132 — « MON COMPTE » QUITTE AUSSI LE TIROIR.
+        Preda, 10/08 : « il y a toujours un lien MonCompte dans le menu alors
+        qu'il existe pourtant l'avatar pour y accéder ». Le tiroir EST le menu
+        sous 1 040 px : le retirer de la nav de l'en-tête et le laisser ici
+        aurait rendu la demande vraie sur un écran large et fausse sur tous les
+        autres — « corrigé sur un site ≠ corrigé », version largeurs d'écran.
+        ⭐⭐ CE QUI RESTE, MESURÉ AVANT DE COUPER : l'avatar `.globe` est rendu à
+        TOUTES les largeurs (seul son libellé disparaît sous 640 px, thème
+        l. 1215) et porte le lien plus la déconnexion ; la barre `.onglets`
+        pose le sien sous 640 px, indépendamment de cette ligne ; et le tableau
+        de bord a sa section « Réglages » depuis le lot 131. Trois chemins
+        restent, dont un visible partout.
+        ⛔ On ne retire jamais la DERNIÈRE porte d'un espace membre : « une
+        protection qui bloque tout le monde est cassée » vaut aussi pour une
+        navigation qui n'ouvre plus rien. C'est pour ça qu'on compte AVANT. */}
+
         </>)}
     </span>
     <div class="h-outils filtres">

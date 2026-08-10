@@ -2,6 +2,7 @@
 // ⚠️ VeVePreda/veve-sites — src/components/pages/Collections.astro
 // ⛔ Propre à veveprice (aucune page de prix chez vevewiki).
 import Base from '../../layouts/Base.astro';
+import CarteSet from '../CarteSet.astro';
 import { dataset } from '../../../engine/lib/dataset.mjs';
 import { t, localize, numberLocale } from '../../../engine/lib/i18n.mjs';
 import { jourISO } from '../../../engine/lib/vitrine.mjs';
@@ -11,13 +12,15 @@ const ds = await dataset();
 const nf = numberLocale[lang] || 'en-GB';
 const cols = [...ds.collections.values()].sort((a, b) => b.items.length - a.items.length);
 
-// ⭐ LA PILE : trois pièces de la série, décalées et décroissantes. C'est la
-// seule façon de dire « ceci est un ENSEMBLE » sans écrire le mot — et ça
-// distingue d'un coup d'œil une collection d'une pièce, ce que trois lignes de
-// texte identiques ne faisaient pas.
-// 🔴 LOT 101 — voir Home.astro : le tri vit desormais dans `dataset.mjs`,
-// tant que `floor` existe encore. Re-trier ici trierait sur `undefined`.
-const pile = (c) => c.items.slice(0, 3);
+// 🔴 LOT 131 — `pile()` A DÉMÉNAGÉ DANS `CarteSet.astro`, ET ELLE Y A GAGNÉ
+// UNE CORRECTION. Elle prenait `items.slice(0, 3)` : les trois pièces les plus
+// CHÈRES, donc les plus susceptibles d'être des variantes rares sans couverture
+// publiée (6 609 comics n'ont pas d'`image_url`). Elle prend désormais les
+// trois premières QUI ONT une image. ⭐ Le déplacement n'était pas cosmétique :
+// c'est en écrivant le composant partagé qu'on a vu que `/collections/` et
+// `/sets/` ne rendaient pas la même chose — le doublon cachait l'écart.
+// ⛔ On ne laisse pas une copie ici « pour ne pas toucher à cette page » :
+// c'est exactement comme ça que `data-ch` a divergé pendant deux lots.
 
 // ═══════════════════════════════════════════════════════════════════════════
 // LOT 68 — LE MODULE DE FILTRES DES SETS (demande de Preda, 05/08/2026)
@@ -96,7 +99,21 @@ const PAR_TRANCHE = 60;
         elle ne disait rien du tout. */}
     <span class="tete-p__viz" aria-hidden="true">
       {cols.slice(0, 3).map((c) => {
-        const v = pile(c).find((i) => i.image);
+        // 🔴 LOT 131 — `pile(c).find(…)` CHERCHAIT UNE IMAGE DANS LES TROIS
+        // PREMIÈRES SEULEMENT. `items` est trié par plancher décroissant : les
+        // trois premières sont les plus chères, donc les plus souvent des
+        // variantes rares SANS couverture publiée (6 609 comics n'ont pas
+        // d'`image_url`). Un set illustré à partir de sa 4ᵉ pièce rendait un
+        // hexagone vide — la même faute que le visuel de set du lot 118, à
+        // trois lignes de distance et jamais vue.
+        // ⭐ On cherche dans TOUT le set : la tête de page dit « voici de quoi
+        // on parle », et elle a le droit d'aller chercher son image plus loin
+        // que les trois du haut.
+        // ⛔ ET C'EST UN COMMENTAIRE `//`, PAS UN `{/* */}` : on est dans le
+        // CORPS d'une flèche, pas dans du JSX. Un commentaire JSX en position
+        // de retour a coûté un déploiement le 30/07 — c'est la panne qui a fait
+        // naître `test:gabarits`, et je viens de la réécrire en la corrigeant.
+        const v = c.items.find((i) => i.image);
         return (
           <span class="socle">
             <span class="socle__voile"></span>
@@ -243,46 +260,13 @@ const PAR_TRANCHE = 60;
 
   <span class="sep-v" aria-hidden="true"></span>
   <div class="grille grille--series" id="s-grille">
+    {/* ⭐ LE MÊME COMPOSANT QUE `/collections/`, AVEC ses attributs de filtre.
+        `axes` est passé ici et seulement ici : c'est cette page qui porte le
+        pilote qui les LIT (`data-n`, `data-brand`, `data-an`, `data-ty`,
+        `data-taille`). ⛔ Le jour où le filtrage passe côté serveur, ces
+        attributs disparaissent d'un seul endroit. */}
     {axes.map(({ c, an, ty }) => (
-      <a class="col-carte revele" href={localize(lang, `/collection/${c.slug}/`)}
-         data-n={c.name.toLowerCase()} data-brand={c.brand || ''} data-an={an}
-         data-ty={ty} data-taille={String(c.items.length)}>
-        {/* 🔴 `pile(c).map(() => …)` — LE PARAMETRE ETAIT IGNORE (01/08/2026).
-            Les trois pieces les plus cheres de la collection etaient calculees
-            correctement, puis jetees : la boucle rendait trois fois le MEME
-            hexagone gris. D'ou une page Collections entiere sans une seule
-            image, alors que `i.image` est dans la donnee depuis le lot qui l'a
-            ajoutee au catalogue (« sinon : 19 242 fiches, zero image »).
-            ⭐ Une parenthese vide dans un `map` ne produit ni erreur, ni
-            avertissement, ni page vide : elle produit une page PLAUSIBLE. Le
-            gabarit avait l'air de marcher, et seul un oeil sur le rendu
-            pouvait le dire — c'est le meme profil que le CSS qui ne crie pas.
-            ⛔ Meme assainissement que partout : `dataset.mjs` n'accepte que du
-            `https://`, on ne refait pas le controle ici, on ne l'affaiblit pas
-            non plus — une URL absente donne le repere, jamais un `src` vide
-            (un `src=""` recharge la PAGE COURANTE comme si c'etait une image). */}
-        <span class="col-carte__pile" aria-hidden="true">
-          {pile(c).map((i) => (
-            <span class="socle">
-              {i.image ? (
-                <img class="socle__net ok" src={i.image} alt="" width="400" height="600"
-                     loading="lazy" decoding="async" />
-              ) : (
-                <span class="forme forme--xl" style="--c-a:var(--rule-2)">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
-                    <path d="M12 2.9 19.9 7.5v9L12 21.1 4.1 16.5v-9Z" />
-                  </svg>
-                </span>
-              )}
-            </span>
-          ))}
-        </span>
-        <span class="cartouche">
-          <span class="cartouche__n">{c.name}</span>
-          {c.brand && <span class="etiq">{c.brand}</span>}
-          <span class="etiq etiq--bleu"><b>{c.items.length}</b> {t(lang, 'collections.items')}</span>
-        </span>
-      </a>
+      <CarteSet lang={lang} col={c} axes={{ an, ty }} />
     ))}
   </div>
   <script is:inline>

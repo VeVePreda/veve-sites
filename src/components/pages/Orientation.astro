@@ -11,6 +11,7 @@
 //    l'URL la plus évidente du site pour une page interne.
 import Base from '../../layouts/Base.astro';
 import Carte from '../Carte.astro';
+import CarteSet from '../CarteSet.astro';
 import AVenir from '../AVenir.astro';
 import { dataset } from '../../../engine/lib/dataset.mjs';
 import { t, localize, numberLocale } from '../../../engine/lib/i18n.mjs';
@@ -19,17 +20,19 @@ const { lang } = Astro.props;
 const ds = await dataset();
 const nf = numberLocale[lang] || 'en-GB';
 
-// 🖼️ LOT 118 — CHAQUE SET EMPORTE UN VISUEL. Preda, 10/08 : « pas de visuel
-//    pour les sets ». ⭐ Un set n'a pas d'image à lui : il en emprunte une à
-//    l'une de ses pièces. ⛔ PAS `items[0].image` : `items` est trié par prix
-//    décroissant (`dataset.mjs`), et la pièce la plus chère est justement celle
-//    qui a le plus de chances d'être une variante rare SANS couverture publiée
-//    — 6 609 comics n'ont pas d'`image_url`. On prend LA PREMIÈRE QUI EN A UNE.
-//    *Prendre le premier élément d'une liste triée, c'est hériter du critère de
-//    tri sans le vouloir.*
+// 🔴🔴 LOT 131 — `visuel` A DISPARU D'ICI, ET C'EST LE CŒUR DE LA CORRECTION.
+//    Le lot 118 donnait à chaque set UNE image plate (`.col-carte__v`), pendant
+//    que `/sets/` rendait le MÊME set en pile de trois vignettes. Preda,
+//    10/08 : « les sets ne sont pas présentés de la façon habituelle ». Il ne
+//    manquait pas une image : il en manquait deux, et une cartouche.
+//    ⭐ La règle « prendre la première pièce QUI A une image, pas la première »
+//    n'est pas perdue — elle a déménagé dans `CarteSet.astro`, où elle sert
+//    maintenant les DEUX pages au lieu d'une.
+//    ⛔ On ne garde pas `visuel` « au cas où » : un champ calculé que plus
+//    personne ne lit est le faux positif de tout grep, et il ferait croire que
+//    la forme plate est encore une option.
 const sets = [...ds.collections.values()]
-  .sort((a, b) => b.items.length - a.items.length).slice(0, 6)
-  .map((c) => ({ ...c, visuel: (c.items.find((i) => i.image) || {}).image || '' }));
+  .sort((a, b) => b.items.length - a.items.length).slice(0, 6);
 // ⭐ On pioche dans `ds.items` (les 1 200 PUBLIÉES) et non dans `ds.rayon` :
 //   une vitrine montre ce qui se clique. Le rayon complet est à un lien de là.
 const parType = (k) => ds.items.filter((i) => (k === 'comic' ? i.type === 'comic' : i.type !== 'comic')).slice(0, 6);
@@ -67,24 +70,11 @@ const rangees = [
       </div>
       {r.cle === 'sets'
         ? <div class="grille grille--series">
-            {sets.map((c) => (
-              <a class="col-carte revele" href={localize(lang, `/collection/${c.slug}/`)}>
-                {/* ⭐ L'IMAGE EST DÉCORATIVE ICI, DONC `alt=""` ET
-                    `aria-hidden` : le nom du set est juste en dessous, en
-                    texte. Un `alt` qui répète le texte voisin fait entendre le
-                    même mot deux fois à un lecteur d'écran.
-                    ⚠️ `loading="lazy"` et `decoding="async"` : six vignettes
-                    sur une page d'orientation ne doivent pas retarder la
-                    première peinture.
-                    ⛔ AUCUN CADRE VIDE QUAND L'IMAGE MANQUE — la carte reprend
-                    exactement sa forme d'avant. Un emplacement gris « image
-                    absente » ressemble à une panne de chargement. */}
-                {c.visuel && <img class="col-carte__v" src={c.visuel} alt=""
-                                  aria-hidden="true" loading="lazy" decoding="async" />}
-                <span class="col-carte__n">{c.name}</span>
-                <span class="col-carte__c">{c.items.length} {t(lang, 'collections.items')}</span>
-              </a>
-            ))}
+            {/* ⭐ LE MÊME COMPOSANT QUE `/sets/`, SANS SES ATTRIBUTS DE FILTRE.
+                `axes` n'est pas passé : cette page n'a pas de pilote de filtres,
+                et des `data-*` que personne ne lit sont exactement le
+                « paramètre posé et jamais lu » du lot 126. */}
+            {sets.map((c) => (<CarteSet lang={lang} col={c} />))}
           </div>
         : <div class="grille">
             {parType(r.cle === 'comics' ? 'comic' : 'collectible').map((i, k) => (

@@ -136,18 +136,68 @@ if (!existsSync(dossierClient)) {
       + ' (`/collections/` n\'existe que sur veveprice).');
   } else {
     const html = readFileSync(collections, 'utf8');
-    const visuelsSets = (html.match(/class="col-carte__v"/g) || []).length;
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // 🔴🔴 LOT 131 — CE CONTRÔLE CHERCHAIT `class="col-carte__v"`, ET CETTE
+    // CLASSE N'EXISTE PLUS. Il faut dire pourquoi il change, sinon le prochain
+    // lecteur croira qu'on l'a assoupli pour le faire passer.
+    // ⛔ ON N'A PAS CHANGÉ LE BANC POUR QU'IL PLAISE AU CODE : la QUESTION est
+    // restée « les cartes de sets portent-elles un visuel ? », et elle est
+    // désormais posée à un balisage qui en porte TROIS au lieu d'un.
+    // La cause du changement est mesurée : `/collections/` rendait une image
+    // PLATE (`col-carte__v`) là où `/sets/` rendait une pile de trois vignettes
+    // — deux gabarits, deux présentations du même objet. Les deux passent
+    // maintenant par `CarteSet.astro`.
+    // ⭐⭐⭐ ET LE BANC SORT RENFORCÉ, PAS AFFAIBLI : il ne demande plus
+    // seulement « y a-t-il un visuel ? », il demande « les DEUX pages
+    // rendent-elles la même carte ? ». C'est la régression qui reviendra —
+    // celle du lot 127 (`data-ch` à `300` d'un côté, `300.00` de l'autre),
+    // et elle ne casse rien, elle MENT.
+    // ═══════════════════════════════════════════════════════════════════════
+    const pilesSets = (html.match(/class="col-carte__pile"/g) || []).length;
+    const vignettesSets = (html.match(/class="col-carte__pile"[\s\S]{0,900}?<img/g) || []).length;
     // ⛔ PAS DE SEUIL CHIFFRÉ. « au moins 3 vignettes » mesurerait l'échantillon
     //    dont il vient. La question est binaire : les cartes de sets
     //    portent-elles des visuels, oui ou non ?
-    verifie('les cartes de sets portent un visuel', visuelsSets > 0,
-      `${visuelsSets} vignette(s) de set`);
+    verifie('les cartes de sets portent un visuel', pilesSets > 0 && vignettesSets > 0,
+      `${pilesSets} pile(s), ${vignettesSets} illustrée(s)`);
     // ⭐ ET LA CONTRE-ÉPREUVE : aucune carte ne doit porter un `<img>` à `src`
     //   vide. Un `src=""` déclenche une requête vers la page elle-même dans
     //   plusieurs navigateurs — un visuel manquant deviendrait une requête en
     //   trop, pas une absence.
-    verifie('aucun visuel à source vide', !/class="col-carte__v"[^>]*src=""/.test(html)
-      && !/class="avenir__v"[^>]*src=""/.test(html));
+    verifie('aucun visuel à source vide',
+      !/class="socle__net ok"[^>]*src=""/.test(html) && !/class="avenir__v"[^>]*src=""/.test(html));
+    // ⭐ LA CARTOUCHE : sans elle, la pile est un lien sans texte. `aria-hidden`
+    //   est sur la pile (décorative) ; le NOM du set est le seul contenu
+    //   accessible de la carte. Un lien sans nom accessible est un lien que
+    //   personne au clavier ne peut suivre — et ça ne casse rien à l'écran.
+    verifie('chaque carte de set porte sa cartouche (le nom, accessible)',
+      (html.match(/class="cartouche"/g) || []).length >= pilesSets,
+      `${(html.match(/class="cartouche"/g) || []).length} cartouche(s) pour ${pilesSets} pile(s)`);
+
+    // ⭐⭐⭐ LE CONTRÔLE QUI FERME VRAIMENT LA PANNE — on confronte les DEUX
+    //   pages. Un banc qui n'interroge qu'un seul fichier ne peut pas savoir
+    //   que ce fichier est le mauvais : `/collections/` seule était
+    //   parfaitement cohérente avec elle-même pendant treize lots.
+    const sets = join(dossierClient, 'sets/index.html');
+    if (!existsSync(sets)) {
+      console.log('  ⏸️  `/sets/` absente — la comparaison des deux pages est INDÉCIDABLE ici.');
+    } else {
+      const htmlSets = readFileSync(sets, 'utf8');
+      const pilesRayon = (htmlSets.match(/class="col-carte__pile"/g) || []).length;
+      verifie('`/collections/` et `/sets/` rendent la MÊME carte de set',
+        pilesRayon > 0 && pilesSets > 0,
+        pilesRayon > 0 && pilesSets > 0
+          ? `même balisage des deux côtés (${pilesSets} vs ${pilesRayon} piles)`
+          : '🔴 une des deux pages a repris une forme à elle : c\'est la divergence du lot 127');
+      // ⛔ ET LA CLASSE RETIRÉE NE REVIENT PAS. Un lot futur qui rétablirait la
+      //   forme plate sur une seule des deux pages referait exactement l'écart
+      //   que Preda a signalé le 10/08.
+      verifie('la forme PLATE d\'un set (`col-carte__v`) n\'est revenue nulle part',
+        !/class="col-carte__v"/.test(html) && !/class="col-carte__v"/.test(htmlSets),
+        'une seule présentation pour un set, sur les deux pages');
+    }
+
     // ⚠️ « À venir » se TAIT quand il n'a rien (c'est voulu, lot 113) : on ne
     //    peut donc pas exiger sa présence. On exige seulement que, s'il est là,
     //    ses cartes soient illustrées OU qu'aucune de ses lignes n'ait d'image.

@@ -1,92 +1,307 @@
 ---
-// ⚠️ VeVePreda/veve-sites — src/components/pages/Dashboard.astro  (NEUF — lot 126)
+// ⚠️ VeVePreda/veve-sites — src/components/pages/Dashboard.astro  (lot 126, REFONDU au 131)
+// ═══════════════════════════════════════════════════════════════════════════
+// 🧭 LE TABLEAU DE BORD, ET IL CESSE D'ÊTRE UNE LISTE DE LIENS
+// ═══════════════════════════════════════════════════════════════════════════
 //
-// 🧭 LE TABLEAU DE BORD, ET IL CESSE D'ÊTRE UNE PROMESSE
+// 🔴 CE QUE PREDA A DEMANDÉ, MOT POUR MOT (10/08/2026, décision D4 ouverte
+//    depuis le lot 126) : « des genres de modules rapides qui résument et
+//    synthétisent, ainsi que donnent un accès rapide vers les vrais modules ».
+//    Les deux moitiés comptent, et la première est la difficile : RÉSUMER
+//    demande des nombres, et cette page n'a pas le droit d'aller les chercher.
 //
-// ⭐⭐⭐ IL EXISTAIT DÉJÀ DANS LE MENU, ET IL POINTAIT SUR L'ACCUEIL.
-//    `nav.dashboard → /` portait le commentaire « l'accueil DEVIENT le tableau
-//    de bord » (arbitrage du 07/08). L'accueil n'est pas devenu un tableau de
-//    bord : c'est une page d'accroche, identique pour un membre et pour un
-//    anonyme. L'entrée disait donc vrai *au futur* depuis un mois.
-//    ⇒ Ce lot fabrique la page et repointe l'entrée. Une entrée de menu qui
-//      décrit une intention se lit comme un état, et personne ne la revérifie.
+// ⛔⛔ AUCUN `dataset()` ICI, NI DANS RIEN QUE CETTE PAGE IMPORTE.
+//    `/dashboard/` est rendue À LA DEMANDE (`ROUTES_COMPTE`). Un `await
+//    dataset()` y coûterait les 10 328 ms mesurées au lot 125 : 3 Releases
+//    retéléchargées, 2 372 025 lignes de prix relues et `.reserve/cote/`
+//    réécrite — dans le processus qui sert la page, à chaque redémarrage du
+//    conteneur, c'est-à-dire deux fois par jour. `test:marche` §3 balaie les
+//    routes de compte ET leurs composants pour cette raison exacte.
+//    ⇒ Les nombres viennent de `lireMarche()`, déposée au build (lot 131 :
+//      `charge.resume`). Le motif est celui de la projection du marché.
 //
-// ⭐⭐ CE QU'IL CONTIENT, ET RIEN DE PLUS : les favoris, et l'accès rapide.
-//    L'arbitrage est pris (SUIVI, D4 laissé ouvert pour les modules d'analyse).
-//    ⛔ On ne pose PAS de widget vide « bientôt » : un bloc vide sur la page
-//      d'arrivée d'un membre est une déception à chaque connexion, et il coûte
-//      exactement le même clic qu'un bloc utile.
+// ⛔ AUCUN PRIX, AUCUNE COTE, MÊME ICI. Le résumé ne porte que des
+//    DÉNOMBREMENTS — combien de sets, combien de pièces, combien de drops à
+//    venir. `test:marche` §2 balaie `CHAMPS_COTE` sur toute la charge déposée,
+//    résumé compris. ⭐ Et ce n'est pas de la prudence de principe : au lot 101
+//    un classement SANS ses nombres était déjà une fuite (« un classement est
+//    une donnée même sans ses chiffres »).
 //
-// ⛔ AUCUN PRIX, AUCUNE COTE, MÊME ICI. Les favoris viennent de `localStorage`
-//    (arbitrage Preda : « le navigateur d'abord ») et n'y portent qu'un nom et
-//    un chemin — deux choses déjà publiques sur la fiche qui les a écrits.
-//    Le mur ne bouge pas d'un pouce. → `test:fuite` balaie tout `dist/`.
+// ⭐⭐⭐ LES TUILES VIENNENT DU MANIFESTE, PAS D'UNE LISTE ÉCRITE ICI.
+//    `catalogueModules()` est la source unique : c'est elle que lit `/offre/`,
+//    et c'est elle qui dit à quel palier chaque module s'ouvre. Une seconde
+//    liste ici aurait divergé au premier module ajouté — la panne du lot 127
+//    (`data-ch` à `300` d'un côté, `300.00` de l'autre), et celle du menu
+//    mobile du 03/08 (« deux menus, deux vérités, sur la même page »).
+//    ⚠️ Ce fichier ajoute UNE table, `DESTINATIONS`, et rien de plus : le
+//    manifeste sait à quel palier un module s'ouvre, il ne sait pas à quelle
+//    ADRESSE il vit. Cette table ne peut pas dériver en silence : `test:tableau`
+//    exige que chacune de ses clés existe au catalogue, ET que tout module livré
+//    (`bientot: false`) soit ou bien montré, ou bien nommé dans `SANS_TUILE`
+//    avec sa raison. *Un contrôle qui ne regarde que ce qui existe ne voit
+//    jamais ce qui manque.*
 //
-// ⚠️ AUCUNE CLASSE NOUVELLE DANS CE FICHIER, ET C'EST DÉLIBÉRÉ. Le contrat
-//    gabarit↔thème (`test:gabarits`) veut qu'une classe émise existe dans la
-//    feuille, et l'inverse. Tout ce qui suit réutilise `rayon*`, déjà stylé et
-//    déjà servi par `/favoris/` — un tableau de bord n'a pas besoin d'un
-//    vocabulaire à lui pour exister.
+// ⛔ ON NE POSE PAS DE TUILE « BIENTÔT ». Un bloc vide sur la page d'arrivée
+//    d'un membre est une déception à chaque connexion, et il coûte exactement
+//    le même clic qu'un bloc utile. `/offre/` annonce la feuille de route —
+//    c'est son métier, arbitré le 07/08 ; celle-ci montre ce qui s'ouvre.
+//    ⭐ La nuance qui reste : un module LIVRÉ mais fermé à mon palier se montre,
+//    avec son cadenas et le nom du grade qui l'ouvre. « Il n'y a rien ici » et
+//    « il y a quelque chose ici, et ce n'est pas encore à vous » sont deux
+//    phrases différentes, et une seule vend.
+//
+// ⚠️ AUCUNE CLASSE NOUVELLE. `.modules`, `.module`, `.module--ouvert`,
+//    `.module__n/__d/__c`, `.stats`, `.stat`, `.rayon*` existent déjà et sont
+//    déjà servies — `Analytics.astro` émet les mêmes. Un tableau de bord n'a pas
+//    besoin d'un vocabulaire à lui, et le contrat gabarit↔thème se paie deux
+//    fois : une classe émise sans règle rend un élément nu, une règle sans
+//    émetteur est une intention en attente.
 import Base from '../../layouts/Base.astro';
-import { t, localize } from '../../../engine/lib/i18n.mjs';
+import { t, localize, numberLocale, pick } from '../../../engine/lib/i18n.mjs';
+import { manifest } from '../../../engine/lib/manifest.mjs';
+import { catalogueModules, porte, plages, PALIERS } from '../../../engine/lib/access.mjs';
+import { priceEnabled } from '../../../engine/lib/features.mjs';
+import { lireMarche } from '../../../engine/lib/cote.mjs';
 
-const { lang } = Astro.props;
+const { lang, palier = 'member' } = Astro.props;
+const nf = numberLocale[lang] || 'en-GB';
 
-// ⭐ L'ordre est celui de l'usage, pas celui du menu : ce qu'un membre vient
-//   chercher en se connectant d'abord, les réglages en dernier.
-// ⚠️ `localize()` sur CHAQUE adresse : un membre en français doit rester en
-//   français en traversant son tableau de bord. C'est le défaut que Preda a
-//   signalé au lot 123 — « réglage en français, puis retour à l'anglais » —
-//   et il naît toujours d'un lien écrit en dur.
-const raccourcis = [
-  { href: '/market/',   cle: 'nav.movers',    desc: 'dash.market.d' },
-  { href: '/favoris/',  cle: 'fav.title',     desc: 'dash.fav.d' },
-  // ⚠️ `account.title` ET NON `nav.account` : cette clé-là N'EXISTE PAS. Les
-  //    onze clés `nav.*` sont celles du menu, et le compte n'y figure pas — il
-  //    vit dans l'en-tête. Un `t()` sur une clé absente rend la clé elle-même,
-  //    en silence : « nav.account » se serait affiché en toutes lettres sur la
-  //    page d'arrivée de chaque membre, sans casser ni build ni banc.
-  { href: '/compte/',   cle: 'account.title', desc: 'dash.account.d' },
-  { href: '/offre/',    cle: 'nav.offer',     desc: 'dash.offer.d' },
+// ⭐ LE RANG, PAS LE NOM. Comparer deux paliers par leur position dans
+// `PALIERS` est la seule façon de dire « au-dessus » sans écrire une table de
+// correspondance qui vieillirait à l'ajout d'un grade.
+const rang = (c) => PALIERS.indexOf(c);
+const monRang = rang(palier);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LA DONNÉE DÉPOSÉE AU BUILD
+// ═══════════════════════════════════════════════════════════════════════════
+// ⚠️ `priceEnabled()` GARDE L'APPEL, ET CE N'EST PAS UN REPLI POLI.
+// Sur vevewiki la porte des prix est inactive : `deposerMarche()` n'est jamais
+// appelée, et `lireMarche()` LÈVE (délibérément — « on ne retombe pas sur
+// dataset() »). Or `/dashboard/` y est PRÉ-GÉNÉRÉE en mode static : sans ce
+// garde, ce composant ferait échouer le build de vevewiki, sur un site qui n'a
+// ni compte ni tableau de bord. Même dispositif que `<Cadran>` : si la porte
+// est inactive, on ne rend RIEN — pas un cadre vide, rien.
+// ⛔ CE N'EST PAS UN `try/catch`. Un `catch` avalerait aussi la panne qu'on
+// veut voir : réserve non copiée dans l'image, `RESERVE_MARCHE` mal pointée.
+// Sur veveprice, si le fichier manque, la page DOIT tomber — c'est ce que
+// `test:pages` lit dans le journal du serveur.
+const avecPrix = priceEnabled();
+const charge = avecPrix ? lireMarche() : null;
+const R = (charge && charge.resume) || {};
+
+// ⭐ `null` ET PAS `0` — « inconnu ≠ zéro ». `deposerMarche()` écrit `null`
+// quand il n'a pas pu compter ; ici on n'affiche alors RIEN plutôt qu'un « 0 »
+// qui se lirait comme une mesure. Un zéro inventé sur un tableau de bord est
+// un chiffre faux, et sur ce projet c'est la seule faute qu'on ne rattrape pas.
+const nb = (v) => (typeof v === 'number' ? v.toLocaleString(nf) : null);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LES PLAGES D'HISTORIQUE — la profondeur ouverte à MON palier
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴 C'est la synthèse la plus utile de la page, parce que c'est celle qui se
+// vend : « vous voyez 3 jours, Langouste en ouvre 90 ». Elle se lit dans la
+// MÊME liste que les boutons de la fiche (`access.gates.price_history.plages`)
+// — il n'y a donc aucun moyen que les deux se contredisent.
+// ⚠️ `jours: null` = sans borne. Ce n'est pas « inconnu » : c'est Max, et c'est
+// pour ça que `profondeur()` le traite à part au lieu de le laisser tomber
+// dans le `Math.max` (où `null` vaut 0 et raboterait la profondeur à zéro).
+const LES_PLAGES = avecPrix ? plages() : [];
+const ouvertes = LES_PLAGES.filter((p) => monRang >= rang(p.tier));
+const suivante = LES_PLAGES.find((p) => monRang < rang(p.tier)) || null;
+const sansBorne = ouvertes.some((p) => p.jours === null);
+const profondeur = sansBorne ? null
+  : ouvertes.reduce((n, p) => Math.max(n, p.jours || 0), 0);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LES TUILES
+// ═══════════════════════════════════════════════════════════════════════════
+// ⚠️ `cle` DOIT exister dans `catalogueModules()` : `test:tableau` le vérifie,
+// et une clé inventée ici rendrait un libellé `mod.xxx` en toutes lettres sur
+// la page d'arrivée de chaque membre — un `t()` sur une clé absente rend la clé
+// elle-même, en silence (payé au lot 126 avec `nav.account`).
+const DESTINATIONS = [
+  { cle: 'market',        href: '/market/',        chiffre: () => nb(charge && charge.marcheTotal) },
+  { cle: 'price_history', href: '/collectibles/',  chiffre: () => (profondeur === null && sansBorne
+                                                     ? t(lang, 'dash.depth.max')
+                                                     : profondeur ? t(lang, 'dash.depth', { n: profondeur }) : null) },
+  { cle: 'modules',       href: '/analytics/',     chiffre: () => nb(R.publies) },
+  { cle: 'favoris',       href: '/favoris/',       chiffre: () => null, compteur: 'tb-nfav' },
 ];
+
+// ⛔ ET CE QUI N'A PAS DE TUILE, AVEC SA RAISON, PARCE QUE L'ABSENCE SE JUSTIFIE
+// AUSSI. Sans cette liste, `test:tableau` ne saurait pas distinguer « module
+// volontairement sans tuile » de « module oublié » — et il ne pourrait donc
+// dénoncer ni l'un ni l'autre. C'est la seconde moitié du circuit.
+const SANS_TUILE = {
+  cote:      'un CHAMP de la fiche et du marché, pas une page : sa tuile serait un doublon de `market`',
+  extremes:  'vit DANS /analytics/, que la tuile `modules` ouvre déjà',
+  metadata:  'c\'est la fiche elle-même — la tuile serait un lien vers 3 000 pages sans en désigner une',
+  dashboard: 'c\'est CETTE page : une tuile qui pointe sur elle-même est du bruit',
+};
+
+const MODULES = avecPrix ? catalogueModules() : [];
+const livres = MODULES.filter((mo) => !mo.bientot);
+const tuiles = DESTINATIONS
+  .map((d) => {
+    const mo = livres.find((m) => m.cle === d.cle);
+    if (!mo) return null;                       // module absent ou pas encore livré
+    return { ...d, tier: mo.tier, ouvert: monRang >= rang(mo.tier) };
+  })
+  .filter(Boolean);
+
+// ⭐⭐ LE NOM LISIBLE D'UN PALIER VIENT DU MANIFESTE, exactement comme sur
+// `/offre/` (`nomPlan()`), et surtout PAS d'une clé i18n `tier.*` que j'aurais
+// ajoutée. Deux sources pour un même libellé, c'est « Crevette » ici et
+// « Shrimp » là le jour où l'une des deux bouge — et personne ne s'en aperçoit,
+// parce que les deux pages ont l'air justes séparément.
+// ⚠️ Repli sur la clé BRUTE si le manifeste ne déclare pas ce plan : c'est
+// alors un vrai défaut de manifeste (un palier vendu sans nom), et il doit se
+// voir plutôt que se masquer derrière un libellé inventé.
+const PLANS = manifest().offer?.plans || [];
+const nomPalier = (cle) => pick((PLANS.find((x) => x.cle === cle) || {}).nom, lang) || cle;
+
+// ⭐ LE CADENAS, EN SVG, PAS EN GLYPHE. Un caractère à symbole dépend d'une
+// fonte que le thème ne charge pas (leçon du bouton jour/nuit, lot 18).
+const cadenas = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
+  + 'stroke-linecap="round" aria-hidden="true"><rect x="4.5" y="10.5" width="15" height="10" rx="2"/>'
+  + '<path d="M8 10.5V7.8a4 4 0 0 1 8 0v2.7"/></svg>';
 ---
 <Base sect="general" lang={lang} path="/dashboard/" noindex={true}
       title={t(lang, 'dash.title')} description={t(lang, 'dash.lead')}
       crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') },
                { name: t(lang, 'dash.title') }]}>
 
-  <div class="sect-t sect-t--gd"><h1 class="mono-t">{t(lang, 'dash.title')}</h1></div>
+  <div class="sect-t sect-t--gd"><h1 class="mono-t">{t(lang, 'dash.title')}</h1>
+    {/* ⭐ LE PALIER EST DIT, ET IL EST DIT ICI. C'est la première chose qu'un
+        membre vient vérifier, et jusqu'à ce lot il n'était écrit NULLE PART
+        dans le parcours : il fallait ouvrir /compte/ pour le savoir. */}
+    <span class="etiq etiq--bleu">{nomPalier(palier)}</span></div>
   <p class="respire">{t(lang, 'dash.lead')}</p>
 
-  {/* ═══ ACCÈS RAPIDE ═══════════════════════════════════════════════════════
-      ⭐ Rendu au BUILD, entièrement. Aucune de ces quatre entrées ne dépend de
-      qui regarde : ce sont des adresses, et les portes sont derrière elles.
-      ⛔ Masquer un lien dont la porte est fermée serait un affichage qui se
-      fait passer pour un droit — le mur est côté serveur, il n'a pas besoin
-      d'aide ici. */}
-  <div class="sect-t"><h2 class="mono-t">{t(lang, 'dash.quick')}</h2></div>
-  <ul class="rayon">
-    {raccourcis.map((r) => (
-      <li class="rayon__l">
-        <a class="rayon__c" href={localize(lang, r.href)}>
-          <span class="rayon__n">{t(lang, r.cle)}</span>
-          <span class="rayon__s">{t(lang, r.desc)}</span>
-        </a>
-      </li>
-    ))}
-  </ul>
+  {/* ═══ LES MODULES ═════════════════════════════════════════════════════════
+      ⭐ Chaque tuile porte TROIS choses et pas une de plus : ce que c'est, un
+      chiffre qui le résume, et une porte. Un tableau de bord qui explique est
+      un tableau de bord qu'on ne relit pas.
+      ⛔ La tuile fermée reste un `<div>`, jamais un `<a>` : un lien qui mène à
+      une redirection est une porte qui claque. Elle dit le grade qui l'ouvre,
+      et `/offre/` est en bas de page. */}
+  {tuiles.length > 0 && (
+    <>
+      <div class="sect-t"><h2 class="mono-t">{t(lang, 'dash.mods')}</h2>
+        <span class="etiq">{tuiles.filter((x) => x.ouvert).length}/{tuiles.length}</span></div>
+      <div class="modules">
+        {tuiles.map((x) => (
+          x.ouvert ? (
+            <a class="module module--ouvert" href={localize(lang, x.href)}>
+              <span class="module__c">
+                <span class="module__n">{t(lang, `mod.${x.cle}`)}</span>
+                <span class="module__d">{t(lang, `mod.${x.cle}.d`)}</span>
+                {/* ⚠️ Le chiffre n'est rendu QUE s'il existe. `nb()` renvoie
+                    `null` quand le résumé n'a pas pu compter — et une tuile sans
+                    son chiffre reste utile, alors qu'une tuile qui affiche « 0 »
+                    affirme quelque chose de faux. */}
+                {x.compteur
+                  ? <span class="etiq etiq--bleu" id={x.compteur} hidden></span>
+                  : (x.chiffre() && <span class="etiq etiq--bleu">{x.chiffre()}</span>)}
+              </span>
+            </a>
+          ) : (
+            <div class="module" title={t(lang, 'dash.locked', { tier: nomPalier(x.tier) })}>
+              <span class="module__c">
+                <span class="module__n">{t(lang, `mod.${x.cle}`)}</span>
+                <span class="module__d">{t(lang, `mod.${x.cle}.d`)}</span>
+                <span class="etiq" style="color:var(--lock)">{t(lang, 'dash.locked', { tier: nomPalier(x.tier) })}</span>
+              </span>
+              <span class="module__c" style="margin-left:auto;flex:0 0 auto;color:var(--lock)">
+                <Fragment set:html={cadenas} />
+              </span>
+            </div>
+          )
+        ))}
+      </div>
+      {/* ⭐ LA PROCHAINE MARCHE, ET ELLE EST CHIFFRÉE. « Langouste ouvre 90 j »
+          se lit en une seconde ; « passez à Langouste » ne dit rien. ⛔ Rendu
+          seulement s'il RESTE une plage à ouvrir : un membre au dernier grade
+          ne lit pas une invitation à monter. */}
+      {suivante && (
+        <p class="etiq">
+          <a href={localize(lang, '/offre/')}>{t(lang, 'dash.next', {
+            tier: nomPalier(suivante.tier),
+            n: suivante.jours === null ? t(lang, 'dash.depth.max') : t(lang, 'dash.depth', { n: suivante.jours }),
+          })}</a>
+        </p>
+      )}
+    </>
+  )}
 
-  {/* ═══ FAVORIS ════════════════════════════════════════════════════════════
+  {/* ═══ MES FAVORIS ═════════════════════════════════════════════════════════
       ⭐ L'ÉTAT VIDE EST RENDU AU BUILD ET VISIBLE PAR DÉFAUT ; le script le
       masque s'il trouve quelque chose. Le motif inverse — page nue que le
-      script remplit — montre un écran blanc à qui n'a pas de JavaScript, et
-      un clignotement à tous les autres. Même dispositif que `/favoris/`. */}
-  <div class="sect-t"><h2 class="mono-t">{t(lang, 'dash.fav')}</h2></div>
+      script remplit — montre un écran blanc à qui n'a pas de JavaScript, et un
+      clignotement à tous les autres. Même dispositif que `/favoris/`. */}
+  <div class="sect-t"><h2 class="mono-t">{t(lang, 'dash.fav')}</h2>
+    <a class="etiq" href={localize(lang, '/favoris/')}>{t(lang, 'dash.fav.all')}</a></div>
   <p class="filtres-mur" id="tb-vide">{t(lang, 'dash.fav.empty')}</p>
   <ul class="rayon" id="tb-fav"></ul>
-  <p class="etiq" id="tb-tout" hidden>
-    <a href={localize(lang, '/favoris/')}>{t(lang, 'dash.fav.all')}</a>
-  </p>
+
+  {/* ═══ LE CATALOGUE ════════════════════════════════════════════════════════
+      ⛔ CE N'EST PAS UNE RANGÉE DE MODULES, ET LE TITRE LE DIT. Les rayons sont
+      PUBLICS : les mettre parmi les tuiles laisserait croire qu'un compte les
+      ouvre, alors qu'ils n'ont jamais été fermés. Deux natures, deux sections.
+      ⚠️ Chaque chiffre peut manquer indépendamment (`null` = pas compté) : la
+      case disparaît, elle n'affiche pas un tiret. Ici un tiret dirait « on
+      attend la donnée », or on ne l'attend pas — on ne l'a pas comptée. */}
+  {(nb(R.sets) || nb(R.collectibles) || nb(R.comics)) && (
+    <>
+      <div class="sect-t"><h2 class="mono-t">{t(lang, 'dash.catalogue')}</h2></div>
+      <div class="stats">
+        {nb(R.sets) && (
+          <a class="stat" href={localize(lang, '/sets/')}>
+            <div class="etiq">{t(lang, 'rayon.sets')}</div>
+            <div class="stat__v">{nb(R.sets)}</div></a>
+        )}
+        {nb(R.collectibles) && (
+          <a class="stat" href={localize(lang, '/collectibles/')}>
+            <div class="etiq">{t(lang, 'rayon.collectibles')}</div>
+            <div class="stat__v">{nb(R.collectibles)}</div></a>
+        )}
+        {nb(R.comics) && (
+          <a class="stat" href={localize(lang, '/comics/')}>
+            <div class="etiq">{t(lang, 'rayon.comics')}</div>
+            <div class="stat__v">{nb(R.comics)}</div></a>
+        )}
+        {/* ⭐ « À venir » N'APPARAÎT QUE S'IL Y EN A. Mesuré le 10/08 : 7 drops.
+            VeVe n'annonce qu'à quelques jours — cette case sera souvent vide, et
+            *un cadre vide ressemble à une panne*. Même règle qu'`AVenir.astro`,
+            qui se tait quand il n'a rien. ⚠️ `> 0` et non `nb()` : ici zéro est
+            une VRAIE mesure (« aucun drop annoncé »), pas un inconnu — et une
+            vraie mesure de zéro ne mérite quand même pas une case. */}
+        {typeof R.aVenir === 'number' && R.aVenir > 0 && (
+          <a class="stat stat--bleu" href={localize(lang, '/collections/')}>
+            <div class="etiq">{t(lang, 'avenir.titre')}</div>
+            <div class="stat__v">{nb(R.aVenir)}</div></a>
+        )}
+      </div>
+    </>
+  )}
+
+  {/* ═══ LES RÉGLAGES ════════════════════════════════════════════════════════
+      ⭐ EN DERNIER, ET C'EST L'ORDRE DE L'USAGE : ce qu'on vient chercher en se
+      connectant d'abord, ce qu'on règle une fois tous les six mois à la fin.
+      ⚠️ `localize()` sur CHAQUE adresse — sauf `/compte/`, qui n'est PAS
+      localisée : elle est rendue à la demande et lit la langue dans le cookie.
+      `localize(lang, '/compte/')` fabriquerait `/fr/compte/`, une page qui
+      n'existe pas. C'est le défaut du lot 128, dans l'autre sens. */}
+  <div class="sect-t"><h2 class="mono-t">{t(lang, 'dash.settings')}</h2></div>
+  <ul class="rayon">
+    <li class="rayon__l"><a class="rayon__c" href="/compte/">
+      <span class="rayon__n">{t(lang, 'account.title')}</span>
+      <span class="rayon__s">{t(lang, 'dash.account.d')}</span></a></li>
+    <li class="rayon__l"><a class="rayon__c" href={localize(lang, '/offre/')}>
+      <span class="rayon__n">{t(lang, 'offer.title')}</span>
+      <span class="rayon__s">{t(lang, 'dash.offer.d')}</span></a></li>
+  </ul>
 </Base>
 
 {/* ⚠️ `try/catch` AUTOUR DE `localStorage` : en navigation privée, sur certains
@@ -96,17 +311,24 @@ const raccourcis = [
   (function () {
     var hote = document.getElementById('tb-fav');
     var vide = document.getElementById('tb-vide');
-    var tout = document.getElementById('tb-tout');
+    var cpt = document.getElementById('tb-nfav');
     if (!hote) return;
     var favs = {};
     try { favs = JSON.parse(localStorage.getItem('vp_fav') || '{}') || {}; } catch (e) { favs = {}; }
     var cles = Object.keys(favs).sort(function (a, b) { return (favs[b].t || 0) - (favs[a].t || 0); });
+    // ⭐ LE COMPTEUR DE LA TUILE VIT ICI, PAS AU SERVEUR, et il ne pouvait pas
+    //   vivre ailleurs : les favoris sont dans le navigateur (arbitrage Preda,
+    //   « le navigateur d'abord »). C'est la seule synthèse de cette page qui
+    //   ne peut pas être déposée au build — et la seule qui reste juste hors
+    //   ligne. Il est `hidden` par défaut : à zéro, il n'apparaît pas.
+    if (cpt && cles.length) { cpt.textContent = String(cles.length); cpt.hidden = false; }
     if (!cles.length) return;
     if (vide) vide.hidden = true;
-    // ⭐ HUIT, PAS TOUT. Le tableau de bord est un point de départ, pas la
-    //   liste complète — celle-ci vit sur `/favoris/`, et le lien vers elle
-    //   n'apparaît QUE s'il y a plus à voir. Un « voir tout » qui mène à la
-    //   même chose est un lien qui ment.
+    // ⭐ HUIT, PAS TOUT. Le tableau de bord est un point de départ, pas la liste
+    //   complète — celle-ci vit sur `/favoris/`, et le lien vers elle est
+    //   maintenant DANS LE TITRE de la section : il ne dépend plus d'avoir plus
+    //   de huit favoris pour exister. Un « voir tout » qui n'apparaît qu'à
+    //   partir de neuf éléments est un lien qu'on n'apprend jamais.
     var COUPE = 8;
     cles.slice(0, COUPE).forEach(function (u) {
       var f = favs[u] || {};
@@ -125,6 +347,5 @@ const raccourcis = [
       li.appendChild(a);
       hote.appendChild(li);
     });
-    if (tout && cles.length > COUPE) tout.hidden = false;
   })();
 </script>

@@ -389,6 +389,53 @@ export const MARCHE_FICHIER = process.env.RESERVE_MARCHE || join(ROOT, '.reserve
 /** Depose la projection. Appele UNE FOIS, a la fin de `dataset()`, donc au build.
  *  ⚠️ On ne depose PAS `ds` en entier : `ds.items` fait 19 412 lignes et la page
  *  n'en rend que 200. Faire voyager le reste serait remplacer un cout par un autre. */
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴 LOT 131 — LE RÉSUMÉ, ET POURQUOI IL VOYAGE AVEC LA PROJECTION
+// ═══════════════════════════════════════════════════════════════════════════
+// Le tableau de bord montre des modules qui RÉSUMENT (demande de Preda, 10/08 :
+// « des modules rapides qui résument et synthétisent, et donnent un accès
+// rapide vers les vrais modules »). Résumer demande des NOMBRES.
+// ⛔⛔ ET IL EST INTERDIT D'ALLER LES CHERCHER OÙ ILS SONT. `/dashboard/` est
+// rendue À LA DEMANDE : un `await dataset()` y coûterait les 10 328 ms mesurées
+// au lot 125 — 3 Releases retéléchargées et 2 372 025 lignes relues dans le
+// processus qui sert la page. `test:marche` §3 refuse d'ailleurs tout appel à
+// `dataset()` dans une route de compte ET dans ses composants.
+// ⇒ Les nombres sont calculés AU BUILD, où `ds` est déjà là, et déposés ici.
+//   C'est le motif de `.reserve/cote/` et de la projection : *la donnée
+//   manquante est presque toujours déjà calculée, puis jetée.*
+//
+// ⭐⭐⭐ `null` ET SURTOUT PAS `0` QUAND LA SOURCE MANQUE — « inconnu ≠ zéro ».
+// Un `0` se lit comme une mesure : « 0 set suivi » est une affirmation, et le
+// tableau de bord l'afficherait tel quel. `null` dit « je n'ai pas compté », et
+// le gabarit sait alors ne rien montrer plutôt que montrer faux.
+// ⛔ AUCUN MONTANT ICI, JAMAIS. Ce sont des DÉNOMBREMENTS — combien de sets,
+// combien de pièces. `test:marche` §2 balaie `CHAMPS_COTE` sur toute la charge,
+// résumé compris : un plancher glissé dans un résumé serait la fuite du lot 101
+// refaite par la porte d'à côté, et il la verrait.
+const nombreOuNull = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+
+function resumerPourLeTableauDeBord(ds) {
+  const rayon = Array.isArray(ds.rayon) ? ds.rayon : null;
+  return {
+    // Ce que la vitrine PUBLIE (les fiches qui existent) contre ce que le
+    // catalogue CONTIENT : les deux nombres ensemble disent la couverture, et
+    // c'est la seule façon honnête d'annoncer « 1 200 » sans laisser croire
+    // qu'on suit tout VeVe.
+    publies: nombreOuNull(Array.isArray(ds.items) ? ds.items.length : undefined),
+    catalogue: nombreOuNull(ds.catalogueSize),
+    sets: nombreOuNull(ds.collections instanceof Map ? ds.collections.size : undefined),
+    comics: nombreOuNull(rayon ? rayon.filter((r) => r.type === 'comic').length : undefined),
+    collectibles: nombreOuNull(rayon ? rayon.filter((r) => r.type !== 'comic').length : undefined),
+    aVenir: nombreOuNull(Array.isArray(ds.aVenir) ? ds.aVenir.length : undefined),
+    // ⭐ Combien de drops à venir mènent RÉELLEMENT à une fiche. Le commentaire
+    //   d'`AVenir.astro` affirmait « aucune fiche, donc aucune adresse » — c'est
+    //   vrai de la plupart, pas de tous, et un avertissement qui survit à sa
+    //   cause empêche de regarder. Ce nombre le rend mesurable à chaque build.
+    aVenirCliquables: nombreOuNull(Array.isArray(ds.aVenir)
+      ? ds.aVenir.filter((d) => d && d.path).length : undefined),
+  };
+}
+
 export function deposerMarche(ds) {
   mkdirSync(dirname(MARCHE_FICHIER), { recursive: true });
   const charge = {
@@ -397,11 +444,21 @@ export function deposerMarche(ds) {
     // ⭐ `itemsTotal` et pas `items` : la page n'affiche que le NOMBRE.
     itemsTotal: Array.isArray(ds.items) ? ds.items.length : 0,
     marcheTotal: ds.marcheTotal,
+    resume: resumerPourLeTableauDeBord(ds),
     marche: ds.marche,
   };
   writeFileSync(MARCHE_FICHIER, JSON.stringify(charge), 'utf8');
   console.log(`[marche] projection deposee : ${charge.marche.length} ligne(s) sur ${charge.marcheTotal}, `
     + `${(JSON.stringify(charge).length / 1024).toFixed(0)} Ko — /market/ ne rappellera plus dataset()`);
+  // ⭐ LE RÉSUMÉ S'ANNONCE, ET IL DIT SES TROUS. Un champ à `null` sort en
+  // toutes lettres : c'est la seule façon de voir, DANS LE JOURNAL DE BUILD,
+  // qu'un module du tableau de bord va rester muet — avant le déploiement, pas
+  // après. Un résumé silencieusement incomplet serait invisible jusqu'à ce
+  // qu'un membre ouvre sa page d'arrivée.
+  const trous = Object.entries(charge.resume).filter(([, v]) => v === null).map(([k]) => k);
+  console.log(`[marche] resume du tableau de bord : `
+    + Object.entries(charge.resume).map(([k, v]) => `${k}=${v === null ? 'INCONNU' : v}`).join(' · ')
+    + (trous.length ? `  ⚠️ ${trous.length} champ(s) INCONNU(S)` : ''));
   return charge;
 }
 

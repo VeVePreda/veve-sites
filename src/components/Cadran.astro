@@ -32,7 +32,9 @@
 // n'était posé que sur UN des deux chemins d'export). Un min/max lu sur la
 // série observée ne peut pas être incohérent avec la courbe qu'il annote.
 import { t, numberLocale, dateLocale } from '../../engine/lib/i18n.mjs';
-import { porte, PALIERS } from '../../engine/lib/access.mjs';
+import { porte, PALIERS, plages } from '../../engine/lib/access.mjs';
+import { manifest } from '../../engine/lib/manifest.mjs';
+import { pick } from '../../engine/lib/i18n.mjs';
 
 // 🔴 LOT 123 — `svgPublic` A QUITTÉ LES PROPS. Il portait la courbe publique
 // jusque dans le fond flouté du panneau verrouillé, c'est-à-dire dans le HTML
@@ -49,6 +51,56 @@ const df = dateLocale[lang] || 'en-GB';
 // décide, le code obéit — et un verrou sur un site sans mur serait un mensonge
 // commercial autant qu'une faute d'interface.
 const rendre = p.actif && Number(total) > Number(shown);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 LOT 132 — LES BOUTONS DE DURÉE, ET ILS N'EXISTAIENT NULLE PART
+// ═══════════════════════════════════════════════════════════════════════════
+// Preda, 10/08 : « sur le graphe on doit avoir, selon son abonnement, des
+// boutons pour voir l'historique sur une durée (cadenas pour les jours qui
+// nécessitent un abonnement supérieur) ».
+//
+// ⭐⭐⭐ MESURÉ AVANT DE CODER, ET LE RÉSULTAT EST LE PLUS INSTRUCTIF DU LOT :
+// TOUT ÉTAIT DÉJÀ LÀ SAUF LE HTML. Le lot 104 avait posé, le 07/08 :
+//   · la grille au manifeste (`access.gates.price_history.plages`) ;
+//   · `plages()` dans `access.mjs`, qui la lit et calcule les verrous ;
+//   · `const LES_PLAGES = plages();` en tête d'`Item.astro` ;
+//   · la boucle de déverrouillage ci-dessous, qui cherche `[data-plages]` ;
+//   · `.plages`, `.plages button` et `.plages button[data-verrou]` au thème.
+// Et PERSONNE N'ÉMETTAIT LES BOUTONS. `LES_PLAGES` apparaissait UNE fois dans
+// `Item.astro` — sa propre définition (`grep` : 1 occurrence). Le
+// `querySelector('[data-plages]')` rendait `null` sur les 3 000 fiches, la
+// boucle tournait dans le vide, et les trois règles CSS n'habillaient rien.
+//
+// ⭐⭐⭐ TROIS SILENCES CONNUS DE CE DÉPÔT, SUR UNE SEULE FONCTIONNALITÉ, PENDANT
+// TROIS JOURS, SANS UN SEUL BANC ROUGE :
+//   ① un IMPORT SANS APPEL (lot 122) — `plages()` calculée, jamais lue ;
+//   ② une RÈGLE CSS SANS ÉMETTEUR (lot 126, `.socle__fav` : onze lots) ;
+//   ③ un SÉLECTEUR QUI NE MATCHE JAMAIS (lot 103, `dl.fiche-tbl`) — et celui-là
+//      ne lève pas : `querySelector` rend `null`, le `if` est faux, on continue.
+// ⛔ Le remède n'est pas « faire attention » : c'est `test:plages`, écrit dans
+//    ce lot, qui exige que l'ÉMETTEUR, le LECTEUR et la RÈGLE existent tous les
+//    trois. *« Qui écrit, qui lit ? » — et « qui est de l'autre côté du mur ? »*
+//
+// ⚠️ LES BOUTONS SONT RENDUS VERROUILLÉS POUR TOUT LE MONDE, ET C'EST LA SEULE
+// FORME POSSIBLE. Cette page est PRÉ-GÉNÉRÉE : elle n'a pas de visiteur au
+// moment où elle se fabrique. Un `franchit()` ici serait évalué AU BUILD, au
+// niveau visiteur, et figé dans 3 000 fichiers — la panne du lot 24, et celle
+// du `<Gate>` de fiche. Le script relève les verrous quand l'API a répondu,
+// donc quand un droit RÉEL a été reconnu côté serveur.
+// ⛔ Et le verrou d'affichage n'est PAS la porte : la porte est `/api/historique/`,
+// qui lit la session. Retirer `data-verrou` depuis la console ne donne aucun
+// point de plus — il n'y a rien à déverrouiller côté client, la donnée n'est
+// pas là.
+const LES_PLAGES = plages();
+// ⭐ LE NOM DU PALIER VIENT DU MANIFESTE, comme sur `/offre/` et le tableau de
+// bord. Une clé i18n `tier.*` aurait été une SECONDE source pour le même
+// libellé — « Crevette » ici, « Shrimp » là, le jour où l'une des deux bouge.
+const PLANS = manifest().offer?.plans || [];
+const nomPalier = (cle) => pick((PLANS.find((x) => x.cle === cle) || {}).nom, lang) || cle;
+// ⚠️ Le libellé du bouton vient de la CLÉ du manifeste (`3j`, `max`), mis en
+// forme ici. ⛔ Pas de `.toUpperCase()` dans le texte : la casse est une affaire
+// de STYLE, et une capitale écrite dans le texte se copie en capitale (lot 129).
+const libelle = (cle) => (cle === 'max' ? 'MAX' : cle.replace(/j$/, ' J'));
 ---
 {rendre && (
   <div class="dissout" data-cadran={uuid}
@@ -91,7 +143,34 @@ const rendre = p.actif && Number(total) > Number(shown);
         `display:none` en style : les trois thèmes honorent `[hidden]` depuis
         le lot 19, et un attribut se teste sans lire de CSS. */}
     <div class="graph-hote" data-cible hidden>
-      <span class="ref ref--td" data-legende></span>
+      {/* ⭐ `.graph-tete` ET `.plages` SONT LES NOMS DE LA MAQUETTE, déjà
+          habillés par le thème depuis le lot 45 — et jamais émis jusqu'ici.
+          On n'ajoute donc AUCUNE classe : on rend enfin ce que la feuille
+          attendait. */}
+      <div class="graph-tete">
+        <span class="ref ref--td" data-legende></span>
+        {LES_PLAGES.length > 0 && (
+          <div class="plages" data-plages role="group" aria-label={t(lang, 'item.range')}>
+            {LES_PLAGES.map((pl, i) => (
+              /* ⚠️ `aria-pressed` ET PAS `disabled` sur un bouton verrouillé.
+                 `disabled` le sort de l'ordre de tabulation ET de l'arbre
+                 d'accessibilité : un lecteur d'écran ne saurait même pas qu'une
+                 profondeur existe et se vend. On veut l'inverse — il doit
+                 l'entendre, avec le grade qui l'ouvre.
+                 ⭐ `data-jours` porte la borne ; `''` (vide) veut dire SANS
+                 BORNE, pas zéro. `jours: null` = Max, et un `0` ici raboterait
+                 la courbe à rien — « inconnu ≠ zéro », dans sa version la plus
+                 chère : le dernier palier n'aurait plus de graphe du tout. */
+              <button type="button" data-cle={pl.cle} data-tier={pl.tier}
+                      data-jours={pl.jours === null ? '' : String(pl.jours)}
+                      aria-pressed={i === 0 ? 'true' : 'false'}
+                      data-verrou={pl.verrouillee ? '' : undefined}
+                      title={pl.verrouillee ? t(lang, 'dash.locked', { tier: nomPalier(pl.tier) }) : undefined}
+              >{libelle(pl.cle)}</button>
+            ))}
+          </div>
+        )}
+      </div>
       <div data-svg></div>
       <div class="info-bulle" data-bulle hidden></div>
     </div>
@@ -178,12 +257,12 @@ const rendre = p.actif && Number(total) > Number(shown);
         if (!r.ok) { console.warn('[cadran] ' + uuid + ' : HTTP ' + r.status); return null; }
         return r.json();
       }).then(function (j) {
-        if (j && j.ok && j.h && j.h.p && j.h.p.length >= 2) { dessiner(j.h.p, j); return null; }
+        if (j && j.ok && j.h && j.h.p && j.h.p.length >= 2) { recevoir(j.h.p, j); return null; }
         return fetch('/api/cote/' + encodeURIComponent(uuid), {
           credentials: 'same-origin', headers: { accept: 'application/json' }
         }).then(function (r) { return r.ok ? r.json() : null; }).then(function (c) {
           if (!c || !c.ok || !c.c || !c.c.courbe || c.c.courbe.length < 2) return null;
-          dessiner(c.c.courbe, { normalisee: true });
+          recevoir(c.c.courbe, { normalisee: true });
           return null;
         });
       }).catch(function (e) {
@@ -194,6 +273,74 @@ const rendre = p.actif && Number(total) > Number(shown);
     }
 
     charger();
+
+    var TOUS = null, META = null;
+    // ⛔ `hote.querySelector`, ET SURTOUT PAS `document.querySelector`.
+    //    La version d'origine (lot 104) cherchait dans TOUT le document : sur
+    //    une page portant deux cadrans, les deux auraient piloté le MÊME groupe
+    //    de boutons, et le second aurait écrasé le premier — sans erreur.
+    //    Le groupe vit DANS `.graph-hote`, donc dans ce cadran : on le cherche
+    //    là, et nulle part ailleurs.
+    var groupe = hote.querySelector('[data-plages]');
+
+    function recevoir(pts, meta) {
+      TOUS = pts; META = meta;
+      deverrouiller(meta);
+      appliquer();
+    }
+
+    function deverrouiller(meta) {
+      if (!groupe) return;
+      var rangs = (hote.getAttribute('data-paliers') || '').split(',');
+      var mien = rangs.indexOf(meta.palier || 'visitor');
+      var boutons = groupe.querySelectorAll('button[data-tier]');
+      var b, exige, ouvert, premier = null;
+      for (b = 0; b < boutons.length; b++) {
+        exige = rangs.indexOf(boutons[b].getAttribute('data-tier'));
+        ouvert = (mien >= 0 && exige >= 0 && mien >= exige);
+        if (ouvert) {
+          boutons[b].removeAttribute('data-verrou');
+          boutons[b].removeAttribute('title');
+          premier = boutons[b];
+        }
+        boutons[b].setAttribute('aria-pressed', 'false');
+      }
+      if (premier) premier.setAttribute('aria-pressed', 'true');
+      else if (boutons.length) boutons[0].setAttribute('aria-pressed', 'true');
+    }
+
+    function bornePressee() {
+      if (!groupe) return null;
+      var p = groupe.querySelector('button[aria-pressed="true"]');
+      if (!p) return null;
+      var j = p.getAttribute('data-jours');
+      return (j === null || j === '') ? null : parseInt(j, 10);
+    }
+
+    function appliquer() {
+      if (!TOUS || TOUS.length < 2) return;
+      var jours = bornePressee();
+      var vus = TOUS;
+      if (jours) {
+        var fin = TOUS[TOUS.length - 1][0];
+        var seuil = fin - (jours * 86400);
+        vus = TOUS.filter(function (p) { return p[0] >= seuil; });
+        if (vus.length < 2) vus = TOUS.slice(-2);
+      }
+      dessiner(vus, META);
+    }
+
+    if (groupe) {
+      groupe.addEventListener('click', function (ev) {
+        var b = ev.target.closest ? ev.target.closest('button[data-tier]') : null;
+        if (!b || !groupe.contains(b)) return;
+        if (b.hasAttribute('data-verrou')) return;
+        var t = groupe.querySelectorAll('button[data-tier]');
+        for (var i = 0; i < t.length; i++) t[i].setAttribute('aria-pressed', 'false');
+        b.setAttribute('aria-pressed', 'true');
+        appliquer();
+      });
+    }
 
     function dessiner(pts, meta) {
       var nf = hote.getAttribute('data-nf') || 'en-GB';
@@ -237,20 +384,6 @@ const rendre = p.actif && Number(total) > Number(shown);
         : '';
 
       cible.hidden = false;
-
-      var rangs = (hote.getAttribute('data-paliers') || '').split(',');
-      var mien = rangs.indexOf(meta.palier || 'visitor');
-      var groupe = document.querySelector('[data-plages]');
-      if (groupe && mien >= 0) {
-        var boutons = groupe.querySelectorAll('button[data-tier]');
-        for (var b = 0; b < boutons.length; b++) {
-          var exige = rangs.indexOf(boutons[b].getAttribute('data-tier'));
-          if (exige >= 0 && mien >= exige) {
-            boutons[b].removeAttribute('data-verrou');
-            boutons[b].removeAttribute('title');
-          }
-        }
-      }
 
       var svg = svgHote.querySelector('svg');
       var lig = svg.querySelector('[data-curseur]');

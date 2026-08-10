@@ -6,7 +6,7 @@
 export const prerender = true;
 
 import Dashboard from '../../../components/pages/Dashboard.astro';
-import { connecte } from '../../../../engine/lib/access.mjs';
+import { connecte, palierVisiteur } from '../../../../engine/lib/access.mjs';
 
 export function getStaticPaths() {
   return [];
@@ -20,5 +20,16 @@ if (!connecte(Astro.locals)) {
 
 Astro.response.headers.set('cache-control', 'private, no-store');
 Astro.response.headers.set('vary', 'cookie');
+
+// 🔴🔴 LOT 131 — LE PALIER DESCEND DANS LE COMPOSANT, ET IL DESCEND D'ICI.
+// Le tableau de bord montre des tuiles verrouillées : il doit donc savoir à
+// quel grade parle. ⛔ `palierVisiteur()` NE PEUT PAS être appelée dans le
+// composant : `Astro.locals` n'existe que sur la ROUTE, et un composant qui va
+// le chercher tout seul rendrait « visitor » sur toute page pré-générée — sans
+// erreur, sans banc rouge, avec un cadenas sur chaque tuile pour un abonné.
+// C'est la panne du lot 24 (« le middleware ne tourne pas ») vue depuis le
+// gabarit, et celle du `<Gate>` évalué au build.
+const palier = palierVisiteur(Astro.locals);
+
 ---
-<Dashboard lang={lang} />
+<Dashboard lang={lang} palier={palier} />
