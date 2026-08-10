@@ -89,10 +89,33 @@ verifie('⛔ zéro caractère de contrôle dans les pages servies',
     : `🔴 ${sales.length} page(s) portent encore ␑␒␓ : \`outils/marquer_i18n.mjs\` n'a pas tourné, `
       + `ou il a tourné APRÈS la précompression. Ex. ${sales.slice(0, 3).map((f) => f.replace(RACINE, '')).join(', ')}`);
 
-const marquees = pages.filter((f) => readFileSync(f, 'utf8').includes('data-i18n'));
+// 🔴🔴🔴 LOT 130 — `data-i18n="` ET PAS `data-i18n`, ET ÇA A RENDU LA CI ROUGE
+// SUR LES DEUX SITES.
+// Le script d'échange de `Base.astro` contient LUI-MÊME les chaînes
+// `'[data-i18n]'` et `'data-i18n-attr'` — ce sont ses SÉLECTEURS. Chercher le
+// mot faisait donc croire à ce banc que TOUTES les pages étaient marquées, y
+// compris sur un build sans `I18N_MARQUAGE` — celui de la CI. Il réclamait
+// alors les dictionnaires servis, qui n'existaient pas, et tombait.
+// ⇒ 4 écarts, deux sites, et le message « le prochain build part sur du code
+//   non gardé » pendant que le déploiement passait au vert. **Exactement la
+//   panne du lot 128, refaite par moi, un lot plus tard.**
+//
+// ⚠️⚠️ ET J'AVAIS DÉJÀ CORRIGÉ CE FAUX POSITIF AU §2, DANS CE MÊME FICHIER.
+// Je l'avais corrigé LÀ OÙ IL M'AVAIT MORDU, pas partout où il pouvait mordre.
+// ⭐⭐⭐ *Une règle à moitié appliquée est pire qu'absente* : elle donne le
+// sentiment d'avoir traité le sujet. La règle complète tient en une phrase —
+// **on cherche l'ATTRIBUT (`data-i18n="`), jamais le mot** — et elle vaut pour
+// toute recherche de balisage dans une page qui embarque le script qui le lit.
+const MARQUE = 'data-i18n="';
+const marquees = pages.filter((f) => readFileSync(f, 'utf8').includes(MARQUE));
 if (!marquees.length) {
-  indecis('le marquage', `aucune page ne porte \`data-i18n\` — build sans I18N_MARQUAGE=1, ou \`marquer:i18n\` non joué. `
-    + `${pages.length} page(s) inspectées.`);
+  // ⛔ INDÉCIDABLE, PAS ROUGE, ET C'EST LE BON VERDICT. La CI construit sans
+  // `I18N_MARQUAGE` et ne joue pas `marquer:i18n` : il n'y a rien à mesurer, et
+  // « rien à mesurer » n'est pas « non conforme ».
+  // ⭐ Le Dockerfile, lui, marque ET post-traite : c'est là que ce banc travaille
+  //   vraiment, et c'est la seule porte que le déploiement respecte.
+  indecis('le marquage', `aucune page ne porte \`${MARQUE}\` — build sans I18N_MARQUAGE=1, ou \`marquer:i18n\` non joué `
+    + `(c'est le cas en CI, et c'est normal). ${pages.length} page(s) inspectées.`);
   fin();
 }
 console.log(`     ${marquees.length} page(s) marquées sur ${pages.length}`);
