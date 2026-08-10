@@ -20,7 +20,7 @@
     "test:acces": "node engine/tools/test_access.mjs",
     "test:reserve": "node engine/tools/test_reserve.mjs",
     "test:blog": "node engine/tools/test_blog.mjs",
-    "test": "npm run test:dockerfile && npm run test:gabarits && npm run test:donnees && npm run test:entrepot && npm run test:quotas && npm run test:acces && npm run test:session && npm run test:reserve && npm run test:demo && npm run test:blog && npm run test:figures && npm run test:fiches && npm run test:lastmod && npm run test:langues && npm run test:renommage && npm run test:schema && npm run test:adresses && npm run test:slugs && npm run test:nginx && npm run test:indexnow && npm run test:cles && npm run test:routes && npm run test:fuite && npm run test:phrases && npm run test:entete && npm run test:promesses && npm run test:feuille && npm run test:opacite && npm run test:rayon && npm run test:projection && npm run test:affichage && npm run test:pages",
+    "test": "npm run test:dockerfile && npm run test:gabarits && npm run test:donnees && npm run test:entrepot && npm run test:quotas && npm run test:acces && npm run test:session && npm run test:reserve && npm run test:demo && npm run test:blog && npm run test:figures && npm run test:fiches && npm run test:lastmod && npm run test:langues && npm run test:renommage && npm run test:schema && npm run test:adresses && npm run test:slugs && npm run test:nginx && npm run test:indexnow && npm run test:cles && npm run test:routes && npm run test:fuite && npm run test:phrases && npm run test:entete && npm run test:promesses && npm run test:feuille && npm run test:opacite && npm run test:rayon && npm run test:projection && npm run test:affichage && npm run test:marche && npm run test:pages",
     "test:entrepot": "node engine/tools/test_entrepot.mjs",
     "test:figures": "node engine/tools/test_figures.mjs",
     "test:fiches": "node engine/tools/test_fiches.mjs",
@@ -42,7 +42,8 @@
     "test:rayon": "node engine/tools/test_rayon.mjs",
     "test:projection": "node engine/tools/test_projection.mjs",
     "test:affichage": "node engine/tools/test_affichage.mjs",
-    "test:pages": "node engine/tools/test_pages.mjs"
+    "test:pages": "node engine/tools/test_pages.mjs",
+    "test:marche": "node engine/tools/test_marche.mjs"
   },
   "dependencies": {
     "@astrojs/markdown-satteri": "^0.3.4",

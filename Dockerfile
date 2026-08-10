@@ -317,6 +317,17 @@ RUN WAREHOUSE_OFFLINE=1 npm run test:promesses
 #    on perdrait le seul controle qui regarde le PRODUIT.
 RUN WAREHOUSE_OFFLINE=1 npm run test:affichage
 # ═══════════════════════════════════════════════════════════════════════════
+# 🔴🔴🔴 `test:marche` — LOT 125. LE BANC DE LA PAGE RENDUE A LA DEMANDE.
+# MESURE DU 10/08 (serveur reel, curl) : 1ʳᵉ requete a /market/ = 10 440 ms,
+# suivantes = 55 ms. Les 10 328 ms etaient `await dataset()` : la page
+# retelechargeait 2,37 M de lignes de prix ET reecrivait `.reserve/cote/` dans
+# le processus qui repond. Elle lit desormais `.reserve/marche.json`, depose au
+# build. ⭐ Le soupcon d'origine — « 200 fichiers JSON par requete » — etait
+# FAUX : ces lectures coutent 3 ms.
+# ⛔ IL VA APRES `npm run build` : la projection qu'il verifie n'existe qu'apres.
+# ⚠️ ET IL N'IMPORTE PAS `dataset.mjs` — sinon il recalculerait la vitrine et
+#    VIDERAIT `.reserve/cote/`, la panne que le Dockerfile decrit plus haut.
+RUN WAREHOUSE_OFFLINE=1 npm run test:marche
 # 🔴🔴🔴 `test:pages` — LOT 124. IL LANCE LE SERVEUR ET DEMANDE LES PAGES.
 # ═══════════════════════════════════════════════════════════════════════════
 # LE 10/08, `/connexion/` et `/inscription/` ont rendu 500 (`ReferenceError`).

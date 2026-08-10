@@ -8,7 +8,7 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join } from 'node:path';
-import { projeter as projeterCote, CHAMPS_COTE } from './cote.mjs';
+import { projeter as projeterCote, deposerMarche, CHAMPS_COTE } from './cote.mjs';
 import { getCatalogue, getBaselines, streamPrices } from '../data/warehouse.mjs';
 import { manifest, SITE } from './manifest.mjs';
 import { porte } from './access.mjs';
@@ -1023,5 +1023,16 @@ async function construireDataset() {
     quotas, eligibles, publies,
     updatedAt: new Date().toISOString(),
   };
+
+  // 🔴🔴🔴 LOT 125 — ON DEPOSE ICI CE QUE `/market/` LIRA A LA DEMANDE.
+  // ⭐ L'endroit n'est pas indifferent : `_ds` vient d'etre scelle, donc
+  // `marche` a DEJA traverse `projeterCote()` — les montants en sont sortis, et
+  // la projection deposee porte exactement ce que la page rendra, ni plus.
+  // ⛔ Un cran plus haut, on deposerait `floor`/`ath`/`atl` en clair dans un
+  // fichier — la fuite du lot 101, refaite par la porte d'a cote.
+  // ⚠️ Sous la porte « cote » inactive (vevewiki), il n'y a pas de page de
+  // marche : on ne depose rien, comme `reserve.ouvrir()` juste au-dessus.
+  if (PORTE_PRIX.actif) deposerMarche(_ds);
+
   return _ds;
 }

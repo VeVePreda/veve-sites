@@ -24,8 +24,7 @@ import { priceEnabled } from '../../../engine/lib/features.mjs';
 import Market from '../../components/pages/Market.astro';
 import { locales, COOKIE_LANGUE, languesInterface } from '../../../engine/lib/i18n.mjs';
 import { franchit, connecte } from '../../../engine/lib/access.mjs';
-import { lireCotes } from '../../../engine/lib/cote.mjs';
-import { dataset } from '../../../engine/lib/dataset.mjs';
+import { lireCotes, lireMarche } from '../../../engine/lib/cote.mjs';
 
 // 🌍 LOT 123 — CETTE PAGE AUSSI LIT LA PRÉFÉRENCE DE LANGUE.
 // Elle est rendue à la demande et réservée : elle peut donc servir des
@@ -72,7 +71,13 @@ Astro.response.headers.set('vary', 'cookie');
 // ⭐ On ne demande la réserve QUE pour les pièces réellement rendues. `ds.marche`
 // est déjà plafonné (200) : lire les 1 200 fichiers pour en afficher 200 serait
 // payer 1 000 lectures disque par visite.
-const ds = await dataset();
+// 🔴🔴🔴 LOT 125 — `lireMarche()` ET PLUS `await dataset()`. MESURE : 10 328 ms
+// contre 2 ms. `dataset()` retelechargeait 2,37 millions de lignes de prix et
+// REECRIVAIT `.reserve/cote/` a chaque demarrage du conteneur, dans le
+// processus qui sert la page. Le raisonnement complet est dans `cote.mjs`.
+// ⛔ Pas de repli vers `dataset()` si le fichier manque : `lireMarche()` leve,
+// et `test:marche` l'aurait dit au build.
+const ds = lireMarche();
 const cotes = lireCotes(ds.marche.map((i) => i.uuid));
 ---
-<Market lang={lang} cotes={cotes} />
+<Market lang={lang} cotes={cotes} ds={ds} />

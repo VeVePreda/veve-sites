@@ -26,7 +26,6 @@
 // et lui manque vraiment.
 import Base from '../../layouts/Base.astro';
 import BarreAcces from '../BarreAcces.astro';
-import { dataset } from '../../../engine/lib/dataset.mjs';
 import { t, localize, numberLocale } from '../../../engine/lib/i18n.mjs';
 import { rar, forme, delta, gemsM, omiM, RAR, mcpPoints, sparklineNormalisee, jourISO } from '../../../engine/lib/vitrine.mjs';
 
@@ -56,8 +55,15 @@ import { rar, forme, delta, gemsM, omiM, RAR, mcpPoints, sparklineNormalisee, jo
 // 101 par la porte d'à côté. Trois verrous la tiennent : l'inscription dans
 // ROUTES_COMPTE, le refus de la route elle-même, et `test:fuite` qui balaie
 // désormais TOUT `dist/`. Le troisième est le seul qui mesure.
-const { lang, cotes = {} } = Astro.props;
-const ds = await dataset();
+// 🔴🔴🔴 LOT 125 — `ds` ARRIVE PAR LES PROPS, IL NE SE RECALCULE PLUS ICI.
+// Ce composant appelait `await dataset()` : 10 328 ms mesurees a la premiere
+// requete, parce que la page est rendue A LA DEMANDE et que `dataset()`
+// retelecharge 2,37 millions de lignes de prix. La page le lit desormais dans
+// `.reserve/marche.json`, depose au build (`lireMarche()`, cf. cote.mjs).
+// ⚠️ `ds` N'EST PLUS LE JEU COMPLET : il porte `marche`, `marcheTotal`,
+// `itemsTotal` et `updatedAt`, rien d'autre. Un `ds.items` ici leverait — et
+// c'est voulu, plutot qu'un `undefined` qui afficherait « 0 fiches ».
+const { lang, cotes = {}, ds } = Astro.props;
 const nf = numberLocale[lang] || 'en-GB';
 const money = (v) => (v === null || v === undefined ? '—' : v.toLocaleString(nf, { maximumFractionDigits: 2 }));
 
@@ -212,7 +218,7 @@ const jour = (i) => jourISO(i.releaseDate);
 const chevron = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
 ---
 <Base sect="cotes" lang={lang} path="/market/" title={t(lang, 'movers.title')}
-      description={t(lang, 'desc.movers', { n: ds.items.length.toLocaleString(nf) })}
+      description={t(lang, 'desc.movers', { n: ds.itemsTotal.toLocaleString(nf) })}
       updatedAt={ds.updatedAt}
       crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') }, { name: t(lang, 'nav.movers') }]}>
 
@@ -232,7 +238,7 @@ const chevron = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6
       ce lot parle d'autre chose. */}
   <p class="etiq etiq--bleu">// {t(lang, 'movers.title').toUpperCase()}</p>
   <h1 class="mono-t">{t(lang, 'movers.title')}</h1>
-  <p class="respire">{t(lang, 'desc.movers', { n: ds.items.length.toLocaleString(nf) })}</p>
+  <p class="respire">{t(lang, 'desc.movers', { n: ds.itemsTotal.toLocaleString(nf) })}</p>
 
   {/* ═══════════════════════════════════════════════════════════════════════
       LA BARRE DE FILTRES — portée de la maquette, groupe par groupe
@@ -441,11 +447,16 @@ const chevron = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6
       <tbody>{lignes.map((i, k) => (
         <tr data-type={i.type} data-rar={i.rarity} data-n={i.name.toLowerCase()}
             data-var={i.change7d > 0 ? 'up' : i.change7d < 0 ? 'down' : ''}
-            data-ch={i.change7d === null || i.change7d === undefined ? '' : String(i.change7d)}
+            {/* ⭐ LOT 125 — DEUX DECIMALES, PAS DIX-SEPT. `String(i.change7d)` ecrivait
+                « 277.21324095458044 » dans l'attribut : 18 octets la ou 6 suffisent, sur
+                200 lignes, pour un tri qui ne regarde jamais la 3ᵉ decimale. ⛔ On arrondit
+                l'ATTRIBUT DE TRI, jamais la valeur affichee — `delta()` reste seul juge du
+                rendu. Mesure : 1 067 301 → voir le journal de `test:marche`. */}
+            data-ch={i.change7d === null || i.change7d === undefined ? '' : i.change7d.toFixed(2)}
             data-floor={i.floor === null || i.floor === undefined ? '' : String(i.floor)}
             data-sup={i.tirage ? String(i.tirage) : ''}
             data-lst={i.listings === null || i.listings === undefined ? '' : String(i.listings)}
-            data-mcp={parMcp(i) === null ? '' : String(parMcp(i))}
+            data-mcp={parMcp(i) === null ? '' : parMcp(i).toFixed(3)}
             data-date={jour(i)}>
           <td class="rang">{String(k + 1).padStart(3, '0')}</td>
           <td><a class="tbl-obj" href={localize(lang, i.path)}>

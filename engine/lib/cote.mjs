@@ -55,7 +55,7 @@
 // absente de l'image ? » aurait envoye chercher la panne dans le Dockerfile.
 // Une phrase de diagnostic qui ne nomme qu'UNE cause en exclut les autres.
 import { mkdirSync, existsSync, writeFileSync, readFileSync, readdirSync, rmSync } from 'node:fs';
-import { join } from 'node:path';
+import { join , dirname } from 'node:path';
 import { porte } from './access.mjs';
 
 const ROOT = process.env.PROJECT_ROOT || process.cwd();
@@ -340,4 +340,82 @@ export function lireCotes(uuids) {
       + `copiee dans l'image ; (3) le build n'a depose aucune cote.`);
   }
   return out;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 LOT 125 — LA PROJECTION DU MARCHE, ET POURQUOI ELLE EXISTE
+// ═══════════════════════════════════════════════════════════════════════════
+// MESURE DU 10/08/2026, serveur reel lance dans le bac a sable :
+//     premiere requete a /market/ : 10 440 ms   <<<
+//     requetes suivantes          :     55 ms
+//     dont `await dataset()` froid: 10 328 ms   (99 % du total)
+//     dont `lireCotes(200)`       :      3 ms
+//
+// ⭐⭐⭐ LE SOUPCON ETAIT FAUX. La note « /market/ ouvre 200 fichiers JSON par
+// requete » etait ecrite dans la memoire du projet et elle designait le mauvais
+// coupable : ces 200 lectures coutent TROIS MILLISECONDES. Le temps est ailleurs,
+// entierement, et il fallait le mesurer pour le voir.
+//
+// CE QUE FAISAIT `dataset()` A LA DEMANDE, DANS LE PROCESSUS QUI SERT LA PAGE :
+//   1. telecharger 3 Releases GitHub (catalogue 19 412, baselines 13 835) ;
+//   2. lire EN FLUX 2 372 025 lignes de prix ;
+//   3. recalculer toute la vitrine (quotas, gels, medianes, extremes) ;
+//   4. REECRIRE les 1 201 fichiers de `.reserve/cote/` — 9,1 Mo — sous les pieds
+//      du serveur en train de repondre.
+// ⛔ Autrement dit : le travail de BUILD refait a l'arrivee d'un visiteur.
+//
+// ⭐⭐ ET C'EST LA SEULE PAGE QUI LE PAIE. Les vingt autres appels a `dataset()`
+// (comics, collectibles, blog, sitemap, search-index…) sont dans des pages
+// PRE-GENEREES : ils s'executent au build, une fois. `/market/` est rendue a la
+// demande — le meme appel y devient un telechargement par visite.
+// 🔴 La memoisation (`_ds`) ne sauve rien : elle vit dans le processus. Chaque
+// redemarrage du conteneur la vide, et `rebuild-daily` deploie deux fois par
+// jour (cinq deploiements en treize minutes le 10/08 au matin). Le premier
+// visiteur apres chaque deploiement paie les dix secondes.
+//
+// LA SORTIE : ce que la page a besoin de savoir est DEJA CALCULE AU BUILD. On
+// le depose, on le relit. C'est exactement le motif de `.reserve/cote/` juste
+// au-dessus — et exactement la regle « la donnee manquante est presque toujours
+// deja collectee puis jetee ».
+// ⛔ AUCUN REPLI VERS `dataset()` : un repli legitime est la meilleure cachette
+// d'une panne. Si le fichier manque, l'image est mal construite et il faut que
+// ca se voie — `test:marche` le dit au build, avant le deploiement.
+
+/** Le fichier depose au build, lu a la demande. Voisin de `.reserve/cote/`,
+ *  hors de lui : `uuidValide()` refuse tout nom qui n'est pas un uuid, et la
+ *  projection n'en est pas un. */
+export const MARCHE_FICHIER = process.env.RESERVE_MARCHE || join(ROOT, '.reserve', 'marche.json');
+
+/** Depose la projection. Appele UNE FOIS, a la fin de `dataset()`, donc au build.
+ *  ⚠️ On ne depose PAS `ds` en entier : `ds.items` fait 19 412 lignes et la page
+ *  n'en rend que 200. Faire voyager le reste serait remplacer un cout par un autre. */
+export function deposerMarche(ds) {
+  mkdirSync(dirname(MARCHE_FICHIER), { recursive: true });
+  const charge = {
+    genereLe: new Date().toISOString(),
+    updatedAt: ds.updatedAt,
+    // ⭐ `itemsTotal` et pas `items` : la page n'affiche que le NOMBRE.
+    itemsTotal: Array.isArray(ds.items) ? ds.items.length : 0,
+    marcheTotal: ds.marcheTotal,
+    marche: ds.marche,
+  };
+  writeFileSync(MARCHE_FICHIER, JSON.stringify(charge), 'utf8');
+  console.log(`[marche] projection deposee : ${charge.marche.length} ligne(s) sur ${charge.marcheTotal}, `
+    + `${(JSON.stringify(charge).length / 1024).toFixed(0)} Ko — /market/ ne rappellera plus dataset()`);
+  return charge;
+}
+
+/** Relit la projection. ⛔ NE RETOMBE SUR RIEN, VOIR LE BLOC CI-DESSUS. */
+export function lireMarche() {
+  if (!existsSync(MARCHE_FICHIER)) {
+    throw new Error(
+      `[marche] projection absente (${MARCHE_FICHIER}). Trois causes, dans cet ordre de cout : `
+      + `(1) le build n'a pas appele deposerMarche() — la porte « cote » etait-elle active ? ; `
+      + `(2) \`.reserve/\` n'a pas ete copiee dans l'image (COPY --from=build /app/.reserve) ; `
+      + `(3) RESERVE_MARCHE pointe ailleurs. `
+      + `⛔ On ne retombe PAS sur dataset() : ce repli couterait 10 s par visite et masquerait la panne.`);
+  }
+  const c = JSON.parse(readFileSync(MARCHE_FICHIER, 'utf8'));
+  if (!Array.isArray(c.marche)) throw new Error(`[marche] projection illisible : champ \`marche\` absent`);
+  return c;
 }
