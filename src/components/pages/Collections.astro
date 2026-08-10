@@ -109,7 +109,30 @@ const PAR_TRANCHE = 60;
       `actifs`, `jeton` : rien de neuf. Deux écrans qui filtrent doivent
       filtrer PAREIL, sinon on réapprend l'interface à chaque page — et deux
       barres de filtres écrites séparément divergent en trois lots. */}
-  <form class="barre-f" id="f-sets" role="search" aria-label={t(lang, 'sets.filters')}>
+  {/* ═══════════════════════════════════════════════════════════════════
+      🔴🔴 LOT 115 — LES FILTRES DEVIENNENT RÉSERVÉS (demande Preda, 10/08)
+      ═══════════════════════════════════════════════════════════════════
+      ⭐⭐⭐ ET C'EST CE QUI TRANCHE LE CONFLIT AVEC LA PAGINATION.
+      Preda demandait « 20 par page pour tous » ET « pas de filtres hors
+      connexion ». Les deux ensemble sont impossibles côté client : ces pages
+      sont PRÉ-GÉNÉRÉES, membre et visiteur reçoivent le MÊME HTML. Un DOM
+      réduit à 20 sets rendrait le filtre faux pour TOUT LE MONDE, connecté
+      compris — et il RÉPONDRAIT quand même. *Un filtre qui cherche dans 20
+      lignes sur 910 est pire qu'un filtre absent.*
+      ⇒ On garde les 910 sets dans le DOM (donc pas de pagination ICI) et on
+      réserve la COMMANDE. Les comics et les collectibles, eux, sont paginés :
+      16 682 lignes ne tiennent pas en une page, et ils n'ont pas de filtre.
+      ⭐ `data-membre` + `hidden`, ET SURTOUT PAS `{aUneSession && …}` : la
+      règle du lot 100. Un bloc enveloppé dans un test de session disparaît du
+      DOM sur les routes dynamiques et RESTE sur les pages statiques — deux
+      pages, donc un défaut « parfois », donc irreproductible. `test:entete`
+      refuse cette forme.
+      ⛔ CE N'EST PAS UNE PORTE, C'EST UN AFFICHAGE. Les 910 sets restent dans
+      le HTML public : ce sont des noms et des tailles, pas des prix. On retire
+      un OUTIL, on ne cache pas une donnée — et il ne faut pas confondre les
+      deux, sinon on croira le mur plus haut qu'il n'est. */}
+  <p class="etiq filtres-mur" data-anonyme>{t(lang, 'sets.filtersLocked')}</p>
+  <form class="barre-f" id="f-sets" role="search" data-membre hidden aria-label={t(lang, 'sets.filters')}>
     <div class="barre-f__l">
       <span class="barre-f__t">{t(lang, 'sets.filters')}</span>
       <div class="seg-p" role="group" aria-label={t(lang, 'movers.type')}>

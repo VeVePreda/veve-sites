@@ -371,7 +371,15 @@ offer:
   # rapporte en promesse.
   url: ""            # <-- Discord, page d'attente, ou prestataire de paiement
 
-  annual_discount: 0.20    # −20 % à l'année
+  # 🔴🔴 LOT 114 — LA REMISE FAIT 1/6, ET CE N'EST PAS UN CHIFFRE ESTHÉTIQUE.
+  # Arbitrage Preda du 10/08 : « 5/15/30 $ est le prix ANNUEL, le plus bas doit
+  # être 5 $/mois ». Les prix de `plans` ci-dessous sont donc l'ANNUEL
+  # mensualisé ; le mensuel s'en déduit : `annuel / (1 - remise)`.
+  #   remise 0,20 → mensuel 6,25 / 18,75 / 37,50  ⛔ trois décimales à afficher
+  #   remise 1/6  → mensuel 6 / 18 / 36           ✅ rond des DEUX côtés
+  # ⭐ On choisit la remise pour que les deux colonnes soient lisibles, pas
+  # l'inverse. Un tarif à 18,75 $ se lit comme un piège ; 18 $ se lit.
+  annual_discount: 0.16667   # ≈ −16,7 % à l'année (1/6) — 2 mois offerts sur 12
 
   # ⚠️ `cle` DOIT correspondre à un palier de `access.tiers`. Un plan dont le
   # palier n'existe pas serait vendu pour une porte qui ne s'ouvrira jamais :

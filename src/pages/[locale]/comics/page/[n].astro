@@ -1,0 +1,24 @@
+---
+// ⚠️ VeVePreda/veve-sites — src/pages/[locale]/comics/page/[n].astro   (NEUF — lot 113)
+import Rayon, { PAR_PAGE } from '../../../../components/Rayon.astro';
+import { priceEnabled } from '../../../../../engine/lib/features.mjs';
+import { locales } from '../../../../../engine/lib/i18n.mjs';
+import { dataset } from '../../../../../engine/lib/dataset.mjs';
+export async function getStaticPaths() {
+  if (!priceEnabled()) return [];
+  const ds = await dataset();
+  const total = {
+    sets: ds.collections.size,
+    comics: ds.rayon.filter((r) => r.type === 'comic').length,
+    collectibles: ds.rayon.filter((r) => r.type !== 'comic').length,
+  }['comics'];
+  const pages = Math.max(1, Math.ceil(total / PAR_PAGE));
+  const { active, def } = locales();
+  const out = [];
+  for (const l of active.filter((x) => x !== def)) {
+    for (let k = 2; k <= pages; k++) out.push({ params: { locale: l, n: String(k) } });
+  }
+  return out;
+}
+---
+<Rayon lang={Astro.params.locale} rayon="comics" page={Number(Astro.params.n)} />

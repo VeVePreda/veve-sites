@@ -1,0 +1,29 @@
+---
+// ⚠️ VeVePreda/veve-sites — src/pages/comics/page/[n].astro   (FICHIER NEUF — lot 113)
+//
+// 🔴🔴 POURQUOI `/page/2/` ET PAS `/2/`.
+//    `src/pages/comics/[serie]/…` existe : `/comics/2/` serait lu comme la série
+//    nommee « 2 ». Astro donne la priorite au segment STATIQUE `page`, donc les
+//    deux cohabitent — mais l'adresse `/comics/2/` resterait ambigue a l'oeil,
+//    et une serie reellement nommee « page » serait masquee par cette route.
+//    ⭐ Le cas est assez rare pour etre accepte, assez reel pour etre ecrit.
+import Rayon, { PAR_PAGE } from '../../../components/Rayon.astro';
+import { priceEnabled } from '../../../../engine/lib/features.mjs';
+import { locales } from '../../../../engine/lib/i18n.mjs';
+import { dataset } from '../../../../engine/lib/dataset.mjs';
+export async function getStaticPaths() {
+  if (!priceEnabled()) return [];
+  const ds = await dataset();
+  const total = {
+    sets: ds.collections.size,
+    comics: ds.rayon.filter((r) => r.type === 'comic').length,
+    collectibles: ds.rayon.filter((r) => r.type !== 'comic').length,
+  }['comics'];
+  // ⭐ On commence a 2 : la page 1 est `index.astro`. Emettre `/page/1/`
+  //    fabriquerait un DOUBLON de la racine — deux adresses, un contenu.
+  const pages = Math.max(1, Math.ceil(total / PAR_PAGE));
+  return Array.from({ length: Math.max(0, pages - 1) }, (_, k) => ({ params: { n: String(k + 2) } }));
+}
+const lang = locales().def;
+---
+<Rayon lang={lang} rayon="comics" page={Number(Astro.params.n)} />

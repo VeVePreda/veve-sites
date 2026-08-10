@@ -1,0 +1,53 @@
+---
+// ⚠️ VeVePreda/veve-sites — src/components/AVenir.astro   (FICHIER NEUF — lot 113)
+//
+// ⏳ LES DROPS À VENIR — « ceux qui ont une date de drop supérieure au jour
+//    actuel » (Preda, 10/08). Rendu sur les trois rayons ET sur l'accueil.
+//
+// 🔴🔴 LE PIÈGE EST DANS LA DATE, ET IL NE PLANTE PAS.
+//    `release_date` vaut « 06/10/2021 14:00:00 » ou « 30/12/2021 » : JJ/MM/AAAA.
+//    `new Date("06/10/2021")` est lu MM/JJ/AAAA par V8 — le 10 juin au lieu du
+//    6 octobre. Le filtre rend alors un ensemble FAUX, ou vide, en silence.
+//    ⇒ le tri se fait dans `dataset.mjs` avec `jourISO()`, et un banc le tient.
+//
+// ⛔⛔ IL SE TAIT QUAND IL N'A RIEN. Mesuré le 10/08 : 7 drops. VeVe n'annonce
+//    qu'à quelques jours — ce module sera souvent vide, et *un cadre vide
+//    ressemble à une panne*. On ne rend rien plutôt qu'un « aucun résultat ».
+//
+// ⭐ LES CARTES NE SONT PAS CLIQUABLES, ET C'EST STRUCTUREL : un drop à venir
+//    n'a aucun relevé de prix, donc aucune fiche, donc aucune adresse.
+import { dataset } from '../../engine/lib/dataset.mjs';
+import { t, numberLocale } from '../../engine/lib/i18n.mjs';
+
+const { lang, rayon = null } = Astro.props;
+const ds = await dataset();
+const nf = numberLocale[lang] || 'en-GB';
+
+// ⭐ `sets` et l'accueil montrent TOUT ; un rayon ne montre que le sien.
+const cible = rayon === 'comics' ? 'comic' : rayon === 'collectibles' ? 'collectible' : null;
+const liste = (ds.aVenir || []).filter((d) => !cible || d.type === cible);
+
+const jour = (iso) => new Date(`${iso}T00:00:00Z`)
+  .toLocaleDateString(lang === 'fr' ? 'fr-FR' : lang === 'de' ? 'de-DE'
+    : lang === 'es' ? 'es-ES' : lang === 'it' ? 'it-IT' : 'en-GB',
+    { day: '2-digit', month: 'short', timeZone: 'UTC' });
+---
+{liste.length > 0 && (
+<section class="avenir">
+  <div class="sect-t"><h2 class="mono-t">{t(lang, 'avenir.titre')}</h2></div>
+  <ul class="avenir__l">
+    {liste.map((d) => (
+      <li class="avenir__c">
+        <span class="avenir__j">{jour(d.jour)}</span>
+        <span class="avenir__n">{d.name}</span>
+        {d.series && <span class="avenir__s">{d.series}</span>}
+        {/* ⭐ MESURÉ : les 10 lignes « à venir » du catalogue sont 2 comics ×
+            5 raretés. `dataset.mjs` GROUPE ; on annonce le nombre de raretés
+            plutôt que de répéter cinq fois la même couverture. */}
+        {d.raretes > 1 && <span class="avenir__r">{t(lang, 'avenir.raretes', { n: d.raretes })}</span>}
+      </li>
+    ))}
+  </ul>
+  <p class="etiq">{t(lang, 'avenir.note')}</p>
+</section>
+)}

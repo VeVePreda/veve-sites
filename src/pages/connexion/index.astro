@@ -35,7 +35,15 @@ import { sceau, champPiegeHtml } from '../../../engine/lib/robots.mjs';
 const { active, def } = locales();
 const souhait = (Astro.request.headers.get('accept-language') || '')
   .split(',').map((x) => x.split(';')[0].trim().slice(0, 2).toLowerCase());
-const lang = souhait.find((l) => active.includes(l)) || def;
+// 🔴 LOT 114 — MÊME RÈGLE QUE `/inscription/`, ET C'EST LE POINT.
+// Preda : « la page connexion doit avoir le même design que la page
+// inscription ». Le design commence par la LANGUE : deux pages du même parcours
+// qui ne s'ouvrent pas dans la même langue ne se ressemblent pas, quelle que
+// soit leur mise en page. ⛔ Les deux règles doivent rester identiques ; si
+// l'une change, l'autre change.
+const demande = new URL(Astro.request.url).searchParams.get('lang');
+const lang = (demande && active.includes(demande)) ? demande
+  : (active.includes('en') ? 'en' : def);
 // ⛔ DÉCISION PREDA DU 03/08/2026 : vevewiki n'aura JAMAIS d'espace membre.
 // La question était ouverte depuis le lot 42 ; elle est close, on ne la
 // repose pas.
@@ -96,6 +104,26 @@ const marqueTemps = sceau();
       crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') }, { name: t(lang, 'login.title') }]}>
 
   <span class="logo logo--xl" aria-hidden="true">VP</span>
+      {/* 🔴🔴 LOT 114 — LE SÉLECTEUR DE LANGUE MANQUAIT ICI, ET C'ÉTAIT
+          STRUCTUREL. Le globe de l'en-tête ne s'affiche que si
+          `alternates.length > 1` ; ces deux pages passent `langs={[def]}`,
+          donc UNE seule alternative, donc pas de globe. Ce n'était pas un
+          oubli d'affichage : la condition était juste, et son effet de bord
+          laissait le visiteur sans commande de langue au moment exact où il
+          entre dans le site.
+          ⛔ ELLES N'ONT QU'UNE ADRESSE (elles lisent `Accept-Language`, elles
+          ne sont pas préfixées par locale) : on ne peut donc PAS proposer
+          `/fr/inscription/` — cette page n'existe pas. La langue passe par
+          `?lang=`, que le frontmatter lit en priorité.
+          ⭐ Ce sont des LIENS, pas des boutons : ils marchent sans JavaScript,
+          et un lecteur d'écran les annonce comme une navigation — ce qu'ils
+          sont. */}
+      <p class="lang-choix">
+        {active.map((l) => (
+          <a href={`?lang=${l}`} hreflang={l}
+             aria-current={l === lang ? 'true' : undefined}>{l.toUpperCase()}</a>
+        ))}
+      </p>
   <h1 class="mono-t">{t(lang, 'login.title')}</h1>
 
   {/* 🔴 LE RETOUR APRÈS UNE SUPPRESSION — lot 98.

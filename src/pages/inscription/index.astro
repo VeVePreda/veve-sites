@@ -23,7 +23,21 @@ import { getCatalogue } from '../../../engine/data/warehouse.mjs';
 const { active, def } = locales();
 const souhait = (Astro.request.headers.get('accept-language') || '')
   .split(',').map((x) => x.split(';')[0].trim().slice(0, 2).toLowerCase());
-const lang = souhait.find((l) => active.includes(l)) || def;
+// 🔴🔴 LOT 114 — L'INSCRIPTION S'OUVRE EN ANGLAIS (demande Preda, 10/08).
+// ⚠️ CE N'ÉTAIT PAS UN DÉFAUT : la page lit `Accept-Language`, le navigateur de
+// Preda dit « fr », elle répondait en français — exactement ce qu'on lui avait
+// demandé de faire. C'est une DÉCISION qui change, pas un bug qu'on répare.
+// ⭐ Pourquoi elle se défend : l'inscription est la première page d'un site qui
+// s'adresse à une communauté VeVe internationale. La négociation de langue est
+// juste pour du CONTENU (une fiche, un article) ; pour un formulaire d'entrée,
+// elle fait dépendre la langue d'un réglage que la plupart des gens n'ont jamais
+// vu. L'anglais est le pivot du réseau, et le sélecteur ci-dessous rend la
+// bascule explicite plutôt que devinée.
+// ⛔ `?lang=` PRIME sur tout : sans ça, le sélecteur de langue de cette page
+// serait inerte — un contrôle qui ne répond pas est pire qu'un contrôle absent.
+const demande = new URL(Astro.request.url).searchParams.get('lang');
+const lang = (demande && active.includes(demande)) ? demande
+  : (active.includes('en') ? 'en' : def);
 
 // ⛔ UN SITE SANS PALIERS N'A RIEN À INSCRIRE.
 // ⭐ ET UNE PAGE NE SE RETIRE PAS D'UN SITE EN LA REDIRIGEANT : tant qu'elle est
@@ -135,6 +149,26 @@ const marqueTemps = sceau();
 
       <div class="inscr__tete">
         <span class="logo logo--xl" aria-hidden="true">VP</span>
+      {/* 🔴🔴 LOT 114 — LE SÉLECTEUR DE LANGUE MANQUAIT ICI, ET C'ÉTAIT
+          STRUCTUREL. Le globe de l'en-tête ne s'affiche que si
+          `alternates.length > 1` ; ces deux pages passent `langs={[def]}`,
+          donc UNE seule alternative, donc pas de globe. Ce n'était pas un
+          oubli d'affichage : la condition était juste, et son effet de bord
+          laissait le visiteur sans commande de langue au moment exact où il
+          entre dans le site.
+          ⛔ ELLES N'ONT QU'UNE ADRESSE (elles lisent `Accept-Language`, elles
+          ne sont pas préfixées par locale) : on ne peut donc PAS proposer
+          `/fr/inscription/` — cette page n'existe pas. La langue passe par
+          `?lang=`, que le frontmatter lit en priorité.
+          ⭐ Ce sont des LIENS, pas des boutons : ils marchent sans JavaScript,
+          et un lecteur d'écran les annonce comme une navigation — ce qu'ils
+          sont. */}
+      <p class="lang-choix">
+        {active.map((l) => (
+          <a href={`?lang=${l}`} hreflang={l}
+             aria-current={l === lang ? 'true' : undefined}>{l.toUpperCase()}</a>
+        ))}
+      </p>
         <h1 class="inscr__h1">{t(lang, 'signup.title')}</h1>
         <p class="etiq">{t(lang, 'signup.free')}</p>
       </div>

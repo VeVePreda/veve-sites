@@ -430,6 +430,10 @@ const menuComplet = wikiNav
          `a[data-membre]` et non `[data-membre]` nu : le sélecteur nu
          attraperait le globe, dont l'affichage est `block`. Un sélecteur trop
          large ne lève rien, il déplace juste un voisin.
+      6. lot 115 — la barre de filtres des sets. `form[data-membre]` et non
+         `[data-membre]` nu : le sélecteur nu attraperait le globe et les liens
+         de menu, dont l'affichage n'est PAS `block`. Un sélecteur trop large
+         ne lève rien, il déplace juste un voisin — la leçon de la règle 4.
       5. lot 104 — l'accueil DEVIENT le tableau de bord. `display:block` :
          ce sont des blocs de page. La règle 1 fait déjà disparaître le `hero`
          — rien à dupliquer, deux règles pour la même chose divergent un jour. Ces sélecteurs ne peuvent toucher que des éléments qui
@@ -441,6 +445,7 @@ const menuComplet = wikiNav
   html:not([data-membre]) .h-cta[hidden] { display: inline-flex !important; }
   html[data-membre] a[data-membre][hidden] { display: inline-flex !important; }
   html[data-membre] .tableau-bord[data-membre][hidden] { display: block !important; }
+  html[data-membre] form[data-membre][hidden] { display: block !important; }
 </style>
 {/* ═══════════════════════════════════════════════════════════════════════
     🔥 LOT 105 — LE THÈME QUITTE LE HTML, ET C'EST TOUT CE QUI CHANGE ICI.
@@ -1191,5 +1196,55 @@ const menuComplet = wikiNav
     fichier, meme quand la seconde n'est pas posee. Le composant decide s'il
     s'emet ; ce gabarit-ci ne sait rien des paliers, et c'est mieux ainsi. */}
 <CoteScript />
+{/* ═══════════════════════════════════════════════════════════════════════
+    ❤️ LOT 115 — LES FAVORIS VIVENT DANS LE NAVIGATEUR (arbitrage Preda, 10/08)
+    ═══════════════════════════════════════════════════════════════════════
+    ⭐⭐ « Dans le navigateur d'abord, le compte plus tard » : ce script écrit
+    dans `localStorage`, rien d'autre. Aucun appel réseau, aucun cookie, aucune
+    dépendance à `veveid` — donc rien à déployer côté service, et le bouton
+    marche le jour où il est déposé.
+    ⛔ CE QUI SE PERD, ET IL FAUT LE DIRE : les favoris ne suivent pas d'un
+    appareil à l'autre, et un nettoyage de navigateur les efface. C'est le prix
+    assumé de la première moitié ; la seconde (les porter dans le compte) est un
+    lot à part, et ce format de stockage est fait pour y être relu.
+    ⭐ LE SCRIPT EST DANS `Base.astro`, PAS SUR LA FICHE : le jour où un cœur
+    apparaît ailleurs (une carte, le tableau de bord), il fonctionne sans qu'on
+    y repense. Il ne cherche que `[data-fav]` et ne suppose aucune page.
+    ⚠️ `try/catch` AUTOUR DE `localStorage` : en navigation privée sur certains
+    navigateurs, la simple LECTURE lève. Sans ce garde, une exception ici
+    arrêterait tous les scripts qui suivent — dont l'en-tête.
+    ⭐⭐ AUCUNE DONNÉE RÉSERVÉE : on ne mémorise qu'un `uuid` et un chemin,
+    deux choses déjà publiques sur la page qui les porte. */}
+<script is:inline>
+  (function () {
+    var CLE = 'vp_fav';
+    function lire() {
+      try { return JSON.parse(localStorage.getItem(CLE) || '{}') || {}; }
+      catch (e) { return {}; }
+    }
+    function ecrire(o) {
+      try { localStorage.setItem(CLE, JSON.stringify(o)); } catch (e) { /* quota, mode privé */ }
+    }
+    var favs = lire();
+    var boutons = document.querySelectorAll('[data-fav]');
+    if (!boutons.length) return;
+    function peindre(b, on) {
+      b.setAttribute('aria-pressed', String(on));
+      var l = b.getAttribute(on ? 'data-l-on' : 'data-l-off');
+      if (l) { b.setAttribute('aria-label', l); b.setAttribute('title', l); b.setAttribute('data-l', l); }
+    }
+    boutons.forEach(function (b) {
+      var u = b.getAttribute('data-fav');
+      peindre(b, !!favs[u]);
+      b.addEventListener('click', function () {
+        favs = lire();                       // ⭐ on relit : un autre onglet a pu écrire
+        if (favs[u]) delete favs[u];
+        else favs[u] = { p: b.getAttribute('data-fav-path') || '', t: Date.now() };
+        ecrire(favs);
+        peindre(b, !!favs[u]);
+      });
+    });
+  })();
+</script>
 </body>
 </html>

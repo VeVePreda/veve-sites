@@ -376,6 +376,37 @@ const mcpJour = mcpPoints(item.rarity, item.type);
     <div class="fiche__txt">
       {/* 📕 Le TITRE DE L'OEUVRE, pas celui de la collection. Voir `titreOeuvre`
           dans le frontmatter : repli sur `item.name`, toujours. */}
+      {/* ═══════════════════════════════════════════════════════════════
+          ❤️ LOT 115 — LE BOUTON FAVORI (demande Preda, arbitrage du 10/08 :
+          « dans le navigateur d'abord, le compte plus tard »).
+          ═══════════════════════════════════════════════════════════════
+          ⭐⭐ IL EST SUR LA FICHE, PAS SUR LA CARTE, ET CE N'EST PAS UN CHOIX
+          D'ERGONOMIE. `.socle__fav` est stylé dans le thème depuis le lot 15
+          — six règles écrites pour un composant qui n'a jamais existé — et il
+          y est positionné DANS `.carte`. Or `.carte` EST un `<a>` : un
+          `<button>` à l'intérieur d'un lien est du HTML invalide, et il vole
+          ou perd le clic selon le navigateur. Poser le cœur sur les cartes
+          demande de démonter `Carte.astro` ; ça n'entre pas dans ce lot.
+          ⛔ ET LE STYLE EXISTANT PORTE UN SECOND DÉFAUT : `.socle__fav` part à
+          `opacity:0` et ne se relève qu'au SURVOL. Sur un téléphone, il n'y a
+          pas de survol — le bouton n'existerait tout simplement pas. Le lot
+          ajoute la variante `--fiche`, visible d'emblée. *Un contrôle qui
+          n'apparaît qu'au survol n'existe pas sur la moitié des appareils.*
+          ⭐⭐⭐ IL EST RENDU POUR TOUT LE MONDE, TOUJOURS. Cette page est
+          PRÉ-GÉNÉRÉE : elle n'a pas de visiteur, et un bouton enveloppé dans
+          un test de session disparaîtrait des 8 484 fichiers statiques tout en
+          restant sur les routes dynamiques — la règle du lot 100.
+          ⚠️ AUCUNE DONNÉE RÉSERVÉE NE TRANSITE : le favori ne mémorise qu'un
+          `uuid` et un chemin, deux choses déjà publiques sur cette page. */}
+      <button type="button" class="socle__fav socle__fav--fiche" data-fav={item.uuid}
+              data-fav-path={item.path} aria-pressed="false"
+              data-l={t(lang, 'fav.add')}
+              data-l-on={t(lang, 'fav.remove')} data-l-off={t(lang, 'fav.add')}
+              aria-label={t(lang, 'fav.add')} title={t(lang, 'fav.add')}>
+        <svg viewBox="0 0 24 24" aria-hidden="true" stroke-linejoin="round">
+          <path d="M12 20.2 4.6 12.9a4.6 4.6 0 0 1 6.5-6.5l.9.9.9-.9a4.6 4.6 0 1 1 6.5 6.5Z" />
+        </svg>
+      </button>
       <h1 class="mono-t">{titreOeuvre}</h1>
       {/* ⛔ RARETÉ ET TIRAGE RETIRÉS D'ICI LE 06/08/2026 (demande de Preda).
           Ils restent dans le tableau d'identité 90 lignes plus bas — ils y sont

@@ -1,8 +1,11 @@
 ---
+// 🔴 LOT 113 — `/collections/` rend l'ORIENTATION. La liste des sets qu'elle
+//    portait vit maintenant sur `/sets/`. ⛔ L'adresse ne bouge pas : elle est
+//    indexee, elle garde son autorite et change de role.
 import { priceEnabled } from '../../engine/lib/features.mjs';
-import Collections from '../components/pages/Collections.astro';
+import Orientation from '../components/pages/Orientation.astro';
 import { locales } from '../../engine/lib/i18n.mjs';
 const lang = locales().def;
 if (!priceEnabled()) return Astro.redirect('/');
 ---
-<Collections lang={lang} />
+<Orientation lang={lang} />

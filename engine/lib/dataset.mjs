@@ -11,6 +11,7 @@ import { projeter as projeterCote } from './cote.mjs';
 import { getCatalogue, getBaselines, streamPrices } from '../data/warehouse.mjs';
 import { manifest, SITE } from './manifest.mjs';
 import { porte } from './access.mjs';
+import { jourISO } from './vitrine.mjs';   // 🔴 LOT 113 — JJ/MM/AAAA, jamais `new Date(chaine)`
 // ⭐ LA RÉSERVE — l'historique COMPLET, écrit HORS de dist/, pour la route
 // `/api/historique/[uuid]`. Elle se greffe sur LA passe de prix qui a DÉJÀ
 // lieu ici : `streamPrices` n'est pas mis en cache (contrairement à `load()`),
@@ -876,8 +877,71 @@ async function construireDataset() {
   // en dessous : il lirait `undefined`.
   const cote = projeterCote(items);
 
+  // ═══════════════════════════════════════════════════════════════════════
+  //  🔴🔴🔴 LOT 113 — LE RAYON : TOUT LE CATALOGUE, SANS UN SEUL PRIX
+  // ═══════════════════════════════════════════════════════════════════════
+  //  Arbitrage Preda du 10/08 : « lister tout le catalogue, cliquable seulement
+  //  quand il y a une fiche ». Le site PUBLIE 1 200 fiches sur 19 412 (6 %) —
+  //  deux filtres se cumulent, le seuil de MIN_POINTS relevés de prix puis le
+  //  quota gelé. Une LIGNE DE LISTE, elle, n'a pas besoin d'une page.
+  //
+  //  🔴🔴 ET C'EST ICI QUE SE JOUE LA FUITE LA PLUS GROSSE QU'ON PUISSE FAIRE.
+  //  `catalogue.csv` porte `floor`, `listings`, `ath`, `atl`, `ath_date`. Passer
+  //  une ligne de catalogue à un gabarit, c'est publier 19 412 prix en clair —
+  //  seize fois pire que la fuite que le lot 112 vient de fermer, et par un
+  //  chemin que `projeter()` NE VOIT PAS : `projeter()` mute `items`, pas `cat`.
+  //  ⭐⭐⭐ ON NE RETIRE DONC RIEN : ON N'AJOUTE QUE CE QU'ON NOMME. Une liste
+  //  blanche se relit ; une liste noire s'oublie le jour où la source gagne une
+  //  colonne. Le fichier amont a déjà gagné des colonnes sans prévenir.
+  //  ⛔ `store_price` (le prix de drop) est PUBLIC et reste sur la fiche — il
+  //  n'entre pas ici : une liste n'en a pas besoin, et chaque champ en plus est
+  //  un champ à surveiller.
+  const publiesParUuid = new Map(items.map((i) => [i.uuid, i.path]));
+  const rayonDe = (c) => ({
+    uuid: c.uuid || c.veve_uuid || '',
+    type: estComic(c.kind) ? 'comic' : 'collectible',
+    name: c.name || '',
+    rarity: c.rarity || '',
+    edition_type: c.edition_type || '',
+    series: c.series || '',
+    brand: c.brand || '',
+    tirage: Number(c.tirage) || null,
+    releaseDate: c.release_date || '',
+    // ⭐ LE LIEN N'EXISTE QUE SI LA FICHE EXISTE. `bySlug` ne contient que les
+    //   1 200 publiées : `path` vaut null pour les 18 212 autres, et le gabarit
+    //   rend alors un <div>, pas un <a>. ⛔ Fabriquer l'adresse à la main
+    //   produirait 18 212 liens vers des 404 — invisibles au build, puisque ce
+    //   sont des liens et pas des routes. Ce dépôt l'a déjà payé trois fois.
+    path: (publiesParUuid.get(c.uuid || c.veve_uuid) || null),
+  });
+  const rayon = cat.map(rayonDe);
+
+  // ⏳ LES DROPS À VENIR — « ceux qui ont une date de drop supérieure au jour
+  //    actuel » (Preda, 10/08).
+  //    🔴🔴 `release_date` vaut « 06/10/2021 14:00:00 » ou « 30/12/2021 » :
+  //    JJ/MM/AAAA, heure optionnelle. `new Date("06/10/2021")` est interprété
+  //    en MM/JJ/AAAA par V8 — soit le 10 juin au lieu du 6 octobre. Le filtre
+  //    ne PLANTE pas : il rend un ensemble faux, ou vide, en silence.
+  //    ⇒ `jourISO()` et rien d'autre. Un banc le tient.
+  //    ⭐ MESURÉ le 10/08 sur les 19 412 lignes : 10 lignes à venir, qui sont
+  //    2 comics × 5 raretés. Lister les lignes montrerait cinq fois la même
+  //    couverture. ⇒ ON GROUPE, et on garde la rareté la plus basse comme
+  //    représentante (celle que tout le monde peut avoir).
+  const auj = new Date(); auj.setHours(0, 0, 0, 0);
+  const aVenirParDrop = new Map();
+  for (const r of rayon) {
+    const j = jourISO(r.releaseDate);
+    if (!j || new Date(j) <= auj) continue;
+    const cle = `${j}|${r.name}`;
+    if (!aVenirParDrop.has(cle)) aVenirParDrop.set(cle, { ...r, jour: j, raretes: 0 });
+    aVenirParDrop.get(cle).raretes++;
+  }
+  const aVenir = [...aVenirParDrop.values()].sort((a, b) => a.jour.localeCompare(b.jour));
+  console.log(`[rayon] ${rayon.length} ligne(s) de catalogue · ${rayon.filter((r) => r.path).length} cliquable(s) · ${aVenir.length} drop(s) a venir`);
+
   _ds = {
     items, bySlug, collections, rarities, movers, cote,
+    rayon, aVenir,
     marche, marcheTotal,
     catalogueSize: cat.length,
     windowDays: WINDOW_DAYS,

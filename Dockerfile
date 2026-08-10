@@ -262,6 +262,13 @@ RUN WAREHOUSE_OFFLINE=1 npm run test:feuille
 #    ⚠️ Il lit `themes/` et `engine/lib/`, jamais `dist/` : il peut donc tourner
 #    AVANT le build. Il est place ici pour rester avec les bancs de la feuille.
 RUN WAREHOUSE_OFFLINE=1 npm run test:opacite
+# 🔴🔴 `test:rayon` — LOT 113. Le rayon expose les 19 412 lignes du catalogue,
+#    et `catalogue.csv` porte `floor`, `listings`, `ath`, `atl`. Une ligne brute
+#    passee a un gabarit publierait 19 412 prix, PAR UN CHEMIN QUE `projeter()`
+#    NE VOIT PAS (il mute `items`, jamais `cat`). Ce banc prouve la liste
+#    blanche, tient le piege JJ/MM/AAAA du filtre « A venir », et verifie que la
+#    pagination ne perd pas sa derniere ligne.
+RUN WAREHOUSE_OFFLINE=1 npm run test:rayon
 # 🟠 DETTE DU 07/08 RAMASSEE AU PASSAGE — `test:promesses` etait dans `npm test`
 #    et PAS ici, seul des 27 dans ce cas. *Un garde-fou qui ne tourne pas en
 #    production ne garde rien.* Il casse le build si `offer.url` se remplit

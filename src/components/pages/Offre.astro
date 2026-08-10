@@ -102,8 +102,36 @@ const REMISE_AN = m.offer?.annual_discount ?? 0.20;
 const visibles = PLANS.filter((p) => tiers.includes(p.cle));
 // ⚠️ « Gratuit » ÉTAIT ÉCRIT EN DUR — donc en français sur la page anglaise.
 // Un texte destiné à être lu ne s'écrit jamais dans un gabarit multilingue.
-const eur = (v) => (v === 0 ? t(lang, 'offer.free.price') : t(lang, 'offer.permonth', { v }));
-const an = (v) => (v === 0 ? '—' : t(lang, 'offer.peryear', { v: Math.round(v * 12 * (1 - REMISE_AN)) }));
+// 🔴🔴 LOT 114 — `plans.prix` EST DÉSORMAIS LE PRIX ANNUEL MENSUALISÉ.
+// Arbitrage Preda du 10/08 : « 5/15/30 $ est le prix ANNUEL ». Le mensuel s'en
+// déduit vers le HAUT — c'est l'engagement qui fait la remise, pas l'inverse.
+// ⭐ La remise du manifeste vaut 1/6 pour que les deux colonnes soient rondes :
+//   annuel 5 / 15 / 30  ·  mensuel 6 / 18 / 36.
+// ⛔ NE PAS relire `prix` comme un mensuel : les deux lectures donnent une
+//    grille cohérente et un prix affiché DIFFÉRENT, sans qu'aucun banc ne
+//    puisse trancher. C'est écrit ici parce que c'est ici qu'on se tromperait.
+const mensuel = (v) => Math.round(v / (1 - REMISE_AN));
+const eurAn = (v) => (v === 0 ? t(lang, 'offer.free.price') : t(lang, 'offer.permonth', { v }));
+const eurMois = (v) => (v === 0 ? t(lang, 'offer.free.price') : t(lang, 'offer.permonth', { v: mensuel(v) }));
+const noteAn = (v) => (v === 0 ? '' : t(lang, 'offer.billedYear', { v: v * 12 }));
+const noteMois = (v) => (v === 0 ? '' : t(lang, 'offer.billedMonth'));
+
+// ⭐⭐ LE TABLEAU COMPARATIF — demande Preda : « en dessous des offres, à la
+//    place de Modules, un tableau comparatif des offres avec la liste des
+//    modules ». Une grille de cartes dit ce que CHAQUE palier contient ; un
+//    tableau dit ce qui les SÉPARE, et c'est la question qu'on se pose devant
+//    une page de tarifs.
+//    ⛔ La colonne d'un palier non déclaré n'existe pas : `visibles` filtre
+//    déjà sur `access.tiers`, et le tableau lit la même liste — deux sources
+//    donneraient deux grilles qui divergent au premier palier ajouté.
+const RANGS = ['visitor', 'member', 'crevette', 'langouste', 'whale'];
+const rang = (c) => RANGS.indexOf(c);
+const ouvertPour = (mo, cle) => {
+  if (!mo.porte) return true;                      // pas une porte du moteur
+  const pt = porte(mo.porte);
+  if (!pt.actif) return true;
+  return rang(cle) >= rang(pt.tier);
+};
 const dsOffre = await dataset();
 ---
 {/* 🔴 LOT 112 — `updatedAt` pour que le pied de page porte la même première
@@ -127,9 +155,27 @@ const dsOffre = await dataset();
     <p class="muted">{t(lang, 'offer.free')}</p>
   )}
 
+  {/* ═══════════════════════════════════════════════════════════════════
+      🔴 LOT 114 — LA BASCULE MOIS / ANNÉE (demande Preda, 10/08)
+      ═══════════════════════════════════════════════════════════════════
+      ⭐⭐ L'ANNÉE EST L'ÉTAT PAR DÉFAUT, et ce n'est pas une astuce de vente :
+      c'est le prix que Preda a arbitré comme la référence (« 5/15/30 $ est le
+      prix ANNUEL »). Afficher le mensuel par défaut donnerait une page dont le
+      chiffre principal contredit celui de toutes les autres.
+      ⛔ CE SONT DES BOUTONS, ET ILS ONT BESOIN DE JAVASCRIPT — assumé : les
+      DEUX prix sont dans le HTML, et sans script le visiteur voit l'annuel,
+      c'est-à-dire une page complète et juste. On ne casse rien, on n'ajoute
+      qu'un confort. (Un `<details>` aurait marché sans JS mais aurait donné
+      deux prix EMPILÉS, ce qui est exactement ce qu'une bascule évite.) */}
+  <div class="bascule-p" role="group" aria-label={t(lang, 'offer.period')}>
+    <button type="button" class="bascule-p__b" data-per-b="an" aria-pressed="true">{t(lang, 'offer.yearly')}</button>
+    <button type="button" class="bascule-p__b" data-per-b="mois" aria-pressed="false">{t(lang, 'offer.monthly')}</button>
+    <span class="bascule-p__g">{t(lang, 'offer.saveHint')}</span>
+  </div>
+
   <div class="tarifs">
     {visibles.map((p) => (
-      <div class:list={['tarif', p.cle === 'crevette' ? 'tarif--phare' : '']} data-phare={t(lang, 'offer.mostChosen')}>
+      <div class:list={['tarif', p.cle === 'langouste' ? 'tarif--phare' : '']   /* 🔴 LOT 114 — Preda, 10/08 : le plus choisi est Langouste */} data-phare={t(lang, 'offer.mostChosen')}>
         {/* ⛔ `p.nom` etait une chaine NUE : « Membre » s'affichait sur la page
             anglaise. Comme `p.d`, c'est desormais une carte par langue — et on
             se replie sur la langue pivot plutot que d'afficher un objet. */}
@@ -142,7 +188,19 @@ const dsOffre = await dataset();
           <span style="color:var(--sect-a);display:inline-flex"><Fragment set:html={iconePalier(p.cle)} /></span>
           {pick(p.nom, lang)}
         </h2>
-        <p class="tarif__b"><span class="tarif__p">{eur(p.prix)}</span><span class="prix__u">{an(p.prix)}</span></p>
+        {/* ⭐⭐ LES DEUX PRIX SONT DANS LE HTML, ET LA BASCULE EN MASQUE UN.
+            ⛔ Pas de calcul en JavaScript : un prix calculé par le navigateur
+            est un prix que le HTML servi ne porte pas — donc invisible pour
+            Google, pour un lecteur d'écran qui lit vite, et pour qui n'a pas
+            de JS. La page dit les deux, l'interrupteur choisit lequel se voit.
+            ⚠️ `hidden` et pas une classe : le thème pose `[hidden]{display:none
+            !important}`, et un prix masqué doit sortir du flux, pas s'effacer. */}
+        <p class="tarif__b" data-per="an">
+          <span class="tarif__p">{eurAn(p.prix)}</span>
+          <span class="prix__u">{noteAn(p.prix)}</span></p>
+        <p class="tarif__b" data-per="mois" hidden>
+          <span class="tarif__p">{eurMois(p.prix)}</span>
+          <span class="prix__u">{noteMois(p.prix)}</span></p>
         {/* ⭐ `pick` : `d` est une CARTE PAR LANGUE, comme site.tagline. */}
         <p class="respire">{pick(p.d, lang)}</p>
         <p class="etiq etiq--bleu">
@@ -157,82 +215,83 @@ const dsOffre = await dataset();
     ))}
   </div>
 
-  {/* ⭐ CE QUE LE SITE NE FERA PAS EST UN ARGUMENT DE VENTE, pas une clause en
-      petits caractères. Sur un marché où les données de prix se manipulent, la
-      seule chose qui se vend durablement est la raison de faire confiance. */}
-  {/* LE COMPARATIF — les modules, et pour chacun le palier qui l'ouvre.
-      La maquette l'appelle `compa` : un tableau qui dit ce qu'on ACHETE,
-      module par module, plutot qu'une liste de promesses. */}
-  <div class="sect-t sect-t--gd"><h2 class="mono-t">{t(lang, 'account.modules')}</h2></div>
-  <span class="sep-v" aria-hidden="true"></span>
-  <div class="modules compa">
-    {/* ⛔⛔ LA STRUCTURE ÉTAIT FAUSSE — corrigé le 31/07/2026.
-       `.module__c` n'est PAS le conteneur de contenu : dans la maquette
-       c'est la PASTILLE DE FIN, celle qui porte le cadenas ou la flèche —
-       `margin-left:auto; color:var(--lock); flex:0 0 auto`, et le thème
-       l'écrit EXACTEMENT comme la maquette. Le gabarit y avait mis le nom
-       et la description : poussés à droite, sans pouvoir rétrécir, ils
-       débordaient de la carte et la pastille de palier leur passait dessus.
-       ⭐⭐ LA CLASSE EXISTAIT, SA RÈGLE AUSSI, ET ELLE ÉTAIT JUSTE. C'est le
-       GABARIT qui a mis le mauvais contenu dans le bon habillage — le
-       contrat thème↔gabarit se rompt aussi dans ce sens-là, et aucun de mes
-       contrôles ne regarde ce côté : ils vérifient qu'une classe émise a une
-       règle, jamais qu'elle enveloppe ce pour quoi la règle a été écrite.
-       ⭐ `min-width:0` est indispensable : sans lui un enfant flex refuse de
-       passer sous la largeur de son contenu et déborde en silence. */}
-    {MODULES.map((mo) => (
-            <div class={`module${ouvert(mo) ? ' module--ouvert' : ''}${mo.bientot ? ' module--attente' : ''}`}
-                 data-bientot={mo.bientot ? '' : undefined}>
-        <span class="module__i"><Fragment set:html={forme(ouvert(mo) ? 'RARE' : 'COMMON')} /></span>
-        <span style="min-width:0;flex:1">
-          <span class="module__n">{t(lang, `mod.${mo.cle}`)}
-            {/* ⭐⭐ LA PASTILLE EST DANS LE NOM, PAS EN FIN DE LIGNE. Posée à
-                droite, elle tombait sous `.module__c` — la pastille de cadenas,
-                qui est en `margin-left:auto` : deux éléments se disputant la
-                même place, et c'est le second qui gagne, en silence. C'est le
-                défaut du 31/07 sur ce même fichier, à l'identique.
-                ⛔ ET LE TEXTE NE DIT PAS « BIENTÔT ». « Bientôt » est une
-                promesse de DATE, et une date qu'on ne tient pas se retourne.
-                « Pas encore construit » est un ÉTAT : il reste vrai tant qu'il
-                l'est, et faux le jour exact où on le change. */}
-            {mo.bientot && <span class="etiq" style="margin-left:8px;color:var(--lock)">{t(lang, 'offer.soon.badge')}</span>}
-          </span>
-          <span class="module__d">{t(lang, `mod.${mo.cle}.d`)}</span>
-          {/* ⭐ LE NOM DU PALIER, TRADUIT. Le gabarit affichait `porte(mo).tier`,
-              c'est-à-dire la CLÉ BRUTE : « crevette », « whale », en minuscules
-              et dans aucune langue. Une clé technique qui fuit dans l'interface
-              est le même défaut qu'un texte en dur — sauf qu'elle est laide
-              dans TOUTES les langues au lieu d'une seule. */}
-          <span class="etiq" style="display:block;margin-top:6px;color:var(--lock)">
-            {nomPlan(mo.tier)}
-          </span>
-        </span>
-        <span class="module__c" aria-hidden="true"><Fragment set:html={cadenas()} /></span>
-      </div>
-    ))}
+  {/* ═══════════════════════════════════════════════════════════════════
+      🔴🔴 LOT 114 — LE TABLEAU COMPARATIF REMPLACE LA LISTE DE MODULES
+      ═══════════════════════════════════════════════════════════════════
+      Demande de Preda (10/08) : « en dessous des offres, à la place de
+      Modules, un tableau comparatif des offres avec la liste des modules ».
+      ⭐⭐ ET C'EST LE BON OBJET. Une liste de cartes dit ce que CHAQUE palier
+      contient ; un tableau dit ce qui les SÉPARE — la seule question qu'on se
+      pose devant une page de tarifs. La liste faisait lire cinq fois la même
+      chose pour trouver la ligne qui change.
+      ⛔ LES COLONNES VIENNENT DE `visibles`, la MÊME liste que les cartes
+      au-dessus. Deux sources donneraient deux grilles qui divergent au premier
+      palier ajouté — et personne ne relit un tableau de tarifs.
+      ⭐ `ouvertPour()` interroge `porte()`, donc la MATRICE D'ACCÈS RÉELLE.
+      Le tableau ne récite pas une promesse écrite à la main : il montre ce que
+      le moteur fera vraiment. `test:acces` tient l'autre bout.
+      ⚠️ Un module `bientot` garde sa pastille : Preda a tranché (07/08) de les
+      annoncer, et `test:promesses` casse le build si l'un d'eux devient
+      vendable pendant que la vente est ouverte. */}
+  <div class="sect-t sect-t--gd"><h2 class="mono-t">{t(lang, 'offer.compare')}</h2></div>
+  <div class="compa-t__h">
+    <table class="compa-t">
+      <caption class="sr-only">{t(lang, 'offer.compare')}</caption>
+      <thead>
+        <tr>
+          <th scope="col">{t(lang, 'account.modules')}</th>
+          {visibles.map((p) => (
+            <th scope="col" class:list={[p.cle === 'langouste' ? 'compa-t__phare' : '']}>{pick(p.nom, lang)}</th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {MODULES.map((mo) => (
+          <tr>
+            <th scope="row">
+              {t(lang, `mod.${mo.cle}`)}
+              {mo.bientot && <span class="pastille">{t(lang, 'offer.soon.badge')}</span>}
+              <span class="compa-t__d">{t(lang, `mod.${mo.cle}.d`)}</span>
+            </th>
+            {visibles.map((p) => (
+              <td class:list={[p.cle === 'langouste' ? 'compa-t__phare' : '']}>
+                {/* ⭐ Un caractère ET un mot pour les lecteurs d'écran : « ✓ »
+                    seul se lit « coche » ou ne se lit pas du tout selon la
+                    voix. La colonne reste lisible à l'œil, la ligne reste
+                    compréhensible à l'oreille. */}
+                {ouvertPour(mo, p.cle)
+                  ? <><span aria-hidden="true">✓</span><span class="sr-only">{t(lang, 'offer.yes')}</span></>
+                  : <><span aria-hidden="true" class="muted">—</span><span class="sr-only">{t(lang, 'offer.no')}</span></>}
+              </td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
   </div>
+  {MODULES.some((mo) => mo.bientot) && <p class="etiq">{t(lang, 'offer.soon.note')}</p>}
 
-  {/* ⭐⭐⭐ LA NOTE EST OBLIGATOIRE, ET ELLE EST SOUS LA GRILLE, PAS EN BAS DE
-      PAGE. Une pastille seule se lit comme « ça arrive » ; la phrase dit
-      « ça n'existe pas aujourd'hui, et ce n'est pas vendu ». La différence est
-      tout ce qui sépare une feuille de route d'une promesse rompue.
-      ⛔ Elle ne s'affiche QUE s'il y a réellement un module en attente : une
-      mise en garde permanente cesse d'être lue, et le jour où tout sera livré
-      elle mentirait dans l'autre sens. */}
-  {MODULES.some((mo) => mo.bientot) && (
-    <p class="avertis" style="margin-top:var(--s4)">{t(lang, 'offer.soon.note')}</p>
-  )}
 
-  {/* ⛔ LOT 112 — « Ce que ce site ne fera pas » ET la mention « Prix en
-      dollars, taxes éventuelles en sus. Résiliable à tout moment. » sont
-      retirés (demande Preda, 10/08).
-      ⚠️ `offer.legal` PARLE DE TAXES ET DE RÉSILIATION. Tant que `offer.url`
-      est vide — la vente est fermée, `test:promesses` le prouve à chaque
-      build — elle n'engage rien. ⛔ LE JOUR OÙ LA VENTE S'OUVRE, CETTE
-      MENTION DOIT REVENIR, sous une forme ou une autre : c'est une obligation,
-      pas une ligne de mise en page. Écrit ici parce que c'est ici qu'on
-      reviendra.
-      ⭐ Les 4 clés restent vivantes dans les 5 dictionnaires (`offer.promise`,
-      `offer.p1..p3`, `offer.legal`) — `offer.p1` est d'ailleurs encore rendue
-      ailleurs. On retire l'affichage, jamais le vocabulaire. */}
+{/* ⭐ `is:inline` : huit lignes n'ont pas besoin d'un module, et une bascule de
+    prix qui attend un bundle est une bascule morte pendant deux secondes.
+    ⛔ Il ne CALCULE aucun prix — les deux sont déjà dans le HTML. Il ne fait
+    que choisir lequel se voit. Un script qui calculerait un tarif serait une
+    seconde source de vérité pour un chiffre qu'on facture. */}
+<script is:inline>
+  (function () {
+    var bs = document.querySelectorAll('[data-per-b]');
+    if (!bs.length) return;
+    function poser(per) {
+      document.querySelectorAll('[data-per]').forEach(function (el) {
+        el.hidden = el.getAttribute('data-per') !== per;
+      });
+      bs.forEach(function (b) {
+        b.setAttribute('aria-pressed', String(b.getAttribute('data-per-b') === per));
+      });
+    }
+    bs.forEach(function (b) {
+      b.addEventListener('click', function () { poser(b.getAttribute('data-per-b')); });
+    });
+  })();
+</script>
 </Base>

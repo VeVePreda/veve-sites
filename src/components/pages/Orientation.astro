@@ -1,0 +1,66 @@
+---
+// ⚠️ VeVePreda/veve-sites — src/components/pages/Orientation.astro  (NEUF — lot 113)
+//
+// 🧭 `/collections/` DEVIENT UNE PAGE D'ORIENTATION — trois lignes, six cartes
+//    chacune, un lien « tout voir » (arbitrage Preda, 10/08).
+//
+// ⛔ L'ADRESSE NE BOUGE PAS, ET C'EST LE POINT. `/collections/` est indexée ;
+//    elle garde son autorité et change de rôle. La liste des sets qu'elle
+//    portait part sur `/sets/`, qui est une adresse NEUVE — donc sans passé à
+//    protéger. L'inverse (rediriger /collections/ vers /sets/) aurait dépensé
+//    l'URL la plus évidente du site pour une page interne.
+import Base from '../../layouts/Base.astro';
+import Carte from '../Carte.astro';
+import AVenir from '../AVenir.astro';
+import { dataset } from '../../../engine/lib/dataset.mjs';
+import { t, localize, numberLocale } from '../../../engine/lib/i18n.mjs';
+
+const { lang } = Astro.props;
+const ds = await dataset();
+const nf = numberLocale[lang] || 'en-GB';
+
+const sets = [...ds.collections.values()].sort((a, b) => b.items.length - a.items.length).slice(0, 6);
+// ⭐ On pioche dans `ds.items` (les 1 200 PUBLIÉES) et non dans `ds.rayon` :
+//   une vitrine montre ce qui se clique. Le rayon complet est à un lien de là.
+const parType = (k) => ds.items.filter((i) => (k === 'comic' ? i.type === 'comic' : i.type !== 'comic')).slice(0, 6);
+const rangees = [
+  { cle: 'sets', href: '/sets/', total: ds.collections.size },
+  { cle: 'collectibles', href: '/collectibles/', total: ds.rayon.filter((r) => r.type !== 'comic').length },
+  { cle: 'comics', href: '/comics/', total: ds.rayon.filter((r) => r.type === 'comic').length },
+];
+---
+<Base sect="sets" lang={lang} path="/collections/" updatedAt={ds.updatedAt}
+      title={t(lang, 'collections.title')}
+      description={t(lang, 'orient.desc')}
+      crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') },
+               { name: t(lang, 'collections.title') }]}>
+
+  <div class="sect-t sect-t--gd"><h1 class="mono-t">{t(lang, 'collections.title')}</h1></div>
+
+  <AVenir lang={lang} />
+
+  {rangees.map((r) => (
+    <section class="orient">
+      <div class="sect-t">
+        <h2 class="mono-t">{t(lang, `rayon.${r.cle}`)}</h2>
+        {/* ⭐ LE CHIFFRE EST CELUI DU RAYON ENTIER, pas des six cartes montrées.
+            « 16 682 » dit ce qu'il y a derrière le lien ; « 6 » ne dirait rien. */}
+        <a class="orient__t" href={localize(lang, r.href)}>{t(lang, 'orient.tout', { n: r.total.toLocaleString(nf) })}</a>
+      </div>
+      {r.cle === 'sets'
+        ? <div class="grille grille--series">
+            {sets.map((c) => (
+              <a class="col-carte revele" href={localize(lang, `/collection/${c.slug}/`)}>
+                <span class="col-carte__n">{c.name}</span>
+                <span class="col-carte__c">{c.items.length} {t(lang, 'collections.items')}</span>
+              </a>
+            ))}
+          </div>
+        : <div class="grille">
+            {parType(r.cle === 'comics' ? 'comic' : 'collectible').map((i, k) => (
+              <Carte item={i} lang={lang} href={localize(lang, i.path)} nf={nf} i={k} />
+            ))}
+          </div>}
+    </section>
+  ))}
+</Base>

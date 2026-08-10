@@ -1,0 +1,15 @@
+---
+// ⚠️ VeVePreda/veve-sites — src/pages/[locale]/comics/index.astro   (NEUF — lot 113)
+// ⭐ MEME MOTIF QUE [locale]/collections.astro : une page absente d'une langue
+//    devient un 404 des que le menu la reference — invisible au build.
+import Rayon from '../../../components/Rayon.astro';
+import { priceEnabled } from '../../../../engine/lib/features.mjs';
+import { locales } from '../../../../engine/lib/i18n.mjs';
+export function getStaticPaths() {
+  if (!priceEnabled()) return [];
+  const { active, def } = locales();
+  return active.filter((l) => l !== def).map((l) => ({ params: { locale: l } }));
+}
+const lang = Astro.params.locale;
+---
+<Rayon lang={lang} rayon="comics" page={1} />

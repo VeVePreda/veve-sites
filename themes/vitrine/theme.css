@@ -2111,3 +2111,121 @@ body > main{ background:var(--bg); }
 /* La loupe reprend la taille des autres pictogrammes de l'en-tête (le globe,
    l'avatar), pour que les trois boutons ronds aient le même poids visuel. */
 .h-rech--b svg{ width:17px; height:17px; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LOT 113 — LE RAYON, LA PAGINATION, « À VENIR », L'ORIENTATION
+   ═══════════════════════════════════════════════════════════════════════════
+   ⛔ AUCUN `opacity:0` ICI. `test:opacite` (lot 111) refuserait un état de
+   repos sans releveur, et il aurait raison : ces blocs n'ont pas d'animation
+   d'entrée, donc rien qui doive partir de l'invisible.
+   ⭐ Ces classes ne vivent que sur veveprice : les pages qui les portent sont
+   derrière `priceEnabled()`, et vevewiki ne l'active pas. */
+
+/* ── LE RAYON ────────────────────────────────────────────────────────────── */
+.rayon{ list-style:none; margin:var(--s5) 0 0; padding:0; display:grid; gap:2px; }
+.rayon__c{ display:grid; grid-template-columns:minmax(0,2fr) minmax(0,1.4fr) auto auto;
+  align-items:center; gap:var(--s4); padding:11px 14px; min-height:var(--tap);
+  background:var(--surface); border:1px solid var(--rule); border-radius:var(--r-md);
+  color:var(--text-2); transition:border-color var(--d-fast),background var(--d-fast); }
+.rayon__c:hover{ border-color:var(--sect-a); background:var(--sect-1v); text-decoration:none; }
+/* ⭐⭐ LA LIGNE SANS FICHE N'EST PAS UN LIEN DÉSACTIVÉ, C'EST UN <div>. Un lien
+   mort se copie, se partage et s'indexe ; un élément qui n'est pas un lien ne
+   fait rien de tout ça. Le style le DIT aussi : pas de survol, pas de curseur
+   de main, une mention explicite. */
+.rayon__c--muet{ background:transparent; border-style:dashed; color:var(--muted); }
+.rayon__c--muet:hover{ border-color:var(--rule); background:transparent; }
+.rayon__n{ font-weight:600; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.rayon__c--muet .rayon__n{ color:var(--text-2); font-weight:500; }
+.rayon__s{ font-size:var(--t-sm); color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.rayon__e{ font-size:var(--t-xs); color:var(--muted); }
+.rayon__t{ font-family:var(--tech); font-size:var(--t-xs); color:var(--muted); font-variant-numeric:tabular-nums; }
+.rayon__x{ font-size:var(--t-2xs); letter-spacing:var(--ls-etiq); text-transform:uppercase; color:var(--muted); }
+@media (max-width:760px){
+  .rayon__c{ grid-template-columns:1fr auto; row-gap:4px; }
+  .rayon__s{ grid-column:1/-1; }
+}
+
+/* ── LA PAGINATION ───────────────────────────────────────────────────────── */
+.pagin{ display:flex; flex-wrap:wrap; gap:6px; align-items:center; justify-content:center;
+  margin:var(--s6) 0 var(--s5); }
+.pagin__b{ display:inline-flex; align-items:center; justify-content:center;
+  min-width:var(--tap-min); min-height:var(--tap-min); padding:0 10px;
+  border:1px solid var(--rule-2); border-radius:var(--r-md); color:var(--text-2);
+  font-family:var(--tech); font-size:var(--t-sm); font-variant-numeric:tabular-nums; }
+.pagin__b:hover{ border-color:var(--sect-a); color:var(--sect-a); text-decoration:none; }
+.pagin__b--ici{ background:var(--sect-1v); border-color:var(--sect-a); color:var(--sect-a); font-weight:600; }
+.pagin__e{ color:var(--muted); padding:0 2px; }
+
+/* ── « À VENIR » ─────────────────────────────────────────────────────────── */
+/* ⛔ Aucun style d'« état vide » : le composant NE REND RIEN quand il n'a rien.
+   Un cadre vide ressemble à une panne, et VeVe n'annonce qu'à quelques jours. */
+.avenir{ margin:var(--s5) 0; }
+.avenir__l{ list-style:none; margin:var(--s3) 0 0; padding:0; display:flex; flex-wrap:wrap; gap:var(--s2); }
+.avenir__c{ display:flex; align-items:center; gap:10px; padding:9px 13px;
+  background:var(--surface-2); border:1px solid var(--rule-2); border-radius:var(--r-full);
+  font-size:var(--t-sm); color:var(--text-2); }
+.avenir__j{ font-family:var(--tech); font-size:var(--t-xs); letter-spacing:var(--ls-etiq);
+  text-transform:uppercase; color:var(--sect-a); }
+.avenir__n{ font-weight:600; color:var(--text); }
+.avenir__s{ color:var(--muted); font-size:var(--t-xs); }
+.avenir__r{ font-family:var(--tech); font-size:var(--t-2xs); color:var(--muted); }
+
+/* ── L'ORIENTATION ───────────────────────────────────────────────────────── */
+.orient{ margin:var(--s6) 0; }
+.orient__t{ margin-left:auto; font-family:var(--tech); font-size:var(--t-sm); color:var(--sect-a); white-space:nowrap; }
+.orient .sect-t{ display:flex; align-items:baseline; gap:var(--s4); }
+
+/* ═══ LOT 114 — LA BASCULE MOIS/ANNÉE, LE COMPARATIF, LE CHOIX DE LANGUE ═══
+   ⛔ AUCUN `opacity:0` : `test:opacite` (lot 111) refuserait un état de repos
+   sans releveur. Ces blocs n'ont pas d'animation d'entrée. */
+.bascule-p{ display:flex; align-items:center; gap:6px; margin:var(--s5) 0 var(--s4); flex-wrap:wrap; }
+.bascule-p__b{ min-height:var(--tap-min); padding:0 16px; border:1px solid var(--rule-2);
+  border-radius:var(--r-full); background:transparent; color:var(--text-2); cursor:pointer;
+  font-family:var(--geo); font-size:var(--t-sm); font-weight:500; transition:all var(--d-fast); }
+.bascule-p__b:hover{ border-color:var(--sect-a); color:var(--sect-a); }
+.bascule-p__b[aria-pressed="true"]{ background:var(--sect-1v); border-color:var(--sect-a); color:var(--sect-a); font-weight:600; }
+.bascule-p__g{ font-family:var(--tech); font-size:var(--t-xs); color:var(--sect-a); margin-left:6px; }
+
+/* ⭐ `overflow-x` sur un CONTENEUR, jamais sur la table : une table qui défile
+   d'elle-même perd son en-tête collant et son accessibilité au clavier. */
+.compa-t__h{ overflow-x:auto; margin:var(--s4) 0 var(--s5); }
+.compa-t{ width:100%; border-collapse:collapse; font-size:var(--t-sm); }
+.compa-t th, .compa-t td{ padding:11px 13px; border-bottom:1px solid var(--rule); text-align:center; }
+.compa-t thead th{ font-family:var(--geo); color:var(--text); white-space:nowrap;
+  border-bottom:1px solid var(--rule-2); }
+.compa-t tbody th{ text-align:left; font-weight:600; color:var(--text); min-width:200px; }
+.compa-t__d{ display:block; font-weight:400; font-size:var(--t-xs); color:var(--muted); margin-top:3px; }
+.compa-t__phare{ background:var(--sect-1v); }
+.compa-t tbody tr:hover{ background:var(--survol); }
+
+.lang-choix{ display:flex; gap:6px; margin:0 0 var(--s3); }
+.lang-choix a{ min-height:28px; min-width:32px; display:inline-flex; align-items:center;
+  justify-content:center; padding:0 8px; border-radius:var(--r-sm); font-family:var(--tech);
+  font-size:var(--t-xs); color:var(--muted); }
+.lang-choix a:hover{ color:var(--sect-a); background:var(--survol); text-decoration:none; }
+.lang-choix a[aria-current="true"]{ color:var(--sect-a); background:var(--sect-1v); font-weight:600; }
+
+/* ═══ LOT 115 — LE FAVORI, ET CE QUI PASSAIT DEVANT LE FLOU ═══════════════
+   🔴🔴 `.socle__fav` PART À `opacity:0` ET NE SE RELÈVE QU'AU SURVOL
+   (l. 665-667, écrit au lot 15 pour un composant qui n'existait pas).
+   Sur un téléphone il n'y a pas de survol : le bouton n'existerait pas.
+   ⭐ La variante `--fiche` est visible d'emblée et vit dans le flux, pas en
+   surimpression : la fiche n'a pas de vignette sur laquelle se poser.
+   ⛔ ELLE NE TOUCHE PAS `.socle__fav` : sur les cartes, l'apparition au survol
+   est voulue (le cœur ne doit pas encombrer une grille de 20 vignettes). */
+.socle__fav--fiche{ position:static; opacity:1; width:auto; min-height:var(--tap-min);
+  padding:0 14px; gap:8px; grid-auto-flow:column; background:transparent;
+  backdrop-filter:none; border-color:var(--rule-2); margin-bottom:var(--s3); }
+.socle__fav--fiche::after{ content:attr(data-l); font-family:var(--geo); font-size:var(--t-sm); }
+.socle__fav--fiche svg{ width:16px; height:16px; }
+
+/* 🔴 LES ILLUSTRATIONS PASSAIENT DEVANT LE FLOU (demande Preda).
+   `.flottantes` est `position:fixed; z-index:0` : elle crée son propre
+   contexte d'empilement, mais le formulaire au-dessus n'avait AUCUN `z-index`
+   — donc `z-index:auto`, donc peint dans la même couche, et l'ordre du DOM
+   décidait seul. Un `img` en `position:absolute` y gagnait par endroits.
+   ⭐ On ne descend PAS `.flottantes` en `z-index:-1` : sur un élément `fixed`,
+   ça la ferait passer derrière le fond du `<body>` et disparaître entièrement.
+   ⇒ C'est le CONTENU qu'on remonte, explicitement. */
+.centre{ position:relative; z-index:1; }
+.flottantes{ z-index:0; }

@@ -1,0 +1,10 @@
+---
+// ⚠️ VeVePreda/veve-sites — src/pages/collectibles/index.astro   (FICHIER NEUF — lot 113)
+// La page 1 du rayon « collectibles ». La pagination vit sous `page/[n]`.
+import Rayon from '../../components/Rayon.astro';
+import { priceEnabled } from '../../../engine/lib/features.mjs';
+import { locales } from '../../../engine/lib/i18n.mjs';
+const lang = locales().def;
+if (!priceEnabled()) return Astro.redirect('/');
+---
+<Rayon lang={lang} rayon="collectibles" page={1} />

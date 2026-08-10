@@ -1,0 +1,141 @@
+---
+// ⚠️ VeVePreda/veve-sites — src/components/Rayon.astro   (FICHIER NEUF — lot 113)
+//
+// ═══════════════════════════════════════════════════════════════════════════
+//  UN RAYON : TOUT LE CATALOGUE, 20 PAR PAGE, CLIQUABLE QUAND IL Y A UNE FICHE
+// ═══════════════════════════════════════════════════════════════════════════
+//  Arbitrage Preda du 10/08 : « lister tout le catalogue et mettre dans les
+//  fiches ce que tu as ». Mesuré : le site publie 1 200 fiches sur 19 412 (6 %)
+//  — un item sous 8 relevés de PRIX n'a pas de page, et le deep scan de la
+//  chaîne n'y changera rien (il collecte des transferts, pas des prix).
+//  ⭐⭐⭐ UNE LIGNE DE LISTE N'A PAS BESOIN D'UNE PAGE. C'est ce qui permet de
+//  tout montrer sans fabriquer 137 000 pages vides que Google pénaliserait.
+//
+//  🔴🔴 CE COMPOSANT NE REÇOIT QUE `ds.rayon`, JAMAIS UNE LIGNE DE CATALOGUE.
+//  `catalogue.csv` porte `floor`, `listings`, `ath`, `atl` : lui passer une
+//  ligne brute publierait 19 412 prix, par un chemin que `projeter()` ne voit
+//  pas (il mute `items`, pas `cat`). `dataset.mjs` en fait une liste BLANCHE.
+//  ⛔ Ne jamais « enrichir » une ligne ici avec un champ pris ailleurs.
+import Base from '../layouts/Base.astro';
+import AVenir from './AVenir.astro';
+import { dataset } from '../../engine/lib/dataset.mjs';
+import { t, localize, numberLocale } from '../../engine/lib/i18n.mjs';
+import { rar } from '../../engine/lib/vitrine.mjs';
+
+const { lang, rayon, page = 1 } = Astro.props;
+export const PAR_PAGE = 20;
+
+const ds = await dataset();
+const nf = numberLocale[lang] || 'en-GB';
+
+// ⭐ `sets` n'est pas un rayon du catalogue : c'est le regroupement par série.
+//    Il partage la MISE EN PAGE, pas la source — d'où la branche ici plutôt
+//    qu'un troisième composant qui divergerait au premier changement.
+const lignes = rayon === 'sets'
+  ? [...ds.collections.values()]
+      .sort((a, b) => b.items.length - a.items.length)
+      .map((c) => ({ nom: c.name, sous: `${c.items.length} ${t(lang, 'collections.items')}`,
+                     path: `/collection/${c.slug}/`, rarity: '', tirage: null, serie: '' }))
+  : ds.rayon
+      .filter((r) => r.type === (rayon === 'comics' ? 'comic' : 'collectible'))
+      // 🔴🔴 CE QUI A UNE FICHE PASSE DEVANT — trouvé en MESURANT la page produite.
+      //    Trié alphabétiquement, `/comics/` page 1 sortait 20 lignes muettes
+      //    sur 20 : seuls 2,4 % des comics ont une fiche (400 sur 16 682), donc
+      //    vingt lignes tirées au hasard n'en contiennent presque jamais une.
+      //    ⭐⭐⭐ LE BUILD ÉTAIT VERT, LE BANC ANTI-FUITE AUSSI, ET LA PAGE
+      //    D'ACCUEIL DU RAYON NE MENAIT NULLE PART. Aucun contrôle ne regarde
+      //    « est-ce que la première page SERT à quelque chose » — il a fallu
+      //    ouvrir le fichier produit.
+      //    ⇒ Les pièces cliquables d'abord, la longue traîne ensuite. Le
+      //    catalogue reste entier, l'ordre cesse d'être hostile.
+      .sort((a, b) => (a.path ? 0 : 1) - (b.path ? 0 : 1)
+        || (a.series || '').localeCompare(b.series || '') || a.name.localeCompare(b.name))
+      .map((r) => ({ nom: r.name, sous: r.edition_type || '', path: r.path,
+                     rarity: r.rarity, tirage: r.tirage, serie: r.series }));
+
+const total = lignes.length;
+const pages = Math.max(1, Math.ceil(total / PAR_PAGE));
+const n = Math.min(Math.max(1, Number(page) || 1), pages);
+const tranche = lignes.slice((n - 1) * PAR_PAGE, n * PAR_PAGE);
+const cliquables = lignes.filter((l) => l.path).length;
+
+const racine = `/${rayon}/`;
+const url = (p) => (p <= 1 ? racine : `${racine}page/${p}/`);
+
+// ⭐⭐ LE FIL DE PAGINATION RESTE COURT : 1 · … · n-1 · n · n+1 · … · N.
+//    835 pages de comics ne se listent pas ; personne ne clique « page 400 »,
+//    mais tout le monde veut la première et la dernière.
+const fenetre = [...new Set([1, n - 1, n, n + 1, pages].filter((p) => p >= 1 && p <= pages))]
+  .sort((a, b) => a - b);
+---
+{/* 🔴 `noindex` DÈS LA PAGE 2, et ce n'est pas de la prudence : 835 pages de
+    liste quasi identiques diluent le site entier. La page 1 porte le rayon,
+    les suivantes sont un moyen de navigation. `rel=prev/next` dit à Google
+    qu'elles forment une suite plutôt qu'un stock de doublons.
+    ⚠️ L'audit SEO nocturne les verrait sinon, et il aurait raison.
+    ⛔ `rel=prev/next` N'EST PAS POSÉ : `Base.astro` n'expose aucun slot `head`,
+    et un `<link>` écrit dans le corps atterrit dans le `<body>` — inerte, ou
+    hissé en silence selon le moteur. On ne parie pas sur un comportement qu'on
+    n'a pas mesuré. `noindex` suffit à protéger le site ; le jour où `Base`
+    gagne un slot d'en-tête, ces deux lignes s'y branchent. */}
+<Base sect={rayon === 'comics' ? 'comics' : rayon === 'sets' ? 'sets' : 'collectibles'}
+      lang={lang} path={url(n)} updatedAt={ds.updatedAt} noindex={n > 1}
+      title={`${t(lang, `rayon.${rayon}`)}${n > 1 ? ` — ${t(lang, 'rayon.page')} ${n}` : ''}`}
+      description={t(lang, `rayon.${rayon}.d`, { n: total.toLocaleString(nf) })}
+      crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') },
+               { name: t(lang, 'collections.title'), url: localize(lang, '/collections/') },
+               { name: t(lang, `rayon.${rayon}`) }]}>
+  <div class="sect-t sect-t--gd"><h1 class="mono-t">{t(lang, `rayon.${rayon}`)}</h1></div>
+
+  {/* ⭐⭐ ON DIT LE CHIFFRE, ET LES DEUX. « 16 682 pièces, 400 avec une fiche »
+      est la seule phrase honnête : elle explique pourquoi la plupart des lignes
+      ne se cliquent pas, AVANT que le visiteur ne le découvre en cliquant.
+      ⛔ Ne pas écrire « 400 pièces » : ce serait faux, on en montre 16 682. */}
+  <p class="etiq">{t(lang, 'rayon.compte', {
+    n: total.toLocaleString(nf), c: cliquables.toLocaleString(nf) })}</p>
+
+  <AVenir lang={lang} rayon={rayon} />
+
+  <ul class="rayon">
+    {tranche.map((l) => (
+      <li class="rayon__l">
+        {/* ⭐⭐⭐ UN <a> QUAND IL Y A UNE FICHE, UN <div> SINON — et jamais un
+            <a> désactivé. Un lien mort se copie, se partage et s'indexe ; un
+            élément qui n'est pas un lien ne fait rien de tout ça.
+            ⛔ `path` vient de `bySlug` via dataset.mjs, il n'est JAMAIS
+            fabriqué ici : composer l'adresse à la main donnerait 18 212 liens
+            vers des 404, invisibles au build puisque ce sont des liens et pas
+            des routes. Ce dépôt l'a déjà payé trois fois. */}
+        {l.path
+          ? <a class="rayon__c" href={localize(lang, l.path)}>
+              <span class="rayon__n">{l.nom}</span>
+              {l.serie && <span class="rayon__s">{l.serie}</span>}
+              {l.sous && <span class="rayon__e">{l.sous}</span>}
+              {l.rarity && <Fragment set:html={rar(l.rarity, { blanc: true })} />}
+              {l.tirage && <span class="rayon__t">{l.tirage.toLocaleString(nf)}</span>}
+            </a>
+          : <div class="rayon__c rayon__c--muet">
+              <span class="rayon__n">{l.nom}</span>
+              {l.serie && <span class="rayon__s">{l.serie}</span>}
+              {l.sous && <span class="rayon__e">{l.sous}</span>}
+              {l.rarity && <Fragment set:html={rar(l.rarity, { blanc: true })} />}
+              {l.tirage && <span class="rayon__t">{l.tirage.toLocaleString(nf)}</span>}
+              <span class="rayon__x">{t(lang, 'rayon.sansfiche')}</span>
+            </div>}
+      </li>
+    ))}
+  </ul>
+
+  {pages > 1 && (
+  <nav class="pagin" aria-label={t(lang, 'rayon.page')}>
+    {n > 1 && <a class="pagin__b" rel="prev" href={localize(lang, url(n - 1))}>‹</a>}
+    {fenetre.map((p, k) => (<>
+      {k > 0 && fenetre[k - 1] < p - 1 && <span class="pagin__e">…</span>}
+      {p === n
+        ? <span class="pagin__b pagin__b--ici" aria-current="page">{p}</span>
+        : <a class="pagin__b" href={localize(lang, url(p))}>{p}</a>}
+    </>))}
+    {n < pages && <a class="pagin__b" rel="next" href={localize(lang, url(n + 1))}>›</a>}
+  </nav>
+  )}
+</Base>

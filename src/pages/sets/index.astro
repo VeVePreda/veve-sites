@@ -1,0 +1,23 @@
+---
+// ⚠️ VeVePreda/veve-sites — src/pages/sets/index.astro   (FICHIER NEUF — lot 113)
+//
+// 🔴🔴 `/sets/` REÇOIT LA PAGE ACTUELLE, AVEC SES FILTRES — ET N'EST PAS PAGINÉE.
+//    Preda demande « 20 par page, pagination pour tous ». Les deux autres rayons
+//    l'ont. Celui-ci ne l'a pas, et c'est un choix ASSUMÉ, pas un oubli :
+//    ⛔ `Collections.astro` filtre et trie CÔTÉ CLIENT, sur les nœuds présents
+//    dans le DOM. Le paginer à 20 rendrait chaque filtre faux — il ne
+//    chercherait plus que dans la page affichée, et ne le dirait pas. Un filtre
+//    qui ne cherche que dans 20 lignes sur 910 est pire qu'un filtre absent :
+//    il RÉPOND, et sa réponse est fausse.
+//    ⭐ 910 sets tiennent en une page (c'est le cas depuis toujours) ; 16 682
+//    comics non — d'où la pagination là-bas et pas ici.
+//    ➡️ Réconcilier les deux demande de faire filtrer le SERVEUR (les filtres
+//    deviennent des paramètres d'URL, donc des routes) : c'est un chantier, pas
+//    une ligne. À trancher avec Preda.
+import { priceEnabled } from '../../../engine/lib/features.mjs';
+import Collections from '../../components/pages/Collections.astro';
+import { locales } from '../../../engine/lib/i18n.mjs';
+const lang = locales().def;
+if (!priceEnabled()) return Astro.redirect('/');
+---
+<Collections lang={lang} />

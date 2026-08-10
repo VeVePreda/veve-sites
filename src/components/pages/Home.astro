@@ -22,6 +22,7 @@ import { pli, delta, gemsM } from '../../../engine/lib/vitrine.mjs';
 import { coteFermee as coteEstFermee } from '../../../engine/lib/cote.mjs';
 import Cote from '../Cote.astro';
 import Gate from '../Gate.astro';   // 🔴 LOT 112 — le témoin du classement fermé
+import AVenir from '../AVenir.astro';   // ⏳ LOT 113 — les drops annoncés (Preda : « partout, y compris l'accueil »)
 // ⭐ AJOUT SEUL (lot 45). `serie` rend les articles d'une etiquette dans leur
 // ordre de lecture ; `dureeLecture` donne les minutes, dites ou calculees.
 import { serie, dureeLecture, SEUIL_PAGE_TAG } from '../../../engine/lib/blog.mjs';
@@ -414,6 +415,12 @@ const horo = maj ? `${String(maj.getUTCDate()).padStart(2,'0')}.${String(maj.get
         fois qu'on croit pouvoir décider au build ce qui dépend de la session.
         ➡️ Le classement vit sur `/market/`, rendu À LA DEMANDE et fermé côté
         serveur. Ici, un témoin, et le chemin pour y accéder. */}
+    {/* ⏳ LOT 113 — « À venir », sur l'accueil aussi (Preda, 10/08).
+        ⛔ IL SE TAIT QUAND IL N'A RIEN : mesuré le 10/08, 7 drops annoncés.
+        VeVe ne prévient qu'à quelques jours — l'accueil ne doit pas porter un
+        cadre vide la moitié du temps. */}
+    <AVenir lang={lang} />
+
     <div class="deux-col">
       <section>
         <div class="sect-t sect-t--gd" style="margin-top:0"><h2 class="mono-t">{t(lang, 'home.up')}</h2></div>
