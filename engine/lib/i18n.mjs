@@ -73,6 +73,48 @@ export function languesDeclareesBlog() {
   return b || locales().active;
 }
 
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * 🌍 LOT 123 — LA LANGUE CHOISIE SURVIT À LA NAVIGATION
+ * ═══════════════════════════════════════════════════════════════════════════
+ * Preda, 10/08 : « j'ai réglé mon compte sur français, mais quand je navigue
+ * ça me remet toujours anglais ».
+ * LA CAUSE : le lot 120 a fait de `?lang=` un paramètre — il n'agissait que
+ * sur la page où on était, et rien ne s'en souvenait. Un réglage qui ne
+ * survit pas au clic suivant n'est pas un réglage, c'est un aperçu.
+ *
+ * ⭐⭐ TROIS SOURCES, DANS CET ORDRE, ET L'ORDRE EST LA DÉCISION :
+ *   ① `?lang=` — un choix EXPLICITE, fait à l'instant. Il gagne toujours.
+ *   ② le cookie — un choix explicite fait AVANT. Il bat la préférence du
+ *      navigateur, sinon changer de langue serait sans effet pour tous ceux
+ *      dont l'`Accept-Language` est reconnu, c'est-à-dire presque tout le
+ *      monde.
+ *   ③ `Accept-Language` — une préférence DEVINÉE. Le dernier recours.
+ * ⛔ L'inverse (navigateur avant cookie) rendait le réglage inopérant sans
+ *    qu'aucune erreur ne le dise : c'est exactement le défaut signalé.
+ *
+ * ⛔ ELLE NE DÉCIDE D'AUCUN DROIT et ne lit aucune session : elle choisit un
+ *    DICTIONNAIRE. Le cookie qu'elle emploie ne porte qu'un code de langue à
+ *    deux lettres, validé contre la liste du manifeste — ce qui n'est pas
+ *    dedans n'est pas retenu. ⚠️ Sans cette validation, un cookie forgé
+ *    composerait un chemin de fichier dans `dict()`.
+ *
+ * ⚠️ ELLE NE SERT QUE SUR LES ROUTES RENDUES À LA DEMANDE. Les ~3 000 pages
+ *    publiques sont pré-générées et servies depuis un cache partagé : une
+ *    seule version existe, en anglais. C'est la limite assumée du lot 120, et
+ *    ce lot-ci ne la lève pas.
+ */
+export const COOKIE_LANGUE = 'vp_langue';
+
+export function choisirLangue({ demande, cookie, accept, dispo, def }) {
+  const ok = (v) => !!v && dispo.includes(v);
+  if (ok(demande)) return { lang: demande, aPoser: demande !== cookie };
+  if (ok(cookie)) return { lang: cookie, aPoser: false };
+  const souhaits = String(accept || '')
+    .split(',').map((x) => x.split(';')[0].trim().slice(0, 2).toLowerCase());
+  return { lang: souhaits.find(ok) || def, aPoser: false };
+}
+
 export function dict(lang) {
   if (cache.has(lang)) return cache.get(lang);
   let d = {};

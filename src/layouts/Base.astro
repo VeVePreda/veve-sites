@@ -278,15 +278,43 @@ const menuComplet = wikiNav
   ? wikiNav.map((sx) => ({ href: localize(lang, sx.path), label: sx.title }))
   : navManifeste
       .filter((e) => e.cle !== 'nav.blog' || blogDansCetteLangue)
+      // 🔴 LOT 123 — `membre` ÉTAIT PERDU ICI. Ce `.map()` ne recopiait que
+      //    `href` et `label` : le tiroir affichait donc `/market/` et
+      //    `/favoris/` À TOUT LE MONDE, alors que la nav principale (l. ~644)
+      //    les masque. ⭐⭐ Deux rendus de la MÊME liste, deux comportements —
+      //    et le tiroir est justement le seul chemin vers le menu sous
+      //    1040 px, c'est-à-dire sur téléphone.
+      //    ⛔ Ce n'est pas une fuite (ces pages redirigent qui n'a pas de
+      //    session), c'est une PROMESSE : on proposait une porte fermée.
       .map((e) => ({ href: e.href === '/' ? localize(lang, '/') : localize(lang, e.href),
-                     label: t(lang, e.cle) }))
+                     label: t(lang, e.cle), membre: e.membre }))
       // 🔴 `aUneSession` ET NON `tiers.length > 1` (06/08/2026, demande de Preda).
       // La condition disait « ce site A des comptes », pas « cette personne EN a
       // un ». Elle affichait donc « Mon compte » à des visiteurs qui n'en ont
       // aucun. ⭐⭐ CE QUE LE SITE PROPOSE ET CE QUE LA PERSONNE POSSÈDE SONT
       // DEUX QUESTIONS — la même confusion que palier/session, un cran plus haut.
-      .concat(comptesOuverts && aUneSession
-        ? [{ href: '/compte/', label: t(lang, 'account.title') }] : []);
+      // 🔴🔴🔴 LOT 123 — `aUneSession` A ÉTÉ RETIRÉ D'ICI, ET LE DÉFAUT ÉTAIT
+      // PLUS SUBTIL QU'UN LIEN EN TROP.
+      // Preda, 10/08 : « je vois "my account" dans le menu sur certaines pages
+      // alors qu'il ne devrait pas y être ». Mesuré : `aUneSession` n'est
+      // connu QUE sur les routes rendues à la demande — /market/, /favoris/,
+      // /compte/, /connexion/, /inscription/. Sur les ~3 000 pages
+      // PRÉ-GÉNÉRÉES il vaut toujours faux, parce qu'une page pré-générée n'a
+      // pas de visiteur.
+      // ⇒ LE MENU N'ÉTAIT PAS LE MÊME D'UNE PAGE À L'AUTRE, pour la même
+      //   personne, dans la même session. C'est ça qu'il a vu, et c'est plus
+      //   dérangeant qu'un lien de trop : un menu qui change tout seul donne
+      //   l'impression d'avoir été déconnecté.
+      // ⭐⭐⭐ LA CORRECTION N'EST PAS DE LE RETIRER, C'EST DE LE RENDRE
+      //   TOUJOURS, `hidden`, ET DE LAISSER LE COOKIE D'AFFICHAGE DÉCIDER —
+      //   exactement comme les liens `membre: true` du manifeste, dont la
+      //   règle CSS `html[data-membre] a[data-membre][hidden]` existe déjà.
+      //   Le HTML redevient identique partout, donc cachable, donc cohérent.
+      // ⛔ CE N'EST PAS UNE DÉCISION DE DROIT : ce lien mène à une page qui
+      //   redirige elle-même qui n'a pas de session. Le cookie ne choisit
+      //   qu'un LIBELLÉ, ce qu'il est fait pour faire.
+      .concat(comptesOuverts
+        ? [{ href: '/compte/', label: t(lang, 'account.title'), membre: true }] : []);
 ---
 <!doctype html>
 <!-- ⭐ `data-nf` — LOT 101. Le script des cotes met en forme des nombres et
@@ -547,7 +575,21 @@ const menuComplet = wikiNav
       <svg viewBox="0 0 24 24" aria-hidden="true" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6" /></svg>
     </button>
     <div class="deplie__m" id="menu-m" hidden>
-      {menuComplet.map((e) => (<a href={e.href}>{e.label}</a>))}
+      {/* ⭐ `data-membre` + `hidden` : le lien est dans le HTML de TOUTES les
+          pages, invisible par défaut, révélé par la règle CSS du <head> quand
+          le cookie d'affichage est là. Le même dispositif que les entrées
+          `membre: true` du manifeste — un seul mécanisme, pas deux.
+          🔴 LOT 123 — `hidden` NE DÉPEND PLUS DE `aUneSession` (nav principale
+          comme tiroir). Il valait `!aUneSession` : vrai sur les 3 000 pages
+          pré-générées, FAUX sur les 5 routes rendues à la demande. Le même
+          menu s'affichait donc différemment selon la page, pour la même
+          personne — ce que Preda a signalé le 10/08. ⛔ Un commentaire JSX
+          posé ENTRE DEUX ATTRIBUTS d'une balise décale le HTML émis : il a
+          fait rougir `test:entete` (« le script précède les règles »). Les
+          explications vivent au-dessus de la balise, jamais dedans. */}
+      {menuComplet.map((e) => (
+        <a href={e.href} data-membre={e.membre ? '' : undefined} hidden={e.membre || undefined}>{e.label}</a>
+      ))}
     </div>
   </div>
   <a class="marque" href={localize(lang, '/')}>
@@ -616,7 +658,7 @@ const menuComplet = wikiNav
             (e.cle !== 'nav.blog' || blogDansCetteLangue) &&
               <a href={e.href === '/' ? localize(lang, '/') : localize(lang, e.href)}
                  data-membre={e.membre ? '' : undefined}
-                 hidden={e.membre ? !aUneSession : undefined}>{t(lang, e.cle)}</a>
+                 hidden={e.membre || undefined}>{t(lang, e.cle)}</a>
           ))}
           {/* ⚠️ MÊME CONDITION QUE LE BLOG, ET ELLE A DÉJÀ ÉTÉ PAYÉE DEUX FOIS.
               Un lien vers une page non émise dans cette langue est un 404
@@ -638,7 +680,14 @@ const menuComplet = wikiNav
               rendue A LA DEMANDE, lit `Accept-Language`, et n'a donc QU'UNE
               adresse sans prefixe. La passer par `nav:` la ferait `localize`,
               ce qui fabriquerait /fr/compte/ — une page qui n'existe pas. */}
-          {comptesOuverts && aUneSession && <a href="/compte/">{t(lang, 'account.title')}</a>}
+          {/* 🔴 LOT 123 — `aUneSession` NE DÉCIDE PLUS DE LA PRÉSENCE DE CE LIEN.
+              Il n'est connu que sur les 5 routes rendues à la demande ; sur les 3 000
+              pages pré-générées il vaut toujours faux. Le lien apparaissait donc sur
+              /market/ et disparaissait ailleurs, pour la même personne, dans la même
+              session — ce que Preda a signalé le 10/08. ⭐ Il est maintenant dans le
+              HTML de toutes les pages, `hidden`, et la règle CSS `html[data-membre]`
+              du <head> décide. Un seul juge, un HTML identique partout, donc cachable. */}
+          {comptesOuverts && <a href="/compte/" data-membre hidden>{t(lang, 'account.title')}</a>}
         </>)}
     </span>
     <div class="h-outils filtres">
@@ -877,7 +926,14 @@ const menuComplet = wikiNav
       .map((e) => (
         <a href={e.href === '/' ? localize(lang, '/') : localize(lang, e.href)}>{t(lang, e.cle)}</a>
       ))}
-    {comptesOuverts && aUneSession && <a href="/compte/">{t(lang, 'account.title')}</a>}
+    {/* 🔴 LOT 123 — `aUneSession` NE DÉCIDE PLUS DE LA PRÉSENCE DE CE LIEN.
+        Il n'est connu que sur les 5 routes rendues à la demande ; sur les 3 000
+        pages pré-générées il vaut toujours faux. Le lien apparaissait donc sur
+        /market/ et disparaissait ailleurs, pour la même personne, dans la même
+        session — ce que Preda a signalé le 10/08. ⭐ Il est maintenant dans le
+        HTML de toutes les pages, `hidden`, et la règle CSS `html[data-membre]`
+        du <head> décide. Un seul juge, un HTML identique partout, donc cachable. */}
+    {comptesOuverts && <a href="/compte/" data-membre hidden>{t(lang, 'account.title')}</a>}
   </nav>
 )}
 <main class="wrap" id="contenu" tabindex="-1">

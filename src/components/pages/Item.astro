@@ -1,12 +1,10 @@
 ---
 import Base from '../../layouts/Base.astro';
-import Gate from '../Gate.astro';
 // ⭐ AJOUT SEUL (01/08/2026). Le <Gate> annonce ce qui MANQUE ; le <Cadran>
 // apporte ce qui est DÛ, chargé à la demande après lecture de la session. Le
 // reste du frontmatter n'est toujours pas retouché.
 import Cadran from '../Cadran.astro';
 import { dataset } from '../../../engine/lib/dataset.mjs';
-import { priceChartSVG, courbeSVG } from '../../../engine/lib/chart.mjs';
 import Cote from '../Cote.astro';
 import { productLd, breadcrumbLd } from '../../../engine/lib/seo.mjs';
 import { manifest, siteUrl } from '../../../engine/lib/manifest.mjs';
@@ -59,9 +57,17 @@ const df = dateLocale[lang] || 'en-GB';
 // ⛔ NE PAS faire une fonction unique qui devine : un rendu qui decide seul
 // s'il a le droit d'ecrire un prix est un verrou pose sur une heuristique.
 const coteFermee = coteEstFermee();
-const svg = coteFermee
-  ? courbeSVG(item.courbe, { label: t(lang, 'chart.label') })
-  : priceChartSVG(item.history, { label: t(lang, 'chart.label') });
+// 🔴 LOT 123 — `svg` A ÉTÉ RETIRÉ, ET C'EST LA MOITIÉ QUI SE VOIT LE MOINS.
+// Il calculait la courbe publique, que le bloc `{!coteFermee && …}` n'affichait
+// jamais et que le <Cadran> recevait en fond flouté. Les deux chemins sont
+// fermés : le laisser aurait produit un CALCUL MORT sur 3 000 pages — et,
+// pire, un `item.courbe` lu alors que `projeter()` ne le pose plus, donc
+// `courbeSVG(undefined)`. ⭐ Un calcul dont plus personne ne lit le résultat
+// ne fait pas d'erreur : il fait de la chaleur, et il fait croire que la
+// donnée circule encore.
+// ⛔ `priceChartSVG` et `courbeSVG` restent importés : `chart.mjs` les sert à
+//    d'autres gabarits (Analytics), et `outils/imports-orphelins.mjs` dira si
+//    ce n'est plus vrai.
 const money = (v) => (v === null || v === undefined ? '—' : v.toLocaleString(nf, { maximumFractionDigits: 2 }));
 const pct = (v) => (v === null || v === undefined ? '—' : `${v > 0 ? '+' : ''}${v.toFixed(1)} %`);
 const cls = (v) => (v === null || v === undefined ? '' : v > 0 ? 'up' : v < 0 ? 'down' : '');
@@ -648,68 +654,24 @@ const mcpJour = mcpPoints(item.rarity, item.type);
           futur pourrait l'ouvrir), la courbe publique reste ce qu'elle était.
           Supprimer le code aurait fait de ce lot une décision permanente prise
           pour un seul site. */}
-      {!coteFermee && (
-        <div class="graph-hote" style="margin-top:var(--s6)">
-          <div class="graph-tete">
-            <div>
-              <h2 style="font-size:var(--t-lg)">{t(lang, 'item.chart')}</h2>
-              <p class="etiq" style="margin-top:5px">{item.points} {t(lang, 'item.shown')}</p>
-            </div>
-            {/* ═══════════════════════════════════════════════════════════════
-                🔴 LOT 104 — LES PLAGES VIENNENT DU MANIFESTE, PLUS DU GABARIT
-                ═══════════════════════════════════════════════════════════════
-                CE QUI ÉTAIT ÉCRIT ICI : `['3 J','30 J','90 J','MAX']`, avec
-                `data-verrou` sur tout sauf la première. Trois défauts, tous
-                silencieux :
-                  · « 7 J » N'EXISTAIT PAS — et c'est précisément la plage que
-                    Crevette achète. La grille de Preda était invendable depuis
-                    cette ligne, sans qu'aucun banc n'ait de raison de le dire ;
-                  · le verrou ne lisait AUCUN palier : il était identique pour
-                    l'abonné et le visiteur. Un verrou qui ne se lève jamais
-                    n'est pas un verrou, c'est un dessin de verrou ;
-                  · et le jour où Preda change la grille, un gabarit ne le sait
-                    pas. Elle a changé le 07/08 — trois fois en trois semaines.
-                ⭐ `plages()` lit `access.gates.price_history.plages`. L'ordre du
-                tableau est l'ordre affiché, et le palier de chaque plage est une
-                DONNÉE, comme les prix et les plafonds.
-
-                ⭐⭐⭐ ET L'ÉTAT VERROUILLÉ EST CE QUE LE HTML CONTIENT — pour
-                tout le monde, abonné compris. UNE PAGE PRÉ-GÉNÉRÉE N'A PAS DE
-                VISITEUR : ces 8 500 fiches sont des fichiers, construits une
-                fois, servis à tous. Rendre le verrou selon un palier au build
-                reviendrait à figer le palier du BUILD dans le fichier — c'est
-                exactement la panne du lot 24, et le résultat serait « le site
-                ouvre tout à tout le monde » ou « il n'ouvre jamais rien ».
-                ⛔ ET ON NE LE DÉCIDE PAS NON PLUS SUR LE COOKIE D'AFFICHAGE :
-                il ne porte que « 1 », il ne dit pas QUEL palier, et il se pose à
-                la main. Il ne peut pas distinguer une Crevette d'une Whale.
-                ⚠️ Son nom n'apparaît volontairement pas dans ce fichier :
-                `test:session` refuse de le lire là où un droit se décide.
-                ➡️ Le déverrouillage se fait dans `Cadran.astro`, au retour de
-                `/api/historique/[uuid]` — la seule voie qui ait lu `vp_session`
-                côté serveur, et qui renvoie le palier RÉEL. Une seule voie, donc
-                pas de seconde vérité. */}
-            <div class="plages" role="group" aria-label={t(lang, 'item.chart')} data-plages>
-              {LES_PLAGES.map((pl, k) => (
-                <button type="button" aria-pressed={k === 0 ? 'true' : 'false'}
-                        data-plage={pl.cle}
-                        data-tier={pl.verrouillee ? pl.tier : undefined}
-                        aria-disabled={pl.verrouillee ? 'true' : undefined}
-                        title={pl.verrouillee
-                          ? t(lang, 'item.range.locked').replace('%s', nomDuPalier(pl.tier))
-                          : undefined}
-                        data-verrou={pl.verrouillee ? '' : undefined}>{t(lang, `item.range.${pl.cle}`)}</button>
-              ))}
-            </div>
-            <div class="series" role="group" aria-label={t(lang, 'item.chart')}>
-              <button class="serie-b" type="button" aria-pressed="true" disabled style="--c:var(--sect-pur)"><i></i>{t(lang, 'movers.floor')}</button>
-              <button class="serie-b serie-b--pointille" type="button" aria-pressed="true" disabled style="--c:var(--muted)"><i></i>{t(lang, 'item.listings')}</button>
-            </div>
-          </div>
-          <Fragment set:html={svg} />
-          <div class="graph-pied"><span class="etiq">{item.totalPoints?.toLocaleString(nf)} {t(lang, 'home.points')}</span></div>
-        </div>
-      )}
+      {/* ═══════════════════════════════════════════════════════════════════
+          🔴🔴🔴 LOT 123 — LE BLOC DU GRAPHE PUBLIC A ÉTÉ RETIRÉ D'ICI, ET IL
+          ÉTAIT MORT DEPUIS LE LOT 101.
+          ═══════════════════════════════════════════════════════════════════
+          Il était rendu sous `{!coteFermee && …}`. Or `coteFermee()` est VRAI
+          sur veveprice depuis le lot 101 : ce bloc n'a été affiché à PERSONNE
+          pendant vingt-deux lots. Preda l'a signalé le 10/08 — « je ne vois
+          pas le graphique de prix 3 j » — et la cause n'était ni son compte,
+          ni son palier : le code ne le rendait pas.
+          ⭐⭐⭐ CE QUI L'A FAIT DURER : le graphe ÉTAIT à l'écran, en fond
+          flouté du panneau verrouillé (`svgPublic` du <Cadran>). Il y avait
+          donc quelque chose qui ressemblait à un graphe — assez pour que
+          personne ne cherche celui qui manquait. *Un élément présent sous une
+          autre forme empêche de voir qu'il est absent sous la bonne.*
+          ⛔ NE PAS LE REMETTRE : la décision de Preda du 10/08 est que la
+          courbe se voit UNE FOIS CONNECTÉ. Elle vit maintenant dans la
+          réserve et arrive par `/api/cote/`, dans le bloc unique ci-dessous.
+      */}
 
       {/* ⛔ LE BLOC « MODULES » A ETE RETIRE LE 03/08/2026 (demande Preda).
           Il portait le catalogue des 5 modules + les onglets `role="tablist"`.
@@ -720,7 +682,20 @@ const mcpJour = mcpPoints(item.rarity, item.type);
           ⭐ `franchit()` et la matrice d'acces ne bougent PAS : c'est un retrait
           d'AFFICHAGE, pas de droit. Les paliers restent exactement ce qu'ils
           etaient, et test:acces continue de les prouver. */}
-      <Gate lang={lang} gate="price_history" total={item.totalPoints} shown={item.points} since={item.since} />
+      {/* 🔴 LOT 123 — <Gate> RETIRÉ DE LA FICHE (demande Preda, 10/08 :
+          « deux modules qui ne devraient pas exister »).
+          Il rendait « Members only / This record exists and is kept… », et le
+          <Cadran> juste en dessous rendait LE MÊME TEXTE : deux panneaux
+          identiques, l'un sous l'autre, sur la même fiche.
+          ⭐⭐ Le lot 112 avait déjà noté le piège — *deux textes identiques à
+          l'écran ne viennent pas forcément du même endroit dans le code* — et
+          avait corrigé la formulation des deux au lieu d'en retirer un.
+          ⛔ C'est le <Gate> qui part, pas le <Cadran> : le Cadran est le SEUL
+          chemin par lequel un abonné obtient réellement son historique (il
+          appelle l'API avec sa session). Retirer l'autre aurait rendu la fiche
+          muette pour ceux qui paient, sur un build vert.
+          ⭐ Le composant `Gate.astro` n'est pas supprimé : il reste employé
+          ailleurs, et `test:acces` continue de le prouver. */}
       {/* ⭐⭐ IL VIENT APRÈS LE <Gate>, ET L'ORDRE COMPTE. Sans JavaScript, on lit
           d'abord ce qui manque et comment l'obtenir (le sceau), puis on voit le
           verrou. Avec JavaScript et un droit reconnu, les deux disparaissent et le
@@ -728,7 +703,7 @@ const mcpJour = mcpPoints(item.rarity, item.type);
           déjà affichée en clair plus haut sur cette page. Ne jamais lui passer
           autre chose : le flou du verrou est de la PRÉSENTATION, il ne cache rien
           à qui lit la source. */}
-      <Cadran lang={lang} uuid={item.uuid} svgPublic={svg}
+      <Cadran lang={lang} uuid={item.uuid}
               total={item.totalPoints} shown={item.points} />
     </div>
   </div>

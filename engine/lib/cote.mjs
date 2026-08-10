@@ -181,7 +181,7 @@ let refuses = 0;
 export const JOURNAL = '_projection.json';
 const journal = {};
 
-function deposer(item) {
+function deposer(item, courbe) {
   const cote = {};
   for (const champ of CHAMPS_COTE) {
     if (item[champ] !== undefined && item[champ] !== null) cote[champ] = item[champ];
@@ -191,6 +191,21 @@ function deposer(item) {
   // une seule offre. La réserve sert une VUE, pas une colonne.
   cote.listings = item.listings ?? null;
   cote.prixAberrant = !!item.prixAberrant;
+  // 🔴🔴🔴 LOT 123 — LA COURBE PUBLIQUE PASSE DANS LA RÉSERVE.
+  // Arbitrage Preda du 10/08 : « le graphique visible seulement une fois
+  // connecté ». Jusqu'ici elle était NORMALISÉE (0..1000, aucun montant
+  // lisible) et écrite dans le HTML de chaque fiche, où elle servait de fond
+  // flouté au panneau verrouillé — donc servie à tout le monde, robots
+  // compris, tout en n'étant lisible par personne.
+  // ⭐⭐⭐ ON NE CACHE PAS UN CHAMP, ON NE LE PROJETTE PAS — la règle du lot
+  // 101, appliquée cette fois à la FORME et plus seulement aux montants. Une
+  // courbe sans échelle ne dit aucun prix, mais elle dit une TENDANCE, et
+  // Preda a tranché qu'elle valait un compte.
+  // ⚠️ Elle est déposée avec la cote, donc derrière la porte `cote` — le
+  // palier qu'un membre franchit. L'historique COMPLET reste derrière
+  // `price_history` (crevette) : deux profondeurs, deux portes, un seul bloc
+  // à l'écran.
+  if (courbe && courbe.length >= 2) cote.courbe = courbe;
   cote.maj = new Date().toISOString();
 
   // Le journal d'abord : il doit contenir CE QU'ON A RETIRE, y compris pour un
@@ -233,9 +248,16 @@ export function projeter(items) {
   for (const k of Object.keys(journal)) delete journal[k];
 
   for (const item of items) {
-    deposer(item);
-    // La courbe AVANT les champs : `normaliser` lit `history[].floor`.
-    item.courbe = normaliser(item.history || []);
+    // 🔴 L'ORDRE A CHANGÉ AU LOT 123, ET IL COMPTE : `normaliser()` lit
+    //    `history[].floor`, donc la courbe se calcule TANT QUE l'historique
+    //    existe — puis elle part dans la réserve avec la cote, et non plus sur
+    //    l'objet public. ⛔ Déplacer `deposer()` après le `delete` déposerait
+    //    une cote vide, sans qu'aucune erreur ne le dise.
+    const courbe = normaliser(item.history || []);
+    deposer(item, courbe);
+    // ⛔ `item.courbe` N'EXISTE PLUS. Un gabarit qui la lirait rendrait
+    //    `undefined` — c'est voulu, et `test:projection` le vérifie : la
+    //    courbe ne doit plus voyager dans le jeu de données public.
     delete item.history;
     for (const champ of CHAMPS_COTE) delete item[champ];
   }

@@ -34,7 +34,12 @@
 import { t, numberLocale, dateLocale } from '../../engine/lib/i18n.mjs';
 import { porte, PALIERS } from '../../engine/lib/access.mjs';
 
-const { lang, uuid, svgPublic, total, shown } = Astro.props;
+// 🔴 LOT 123 — `svgPublic` A QUITTÉ LES PROPS. Il portait la courbe publique
+// jusque dans le fond flouté du panneau verrouillé, c'est-à-dire dans le HTML
+// de 3 000 fiches. Le laisser en props « au cas où » aurait gardé la porte
+// ouverte : un lot suivant l'aurait rebranché sans y penser, puisqu'il était
+// encore là. ⛔ Ce qui ne doit plus circuler ne reste pas dans une signature.
+const { lang, uuid, total, shown } = Astro.props;
 const p = porte('price_history');
 const nf = numberLocale[lang] || 'en-GB';
 const df = dateLocale[lang] || 'en-GB';
@@ -52,59 +57,34 @@ const rendre = p.actif && Number(total) > Number(shown);
        data-l-pts={t(lang, 'home.points')} data-l-refus={t(lang, 'hist.denied')}
        data-paliers={PALIERS.join(',')}>
 
-    {/* ⭐ L'ÉTAT VERROUILLÉ EST CE QUE LE HTML CONTIENT, ET C'EST VOULU.
-        Sans JavaScript, un abonné voit ce panneau — dégradé, jamais faux, et
-        jamais une fuite. Le robot d'indexation voit exactement ce que voit un
-        visiteur : la page ne dit pas une chose à Google et une autre aux gens.
-        C'est aussi ce qui rend le comportement TESTABLE hors navigateur. */}
-    <div class="graph-hote verrou" data-etat="ferme">
-      <span class="verrou__fond" aria-hidden="true" set:html={svgPublic} />
-      <span class="dissout__px" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
-      <span class="verrou__prof" aria-hidden="true"><i></i><i></i><i></i></span>
-      <div class="verrou__voile">
-        <div class="verrou__in">
-          {/* ⛔ « FULL HISTORY » RETIRE ICI AUSSI — lot 45, 03/08/2026.
-              C'etait la SECONDE des deux occurrences consecutives (l'autre
-              etait dans le sceau de <Gate>, juste au-dessus). ⭐ Le bouton
-              `hist.unlock` — « Afficher l'historique complet » — dit deja ce
-              que le verrou ouvre, et il le dit sous une forme qui se clique.
-              ⛔⛔ CE QUI DISPARAIT EST UN <p>, PAS CE COMPOSANT. Le <Cadran> est
-              le SEUL chemin par lequel un abonne obtient son historique : il
-              appelle /api/historique/[uuid], qui lit la session cote serveur.
-              Le supprimer rendrait la fiche muette pour la seule personne qui
-              paie — et le build serait vert. */}
-          {/* 🔴 LOT 112 — LA SECONDE MOITIÉ DE LA DEMANDE, ET ELLE N'ÉTAIT PAS
-              DANS <Gate>. Preda a cité DEUX textes : « 26 records in total,
-              since 25/11/2021 » (le sceau) et « 26 records in total / The whole
-              curve, not the last three days » (celui-ci). Ils se ressemblent
-              parce qu'ils partagent `offer.total` — et ils vivent dans DEUX
-              composants différents, sur la même fiche, l'un sous l'autre.
-              ⭐⭐ Corriger le premier laissait le second, et la page aurait
-              gardé le comportement signalé. *Deux textes identiques à l'écran
-              ne viennent pas forcément du même endroit dans le code.*
-              ⭐ `total` reste reçu en props et `mod.price_history.d` reste
-              vivante dans les 5 dictionnaires (Analytics et /offre/ la
-              rendent) : rien à recâbler pour revenir. */}
-          <div class="verrou__t">{t(lang, 'gate.reserved')}</div>
-          <p class="verrou__d" style="margin:0">{t(lang, 'gate.reserved.d')}</p>
-          {/* ⭐⭐ LE DÉCLENCHEUR EST UN CLIC, ET C'EST UNE DÉCISION.
-              Ma première version testait un cookie « vp_actif » pour savoir
-              s'il fallait appeler l'API. ⛔ Ce cookie N'EXISTE PAS : personne
-              ne le pose, et le service de session n'a pas été écrit. Un
-              composant qui attend un signal que rien n'émet ne se déclenche
-              jamais — et il a l'air correct, ce qui est pire qu'une panne.
-              ⭐ Un bouton ne dépend de rien : il marche le jour où les
-              comptes existent, sans qu'une ligne d'ici ne change. Il évite
-              aussi de réveiller Node pour les 8 500 pages visitées par des
-              gens qui n'ont pas de compte — c'est ce que nginx protège en ne
-              routant QUE /api/ vers lui. */}
-          <button type="button" class="btn btn--principal btn--sm" data-ouvrir>
-            {t(lang, 'hist.unlock')}
-          </button>
-          <p class="etiq" data-message hidden></p>
-        </div>
-      </div>
-    </div>
+    {/* ⚠️ CE COMMENTAIRE DISAIT « l'état verrouillé est ce que le HTML
+        contient, et c'est voulu ». Il a été retiré au lot 123 avec le panneau
+        qu'il décrivait — un avertissement qui survit à sa cause se cite et
+        empêche de regarder.
+        ⭐ Ce qu'il protégeait reste vrai autrement : sans JavaScript, il n'y a
+        rien ici, et le robot d'indexation voit exactement ce que voit un
+        visiteur — RIEN. La page ne dit toujours pas une chose à Google et une
+        autre aux gens ; elle en dit simplement moins aux deux. */}
+    {/* ═══════════════════════════════════════════════════════════════════
+        🔴🔴🔴 LOT 123 — LE PANNEAU VERROUILLÉ A DISPARU. RIEN NE LE REMPLACE.
+        ═══════════════════════════════════════════════════════════════════
+        Preda, 10/08 : « deux modules qui ne devraient pas exister ». Il y en
+        avait deux parce que <Gate> et ce composant rendaient le même texte,
+        l'un sous l'autre. Le <Gate> est parti de la fiche ; celui-ci perd son
+        panneau.
+        ⭐⭐⭐ ET ON NE MET RIEN À LA PLACE — pas un cadre, pas un « bientôt »,
+        pas une silhouette. *Un emplacement vide se lit comme une panne ; un
+        emplacement ABSENT ne se lit pas du tout.* Une fiche sans graphe est
+        une fiche plus courte, et c'est tout ce qu'un visiteur doit en
+        conclure.
+        ⛔ CE QUI EST PARTI AVEC : le fond flouté (`svgPublic`). Il portait la
+        courbe publique dans le HTML de chaque fiche — donc servie à tout le
+        monde, robots compris, sous une couche de flou qui n'est que de la
+        présentation. La courbe vit maintenant dans la réserve et n'arrive
+        qu'à qui a une session.
+        ⛔ ET LE BOUTON « afficher l'historique » AUSSI : il n'y a plus rien à
+        déverrouiller à la main. Le bloc se remplit tout seul quand le serveur
+        reconnaît un droit, et reste absent sinon. */}
 
     {/* Le cadran lui-même : vide au build, rempli par le script si — et
         seulement si — la route d'API a reconnu un droit. ⭐ `hidden` et non
@@ -118,69 +98,102 @@ const rendre = p.actif && Number(total) > Number(shown);
   </div>
 )}
 
+{/* ═══════════════════════════════════════════════════════════════════════
+    🔴🔴🔴 LOT 123 — CE QUE FAIT LE SCRIPT CI-DESSOUS, ET POURQUOI SES
+    COMMENTAIRES SONT ICI ET PAS DEDANS.
+    ═══════════════════════════════════════════════════════════════════════
+    ⛔ UN COMMENTAIRE DANS UN `<script is:inline>` EST ÉMIS. Il part dans les
+    3 000 fiches, sur le chemin critique. C'est exactement le défaut payé au
+    lot 105 pour les commentaires CSS (2 500 o × 8 484 pages) — et je venais de
+    le refaire : mes explications ajoutaient ~2 Ko par fiche, et le mot
+    « Members only » réapparaissait dans le HTML **depuis un commentaire qui
+    expliquait pourquoi il ne devait plus y être.** Un banc cherchant ce texte
+    l'aurait trouvé, et aurait eu raison de le trouver.
+    ⭐ Ils vivent donc ici, dans un commentaire JSX que le compilateur ne rend
+    jamais. Rien n'est perdu pour qui lit le gabarit.
+
+    ── CE QUE LE SCRIPT FAIT ────────────────────────────────────────────────
+    ① Il ne s'exécute QUE si `<html>` porte `data-membre`. ⛔ On relit
+       l'ATTRIBUT, jamais le cookie : `test:session` refuse le nom du cookie
+       d'affichage dans un fichier qui approche un droit, et il a raison —
+       il a d'ailleurs fait échouer ma première version. Ce n'est pas une
+       décision de DROIT (l'attribut ne dit que « quelqu'un est connecté »),
+       c'est une décision d'APPEL RÉSEAU : inutile de réveiller Node pour les
+       visiteurs anonymes, qui sont l'immense majorité.
+    ② Il demande `/api/historique/[uuid]` — porte `price_history`, palier
+       `crevette`. Si ça répond : historique COMPLET, avec les montants.
+    ③ Sinon il retombe sur `/api/cote/[uuid]` — porte `cote`, palier `member`
+       depuis le lot 118. Elle sert la courbe NORMALISÉE 0..1000, qui ne dit
+       aucun prix. C'est ce qui répond à l'arbitrage de Preda du 10/08 : « le
+       graphique visible une fois CONNECTÉ » — connecté, pas abonné.
+       ⭐⭐ DEUX PROFONDEURS, DEUX PORTES, UN SEUL BLOC À L'ÉCRAN : le membre
+       voit la forme, l'abonné voit les valeurs. Le mur vend la PROFONDEUR,
+       pas l'existence.
+       ⛔ L'ORDRE N'EST PAS INTERCHANGEABLE : demander la cote d'abord
+       dessinerait la courbe pauvre à un abonné puis la remplacerait — un
+       clignotement, et une fiche qui se contredit une demi-seconde.
+    ④ 401/403 : rien ne s'affiche, et rien ne le dit. Le bloc reste absent.
+       *Un refus qui laisse une trace à l'écran redevient un panneau
+       « Members only ».*
+    ⑤ 404/500 : une trace en console. Le contenu est DÛ et n'arrive pas —
+       sans ça, une réserve non copiée dans l'image rendrait toutes les fiches
+       muettes pour les abonnés, sur un déploiement vert.
+
+    ── LES DEUX PIÈGES DU MODE NORMALISÉ ────────────────────────────────────
+    ⛔ `meta.h` N'EXISTE PAS quand la courbe vient de `/api/cote/`. Un
+       `meta.h.n` nu aurait levé, et le `catch` global l'aurait avalé —
+       laissant le bloc vide sans un mot. *Le repli le plus dangereux est
+       celui qui existait déjà pour autre chose.*
+    ⛔ AUCUN CHIFFRE EN ORDONNÉE dans ce mode : la série vaut 0..1000 sur
+       elle-même. Écrire « 493 » serait un prix inventé au milieu de chiffres
+       observés — indiscernable d'un vrai.
+    ⛔ `meta.palier` non plus : aucune plage ne se déverrouille, et `'visitor'`
+       est la bonne réponse. `/api/cote/` reconnaît une session, elle ne dit
+       RIEN du palier — deviner fabriquerait une seconde vérité. */}
 {rendre && (
 <script is:inline>
 (function () {
   var hotes = document.querySelectorAll('[data-cadran]');
   if (!hotes.length) return;
 
-  // ⭐ UNE FOIS QU'UN DROIT A ÉTÉ RECONNU DANS CETTE SESSION D'ONGLET, les
-  // fiches suivantes se remplissent seules : un abonné ne clique qu'une fois.
-  // ⛔ `sessionStorage` ne porte AUCUN droit, seulement un souvenir de
-  // commodité. Le forcer à « 1 » depuis la console ne donne rien : il ne fait
-  // qu'avancer l'appel à l'API, qui refuse exactement comme avant. Le seul
-  // juge du palier est le serveur — un état de navigateur ne se falsifie pas
-  // seulement, il se falsifie FACILEMENT.
-  var CLE = 'vp-hist-ok';
-  var auto = false;
-  try { auto = sessionStorage.getItem(CLE) === '1'; } catch (e) {}
+  if (!document.documentElement.hasAttribute('data-membre')) return;
 
   hotes.forEach(function (hote) {
     var uuid = hote.getAttribute('data-cadran');
-    var ferme = hote.querySelector('[data-etat="ferme"]');
     var cible = hote.querySelector('[data-cible]');
     var svgHote = hote.querySelector('[data-svg]');
     var bulle = hote.querySelector('[data-bulle]');
     var legende = hote.querySelector('[data-legende]');
 
-    var bouton = hote.querySelector('[data-ouvrir]');
-    var message = hote.querySelector('[data-message]');
     var enCours = false;
 
-    function charger(parClic) {
+    function charger() {
       if (enCours) return;
       enCours = true;
-      if (bouton) bouton.disabled = true;
+
       fetch('/api/historique/' + encodeURIComponent(uuid), {
         credentials: 'same-origin', headers: { accept: 'application/json' }
       }).then(function (r) {
-        // ⛔ ON NE DÉGRADE PAS EN SILENCE, ET ON NE CRIE PAS NON PLUS.
-        // 401/403 : le verrou est la BONNE réponse — le sceau du <Gate> dit
-        // déjà quoi faire. On ne parle QUE si la personne a cliqué : un
-        // message surgi sans geste est du bruit.
-        // 404/500 : le contenu est dû et n'arrive pas. Là il faut une trace,
-        // sinon une réserve non copiée dans l'image rendrait TOUTES les
-        // fiches muettes pour les abonnés, avec un déploiement vert.
-        if (r.status === 401 || r.status === 403) {
-          if (parClic && message) { message.hidden = false; message.textContent = hote.getAttribute('data-l-refus') || ''; }
-          return null;
-        }
+        if (r.status === 401 || r.status === 403) return null;
         if (!r.ok) { console.warn('[cadran] ' + uuid + ' : HTTP ' + r.status); return null; }
         return r.json();
       }).then(function (j) {
-        if (!j || !j.ok || !j.h || !j.h.p || j.h.p.length < 2) return;
-        try { sessionStorage.setItem(CLE, '1'); } catch (e) {}
-        dessiner(j.h.p, j);
+        if (j && j.ok && j.h && j.h.p && j.h.p.length >= 2) { dessiner(j.h.p, j); return null; }
+        return fetch('/api/cote/' + encodeURIComponent(uuid), {
+          credentials: 'same-origin', headers: { accept: 'application/json' }
+        }).then(function (r) { return r.ok ? r.json() : null; }).then(function (c) {
+          if (!c || !c.ok || !c.c || !c.c.courbe || c.c.courbe.length < 2) return null;
+          dessiner(c.c.courbe, { normalisee: true });
+          return null;
+        });
       }).catch(function (e) {
         console.warn('[cadran] ' + uuid + ' : ' + e.message);
       }).then(function () {
         enCours = false;
-        if (bouton) bouton.disabled = false;
       });
     }
 
-    if (bouton) bouton.addEventListener('click', function () { charger(true); });
-    if (auto) charger(false);
+    charger();
 
     function dessiner(pts, meta) {
       var nf = hote.getAttribute('data-nf') || 'en-GB';
@@ -190,8 +203,6 @@ const rendre = p.actif && Number(total) > Number(shown);
       var ys = pts.map(function (p) { return p[1]; });
       var x0 = Math.min.apply(null, xs), x1 = Math.max.apply(null, xs);
       var y0 = Math.min.apply(null, ys), y1 = Math.max.apply(null, ys);
-      // ⚠️ Une série parfaitement plate donne un dénominateur nul : sans ce
-      // garde, toute la courbe part en NaN et le <path> disparaît SANS erreur.
       var spanX = (x1 - x0) || 1, spanY = (y1 - y0) || 1;
       var px = function (v) { return pad.l + ((v - x0) / spanX) * (W - pad.l - pad.r); };
       var py = function (v) { return H - pad.b - ((v - y0) / spanY) * (H - pad.t - pad.b); };
@@ -202,13 +213,12 @@ const rendre = p.actif && Number(total) > Number(shown);
       var jour = function (s) { return new Date(s * 1000).toLocaleDateString(df); };
 
       var g = '';
-      // Trois graduations, et la MÉDIANE en `axe--d` : une graduation
-      // secondaire se lit comme un repère, pas comme une valeur de la courbe.
       [y0, (y0 + y1) / 2, y1].forEach(function (v, k) {
         g += '<line x1="' + pad.l + '" y1="' + py(v).toFixed(1) + '" x2="' + (W - pad.r)
           + '" y2="' + py(v).toFixed(1) + '" class="grille-l"/>'
           + '<text x="' + (pad.l - 8) + '" y="' + (py(v) + 4).toFixed(1)
-          + '" class="axe' + (k === 1 ? ' axe--d' : '') + '" text-anchor="end">' + nb(v) + '</text>';
+          + '" class="axe' + (k === 1 ? ' axe--d' : '') + '" text-anchor="end">'
+          + (meta.normalisee ? '' : nb(v)) + '</text>';
       });
       [x0, (x0 + x1) / 2, x1].forEach(function (v) {
         g += '<text x="' + px(v).toFixed(1) + '" y="' + (H - 6)
@@ -222,42 +232,12 @@ const rendre = p.actif && Number(total) > Number(shown);
 
       svgHote.innerHTML = '<svg class="graph" viewBox="0 0 ' + W + ' ' + H
         + '" role="img" aria-label="' + (hote.getAttribute('data-l-pts') || '') + '">' + g + '</svg>';
-      legende.textContent = meta.h.n.toLocaleString(nf) + ' ' + (hote.getAttribute('data-l-pts') || '');
+      legende.textContent = meta.h
+        ? meta.h.n.toLocaleString(nf) + ' ' + (hote.getAttribute('data-l-pts') || '')
+        : '';
 
-      // ⭐ LE VERROU DISPARAÎT SEULEMENT MAINTENANT — après que le cadran a
-      // été rendu, jamais avant l'appel. Le retirer plus tôt ferait clignoter
-      // un vide entre les deux états, et ce vide dure exactement le temps du
-      // réseau : long, variable, et vu par la seule personne qui paie.
-      if (ferme) ferme.remove();
       cible.hidden = false;
-      // Le sceau du <Gate> annonce ce qui manque : il n'a plus rien à annoncer.
-      var sceau = document.querySelector('[data-sceau="price_history"]');
-      if (sceau) sceau.remove();
 
-      // ═══════════════════════════════════════════════════════════════════
-      // 🔴 LOT 104 — LES PLAGES DU GRAPHIQUE PUBLIC SE DÉVERROUILLENT ICI
-      // ═══════════════════════════════════════════════════════════════════
-      // ⭐⭐⭐ ET SEULEMENT ICI. C'est le seul endroit de la page qui connaisse
-      // le palier RÉEL : `meta.palier` vient de `/api/historique/[uuid]`, qui
-      // l'a lu dans `vp_session` (HttpOnly) côté serveur. Les deux autres
-      // candidats étaient des pièges :
-      //   ⛔ le BUILD ne sait rien — une page pré-générée n'a pas de visiteur,
-      //      elle figerait le palier du build dans 8 500 fichiers ;
-      //   ⛔ le COOKIE D'AFFICHAGE ne porte que « 1 » : il ne distingue pas
-      //      une Crevette d'une Whale, et il se pose à la main depuis la
-      //      console. Son nom n'est pas écrit ici — `test:session` refuse de
-      //      le voir dans un fichier qui approche un droit, et il a raison.
-      // ⛔ NE JAMAIS déduire le palier d'autre chose que de cette réponse. Un
-      // second chemin serait une seconde vérité, et le jour où les deux
-      // divergent c'est la plus permissive qui gagne.
-      //
-      // ⚠️ CE QU'ON OUVRE N'EST QU'UN ÉTAT VISUEL. Les boutons restent inertes
-      // — le graphique n'est pas encore interactif, et il ne l'est pas devenu
-      // dans ce lot. On retire donc le cadenas et l'infobulle « s'ouvre avec…»,
-      // et on laisse `aria-disabled` : ⛔ un contrôle qui ne répond pas doit
-      // continuer à le DIRE, même quand on y a droit. Annoncer « ouvert » sur
-      // un bouton qui ignore le clic serait remplacer une frustration honnête
-      // par une panne apparente.
       var rangs = (hote.getAttribute('data-paliers') || '').split(',');
       var mien = rangs.indexOf(meta.palier || 'visitor');
       var groupe = document.querySelector('[data-plages]');
@@ -265,9 +245,6 @@ const rendre = p.actif && Number(total) > Number(shown);
         var boutons = groupe.querySelectorAll('button[data-tier]');
         for (var b = 0; b < boutons.length; b++) {
           var exige = rangs.indexOf(boutons[b].getAttribute('data-tier'));
-          // ⚠️ `exige < 0` = palier inconnu du tableau : on NE DÉVERROUILLE
-          // PAS. En cas de doute on ferme — ouvrir par défaut transformerait
-          // une faute de frappe dans le manifeste en accès offert.
           if (exige >= 0 && mien >= exige) {
             boutons[b].removeAttribute('data-verrou');
             boutons[b].removeAttribute('title');
@@ -292,9 +269,6 @@ const rendre = p.actif && Number(total) > Number(shown);
         ptc.setAttribute('cx', px(p[0]).toFixed(1)); ptc.setAttribute('cy', py(p[1]).toFixed(1));
         bulle.hidden = false;
         bulle.innerHTML = '<span class="j">' + jour(p[0]) + '</span><b>' + nb(p[1]) + '</b>';
-        // Repositionnement dans le repère du parent, en pixels réels : le
-        // viewBox est mis à l'échelle, une position calculée en unités SVG
-        // serait juste sur un écran et fausse sur tous les autres.
         var rx = (px(p[0]) / W) * b.width;
         bulle.style.left = Math.min(Math.max(rx - 40, 0), b.width - 120) + 'px';
         bulle.style.top = ((py(p[1]) / H) * b.height - 46) + 'px';

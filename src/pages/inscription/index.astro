@@ -12,7 +12,7 @@ export const prerender = true;
 
 import Base from '../../layouts/Base.astro';
 import { acces, sessionDe } from '../../../engine/lib/access.mjs';
-import { t, localize, locales, languesInterface } from '../../../engine/lib/i18n.mjs';
+import { t, localize, locales, languesInterface, choisirLangue, COOKIE_LANGUE } from '../../../engine/lib/i18n.mjs';
 import { comptesActifs } from '../../../engine/lib/features.mjs';
 import { sceau, champPiegeHtml } from '../../../engine/lib/robots.mjs';
 import { getCatalogue } from '../../../engine/data/warehouse.mjs';
@@ -44,9 +44,24 @@ const demande = new URL(Astro.request.url).searchParams.get('lang');
 // ⭐⭐⭐ C'EST EXACTEMENT LA DÉCISION DE PREDA : « le contenu de base en
 // anglais, l'interface traduite ». L'espace membre est le seul endroit où
 // « l'interface » est encore une page à part entière.
-const dispo = languesInterface();
-const lang = (demande && dispo.includes(demande)) ? demande
-  : (dispo.includes('en') ? 'en' : def);
+// 🌍 LOT 123 — `?lang=` → cookie → Accept-Language. Voir `choisirLangue()`.
+const _ch = choisirLangue({
+  demande: new URL(Astro.request.url).searchParams.get('lang'),
+  cookie: Astro.cookies.get(COOKIE_LANGUE)?.value,
+  accept: Astro.request.headers.get('accept-language'),
+  dispo: languesInterface(), def,
+});
+const lang = _ch.lang;
+// ⭐ ON N'ÉCRIT QUE SI ÇA CHANGE : un `Set-Cookie` à chaque page ferait varier
+//   la réponse sans raison et gonflerait les en-têtes de tout le site.
+// ⚠️ `httpOnly:false` ASSUMÉ — ce cookie ne porte aucun droit, et un script de
+//   page peut avoir besoin de le lire. `sameSite:lax` : il doit survivre à un
+//   retour depuis le courriel de connexion.
+if (_ch.aPoser) {
+  Astro.cookies.set(COOKIE_LANGUE, lang, {
+    path: '/', maxAge: 60 * 60 * 24 * 365, sameSite: 'lax', secure: true, httpOnly: false,
+  });
+}
 
 // ⛔ UN SITE SANS PALIERS N'A RIEN À INSCRIRE.
 // ⭐ ET UNE PAGE NE SE RETIRE PAS D'UN SITE EN LA REDIRIGEANT : tant qu'elle est

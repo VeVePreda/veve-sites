@@ -22,12 +22,21 @@ export const prerender = true;
 
 import { priceEnabled } from '../../../engine/lib/features.mjs';
 import Market from '../../components/pages/Market.astro';
-import { locales } from '../../../engine/lib/i18n.mjs';
+import { locales, COOKIE_LANGUE, languesInterface } from '../../../engine/lib/i18n.mjs';
 import { franchit, connecte } from '../../../engine/lib/access.mjs';
 import { lireCotes } from '../../../engine/lib/cote.mjs';
 import { dataset } from '../../../engine/lib/dataset.mjs';
 
-const lang = locales().def;
+// 🌍 LOT 123 — CETTE PAGE AUSSI LIT LA PRÉFÉRENCE DE LANGUE.
+// Elle est rendue à la demande et réservée : elle peut donc servir des
+// libellés traduits sans URL supplémentaire et sans risque de cache partagé.
+// ⛔ L'oublier ici aurait produit le défaut signalé par Preda AU MILIEU du
+//    parcours : réglage en français sur /compte/, puis retour à l'anglais dès
+//    /market/. *Une préférence qui n'est lue que là où elle se pose ne se
+//    remarque qu'en naviguant — donc trop tard.*
+const { active, def } = locales();
+const _l = Astro.cookies.get(COOKIE_LANGUE)?.value;
+const lang = (_l && languesInterface().includes(_l)) ? _l : def;
 if (!priceEnabled()) return Astro.redirect('/');
 
 // ═══ LE MUR ═══════════════════════════════════════════════════════════════

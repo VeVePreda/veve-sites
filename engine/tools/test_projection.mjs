@@ -217,11 +217,32 @@ if (!FERMEE) {
   console.log('  ⏸️  sans objet ici — pas de projection, donc pas de `courbe` :'
     + ' le gabarit trace `history` par son chemin d\'origine.');
 } else {
-  const traçables = ds.marche.filter((i) => Array.isArray(i.courbe) && i.courbe.length >= 2);
-  const tracées = traçables.filter((i) => sparklineNormalisee(i.courbe, i.change7d).startsWith('<svg'));
-  verifie('chaque ligne qui a ≥ 2 points normalisés produit une courbe',
-    traçables.length > 0 && tracées.length === traçables.length,
-    `${tracées.length} / ${traçables.length} tracée(s) sur ${ds.marche.length} ligne(s)`);
+  // 🔴 LOT 123 — LA COURBE A CHANGÉ D'ENDROIT, ET CE CONTRÔLE AVEC ELLE.
+  //   Elle ne vit plus sur les items (`i.courbe`) : `projeter()` la dépose
+  //   dans `.reserve/cote/<uuid>.json`, derrière la porte `cote`. La fiche ne
+  //   la reçoit plus qu'après un appel d'API qui a lu une session.
+  // ⭐⭐ CE BANC A ROUGI TOUT SEUL SUR CE DÉPLACEMENT (« 0 / 0 tracée(s) »),
+  //   et c'est ce qu'on lui demande : il mesurait `ds.marche[].courbe`, une
+  //   propriété qui n'existe plus. On ne le désarme pas — on le rebranche là
+  //   où la donnée est allée.
+  // ⛔ ON LIT LE JOURNAL, PAS LES FICHIERS SERVIS : hors réseau, l'échantillon
+  //   porte des uuid « sample-… » que la liste blanche refuse tous, donc
+  //   `.reserve/cote/` sort vide de la CI. Le journal, lui, est écrit pour tous.
+  const avecCourbe = valeurs.filter((c) => Array.isArray(c.courbe) && c.courbe.length >= 2);
+  const tracées = avecCourbe.filter((c) => sparklineNormalisee(c.courbe, null).startsWith('<svg'));
+  verifie('la courbe est déposée DANS LA RÉSERVE, et elle se trace',
+    avecCourbe.length > 0 && tracées.length === avecCourbe.length,
+    `${tracées.length} / ${avecCourbe.length} tracée(s) sur ${valeurs.length} cote(s)`);
+
+  // ⭐⭐⭐ ET LA CONTRE-ÉPREUVE, qui est le vrai sujet du lot 123 : la courbe
+  //   ne doit PLUS voyager dans le jeu de données public. Sans elle, la ligne
+  //   ci-dessus resterait verte le jour où quelqu'un la remettrait sur les
+  //   items « pour que le gabarit y accède plus simplement » — et elle
+  //   repartirait dans le HTML des 3 000 fiches.
+  const surItems = ds.items.filter((i) => i.courbe !== undefined).length;
+  verifie('et elle ne voyage plus sur les items publics', surItems === 0,
+    surItems ? `${surItems} item(s) portent encore \`courbe\` — elle repartirait dans le HTML`
+             : `${ds.items.length} items sans courbe`);
 }
 
 // ⭐ Le point le plus BAS d'une série normalisée vaut 0. `sparkline()` filtrait
@@ -275,11 +296,14 @@ console.log('\n5. aucune lecture de `history` qui ne soit pas NOMMÉE');
 // demande qu'on réécrive la raison — ce qui est exactement le moment où il faut
 // se reposer la question. Même règle que la liste blanche du Rayon (lot 113).
 const LECTURES_NOMMEES = [
-  { motif: 'priceChartSVG(item.history,',
-    ou: 'src/components/pages/Item.astro',
-    raison: 'branche « cote OUVERTE » du ternaire : sur un site sans porte `cote`, '
-          + '`projeter()` sort immédiatement et `history` existe. La branche fermée, '
-          + 'juste au-dessus, lit `item.courbe`.' },
+  // 🔴 LOT 123 — L'AUTORISATION `priceChartSVG(item.history,` A ÉTÉ RETIRÉE.
+  //   Le ternaire qu'elle couvrait n'existe plus : `svg` a disparu d'Item.astro
+  //   avec le bloc de graphe public, mort depuis le lot 101.
+  // ⭐⭐⭐ C'EST LE CONTRÔLE « aucune autorisation ne survit à la ligne qu'elle
+  //   autorisait » QUI L'A DIT, à la première exécution après le changement.
+  //   Écrit deux lots plus tôt en pensant à un futur lointain — il a servi
+  //   trois jours après. *Une liste blanche qu'on ne nettoie pas devient une
+  //   liste blanche vide qui a l'air pleine.*
   { motif: '[...(item.history || [])]',
     ou: 'src/components/pages/Item.astro',
     raison: 'repli explicite posé au lot 101 — `[...undefined]` LÈVE, et un '

@@ -24,7 +24,7 @@ import { manifest } from '../../../engine/lib/manifest.mjs';
 // inoffensif : `imports-orphelins` le signale, et surtout il laisse croire que
 // cette page décide encore de droits d'accès — elle n'en décide plus aucun.
 import { acces, palierVisiteur, sessionDe } from '../../../engine/lib/access.mjs';
-import { t, localize, locales, localeNames, languesInterface } from '../../../engine/lib/i18n.mjs';
+import { t, localize, locales, localeNames, languesInterface, choisirLangue, COOKIE_LANGUE } from '../../../engine/lib/i18n.mjs';
 import { comptesActifs } from '../../../engine/lib/features.mjs';
 
 // ⭐ CES PAGES SONT RENDUES À LA DEMANDE : elles peuvent donc lire l'en-tête
@@ -44,20 +44,22 @@ const souhait = (Astro.request.headers.get('accept-language') || '')
 // ⭐⭐⭐ C'EST EXACTEMENT LA DÉCISION DE PREDA : « le contenu de base en
 // anglais, l'interface traduite ». L'espace membre est le seul endroit où
 // « l'interface » est encore une page à part entière.
-const dispo = languesInterface();
-// 🔴 `?lang=` EST LU ICI, ET SANS LUI LE SÉLECTEUR NE COMMANDERAIT RIEN.
-//    Les liens de réglage posent `?lang=fr` sur cette même adresse ; si
-//    personne ne lit ce paramètre, ils rechargent la page à l'identique et
-//    l'utilisateur conclut que le réglage est cassé — ou pire, que la langue
-//    n'existe pas. ⭐⭐ *Une commande dont personne ne lit la sortie est un
-//    bouton peint sur le mur.* (Même défaut que le cookie `vp_actif` que
-//    personne ne posait, vu de l'autre côté.)
-// ⚠️ L'ORDRE COMPTE : un choix EXPLICITE bat toujours une préférence de
-//    navigateur. L'inverse rendrait le réglage inopérant pour qui a déjà un
-//    `Accept-Language` reconnu — c'est-à-dire pour presque tout le monde.
-const demande = new URL(Astro.request.url).searchParams.get('lang');
-const lang = (demande && dispo.includes(demande)) ? demande
-  : (souhait.find((l) => dispo.includes(l)) || def);
+// 🌍 LOT 123 — `?lang=` → cookie → Accept-Language. Voir `choisirLangue()`.
+// ⭐ Cette page est celle où le réglage se FAIT : c'est donc ici, plus que
+//   partout ailleurs, que l'oubli se voyait. Preda l'a signalé le 10/08 —
+//   « je règle sur français, la navigation me remet en anglais ».
+const _ch = choisirLangue({
+  demande: new URL(Astro.request.url).searchParams.get('lang'),
+  cookie: Astro.cookies.get(COOKIE_LANGUE)?.value,
+  accept: Astro.request.headers.get('accept-language'),
+  dispo: languesInterface(), def,
+});
+const lang = _ch.lang;
+if (_ch.aPoser) {
+  Astro.cookies.set(COOKIE_LANGUE, lang, {
+    path: '/', maxAge: 60 * 60 * 24 * 365, sameSite: 'lax', secure: true, httpOnly: false,
+  });
+}
 const m = manifest();
 const { tiers } = acces();
 // ⛔ DÉCISION PREDA DU 03/08/2026 : vevewiki n'aura JAMAIS d'espace membre.

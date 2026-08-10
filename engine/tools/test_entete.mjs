@@ -144,8 +144,25 @@ dit(/document\.documentElement\.setAttribute\('data-membre'/.test(src),
 // ⭐ L'ordre compte : le script doit précéder la feuille de style qui s'en
 // sert. L'inverse marche aussi en pratique (le CSS est réévalué), mais on ne
 // s'appuie pas sur une réévaluation dont la performance dépend du navigateur.
-const iScript = src.indexOf("setAttribute('data-membre'");
-const iStyle = src.indexOf('html[data-membre]');
+// 🔴🔴 LOT 123 — ON DÉCOMMENTE AVANT DE CHERCHER, ET C'EST LA TROISIÈME FOIS
+// QUE CE DÉPÔT LE PAIE (après un `grep` de cron le 07/08 et le §5 de
+// `test:projection`). Ce banc cherchait `html[data-membre]` dans le fichier
+// BRUT : un commentaire du frontmatter qui CITE la règle pour l'expliquer
+// arrivait avant le script, et le banc concluait que l'ordre était inversé.
+// ⭐⭐⭐ *Un contrôle qui lit les commentaires rougit sur les explications de
+// ce qu'il vérifie — c'est-à-dire précisément sur le code le mieux documenté.*
+// ⛔ LA RÉPARATION N'ÉTAIT PAS DE REFORMULER MON COMMENTAIRE POUR LUI PLAIRE :
+//    on corrige l'INSTRUMENT, jamais le code pour lui plaire. Un gabarit qui
+//    n'ose plus nommer la règle qu'il applique est un gabarit qu'on relira mal.
+const nu = src
+  .replace(/\{?\/\*[\s\S]*?\*\/\}?/g, (m) => ' '.repeat(m.length))
+  .replace(/^\s*\/\/.*$/gm, (m) => ' '.repeat(m.length));
+// ⚠️ ON REMPLACE PAR DES ESPACES DE MÊME LONGUEUR, on ne supprime pas : ce
+//    contrôle compare des POSITIONS. Retirer les commentaires décalerait tout
+//    ce qui suit, et le banc mesurerait alors un ordre qui n'existe que dans
+//    sa copie. *Quand on juge une position, on ne change pas la longueur.*
+const iScript = nu.indexOf("setAttribute('data-membre'");
+const iStyle = nu.indexOf('html[data-membre]');
 dit(iScript > 0 && iStyle > iScript, 'le script précède les règles qui lisent son attribut',
   iScript > 0 && iStyle > iScript ? null : `script à ${iScript}, règles à ${iStyle}`);
 

@@ -242,8 +242,18 @@ await cas('le dossier de réserve est HORS de public/, src/ et dist/', () => {
 // posée à UN thème sur UN composant : elle a une réponse.
 console.log('\n— les classes du Cadran existent dans le thème de veveprice —');
 const theme = readFileSync(join(R, 'themes/vitrine/theme.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
-for (const c of ['dissout', 'dissout__px', 'graph-hote', 'verrou__fond', 'verrou__prof',
-                 'verrou__voile', 'verrou__in', 'verrou__t', 'verrou__d', 'ref', 'ref--td',
+// 🔴 LOT 123 — LES CLASSES DU VERROU ONT QUITTÉ CETTE LISTE AVEC LE PANNEAU.
+// `verrou__fond`, `verrou__prof`, `verrou__voile`, `verrou__in`, `verrou__t`,
+// `verrou__d`, `dissout`, `dissout__px` ne sont plus émises par `Cadran.astro`.
+// ⭐⭐ LES EXIGER ENCORE AURAIT ÉTÉ LE DÉFAUT SYMÉTRIQUE DE CELUI QU'ELLES
+// gardaient : ce banc vérifie qu'une classe ÉMISE est HABILLÉE ; exiger une
+// règle pour une classe que plus personne n'émet, c'est demander au thème de
+// garder du CSS mort — et le prochain qui le nettoie fera rougir un banc en
+// ayant raison.
+// ⛔ Les règles restent dans le thème (elles servent au verrou d'autres pages
+//    et `outils/css-mort.mjs` dira si ce n'est plus vrai) : c'est le CONTRÔLE
+//    qui change, pas la feuille.
+for (const c of ['graph-hote', 'ref', 'ref--td',
                  'info-bulle', 'cadran', 'cadran-pt', 'axe', 'axe--d', 'pt-haut', 'pt-bas',
                  'graph', 'grille-l', 'aire', 'ligne']) {
   await cas(`.${c} a une règle`, () => {
@@ -251,12 +261,34 @@ for (const c of ['dissout', 'dissout__px', 'graph-hote', 'verrou__fond', 'verrou
       'émise par Cadran.astro, jamais habillée : le composant sort NU, sans une erreur');
   });
 }
-await cas('le Cadran ne floute QUE la courbe publique', () => {
+// 🔴🔴🔴 LOT 123 — CE CONTRÔLE EST DEVENU PLUS FORT, PAS PLUS SOUPLE.
+// IL DISAIT : « `.verrou__fond` ne reçoit que la courbe PUBLIQUE » — parce que
+// `filter:blur` est de la présentation, et que tout ce qui passe là est en
+// clair dans le HTML, lisible par « afficher la source ».
+// La règle était juste. Son SUJET a disparu : le panneau flouté n'existe plus,
+// et la courbe ne voyage plus dans la page — elle vit dans la réserve et
+// n'arrive que par une API qui a lu une session.
+// ⭐⭐⭐ UN CONTRÔLE DONT L'OBJET DISPARAÎT NE SE SUPPRIME PAS, IL SE
+// GÉNÉRALISE. La question qu'il posait — « qu'est-ce que ce composant écrit
+// dans le HTML ? » — a maintenant une réponse plus simple et plus sûre :
+// RIEN. On l'exige.
+// ⛔ Et c'est bien un durcissement : l'ancien autorisait une donnée (la courbe
+//    publique) à condition qu'elle soit la bonne. Celui-ci n'en autorise
+//    aucune. *Une règle qui perd son sujet et qu'on retire laisse un trou ;
+//    une règle qu'on élargit ferme aussi ce qu'on n'avait pas prévu.*
+await cas('le Cadran n\'écrit AUCUNE donnée dans le HTML', () => {
   const src = readFileSync(join(R, 'src/components/Cadran.astro'), 'utf8');
-  assert.match(src, /verrou__fond[^>]*set:html=\{svgPublic\}/,
-    '`.verrou__fond` porte un `filter:blur` : le flou est de la PRÉSENTATION. Tout ce '
-    + 'qu\'on lui passe est en clair dans le HTML, lisible par « afficher la source ». '
-    + 'Seule la courbe PUBLIQUE peut y passer.');
+  const html = src.slice(0, src.indexOf('<script'));
+  assert.equal(/set:html=/.test(html), false,
+    'le Cadran ne doit rien injecter dans la page au build : la courbe vient de '
+    + '`/api/cote/`, l\'historique de `/api/historique/`, et les deux ont lu une session.');
+  // ⚠️ On cherche le mot HORS des commentaires : ce fichier explique
+  //    précisément pourquoi `svgPublic` a été retiré, et un contrôle qui lit
+  //    ses propres explications rougit sur elles. Défaut payé le 07/08.
+  const nu = src.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/^\s*\/\/.*$/gm, ' ');
+  assert.equal(/svgPublic/.test(nu), false,
+    '`svgPublic` a été retiré au lot 123 — le fond flouté portait la courbe dans le '
+    + 'HTML de 3 000 fiches, servie à tout le monde sous une couche de présentation.');
 });
 await cas('le Cadran ne dépend d\'aucun cookie inventé', () => {
   const src = readFileSync(join(R, 'src/components/Cadran.astro'), 'utf8');
