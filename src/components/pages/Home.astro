@@ -163,7 +163,18 @@ const horo = maj ? `${String(maj.getUTCDate()).padStart(2,'0')}.${String(maj.get
       comme `/api/cote/lot` — jamais d'ici.
       ⚠️ `test:accueil` (neuf) refuse que ces deux blocs soient conditionnés. */}
   <div class="tableau-bord" data-membre hidden>
-    <p class="etiq etiq--bleu">// {t(lang, 'dash.title').toUpperCase()}</p>
+    {/* 🔴 LOT 129 — `.toUpperCase()` RETIRÉ, ET IL NE MANQUERA À PERSONNE.
+          `.etiq` porte DÉJÀ `text-transform:uppercase` (theme.css l. 599) : les
+          capitales étaient faites DEUX FOIS, une fois dans le texte et une fois
+          dans le style. Le rendu est identique à l'octet près.
+          ⛔ MAIS LA VERSION MARKUP DÉTRUISAIT LA TRADUCTION : `t()` marque son
+          libellé d'une clé (lot 129), et `.toUpperCase()` mettait LA CLÉ en
+          capitales avec le reste — `analytics.title` devenait `ANALYTICS.TITLE`,
+          introuvable dans le dictionnaire, donc jamais échangé.
+          ⭐⭐ Et c'était déjà une faute avant ce lot : des capitales écrites dans le
+          texte se copient en capitales, et un lecteur d'écran peut les épeler
+          lettre par lettre. La casse est une affaire de STYLE. */}
+    <p class="etiq etiq--bleu">// {t(lang, 'dash.title')}</p>
     <h1 class="mono-t">{t(lang, 'dash.title')}</h1>
     <div class="panneau" style="margin-top:var(--s4)">
       <h2 class="mono-t">{t(lang, 'dash.empty')}</h2>

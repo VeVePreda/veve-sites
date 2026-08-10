@@ -35,6 +35,7 @@ import { mkdtempSync, writeFileSync, readFileSync, existsSync, rmSync, readdirSy
 import { join, dirname, resolve, relative } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
+import { lireTemoin } from '../lib/astro_temoin_build.mjs';
 
 const ICI = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(ICI, '..', '..');
@@ -251,23 +252,79 @@ if (!existsSync(VRAI)) {
   // la règle « tout banc qui importe dataset() va AVANT npm run build ». Le
   // Dockerfile la tient déjà pour `.reserve/cote/` ; désormais elle protège
   // aussi `marche.json`, et cette ligne-ci est ce qui le MESURE.
+  // ═════════════════════════════════════════════════════════════════════════
+  // 🔴🔴🔴 LOT 128 — ON DEMANDE D'ABORD AU BUILD CE QU'IL A DÉPOSÉ.
+  // ═════════════════════════════════════════════════════════════════════════
+  // CE QUI S'EST PASSÉ, MESURÉ LE 10/08 : Discord annonçait « les bancs sont
+  // tombés sur `main` » pendant qu'un déploiement Coolify passait au vert. Les
+  // deux avaient raison. La CI construit avec `WAREHOUSE_OFFLINE=1` — c'est
+  // voulu — et hors ligne l'échantillon porte des uuid que la liste blanche
+  // refuse : **1 cote et 90 lignes, toujours**. Le seuil « ≥ 200 cotes » écrit
+  // ci-dessous au lot 125 était donc INTENABLE en CI, et tenable dans le
+  // Dockerfile, qui construit en ligne. Un banc rouge pour une mauvaise raison
+  // coûte plus cher qu'un banc absent : on finit par ignorer sa couleur, et
+  // c'est arrivé — le message Discord a été lu comme du bruit.
+  //
+  // ⚠️ ET `cote.mjs` LE DISAIT DÉJÀ, depuis le 07/08, quatre lignes au-dessus du
+  // code concerné : « `.reserve/cote/` sort VIDE de tout build hors reseau —
+  // donc de la CI. » La phrase était juste, elle était là, et le lot 125 a écrit
+  // le seuil quand même. *Un avertissement qui ne se MESURE pas finit lu sans
+  // être suivi.* ⇒ il est devenu un fichier : `.reserve/_temoin-build.json`.
+  //
+  // ⭐⭐⭐ LE TÉMOIN REND LE CONTRÔLE PLUS STRICT, PAS PLUS SOUPLE. Avant, un
+  // banc qui écrasait la réserve après un build EN LIGNE se voyait (1 201 → 1) ;
+  // après un build HORS LIGNE il était invisible, la réserve valant déjà 1.
+  // Maintenant on compare au chiffre que le build a SIGNÉ : les deux se voient.
+  const temoin = lireTemoin(ROOT);
   const dossierCote = join(ROOT, '.reserve', 'cote');
   if (!existsSync(dossierCote)) {
     indecis('la cohérence projection ↔ réserve', '.reserve/cote/ absent');
   } else {
     const cotes = new Set(readdirSync(dossierCote).filter((f) => f.endsWith('.json')).map((f) => f.slice(0, -5)));
-    const orphelines = (charge.marche || []).filter((i) => !cotes.has(i.uuid));
-    verifie('⛔ chaque ligne de la projection a SA cote dans .reserve/cote/',
-      orphelines.length === 0,
-      orphelines.length
-        ? `🔴 ${orphelines.length} ligne(s) sur ${charge.marche.length} sans cote — ${cotes.size} fichier(s) dans .reserve/cote/. `
-          + `Cause la plus probable : un banc qui importe dataset() a tourné APRÈS npm run build et a réécrit la réserve.`
-        : `${charge.marche.length} ligne(s) adossées à ${cotes.size} cote(s)`);
-    // ⭐ Et le volume : une réserve d'échantillon est petite ET cohérente.
-    verifie('…et la réserve a la taille d\'une réserve de PRODUCTION (≥ 200 cotes)',
-      cotes.size >= 200,
-      cotes.size >= 200 ? `${cotes.size} cotes` :
-        `🔴 ${cotes.size} cote(s) : c'est un échantillon, pas la production — le build a été recalculé hors ligne`);
+
+    if (!temoin) {
+      // ⛔ PAS DE TÉMOIN = INDÉCIDABLE, jamais « conforme ». Sans lui on ne
+      // peut pas distinguer un échantillon d'une réserve écrasée : les deux
+      // rendent exactement les mêmes chiffres.
+      indecis('l\'origine de la réserve',
+        '.reserve/_temoin-build.json absent — build antérieur au lot 128, ou build interrompu. '
+        + `Constat brut : ${cotes.size} cote(s), ${charge.marche?.length ?? 0} ligne(s).`);
+    } else {
+      // ── ① CE QUE LE BUILD A DÉPOSÉ EST-IL TOUJOURS LÀ ?
+      // 🔴 C'EST LE VRAI GARDE-FOU, et il vaut dans les DEUX mondes.
+      verifie('⛔ la réserve est INTACTE depuis la fin du build',
+        cotes.size === temoin.cotes && (charge.marche?.length ?? 0) === temoin.marche,
+        cotes.size === temoin.cotes && (charge.marche?.length ?? 0) === temoin.marche
+          ? `${cotes.size} cote(s) et ${charge.marche.length} ligne(s), comme à ${temoin.quand}`
+          : `🔴 le build avait déposé ${temoin.cotes} cote(s) et ${temoin.marche} ligne(s) ; on en trouve `
+            + `${cotes.size} et ${charge.marche?.length ?? 0}. Un banc qui importe dataset() a tourné APRÈS `
+            + `npm run build et a réécrit la réserve sous ses pieds (panne des lots 101 et 113).`);
+
+      // ── ② LES LIGNES ONT-ELLES LEUR COTE ?
+      const orphelines = (charge.marche || []).filter((i) => !cotes.has(i.uuid));
+      if (temoin.horsLigne) {
+        // ⚠️ HORS LIGNE, L'ÉCHANTILLON N'A PAS DE VRAIS uuid : la liste blanche
+        // les refuse tous, donc AUCUNE ligne n'a de cote — c'est le
+        // comportement CORRECT, documenté dans `cote.mjs` depuis le 07/08.
+        // ⛔ Rendre vert ici serait mentir ; rendre rouge aussi. Troisième verdict.
+        indecis('l\'adossement des lignes à leurs cotes',
+          `build HORS LIGNE (témoin) : l'échantillon porte des uuid que la liste blanche refuse, `
+          + `donc ${orphelines.length} ligne(s) sans cote est NORMAL ici. Ce point ne se juge que sur un build en ligne — `
+          + `le Dockerfile, lui, construit en ligne et le juge.`);
+      } else {
+        verifie('⛔ chaque ligne de la projection a SA cote dans .reserve/cote/',
+          orphelines.length === 0,
+          orphelines.length
+            ? `🔴 ${orphelines.length} ligne(s) sur ${charge.marche.length} sans cote — ${cotes.size} fichier(s) dans .reserve/cote/.`
+            : `${charge.marche.length} ligne(s) adossées à ${cotes.size} cote(s)`);
+        // ⭐ Le volume — et il ne se demande QUE sur un build en ligne.
+        verifie('…et la réserve a la taille d\'une réserve de PRODUCTION (≥ 200 cotes)',
+          cotes.size >= 200,
+          cotes.size >= 200 ? `${cotes.size} cotes` :
+            `🔴 ${cotes.size} cote(s) sur un build EN LIGNE : la production en compte 1 201. `
+            + `L'entrepôt a-t-il répondu ?`);
+      }
+    }
   }
 
   // ⭐⭐⭐ ON SORT SUR UNE MESURE, PAS SUR UNE DÉCLARATION. Le lot entier existe

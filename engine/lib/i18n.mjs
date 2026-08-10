@@ -123,11 +123,93 @@ export function dict(lang) {
   return d;
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 LOT 129 — LE MARQUAGE, ET POURQUOI IL PASSE PAR `t()` ET PAR RIEN D'AUTRE
+// ═══════════════════════════════════════════════════════════════════════════
+// Preda, 10/08 : « j'ai toujours un problème avec la langue, d'une page à
+// l'autre c'est un coup anglais un coup français. »
+//
+// ⚠️⚠️ MA PROPRE NOTE DISAIT « traduire l'interface = 534 `t()` À MARQUER ».
+// MESURÉ AVANT DE CODER : les 536 `t(lang, …)` sont **déjà** marqués et
+// fonctionnent parfaitement. Le blocage n'a jamais été là. Il est que les
+// 3 097 pages publiques sont **pré-générées** puis **pré-compressées** (3 104
+// `.gz`) : au moment où elles se fabriquent, il n'y a personne à qui demander
+// sa langue, et au moment où quelqu'un les lit, elles sont déjà écrites.
+// ⭐⭐⭐ *Mesurer avant de corriger, même ce qu'on a écrit soi-même.* Sans cette
+// vérification j'aurais passé la session à marquer ce qui l'était déjà.
+//
+// LA SORTIE CHOISIE (Preda, 10/08) : l'échange se fait dans le NAVIGATEUR. Le
+// HTML reste anglais — le cache partagé, la précompression et le SEO anglais
+// tout juste posé restent intacts — et un script échange les libellés chez qui
+// a un cookie de langue.
+//
+// ⛔ POUR ÇA IL FAUT SAVOIR QUEL MORCEAU DE TEXTE EST QUELLE CLÉ, ET IL N'Y A
+//    QUE DEUX FAÇONS DE LE SAVOIR :
+//    ① retrouver la clé à l'envers, en cherchant le texte anglais dans le
+//       dictionnaire. ⛔ REFUSÉ, et c'est important : une pièce nommée
+//       « History » ou une série nommée « Origins » se ferait traduire comme un
+//       libellé d'interface. *Un dictionnaire inversé confond un libellé avec
+//       une donnée qui lui ressemble* — et sur un catalogue de 19 412 pièces,
+//       la collision n'est pas une hypothèse.
+//    ② demander à `t()` de dire qui il est. C'est ce qu'on fait.
+//
+// ⭐⭐ ET ON NE TOUCHE AUCUN DES 536 APPELS. Un marquage posé à la main sur 536
+// sites serait faux dès le premier oubli, et surtout dès le PROCHAIN `t()`
+// écrit par quelqu'un qui n'a pas lu ce commentaire. Ici c'est `t()` lui-même
+// qui s'annonce : tout appel présent ET FUTUR est marqué sans effort.
+//
+// ⛔ LE MARQUAGE NE VIT QUE PENDANT LE BUILD. `I18N_MARQUAGE=1` est posé sur la
+// commande de build et sur elle seule ; le serveur de production (`node
+// dist/server/entry.mjs`) est un AUTRE processus, qui ne l'a pas. Les pages
+// rendues à la demande — `/compte/`, `/favoris/`, `/market/` — rendent donc du
+// texte NU, déjà dans la bonne langue : elles ont un visiteur, elles n'ont rien
+// à échanger. ⭐ Les deux mondes ne se croisent jamais.
+//
+// ⚠️ LES SENTINELLES SONT DES CARACTÈRES DE CONTRÔLE (U+0011..U+0013), pas des
+// balises : ils traversent l'échappement HTML d'Astro sans être transformés, et
+// ils ne peuvent apparaître dans aucun texte réel. `outils/marquer_i18n.mjs`
+// les convertit en `data-i18n` après le build. ⛔ Si ce post-traitement ne
+// tourne pas, ils resteraient VISIBLES dans la page : `test:i18n` refuse toute
+// sentinelle survivante dans `dist/`, c'est la première chose qu'il regarde.
+export const SENT_DEB = '';
+export const SENT_MIL = '';
+export const SENT_FIN = '';
+
+// ⭐⭐⭐ `nu()` — LE TEXTE SANS SES MARQUEURS, ET IL EST OBLIGATOIRE DÈS QU'ON
+// MESURE OU QU'ON COUPE. Le marquage rend la chaîne PLUS LONGUE de bytes
+// invisibles. Tout code qui fait `.slice(0, 158)`, `.length`, `.padEnd()` ou
+// `.split()` sur un résultat de `t()` travaille donc sur une longueur fausse.
+// 🔴 MESURÉ, ET ÇA A COÛTÉ 64 PAGES : `EditorialEntry.astro` compose la
+// description SEO puis la coupe à 158 caractères. Avec les marqueurs, la coupe
+// tombait AU MILIEU d'un marqueur — laissant un `␑` orphelin que le
+// post-traitement suivait jusqu'à trouver un `␓` sept mille octets plus loin,
+// **supprimant tout le `<head>` au passage**. Les pages partaient nues, sans
+// feuille de style, et le build restait vert.
+// ⛔ Et même sans ça : la description SEO aurait été RACCOURCIE par des octets
+//    invisibles. La coupe doit voir le texte, pas le balisage.
+export const nu = (s) => String(s ?? '')
+  .replace(new RegExp(`${SENT_DEB}[^${SENT_MIL}]*${SENT_MIL}`, 'g'), '')
+  .replace(new RegExp(SENT_FIN, 'g'), '')
+  // ⚠️ Et le balai de fin : une sentinelle ORPHELINE (coupée de ses voisines)
+  // ne correspond à aucun motif ci-dessus. On la retire quand même — mieux vaut
+  // un texte nu qu'un caractère de contrôle servi à un navigateur.
+  .replace(new RegExp(`[${SENT_DEB}${SENT_MIL}${SENT_FIN}]`, 'g'), '');
+
 export function t(lang, key, vars) {
   const d = dict(lang);
   const raw = d[key] !== undefined ? d[key] : (dict(locales().def)[key] ?? key);
-  if (!vars) return raw;
-  return String(raw).replace(/\{(\w+)\}/g, (_, k) => (vars[k] !== undefined && vars[k] !== null ? String(vars[k]) : ''));
+  const texte = !vars ? raw
+    : String(raw).replace(/\{(\w+)\}/g, (_, k) => (vars[k] !== undefined && vars[k] !== null ? String(vars[k]) : ''));
+  if (process.env.I18N_MARQUAGE !== '1') return texte;
+  // ⚠️ UN TEXTE VIDE NE SE MARQUE PAS : une clé qui rend '' produirait un
+  // `<span data-i18n>` vide, donc un nœud invisible que rien ne justifie.
+  if (texte === '' || texte === null || texte === undefined) return texte;
+  // ⛔ ON MARQUE LA CLÉ, JAMAIS LES VARIABLES SUBSTITUÉES. `t(lang,'x',{n:1200})`
+  // rend « 1 200 pièces suivies » : le nombre appartient à la DONNÉE, pas au
+  // libellé. Le navigateur ne peut donc pas re-substituer — il reçoit la clé ET
+  // le texte anglais déjà rempli, et `marquer_i18n.mjs` marque ce cas comme
+  // « variable » pour qu'on ne l'échange pas à tort.
+  return `${SENT_DEB}${key}${vars ? '!' : ''}${SENT_MIL}${texte}${SENT_FIN}`;
 }
 
 // Valeur de manifeste pouvant etre une chaine OU une carte { en: "...", fr: "..." }
@@ -137,7 +219,47 @@ export function pick(value, lang) {
   return value[lang] ?? value[locales().def] ?? Object.values(value)[0] ?? '';
 }
 
-export const prefixOf = (lang) => (lang === locales().def ? '' : `/${lang}`);
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 LOT 128 — UNE ADRESSE SE PRÉFIXE AVEC UNE LANGUE QUI A UNE ADRESSE
+// ═══════════════════════════════════════════════════════════════════════════
+// MESURÉ LE 10/08/2026, serveur réel : depuis `/favoris/` avec le cookie
+// `vp_langue=fr`, le header et le pied de page émettaient DIX-NEUF liens, dont
+// **HUIT rendaient 404** — `/fr/analytics/`, `/fr/collections/`, `/fr/offre/`,
+// les quatre pages légales, et **`/fr/`, c'est-à-dire le logo**. Preda :
+// « quand je passe de favoris à analytics ça me renvoie sur la page d'accueil,
+// il y a des problèmes de menu dans le header ».
+//
+// LA CAUSE, ET ELLE EST ÉCRITE EN TOUTES LETTRES DANS LE MANIFESTE DEPUIS LE
+// LOT 120 : « `active` — LES LANGUES QUI ONT UNE ADRESSE. C'est cette liste, et
+// elle seule, que lisent les `getStaticPaths`, le sitemap et les `hreflang`. »
+// `active` vaut `[en]`. `interface` vaut `[en, fr, es, de]`.
+// Les pages négociées à la demande — `/compte/`, `/favoris/`, `/dashboard/` —
+// choisissent leur langue dans `interface`, ce qui est CORRECT : elles n'ont
+// qu'une adresse et traduisent leurs libellés. Puis elles passaient cette
+// langue à `localize()`, qui fabriquait des adresses `/fr/…` **qui n'existent
+// pas**.
+//
+// ⭐⭐⭐ TROIS LISTES, ET LA FAUTE EST DE N'EN VOIR QU'UNE. « En quelle langue
+// PARLER » et « à quelle ADRESSE aller » sont deux questions ; les confondre ne
+// produit ni erreur, ni build rouge, ni banc qui tombe — ça produit un menu où
+// huit liens sur dix-neuf sont morts, et personne ne s'en aperçoit tant que
+// personne ne clique avec un cookie non anglais.
+// ⭐⭐ C'est la MÊME famille que `connecte()` / `franchit()` : « qui es-tu »
+// n'est pas « à quoi as-tu droit ». Ici : « quelle langue lis-tu » n'est pas
+// « quelle langue est publiée ».
+//
+// ⛔ LE REPLI EST LE BON REPLI : une langue sans adresse retombe sur la langue
+// par défaut, qui a TOUJOURS une adresse. On ne rend jamais un lien mort.
+// ⚠️ CETTE LIGNE NE CHANGE RIEN SUR vevewiki, dont les cinq langues sont toutes
+// dans `active` — vérifié, 268 pages inchangées. Elle ne mord que là où une
+// langue d'INTERFACE s'était échappée dans une URL.
+// 🔴 Elle guérit aussi le canonical : `Base.astro` construisait
+//    `<link rel=canonical href=".../fr/favoris/">` vers une page inexistante.
+export const prefixOf = (lang) => {
+  const { active, def } = locales();
+  const adresse = active.includes(lang) ? lang : def;
+  return adresse === def ? '' : `/${adresse}`;
+};
 export const localize = (lang, path) => `${prefixOf(lang)}${path.startsWith('/') ? path : '/' + path}`;
 
 // Pour getStaticPaths : la langue par defaut n'a PAS de prefixe (param undefined).

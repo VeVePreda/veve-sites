@@ -107,7 +107,7 @@ const figuresPro = [...reg.values()].filter((f) => !FIG_DEMO.includes(f.id));
       crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') }, { name: t(lang, 'analytics.title') }]}>
   <Figures />
 
-  <p class="etiq etiq--bleu">// {t(lang, 'analytics.title').toUpperCase()}</p>
+  <p class="etiq etiq--bleu">// {t(lang, 'analytics.title')}</p>
   <h1 class="mono-t">{t(lang, 'analytics.title')}</h1>
   <p class="respire" style="max-width:56ch">{t(lang, 'desc.analytics')}</p>
 
@@ -236,7 +236,7 @@ const figuresPro = [...reg.values()].filter((f) => !FIG_DEMO.includes(f.id));
       blanche qui a l'air cassée. La promesse est tenue par le HTML seul. */}
   {['pulse', 'size', 'whales', 'corner'].map((m) => (
     <section class="panneau" style="margin-top:var(--s4)" data-led={m}>
-      <p class="etiq">// {t(lang, `led.${m}`).toUpperCase()}</p>
+      <p class="etiq">// {t(lang, `led.${m}`)}</p>
       <div class="led__hote"><p class="muted">{t(lang, 'led.locked')}</p></div>
     </section>
   ))}

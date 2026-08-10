@@ -1,0 +1,123 @@
+// ⚠️ VeVePreda/veve-sites — engine/lib/astro_temoin_build.mjs   (FICHIER NEUF — lot 128)
+// ═══════════════════════════════════════════════════════════════════════════
+//  LE TÉMOIN DU BUILD — ce que le build a VRAIMENT déposé, et dans quel monde
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// 🔴🔴🔴 LA PANNE QU'IL RÉPARE, MESURÉE LE 10/08/2026.
+// Discord : « les bancs sont tombés sur `main`. Le prochain build part sur du
+// code non gardé. » Et au même moment, le déploiement Coolify : **vert**, site
+// en ligne, 3 104 fichiers servis. Les deux disaient vrai.
+//
+// La CI (`tests.yml`) construit avec `WAREHOUSE_OFFLINE=1` — délibérément :
+// *« un banc qui appelle le réseau ne prouve rien le jour où le réseau tombe,
+// c'est-à-dire le seul jour où le code de repli sert »*. Or hors ligne,
+// `engine/data/sample` porte des uuid `sample-0033-570553` que la liste blanche
+// refuse tous : **`.reserve/cote/` sort avec 1 fichier et `marche.json` avec
+// 90 lignes**. Mesuré, pas déduit.
+// Et `test:marche` §4, depuis le lot 125, exige « une réserve de la taille
+// d'une réserve de PRODUCTION (≥ 200 cotes) ».
+//
+// ⭐⭐⭐ CE BANC ÉTAIT DONC ROUGE PAR CONSTRUCTION EN CI, ET VERT DANS LE
+// DOCKERFILE — qui, lui, construit EN LIGNE. Le même banc, le même code, deux
+// verdicts opposés, et aucun des deux n'était faux. *Un banc peut être rouge
+// pour une mauvaise raison ; il est alors aussi inutile qu'un banc vert pour
+// une mauvaise raison, et plus coûteux : on finit par ignorer sa couleur.*
+//
+// ⚠️⚠️ ET LE PIRE EST AILLEURS. `cote.mjs` PORTE DÉJÀ CETTE PHRASE, écrite le
+// 07/08, quatre lignes de commentaire au-dessus du code concerné :
+//     « `.reserve/cote/` sort VIDE de tout build hors reseau — donc de la CI. »
+// Elle était juste, elle était là, et le lot 125 a quand même écrit un seuil
+// qu'elle rendait intenable. **Un avertissement qui ne se MESURE pas finit lu
+// sans être suivi** ⇒ celui-ci devient un fichier, pas une phrase.
+//
+// ═══════════════════════════════════════════════════════════════════════════
+// POURQUOI UN TÉMOIN, ET POURQUOI PAS UN DRAPEAU DANS `marche.json`
+// ═══════════════════════════════════════════════════════════════════════════
+// La tentation immédiate : que `deposerMarche()` écrive `horsLigne: true`.
+// ⛔ ÇA NE MARCHE PAS, et il faut dire pourquoi, sinon quelqu'un le refera.
+// `deposerMarche()` est appelée à la fin de `dataset()` — donc au build, MAIS
+// AUSSI chaque fois qu'un banc rappelle `dataset()`. Or les bancs tournent sous
+// `WAREHOUSE_OFFLINE=1`. Un banc qui écrase la réserve APRÈS un build en ligne
+// — la panne du lot 113, payée deux fois — réécrirait donc `marche.json` avec
+// `horsLigne: true`, et le contrôle conclurait « échantillon, rien à juger ».
+// **Le drapeau aurait couvert exactement la panne qu'il devait dénoncer.**
+//
+// ⇒ LE TÉMOIN EST ÉCRIT PAR LE BUILD, À `astro:build:done`, ET PAR LUI SEUL.
+//   `dataset()` ne le connaît pas et ne peut pas le réécrire. Il enregistre
+//   l'état du disque À CET INSTANT-LÀ. Tout écart constaté plus tard entre le
+//   témoin et le disque est, par construction, arrivé APRÈS le build.
+//
+// ⭐⭐⭐ C'EST LA MÊME MÉTHODE QUE `test:marche` §4 EMPLOIE DÉJÀ CONTRE
+// LUI-MÊME : *« un banc qui n'interroge qu'un seul fichier ne peut pas savoir
+// que ce fichier est le mauvais ⇒ le confronter à l'AUTRE artefact du build. »*
+// Ici l'autre artefact, c'est le build lui-même qui le signe.
+//
+// ⛔ IL VIT DANS `.reserve/`, JAMAIS DANS `dist/`. Hors de tout ce qui est
+// servi, et son nom commence par `_` : `uuidValide()` refuse ce nom, donc ni
+// `/api/cote/[uuid]` ni `/api/cote/lot` ne peuvent le lire même en le demandant
+// nommément. C'est le motif déjà en place pour le journal de projection.
+// ⚠️ Il ne porte AUCUN montant — que des COMPTES. Un nombre de fichiers n'est
+// pas un prix, et `test:fuite` n'aurait de toute façon rien à trouver ici.
+
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+
+export const TEMOIN_FICHIER = (racine) => join(racine, '.reserve', '_temoin-build.json');
+
+/** Relit le témoin. `null` s'il n'y en a pas — et un `null` se traite comme
+ *  INDÉCIDABLE, jamais comme « tout va bien ». */
+export function lireTemoin(racine) {
+  const f = TEMOIN_FICHIER(racine);
+  if (!existsSync(f)) return null;
+  try { return JSON.parse(readFileSync(f, 'utf8')); } catch { return null; }
+}
+
+export default function temoinBuild(mode) {
+  return {
+    name: 'veve:temoin-build',
+    hooks: {
+      // ⭐ `astro:build:done` : après `deposerMarche()` (fin de `dataset()`,
+      // appelée pendant le rendu) et après l'intégration analytics. Le témoin
+      // doit décrire le disque tel qu'il est quand le build RAND LA MAIN.
+      'astro:build:done': async ({ logger }) => {
+        const racine = process.cwd();
+        const dossierCote = join(racine, '.reserve', 'cote');
+        const marche = join(racine, '.reserve', 'marche.json');
+
+        let cotes = 0;
+        if (existsSync(dossierCote)) {
+          cotes = readdirSync(dossierCote).filter((f) => f.endsWith('.json')).length;
+        }
+        let lignes = null;
+        let itemsTotal = null;
+        if (existsSync(marche)) {
+          try {
+            const c = JSON.parse(readFileSync(marche, 'utf8'));
+            lignes = Array.isArray(c.marche) ? c.marche.length : null;
+            itemsTotal = c.itemsTotal ?? null;
+          } catch { /* témoin partiel vaut mieux que pas de témoin */ }
+        }
+
+        const t = {
+          quand: new Date().toISOString(),
+          site: process.env.SITE || null,
+          mode: mode || null,
+          // 🔴 LA LIGNE QUI PORTE TOUT LE LOT. `warehouse.mjs` lit exactement
+          // cette variable (`OFFLINE = process.env.WAREHOUSE_OFFLINE === '1'`) :
+          // on relit LA MÊME, pas une approximation.
+          horsLigne: process.env.WAREHOUSE_OFFLINE === '1',
+          cotes,
+          marche: lignes,
+          itemsTotal,
+        };
+
+        const f = TEMOIN_FICHIER(racine);
+        mkdirSync(dirname(f), { recursive: true });
+        writeFileSync(f, JSON.stringify(t, null, 2), 'utf8');
+        logger.info(
+          `témoin déposé : ${t.cotes} cote(s), ${t.marche ?? '—'} ligne(s) de marché, `
+          + `${t.horsLigne ? 'build HORS LIGNE (échantillon)' : 'build EN LIGNE (production)'}.`);
+      },
+    },
+  };
+}

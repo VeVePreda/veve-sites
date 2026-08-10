@@ -50,6 +50,7 @@ import { existsSync, writeFileSync, mkdtempSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createServer } from 'node:http';
+import { lireTemoin } from '../lib/astro_temoin_build.mjs';
 
 const ROOT = process.env.PROJECT_ROOT || process.cwd();
 const ENTREE = join(ROOT, 'dist', 'server', 'entry.mjs');
@@ -140,8 +141,21 @@ console.log('\n1. le mur tient, et la page est bien la page réservée');
 const sansSession = await fetch(`http://127.0.0.1:${PORT}/market/`, { redirect: 'manual' });
 verifie('sans session, /market/ redirige (302)', sansSession.status === 302, `reçu ${sansSession.status}`);
 verifie('avec session, /market/ rend la page (200)', rep.status === 200, `reçu ${rep.status}`);
+// ⭐⭐⭐ LOT 128 — LE NOMBRE DE LIGNES SE DEMANDE AU BUILD, IL NE SE POSTULE PAS.
+// « 200 » est le chiffre de la PRODUCTION. La CI construit hors ligne sur
+// l'échantillon et n'en rend que 90 : un banc qui exige 200 y est rouge par
+// construction — la panne exacte que `test:marche` a payée du lot 125 au 128,
+// et qui a fait lire le message Discord comme du bruit pendant trois lots.
+// ⇒ On compare à ce que le build a SIGNÉ dans `.reserve/_temoin-build.json`.
+const temoin = lireTemoin(ROOT);
 const nLignes = (html.match(/<tr data-type=/g) || []).length;
-verifie('elle porte bien ses 200 lignes de marché', nLignes === 200, `${nLignes} ligne(s)`);
+const attendues = temoin?.marche ?? null;
+if (attendues === null) {
+  indecis('le nombre de lignes', `pas de témoin de build — la page en rend ${nLignes}, on ne sait pas ce qu'elle devrait en rendre`);
+} else {
+  verifie('elle rend exactement les lignes que le build a déposées',
+    nLignes === attendues, `${nLignes} ligne(s) rendue(s) pour ${attendues} déposée(s)`);
+}
 if (nLignes === 0) { arreter(); fin(1); }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -158,9 +172,22 @@ const oTui = iTui < 0 ? 0 : Buffer.byteLength(
     ? html.lastIndexOf('<p', html.indexOf('id="plus"')) : html.lastIndexOf('<p', html.indexOf('id="vide"'))));
 const nTuilesServeur = (html.match(/class="tuile\b/g) || []).length;
 
-verifie(`la page pèse moins de ${SEUIL_OCTETS.toLocaleString('fr')} o`,
-  octets < SEUIL_OCTETS,
-  `${octets.toLocaleString('fr')} o  ·  <tbody> ${oTbody.toLocaleString('fr')} o  ·  #vue-tui ${oTui.toLocaleString('fr')} o`);
+// ⚠️ LE POIDS EST LA SEULE MESURE DE CE BANC QUI DÉPEND DE L'ÉCHELLE — 200
+// lignes ou 90 ne pèsent pas pareil. ⛔ On ne « met pas le seuil au prorata » :
+// un seuil calculé rend un verdict qui a l'air mesuré et ne l'est pas. Sur un
+// build d'échantillon, ce point est INDÉCIDABLE, et tout le reste de ce banc —
+// zéro tuile servie, aucune géométrie recopiée, chaque `<use>` adossé, la
+// grille qui se bâtit et le filtre qui mord — reste PARFAITEMENT jugeable.
+if (temoin?.horsLigne) {
+  indecis('le poids de la page',
+    `build HORS LIGNE (${nLignes} lignes d'échantillon, ${octets.toLocaleString('fr')} o). `
+    + `Le seuil de ${SEUIL_OCTETS.toLocaleString('fr')} o est calibré sur les 200 lignes de production — `
+    + `le Dockerfile construit en ligne et le juge.`);
+} else {
+  verifie(`la page pèse moins de ${SEUIL_OCTETS.toLocaleString('fr')} o`,
+    octets < SEUIL_OCTETS,
+    `${octets.toLocaleString('fr')} o  ·  <tbody> ${oTbody.toLocaleString('fr')} o  ·  #vue-tui ${oTui.toLocaleString('fr')} o`);
+}
 
 verifie('⛔ le serveur ne rend AUCUNE tuile — la seconde copie de la liste a disparu',
   nTuilesServeur <= SEUIL_NOEUDS_TUILE,

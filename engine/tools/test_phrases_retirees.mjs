@@ -73,6 +73,15 @@ const RETIREES = [
     pourquoi: "la FAQ parlait du prix « affiché ». Il n'y en a plus — la question porte désormais sur le prix SUIVI.",
   },
   { quoi: 'Is the price shown a sale price', lot: 102, sites: ['veveprice'], pourquoi: 'idem, anglais.' },
+  // ── LOT 128 — la remise annuelle n'est plus annoncée ─────────────────────
+  // ⚠️ LES CINQ LANGUES, `it` COMPRIS, alors qu'`it` n'est jamais actif. Une
+  // phrase laissée dans un dictionnaire dormant revient le jour où quelqu'un
+  // active la langue — et ce jour-là personne ne relira ce lot.
+  { quoi: '2 months free when paid yearly', lot: 128, sites: ['veveprice'], pourquoi: 'la promesse tarifaire « 2 mois offerts », retirée sur demande de Preda le 10/08. ⭐ Un CHIFFRE dans une promesse commerciale : il devient faux le jour où la remise change, et rien ne le signale.' },
+  { quoi: '2 mois offerts à l’année', lot: 128, sites: ['veveprice'], pourquoi: 'idem, français.' },
+  { quoi: '2 meses gratis al año', lot: 128, sites: ['veveprice'], pourquoi: 'idem, espagnol.' },
+  { quoi: '2 Monate gratis bei Jahreszahlung', lot: 128, sites: ['veveprice'], pourquoi: 'idem, allemand.' },
+  { quoi: '2 mesi gratis con il piano annuale', lot: 128, sites: ['veveprice'], pourquoi: 'idem, italien.' },
 ];
 
 // ⭐ On garde AUSSI un contrôle sans registre : un gabarit qui laisse fuir son

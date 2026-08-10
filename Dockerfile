@@ -236,7 +236,22 @@ RUN WAREHOUSE_OFFLINE=1 npm run test:renommage
 # CRIAIT, et le Dockerfile l'a rendu muet.
 # ⭐ `set -e` en plus du `&&` : ceinture et bretelles sur une ligne qui decide
 # si 8 500 pages existent.
-RUN set -e; export RENDERING=$(cat /app/.rendering); npm run build && mkdir -p /app/.reserve
+# 🌍🔴 LOT 129 — `I18N_MARQUAGE=1` EST POSE ICI, ET NULLE PART AILLEURS.
+# Il demande a `t()` d'enrober chaque libelle de sa cle. Le serveur de
+# production est un AUTRE processus (`node dist/server/entry.mjs`) : il ne l'a
+# pas, donc les pages rendues a la demande — /compte/, /favoris/, /market/ —
+# rendent du texte NU, deja dans la bonne langue. Les deux mondes ne se croisent
+# jamais, et c'est cette ligne-ci qui le garantit.
+RUN set -e; export RENDERING=$(cat /app/.rendering); I18N_MARQUAGE=1 npm run build && mkdir -p /app/.reserve
+
+# 🌍🔴🔴 ET LE POST-TRAITEMENT, IMMEDIATEMENT APRES LE BUILD.
+# Il convertit les sentinelles en `data-i18n` et ecrit les dictionnaires servis.
+# ⛔ IL DOIT VENIR AVANT LA PRECOMPRESSION : les `.gz` se fabriquent a partir de
+# `dist/`, donc compresser d'abord reviendrait a servir des caracteres de
+# controle a tout le monde, invisibles a l'oeil et impossibles a diagnostiquer.
+# ⭐⭐ `test:i18n` refuse toute sentinelle survivante dans `dist/` : c'est lui qui
+# MESURE cet ordre, au lieu de se contenter de l'ecrire en commentaire.
+RUN npm run marquer:i18n
 
 # 🔴 LE GARDE-FOU : le mode annonce et la forme produite doivent coincider.
 # Sans lui, l'incoherence se decouvre en production, en servant des pages
@@ -415,6 +430,21 @@ RUN WAREHOUSE_OFFLINE=1 npm run test:pages
 #   adresse et n'y voient pas la meme chose.
 # ⚠️ IL N'IMPORTE PAS `dataset.mjs` — il ne peut pas vider la reserve.
 RUN WAREHOUSE_OFFLINE=1 npm run test:tuiles
+# 🌍🔴 `test:i18n` — LOT 129. L'ECHANGE DES LIBELLES, JOUE POUR DE VRAI.
+# Preda, 10/08 : « la langue est un coup en anglais, un coup en francais. »
+# Les 3 097 pages publiques sont pre-generees en ANGLAIS et pre-compressees :
+# au moment ou elles se fabriquent, il n'y a personne a qui demander sa langue.
+# Un script les traduit chez le visiteur.
+# ⭐⭐⭐ CE BANC N'EN COMPTE PAS LES ATTRIBUTS, IL JOUE LE SCRIPT. Compter des
+# `data-i18n` est facile et ne prouve RIEN : dix mille attributs corrects ne
+# disent pas qu'un seul mot change a l'ecran. Il monte la page la plus marquee
+# dans un DOM, pose le cookie, sert le dictionnaire, execute le script de
+# `Base.astro` TEL QUEL, et lit ce que la page dit ensuite.
+# ⛔ Quatre pannes gardees : une sentinelle survivante (invisible a l'oeil), un
+#   marquage qui deborde sur le SEO (<title>, <meta>), un dictionnaire servi qui
+#   ne couvre pas ce qui est marque, et l'echange qui n'echange pas.
+# ⛔ IL VA APRES `npm run marquer:i18n` : il lit ce que le post-traitement a ecrit.
+RUN WAREHOUSE_OFFLINE=1 npm run test:i18n
 
 # --- Precompression : le seul gain de vitesse qui restait ------------------
 # ⭐⭐ POURQUOI PRECOMPRESSER, PLUTOT QUE DE MONTER LE NIVEAU DE gzip.

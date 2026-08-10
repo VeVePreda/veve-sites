@@ -21,7 +21,7 @@ import { cheminFiche, collecteEntrepot } from '../../../engine/lib/editorial_ent
 import { figureHTML } from '../../../engine/lib/figures.mjs';
 import { manifest } from '../../../engine/lib/manifest.mjs';
 import { breadcrumbLd, jsonld, pageAProposLd } from '../../../engine/lib/seo.mjs';
-import { t, localize, dateLocale } from '../../../engine/lib/i18n.mjs';
+import { t, localize, dateLocale , nu } from '../../../engine/lib/i18n.mjs';
 import { siteUrl } from '../../../engine/lib/manifest.mjs';
 
 const { lang, fiche, voisinesPoids = [] } = Astro.props;
@@ -42,9 +42,18 @@ const part = fiche.part === null ? null
 // Description : la note éditoriale d'abord, complétée par les compteurs pour
 // atteindre la fenêtre utile (70–160 caractères) sans jamais inventer un fait.
 const note = String(r.note_editoriale || '').trim();
-const description = (a
+const descriptionMarquee = (a
   ? `${note} ${t(lang, 'fiche.desc', { items: nombre(a.n_items), series: nombre(a.n_series), name: fiche.titre })}${r.premier_drop ? ` ${t(lang, 'fiche.descDrop', { date: r.premier_drop })}` : ''}`
-  : note).trim().slice(0, 158);
+  // 🔴🔴 LOT 129 — `nu()` AVANT DE COUPER, ET CE N'EST PAS UNE PRÉCAUTION.
+  // `t()` marque désormais chaque libellé de sa clé (caractères de contrôle
+  // invisibles). Sans `nu()`, ce `.slice(0, 158)` compte les marqueurs dans les
+  // 158 caractères — la description SEO rétrécit — ET la coupe tombe au milieu
+  // d'un marqueur. Mesuré le 10/08 : le marqueur amputé a fait avaler le `<head>`
+  // entier de **64 pages** au post-traitement. Feuille de style comprise.
+  // ⭐⭐⭐ *Dès qu'on MESURE ou qu'on COUPE un résultat de `t()`, on le dénude
+  // d'abord.* La règle vaut aussi pour `.length`, `.split()` et `.padEnd()`.
+  : note).trim();
+const descCoupee = nu(descriptionMarquee).slice(0, 158);
 
 // La figure SITUE la licence : elle-même au milieu de celles de poids voisin.
 // Chaque fiche a donc son propre graphique, téléchargeable comme les autres.
@@ -73,13 +82,13 @@ const crumbs = [
 //    pages, pas seulement a celle-ci.
 const ld = [
   pageAProposLd({
-    name: fiche.titre, description, url: `${root}${localize(lang, chemin)}`,
+    name: fiche.titre, description: descCoupee, url: `${root}${localize(lang, chemin)}`,
     type: 'Brand', aPropos: fiche.titre,
   }),
   breadcrumbLd(crumbs.map((c) => ({ name: c.name, url: c.url ? root + c.url : `${root}${localize(lang, chemin)}` }))),
 ];
 ---
-<Base lang={lang} path={chemin} title={fiche.titre} description={description}
+<Base lang={lang} path={chemin} title={fiche.titre} description={descCoupee}
       langs={languesDeSection(fiche.section)} crumbs={crumbs} ld={ld}>
   <article class="fiche">
     <h1>{fiche.titre}</h1>

@@ -31,6 +31,7 @@
 //    la réserve comme l'ont fait `test:fuite` (lot 101) et `test:rayon` (113).
 
 import { spawn } from 'node:child_process';
+import { createServer } from 'node:http';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -128,6 +129,128 @@ if (pret) {
                             : code === 404 ? 'INTROUVABLE : la route n\'a pas été basculée à la demande'
                             : 'réponse refusée'}`);
   }
+
+  // ═════════════════════════════════════════════════════════════════════════
+  // 🔴🔴🔴 LOT 128 — ET MAINTENANT ON SUIT LES LIENS DU MENU, LANGUE PAR LANGUE
+  // ═════════════════════════════════════════════════════════════════════════
+  // CE QU'IL AURAIT ÉVITÉ, MESURÉ LE 10/08/2026 SUR LE SITE EN LIGNE :
+  // depuis `/favoris/` avec le cookie `vp_langue=fr`, le header et le pied de
+  // page émettaient 19 liens dont **8 rendaient 404** — Analytics, Collections,
+  // Offre, les quatre pages légales, et **le logo lui-même** (`/fr/`).
+  // Preda l'a signalé comme deux bugs séparés (« la langue saute d'une page à
+  // l'autre » et « favoris → analytics me renvoie à l'accueil ») ; c'était une
+  // seule cause : `localize()` fabriquait des adresses avec la langue de
+  // l'INTERFACE alors que seule la liste `active` a des adresses.
+  //
+  // ⭐⭐⭐ ET LES TRENTE-QUATRE BANCS ÉTAIENT VERTS. Aucun ne pouvait le voir :
+  // `test:pages` ci-dessus demande les pages qu'on lui NOMME, jamais celles que
+  // le site PROPOSE. *Une page qu'aucun banc ne demande n'est vérifiée qu'en
+  // production* — et un LIEN que personne ne suit est exactement la même chose,
+  // un cran plus loin. La liste ne se maintient pas à la main : **on la lit
+  // dans la page**, ce qui la rend impossible à oublier de mettre à jour.
+  //
+  // ⛔ ET ON LE FAIT DANS CHAQUE LANGUE D'INTERFACE. Le défaut était INVISIBLE
+  //    en anglais : `prefixOf('en')` rend `''`, donc tous les liens étaient
+  //    justes. Un banc qui n'aurait essayé que la langue par défaut aurait été
+  //    vert pendant que huit liens sur dix-neuf mouraient pour tous les autres.
+  //    *Trois cas sur quatre ne disent rien du quatrième.*
+  console.log('\n2. les liens que la page PROPOSE mènent-ils quelque part ?');
+
+  // Un faux service de session : sans lui, les pages membre redirigent et on
+  // n'atteint jamais le menu qu'on veut inspecter. ⛔ Il ne dit rien de plus
+  // que « cette session existe » — le mur, lui, reste jugé au §1.
+  const faux = createServer((req, res) => {
+    if (req.url.startsWith('/session/')) {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ palier: 'member' })); return;
+    }
+    res.writeHead(404); res.end('{}');
+  });
+  await new Promise((ok) => faux.listen(PORT + 1, '127.0.0.1', ok));
+  const serveurLangues = spawn(process.execPath, [ENTREE], {
+    env: { ...process.env, HOST: '127.0.0.1', PORT: String(PORT + 2), SESSION_API: `http://127.0.0.1:${PORT + 1}` },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  let pret2 = false;
+  for (let i = 0; i < 60 && !pret2; i++) {
+    await dormir(500);
+    try { pret2 = (await fetch(`http://127.0.0.1:${PORT + 2}/api/sante`)).ok; } catch { /* pas encore */ }
+  }
+
+  if (!pret2) {
+    console.log('  ⚠️  INDÉCIDABLE — second serveur non démarré : les liens du menu ne sont pas jugés.');
+  } else {
+    // ⭐ Les langues viennent du MANIFESTE, pas d'une liste écrite ici. Une
+    //   langue ajoutée demain est testée demain, sans que personne y pense.
+    const { languesInterface } = await import('../lib/i18n.mjs');
+    let langues = ['en'];
+    try { langues = languesInterface(); } catch { /* repli sur la seule sûre */ }
+
+    const PORTES = ['/favoris/', '/dashboard/', '/compte/'];
+    let morts = [];
+    let suivis = 0;
+    const vu = new Set();
+
+    for (const lang of langues) {
+      for (const page of PORTES) {
+        let html = '';
+        try {
+          const r = await fetch(`http://127.0.0.1:${PORT + 2}${page}`, {
+            headers: { cookie: `vp_session=banc-menu; vp_langue=${lang}` },
+          });
+          if (r.status !== 200) continue;
+          html = await r.text();
+        } catch { continue; }
+
+        // ⛔ On ne prend QUE les adresses internes de pages. Les polices, les
+        //    images et le CSS sont servis par nginx en production et par Node
+        //    ici : les demander mesurerait le serveur, pas le menu.
+        const liens = [...new Set([...html.matchAll(/href="(\/[^"#?]*)"/g)].map((m) => m[1]))]
+          .filter((u) => !/\.(css|js|woff2?|svg|png|jpg|webp|ico|xml|txt|json)$/.test(u));
+
+        for (const u of liens) {
+          const cle = `${lang} ${u}`;
+          if (vu.has(cle)) continue;
+          vu.add(cle); suivis++;
+          let code = 0;
+          try {
+            code = (await fetch(`http://127.0.0.1:${PORT + 2}${u}`, {
+              headers: { cookie: `vp_session=banc-menu; vp_langue=${lang}` }, redirect: 'manual',
+            })).status;
+          } catch { code = 0; }
+          if (code >= 400 || code === 0) morts.push(`${u}  (cookie vp_langue=${lang}, HTTP ${code || 'échec'}, vu depuis ${page})`);
+        }
+      }
+    }
+
+    verifie('⛔ AUCUN lien proposé par une page membre ne mène à un 404',
+      morts.length === 0,
+      morts.length === 0
+        ? `${suivis} lien(s) suivis sur ${langues.length} langue(s) d'interface : ${langues.join(', ')}`
+        : `🔴 ${morts.length} lien(s) mort(s) sur ${suivis} suivis :\n      ${morts.slice(0, 10).join('\n      ')}`
+          + `\n      ⇒ une langue d'INTERFACE s'est échappée dans une ADRESSE (cf. prefixOf, lot 128).`);
+
+    // ⭐⭐ ET LA CONTRE-ÉPREUVE : le menu doit VRAIMENT changer de langue.
+    // Sans elle, on rendrait ce banc vert en supprimant la traduction — moins
+    // de liens morts, moins de site. *Un banc qui ne mesure qu'un seul côté
+    // récompense la mauvaise correction.*
+    if (langues.length > 1) {
+      const autre = langues.find((l) => l !== 'en') || 'fr';
+      const lire = async (l) => (await (await fetch(`http://127.0.0.1:${PORT + 2}/favoris/`, {
+        headers: { cookie: `vp_session=banc-menu; vp_langue=${l}` },
+      })).text());
+      const [a, b] = [await lire('en'), await lire(autre)];
+      const langA = (a.match(/<html[^>]*lang="([^"]+)"/) || [])[1];
+      const langB = (b.match(/<html[^>]*lang="([^"]+)"/) || [])[1];
+      verifie(`…et les libellés changent bien de langue (en ↔ ${autre})`,
+        langA === 'en' && langB === autre && a !== b,
+        langA === 'en' && langB === autre && a !== b
+          ? `<html lang> suit le cookie, et le contenu diffère`
+          : `🔴 lang="${langA}" contre lang="${langB}" — l'interface ne suit plus le cookie`);
+    }
+  }
+  serveurLangues.kill('SIGTERM');
+  try { faux.close(); } catch { /* déjà fermé */ }
 
   // ⭐⭐⭐ LE CONTRÔLE QUI VAUT LES AUTRES : le journal du serveur. Une page peut
   //   rendre 200 en ayant avalé une erreur — un `catch` de composant, un repli

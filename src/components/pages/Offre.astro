@@ -145,7 +145,18 @@ const dsOffre = await dataset();
       description={t(lang, 'offer.desc')}
       crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') }, { name: t(lang, 'offer.title') }]}>
 
-  <p class="etiq etiq--bleu">// {t(lang, 'offer.title').toUpperCase()}</p>
+  {/* 🔴 LOT 129 — `.toUpperCase()` RETIRÉ, ET IL NE MANQUERA À PERSONNE.
+        `.etiq` porte DÉJÀ `text-transform:uppercase` (theme.css l. 599) : les
+        capitales étaient faites DEUX FOIS, une fois dans le texte et une fois
+        dans le style. Le rendu est identique à l'octet près.
+        ⛔ MAIS LA VERSION MARKUP DÉTRUISAIT LA TRADUCTION : `t()` marque son
+        libellé d'une clé (lot 129), et `.toUpperCase()` mettait LA CLÉ en
+        capitales avec le reste — `analytics.title` devenait `ANALYTICS.TITLE`,
+        introuvable dans le dictionnaire, donc jamais échangé.
+        ⭐⭐ Et c'était déjà une faute avant ce lot : des capitales écrites dans le
+        texte se copient en capitales, et un lecteur d'écran peut les épeler
+        lettre par lettre. La casse est une affaire de STYLE. */}
+  <p class="etiq etiq--bleu">// {t(lang, 'offer.title')}</p>
   <h1 class="mono-t">{t(lang, 'offer.title')}</h1>
   <p class="respire">{t(lang, 'offer.lead')}</p>
 
@@ -170,7 +181,17 @@ const dsOffre = await dataset();
   <div class="bascule-p" role="group" aria-label={t(lang, 'offer.period')}>
     <button type="button" class="bascule-p__b" data-per-b="an" aria-pressed="true">{t(lang, 'offer.yearly')}</button>
     <button type="button" class="bascule-p__b" data-per-b="mois" aria-pressed="false">{t(lang, 'offer.monthly')}</button>
-    <span class="bascule-p__g">{t(lang, 'offer.saveHint')}</span>
+    {/* 🔴 LOT 128 — « 2 mois offerts à l'année » A ÉTÉ RETIRÉ (demande de Preda,
+        10/08). ⛔ ON RETIRE L'ÉMETTEUR, PAS SEULEMENT LA TRADUCTION : une clé
+        vidée dans les cinq dictionnaires laisserait ce `<span>` rendre une
+        chaîne vide — donc une gouttière et une bordure autour de rien, que
+        personne ne verrait dans une revue de code.
+        ⭐ La clé `offer.saveHint` est supprimée des CINQ fichiers i18n (dont
+        `it`, qui n'est pourtant jamais actif : une clé morte se recopie au
+        prochain ajout de langue). Et la phrase entre au registre de
+        `test:phrases` dans ses cinq langues — *un texte ne s'importe pas, il se
+        recopie*, et ce retrait-ci portait un CHIFFRE, donc une promesse
+        commerciale qui vieillit encore plus mal qu'une phrase. */}
   </div>
 
   <div class="tarifs">
