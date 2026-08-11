@@ -90,9 +90,50 @@ jobs:
       # ══════════════════════════════════════════════════════════════════════
       - name: Attendre que les DEUX sites servent le nouveau build
         id: attente
+        env:
+          # ⭐⭐ ON COMPARE AU COMMIT, PAS A L'HEURE DU RUN — ET C'EST UNE MESURE.
+          #   Ce depot sait que GitHub demarre parfois ses runs avec 2 h 20 de
+          #   retard sous charge. Un run parti en retard trouverait un build
+          #   DEJA atterri mais ANTERIEUR a son propre demarrage, et attendrait
+          #   15 minutes un evenement deja passe. Le commit, lui, est l'instant
+          #   ou le deploiement a ete COMMANDE : c'est la bonne borne.
+          # ⚠️ Vide sur un lancement manuel — d'ou le repli ci-dessous.
+          HORODATE_COMMIT: ${{ github.event.head_commit.timestamp }}
         run: |
           set -u
-          DEPART=$(date -u +%s)
+
+          # ══════════════════════════════════════════════════════════════════
+          # 🔴🔴🔴 LE DECLENCHEUR DECIDE DU SENS DE LA MESURE.  (mesure du 11/08)
+          # ══════════════════════════════════════════════════════════════════
+          #   Sur `push`, un deploiement est EN VOL : attendre un build plus
+          #   recent que le commit, c'est attendre qu'il atterrisse. La mesure
+          #   a un sens.
+          #   Sur `workflow_dispatch`, RIEN N'EST EN VOL. Un lancement manuel ne
+          #   declenche aucune reconstruction : la condition « un build plus
+          #   recent » ne peut JAMAIS etre satisfaite. Le run #2 a donc epuise
+          #   ses 20 essais — 15 minutes d'attente pure — avant de purger.
+          #
+          # ⭐⭐⭐ UNE CONDITION PEUT ETRE JUSTE ET VIDE DE SENS SELON CE QUI L'A
+          #   DECLENCHEE. Et elle ne s'en plaint pas : elle attend. Un controle
+          #   qui attend ressemble a un controle qui travaille.
+          # ⛔ NE PAS « REPARER » CA EN RACCOURCISSANT L'ATTENTE : sur `push`
+          #   elle est necessaire, purger avant la fin du build remettrait
+          #   l'ANCIENNE page en cache pour 2 h de plus.
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            echo "Lancement MANUEL : aucun deploiement en vol, il n'y a rien a attendre."
+            echo "On purge immediatement — c'est precisement ce qu'on demande en relancant a la main."
+            echo "frais_price=1" >> "$GITHUB_OUTPUT"
+            echo "frais_wiki=1"  >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ -n "${HORODATE_COMMIT:-}" ]; then
+            DEPART=$(date -u -d "$HORODATE_COMMIT" +%s 2>/dev/null || date -u +%s)
+            echo "Borne = l'horodate du commit ($HORODATE_COMMIT)."
+          else
+            DEPART=$(date -u +%s)
+            echo "Aucune horodate de commit — repli sur l'heure du run."
+          fi
           echo "Le build doit etre posterieur a : $(date -u -d "@${DEPART}" +%FT%TZ)"
           frais_price=0; frais_wiki=0
           for i in $(seq 1 20); do
