@@ -662,6 +662,32 @@ identity:
   # ferait disparaître le multilingue des résultats, et personne ne le verrait
   # avant des mois. Ils sont repliés, jamais retirés.
   langues_dans: compte
+  # ═══════════════════════════════════════════════════════════════════════
+  # 🌍🔴🔴 LOT 139 — OÙ LE VISITEUR CHOISIT LA LANGUE DES **LIBELLÉS**.
+  #   "compte" (défaut, comportement d'avant) | "entete"
+  # ═══════════════════════════════════════════════════════════════════════
+  # ⛔⛔ CE N'EST PAS `langues_dans` CI-DESSUS, ET LES CONFONDRE EST L'ERREUR
+  # QUE CE LOT VIENT DE RATTRAPER. `langues_dans` place les liens vers les
+  # autres ADRESSES. Ce site en a UNE SEULE (`languages.active: [en]`) : ce
+  # réglage-là n'a donc rien à placer, et c'est pour ça que la mesure du
+  # 11/08 trouve **0 sélecteur de langue sur les 147 pages construites**.
+  # Celui-ci place le choix des LIBELLÉS, dont ce site a QUATRE jeux
+  # (`languages.interface: [en, fr, es, de]`).
+  #
+  # 🔴 CE QU'IL RÉPARE, ET C'ÉTAIT UN CIRCUIT OUVERT DEPUIS LE LOT 120 :
+  # les quatre traductions existaient, et le seul code du dépôt qui pose le
+  # cookie `vp_langue` vivait sur /compte/, /connexion/ et /inscription/.
+  # /compte/ redirige un anonyme vers /connexion/, et personne ne cherche un
+  # sélecteur de langue sur une page de connexion. ⇒ quatre langues
+  # traduites, aucune porte publique. *Deux écrivains, aucun lecteur.*
+  #
+  # ⚠️ « PUBLIQUE » N'EST PAS UNE LISTE DE CHEMINS : le bouton n'est émis que
+  # sur les pages PRÉ-GÉNÉRÉES. /compte/, /market/, /favoris/ et /dashboard/
+  # sont rendues à la demande — elles n'en ont donc pas, ce que Preda a
+  # demandé, et sans qu'aucune liste de chemins ait été recopiée quelque part.
+  # ⛔ vevewiki ne pose PAS cette clé : il a cinq vraies adresses et garde sa
+  # `.langbar`. Le défaut vaut "compte" pour que son silence soit sûr.
+  langue_interface_dans: entete
   # 🎨 OÙ VIT LA BASCULE JOUR/NUIT : "entete" (défaut) | "compte".
   # ⛔ Même dispositif, même raison : `encyclopedie` garde sa bascule dans
   # l'en-tête, veveprice la descend dans l'espace compte (demande de Preda du

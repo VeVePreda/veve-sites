@@ -21,6 +21,12 @@ import AVenir from './AVenir.astro';
 import { dataset } from '../../engine/lib/dataset.mjs';
 import { t, localize, numberLocale } from '../../engine/lib/i18n.mjs';
 import { rar, mentionEdition } from '../../engine/lib/vitrine.mjs';
+// 🔴 LOT 139 — LA VIGNETTE UNIQUE. Les extrêmes et les budgets de coupe sont
+//   déclarés une fois, ailleurs, et lus ici comme par les deux autres
+//   gabarits. ⛔ On ne recopie PAS le bandeau de `Carte.astro` : ce serait la
+//   quatrième occurrence de « deux gabarits qui rendent la même liste ».
+import Extremes from './Extremes.astro';
+import { nomItem, nomSerie, nomSet } from '../../engine/lib/vignette.mjs';
 
 const { lang, rayon, page = 1 } = Astro.props;
 export const PAR_PAGE = 20;
@@ -34,7 +40,13 @@ const nf = numberLocale[lang] || 'en-GB';
 const lignes = rayon === 'sets'
   ? [...ds.collections.values()]
       .sort((a, b) => b.items.length - a.items.length)
-      .map((c) => ({ nom: c.name, sous: `${c.items.length} ${t(lang, 'collections.items')}`,
+      // ⚠️ `uuid: null` EXPLICITE, ET CE N'EST PAS UN OUBLI : un regroupement
+      //    par série n'a pas d'uuid de pièce, donc pas d'extrêmes — même
+      //    décision que sur `CarteSet` (Preda, 11/08). Le nommer à `null`
+      //    plutôt que l'omettre fait que `<Extremes>` reçoit une absence
+      //    DÉCLARÉE au lieu d'un `undefined` qu'on lirait comme un bug.
+      .map((c) => ({ uuid: null, nom: c.name, budget: 'set',
+                     sous: `${c.items.length} ${t(lang, 'collections.items')}`,
                      path: `/collection/${c.slug}/`, rarity: '', tirage: null, serie: '' }))
   : ds.rayon
       .filter((r) => r.type === (rayon === 'comics' ? 'comic' : 'collectible'))
@@ -52,7 +64,13 @@ const lignes = rayon === 'sets'
         || (a.series || '').localeCompare(b.series || '') || a.name.localeCompare(b.name))
       // 🔴 LOT 118 — `sous` porte la MENTION d'édition, pas le numéro : voir
       //    `mentionEdition()` dans engine/lib/vitrine.mjs.
-      .map((r) => ({ nom: r.name, sous: mentionEdition(r.edition_type), path: r.path,
+      // 🔴🔴 `uuid` ENTRE ICI, ET RIEN D'AUTRE. Il est déjà dans la liste
+      //    blanche de `rayonDe()` — ⛔ on n'ajoute AUCUN champ de prix pour
+      //    faire marcher les extrêmes : c'est `<Cote>` qui les cherchera, à
+      //    la demande, derrière la porte. `test:rayon` §① tient la liste des
+      //    champs interdits et il rougirait avant le déploiement.
+      .map((r) => ({ uuid: r.uuid, nom: r.name, budget: 'item',
+                     sous: mentionEdition(r.edition_type), path: r.path,
                      rarity: r.rarity, tirage: r.tirage, serie: r.series }));
 
 const total = lignes.length;
@@ -99,33 +117,47 @@ const fenetre = [...new Set([1, n - 1, n, n + 1, pages].filter((p) => p >= 1 && 
   <AVenir lang={lang} rayon={rayon} />
 
   <ul class="rayon">
-    {tranche.map((l) => (
+    {tranche.map((l) => {
+      // ⭐⭐⭐ LE TAG EST UNE VARIABLE ; LE CORPS S'ÉCRIT UNE FOIS.
+      //    Ce fichier écrivait ses cinq `<span>` DEUX FOIS — branche `<a>`,
+      //    branche `<div>` — pour une seule différence : la mention « sans
+      //    fiche ». C'est la faute « deux gabarits qui rendent la même liste
+      //    divergent en silence », QUATRIÈME occurrence (lots 127, 131, 132),
+      //    et `AVenir.astro` la referme déjà de cette exacte façon depuis le
+      //    lot 132. ⛔ Deux corps ne divergent pas le jour où on les écrit :
+      //    ils divergent au lot suivant, quand on n'en modifie qu'un.
+      // ⚠️ `<a>` OU `<div>`, JAMAIS un `<a>` sans `href` : un lien sans
+      //    destination reste focusable et s'annonce comme un lien.
+      const Boite = l.path ? 'a' : 'div';
+      const nom = l.budget === 'set' ? nomSet(l.nom) : nomItem(l.nom);
+      const serie = nomSerie(l.serie);
+      return (
       <li class="rayon__l">
-        {/* ⭐⭐⭐ UN <a> QUAND IL Y A UNE FICHE, UN <div> SINON — et jamais un
-            <a> désactivé. Un lien mort se copie, se partage et s'indexe ; un
-            élément qui n'est pas un lien ne fait rien de tout ça.
-            ⛔ `path` vient de `bySlug` via dataset.mjs, il n'est JAMAIS
-            fabriqué ici : composer l'adresse à la main donnerait 18 212 liens
-            vers des 404, invisibles au build puisque ce sont des liens et pas
-            des routes. Ce dépôt l'a déjà payé trois fois. */}
-        {l.path
-          ? <a class="rayon__c" href={localize(lang, l.path)}>
-              <span class="rayon__n">{l.nom}</span>
-              {l.serie && <span class="rayon__s">{l.serie}</span>}
-              {l.sous && <span class="rayon__e">{l.sous}</span>}
-              {l.rarity && <Fragment set:html={rar(l.rarity, { blanc: true })} />}
-              {l.tirage && <span class="rayon__t">{l.tirage.toLocaleString(nf)}</span>}
-            </a>
-          : <div class="rayon__c rayon__c--muet">
-              <span class="rayon__n">{l.nom}</span>
-              {l.serie && <span class="rayon__s">{l.serie}</span>}
-              {l.sous && <span class="rayon__e">{l.sous}</span>}
-              {l.rarity && <Fragment set:html={rar(l.rarity, { blanc: true })} />}
-              {l.tirage && <span class="rayon__t">{l.tirage.toLocaleString(nf)}</span>}
-              <span class="rayon__x">{t(lang, 'rayon.sansfiche')}</span>
-            </div>}
+        <Boite class={`rayon__c${l.path ? '' : ' rayon__c--muet'}`}
+               href={l.path ? localize(lang, l.path) : undefined}>
+          {/* ⛔ LE NOM ENTIER EN `title` — voir `Carte.astro` : un nom tronqué
+              sans moyen de lire l'entier est une perte, pas une mise en forme.
+              ⚠️ Le thème garde son `text-overflow:ellipsis` : la coupe au
+              caractère ne connaît pas la largeur de la boîte. Les deux. */}
+          <span class="rayon__n" title={nom.tronque ? nom.complet : undefined}>{nom.vu}</span>
+          {l.serie && <span class="rayon__s" title={serie.tronque ? serie.complet : undefined}>{serie.vu}</span>}
+          {l.sous && <span class="rayon__e">{l.sous}</span>}
+          {l.rarity && <Fragment set:html={rar(l.rarity, { blanc: true })} />}
+          {/* 🔴🔴 LES EXTRÊMES, ET SEULEMENT SI LA PIÈCE A UNE FICHE.
+              Décision de Preda du 11/08, prise sur une mesure : `.reserve/cote/`
+              ne contient que 1 201 cotes — celles de `ds.items`. Les 18 212
+              lignes sans fiche n'en auront JAMAIS, même pour un Whale : émettre
+              un cadenas dessus dirait « je ne montre pas » là où la vérité est
+              « je n'ai pas ». ⭐ Et le prédicat n'est pas neuf — c'est le MÊME
+              `l.path` qui décide déjà `<a>` contre `<div>` deux lignes plus
+              haut. Une porte de plus aurait été une porte de plus à tenir. */}
+          {l.path && <Extremes lang={lang} uuid={l.uuid} nf={nf} classe="rayon__ext" />}
+          {l.tirage && <span class="rayon__t">{l.tirage.toLocaleString(nf)}</span>}
+          {!l.path && <span class="rayon__x">{t(lang, 'rayon.sansfiche')}</span>}
+        </Boite>
       </li>
-    ))}
+      );
+    })}
   </ul>
 
   {pages > 1 && (

@@ -166,6 +166,48 @@ footer.site{border-top:1px solid var(--rule);background:var(--surface);
 footer.site p{margin:0 0 7px;font-size:12.5px!important;color:var(--ink-faint);
   line-height:1.7}
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   🦶🔴🔴 LOT 139 — LES QUATRE COLONNES DU PIED, CÔTÉ `encyclopedie`
+   ═══════════════════════════════════════════════════════════════════════════
+   ⛔ CE N'EST PAS UNE COPIE DE `vitrine`, ET IL NE FAUT PAS QUE ÇA LE DEVIENNE.
+   Mesuré le 11/08/2026 : `Base.astro` émettait DÉJÀ `class="site-f__cols"` sur
+   les 263 pages de vevewiki, et ce fichier ne portait AUCUNE règle de ce nom
+   (`grep` = 0). Une classe émise que personne ne peint est le symétrique exact
+   d'une règle que personne n'émet — et les DEUX vivaient dans ce pied en même
+   temps, sur les deux sites. *Un contrôle qui part du CSS voit la seconde et
+   jamais la première.*
+
+   ⭐⭐ LES VALEURS SONT CELLES DE CE THÈME, PAS CELLES DE L'AUTRE. `vitrine`
+   est un thème de vitrine : il donne `1.5fr` à la première colonne et de
+   grands écarts. `encyclopedie` est un thème d'encyclopédie — corps à 12,5 px,
+   `--ink-faint`, filets fins. Recopier la grille de `vitrine` aurait donné à
+   vevewiki un pied deux fois plus haut que son contenu. ⇒ quatre colonnes
+   ÉGALES, écarts serrés.
+
+   ⚠️ `footer.site p` ci-dessus force `font-size:12.5px!important` : les
+   colonnes sont faites de `<li>`, pas de `<p>`, donc elles y échappent. On
+   redit la taille ici plutôt que d'élargir le sélecteur — élargir ferait
+   remonter le `!important` sur des éléments qui n'en ont pas besoin, et un
+   `!important` qu'on étend est un `!important` qu'on ne retirera plus.
+   ⛔ Les deux reprises responsive sont celles de `vitrine` (820 px puis
+   520 px) : les seuils du réseau sont une échelle DÉCLARÉE depuis ce lot
+   (`engine/lib/seuils.mjs`), pas un chiffre qu'on choisit par thème. */
+footer.site .site-f__cols{display:grid;gap:22px;grid-template-columns:repeat(4,1fr);
+  margin-bottom:22px}
+footer.site .site-f__cols h2{margin:0 0 9px;font-size:11.5px;color:var(--text);
+  text-transform:uppercase;letter-spacing:.09em;font-weight:600}
+footer.site .site-f__cols ul{list-style:none;margin:0;padding:0;display:grid;gap:6px;
+  font-size:12.5px;line-height:1.6;color:var(--ink-faint)}
+footer.site .site-f__cols a{color:var(--ink-faint);border-bottom:1px solid transparent}
+footer.site .site-f__cols a:hover,footer.site .site-f__cols a:focus-visible{
+  color:var(--text);border-bottom-color:var(--rule-strong)}
+/* ⭐ Le filet du bas SÉPARE les colonnes des mentions. Il était posé sur un
+   `<p>` qui était lui-même un ÉLÉMENT DE GRILLE : le trait passait donc au
+   milieu d'une colonne. Sorti de la grille, il fait enfin ce qu'il annonce. */
+footer.site .f-legal{border-top:1px solid var(--rule);padding-top:14px}
+@media (max-width:820px){ footer.site .site-f__cols{grid-template-columns:1fr 1fr} }
+@media (max-width:520px){ footer.site .site-f__cols{grid-template-columns:1fr} }
+
 /* -----------------------------------------------------------------------------
    ⚠️⚠️ SURCHARGES À SPÉCIFICITÉ RENFORCÉE — LIRE AVANT DE SIMPLIFIER
    Base.astro contient un TROISIÈME bloc <style> (ligne 147) injecté APRÈS ce

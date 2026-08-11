@@ -47,6 +47,7 @@
 import { createHash } from 'node:crypto';
 import { acces } from './access.mjs';
 import { coteFermee } from './cote.mjs';
+import { langueUiDansEntete } from './i18n.mjs';
 
 const fichiers = import.meta.glob('../../src/socle/*.js', { query: '?raw', import: 'default', eager: true });
 
@@ -82,6 +83,13 @@ const ORDRE = [
   '30-membre.js',    // l'avatar et l'en-tête, ⚠️ seulement si les comptes sont ouverts
   '40-favoris.js',   // les boutons ★, `localStorage` uniquement
   '50-i18n.js',      // l'échange des libellés chez le visiteur (lot 129)
+  // 🌍 LOT 139 — le sélecteur de langue d'interface de l'en-tête public.
+  // ⭐ APRÈS `50-i18n.js`, ET L'ORDRE EST UN CONTRAT ICI AUSSI : celui-ci pose
+  // le cookie que celui-là consomme au chargement suivant. Les mettre dans
+  // l'autre sens marcherait — ils ne se parlent qu'à travers un rechargement —
+  // mais la liste se lit comme une chronologie, et une chronologie fausse est
+  // un piège pour le prochain lecteur.
+  '55-langue.js',
   '60-cote.js',      // les cotes remplies à la demande (ex-`CoteScript.astro`)
   '70-figures.js',   // le bouton « télécharger cette figure » (ex-`Figures.astro`)
 ];
@@ -110,6 +118,18 @@ const ORDRE = [
 const CONDITIONS = {
   '30-membre.js': () => acces().tiers.length > 1,
   '60-cote.js': () => coteFermee(),
+  // 🌍 LOT 139 — ⭐⭐ LA CONDITION EST IMPORTÉE, PAS RÉÉCRITE.
+  // `Base.astro` appelle EXACTEMENT `langueUiDansEntete()` pour décider s'il
+  // ÉMET le bouton ; ce fichier l'appelle pour décider s'il EMBARQUE le script
+  // qui le fait marcher. Recopier ici `manifest().identity.langue_interface_dans
+  // === 'entete'`, qui « veut dire la même chose », donnerait deux définitions
+  // d'un seul état — et le jour où elles divergent, on sert un bouton sans
+  // script (il ne fait rien) ou un script sans bouton (il sort sur son garde,
+  // et on ne s'en aperçoit jamais). C'est la panne P30 de ce même lot, à
+  // l'identique : *un prédicat recopié est un prédicat qui divergera.*
+  // ⭐ Conséquence mesurable : vevewiki, qui ne pose pas la clé, n'embarque pas
+  // ces 6 021 octets. *La condition voyage avec le code, ou elle disparaît.*
+  '55-langue.js': () => langueUiDansEntete(),
 };
 
 let cache = null;

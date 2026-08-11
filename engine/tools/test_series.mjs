@@ -129,11 +129,51 @@ console.log('\n3. le filtre cherche-t-il dans TOUT le DOM, ou dans la tranche af
 //   même chose divergent » — dont deux dans ce lot.
 const { monterDOM, choisir, cocher } = await import('./_dom_banc.mjs');
 
-const scripts = [...html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g)]
-  .map((m) => m[1]).filter((x) => x.includes('s-grille'));
-verifie('le pilote des filtres voyage avec la page', scripts.length === 1,
-  `${scripts.length} script(s) portant « s-grille »`);
-if (scripts.length !== 1) fin();
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 LOT 139 — LE PILOTE N'EST PLUS DANS LA PAGE, ET C'EST UNE RÉPARATION
+// ═══════════════════════════════════════════════════════════════════════════
+// CE BANC A ÉTÉ VERT PENDANT TROIS JOURS SUR UNE PANNE RÉELLE, ET C'EST SA
+// PROPRE MÉCANIQUE QUI L'A AVEUGLÉ. Il montait le HTML **entier** dans un DOM,
+// **puis** exécutait le pilote. Le navigateur, lui, exécutait un `<script>` en
+// ligne NON DIFFÉRÉ au moment où l'analyseur l'atteignait — c'est-à-dire
+// 3 935 octets AVANT que `#s-plus` existe. `getElementById` rendait `null`,
+// `pas` valait 0, `montre = pas || 1e9` valait un milliard, et la page servait
+// **910 cartes** en annonçant 60.
+// ⭐⭐⭐ *Un banc peut être vert pour une mauvaise raison* — et la bonne
+// question n'était pas « le pilote marche-t-il ? » mais « sur quel ÉTAT DU DOM
+// s'exécute-t-il ? ». Un banc qui monte le document entier ne peut pas,
+// structurellement, voir un défaut d'ordre de parse.
+//
+// ⇒ DEUX CHOSES CHANGENT ICI, ET LES DEUX SONT NÉCESSAIRES :
+//   ① la SOURCE du pilote — il vit maintenant dans `src/socle/modules/series.js`
+//      et la page le référence en `<script defer src>` ; ce banc le lit donc au
+//      fichier, plus dans le HTML ;
+//   ② un § qui exécute le pilote sur le DOM **TRONQUÉ à l'endroit où le script
+//      vivait** — le seul état qui reproduit la panne. Voir plus bas.
+const MODULE_PILOTE = join(R, 'src', 'socle', 'modules', 'series.js');
+if (!existsSync(MODULE_PILOTE)) {
+  indecis('la source du pilote', `${MODULE_PILOTE} introuvable — le lot 139 est-il complet ?`);
+  fin();
+}
+const scripts = [readFileSync(MODULE_PILOTE, 'utf8')];
+verifie('le pilote vit dans le socle, pas dans la page', scripts[0].includes('s-grille'),
+  `${(scripts[0].length / 1024).toFixed(1)} Ko dans src/socle/modules/series.js`);
+lus++;
+
+// ⛔ ET LE CIRCUIT SE FERME DANS L'AUTRE SENS : la page servie ne doit plus
+//   porter UN SEUL script en ligne qui cherche `#s-plus`. Sans ce contrôle, on
+//   pourrait remettre le pilote en ligne demain et ce banc resterait vert — il
+//   lirait le fichier, pendant que le navigateur rejouerait la panne.
+//   ⭐ *« Qui écrit, qui lit ? »* — ici : « qui SERT ? ».
+const enLigne = [...html.matchAll(/<script(?![^>]*\ssrc=)[^>]*>([\s\S]*?)<\/script>/g)]
+  .map((m) => m[1]).filter((x) => x.includes('s-plus') || x.includes('s-grille'));
+verifie('aucun pilote de tranche n\'est resté EN LIGNE dans la page servie',
+  enLigne.length === 0,
+  enLigne.length ? `🔴 ${enLigne.length} script(s) en ligne cherchent #s-plus — la panne d'ordre revient`
+    : 'la page le demande en <script defer src>, qui attend la fin de l\'analyse');
+lus++;
+verifie('…et elle le DEMANDE bien', /<script defer src="[^"]*socle-[0-9a-f]+\.js"/.test(html),
+  'un <script defer src> au moins — le module est référencé');
 lus++;
 
 // ⭐ LA TRANCHE EST FORCÉE À 5 AVANT L'EXÉCUTION. C'est le cœur du banc : on ne
@@ -196,6 +236,91 @@ verifie('la tranche forcée MORD — sinon ce banc ne prouve rien',
   cartes.length > TRANCHE && visibles().length === TRANCHE,
   `${cartes.length} carte(s) dans le DOM, ${visibles().length} visible(s) (tranche ${TRANCHE})`);
 lus++;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔬 L'ORDRE DE PARSE — LA CONTRE-ÉPREUVE QUI MANQUAIT PENDANT TROIS JOURS
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐⭐⭐ ON FABRIQUE LES DEUX ÉTATS DU DOM, ET ON EXIGE QU'ILS DIFFÈRENT.
+// C'est la seule façon de prouver que le déplacement du pilote a réparé
+// quelque chose : un APRÈS sans AVANT ne prouve rien.
+//
+//   ① DOM TRONQUÉ — la grille est là, `#s-plus` **pas encore analysé**. C'est
+//      exactement ce que voyait un `<script>` en ligne écrit 3 935 octets avant
+//      le bouton. Attendu : `pas = 0`, `montre = 1e9`, **AUCUNE carte cachée**.
+//   ② DOM COMPLET — ce que voit un `<script defer src>`, qui attend la fin de
+//      l'analyse **par construction**. Attendu : la tranche mord.
+//
+// ⛔ ET LE CAS ① DOIT ÊTRE ROUGE. S'il rendait la tranche lui aussi, ce banc ne
+//    mesurerait plus l'ordre — il mesurerait le pilote, ce que les § d'au-dessus
+//    font déjà. *Un banc qui ne peut plus produire l'écart qu'il surveille ne
+//    prouve plus rien par son égalité.*
+{
+  // 🔴🔴🔴 MA PREMIÈRE VERSION DE CE § A PASSÉ POUR UNE MAUVAISE RAISON, ET
+  // C'EST LA TREIZIÈME FOIS QUE CE PROJET SE FAIT PRENDRE PAR SON PROPRE
+  // INSTRUMENT. Je fabriquais une grille nue — 12 `<a>` et un bouton. Le cas
+  // ① sortait « aucune carte cachée » ✅ … parce que le pilote LEVAIT à la
+  // ligne `document.getElementById('s-actifs').innerHTML`, absent de mon
+  // faux DOM. Rien n'était caché parce que rien ne s'était exécuté.
+  // ⭐⭐⭐ *Un cas fabriqué incomplet rend le BON résultat pour la MAUVAISE
+  // raison, et c'est indiscernable d'un succès.* Le témoin ② l'a dit tout de
+  // suite en refusant de mordre — sans lui, ce § serait entré au dépôt vert.
+  // ⇒ ON PART DU DOM RÉEL, celui de la page servie, et on ne fabrique que LA
+  //   SEULE différence qui compte : le bouton est là, ou il ne l'est pas
+  //   encore. C'est précisément ce que change l'ordre de parse.
+  const PAS = 5;
+  const jouer = async (avecBouton) => {
+    const dom = await monterDOM(html);
+    if (!dom) return null;
+    const { document: d, window: w } = dom;
+    let plus = d.getElementById('s-plus');
+    if (!plus) {
+      plus = d.createElement('button'); plus.id = 's-plus';
+      plus.setAttribute('type', 'button'); d.body.appendChild(plus);
+      const c = d.createElement('span'); c.id = 's-plus-cpt'; d.body.appendChild(c);
+    }
+    plus.setAttribute('data-pas', String(PAS));
+    // ⚠️ ① L'ANALYSEUR N'A PAS ENCORE VU LE BOUTON. On le retire du document
+    //    plutôt que de le masquer : `getElementById` doit rendre `null`, ce
+    //    qu'un `hidden` ne produirait pas. *« Est-ce là ? » n'est pas « est-ce
+    //    visible ? »* — la distinction est la même que pour le CSS.
+    if (!avecBouton) plus.remove();
+    const fn = new Function('document', 'window', 'console', 'localStorage', scripts[0]);
+    try { fn(d, w, { log() {}, warn() {}, error() {} }, undefined); }
+    catch (e) { return { erreur: e.message }; }
+    const cs = [...d.querySelectorAll('#s-grille .col-carte')];
+    return { total: cs.length, visibles: cs.filter((c) => !c.hasAttribute('hidden')).length };
+  };
+
+  const tronque = await jouer(false);   // ① l'ancien monde : script en ligne, bouton pas encore analysé
+  const complet = await jouer(true);    // ② ce que voit `<script defer src>` : analyse terminée
+
+  if (!tronque || !complet) {
+    indecis('la contre-épreuve d\'ordre', 'linkedom absent');
+  } else if (tronque.erreur || complet.erreur) {
+    // ⛔ LE PILOTE NE DOIT PAS LEVER, MÊME SANS LE BOUTON — en production il
+    //   s'exécutait exactement dans cet état. Le vrai défaut est plus discret
+    //   qu'une exception : il RÉUSSIT, et il montre tout.
+    verifie('le pilote survit à un DOM sans `#s-plus`', false,
+      `🔴 ${tronque.erreur || complet.erreur} — si ce § lève, ses deux verdicts ne valent rien`);
+    lus++;
+  } else {
+    verifie('① sans `#s-plus` (l\'ancien monde) : la tranche NE MORD PAS',
+      tronque.visibles === tronque.total && tronque.total > PAS,
+      `${tronque.visibles}/${tronque.total} visibles — la panne du 11/08, reproduite`);
+    lus++;
+    verifie('② avec `#s-plus` (ce que voit `defer`) : la tranche MORD',
+      complet.visibles === PAS,
+      `${complet.visibles}/${complet.total} visibles (pas ${PAS})`);
+    lus++;
+    // ⭐ LE TÉMOIN QUI TRANCHE : si les deux états rendaient la même chose, le
+    //   déplacement du pilote n'aurait rien réparé — et ce banc le dirait, au
+    //   lieu d'être vert des deux côtés.
+    verifie('⇒ les deux états DIFFÈRENT — le déplacement répare quelque chose',
+      tronque.visibles !== complet.visibles,
+      `sans bouton ${tronque.visibles} ≠ avec bouton ${complet.visibles}, sur ${complet.total}`);
+    lus++;
+  }
+}
 
 // La licence la plus portée : c'est celle qui donnera l'écart le plus net.
 const compte = {};

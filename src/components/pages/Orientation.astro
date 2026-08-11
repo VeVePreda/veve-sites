@@ -77,7 +77,52 @@ const rangees = [
       `sect-t--gd` est juste, elle était appliquée au mauvais endroit.
       *Corriger la règle CSS aurait rapetissé les titres des pages où elle a
       raison, sur les deux sites.* */}
-  <div class="sect-t"><h1 class="mono-t">{t(lang, 'orient.title')}</h1></div>
+  {/* 🔴🔴 LOT 139 — CETTE PAGE N'AVAIT PAS DE TÊTE DE PAGE, ET `/sets/` EN A
+      UNE (demande Preda : « harmoniser le design de /collections/ avec les
+      autres pages »). Mesuré avant de coder : **0 `tete-p`** ici, une sur
+      `/sets/`. Or c'est CETTE page que le menu propose (`nav.collections`) —
+      le visiteur voyait donc la forme pauvre en premier et la forme riche
+      seulement s'il allait plus loin. ⭐ Exactement l'arbitrage du lot 131 sur
+      les cartes de set, un cran au-dessus : *la page d'entrée d'un rayon ne
+      peut pas être la moins soignée du rayon.*
+      ⛔ ON RÉUTILISE `tete-p`, ON N'EN INVENTE PAS UNE DEUXIÈME : la classe
+      existe, elle est servie, et une variante `tete-p--orient` serait la
+      divergence qu'on passe ce lot à refermer.
+      ⚠️ Le `<h1>` DÉMÉNAGE dans la tête, il n'est pas DUPLIQUÉ : `test:titres`
+      exige un seul `<h1>` par page et il aurait rougi — c'est ce qu'on veut
+      d'un banc. Le `sect-t` qui le portait disparaît avec lui. */}
+  <div class="tete-p">
+    <div>
+      {/* ⛔ PAS DE `.toUpperCase()` ICI. `.etiq` porte déjà
+          `text-transform:uppercase`, et la version markup détruirait la
+          traduction : `t()` marque son libellé d'une clé, que la mise en
+          capitales rendrait introuvable dans le dictionnaire (P30, 1 199
+          libellés). La casse est une affaire de STYLE. */}
+      <p class="etiq etiq--bleu">// {t(lang, 'orient.title')}</p>
+      <h1 class="mono-t">{t(lang, 'orient.title')}</h1>
+      <p class="respire">{t(lang, 'orient.desc')}</p>
+    </div>
+    {/* ⭐ LA PILE DIT DE QUOI PARLE L'ÉCRAN AVANT QU'ON LISE LE TITRE — et elle
+        prend de VRAIES pièces. ⛔ On cherche l'image dans TOUT le set, pas dans
+        ses trois premières : `items` est trié par plancher décroissant, donc
+        les plus chères sont souvent des variantes rares sans couverture
+        (6 609 comics n'ont pas d'`image_url`). Un set illustré à partir de sa
+        4ᵉ pièce rendrait un hexagone vide — la faute du lot 118, déjà payée
+        deux fois. */}
+    <span class="tete-p__viz" aria-hidden="true">
+      {sets.slice(0, 3).map((c) => {
+        const img = (c.items || []).find((i) => i.image);
+        return img
+          ? <span class="socle"><img class="socle__net ok" src={img.image} alt=""
+                   width="400" height="600" loading="lazy" decoding="async" /></span>
+          : <span class="forme forme--xl" style="--c-a:var(--rule-2)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4">
+                <path d="M12 2.9 19.9 7.5v9L12 21.1 4.1 16.5v-9Z" />
+              </svg>
+            </span>;
+      })}
+    </span>
+  </div>
 
   <AVenir lang={lang} />
 

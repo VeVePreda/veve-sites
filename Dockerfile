@@ -366,6 +366,21 @@ RUN WAREHOUSE_OFFLINE=1 npm run test:titres
 #    ⚠️ Il lit `themes/` et `engine/lib/`, jamais `dist/` : il peut donc tourner
 #    AVANT le build. Il est place ici pour rester avec les bancs de la feuille.
 RUN WAREHOUSE_OFFLINE=1 npm run test:opacite
+# 🔴🔴🔴 `test:tiroir` — LOT 139, ET C'EST LE FRERE DU PRECEDENT.
+#    Le 11/08, Preda signale « sur petit ecran le menu lateral ne fonctionne
+#    pas, il est si compacte qu'on ne peut pas l'utiliser ». Il fonctionnait :
+#    il etait HAUT DE 64 PIXELS. `.site-h` porte `backdrop-filter`, et un
+#    ancetre qui porte `backdrop-filter` (ou `transform`, `filter`,
+#    `perspective`, `contain`, `will-change` sur l'une d'elles) DEVIENT le bloc
+#    conteneur de ses descendants en `position:fixed`. `inset:0 auto 0 0` ne
+#    visait donc pas la fenetre mais l'en-tete.
+#    ⭐⭐⭐ MEME FAMILLE QUE LE 111, UN CRAN PLUS LOIN : le 111 regardait ce qui
+#    s'AFFICHE plutot que ce qui EXISTE ; celui-ci regarde DANS QUELLE BOITE.
+#    Rien dans `.deplie__m` n'est faux — la cause est chez un ancetre, et elle
+#    n'a meme pas l'air d'etre une regle de position.
+#    ⚠️ Il lit `themes/` ET `dist/` (l'ancetre reel, pas celui du gabarit) :
+#    ⛔ il ne peut donc PAS tourner avant le build, contrairement a `test:opacite`.
+RUN WAREHOUSE_OFFLINE=1 npm run test:tiroir
 # 🟠 DETTE DU 07/08 RAMASSEE AU PASSAGE — `test:promesses` etait dans `npm test`
 #    et PAS ici, seul des 27 dans ce cas. *Un garde-fou qui ne tourne pas en
 #    production ne garde rien.* Il casse le build si `offer.url` se remplit

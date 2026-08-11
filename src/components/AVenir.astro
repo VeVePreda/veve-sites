@@ -33,6 +33,10 @@
 //    au lieu de laisser croire que la fonctionnalité marche.
 import { dataset } from '../../engine/lib/dataset.mjs';
 import { t, numberLocale, localize } from '../../engine/lib/i18n.mjs';
+// 🔴 LOT 139 — le budget de coupe vient de la déclaration commune. Un drop
+//   groupé porte un nom de SÉRIE : il se coupe comme un titre de set (30),
+//   pas comme un nom de pièce.
+import { nomSet, nomItem } from '../../engine/lib/vignette.mjs';
 
 const { lang, rayon = null } = Astro.props;
 const ds = await dataset();
@@ -63,6 +67,7 @@ const jour = (iso) => new Date(`${iso}T00:00:00Z`)
       //    destination reste focusable et s'annonce comme un lien — pire qu'un
       //    bloc inerte. Et pas de `href="#"`, qui casse le retour arrière.
       const Boite = d.path ? 'a' : 'div';
+      const titre = d.series ? nomSet(d.titre || d.name) : nomItem(d.titre || d.name);
       return (
       <li role="listitem">
         <Boite class={`avenir__c${d.path ? ' avenir__c--lien' : ''}`}
@@ -77,8 +82,20 @@ const jour = (iso) => new Date(`${iso}T00:00:00Z`)
           {d.image && <img class="avenir__v" src={d.image} alt=""
                            aria-hidden="true" loading="lazy" decoding="async" />}
           <span class="avenir__j">{jour(d.jour)}</span>
-          <span class="avenir__n">{d.name}</span>
-          {d.series && <span class="avenir__s">{d.series}</span>}
+          {/* 🔴🔴 LOT 139 — LE TITRE EST LA SÉRIE (Preda, 11/08 : « À venir doit
+              montrer les séries, pas les items »). `dataset.mjs` groupe
+              désormais sur `jour|série` et dépose `titre` ; on ne recalcule
+              rien ici — un regroupement fait dans deux endroits diverge au
+              premier lot qui n'en touche qu'un.
+              ⭐ Repli sur `d.name` : une pièce sans série reste son propre
+              groupe, et son nom EST son titre. ⛔ Pas de repli silencieux —
+              c'est `dataset.mjs` qui a déjà tranché (`r.series || r.name`), on
+              lit sa décision au lieu d'en reprendre une. */}
+          <span class="avenir__n" title={titre.tronque ? titre.complet : undefined}>{titre.vu}</span>
+          {/* ⭐ Le sous-titre ne répète plus la série (elle est passée au
+              titre) : il dit COMBIEN de pièces ce drop annonce. Un nombre à la
+              place d'un doublon. */}
+          {d.pieces > 1 && <span class="avenir__s">{t(lang, 'avenir.pieces', { n: d.pieces })}</span>}
           {/* ⭐ MESURÉ : les 10 lignes « à venir » du catalogue sont 2 comics ×
               5 raretés. `dataset.mjs` GROUPE ; on annonce le nombre de raretés
               plutôt que de répéter cinq fois la même couverture. */}

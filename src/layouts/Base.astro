@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { manifest, siteUrl } from '../../engine/lib/manifest.mjs';
 import { acces, connecte } from '../../engine/lib/access.mjs';
 import { jsonld, websiteLd, pageTitle, homeTitle, breadcrumbLd, couperMots } from '../../engine/lib/seo.mjs';
-import { locales, t, pick, localize, localeNames, dateLocale, numberLocale, nu } from '../../engine/lib/i18n.mjs';
+import { locales, t, pick, localize, localeNames, dateLocale, numberLocale, nu, languesInterface, langueUiDansEntete } from '../../engine/lib/i18n.mjs';
 import { degradesSpark } from '../../engine/lib/vitrine.mjs';
 import { DOCS, legalTitle } from '../../engine/lib/legal.mjs';
 import { activeSections, sectionMeta, languesDuSite, DESC_MAX } from '../../engine/lib/editorial_pages.mjs';
@@ -269,6 +269,54 @@ const langAuCompte = langueOu === 'compte';
 // le choix reste posé quoi qu'il arrive : déplacer un bouton ne doit pas
 // rhabiller en clair quelqu'un qui lisait en nuit depuis trois semaines.
 const themeAuCompte = (m.identity.theme_dans || 'entete') === 'compte';
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🌍🔴🔴 LOT 139 — LE SÉLECTEUR DE **LANGUE D'INTERFACE**, SUR LES PAGES
+// PUBLIQUES. ⛔ CE N'EST PAS `langueOu` CI-DESSUS, ET IL NE FAUT PAS LES
+// CONFONDRE — ILS RÉPONDENT À DEUX QUESTIONS DIFFÉRENTES.
+// ═══════════════════════════════════════════════════════════════════════════
+//   · `langueOu`  → où vont les liens vers les autres ADRESSES (`alternates`).
+//                   veveprice : `active: [en]` ⇒ **une seule adresse**.
+//   · ici         → où le visiteur choisit la langue des LIBELLÉS.
+//                   veveprice : `interface: [en, fr, es, de]` ⇒ **quatre**.
+//
+// 🔴 CE QUI A ÉTÉ MESURÉ LE 11/08 AVANT D'ÉCRIRE UNE LIGNE, sur les 147 pages
+// construites : **0 `.langbar`**, **0 `.f-langues`**, **0 `hreflang` dans le
+// corps**. Le seul code du dépôt qui pose le cookie `vp_langue` vit sur
+// `/compte/`, `/connexion/` et `/inscription/` — et `/compte/` redirige un
+// anonyme vers `/connexion/`. ⇒ **quatre langues traduites, aucune porte
+// publique pour en choisir une.** Un circuit ouvert, ouvert depuis le lot 120.
+// ⛔ La notice du lot proposait de basculer `langues_dans` sur un axe
+// public/privé : ça n'aurait affiché **rien du tout** — un « sélecteur » à un
+// seul choix, « EN ». *Une demande peut être claire et porter sur un mécanisme
+// incapable de la satisfaire ; c'est la mesure qui le dit, pas la relecture.*
+//
+// ⭐⭐⭐ « PUBLIQUE » N'EST PAS UNE LISTE DE CHEMINS, C'EST LE MODE DE RENDU.
+// Preda a tranché : rien sur `/compte/`, `/market/`, `/favoris/`,
+// `/dashboard/`. Ces quatre routes-là sont EXACTEMENT celles que
+// `astro_routes_compte.mjs` bascule en rendu à la demande — recopier leurs
+// chemins ici serait une QUATRIÈME liste à tenir à jour (le moteur, nginx, le
+// banc, et moi), et la cinquième page réservée passerait par le trou comme les
+// trois lots qui ont ajouté un préfixe à la main pour P42.
+// ⇒ **un invariant, pas une seconde liste** : une page rendue à la demande est
+// une page qui a un visiteur ; une page pré-générée est un fichier public.
+// ⚠️ `/connexion/` et `/inscription/` sont à la demande ET publiques — et
+// c'est le bon résultat : elles portent DÉJÀ leur propre sélecteur `?lang=`.
+// L'invariant leur évite d'en avoir deux.
+//
+// ⛔⛔ COMPARAISON POSITIVE, ET L'ABSENCE EST NOMMÉE. `locals.rendu` vaut
+// `undefined` sur les ~8 500 pages pré-générées (le middleware sort avant de
+// le poser, cf. `isPrerendered`). Écrire `!== 'demande'` ferait retomber dans
+// « publique » tout mode de rendu futur que personne n'aurait examiné. On
+// nomme l'absence, et on compare à la valeur voulue : un troisième mode
+// tomberait du côté « pas de sélecteur », qui est le côté sûr.
+const rendu = Astro.locals?.rendu || 'pre-genere';
+const pagePreGeneree = rendu === 'pre-genere';
+const languesUi = languesInterface();
+// ⭐ `languesUi.length > 1` : un sélecteur à un seul choix est un bouton qui
+// ment. C'est la garde qui laisse vevewiki tranquille même si quelqu'un y
+// posait la clé un jour.
+const selecteurLangueUi = langueUiDansEntete() && pagePreGeneree && languesUi.length > 1;
 // ⭐ QUI REGARDE, ET NON QUE PEUT-IL VOIR. Les 8 500 pages pré-générées n'ont
 // pas de visiteur : `connecte()` y rend faux, donc elles portent l'appel à
 // l'inscription. C'est exactement ce qu'on veut d'une page servie à un anonyme.
@@ -292,6 +340,9 @@ if (navAttente.length && !globalThis.__navDit) {
 // Mesuré dans `themes/vitrine/theme.css` :
 //   @media (max-width:1040px){ .nav__liens{display:none} }   ← le menu s'en va
 //   @media (max-width:640px) { .onglets{display:grid}    }   ← la barre arrive
+// ⚠️ LOT 139 — LA SECONDE RÈGLE N'EXISTE PLUS : la barre du bas a été retirée
+// et le bouton du tiroir bascule au MÊME pixel que la nav (1040 px). Le trou
+// décrit ici est fermé par un SEUIL COMMUN, plus par un second dispositif.
 // Entre les deux, sur 400 px de largeur d'écran — c'est-à-dire une tablette,
 // une fenêtre à moitié réduite, un portable en 1366 avec le zoom à 125 % — le
 // site n'avait AUCUNE navigation. Ni erreur, ni page cassée : deux règles
@@ -358,9 +409,14 @@ const menuComplet = wikiNav
 //   ② l'avatar `<details class="globe">` — présent à TOUTES les largeurs (seul
 //      son libellé disparaît sous 640 px, thème l. 1215), et il porte déjà le
 //      lien plus la déconnexion ;
-//   ③ la barre `.onglets`, sous 640 px, qui pose son propre `<a href="/compte/"
-//      data-membre hidden>` — elle ne dépend PAS de cette ligne.
-// En retirer une en laisse deux, dont une visible partout. ⛔ Si l'avatar avait
+//   ③ ~~la barre `.onglets`, sous 640 px~~ — 🔴 RETIRÉE AU LOT 139.
+// ⚠️ CE COMPTAGE A DONC CHANGÉ, ET C'EST LE PIÈGE DE CE GENRE DE NOTE : le
+// lot 132 a retiré `/compte/` du tiroir EN S'APPUYANT sur ③, et le lot 139 a
+// retiré ③ en s'appuyant sur ②. Il ne reste qu'UNE porte visible — l'avatar —
+// plus la section « Réglages » du tableau de bord.
+// ⇒ `test:affichage` §3 quater MESURE désormais ce comptage à chaque passage :
+// il compte les liens vers `/compte/` dans la page SERVIE et vérifie que leur
+// contenant n'est masqué à AUCUNE des 30 largeurs balayées. ⛔ Si l'avatar avait
 // été la SEULE autre porte et qu'il eût disparu sous un seuil, ce retrait aurait
 // fabriqué un espace membre sans sortie — « une protection qui bloque tout le
 // monde est cassée », dans sa version navigation.
@@ -659,23 +715,6 @@ const menuComplet = wikiNav
       <span>{t(lang, 'nav.menu')}</span>
       <svg viewBox="0 0 24 24" aria-hidden="true" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6" /></svg>
     </button>
-    <div class="deplie__m" id="menu-m" hidden>
-      {/* ⭐ `data-membre` + `hidden` : le lien est dans le HTML de TOUTES les
-          pages, invisible par défaut, révélé par la règle CSS du <head> quand
-          le cookie d'affichage est là. Le même dispositif que les entrées
-          `membre: true` du manifeste — un seul mécanisme, pas deux.
-          🔴 LOT 123 — `hidden` NE DÉPEND PLUS DE `aUneSession` (nav principale
-          comme tiroir). Il valait `!aUneSession` : vrai sur les 3 000 pages
-          pré-générées, FAUX sur les 5 routes rendues à la demande. Le même
-          menu s'affichait donc différemment selon la page, pour la même
-          personne — ce que Preda a signalé le 10/08. ⛔ Un commentaire JSX
-          posé ENTRE DEUX ATTRIBUTS d'une balise décale le HTML émis : il a
-          fait rougir `test:entete` (« le script précède les règles »). Les
-          explications vivent au-dessus de la balise, jamais dedans. */}
-      {menuComplet.map((e) => (
-        <a href={e.href} data-membre={e.membre ? '' : undefined} hidden={e.membre || undefined}>{e.label}</a>
-      ))}
-    </div>
   </div>
   <a class="marque" href={localize(lang, '/')}>
     <span class="logo logo--sm" aria-hidden="true">VP</span>
@@ -780,10 +819,12 @@ const menuComplet = wikiNav
         autres — « corrigé sur un site ≠ corrigé », version largeurs d'écran.
         ⭐⭐ CE QUI RESTE, MESURÉ AVANT DE COUPER : l'avatar `.globe` est rendu à
         TOUTES les largeurs (seul son libellé disparaît sous 640 px, thème
-        l. 1215) et porte le lien plus la déconnexion ; la barre `.onglets`
-        pose le sien sous 640 px, indépendamment de cette ligne ; et le tableau
-        de bord a sa section « Réglages » depuis le lot 131. Trois chemins
-        restent, dont un visible partout.
+        l. 1215) et porte le lien plus la déconnexion ; ~~la barre `.onglets`~~
+        🔴 RETIRÉE AU LOT 139 ; et le tableau de bord a sa section « Réglages »
+        depuis le lot 131. DEUX chemins restent, dont un visible partout —
+        c'était trois quand ces lignes ont été écrites, et c'est exactement
+        pourquoi un comptage doit vivre dans un banc et pas dans un commentaire
+        (`test:affichage` §3 quater).
         ⛔ On ne retire jamais la DERNIÈRE porte d'un espace membre : « une
         protection qui bloque tout le monde est cassée » vaut aussi pour une
         navigation qui n'ouvre plus rien. C'est pour ça qu'on compte AVANT. */}
@@ -1005,37 +1046,161 @@ const menuComplet = wikiNav
       ))}
     </span>
     )}
+    {/* ═══════════════════════════════════════════════════════════════════
+        🌍🔴🔴 LOT 139 — LE SÉLECTEUR DE **LIBELLÉS**, À CÔTÉ DE CELUI DES
+        **ADRESSES**, ET DÉLIBÉRÉMENT À CÔTÉ.
+        ═══════════════════════════════════════════════════════════════════
+        Les deux blocs ne s'excluent pas : vevewiki a cinq adresses et affiche
+        `.langbar` ; veveprice a une adresse et quatre jeux de libellés, et
+        affiche celui-ci. Un site qui aurait les deux les montrerait tous les
+        deux — ce serait une erreur de conception, pas de gabarit, et elle se
+        verrait immédiatement. ⭐ Les laisser voisins est ce qui rend la
+        distinction lisible ; les fondre en un seul bloc « intelligent » la
+        rendrait invisible au prochain lecteur.
+
+        ⛔⛔ CE SONT DES `<button>`, PAS DES `<a href="?lang=fr">`, ET C'EST LA
+        SEULE FORME POSSIBLE. Cette page est un FICHIER pré-généré servi
+        derrière les Cache Rules de Cloudflare (`cf-cache-status: HIT` mesuré
+        le 11/08, TTL 2 h). Une chaîne de recherche n'y est lue par personne —
+        et si elle l'était, la réponse française partirait au cache PARTAGÉ.
+        ⭐ `50-i18n.js` échange les libellés côté visiteur : le HTML reste
+        identique pour tout le monde, donc cachable. C'est ce qui rend ce
+        sélecteur possible sans démonter le lot 138.
+
+        ⭐⭐ RÉUTILISE `.globe`, N'INVENTE PAS UN COMPOSANT. L'habillage existe
+        (`.globe`, `.globe>summary`, `.globe__m`, et jusqu'au `span` masqué
+        sous 640 px) : il a été écrit pour le sélecteur de langue du compte,
+        c'est-à-dire pour exactement cet objet. Un `.langue-ui` neuf aurait
+        demandé douze règles jumelles, et `css-mort` aurait eu raison de crier.
+        ⚠️ SEULE ADDITION à la feuille : `.globe__m button`, parce que le menu
+        n'habillait que des `<a>`.
+
+        🔴 L'ÉTAT COURANT N'EST PAS ÉCRIT ICI, ET C'EST VOLONTAIRE. Le fichier
+        est le même pour tout le monde : il ne PEUT pas savoir que ce
+        visiteur-ci lit en français. Marquer « EN » comme courant dans le HTML
+        afficherait un état faux à quiconque a déjà choisi une autre langue.
+        ⇒ le libellé du bouton et le `aria-current` sont posés par
+        `55-langue.js`, qui lit le cookie. Même dispositif que `data-membre` et
+        que la bascule nuit : *un HTML identique partout, un script qui ajuste.*
+        ⛔ Ne pas « simplifier » en écrivant `aria-current` au build. */}
+    {selecteurLangueUi && (
+    <details class="globe" id="langue-ui">
+      <summary aria-label={t(lang, 'lang.pick')} title={t(lang, 'lang.pick')}>
+        <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6">
+          <circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c2.5 2.6 2.5 15.4 0 18M12 3c-2.5 2.6-2.5 15.4 0 18" />
+        </svg>
+        <span id="langue-ui-a">{lang.toUpperCase()}</span>
+      </summary>
+      <div class="globe__m">
+        {/* ⭐ LE NOM ENTIER, DANS SA PROPRE LANGUE. « ES » demande au visiteur
+            de savoir qu'il est espagnol ; « Español » le lui dit — et un
+            francophone cherche « Deutsch », pas « Allemand ». La règle est
+            déjà écrite au pied de page ; on la tient ici aussi.
+            ⛔ Ces libellés ne portent PAS `data-i18n` : un nom de langue ne se
+            traduit pas, et `50-i18n.js` les écraserait au chargement suivant. */}
+        {languesUi.map((l) => (
+          <button type="button" data-lang={l} lang={l}>{localeNames[l] || l.toUpperCase()}</button>
+        ))}
+      </div>
+    </details>
+    )}
   </nav>
 </div></header>
-  {/* 🔴 LA BARRE MOBILE LISAIT SA PROPRE LISTE — corrige le 03/08/2026.
-      Le lot 38 avait mis le menu dans le manifeste, mais SEULEMENT pour la nav
-      d'en-tete. Celle-ci gardait `/collections/` en dur et ignorait Analytics,
-      Blog et Abonnement : deux menus, deux verites, sur la meme page.
-      ⭐⭐ Preda a vu « plus que Blog » dans le menu — et la barre mobile, elle,
-      montrait encore l'ancien monde. Un ecran qui se contredit lui-meme coute
-      plus cher qu'un ecran incomplet.
-      ⚠️ Elle est VOLONTAIREMENT plus courte : 4 entrees au maximum, sinon les
-      cibles tactiles passent sous 44 px. On prend les premieres de `nav:`,
-      puis `/compte/`. L'ordre du manifeste decide donc aussi des priorites
-      mobiles — c'est une consequence a connaitre avant de le reordonner. */}
-{acces().tiers.length > 1 && (
-  <nav class="onglets" aria-label={t(lang, 'a11y.nav')}>
-    {navManifeste
-      .filter((e) => e.cle !== 'nav.blog' || blogDansCetteLangue)
-      .slice(0, 3)
-      .map((e) => (
-        <a href={e.href === '/' ? localize(lang, '/') : localize(lang, e.href)}>{t(lang, e.cle)}</a>
-      ))}
-    {/* 🔴 LOT 123 — `aUneSession` NE DÉCIDE PLUS DE LA PRÉSENCE DE CE LIEN.
-        Il n'est connu que sur les 5 routes rendues à la demande ; sur les 3 000
-        pages pré-générées il vaut toujours faux. Le lien apparaissait donc sur
-        /market/ et disparaissait ailleurs, pour la même personne, dans la même
-        session — ce que Preda a signalé le 10/08. ⭐ Il est maintenant dans le
-        HTML de toutes les pages, `hidden`, et la règle CSS `html[data-membre]`
-        du <head> décide. Un seul juge, un HTML identique partout, donc cachable. */}
-    {comptesOuverts && <a href="/compte/" data-membre hidden>{t(lang, 'account.title')}</a>}
-  </nav>
-)}
+{/* ═══════════════════════════════════════════════════════════════════
+    🔴🔴 LOT 139 — LE TIROIR SORT DE L'EN-TÊTE, ET C'EST UNE CORRECTION DE
+    BLOC CONTENEUR, PAS UN RANGEMENT
+    ═══════════════════════════════════════════════════════════════════
+    Preda, 11/08 : « sur petit écran le menu latéral ne fonctionne pas, il est
+    si compacté qu'on ne peut pas l'utiliser ». Il fonctionnait : le bouton
+    bascule, `hidden` tombe, l'opacité est levée depuis le lot 111, Échap
+    referme. Il était HAUT DE 64 PIXELS.
+
+    ⭐⭐⭐ `.site-h` porte `backdrop-filter:blur(...)`. Un ancêtre qui porte
+    `backdrop-filter` (ou `transform`, `filter`, `perspective`, `contain`,
+    `will-change` sur l'une d'elles) DEVIENT LE BLOC CONTENEUR de ses
+    descendants en `position:fixed`. `.deplie__m{position:fixed;inset:0 auto 0 0}`
+    ne visait donc pas la fenêtre mais L'EN-TÊTE — 64 px de haut, 56 sous
+    640 px. Le tiroir tenait dans une barre de titre.
+
+    ⭐⭐ LE DÉFAUT SUIVAIT UNE DIMENSION ABSENTE DE LA DÉCLARATION FAUTIVE.
+    Rien dans `.deplie__m` n'est faux ; on peut le relire cent fois. La cause
+    est chez un ancêtre, et elle n'a pas l'air d'être une règle de position :
+    c'est un effet de flou, écrit 78 000 octets plus haut dans la feuille.
+    *Même motif que les Cache Rules du 11/08 : quand le défaut suit une
+    dimension que l'expression ne contient pas, il vient de plus haut.*
+
+    ⭐ ET LA FEUILLE PORTAIT DÉJÀ LA PREUVE : `[data-leger] .site-h{
+    backdrop-filter:none!important}` — en mode allégé le tiroir marchait, en
+    mode normal non. Un défaut qui n'existe que dans une des deux
+    configurations ressemble à un caprice de navigateur.
+
+    ⛔ POURQUOI SORTIR LE TIROIR PLUTÔT QUE RETIRER LE FLOU. Les deux referment
+    le défaut ; un seul le referme DÉFINITIVEMENT. Retirer `backdrop-filter`
+    rendrait le tiroir dépendant du fait que personne ne le remette — et le
+    jour où quelqu'un ajoute `transform:translateZ(0)` à l'en-tête « pour
+    lisser le sticky », la panne revient sans un mot. Un panneau plein écran
+    n'a rien à faire dans un en-tête de 64 px : il en sort, et plus aucune
+    propriété de l'en-tête ne peut l'atteindre.
+
+    ⛔ LE JAVASCRIPT N'A PAS UNE LIGNE À CHANGER, et c'est ce qui rend ce
+    déplacement sûr : `src/socle/20-menu.js` prend ses deux nœuds par
+    `getElementById` et teste `m.contains(e.target)`. Ni l'un ni l'autre ne
+    dépend de la parenté. `aria-controls="menu-b"→"menu-m"` traverse le
+    document : la relation reste annoncée aux lecteurs d'écran.
+
+    ⚠️ IL RESTE ENFANT DIRECT DU `<body>`. La contrainte qui justifiait sa
+    position exacte — « avant `.onglets`, parce que la barre du bas est
+    `position:sticky` et que le voile `body[data-tiroir]::after` doit la
+    recouvrir » — 🔴 N'A PLUS D'OBJET : `.onglets` est retirée dans CE MÊME
+    LOT (voir plus bas). Le voile n'a plus qu'un `<main>` et un pied de page à
+    couvrir, tous deux dans le flux normal.
+    ⭐⭐ On écrit la contrainte MORTE plutôt que de l'effacer : le prochain
+    lecteur qui verra ce `<div>` entre `</header>` et `<main>` se demandera
+    pourquoi il n'est pas dans l'en-tête. La réponse est le `backdrop-filter`
+    de `.site-h`, pas la barre du bas — et `test:tiroir` la tient. */}
+<div class="deplie__m" id="menu-m" hidden>
+    {/* ⭐ `data-membre` + `hidden` : le lien est dans le HTML de TOUTES les
+        pages, invisible par défaut, révélé par la règle CSS du <head> quand
+        le cookie d'affichage est là. Le même dispositif que les entrées
+        `membre: true` du manifeste — un seul mécanisme, pas deux.
+        🔴 LOT 123 — `hidden` NE DÉPEND PLUS DE `aUneSession` (nav principale
+        comme tiroir). Il valait `!aUneSession` : vrai sur les 3 000 pages
+        pré-générées, FAUX sur les 5 routes rendues à la demande. Le même
+        menu s'affichait donc différemment selon la page, pour la même
+        personne — ce que Preda a signalé le 10/08. ⛔ Un commentaire JSX
+        posé ENTRE DEUX ATTRIBUTS d'une balise décale le HTML émis : il a
+        fait rougir `test:entete` (« le script précède les règles »). Les
+        explications vivent au-dessus de la balise, jamais dedans. */}
+    {menuComplet.map((e) => (
+      <a href={e.href} data-membre={e.membre ? '' : undefined} hidden={e.membre || undefined}>{e.label}</a>
+    ))}
+  </div>
+{/* ═══════════════════════════════════════════════════════════════════════
+    🔴🔴 LOT 139 — LA BARRE DU BAS (`.onglets`) A ÉTÉ RETIRÉE
+    ═══════════════════════════════════════════════════════════════════════
+    Décision de Preda, 11/08/2026 : « je ne veux pas la barre du bas sous
+    640 px, je veux juste celui qui s'ouvre quand on clique sur le bouton ».
+    ⭐⭐ Elle n'était peinte QUE sous 640 px : la retirer « sous 640 px »,
+    c'était la retirer tout court. On enlève donc l'émetteur AVEC sa règle —
+    *un balisage que personne ne peint est une dette, pas une précaution.*
+
+    ⭐⭐⭐ CE QUI A ÉTÉ COMPTÉ AVANT DE COUPER, ET MESURÉ SUR LA PAGE SERVIE :
+      · le MENU   → le tiroir reste, visible aux 30 largeurs balayées ;
+      · `/compte/` → l'avatar `.globe`, visible à TOUTES les largeurs (seul son
+        libellé part sous 640 px), plus la section « Réglages » du tableau de
+        bord. ⛔ `/compte/` n'est plus dans le tiroir depuis le lot 132 — qui
+        s'appuyait justement sur l'existence de cette barre pour l'en retirer.
+        *Une porte retirée en s'appuyant sur une autre rend le retrait de la
+        seconde bien plus cher qu'il n'en a l'air.*
+    ⇒ `test:affichage` §3 bis (un chemin vers le menu à chaque largeur), §3
+      quater (la dernière porte de l'espace membre) et §3 quinquies (les cas
+      fabriqués qui prouvent que les deux savent rougir) tiennent désormais ce
+      comptage. **Un commentaire ne peut pas rougir ; un banc, si.**
+
+    ⭐ ET DEUX DÉFAUTS PARTENT AVEC ELLE : un second `<nav>` nommé « Main
+    navigation », homonyme de celui de l'en-tête (deux repères indiscernables
+    au lecteur d'écran), et `font-size:9.5px` sur la navigation principale du
+    téléphone — le MOB‑2 de l'audit du 10/08. */}
 <main class="wrap" id="contenu" tabindex="-1">
   <div id="langsuggest"></div>
   {crumbs.length > 0 && (
@@ -1045,37 +1210,180 @@ const menuComplet = wikiNav
   )}
   <slot />
 </main>
-<footer class="site site-f"><div class="wrap site-f__cols">
-  {fresh && <p style="margin:0 0 10px">{t(lang, 'footer.updated')} {fresh}.</p>}
-  {(team.length > 0 || affiliate.length > 0) && (
-    <p style="margin:0 0 10px">
-      {team.map((l) => (<a class="tag" href={l.url} target="_blank" rel="noopener">{l.label}</a>))}
-      {affiliate.map((l) => (<a class="tag" href={l.url} target="_blank" rel="sponsored noopener">{l.label} ({t(lang, 'footer.partner')})</a>))}
-    </p>
-  )}
-  {affiliate.length > 0 && <p style="margin:0 0 10px;font-size:13px">{t(lang, 'footer.affiliateNote')}</p>}
-  {/* Liens légaux DISCRETS : ils doivent rester atteignables depuis chaque page
-      — c'est une obligation, pas un choix de mise en page — mais ils n'ont
-      aucune raison d'attirer l'œil autant qu'un lien de contenu. On les recule
-      visuellement (gris, plus petits), jamais on ne les cache. */}
-  {langAuPied && alternates.length > 1 && (
-    <p class="f-langues" style="margin:0 0 12px">
-      {/* ⭐ LE NOM ENTIER, PAS LE CODE. « ES » demande au visiteur de savoir
-          qu'il est espagnol ; « Español » le lui dit. Et un nom de langue
-          s'écrit TOUJOURS dans sa propre langue — un francophone cherche
-          « Deutsch », pas « Allemand ». */}
-      <span class="etiq" style="display:block;margin-bottom:6px">{t(lang, 'footer.language')}</span>
-      {alternates.map((a) => (
-        <a class="tag" href={a.href} hreflang={a.lang}
-           aria-current={a.lang === lang ? 'true' : undefined}>{localeNames[a.lang] || a.lang.toUpperCase()}</a>
-      ))}
-    </p>
-  )}
-  <p class="legal-links f-legal">
-    {DOCS.map((d, i) => (<>{i > 0 && ' · '}<a href={localize(lang, `/legal/${d}/`)}>{legalTitle(lang, d)}</a></>))}
-  </p>
-  <p style="margin:0 0 6px">{t(lang, 'legal.notAffiliated')}</p>
-  <p style="margin:0;font-size:13px">{t(lang, 'legal.notFinancialAdvice')}</p>
+<footer class="site site-f"><div class="wrap">
+  {/* ═══════════════════════════════════════════════════════════════════════
+      🦶🔴🔴 LOT 139 — LE PIED AVAIT QUATRE COLONNES DÉCLARÉES ET AUCUNE ÉMISE
+      ═══════════════════════════════════════════════════════════════════════
+      MESURÉ le 11/08/2026, avant d'écrire une ligne :
+        · `themes/vitrine/theme.css` déclare
+              .site-f__cols{grid-template-columns:1.5fr 1fr 1fr 1fr}
+          et habille `.site-f h2` (5 propriétés) et `.site-f ul` (4).
+        · le gabarit n'émettait NI `<h2>`, NI `<ul>`, NI colonne : **trois `<p>`**
+          (693 à 758 octets selon la page) que la grille étalait côte à côte.
+      ⇒ **trois règles écrites pour un émetteur qui n'a jamais existé**, et un
+      pied bancal — dont un `border-top` de `.f-legal` posé sur un ÉLÉMENT DE
+      GRILLE, c'est-à-dire un trait au milieu d'une colonne.
+      ⭐⭐⭐ *L'inverse du défaut habituel.* On cherche d'ordinaire les règles
+      mortes (`css-mort` le fait à chaque build) ; ici la feuille avait raison
+      et c'est le HTML qui manquait. Un contrôle qui part du CSS ne le voit
+      jamais : la règle EXISTE, elle est même correcte. ⇒ `test:affichage` §7
+      part maintenant du HTML SERVI et RÉCLAME les quatre colonnes.
+
+      ⛔ LA GRILLE NE CHANGE PAS D'UN OCTET. `.site-f__cols` reçoit enfin les
+      quatre enfants pour lesquels elle a été écrite, et ses deux reprises
+      responsive (820 px → 2 colonnes, 520 px → 1) fonctionnent telles quelles.
+      *Quand la feuille avait raison, on corrige l'émetteur, pas la feuille.*
+      ⚠️ `.wrap` porte désormais la largeur, et `.site-f__cols` n'est plus que
+      la grille : la barre légale sort de la grille et retrouve un flux normal.
+
+      ⚠️ ET ÇA TRAVERSE **DEUX THÈMES**. vevewiki est sur `encyclopedie`, qui
+      habille `footer.site p` et n'a AUCUNE de ces règles — mesuré : il émettait
+      déjà `class="site-f__cols"`, peinte par rien. *Un émetteur sans règle est
+      aussi silencieux qu'une règle sans émetteur, et les deux vivaient dans ce
+      pied en même temps.* Les quatre colonnes sont donc déclarées dans les
+      deux feuilles. */}
+  <div class="site-f__cols">
+    {/* ── COLONNE 1 · le site ─────────────────────────────────────────── */}
+    <div>
+      <h2>{t(lang, 'footer.col.site')}</h2>
+      {/* 🔴🔴 DEUX DÉFAUTS DE MON PREMIER JET, TROUVÉS PAR LA MESURE ET NON
+          PAR LA RELECTURE — le HTML construit les a dits tous les deux.
+          ① `m.identity.name` N'EXISTE PAS. Le nom du site vit dans
+             `m.site.brand` (« VeVe Price ») ; `identity` porte le thème, la
+             palette et l'accroche. Le gabarit sortait
+             `<li><a href="/"></a></li>` — **un lien vide**, cliquable,
+             invisible, sur 3 360 pages. ⭐⭐ Astro ne dit rien d'une propriété
+             absente : `undefined` s'écrit comme la chaîne vide, et le build
+             reste vert. *Un champ mal nommé ne se distingue pas d'un champ
+             vide, et aucun des deux ne fait de bruit.*
+          ② LA COLONNE 1 DUPLIQUAIT LA COLONNE 2. « Plans » et « Blog » sont
+             dans `nav:`, donc déjà dans « Explorer ». Un pied qui propose deux
+             fois le même lien à deux mètres d'écart n'aide personne — et il
+             gonfle le maillage interne avec des doublons que Google compte.
+          ⇒ la colonne 1 dit ce que ce site EST : son nom, sa promesse, sa
+          date. Pas une seconde table des matières. */}
+      <ul>
+        <li><a href={localize(lang, '/')}>{m.site.brand}</a></li>
+        {/* ⚠️ MESURÉ SUR LES DEUX SITES, ET LE REPLI EST NÉ DE LÀ. Avec
+            `identity.accroche` seule, la colonne « Site » de **vevewiki**
+            sortait à UNE ligne (son manifeste n'a pas d'accroche, et `fresh`
+            y est nul) : un titre, un lien, et rien — à côté d'une colonne
+            « Explorer » qui en porte six. Ce n'est pas le défaut de la colonne
+            vide, mais c'en est le petit frère, et il ne se voit que sur
+            l'AUTRE site. *Corriger chez un appelant laisse les autres.*
+            ⭐ `site.tagline` en repli : le manifeste de veveprice avertit
+            qu'elle est « la description SEO » — c'est vrai, et c'est sans
+            conséquence ici. Un site qui se décrit dans son propre pied ne
+            trompe personne, et sur veveprice `accroche` passe devant de toute
+            façon. ⛔ Le repli n'INVENTE rien : sans ni l'une ni l'autre, la
+            ligne ne sort pas. */}
+        {(m.identity.accroche || m.site.tagline)
+          && <li>{pick(m.identity.accroche || m.site.tagline, lang)}</li>}
+        {/* ⭐ LA FRAÎCHEUR RESTE UNE PHRASE, PAS UN LIEN. Elle répond à « ces
+            chiffres datent de quand » — la question la plus fréquente sur un
+            site de prix, et la seule information du pied qui change tous les
+            jours. La mettre ici la sort de la ligne de mentions légales, où
+            elle se lisait comme une clause. */}
+        {fresh && <li>{t(lang, 'footer.updated')} {fresh}.</li>}
+      </ul>
+    </div>
+
+    {/* ── COLONNE 2 · explorer ────────────────────────────────────────── */}
+    {/* ⭐⭐ `menuComplet`, PAS UNE SECONDE LISTE. C'est déjà la liste du
+        manifeste, déjà filtrée sur `pret` et sur la langue du blog, déjà
+        localisée. En recopier une ici la ferait diverger du menu au premier
+        lot qui touche `nav:` — et personne ne relit un pied de page.
+        🔴 `!e.membre` EST OBLIGATOIRE, et la leçon a déjà été payée : au lot
+        123, ce même `.map()` avait PERDU le drapeau `membre` et le tiroir
+        proposait `/market/` et `/favoris/` à tout le monde. Ce n'est pas une
+        fuite — ces pages redirigent — c'est une PROMESSE : on offrirait une
+        porte fermée, dans un pied servi à 3 097 pages publiques et lu par
+        Google. */}
+    <div>
+      <h2>{t(lang, 'footer.col.explore')}</h2>
+      <ul>
+        {menuComplet.filter((e) => !e.membre).map((e) => (
+          <li><a href={e.href}>{e.label}</a></li>
+        ))}
+      </ul>
+    </div>
+
+    {/* ── COLONNE 3 · légal ───────────────────────────────────────────── */}
+    {/* ⚠️ LA CLASSE `legal-links` SUIT LES LIENS DANS LEUR NOUVELLE COLONNE.
+        Elle n'est pas décorative : elle est habillée par le SOCLE de
+        `feuille_theme.mjs` (hors des thèmes), par `encyclopedie` (4 règles),
+        et surtout la feuille d'impression des DEUX thèmes s'en sert pour ne
+        pas imprimer les mentions légales. La perdre en déplaçant les liens
+        aurait retiré une règle qu'aucun diff ne montre — c'est le défaut par
+        OMISSION de classe que ce lot vient de payer sur `.sect-t`. */}
+    <div>
+      <h2>{t(lang, 'footer.col.legal')}</h2>
+      <ul class="legal-links">
+        {DOCS.map((d) => (
+          <li><a href={localize(lang, `/legal/${d}/`)}>{legalTitle(lang, d)}</a></li>
+        ))}
+      </ul>
+    </div>
+
+    {/* ── COLONNE 4 · à propos ────────────────────────────────────────── */}
+    <div>
+      <h2>{t(lang, 'footer.col.about')}</h2>
+      {/* 🔴🔴 CETTE COLONNE A FAILLI ÊTRE VIDE, ET C'ÉTAIT LE DÉFAUT QU'ON
+          RÉPARE, REFAIT UN ÉTAGE PLUS BAS. Premier jet : partenaires + note
+          d'affiliation + langues. Mesuré AVANT de construire —
+          `links.team: []` et `links.affiliate: []` sur **les deux** sites, et
+          `langAuPied` faux sur les deux : la colonne serait sortie avec un
+          titre « À propos » et **rien dessous**, sur 3 360 pages.
+          ⭐⭐ *J'allais livrer un émetteur sans contenu en corrigeant une règle
+          sans émetteur.* Le premier jet était plausible, il compilait, et
+          seule la lecture du manifeste l'a dit — pas la relecture du gabarit.
+          ⇒ « non affilié à VeVe » MONTE ICI. C'est littéralement un énoncé
+          « à propos », c'est vrai sur les deux sites, et ça ne dépend d'aucun
+          réglage optionnel. La colonne a donc toujours au moins une ligne. */}
+      <ul>
+        <li>{t(lang, 'legal.notAffiliated')}</li>
+        {team.map((l) => (<li><a href={l.url} target="_blank" rel="noopener">{l.label}</a></li>))}
+        {affiliate.map((l) => (
+          <li><a href={l.url} target="_blank" rel="sponsored noopener">{l.label} ({t(lang, 'footer.partner')})</a></li>
+        ))}
+        {affiliate.length > 0 && <li>{t(lang, 'footer.affiliateNote')}</li>}
+        {/* ⛔ `langAuPied` CONTINUE DE FONCTIONNER, ET C'ÉTAIT UNE CONTRAINTE
+            EXPLICITE. Le pied peut porter les langues : sur un site qui règle
+            `langues_dans: pied`, elles atterrissent ici, dans la colonne
+            « à propos », au lieu de flotter entre deux paragraphes.
+            ⚠️ C'est le sélecteur d'ADRESSES (`alternates`) — à ne pas
+            confondre avec celui de l'en-tête, qui choisit les LIBELLÉS. */}
+        {langAuPied && alternates.length > 1 && (
+          <li class="f-langues">
+            <span class="etiq">{t(lang, 'footer.language')}</span>
+            {alternates.map((a) => (
+              <a class="tag" href={a.href} hreflang={a.lang}
+                 aria-current={a.lang === lang ? 'true' : undefined}>{localeNames[a.lang] || a.lang.toUpperCase()}</a>
+            ))}
+          </li>
+        )}
+      </ul>
+    </div>
+  </div>
+
+  {/* ── LA BARRE DU BAS ─────────────────────────────────────────────────
+      ⭐ `.f-legal` porte un `border-top` : il séparait autrefois DEUX ÉLÉMENTS
+      DE GRILLE, c'est-à-dire qu'il traçait un trait au milieu d'une colonne.
+      Sorti de `.site-f__cols`, il redevient ce qu'il a toujours voulu être :
+      un filet sous les quatre colonnes.
+      ⛔ Les deux avertissements NE MONTENT PAS en colonne. « Non affilié à
+      VeVe » et « ceci n'est pas un conseil financier » ne sont pas des liens
+      qu'on range par thème : ils s'adressent à quiconque lit n'importe quelle
+      page, et leur place est sous tout le reste. */}
+  <div class="f-legal">
+    {/* ⛔ UN SEUL AVERTISSEMENT ICI, ET C'EST CELUI QUI DOIT ÊTRE SOUS TOUT LE
+        RESTE. « Ceci n'est pas un conseil financier » ne se range pas dans une
+        rubrique : il porte sur chaque chiffre de chaque page. « Non affilié à
+        VeVe » est monté en colonne « à propos », où il répond à une question
+        qu'on se pose — et non à une clause qu'on subit. ⛔ Il n'est écrit
+        qu'une fois : deux endroits, c'est deux textes qui divergeront. */}
+    <p style="margin:0;font-size:13px">{t(lang, 'legal.notFinancialAdvice')}</p>
+  </div>
 </div></footer>
 {pNuit && (
   <script is:inline define:vars={{ BG_JOUR: p.bg, BG_NUIT: pNuit.bg }}>
@@ -1224,9 +1532,11 @@ const menuComplet = wikiNav
     ⭐ `is:inline` et rien d'autre : cinq lignes de JavaScript n'ont pas besoin
     d'un module, et un menu qui attend un bundle est un menu mort pendant deux
     secondes sur un téléphone.
-    ⚠️ SANS JAVASCRIPT LE BOUTON EST INERTE — mais il n'est pas la seule voie :
-    la barre du bas (`.onglets`) et le pied de page restent en HTML pur. On ne
-    supprime jamais le dernier chemin, on en ajoute un plus commode. */}
+    ⚠️ SANS JAVASCRIPT LE BOUTON EST INERTE — et 🔴 LOT 139 : la barre du bas
+    qui servait de second chemin en HTML pur a été retirée. Il reste LE PIED
+    DE PAGE, qui porte les mêmes destinations sans une ligne de JavaScript.
+    ⛔ C'est maintenant le seul repli sans script : le pied de page n'est plus
+    décoratif, il est structurel — à savoir avant de le « simplifier ». */}
 
 {/* ═══════════════════════════════════════════════════════════════════════
     🍪 LE COOKIE D'AFFICHAGE — lot 97, demande de Preda du 06/08/2026.

@@ -1,0 +1,68 @@
+---
+// ⚠️ VeVePreda/veve-sites — src/components/Extremes.astro   (FICHIER NEUF — lot 139)
+// ═══════════════════════════════════════════════════════════════════════════
+//  ATL / ATH — ÉCRIT UNE FOIS, RENDU PARTOUT OÙ IL Y A UNE VIGNETTE
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// 🔴🔴 CE COMPOSANT NAÎT D'UNE MESURE, PAS D'UNE ENVIE DE RANGEMENT.
+// Le bandeau ATL/ATH vivait EN DUR dans `Carte.astro`, avec sa branche
+// « cote fermée / cote ouverte ». Mesuré en prod le 11/08 : il sort 8/8 sur
+// l'accueil, 12/12 sur `/collections/`, et **0 fois** sur les 40 lignes de
+// rayon et les 910 cartes de `/sets/`. Recopier les huit lignes dans
+// `Rayon.astro` aurait fait une DEUXIÈME écriture de la même règle — la faute
+// exacte que ce lot referme (lots 127, 131, 132).
+//
+// ⛔⛔ IL NE REÇOIT JAMAIS UN MONTANT, ET C'EST TOUT LE DISPOSITIF.
+// Cote fermée (veveprice) → il ne passe qu'un `uuid` à `<Cote>`, qui n'a rien
+// à écrire : `projeter()` a déjà retiré `atl`/`ath` de l'objet public.
+// Cote ouverte (vevewiki, ou si Preda rouvre) → il lit `item.atl`/`item.ath`,
+// qui existent alors légitimement.
+// 🔴 ET SURTOUT : ⛔ ON NE LUI PASSE JAMAIS UNE LIGNE DE `ds.rayon`. Cette
+// liste est BLANCHE — `floor`, `listings`, `ath`, `atl` en sont retirés exprès
+// (`dataset.mjs`, `test:rayon` §① le prouve). Sur un rayon, seule la branche
+// `<Cote>` a le droit d'exister ; la branche « valeurs » y rendrait
+// `undefined` pour les 19 412 lignes, et le jour où quelqu'un « réparerait »
+// ça en enrichissant `rayonDe()`, il publierait 19 412 prix par un chemin que
+// `projeter()` ne voit pas. La prop `item` est donc FACULTATIVE, et son
+// absence n'est pas un oubli : c'est le contrat.
+//
+// ⭐⭐⭐ ET LA PORTE EST CELLE QUI EXISTAIT DÉJÀ — `fiche`.
+// Décision de Preda du 11/08, prise sur mesure : `.reserve/cote/` ne contient
+// que **1 201 cotes**, celles des pièces qui ont une fiche. Sur les rayons,
+// **18 212 lignes sur 19 412 (94 %) n'ont AUCUNE cote**, et n'en auront pas :
+// `projeter()` ne parcourt que `ds.items`. Émettre un cadenas sur ces lignes
+// dirait « je ne montre pas » quand la vérité est « je n'ai pas » — les deux
+// causes opposées derrière un seul signe que `Cote.astro` dénonce lui-même en
+// tête de fichier, et un membre qui paie verrait 18 212 cadenas qui ne
+// s'ouvriront jamais. ⇒ La ligne n'émet d'extrêmes QUE si elle a une fiche —
+// et c'est exactement le prédicat qui décide déjà `<a>` contre `<div>`.
+// ⛔ Pas un prédicat neuf : le même, lu au même endroit.
+import Cote from './Cote.astro';
+import { coteFermee as coteEstFermee } from '../../engine/lib/cote.mjs';
+
+const { lang, uuid, item = null, nf = 'en-GB', classe = 'socle__ext' } = Astro.props;
+const coteFermee = coteEstFermee();
+
+// ⭐ Le même `money()` que `Carte.astro` portait — un tiret pour l'absence,
+//   jamais un zéro. *Inconnu ≠ zéro* : « plus haut historique : 0 » s'est déjà
+//   affiché sur ce site, juste au-dessus d'un prix à 42 000 milliards.
+const money = (v) => (v === null || v === undefined
+  ? '—' : v.toLocaleString(nf, { maximumFractionDigits: 2 }));
+
+// ⚠️ TROIS ÉTATS, PAS DEUX. « fermée » (on demande à l'API), « ouverte avec
+// des valeurs » (on écrit), et « ouverte sans valeur » — où l'on n'émet RIEN
+// plutôt qu'un bandeau de deux tirets. Un bandeau vide sur une tuile occupe la
+// place et n'apprend rien ; c'est le « cadre vide qui ressemble à une panne ».
+const valeurs = !coteFermee && item && item.atl != null && item.ath != null;
+const emettre = coteFermee ? !!uuid : valeurs;
+---
+{emettre && (
+<span class={classe} aria-hidden="true">
+  <span class="b"><i>ATL</i><b>{coteFermee
+    ? <Cote lang={lang} uuid={uuid} champ="atl" />
+    : money(item.atl)}</b></span>
+  <span class="h"><i>ATH</i><b>{coteFermee
+    ? <Cote lang={lang} uuid={uuid} champ="ath" />
+    : money(item.ath)}</b></span>
+</span>
+)}

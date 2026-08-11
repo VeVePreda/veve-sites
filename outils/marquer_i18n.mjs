@@ -81,6 +81,41 @@ let nDeforme = 0;
 let nOrphelins = 0;
 const clesDeformees = new Set();
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴 LOT 139 — LE JUGE N'EST PLUS LA FORME, C'EST LE DICTIONNAIRE (P30)
+// ═══════════════════════════════════════════════════════════════════════════
+// **P30 : 1 199 libellés restés en anglais chez les visiteurs fr/es/de**, et
+// la cause était CE contrôle, pas un gabarit. `item.drop.RESERVATION` (et
+// `.WAITLIST`, `.CRAFT`, `.AUCTION`) sont des clés RÉELLES, traduites dans les
+// CINQ dictionnaires ; la forme ci-dessous les refusait parce qu'un segment
+// commence par une majuscule. Elles n'étaient donc jamais marquées, jamais
+// échangées, et la page s'affichait parfaitement.
+// ⭐⭐⭐ *Le commentaire d'en dessous porte déjà la leçon — « un contrôle trop
+// strict produit exactement le même symptôme qu'une vraie panne » — écrite
+// pour le `_` de `mod.price_history`. Elle a été apprise sur un cas et n'a pas
+// été généralisée : le cas suivant a coûté 1 199 libellés.*
+// ⇒ Le prédicat vit désormais dans `engine/lib/cle_i18n.mjs`, importé ICI **et**
+//   par `test:i18n` §2 : le marqueur ÉCRIT `data-i18n=`, le banc le RELIT, et
+//   deux copies de la même règle finissent toujours par diverger.
+// ⛔ La forme SURVIT comme repêchage des clés neuves — voir le module. Ce qui
+//   reste refusé échoue au dictionnaire ET à la forme : c'est le profil exact
+//   d'un `t()` transformé par un gabarit, et rien d'autre.
+import { estUneCle } from '../engine/lib/cle_i18n.mjs';
+
+// ⚠️ CHARGÉ AVANT LA BOUCLE, ET SON ABSENCE SE DIT TOUT HAUT. Un dictionnaire
+// muet ferait retomber `estUneCle` sur la forme seule — c'est-à-dire remettre
+// P30 en place, en silence, pour la seule raison qu'un chemin a bougé.
+// *Un repli silencieux est un repli qu'on découvre trois lots plus tard.*
+let DICT_REF = null;
+try {
+  const { locales: loc0 } = await import(join(ROOT, 'engine', 'lib', 'i18n.mjs'));
+  DICT_REF = JSON.parse(readFileSync(join(ROOT, 'engine', 'i18n', `${loc0().def}.json`), 'utf8'));
+} catch (e) {
+  console.warn(`[i18n] ⚠️ dictionnaire de référence ILLISIBLE (${e.message}) — `
+    + 'le juge retombe sur la FORME seule : les clés à segment majuscule '
+    + '(item.drop.RESERVATION…) ne seront PAS marquées. C\'est P30 qui revient.');
+}
+
 // ⭐⭐⭐ LA FORME D'UNE CLÉ, ET POURQUOI ON LA VÉRIFIE.
 // MESURÉ à la deuxième exécution : huit clés arrivaient en CAPITALES —
 // `ANALYTICS.TITLE`, `LED.PULSE`… Cause : `{t(lang,'analytics.title').toUpperCase()}`
@@ -95,7 +130,12 @@ const clesDeformees = new Set();
 // version de cette forme les refusait — huit clés parfaitement valides déclarées
 // déformées. ⭐ Un contrôle trop strict produit exactement le même symptôme
 // qu'une vraie panne, et coûte le temps qu'on met à comprendre laquelle c'est.
-const FORME_CLE = /^[a-z][a-zA-Z0-9_]*(\.[a-z][a-zA-Z0-9_]*)*$/;
+// 🔴 LOT 139 — LA CONSTANTE EST DEVENUE UNE FONCTION, ET SON NOM A CHANGÉ AVEC.
+// ⛔ Garder le nom `FORME_CLE` sur un prédicat qui interroge le dictionnaire
+// aurait laissé, à l'endroit exact de la panne, un nom qui dit le contraire de
+// ce que fait le code. Le prochain lecteur cherchant « pourquoi cette clé
+// passe-t-elle ? » aurait relu une regexp qui n'est plus le juge.
+const estCle = (c) => estUneCle(c, DICT_REF);
 
 // ⛔ LES BALISES DE TÊTE NE SE MARQUENT PAS. `<meta>`, `<title>`, `<link>`,
 // `<html>` : c'est le SEO, et tout ce lot existe pour que le HTML servi aux
@@ -171,10 +211,10 @@ for (const f of html) {
       const seul = trouves.length === 1 && nue === trouves[0][2];
       const cle = trouves.length ? trouves[0][1] : '';
       const propre = cle.endsWith('!') ? cle.slice(0, -1) : cle;
-      if (seul && !cle.endsWith('!') && FORME_CLE.test(propre)) {
+      if (seul && !cle.endsWith('!') && estCle(propre)) {
         paires.push(`${attr}:${propre}`);
         nAttribut++; clesAttribut.add(propre);
-      } else if (trouves.length && !FORME_CLE.test(propre)) {
+      } else if (trouves.length && !estCle(propre)) {
         nDeforme++; clesDeformees.add(propre);
       } else {
         nAttributRefuse += trouves.length;
@@ -210,7 +250,7 @@ for (const f of html) {
     // et pour que le banc puisse la COMPTER. Ne pas la marquer du tout la
     // rendrait invisible, et une limite invisible n'est pas une limite : c'est
     // une surprise.
-    if (!FORME_CLE.test(propre)) { nDeforme++; clesDeformees.add(propre); return texte; }
+    if (!estCle(propre)) { nDeforme++; clesDeformees.add(propre); return texte; }
     nTexte++; clesVues.add(propre);
     return `<span data-i18n="${echapper(propre)}"${variable ? ' data-i18n-var' : ''}>${texte}</span>`;
   });

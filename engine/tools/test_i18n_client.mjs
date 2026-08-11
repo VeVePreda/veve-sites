@@ -152,17 +152,89 @@ verifie('⛔ ni <title>, ni <meta description>, ni <script> ne portent de marqua
 // texte : `ANALYTICS.TITLE` est introuvable, le libellé n'est jamais traduit,
 // et la page s'affiche parfaitement. Huit clés étaient dans ce cas au premier
 // passage. ⛔ On refuse toute clé qui n'a pas la forme d'une clé.
-const FORME = /^[a-z][a-zA-Z0-9_]*(\.[a-z][a-zA-Z0-9_]*)*$/;   // le `_` est légitime : mod.price_history
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴 LOT 139 — CE § AVAIT SA PROPRE COPIE DU PRÉDICAT, ET C'EST LA MOITIÉ
+// DE LA PANNE P30
+// ═══════════════════════════════════════════════════════════════════════════
+// Il portait la regexp du marqueur, RECOPIÉE. Deux fichiers, une seule règle,
+// deux endroits où la changer : élargir le marqueur sans toucher ici aurait
+// fait rougir ce banc sur exactement ce que le marqueur venait d'accepter — et
+// le message aurait accusé un gabarit qui n'a rien fait. *Le marqueur ÉCRIT
+// `data-i18n=`, ce § le RELIT : c'est une chaîne à deux morceaux, et un banc
+// suit la chaîne, pas le fichier.*
+// ⇒ Le prédicat est importé de `engine/lib/cle_i18n.mjs`. Il n'y en a plus
+//   qu'un, et c'est le même octet des deux côtés.
+const { estUneCle } = await import('../lib/cle_i18n.mjs');
+const { locales: locRef } = await import('../lib/i18n.mjs');
+// ⚠️ LE DICTIONNAIRE DE RÉFÉRENCE, ET SON ABSENCE EST **INDÉCIDABLE**, PAS
+// VERTE. Sans lui `estUneCle` retombe sur la forme seule : le banc jugerait
+// alors selon une règle plus stricte que celle qui a marqué les pages, et
+// rougirait à tort. Un banc qui ne sait pas sur quoi il juge doit le DIRE.
+let dictRef = null;
+try {
+  // ⚠️ `import.meta.url` ET NON `RACINE` : `RACINE` désigne `dist/`, où il n'y
+  // a que les dictionnaires PARTIELS servis au navigateur (les clés réellement
+  // marquées). Juger « cette clé existe-t-elle ? » sur un dictionnaire amputé
+  // par le marquage, c'est demander à la sortie de valider son entrée.
+  dictRef = JSON.parse(readFileSync(new URL(`../i18n/${locRef().def}.json`, import.meta.url), 'utf8'));
+} catch { /* signalé juste en dessous */ }
+if (!dictRef) {
+  console.error('⏸️  INDÉCIDABLE — dictionnaire de référence illisible : ce § juge les clés '
+    + 'marquées avec le MÊME prédicat que le marqueur, et il ne peut pas le charger.');
+  process.exit(2);
+}
+
 const deformees = new Set();
 for (const f of marquees) {
   const h = readFileSync(f, 'utf8');
-  for (const m of h.matchAll(/data-i18n="([^"]+)"/g)) if (!FORME.test(m[1])) deformees.add(m[1]);
+  for (const m of h.matchAll(/data-i18n="([^"]+)"/g)) if (!estUneCle(m[1], dictRef)) deformees.add(m[1]);
 }
 verifie('⛔ aucune clé déformée par une transformation du gabarit',
   deformees.size === 0,
-  deformees.size === 0 ? 'toutes les clés ont la forme d\'une clé'
+  deformees.size === 0 ? 'aucune clé marquée n\'échoue à la fois au dictionnaire et à la forme'
     : `🔴 ${deformees.size} : ${[...deformees].slice(0, 6).join(', ')} — un gabarit applique `
       + `.toUpperCase()/.slice()/.split() au résultat de t(), ce qui emporte la clé avec le texte.`);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 2 bis. ⭐⭐⭐ LES SIX CAS FABRIQUÉS — CE § VIENT DE S'ÉLARGIR, IL DOIT
+// PROUVER QU'IL SAIT ENCORE ROUGIR
+// ═══════════════════════════════════════════════════════════════════════════
+// *Un banc qu'on assouplit pour réparer une panne est un banc qu'on peut avoir
+// assoupli jusqu'à l'inutilité, et son vert ne le dira pas.* Le §2 ci-dessus
+// est vert ; il l'était AUSSI avant ce lot, avec la règle stricte, parce que
+// l'échantillon hors ligne ne contient aucune fiche à `drop_method`.
+// ⛔ C'est la raison exacte pour laquelle ces cas existent : **P30 n'est pas
+//   reproductible au bac à sable** (mesurée au build Docker du 10/08 sur le
+//   catalogue réel, 1 199 libellés). Ce qu'on PEUT prouver ici, c'est que le
+//   prédicat rend le bon verdict sur les chaînes exactes de la panne.
+// ⚠️ Écrit comme fabriqué plutôt que présenté comme mesuré.
+console.log('\n2 bis. le prédicat de clé : 6 cas fabriqués, dont 2 témoins inverses');
+{
+  const cas = [
+    // [chaîne, au dictionnaire ?, attendu, ce que le cas modélise]
+    ['item.drop.RESERVATION', true,  true,  'P30 — clé RÉELLE, traduite ×5, segment en majuscules'],
+    ['item.drop.WAITLIST',    true,  true,  'P30 — la deuxième des quatre'],
+    ['mod.price_history',     true,  true,  'le `_` : la panne de la PREMIÈRE version de la forme'],
+    ['home.titreNeuf',        false, true,  'TÉMOIN — clé bien formée, PAS ENCORE traduite : ce n\'est pas une déformation'],
+    ['ANALYTICS.TITLE',       false, false, 'TÉMOIN INVERSE — le lot 129 : un .toUpperCase() a mangé la clé'],
+    ['Set : Return of the J', false, false, 'un .slice() sur un t() : du TEXTE, pas une clé'],
+  ];
+  let ko = 0;
+  for (const [chaine, present, attendu, quoi] of cas) {
+    // ⭐⭐ CHAQUE CAS DÉCLARE SON DICTIONNAIRE. Lire le vrai dictionnaire ferait
+    // dépendre le verdict du site courant — c'est la faute payée au §5 de
+    // `test:affichage` dans ce même lot : un cas qui HÉRITE sa condition teste
+    // le manifeste, pas la règle.
+    const faux = present ? { [chaine]: 'peu importe' } : {};
+    const obtenu = estUneCle(chaine, faux);
+    const bon = obtenu === attendu;
+    if (!bon) ko++;
+    console.log(`   ${bon ? '✅' : '❌'} ${attendu ? 'clé' : 'déformée'} — ${quoi}`);
+  }
+  verifie('les 6 cas fabriqués rendent le verdict attendu', ko === 0,
+    ko === 0 ? '6/6 — le prédicat accepte les clés réelles ET refuse encore les t() transformés'
+      : `🔴 ${ko} cas sur 6 : le prédicat a été élargi au-delà de ce qu'il devait couvrir`);
+}
 
 console.log('\n3. les dictionnaires servis couvrent-ils ce qui est marqué ?');
 const { languesInterface, locales } = await import('../lib/i18n.mjs');

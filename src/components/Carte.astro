@@ -15,8 +15,25 @@ import { coteFermee as coteEstFermee } from '../../engine/lib/cote.mjs';
 //   française. Les clés `fav.add` / `fav.remove` existent depuis le lot 15.
 import { t } from '../../engine/lib/i18n.mjs';
 import Cote from './Cote.astro';
+// 🔴 LOT 139 — LA VIGNETTE EST DÉCLARÉE UNE FOIS. Le bandeau ATL/ATH quitte
+//   ce fichier (il n'y sortait que sur 2 des 5 familles de pages) et les
+//   budgets de coupe quittent le gabarit (ils y seraient devenus 4 seuils).
+import Extremes from './Extremes.astro';
+import { nomItem } from '../../engine/lib/vignette.mjs';
 
-const { item, lang, href, nf, i = 0, ed = false, libre = false } = Astro.props;
+// 🔴🔴 LOT 139 — `ed` PASSE À `true` PAR DÉFAUT, ET C'EST LA CORRECTION.
+// Mesuré en prod le 11/08 : `ed` n'était passé QUE par `Home.astro:391` — une
+// seule ligne dans tout le dépôt. `/collections/` émettait donc 12 `<span
+// class="cartouche__s">` parfaitement VIDES, et ma note de tri les comptait
+// comme « présents ». ⭐⭐ *Un span vide se compte comme un span.*
+// ⛔ ET CE N'EST PAS UN PRIX : `mentionEdition()` rend FA/FE/AP, une
+// caractéristique d'édition que `/collectibles/` publie déjà en clair. Elle
+// n'a jamais eu à être gatée — le défaut d'origine (lot 118) était d'écrire le
+// NUMÉRO d'édition, pas la mention, et il est fermé depuis.
+// ⭐ La prop survit pour qu'un appelant puisse la RETIRER (`ed={false}`) ;
+//   c'est l'inverse du défaut qu'on ferme, et ça ne coûte rien.
+const { item, lang, href, nf, i = 0, ed = true, libre = false } = Astro.props;
+const nom = nomItem(item.name);
 // 🔴 LOT 101 — la carte ne porte plus de montant quand la cote est fermee.
 // ⭐ ELLE NE TESTE PAS `item.floor` : apres `projeter()` ce champ est absent
 // pour TOUT LE MONDE, donc un test sur sa valeur confondrait « ferme » et
@@ -79,25 +96,25 @@ const money = (v) => (v === null || v === undefined ? '—' : v.toLocaleString(n
         </span>
       </>
     )}
-    {/* Le bandeau ATL/ATH sur la vignette. ⭐ Sur une CARTE il est la seule
-        information d'amplitude disponible ; sur la FICHE il serait redondant —
-        le même composant, deux contextes, deux verdicts. */}
-    {coteFermee ? (
-      <span class="socle__ext" aria-hidden="true">
-        <span class="b"><i>ATL</i><b><Cote lang={lang} uuid={item.uuid} champ="atl" /></b></span>
-        <span class="h"><i>ATH</i><b><Cote lang={lang} uuid={item.uuid} champ="ath" /></b></span>
-      </span>
-    ) : (item.atl != null && item.ath != null && (
-      <span class="socle__ext" aria-hidden="true">
-        <span class="b"><i>ATL</i><b>{money(item.atl)}</b></span>
-        <span class="h"><i>ATH</i><b>{money(item.ath)}</b></span>
-      </span>
-    ))}
+    {/* 🔴 LOT 139 — LE BANDEAU SORT D'ICI. Il vivait en dur, avec sa branche
+        « cote fermée / cote ouverte », et c'est précisément pour ça qu'il
+        n'existait que sur les deux pages qui appellent CE gabarit. Mesuré :
+        0 sur 40 lignes de rayon, 0 sur 910 cartes de set. ⇒ `<Extremes>`. */}
+    <Extremes lang={lang} uuid={item.uuid} item={item} nf={nf} />
     {libre && <span class="socle__coin etiq">Libre</span>}
   </div>
 
   <div class="cartouche">
-    <div class="cartouche__n">{item.name}</div>
+    {/* ⭐ LOT 139 — 20 CARACTÈRES, PUIS « … » (Preda, 11/08). Mesuré avant :
+          78 % des noms de l'accueil dépassaient 20 caractères, jusqu'à 89.
+          ⛔ LE NOM ENTIER RESTE LISIBLE, en `title` : un nom tronqué sans
+          moyen de lire l'entier est une PERTE, pas une mise en forme. Et le
+          `title` porte le nom NU — servir des sentinelles i18n à un attribut
+          les rendrait visibles en infobulle.
+          ⚠️ Le thème garde son `-webkit-line-clamp:2` : une coupe au caractère
+          ne connaît pas la largeur de la boîte, une coupe CSS ne connaît pas
+          le nombre de caractères. Les deux, et pas l'une à la place de l'autre. */}
+      <div class="cartouche__n" title={nom.tronque ? nom.complet : undefined}>{nom.vu}</div>
     <div class="cartouche__l">
       {/* ⚠️ `rar--sur-blanc` est OBLIGATOIRE ici : le cartouche est le seul vrai
           blanc de la page, et la forme y bascule sur son encre foncée. Sans

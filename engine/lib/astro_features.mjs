@@ -35,7 +35,7 @@
 //       et on le dit tout haut.
 //  Résultat : sur veveprice (prix actifs) l'intégration ne fait STRICTEMENT rien.
 // =============================================================================
-import { readFileSync, rmSync, existsSync, statSync } from 'node:fs';
+import { readFileSync, rmSync, existsSync, statSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 import { priceEnabled, comptesActifs } from './features.mjs';
@@ -43,8 +43,66 @@ import { priceEnabled, comptesActifs } from './features.mjs';
 /** Préfixes d'URL portés par chaque fonctionnalité, dans l'ordre du plan de site.
  *  Ajouter une fonctionnalité gatée = ajouter une ligne ici, rien d'autre. */
 const ZONES = [
+  // ═════════════════════════════════════════════════════════════════════════
+  // 🔴🔴 LOT 139 — `/sets/` REJOINT LA ZONE. **TROISIÈME OCCURRENCE.**
+  // ═════════════════════════════════════════════════════════════════════════
+  // MESURÉ SUR LA PRODUCTION LE 11/08/2026, puis REPRODUIT AU BAC À SABLE À
+  // L'OCTET : `vevewiki.com/sets/` rend **200** avec **266 octets** — un talon
+  // `<meta http-equiv="refresh">` + `noindex`. Et il porte
+  // `<link rel="canonical" href="https://veveprice.com/">` : un wiki qui
+  // désigne un site de PRIX comme sa version canonique, depuis une page vide.
+  //
+  // ⭐⭐⭐ C'EST LE DÉFAUT DU LOT 44, PUIS DU LOT 136, UNE TROISIÈME FOIS — et
+  //   cette fois dans la zone « prix », que le remède du 136 ne couvrait pas.
+  //   Le §1 de `test:cache` compare `ROUTES_COMPTE` aux préfixes de la zone
+  //   « comptes ». Il a fermé le circuit d'UN CÔTÉ. L'autre côté n'avait
+  //   toujours aucun lecteur, et il a produit la page suivante.
+  // ⭐⭐ *Un remède qui referme le CAS et non la FAMILLE laisse la famille
+  //   produire son cas suivant, ailleurs, avec le même visage.*
+  //
+  // ⛔ ON N'AJOUTE PAS UN SECOND `ROUTES_PRIX` À TENIR À JOUR. Un second
+  //   contrat est un second contrat à oublier — c'est précisément ce qui vient
+  //   de coûter cette page. Le lecteur qui ferme la FAMILLE est dans
+  //   `test:cache` §1 ter, et il ne lit AUCUNE liste : il refuse qu'un TALON
+  //   survive dans `dist/` après cette passe, quel que soit son nom.
+  //   🔬 L'invariant est MESURÉ, pas supposé : sur veveprice (toutes les
+  //   fonctionnalités actives) `dist/` contient **0** talon ; sur vevewiki il
+  //   en contenait **1**, et c'était `/sets/`. Un préfixe qu'on oubliera
+  //   d'écrire ici fera rougir le banc quand même.
+  //
+  // ═════════════════════════════════════════════════════════════════════════
+  // 🔴🔴🔴 ET `/movers/` AUSSI — TROUVÉ PAR L'INVARIANT, PAS PAR LA LISTE
+  // ═════════════════════════════════════════════════════════════════════════
+  // ⭐⭐⭐ **L'EN-TÊTE DE CE FICHIER NOMME TROIS PAGES FANTÔMES ; LA LISTE EN
+  //   DESSOUS N'EN CORRIGEAIT QUE DEUX.** Elle dit, mot pour mot : « d'où, sur
+  //   vevewiki, trois pages `/collections/`, `/movers/`, `/rarity/` … toutes le
+  //   même `<title> Redirecting to: /` ». `/rarity/` a été supprimée du moteur
+  //   au lot 34 et le commentaire le dit. `/collections/` est dans la liste.
+  //   **`/movers/` n'y a jamais été mise**, et elle est restée un talon depuis
+  //   le 31/07/2026 — **en QUATRE exemplaires** (`/movers/`, `/fr/`, `/es/`,
+  //   `/de/`), 303 à 321 octets chacun, `200` + `noindex`.
+  // 🔴 Et elle redirige vers `/market/`, que cette même intégration **efface**
+  //   sur vevewiki : un talon en 200 qui pointe vers une page qui n'existe pas.
+  //   C'est le profil exact de P37 (`/favoris/` → `/connexion/`, un 404).
+  // ⭐⭐ *Le diagnostic était écrit, complet et juste, DANS le fichier qui porte
+  //   le remède — et le remède ne le couvrait pas entièrement. Une liste écrite
+  //   à la main à côté d'une prose qui la contredit ne se relit jamais : c'est
+  //   le lecteur qui manquait, pas la connaissance.*
+  // ⛔ Sur veveprice, l'ajout ne fait STRICTEMENT rien : `priceEnabled()` y est
+  //   vrai, et le rendu `server` fait de `/movers/` une VRAIE redirection HTTP,
+  //   pas un talon. Mesuré : **0 talon `.html` dans `dist/` de veveprice**.
+  //
+  // 🔬 MESURE DE CE LOT, sur `dist/` de vevewiki :
+  //     AVANT  : **5** talons `.html` survivants (`/sets/` + `/movers/` ×4)
+  //     APRÈS  : **0**
+  // ⚠️ Et mon premier instrument comptait **1** talon sur veveprice : il
+  //   grepait `dist/` en entier et trouvait la chaîne dans `server/entry.mjs`,
+  //   un paquet JavaScript de 235 Ko. *Un compteur qui ne borne pas ce qu'il
+  //   ouvre compte autre chose que ce qu'il croit* — le banc ne regarde que les
+  //   `.html`.
   { nom: 'prix', actif: priceEnabled,
-    prefixes: ['/market/', '/collections/', '/collectibles/', '/comics/', '/collection/'] },
+    prefixes: ['/market/', '/collections/', '/collectibles/', '/comics/', '/collection/',
+               '/sets/', '/movers/'] },
   // ⭐ LOT 42 — « ajouter une fonctionnalite gatee = ajouter une ligne ici ».
   // On suit le contrat que ce fichier annonce en tete, au lieu d'inventer un
   // second mecanisme d'extinction a cote du premier.
@@ -99,9 +157,37 @@ export default function fonctionnalitesEteintes() {
       'astro:build:done': ({ dir, logger }) => {
         const racine = fileURLToPath(dir);
         let efface = 0;
+        // ═════════════════════════════════════════════════════════════════════
+        // 🔴🔴🔴 LOT 139 — CETTE PASSE ÉTAIT **MONOLINGUE SUR UN RÉSEAU
+        // MULTILINGUE**, ET ÇA NE SE VOYAIT QUE DEPUIS L'AUTRE BOUT
+        // ═════════════════════════════════════════════════════════════════════
+        // Elle ne construisait qu'UN chemin par préfixe : `dist/movers`. Après
+        // avoir ajouté `/movers/` aux préfixes, la mesure disait encore
+        // **3 talons survivants** : `/fr/movers/`, `/es/movers/`, `/de/movers/`.
+        // Le talon racine partait, ses trois traductions restaient.
+        //
+        // ⭐⭐ L'EN-TÊTE DE CE FICHIER AFFIRME LE CONTRAIRE : « version localisée
+        //   `[locale]/movers.astro` → `getStaticPaths()` rend [] → AUCUNE page
+        //   émise. Parfait. » **Mesuré : elles sont émises.** Le récit date du
+        //   31/07/2026 et il a cessé d'être vrai sans que personne le relise.
+        //   *Une note qui dit « ce cas ne peut pas arriver » est le meilleur
+        //   endroit où le chercher.*
+        //
+        // ⛔ ON NE DEMANDE PAS LA LISTE DES LANGUES À `i18n.mjs`. Elle dirait ce
+        //   que le site DEVRAIT émettre ; on a besoin de ce qu'il A émis. Les
+        //   deux ont déjà divergé une fois — c'est toute cette panne. On lit
+        //   donc l'arbre produit : tout dossier de tête en forme de code de
+        //   langue est un préfixe d'adresses de plus.
+        // ⭐ *Ne pas demander à une liste ce que le résultat sait déjà.*
+        const LOC = /^[a-z]{2}(-[a-z]{2})?$/;
+        const espaces = ['', ...readdirSync(racine, { withFileTypes: true })
+          .filter((e) => e.isDirectory() && LOC.test(e.name))
+          .map((e) => e.name)];
         for (const zone of ZONES) {
           if (zone.actif()) continue;                    // fonctionnalité ON : on ne touche à rien
-          for (const prefixe of zone.prefixes) {
+          for (const brut of zone.prefixes) {
+            for (const espace of espaces) {
+            const prefixe = espace ? `/${espace}${brut}` : brut;
             const chemin = join(racine, prefixe.replace(/^\/|\/$/g, ''));
             if (!existsSync(chemin) || !statSync(chemin).isDirectory()) continue;
             const index = join(chemin, 'index.html');
@@ -114,9 +200,40 @@ export default function fonctionnalitesEteintes() {
             rmSync(chemin, { recursive: true, force: true });
             efface += 1;
             logger.info(`talon de redirection retiré : ${prefixe} (fonctionnalité « ${zone.nom} » éteinte)`);
+            }
           }
         }
         if (!efface) logger.info('aucun talon de redirection à retirer.');
+        // ⭐⭐⭐ LE CIRCUIT SE FERME ICI, ET IL NE LIT AUCUNE LISTE.
+        // Trois lots (44, 136, 139) ont ajouté des préfixes à la main ; les
+        // trois fois, la page suivante est passée par le trou. Ce compte-là ne
+        // dépend d'aucun préfixe : il constate qu'un TALON a survécu à la
+        // passe, quel que soit son nom, sa langue et sa zone.
+        // ⚠️ `.html` SEULEMENT : la première version de cette mesure grepait
+        // `dist/` entier et comptait `server/entry.mjs` (235 Ko de JavaScript
+        // qui contient la chaîne). *Un compteur qui ne borne pas ce qu'il ouvre
+        // compte autre chose que ce qu'il croit.*
+        // ⛔ Il AVERTIT, il n'arrête pas le build : le banc `test:pages` est ce
+        //   qui refuse. Une intégration de build qui jette est une intégration
+        //   qu'on finit par retirer.
+        const restants = [];
+        (function balayer(d) {
+          for (const e of readdirSync(d, { withFileTypes: true })) {
+            const f = join(d, e.name);
+            if (e.isDirectory()) { if (e.name !== 'server' && e.name !== 'chunks') balayer(f); }
+            else if (e.name.endsWith('.html') && estTalon(readFileSync(f, 'utf8'))) {
+              restants.push(f.slice(racine.length).replace(/\\/g, '/'));
+            }
+          }
+        })(racine);
+        if (restants.length) {
+          logger.warn(`🔴 ${restants.length} TALON(S) DE REDIRECTION SURVIVENT dans dist/ : `
+            + `${restants.slice(0, 8).join(', ')}${restants.length > 8 ? '…' : ''} — `
+            + `des pages fantômes en 200. Soit leur préfixe manque ci-dessus, soit la page `
+            + `doit exister pour de bon.`);
+        } else {
+          logger.info('✅ aucun talon de redirection ne survit dans dist/ (invariant du lot 139).');
+        }
       },
     },
   };

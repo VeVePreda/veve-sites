@@ -249,6 +249,86 @@ if (pret) {
           : `🔴 lang="${langA}" contre lang="${langB}" — l'interface ne suit plus le cookie`);
     }
   }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // 🌍🔴🔴 LOT 139 — LE SÉLECTEUR DE LANGUE NE DOIT PAS ÊTRE SUR LES PAGES
+    // MEMBRE, ET C'EST LE SEUL BANC DU DÉPÔT QUI PEUT LE PROUVER.
+    // ═══════════════════════════════════════════════════════════════════════
+    // Décision de Preda, 11/08 : un sélecteur dans l'en-tête PUBLIC, rien en
+    // espace membre. Le gabarit l'applique par un INVARIANT — le bouton n'est
+    // émis que si la page est PRÉ-GÉNÉRÉE — et non par une liste de chemins.
+    // ⭐⭐⭐ MAIS UN INVARIANT NE SE VÉRIFIE PAS EN LISANT LE GABARIT : ces
+    // quatre pages ne sont dans `dist/` NULLE PART, justement parce qu'elles
+    // sont rendues à la demande. Le seul endroit du dépôt où elles EXISTENT
+    // est ce banc, qui fait tourner un vrai serveur. *La bonne zone d'un banc
+    // n'est pas celle du sujet, c'est celle où la chose à mesurer existe.*
+    // ⛔ Écrit dans `test:affichage`, ce contrôle aurait ouvert `dist/`, n'y
+    // aurait trouvé aucune page membre, et serait sorti VERT sur zéro page —
+    // le vert le plus dangereux qui soit.
+    {
+      const { langueUiDansEntete } = await import('../lib/i18n.mjs');
+      const MEMBRE = ['/compte/', '/market/', '/favoris/', '/dashboard/'];
+      if (!langueUiDansEntete()) {
+        // ⭐ SANS OBJET, et on l'imprime. vevewiki n'a pas de sélecteur
+        //   d'interface : « aucun sur les pages membre » y serait vrai pour
+        //   une raison qui n'a rien à voir avec la règle. Un vert obtenu par
+        //   une cause étrangère est un vert qui ment sur ce qu'il garde.
+        console.log('  ⏭️  SANS OBJET — ce site n\'a pas de sélecteur de langue d\'interête.');
+      } else {
+        const porteurs = [];
+        let luesMembre = 0;
+        for (const page of MEMBRE) {
+          let h = '';
+          try {
+            h = await (await fetch(`http://127.0.0.1:${PORT + 2}${page}`, {
+              headers: { cookie: 'vp_session=banc-menu' },
+            })).text();
+          } catch { continue; }
+          // ⚠️ UNE PAGE VIDE NE COMPTE PAS COMME UNE PAGE SANS SÉLECTEUR.
+          //   Sans ce garde, quatre réponses vides donneraient « 0 porteur »
+          //   donc un vert — et on n'aurait rien mesuré du tout. *Un banc muet
+          //   ressemble exactement à un succès.*
+          if (h.length < 200) continue;
+          luesMembre++;
+          if (/id="langue-ui"/.test(h)) porteurs.push(page);
+        }
+        verifie(`${luesMembre} page(s) membre servie(s) — le contrôle a bien quelque chose à juger`,
+          luesMembre === MEMBRE.length,
+          luesMembre === MEMBRE.length ? MEMBRE.join(' · ')
+            : `⛔ ${luesMembre}/${MEMBRE.length} seulement — les autres n'ont pas répondu, `
+              + 'leur absence de sélecteur ne prouve rien');
+        verifie('aucun sélecteur de langue sur les pages rendues à la demande',
+          porteurs.length === 0,
+          porteurs.length
+            ? `🔴 émis sur ${porteurs.join(', ')} — l'invariant « pré-générée ⇒ publique » ne tient plus. `
+              + 'Vérifier `Astro.locals.rendu` : le middleware sort AVANT de le poser sur une page pré-générée.'
+            : 'l\'invariant tient : rendu à la demande ⇒ pas de sélecteur');
+
+        // ⭐⭐ LE TÉMOIN INVERSE, ET IL EST INDISPENSABLE. « 0 sélecteur sur
+        //   les pages membre » serait aussi vrai si le sélecteur n'existait
+        //   NULLE PART — c'est-à-dire si le lot 139 avait échoué. On lit une
+        //   page publique par le MÊME serveur, avec le MÊME cookie de session,
+        //   et elle DOIT en porter un. *Un contrôle qui ne peut être satisfait
+        //   que d'une seule façon ne distingue pas la conformité de la panne.*
+        let pub = '';
+        try {
+          pub = await (await fetch(`http://127.0.0.1:${PORT + 2}/`, {
+            headers: { cookie: 'vp_session=banc-menu' },
+          })).text();
+        } catch { /* le témoin dira INDÉCIDABLE */ }
+        if (pub.length < 200) {
+          console.log('  ⏸️  INDÉCIDABLE sur le témoin — l\'accueil n\'a pas répondu. '
+            + 'Le « 0 sur les pages membre » ci-dessus n\'est donc pas distingué d\'un sélecteur absent partout.');
+        } else {
+          verifie('LE TÉMOIN — une page publique, même serveur, même cookie, EN porte un',
+            /id="langue-ui"/.test(pub),
+            /id="langue-ui"/.test(pub)
+              ? 'la différence vient bien du mode de rendu, pas d\'une absence générale'
+              : '🔴 aucun sélecteur nulle part — le « 0 » d\'au-dessus ne prouvait rien');
+        }
+      }
+    }
+
   serveurLangues.kill('SIGTERM');
   try { faux.close(); } catch { /* déjà fermé */ }
 

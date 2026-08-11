@@ -41,8 +41,21 @@
 // part du thème dans le MÊME lot, sinon elle rejoint les « ~13 classes jamais
 // émises » qu'on traîne déjà. Le contrat vaut dans les deux sens.
 import { t, localize } from '../../engine/lib/i18n.mjs';
+// 🔴 LOT 139 — le budget de coupe est DÉCLARÉ, pas écrit ici : `nomSet` vaut
+//   30 et pas 20, et c'est une décision de Preda prise SUR MESURE (585 des
+//   910 noms de set dépassent 20 caractères). Voir `engine/lib/vignette.mjs`.
+import { nomSet } from '../../engine/lib/vignette.mjs';
 
 const { lang, col, axes = null, pile = 3 } = Astro.props;
+const nom = nomSet(col.name);
+// ⛔⛔ AUCUN ATL/ATH ICI, ET C'EST UNE DÉCISION MESURÉE (Preda, 11/08).
+// Une carte de SET rend une SÉRIE ENTIÈRE, pas une pièce : ses 40 pièces ont
+// 40 couples d'extrêmes, et il n'existe aucun ATL « du set ». Y afficher
+// ceux de la pièce phare écrirait un chiffre qui décrit 1 pièce sur 40 comme
+// s'il décrivait le set — c'est le principe n°1 du projet (la véracité) qui
+// l'interdit, pas une limite technique. ⭐ Le jour où l'on voudra un vrai
+// plancher de set, il se CALCULE au build et se dépose dans la réserve ; il
+// ne se déduit pas d'une pièce.
 
 // ⭐ LA PILE : `pile` pièces de la série, décalées et décroissantes.
 // ⛔ `col.items` arrive DÉJÀ trié par plancher décroissant depuis `dataset.mjs`
@@ -100,7 +113,7 @@ const vignettes = [...avec, ...sans];
       `aria-hidden` est sur la PILE (décorative) et surtout pas ici : le nom du
       set est le seul contenu accessible de ce lien. */}
   <span class="cartouche">
-    <span class="cartouche__n">{col.name}</span>
+    <span class="cartouche__n" title={nom.tronque ? nom.complet : undefined}>{nom.vu}</span>
     {col.brand && <span class="etiq">{col.brand}</span>}
     <span class="etiq etiq--bleu"><b>{col.items.length}</b> {t(lang, 'collections.items')}</span>
   </span>

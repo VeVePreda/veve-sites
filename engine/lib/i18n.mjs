@@ -51,6 +51,55 @@ export function languesInterface() {
   return i || locales().active;
 }
 
+/** ⭐⭐ LE SÉLECTEUR DE LANGUE D'INTERFACE EST-IL DANS L'EN-TÊTE PUBLIC ?
+ *  ═════════════════════════════════════════════════════════════════════════
+ *  🔴🔴 CE PRÉDICAT NE LIT **PAS** `identity.langues_dans`, ET C'EST TOUT LE
+ *  SUJET DU LOT 139. Mesuré le 11/08/2026 sur les 147 pages construites :
+ *
+ *    veveprice  ·  languages.active    = [en]                ← 1 ADRESSE
+ *                  languages.interface = [en, fr, es, de]    ← 4 LIBELLÉS
+ *
+ *  `langues_dans` décide où vont les liens vers les AUTRES ADRESSES
+ *  (`alternates`). Sur veveprice il n'y en a qu'une : les trois blocs qui en
+ *  dépendent (`.langbar` de l'en-tête, `.globe` du compte, `.f-langues` du
+ *  pied) sont soit gatés sur `alternates.length > 1`, soit réduits à un seul
+ *  choix — « EN ». Mesuré : **0 `.langbar` et 0 `hreflang` dans le corps des
+ *  147 pages**. Basculer `langues_dans` sur un axe public/privé, comme la
+ *  notice du lot le proposait, n'aurait donc RIEN affiché du tout.
+ *
+ *  ⭐⭐⭐ *Une demande peut être parfaitement claire et porter sur un mécanisme
+ *  qui ne peut pas la satisfaire.* Ce qu'un visiteur de veveprice ne peut pas
+ *  faire aujourd'hui, ce n'est pas « changer d'adresse » — c'est **choisir la
+ *  langue de l'interface**, alors que le site en porte quatre. Le seul endroit
+ *  qui pose le cookie `vp_langue` est `/compte/`, `/connexion/` et
+ *  `/inscription/` : la première redirige un anonyme vers la deuxième, et
+ *  personne ne cherche un sélecteur de langue sur une page de connexion.
+ *  ⇒ **quatre langues traduites, zéro porte publique.** C'est un circuit
+ *  ouvert — *qui écrit, qui lit ?* — et il a vécu depuis le lot 120.
+ *
+ *  ⛔ POURQUOI UNE CLÉ NEUVE PLUTÔT QU'UNE QUATRIÈME VALEUR À `langues_dans` :
+ *  ce réglage-là répond à « OÙ vont les liens d'adresse ». Lui ajouter une
+ *  valeur qui veut dire « et par ailleurs, offre les LIBELLÉS » lui donnerait
+ *  deux populations dans un seul champ. Le lot 120 a justement séparé les deux
+ *  questions (« quelles langues ont une adresse » ≠ « quelles langues ont des
+ *  libellés ») ; on ne les recolle pas dans un enum.
+ *
+ *  ⛔⛔ ET SURTOUT : PAS DE NÉGATION. Le défaut vaut `'compte'`, c'est-à-dire
+ *  le comportement d'aujourd'hui — vevewiki, qui ne pose pas la clé, ne bouge
+ *  pas d'un octet. Écrire `!== 'compte'` rendrait vraie toute valeur mal
+ *  orthographiée : `entete` deviendrait la valeur par DÉFAUT des fautes de
+ *  frappe. La comparaison est positive, comme `langueOu === 'entete'` que le
+ *  lot qui l'a introduite avait déjà dû corriger.
+ *
+ *  ⭐ UN SEUL MODULE, DEUX IMPORTATEURS — `Base.astro` (qui ÉMET le bouton) et
+ *  `socle_js.mjs` (qui EMBARQUE le script qui le fait marcher). Recopier la
+ *  condition dans le second, c'est la panne P30 mot pour mot : le jour où les
+ *  deux divergent, on sert un bouton sans script, ou un script sans bouton —
+ *  et les deux se déploient en vert. */
+export function langueUiDansEntete() {
+  return (manifest().identity?.langue_interface_dans || 'compte') === 'entete';
+}
+
 /** Les langues d'articles que le manifeste DÉCLARE.
  *  ═════════════════════════════════════════════════════════════════════════
  *  ⛔⛔ ELLE NE S'APPELLE PAS `languesBlog()`, ET C'EST DÉLIBÉRÉ : ce nom-là

@@ -492,9 +492,21 @@ a:hover{text-decoration:underline;text-underline-offset:3px}
 .globe__m{position:absolute;top:calc(100% + 6px);right:0;z-index:60;display:flex;flex-direction:column;
   min-width:150px;padding:6px;background:var(--surface-2);border:1px solid var(--rule-2);
   border-radius:var(--r-lg);box-shadow:var(--sh-3)}
-.globe__m a{padding:8px 12px;border-radius:var(--r-sm);color:var(--text-2);font-size:var(--t-sm);white-space:nowrap}
-.globe__m a:hover{background:var(--survol);color:var(--sect-a);text-decoration:none}
-.globe__m a[aria-current="true"]{color:var(--sect-a);font-weight:600}
+/* 🌍 LOT 139 — LE MENU N'HABILLAIT QUE DES `<a>`, ET LE SÉLECTEUR DE LANGUE
+   D'INTERFACE EST FAIT DE `<button>`. ⛔ Ce n'est pas un caprice de balise : la
+   page est un fichier pré-généré derrière un cache partagé, un `<a href="?lang=fr">`
+   n'y est lu par personne et empoisonnerait le cache s'il l'était (cf.
+   `src/socle/55-langue.js`). ⭐ Les deux sélecteurs se ressemblent donc à
+   l'écran parce qu'ils portent la même règle — pas parce que quelqu'un a
+   recopié douze déclarations. `.globe__m button` REMET À ZÉRO ce qu'un agent
+   utilisateur met sur un bouton (fond, bordure, police, alignement) : sans
+   `font:inherit` et `text-align:left`, les quatre langues s'afficheraient
+   centrées en police système au milieu d'un menu qui ne l'est pas. */
+.globe__m a,.globe__m button{padding:8px 12px;border-radius:var(--r-sm);color:var(--text-2);font-size:var(--t-sm);white-space:nowrap}
+.globe__m button{display:block;width:100%;text-align:left;background:none;border:0;cursor:pointer;font-family:inherit;line-height:inherit}
+.globe__m a:hover,.globe__m button:hover{background:var(--survol);color:var(--sect-a);text-decoration:none}
+.globe__m a[aria-current="true"],.globe__m button[aria-current="true"]{color:var(--sect-a);font-weight:600}
+.globe__m button:focus-visible{outline:var(--foc-proche) solid var(--sect-pur);outline-offset:-2px}
 
 /* ⭐⭐ L'APPEL A L'INSCRIPTION. Un seul bouton plein, la connexion en retrait :
    deux appels a l'action de meme poids n'en font aucun. */
@@ -599,7 +611,41 @@ h3{font-size:var(--t-lg)}
 .etiq{font-family:var(--tech);font-size:var(--t-xs);text-transform:uppercase;letter-spacing:.1em; color:var(--muted);font-weight:500;line-height:1.4}
 .etiq--bleu{color:var(--sect-a)}
 .sect-t{display:flex;align-items:center;gap:var(--s4);margin:var(--s7) 0 var(--s5)}
-.sect-t h2{flex:0 0 auto}
+/* ═══════════════════════════════════════════════════════════════════════════
+   🔴🔴 LOT 139 — UN TITRE DE SECTION N'EST PAS UN TITRE DE PAGE
+   ═══════════════════════════════════════════════════════════════════════════
+   Preda, 11/08 : « les titres de sections de /collections/ sont trop gros ».
+   Mesuré : ils font **96 px**. Il avait le chiffre exact, et il vient d'ici.
+
+   `.mono-t` (0,1,0) vaut `clamp(38px,7.2vw,96px)` — c'est le format du TITRE
+   DE PAGE, et les `<h2>` de section portent la MÊME classe que les `<h1>`
+   (35 émetteurs). Le format de section existe pourtant : `.sect-t--gd h2`,
+   `clamp(28px,4.4vw,54px)`. Il gagne parce qu'il pèse (0,1,1).
+   ⇒ Un `<div class="sect-t">` SANS `--gd` ne gagne rien, et son `<h2>` retombe
+   sur les 96 px du titre de page.
+
+   ⭐⭐⭐ RETIRER UN MODIFICATEUR NE REND PAS L'ÉLÉMENT « NEUTRE », IL LE REND À
+   LA RÈGLE DE BASE — et la règle de base était le format du TITRE DE PAGE.
+   Le lot qui a retiré `--gd` d'`Orientation.astro` a cru revenir au format
+   ordinaire ; il a promu trois `<h2>` au rang de `<h1>`. *Un défaut par
+   OMISSION de classe ne se lit dans aucun diff : il n'y a rien à lire.*
+
+   🔬 MESURÉ sur `dist/` (147 pages) AVANT : **3 `h2.mono-t` dans un `.sect-t`
+   seul** (les 3 rayons de `/collections/`, à 96 px) contre **10** correctement
+   à 54 px dans un `.sect-t--gd`. APRÈS : 0 à 96 px.
+   ⚠️ L'échantillon ne contient ni `Dashboard.astro` (page membre) ni
+   `AVenir.astro` (rendu conditionnel) — ils émettent le MÊME `.sect-t` nu dans
+   la source. C'est pourquoi le remède est ici, dans la feuille, et non un
+   `--gd` ajouté à `Orientation.astro` : une correction chez UN appelant laisse
+   les autres, et c'est exactement la faute que le lot 139 vient de payer avec
+   `CarteSet.astro`.
+   ⛔ `--gd` garde ses propres règles (marges, `max-width:16ch`, alignement) :
+   il reste un variant d'ESPACEMENT, il cesse d'être le seul porteur de la
+   taille. Les deux tailles sont désormais identiques — une seule peau. */
+.sect-t h2{flex:0 0 auto;
+  font-family:var(--geo);font-weight:800;font-stretch:108%;
+  text-transform:uppercase;letter-spacing:-.03em;line-height:.92;
+  font-size:clamp(28px,4.4vw,54px)}
 .sect-t--gd{margin:var(--s8) 0 var(--s5);align-items:flex-end}
 .sect-t--gd h2{font-family:var(--geo);font-weight:800;font-stretch:108%; text-transform:uppercase;letter-spacing:-.03em;line-height:.92; font-size:clamp(28px,4.4vw,54px);max-width:16ch}
 .sect-t--gd::after{display:none}
@@ -1037,15 +1083,28 @@ dl.fiche-tbl + dl.fiche-tbl{border-top:1px solid var(--rule);padding-top:2px}
 .col-carte__pile .socle::after,.col-carte__pile .socle__droit,.col-carte__pile .socle__ext{display:none}
 .col-carte__pile .socle .socle__fond{filter:blur(13px) saturate(1.45) brightness(.52);transform:scale(1.35)}
 .col-carte:hover .socle__net,.carte:hover .col-carte__pile .socle__net{transform:none}
-/* ⛔ CETTE REGLE A FUITE HORS DE SA REQUETE pendant l'extraction du CSS de la
-   maquette : la version large etait recopiee ici, EN DEHORS de toute condition,
-   juste apres le `display:none` qu'elle ecrasait. Resultat : la barre d'onglets
-   mobile s'affichait sur un ecran de 2560 px, et la navigation de bureau, elle,
-   n'avait plus aucun style.
-   ⭐ Une regle sortie de son at-rule ne provoque aucune erreur — elle s'applique
-   simplement toujours. C'est le pire cas : le navigateur fait exactement ce
-   qu'on lui a ecrit. La version conditionnelle vit plus bas, dans son @media. */
-.onglets{display:none}
+/* 🔴🔴 LOT 139 — `.onglets` (LA BARRE DU BAS) A ÉTÉ RETIRÉE, PAS MASQUÉE.
+   Décision de Preda du 11/08/2026 : « je ne veux pas la barre du bas sous
+   640 px, je veux juste celui qui s'ouvre quand on clique sur le bouton ».
+   ⭐⭐ ELLE N'ÉTAIT VISIBLE QUE SOUS 640 px (`display:none` ici, `grid` dans le
+   @media) : la masquer sous 640 px, c'était la supprimer. On a donc retiré
+   l'ÉMETTEUR aussi (`Base.astro`) plutôt que de laisser un balisage que
+   personne ne peint — *une règle sans émetteur et un émetteur sans règle sont
+   la même dette vue des deux côtés.*
+   ⭐⭐⭐ ET ELLE EMPORTE DEUX AUTRES DÉFAUTS AVEC ELLE :
+     ① un SECOND repère `<nav aria-label="Main navigation">`, homonyme de celui
+        de l'en-tête — deux repères indiscernables au lecteur d'écran ;
+     ② `.onglets a{font-size:9.5px}`, la plus petite police du site, sur la
+        navigation principale du téléphone (MOB‑2 de l'audit du 10/08).
+   ⛔ AVANT DE LA RETIRER, LES AUTRES CHEMINS ONT ÉTÉ COMPTÉS — et MESURÉS, pas
+   supposés : sous 640 px il reste le tiroir pour le menu, et l'avatar `.globe`
+   pour `/compte/`, visibles aux 30 largeurs balayées. `test:affichage` §3 bis
+   et §3 quater le vérifient à chaque passage ; le §3 quinquies fabrique la
+   panne pour prouver qu'ils savent encore rougir.
+   ⚠️ La règle d'origine documentait ici une fuite hors d'at-rule (une version
+   large recopiée sans condition, qui affichait la barre sur un écran de
+   2560 px). La leçon vaut toujours pour la feuille entière, elle vit désormais
+   dans `test:affichage` — *un commentaire ne peut pas rougir.* */
 .deux-col{display:grid;gap:var(--s6);grid-template-columns:1fr 1fr}
 .avec-aside{display:grid;gap:var(--s6);grid-template-columns:minmax(0,1fr) 300px;align-items:start}
 .panneau{background:var(--surface);border:1px solid var(--rule);border-radius:var(--r-lg);padding:var(--s5);box-shadow:var(--sh-1)}
@@ -1281,7 +1340,7 @@ dl.fiche-tbl + dl.fiche-tbl{border-top:1px solid var(--rule);padding-top:2px}
 @media (max-width:900px){ .fiche__viz{position:static;max-width:250px;margin:0 auto} }
 @media (max-width:700px){ .murs{grid-template-columns:1fr;gap:var(--s5)} .murs__sep{display:none} }
 @media (max-width:560px){ .jauge__l{grid-template-columns:1fr 1fr;gap:var(--s3)} .jauge__e--c{grid-column:1/-1;order:3;justify-items:center;padding-top:8px;border-top:1px solid var(--rule)} }
-@media (max-width:640px){ .onglets{display:grid;grid-template-columns:repeat(4,1fr);position:sticky;bottom:0;z-index:70; background:color-mix(in srgb,var(--nuit) 94%,transparent);backdrop-filter:blur(16px); border-top:1px solid var(--rule);padding-bottom:env(safe-area-inset-bottom)} .onglets a{display:grid;justify-items:center;gap:4px;padding:9px 2px 10px;min-height:var(--tap); color:var(--muted);font-family:var(--geo);font-size:9.5px;font-weight:500} .onglets a[aria-current]{color:var(--sect-a)} .onglets a:hover{text-decoration:none} .onglets svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round} .stats{grid-template-columns:repeat(2,1fr)} .site-h__in{height:56px;gap:10px} }
+@media (max-width:640px){ .stats{grid-template-columns:repeat(2,1fr)} .site-h__in{height:56px;gap:10px} }
 @media (max-width:840px){ .deux-col{grid-template-columns:1fr} }
 @media (max-width:900px){ .avec-aside{grid-template-columns:1fr} }
 @media (max-width:1040px){ .tarifs{grid-template-columns:repeat(2,1fr)} }
@@ -1465,7 +1524,6 @@ dl.fiche-tbl + dl.fiche-tbl{border-top:1px solid var(--rule);padding-top:2px}
 :root{ --cadre-max:1520px; --cadre-marge:var(--s5); }
 body{ background:#0E0E0E; }
 body > header.site,
-body > nav.onglets,
 body > main,
 body > footer.site{
   max-width:var(--cadre-max);
@@ -1480,7 +1538,7 @@ body > footer.site{ margin-bottom:var(--cadre-marge); }
 @media (max-width:900px){
   /* Sur mobile le cadre mange de la largeur utile pour rien : on le retire. */
   :root{ --cadre-marge:0px; }
-  body > header.site, body > nav.onglets, body > main, body > footer.site{ max-width:none; }
+  body > header.site, body > main, body > footer.site{ max-width:none; }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -1808,7 +1866,7 @@ header.site.site-h .wrap{
    leur hauteur naturelle ; `flex-shrink:0` empêche l'en-tête et le pied d'être
    comprimés quand le contenu déborde vraiment. */
 body{ min-height:100dvh; display:flex; flex-direction:column; }
-body > header.site, body > nav.onglets, body > footer.site{ flex:0 0 auto; }
+body > header.site, body > footer.site{ flex:0 0 auto; }
 body > main{ flex:1 0 auto; }
 
 /* ───────────────────────────────────────────────────────────────────────────
@@ -2040,7 +2098,6 @@ body > *{ min-width:0; }
    ⚠️ `box-sizing:border-box` est posé sur `*` (l. 382) : `width:100%` cohabite
    donc avec le padding sans déborder. */
 body > header.site,
-body > nav.onglets,
 body > main,
 body > footer.site{ width:100%; }
 
@@ -2170,14 +2227,55 @@ body > main{ background:var(--bg); }
    pastilles (le globe, le menu) qui, elles, ne bougeaient pas.
    ⭐ Ce n'est pas un gout : c'est la seule commande de l'en-tete dont la forme
    ne survivait pas au redimensionnement. On la fige. */
-.h-rech--b{ min-width:0; width:38px; height:38px; padding:0; justify-content:center;
-  background:var(--surface-2); border:1px solid var(--rule-2); border-radius:var(--r-full); }
+/* ═══════════════════════════════════════════════════════════════════════════
+   🔴 LOT 139 — LE BOUTON DE RECHERCHE DEVIENT CARRÉ (demande de Preda, 11/08)
+   ═══════════════════════════════════════════════════════════════════════════
+   ⚠️ CE N'ÉTAIT PAS UN DÉFAUT, ET C'EST DIT AVANT DE TOUCHER À LA RÈGLE : le
+   lot 111 avait déjà FIGÉ cette pastille à 38 px des deux côtés de 900 px, et
+   la mesure le confirme. C'est un choix de forme, pas une réparation. ⛔ On ne
+   le maquille pas en correction — *un changement de goût écrit comme un
+   correctif fait croire, dans six mois, qu'il y avait une panne à ne pas
+   rouvrir.*
+
+   ⭐⭐ ET LA MESURE A CHOISI LE RAYON, PAS MOI. L'ordre RÉEL des commandes dans
+   l'en-tête servi (lu dans `dist/`, pas dans le gabarit) est :
+
+       [ .deplie__b  pilule 38px, --r-full ]  [ .h-rech--b ]  [ .bascule ]
+
+   `.bascule` — la bascule jour/nuit, VOISINE IMMÉDIATE — porte déjà
+   `border-radius:var(--r-md)`. L'en-tête avait donc DÉJÀ un bouton carré, et
+   la recherche était le rond posé à côté. Passer au carré ne fait entrer
+   aucune forme étrangère : il aligne les deux boutons à icône seule.
+   ⛔ Pas `--r-doc` (0) : aucun angle vif dans cet en-tête, et le seul y serait
+   plus voyant que le bouton.
+
+   🔴 LA CONSÉQUENCE QU'IL FALLAIT VOIR AVANT, ET QUI M'A FAIT CHANGER LA
+   TAILLE AUSSI : `.h-rech--b` faisait **38 px** et `.bascule` fait
+   `--tap-min` = **36 px**. Un ROND à côté d'un CARRÉ absorbe 2 px d'écart sans
+   que l'œil le voie ; **deux carrés côte à côte ne les absorbent pas** — ils
+   se lisent comme un défaut d'alignement. ⇒ la recherche prend `--tap-min`,
+   comme sa voisine. *Changer une forme change ce que les défauts d'à côté
+   laissent voir : la géométrie n'est pas une propriété locale.*
+   ⚠️ **36 px reste sous les 44 px de cible tactile recommandés** — c'est vrai
+   de `.bascule` DEPUIS TOUJOURS, ce lot ne l'aggrave pas, il l'étend d'un
+   bouton. ⛔ Écrit comme non réglé plutôt que passé sous silence : ça se tranche
+   dans l'audit WCAG, qui n'a jamais été fait (SUIVI).
+   ⭐ Un seul chiffre à changer pour revenir en arrière : `--tap-min` → `38px`. */
+.h-rech--b{ min-width:0; width:var(--tap-min); height:var(--tap-min); padding:0;
+  justify-content:center; background:var(--surface-2);
+  border:1px solid var(--rule-2); border-radius:var(--r-md); }
+/* ⚠️ CE BLOC RESTE, ET IL N'EST PAS REDONDANT. `.h-rech` (la base) se
+   déshabille sous 900 px — `min-width:0`, fond et bordure retirés, taille
+   portée à `--tap`. Sans cette reprise, le bouton changerait de nature à
+   900 px : c'est exactement la panne que le lot 111 a fermée, et elle
+   reviendrait par la porte de la base. ⭐ Le rayon y est REDÉCLARÉ pour la
+   même raison : ce qui n'est pas repris ici est repris par `.h-rech`. */
 @media (max-width:900px){
-  .h-rech--b{ width:38px; height:38px; background:var(--surface-2);
-    border-color:var(--rule-2); }
+  .h-rech--b{ width:var(--tap-min); height:var(--tap-min); background:var(--surface-2);
+    border-color:var(--rule-2); border-radius:var(--r-md); }
 }
 /* La loupe reprend la taille des autres pictogrammes de l'en-tête (le globe,
-   l'avatar), pour que les trois boutons ronds aient le même poids visuel. */
+   l'avatar), pour que les boutons aient le même poids visuel. */
 .h-rech--b svg{ width:17px; height:17px; }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -2191,7 +2289,12 @@ body > main{ background:var(--bg); }
 
 /* ── LE RAYON ────────────────────────────────────────────────────────────── */
 .rayon{ list-style:none; margin:var(--s5) 0 0; padding:0; display:grid; gap:2px; }
-.rayon__c{ display:grid; grid-template-columns:minmax(0,2fr) minmax(0,1.4fr) auto auto;
+/* 🔴 LOT 139 — UNE COLONNE DE PLUS : les extrêmes. ⚠️ Elle est `auto`, donc
+   elle ne prend RIEN quand la ligne n'en émet pas — et 94 % des lignes n'en
+   émettent pas (18 212 pièces sur 19 412 n'ont pas de fiche, donc pas de cote
+   en réserve). Une colonne `auto` vide se replie sur zéro ; une colonne `1fr`
+   aurait creusé un blanc sur toutes les autres lignes. */
+.rayon__c{ display:grid; grid-template-columns:minmax(0,2fr) minmax(0,1.4fr) auto auto auto;
   align-items:center; gap:var(--s4); padding:11px 14px; min-height:var(--tap);
   background:var(--surface); border:1px solid var(--rule); border-radius:var(--r-md);
   color:var(--text-2); transition:border-color var(--d-fast),background var(--d-fast); }
@@ -2208,6 +2311,29 @@ body > main{ background:var(--bg); }
 .rayon__e{ font-size:var(--t-xs); color:var(--muted); }
 .rayon__t{ font-family:var(--tech); font-size:var(--t-xs); color:var(--muted); font-variant-numeric:tabular-nums; }
 .rayon__x{ font-size:var(--t-2xs); letter-spacing:var(--ls-etiq); text-transform:uppercase; color:var(--muted); }
+/* 🔴🔴 LOT 139 — LES EXTRÊMES SUR UNE LIGNE DE RAYON : `.rayon__ext`.
+   ⛔ ON NE RÉUTILISE PAS `.socle__ext`, ET CE N'EST PAS UN CAPRICE DE NOM :
+   celui-ci est `position:absolute; inset auto 0 0 0` avec un dégradé noir — il
+   est fait pour se poser SUR une image de vignette. Sur une ligne de liste il
+   n'y a pas d'image, donc pas de bloc conteneur : il irait se coller au coin
+   bas-gauche du premier ancêtre positionné, exactement le mécanisme qui a
+   coûté le tiroir de 64 pixels au début de ce même lot.
+   ⭐ Même contenu (`.b`/`.h`/`i`/`b`), même vocabulaire, autre géométrie.
+   ⚠️ `.rayon__c` gagne une colonne AVEC cette règle, dans le même lot : une
+   classe émise sans règle est un « posé jamais lu », une règle sans émetteur
+   est une des ~10 classes mortes qu'on traîne déjà. Le contrat va dans les
+   deux sens. */
+.rayon__ext{ display:flex; align-items:center; gap:var(--s3); font-family:var(--tech);
+  font-size:var(--t-2xs); letter-spacing:.05em; color:var(--muted);
+  font-variant-numeric:tabular-nums; white-space:nowrap; }
+.rayon__ext i{ font-style:normal; display:block; font-size:var(--t-3xs);
+  letter-spacing:.1em; color:var(--muted); }
+.rayon__ext b{ display:block; font-weight:700; color:var(--text-2); }
+.rayon__ext .b{ text-align:left; }
+.rayon__ext .h{ text-align:right; }
+/* ⭐ Le cadenas du `<Cote>` reste lisible dans une ligne : il hérite de la
+   taille du texte, il ne la fixe pas. */
+.rayon__ext .cote{ display:inline-flex; align-items:center; gap:3px; }
 @media (max-width:760px){
   .rayon__c{ grid-template-columns:1fr auto; row-gap:4px; }
   .rayon__s{ grid-column:1/-1; }
@@ -2313,8 +2439,19 @@ body > main{ background:var(--bg); }
    surimpression : la fiche n'a pas de vignette sur laquelle se poser.
    ⛔ ELLE NE TOUCHE PAS `.socle__fav` : sur les cartes, l'apparition au survol
    est voulue (le cœur ne doit pas encombrer une grille de 20 vignettes). */
+/* 🔴 LOT 139 — LE BOUTON FAVORIS DE LA FICHE : ICÔNE ET TEXTE CENTRÉS, CÔTE À
+   CÔTE (demande Preda, 11/08). La variante héritait `display:grid` +
+   `place-items:center` de `.socle__fav`, mais avec `width:auto` et
+   `grid-auto-flow:column` les DEUX colonnes s'étiraient sur toute la largeur
+   disponible : l'icône partait à gauche, le libellé à droite, et le « centré »
+   du parent ne centrait que le CONTENU de chaque colonne, pas les colonnes
+   entre elles. ⭐⭐ *`place-items` centre dans la piste ; `place-content` centre
+   les pistes.* Les deux se lisent pareil et ne font pas la même chose — c'est
+   la troisième fois que ce dépôt paie cette confusion (`.stats`, `.pagin`).
+   ⛔ Et `justify-items:center` n'aurait rien réglé : c'est encore le contenu. */
 .socle__fav--fiche{ position:static; opacity:1; width:auto; min-height:var(--tap-min);
-  padding:0 14px; gap:8px; grid-auto-flow:column; background:transparent;
+  padding:0 14px; gap:8px; grid-auto-flow:column; justify-content:center;
+  align-content:center; align-items:center; background:transparent;
   backdrop-filter:none; border-color:var(--rule-2); margin-bottom:var(--s3); }
 .socle__fav--fiche::after{ content:attr(data-l); font-family:var(--geo); font-size:var(--t-sm); }
 .socle__fav--fiche svg{ width:16px; height:16px; }

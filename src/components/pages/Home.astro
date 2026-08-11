@@ -15,6 +15,9 @@
 // l'avancée du backfill, pas l'intérêt de la fiche. ⛔ Ne pas y toucher.
 import Base from '../../layouts/Base.astro';
 import Carte from '../Carte.astro';
+// 🔴 LOT 139 — l'accueil cesse d'écrire sa propre carte de set : voir le
+//   commentaire au point d'appel, plus bas. Cinquième occurrence.
+import CarteSet from '../CarteSet.astro';
 import { dataset } from '../../../engine/lib/dataset.mjs';
 import { manifest } from '../../../engine/lib/manifest.mjs';
 import { t, pick, localize, numberLocale } from '../../../engine/lib/i18n.mjs';
@@ -69,7 +72,11 @@ const tick = [...up, ...down];
 // re-trier ici : apres `projeter()`, `i.floor` vaut `undefined`, le
 // comparateur rendrait 0 pour toutes les paires et l'ordre deviendrait celui
 // de l'insertion — sans erreur, sans avertissement, sur toutes les pages.
-const pile = (c) => c.items.slice(0, 3);
+// ⛔ LOT 139 — `pile()` EST PARTIE AVEC SON SEUL APPELANT. Elle prenait les 3
+//   PREMIÈRES pièces d'un set ; `CarteSet.astro` prend les 3 premières QUI ONT
+//   UNE IMAGE (6 609 comics n'en ont pas, et une pile de trois hexagones gris
+//   a l'air cassée). ⭐ Une fonction laissée sans appelant fait croire au
+//   prochain lecteur qu'il existe deux façons de faire — et il en choisira une.
 const piece = featured.find((i) => i.image) || null;
 const coteFermee = coteEstFermee();
 
@@ -91,8 +98,34 @@ const coteFermee = coteEstFermee();
 // ⛔ ET ÇA DOIT SURVIVRE À L'ABSENCE : le jeu d'exemple n'a pas de colonne
 // `image`. Sans visuel, `viz` vaut `null`, le `<span>` n'est pas émis, et la
 // boîte est simplement plate — comme aujourd'hui, mais volontairement.
+// 🔴🔴 LOT 139 — « L'IMAGE DU 1ᵉʳ MODULE DE L'ACCUEIL CHANGE TOUS LES JOURS »
+// (Preda, 11/08). LA CAUSE N'ÉTAIT PAS UNE ROTATION, ET IL N'Y EN A JAMAIS EU.
+// Cette liste puisait dans `featured` — **le classement du jour**, trié par
+// `scoreUtilite`, qui bouge dès qu'un plancher bouge. Le visuel d'un bloc
+// décoratif héritait donc de la volatilité du marché : il changeait sans que
+// rien ne l'ait décidé, et deux visiteurs de deux jours voyaient deux sites.
+// ⭐⭐⭐ *Prendre le premier élément d'une liste triée, c'est hériter de son
+// critère de tri sans le vouloir* — la leçon du visuel de set (lot 118) et de
+// la pile de `CarteSet` (lot 131), troisième occurrence, sur l'accueil cette
+// fois. Elle se reconnaît à ce qu'elle ne casse rien : la page est juste
+// **instable**.
+// ⇒ ON CHANGE LA SOURCE, PAS LE MÉCANISME. Le pool vient désormais du
+//   catalogue publié, ordonné par une clé **stable** (`uuid`) : il ne bouge
+//   que si le catalogue bouge, jamais parce qu'un prix a bougé.
+// ⛔ ON NE FIGE PAS UNE URL DANS LE MANIFESTE pour autant : elle pourrirait le
+//   jour où la pièce change de visuel, et personne ne le verrait. ⭐ Le
+//   manifeste garde le dernier mot quand il le veut (`boites[].img`) — c'est
+//   un choix éditorial, il reste possible et il passe devant.
+// ⚠️ ET ÇA SURVIT TOUJOURS À L'ABSENCE : hors ligne, l'échantillon n'a pas de
+//   colonne `image` — `viz` vaut `null`, le `<span>` n'est pas émis, la boîte
+//   est plate. Comme avant, et volontairement.
 const vizBoites = (() => {
-  const avecImage = featured.filter((i) => i.image);
+  const avecImage = [...ds.items].filter((i) => i.image)
+    // ⭐ `uuid` et pas `name` : deux pièces peuvent porter le même nom (les
+    //   éditions FA/FE d'un comic), et `localeCompare` sur des noms égaux rend
+    //   0 — l'ordre retomberait sur celui du tableau, c'est-à-dire sur le
+    //   classement du jour qu'on vient justement de quitter.
+    .sort((a, b) => String(a.uuid).localeCompare(String(b.uuid)));
   const vus = new Set();
   const pool = [];
   for (const i of avecImage) {
@@ -452,39 +485,27 @@ const horo = maj ? `${String(maj.getUTCDate()).padStart(2,'0')}.${String(maj.get
         thème n'a qu'un seul titre de section, et il faut le demander. */}
     <div class="sect-t sect-t--gd"><h2 class="mono-t">{t(lang, 'home.collections')}</h2><a href={localize(lang, '/collections/')}>{t(lang, 'home.allSeries')} →</a></div>
     <div class="grille grille--series">
-      {cols.map((c) => (
-        <a class="col-carte revele" href={localize(lang, `/collection/${c.slug}/`)}>
-          {/* 🔴 `{[0, 1, 2].map(() => …)}` — LA PARENTHÈSE ÉTAIT VIDE. Trois
-              hexagones gris identiques au lieu des trois pièces du set. Même
-              défaut, même ligne, que `Collections.astro` corrigé le 01/08 : le
-              correctif n'avait pas traversé jusqu'ici.
-              ⭐⭐ UN CORRECTIF SE CHERCHE PAR SON MOTIF, PAS PAR SON FICHIER.
-              `grep -n "map(() =>" src/components` aurait sorti les deux en une
-              seconde le jour où l'un des deux a été réparé.
-              ⛔ Pas de `src=""` quand l'image manque : un `src` vide recharge
-              LA PAGE COURANTE comme si c'était une image. On rend le repère. */}
-          <span class="col-carte__pile" aria-hidden="true">
-            {pile(c).map((i) => (
-              <span class="socle">
-                {i.image ? (
-                  <img class="socle__net ok" src={i.image} alt="" width="400" height="600"
-                       loading="lazy" decoding="async" />
-                ) : (
-                  <span class="forme forme--xl" style="--c-a:var(--rule-2)">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4">
-                      <path d="M12 2.9 19.9 7.5v9L12 21.1 4.1 16.5v-9Z" />
-                    </svg>
-                  </span>
-                )}
-              </span>
-            ))}
-          </span>
-          <div>
-            <div class="cartouche__n">{c.name}</div>
-            <div class="etiq">{c.items.length} {t(lang, 'collections.items')}</div>
-          </div>
-        </a>
-      ))}
+      {/* 🔴🔴🔴 LOT 139 — CETTE PAGE ÉCRIVAIT SA PROPRE CARTE DE SET, ET C'EST
+          LA **CINQUIÈME** OCCURRENCE DE LA MÊME FAUTE (lots 127, 131, 132, et
+          `Rayon.astro` dans ce lot-ci). ⭐⭐⭐ ET PERSONNE NE L'AVAIT VUE : le
+          lot 131 a écrit `CarteSet.astro` précisément pour que `/sets/` et
+          `/collections/` cessent de diverger, il a recâblé ces deux pages…
+          et il a laissé l'accueil, qui rendait le même objet en dur juste ici.
+          C'est le banc de mesure de CE lot qui l'a trouvé, en comptant les
+          longueurs de noms : un nom de 39 caractères sortait d'une page où le
+          budget était censé être de 30.
+          ⭐⭐ *Un composant partagé ne referme la divergence que chez ceux qui
+          l'appellent — et rien ne dit qui ne l'appelle pas.* C'est exactement
+          « un contrôle qui ne regarde que ce qui existe ne voit jamais ce qui
+          manque » : on cherchait les pages qui rendent mal une carte de set,
+          il fallait chercher les pages qui en rendent une SANS le composant.
+          ⚠️ CE QUI CHANGE À L'ÉCRAN, ET C'EST VOULU : la cartouche gagne
+          l'étiquette de marque et le compte passe en `etiq--bleu`, comme sur
+          `/sets/` et `/collections/`. L'accueil montrait la forme PAUVRE.
+          ⛔ `axes` reste absent : l'accueil n'a pas de filtres, et poser des
+          attributs `data-*` que personne ne lit est le « paramètre posé et
+          jamais lu » du lot 126. */}
+      {cols.map((c) => (<CarteSet lang={lang} col={c} />))}
     </div>
 
     {episodes.length > 0 && (

@@ -1057,16 +1057,43 @@ async function construireDataset() {
   for (const r of rayon) {
     const j = jourISO(r.releaseDate);
     if (!j || new Date(j) <= auj) continue;
-    const cle = `${j}|${r.name}`;
-    if (!aVenirParDrop.has(cle)) aVenirParDrop.set(cle, { ...r, jour: j, raretes: 0 });
+    // 🔴🔴 LOT 139 — ON GROUPE PAR **SÉRIE**, PLUS PAR NOM DE PIÈCE.
+    //   Demande de Preda (11/08) : « À venir doit montrer les SÉRIES, pas les
+    //   items ». La clé était `jour|nom`, donc un drop de 5 pièces d'une même
+    //   série sortait 5 cartes qui se ressemblent — la répétition que le
+    //   groupement par rareté avait déjà supprimée UN cran plus bas, et pas
+    //   celui-ci. ⭐ `r.series || r.name` : une pièce sans série reste son
+    //   propre groupe, elle ne se fait pas absorber par un groupe « vide ».
+    const titre = r.series || r.name;
+    const cle = `${j}|${titre}`;
+    if (!aVenirParDrop.has(cle)) {
+      aVenirParDrop.set(cle, { ...r, jour: j, titre, raretes: 0, pieces: 0, noms: new Set() });
+    }
+    const g = aVenirParDrop.get(cle);
     // ⭐ LE REPRÉSENTANT N'A PAS FORCÉMENT L'IMAGE. On groupe 5 raretés d'un
     //   même comic ; la première rencontrée peut être celle dont la couverture
     //   manque (6 609 comics sont sans `image_url` — `ARCHIVE_HEADER` en jette
     //   14 champs sur 25). On garde donc LA PREMIÈRE IMAGE NON VIDE du groupe
     //   plutôt que celle du premier élément. ⛔ Sans ça, un drop dont une seule
     //   rareté est illustrée sortirait sans visuel, au hasard de l'ordre.
-    if (!aVenirParDrop.get(cle).image && r.image) aVenirParDrop.get(cle).image = r.image;
-    aVenirParDrop.get(cle).raretes++;
+    if (!g.image && r.image) g.image = r.image;
+    g.raretes++;
+    g.noms.add(r.name);
+  }
+  // 🔴🔴 ET LE LIEN NE SURVIT PAS AU GROUPEMENT — c'est le prix à payer, et il
+  //   se paie ici plutôt que dans le gabarit. Un groupe qui réunit 5 pièces
+  //   distinctes n'a pas d'adresse : garder le `path` du représentant enverrait
+  //   le visiteur sur UNE des cinq, choisie par l'ordre de lecture du
+  //   catalogue. ⭐ *Un lien qui mène quelque part de plausible est plus
+  //   difficile à détecter qu'un lien mort.* ⇒ le `path` ne survit que si le
+  //   groupe ne contient qu'un seul nom de pièce, auquel cas il la désigne
+  //   vraiment. ⛔ `aVenirCliquables` (déposé à chaque build par
+  //   `deposerMarche()`) mesurera la conséquence : c'est un NOMBRE, pas une
+  //   phrase, et il dira tout seul si ce groupement a éteint tous les liens.
+  for (const g of aVenirParDrop.values()) {
+    g.pieces = g.noms.size;
+    if (g.noms.size > 1) g.path = null;
+    delete g.noms;   // ⛔ un Set ne se sérialise pas : il partirait en `{}`.
   }
   const aVenir = [...aVenirParDrop.values()].sort((a, b) => a.jour.localeCompare(b.jour));
   console.log(`[rayon] ${rayon.length} ligne(s) de catalogue · ${rayon.filter((r) => r.path).length} cliquable(s) · ${aVenir.length} drop(s) a venir`);
