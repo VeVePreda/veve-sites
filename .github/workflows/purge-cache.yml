@@ -1,0 +1,223 @@
+# ==========================================================================
+#  PURGER LE CACHE CLOUDFLARE QUAND LE DEPLOIEMENT EST VRAIMENT EN LIGNE
+# ==========================================================================
+#
+# 🔴🔴 POURQUOI CE FICHIER EXISTE, ET C'EST UNE MESURE DU 11/08/2026.
+#   Le lot 139 a ete deploye avec succes a 15 h 41. A 15 h 45, l'accueil servait
+#   ENCORE la page d'avant : `cf-cache-status: HIT`, `age: 6900`,
+#   `last-modified: 11:27`. Le pied de page faisait 910 octets — le chiffre
+#   exact d'AVANT le lot. J'ai failli conclure que le deploiement avait echoue.
+#   Les Cache Rules du lot 138 ont un TTL de 2 h, et RIEN NE PURGE CLOUDFLARE.
+#
+# ⭐⭐⭐ UN DEPLOIEMENT VERT NE CHANGE PAS CE QUE VOIENT LES VISITEURS.
+#   Sans ce workflow, un correctif visuel depose le matin semble ne rien faire
+#   jusqu'a midi — pendant qu'on en cherche la cause DANS LE CODE. Le cout n'est
+#   pas le retard : c'est le temps passe a debugger quelque chose qui marche.
+#
+# ⛔⛔ ET L'ORDRE EST TOUT LE DISPOSITIF : ON ATTEND AVANT DE PURGER.
+#   Une purge lancee AVANT que Coolify ait fini remet l'ANCIENNE page en cache
+#   pour 2 h de plus. Elle rendrait le probleme PIRE, avec un run vert.
+#   ⇒ on purge quand `<meta name="build-time">` a bouge, jamais sur la minute.
+#
+# ⭐ ET ON N'INVENTE PAS UN SECOND MECANISME : `rebuild-daily.yml` verifie deja
+#   un deploiement par cette meme balise. Deux facons de repondre a la meme
+#   question, c'est le jour ou elles divergent qui coute.
+#
+# ⚠️ CE FICHIER NE VOYAGE PAS EN ZIP (`.github/workflows/*` est refuse par
+#   GitHub sur un depot fait a la main) : il se colle a la main, PUIS on lit le
+#   diff que GitHub affiche AVANT le commit.
+
+name: Purger le cache Cloudflare
+
+on:
+  push:
+    branches: [main]
+  # ⭐ Relancable a la main : le jour ou une purge rate, on ne veut pas avoir a
+  #   fabriquer un commit vide pour la rejouer.
+  workflow_dispatch:
+
+# ⛔ SANS GROUPE DE CONCURRENCE, DEUX DEPOTS RAPPROCHES LANCENT DEUX ATTENTES DE
+#   15 MINUTES QUI SE TERMINENT EN MEME TEMPS ET PURGENT DEUX FOIS.
+# ⭐ `cancel-in-progress: true` est le bon choix ICI, contrairement a un
+#   collecteur : une purge annulee n'a rien perdu, et la suivante attend un
+#   build PLUS RECENT. Annuler, c'est abandonner une mesure perimee.
+concurrency:
+  group: purge-cache-cloudflare
+  cancel-in-progress: true
+
+jobs:
+  purge:
+    runs-on: ubuntu-latest
+    steps:
+      # ══════════════════════════════════════════════════════════════════════
+      # 🔴🔴 UN SECRET MANQUANT DOIT ARRETER LE RUN, PAS LE FAIRE PASSER.
+      #   C'est la panne la plus dangereuse de ce depot : elle ne produit AUCUN
+      #   run rouge. Un `if: secrets != ''` sauterait l'etape en silence, le
+      #   workflow serait vert, et le cache ne serait jamais purge — « pose,
+      #   jamais branche ». On echoue, et on dit exactement quoi creer.
+      # ══════════════════════════════════════════════════════════════════════
+      - name: Les trois secrets sont-ils la ?
+        env:
+          JETON: ${{ secrets.CLOUDFLARE_PURGE_TOKEN }}
+          ZONE_PRICE: ${{ secrets.CF_ZONE_VEVEPRICE }}
+          ZONE_WIKI: ${{ secrets.CF_ZONE_VEVEWIKI }}
+        run: |
+          set -u
+          manque=0
+          for n in JETON ZONE_PRICE ZONE_WIKI; do
+            v=$(eval "printf '%s' \"\${$n}\"")
+            if [ -z "$v" ]; then echo "::error::secret manquant : $n"; manque=1; fi
+          done
+          if [ "$manque" = "1" ]; then
+            echo "A creer dans Settings -> Secrets and variables -> Actions :"
+            echo "  CLOUDFLARE_PURGE_TOKEN : jeton d'API, permission Zone > Cache Purge > Purge"
+            echo "  CF_ZONE_VEVEPRICE      : Zone ID lisible sur la page Overview de veveprice.com"
+            echo "  CF_ZONE_VEVEWIKI       : Zone ID lisible sur la page Overview de vevewiki.com"
+            exit 1
+          fi
+          echo "Les trois secrets sont poses."
+
+      # ══════════════════════════════════════════════════════════════════════
+      # ⭐⭐ ON COMPARE LE `build-time` SERVI A L'HEURE DE DEPART DU RUN.
+      #   Une valeur que le systeme portait DEJA avant l'action ne prouve rien :
+      #   c'est la lecon ecrite dans `rebuild-daily.yml` le 29/07, apres qu'un
+      #   controle a valide L'ANCIEN build 45 secondes apres le declenchement.
+      #   `build-time` est la seule valeur d'une page qui distingue un build
+      #   d'un autre.
+      # ⚠️ ON MESURE A L'ORIGINE (`?cb=`), JAMAIS A TRAVERS LE CACHE. Lire cette
+      #   balise depuis une reponse `HIT` reviendrait a demander au cache s'il
+      #   est perime — il repondra toujours non.
+      # ══════════════════════════════════════════════════════════════════════
+      - name: Attendre que les DEUX sites servent le nouveau build
+        id: attente
+        run: |
+          set -u
+          DEPART=$(date -u +%s)
+          echo "Le build doit etre posterieur a : $(date -u -d "@${DEPART}" +%FT%TZ)"
+          frais_price=0; frais_wiki=0
+          for i in $(seq 1 20); do
+            sleep 45
+            for s in veveprice vevewiki; do
+              [ "$s" = veveprice ] && [ "$frais_price" = 1 ] && continue
+              [ "$s" = vevewiki ]  && [ "$frais_wiki"  = 1 ] && continue
+              bt=$(curl -sS --max-time 25 -H 'Cache-Control: no-cache' \
+                     "https://${s}.com/?cb=$(date +%s%N)" 2>/dev/null \
+                   | grep -o 'name="build-time" content="[^"]*"' \
+                   | head -1 | sed 's/.*content="//; s/"$//')
+              [ -z "$bt" ] && { echo "  $s (essai $i) : aucune balise build-time."; continue; }
+              ts=$(date -u -d "$bt" +%s 2>/dev/null || echo 0)
+              if [ "$ts" -ge "$DEPART" ]; then
+                echo "  $s : build frais ($bt), essai $i."
+                [ "$s" = veveprice ] && frais_price=1 || frais_wiki=1
+              else
+                echo "  $s (essai $i) : sert encore le build du $bt."
+              fi
+            done
+            [ "$frais_price" = 1 ] && [ "$frais_wiki" = 1 ] && break
+          done
+          echo "frais_price=$frais_price" >> "$GITHUB_OUTPUT"
+          echo "frais_wiki=$frais_wiki"   >> "$GITHUB_OUTPUT"
+
+          # ⛔ ON NE SORT PAS EN ERREUR ICI, ET C'EST DELIBERE.
+          #   Une poussee qui ne touche que `.github/workflows/` ne declenche
+          #   pas toujours une reconstruction : exiger un build frais ferait
+          #   rougir ce workflow a chaque depot de workflow — un faux rouge
+          #   recurrent, et un faux rouge recurrent finit par ne plus etre lu.
+          # ⭐ Une purge sans nouveau build est INOFFENSIVE : elle vide le cache,
+          #   la requete suivante recharge le MEME contenu depuis l'origine. Le
+          #   seul cout est un TTFB plus lent pendant quelques minutes.
+          if [ "$frais_price" != 1 ] || [ "$frais_wiki" != 1 ]; then
+            echo "::warning::apres 15 min, un site au moins n'a pas servi de build plus recent (price=$frais_price wiki=$frais_wiki). On purge quand meme : sans effet visible attendu."
+          fi
+
+      # ══════════════════════════════════════════════════════════════════════
+      # ⛔⛔ UNE PURGE PAR ZONE, ELLE NE VOYAGE PAS — meme regle que les en-tetes
+      #   du lot 135B et que les Cache Rules du lot 138. `veveprice.com` et
+      #   `vevewiki.com` sont deux zones distinctes. Mesure du 11/08 : apres la
+      #   pose sur veveprice, vevewiki etait encore nu.
+      # ⚠️ `purge_everything` emporte aussi les fichiers a empreinte
+      #   (`/socle-<hash>.js`, `/theme-<hash>.css`). C'est voulu et sans risque :
+      #   leur nom change a chaque build, donc ils n'ont de toute facon plus de
+      #   lecteur. Le cout est quelques requetes d'origine de plus.
+      # ══════════════════════════════════════════════════════════════════════
+      - name: Purger les deux zones
+        env:
+          JETON: ${{ secrets.CLOUDFLARE_PURGE_TOKEN }}
+          ZONE_PRICE: ${{ secrets.CF_ZONE_VEVEPRICE }}
+          ZONE_WIKI: ${{ secrets.CF_ZONE_VEVEWIKI }}
+        run: |
+          set -u
+          echec=0
+          purger() {
+            nom="$1"; zone="$2"
+            rep=$(curl -sS --max-time 30 -X POST \
+              "https://api.cloudflare.com/client/v4/zones/${zone}/purge_cache" \
+              -H "Authorization: Bearer ${JETON}" \
+              -H "Content-Type: application/json" \
+              --data '{"purge_everything":true}')
+            if printf '%s' "$rep" | grep -q '"success":true'; then
+              echo "  $nom : purge acceptee."
+            else
+              echo "::error::$nom : purge REFUSEE par Cloudflare."
+              printf '%s\n' "$rep" | head -c 600; echo
+              echec=1
+            fi
+          }
+          purger veveprice.com "$ZONE_PRICE"
+          purger vevewiki.com  "$ZONE_WIKI"
+          exit "$echec"
+
+      # ══════════════════════════════════════════════════════════════════════
+      # 🔴🔴 « ACCEPTEE » N'EST PAS « FAITE ». Cloudflare repond `success:true`
+      #   des qu'il a pris l'ordre. Sans ce controle, une purge qui n'aurait
+      #   aucun effet passerait pour une purge — c'est exactement « pose, jamais
+      #   branche », la faute que ce depot a deja payee quatre fois.
+      # ⭐ CE QUI PROUVE LA PURGE EST L'AGE, PAS LE STATUT. Un `HIT` juste apres
+      #   une purge peut etre legitime (un autre visiteur a rechauffe le cache
+      #   dans la seconde) ; un `HIT` avec `age` de plusieurs milliers de
+      #   secondes prouve que l'ancienne entree est TOUJOURS LA.
+      # ⚠️ Trois verdicts, pas deux : conforme · ecart · INDECIDABLE. Un reseau
+      #   muet ne rend JAMAIS vert — un vert obtenu sans mesure est un mensonge.
+      # ══════════════════════════════════════════════════════════════════════
+      - name: La purge a-t-elle VRAIMENT vide le cache ?
+        run: |
+          set -u
+          SEUIL=120   # secondes : au-dela, l'entree precede la purge
+          ecart=0; indecidable=0
+          for s in veveprice vevewiki; do
+            ent=$(curl -sS --max-time 25 -D - -o /dev/null "https://${s}.com/" 2>/dev/null || true)
+            if [ -z "$ent" ]; then
+              echo "::warning::${s}.com : aucune reponse — INDECIDABLE."
+              indecidable=1; continue
+            fi
+            st=$(printf '%s' "$ent" | grep -i '^cf-cache-status:' | tr -d '\r' | awk '{print $2}')
+            age=$(printf '%s' "$ent" | grep -i '^age:'            | tr -d '\r' | awk '{print $2}')
+            age=${age:-0}
+            echo "  ${s}.com : cf-cache-status=${st:-absent} age=${age}"
+            if [ -z "${st:-}" ]; then
+              echo "::warning::${s}.com : pas de cf-cache-status — INDECIDABLE."
+              indecidable=1
+            elif [ "$age" -gt "$SEUIL" ]; then
+              echo "::error::${s}.com : age=${age}s > ${SEUIL}s — l'entree PRECEDE la purge, le cache n'a pas ete vide."
+              ecart=1
+            fi
+          done
+          [ "$ecart" = 1 ] && exit 1
+          [ "$indecidable" = 1 ] && exit 2
+          echo "Les deux zones servent une entree posterieure a la purge."
+          exit 0
+
+      # ⭐ LA SENTINELLE — sans elle, un echec de purge se decouvre en cherchant
+      #   pourquoi un correctif « ne fait rien ». C'est le webhook deja mutualise
+      #   ailleurs dans ce depot, pas un second canal.
+      - name: Prevenir Discord si la purge a echoue
+        if: failure()
+        continue-on-error: true
+        env:
+          HOOK: ${{ secrets.DISCORD_ALERTE_TECH_WEBHOOK }}
+        run: |
+          set -u
+          [ -z "${HOOK:-}" ] && { echo "pas de webhook configure — rien a envoyer."; exit 0; }
+          curl -sS --max-time 20 -H 'Content-Type: application/json' \
+            -d "{\"content\":\"🔴 Purge Cloudflare en echec — run ${GITHUB_RUN_ID}. Le cache sert peut-etre encore l'ancienne page (TTL 2 h). https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\"}" \
+            "$HOOK" >/dev/null || true
