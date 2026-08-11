@@ -397,10 +397,60 @@ for (const zone of ZONES) {
     //   C'est la mesure qui a autorisé tout ce lot le 11/08 (117 733 o
     //   identiques). La rejouer à chaque passage est ce qui la rend durable —
     //   une mesure faite une fois est une phrase ; rejouée, c'est un nombre.
-    const nu = await frappe(url);
-    await dodo(PAUSE);
-    const avecSession = await frappe(url, { cookie: 'vp_session=banc-cache-temoin; vp_lang=fr' });
-    await dodo(PAUSE);
+    // ═════════════════════════════════════════════════════════════════════
+    // 🔴🔴🔴 DEUX BUILDS DIFFÉRENTS NE SE COMPARENT PAS. (mesuré le 11/08/2026)
+    // ═════════════════════════════════════════════════════════════════════
+    // CE QUI S'EST PASSÉ. Le run #121 a déclaré :
+    //   « vevewiki.com · / — 30278 vs 30278 caractère(s) — cette page
+    //     PERSONNALISE son contenu » — première divergence au caractère 2423 :
+    //        sans session : build-time content="2026-08-11T15:38:28.044Z"
+    //        avec session : build-time content="2026-08-11T17:28:27.045Z"
+    // La page ne personnalisait RIEN. Les deux réponses venaient de DEUX BUILDS
+    // DIFFÉRENTS : l'une du cache (page de 15:38), l'autre de l'origine
+    // (déploiement de 17:28 en cours). Vérifié cache chaud, hors déploiement :
+    // 30 405 octets **strictement identiques**, même `build-time`.
+    //
+    // ⭐⭐⭐ ET LE DANGER N'EST PAS LE ROUGE, C'EST CE QU'IL CONSEILLAIT :
+    //   « soit elle sort de `PUBLIQUES_PAR_ZONE` ET de la Cache Rule ».
+    //   Le suivre aurait retiré l'accueil de vevewiki du cache — défaisant le
+    //   gain du lot A1 — à cause d'un artefact de mesure.
+    // ⇒ **Un banc qui NOMME une cause qu'il ne sait pas départager d'une autre
+    //   est plus dangereux qu'un banc muet : celui-là, on le suit.**
+    //
+    // ⛔ LE REMÈDE N'EST PAS D'IGNORER `build-time` DANS LA COMPARAISON. Ce
+    //   serait masquer le fait qu'on a comparé deux états, et ça cacherait au
+    //   passage toute autre différence liée au build. La mesure n'est pas
+    //   bruyante : elle est INVALIDE. On la refait, et si elle reste invalide
+    //   on le DIT — c'est le troisième verdict, pas un échec.
+    // ⚠️ La CI tourne sur `push` et Coolify construit sur `push` : les deux
+    //   COURENT L'UNE CONTRE L'AUTRE PAR CONSTRUCTION. Ce cas n'est pas rare,
+    //   il est structurel.
+    const buildDe = (corps) => {
+      const m = /name="build-time" content="([^"]*)"/.exec(corps || '');
+      return m ? m[1] : null;
+    };
+
+    let nu = null;
+    let avecSession = null;
+    let memeBuild = false;
+    const ESSAIS = 4;
+    for (let essai = 1; essai <= ESSAIS; essai++) {
+      nu = await frappe(url);
+      await dodo(PAUSE);
+      avecSession = await frappe(url, { cookie: 'vp_session=banc-cache-temoin; vp_lang=fr' });
+      await dodo(PAUSE);
+      if (!nu.ok || !avecSession.ok) break;
+      const bn = buildDe(nu.corps);
+      const bs = buildDe(avecSession.corps);
+      // Une page sans balise `build-time` (fichier statique, 404) n'a pas de
+      // build à comparer : la question ne se pose pas, on ne la bloque pas.
+      if (bn === bs) { memeBuild = true; break; }
+      if (essai < ESSAIS) {
+        note(`${zone.nom} · ${page.chemin} — deux builds vus (${bn} / ${bs}), ` +
+             `déploiement probablement en cours — nouvelle mesure (${essai}/${ESSAIS - 1})`);
+        await dodo(15_000);
+      }
+    }
 
     if (!nu.ok || !avecSession.ok) {
       indecis(`${zone.nom} · ${page.chemin}`,
@@ -408,6 +458,16 @@ for (const zone of ZONES) {
       continue;
     }
     joignable = true;
+
+    if (!memeBuild) {
+      indecis(`${zone.nom} · ${page.chemin} — identique avec et sans session`,
+        `les deux réponses viennent de builds DIFFÉRENTS ` +
+        `(${buildDe(nu.corps)} / ${buildDe(avecSession.corps)}) après ${ESSAIS} mesures. ` +
+        `Un déploiement est en cours : la comparaison n'a pas de sens, et un ` +
+        `rouge ici accuserait la page d'une personnalisation qu'elle n'a pas. ` +
+        `⇒ rejouer ce banc une fois le déploiement fini.`);
+      continue;
+    }
 
     verifie(`${zone.nom} · ${page.chemin} — identique avec et sans session`,
       nu.corps === avecSession.corps && nu.code === avecSession.code,
