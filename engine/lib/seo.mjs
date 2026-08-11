@@ -80,7 +80,26 @@ const decoder = (s) => String(s)
  *  ⭐⭐ Les deux sont la MÊME faute sous deux costumes : compter le tampon au
  *  lieu du texte. ⛔ Tout `clen()` / `.length` / `.slice()` appliqué à du HTML
  *  servi passe par ici d'abord. */
-export const texteVu = (s) => decoder(nu(s)).replace(/\s+/g, ' ').trim();
+// 🔴🔴 TROISIÈME COSTUME DE LA MÊME FAUTE, MESURÉ LE 11/08/2026 À 18 h.
+//   Marqueurs i18n : invisibles, en trop. Entités : visibles, en trop. Et
+//   celui-ci : LARGEUR ZÉRO — invisible, en trop, et il passait.
+//     `texteVu('\u200D\u200DSebulba’s Podracer Base')` rendait **25**, l'écran
+//     en montre **23**. Mesuré sur 3 782 noms du catalogue réel : **14** en
+//     portent (U+200B et U+200D), et l'échantillon hors ligne n'en avait aucun.
+// ⚠️ ET LE PIÈGE EST QUE ÇA MARCHAIT DÉJÀ POUR LE BOM. `\s` en JavaScript couvre
+//   U+2000→U+200A et U+FEFF, puis **s'arrête juste avant U+200B**. Le remède
+//   attrapait donc le voisin par accident, ce qui donnait l'illusion que la
+//   classe était couverte. ⭐⭐ *Un remède qui marche par hasard sur un cas voisin
+//   se lit comme un remède, et il n'en est pas un.* Un `\s` n'est pas une
+//   déclaration d'intention : c'est une liste, et il faut la lire.
+// ⛔ CE RETRAIT NE PEUT PAS FAIRE ROUGIR UN BANC : il ne fait que BAISSER une
+//   longueur mesurée, jamais la monter. Vérifié : 4 conditions inchangées.
+const LARGEUR_ZERO = /[\u200B\u200C\u200D\u2060\uFEFF]/g;
+
+export const texteVu = (s) => decoder(nu(s))
+  .replace(LARGEUR_ZERO, '')
+  .replace(/\s+/g, ' ')
+  .trim();
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 🔴🔴🔴 LOT 134b — L'ELLIPSE PASSE AU MILIEU, ET C'EST UNE CORRECTION DE FOND

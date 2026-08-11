@@ -38,7 +38,7 @@
 export const ENTETES_ATTENDUS = {
   'strict-transport-security': {
     genre: 'plancher-max-age',
-    plancher: 86400, // 24 h — voir l'échelle plus bas
+    plancher: 604800, // 7 j — relevé le 11/08/2026, VOIR L'ÉCHELLE PLUS BAS
     // ⛔ CES DEUX DIRECTIVES SONT REFUSÉES, ET CE N'EST PAS UN OUBLI.
     //   `includeSubDomains` engagerait des sous-domaines qui n'existent pas
     //   encore. `preload` inscrit le domaine dans une liste gravée DANS LES
@@ -86,7 +86,19 @@ export const CSP_VOLONTAIREMENT_ABSENTE = true;
 // 2. L'ÉCHELLE HSTS — le cliquet
 // ═══════════════════════════════════════════════════════════════════════════
 //
-// 🪜  300 s ✅ → 86400 (24 h) ✅ ← ON EST ICI → 604800 (7 j) → 15552000 (6 mois)
+// 🪜  300 s ✅ → 86400 (24 h) ✅ → 604800 (7 j) ✅ ← ON EST ICI → 15552000 (6 mois)
+//
+// 📅 MONTÉ À 604800 LE 11/08/2026, sur les DEUX zones, dans le même geste que
+//   ce `plancher`. Mesuré après pose : `max-age=604800` sur `/`, `/sitemap.xml`
+//   ET un 404, zone par zone ; `test:entetes` exit 0, 32 requêtes.
+// ⛔ LE BARREAU DES 6 MOIS A ÉTÉ ÉCARTÉ VOLONTAIREMENT, ET C'EST UNE DÉCISION,
+//   pas un oubli. Sauter un barreau ne coûte rien tant que tout va bien ; le
+//   jour où le HTTPS tombe, il décide si la panne dure une semaine ou six mois.
+//   ⭐ La question à se poser avant de monter n'est pas « est-ce que ça marche
+//   aujourd'hui ? » mais « combien de temps une erreur resterait-elle ? »
+// ⏭️ PROCHAIN BARREAU : 15552000, pas avant le 18/08/2026 (une durée complète
+//   écoulée sans incident HTTPS sur les deux zones). Le relever ici DANS LE
+//   MÊME GESTE, sinon ce plancher se désarme tout seul.
 //
 // ⭐ LA MONTÉE EST IRRÉVERSIBLE, LA DESCENTE N'EXISTE PAS. Pendant toute la
 //   durée en cours : ⛔ ne pas mettre Cloudflare en pause, ⛔ ne pas basculer le

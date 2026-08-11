@@ -21,6 +21,7 @@
 //    ne prouve rien le jour ou GitHub est en panne — c'est-a-dire le seul
 //    jour ou ce code sert.
 import { gzipSync } from 'node:zlib';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -174,6 +175,88 @@ console.log('\n5. Le refus n\'est pas avale par le catch (prix)');
   ok(jete !== null, 'le refus remonte jusqu\'a l\'appelant');
   ok(!c.lignes.concat(vu).some((l) => l.includes('ECHANTILLON')),
     'on n\'est PAS retombe sur l\'echantillon local malgre ALLOW_SAMPLE=1');
+}
+
+// --------------------------------------------------------------------------
+// 🔴🔴🔴 6. L'ECHANTILLON HORS LIGNE PORTE-T-IL ENCORE LES CARACTERES DIFFICILES ?
+// --------------------------------------------------------------------------
+// ⭐⭐⭐ CE § EST LA REPONSE A L'INCIDENT DU 11/08/2026, ET IL NE PARLE PAS
+//   D'ENCODAGE : il parle de ce que l'instrument PEUT VOIR.
+//
+// Le deploiement du lot 139 a ete arrete par 714 noms declares « trop longs »
+// alors qu'ils etaient conformes. Le run CI etait VERT cinq minutes plus tot.
+// Ce n'etait pas une contradiction :
+//
+//     CI (`tests.yml`, WAREHOUSE_OFFLINE=1) ... 147 pages
+//     bac a sable (WAREHOUSE_OFFLINE=1) ....... 147 pages  ← LE MEME INSTRUMENT
+//     Dockerfile de production ................ 3 098 pages
+//
+// ⇒ La CI et le bac a sable sont LE MEME INSTRUMENT AVEC LE MEME ANGLE MORT, et
+//   l'echantillon ne contenait pas UNE SEULE apostrophe, pas UN SEUL `&`.
+//   « Quatre conditions vertes » ne prouvait rien : les quatre etaient quatre
+//   variantes du meme echantillon. Quatre mesures d'un instrument aveugle au
+//   meme endroit ne font pas quatre mesures.
+//
+// ⭐⭐ ET C'EST POURQUOI CE § VIT ICI PLUTOT QUE DANS UN BANC D'AFFICHAGE.
+//   `test:affichage` verifie ce que les pages RENDENT ; personne ne verifiait ce
+//   que l'echantillon CONTIENT. Or un echantillon regenere par `gen-sample.mjs`,
+//   ou reduit « pour aller plus vite », perdrait ces caracteres SANS RIEN
+//   CASSER — et la prochaine faute d'encodage se redecouvrirait en arretant un
+//   deploiement. Un contenu que personne ne RECLAME finit par disparaitre.
+//
+// ⛔ NE PAS « REPARER » UN ROUGE D'ICI EN RETIRANT UNE CLASSE DE CETTE LISTE.
+//   Le rouge dit que l'echantillon a maigri, pas que la liste est trop exigeante.
+//
+// ⚠️ `nonLatin` EST ABSENT DE LA LISTE, ET C'EST UNE MESURE, PAS UN OUBLI :
+//   le catalogue reel (3 782 noms, releve du 11/08/2026) n'en contient
+//   ZERO. Exiger ici une classe qui n'existe nulle part en production ferait
+//   fabriquer une condition au lieu de la reproduire. Le jour ou VeVe publiera
+//   une marque en kana ou en hangul, cette ligne sera a ajouter — dans le meme
+//   geste que la ligne d'echantillon qui la porte.
+console.log('\n6. L\'echantillon hors ligne porte les caracteres difficiles');
+{
+  const csv = readFileSync(join(RACINE, 'engine', 'data', 'sample', 'catalogue.csv'), 'utf8');
+  // On ne juge que les colonnes de LIBELLE : c'est la seule matiere ou un
+  // caractere difficile change une longueur affichee.
+  const lignes = csv.split('\n').filter(Boolean);
+  const entete = lignes[0].split(',').map((c) => c.trim());
+  const colonnes = ['name', 'series'].map((c) => entete.indexOf(c)).filter((i) => i >= 0);
+  const libelles = lignes.slice(1)
+    .flatMap((l) => colonnes.map((i) => (l.split(',')[i] || '')))
+    .join('');
+
+  // 🔴 Chaque classe est nommee par CE QU'ELLE CASSE, pas par son nom Unicode :
+  //    un mainteneur qui lit un rouge doit savoir ce qu'il perd en le taisant.
+  const CLASSES = [
+    ["apostrophe droite (-> &#39; : 5 octets, 1 signe)", /'/],
+    ['esperluette (-> &amp; : 5 octets, 1 signe)', /&/],
+    ['guillemet double (-> &quot;)', /"/],
+    ['apostrophe typographique U+2019', /’/],
+    ['tiret long U+2013 / U+2014', /[–—]/],
+    ['ellipse U+2026', /…/],
+    ['accent latin (Altair, ROSE, Valfre)', /[À-ɏ]/],
+    ['LARGEUR ZERO U+200B / U+200D (invisible, compte)', /[​‌‍⁠﻿]/],
+  ];
+  for (const [nom, re] of CLASSES) {
+    ok(re.test(libelles),
+      `l'echantillon porte au moins un libelle avec : ${nom}`);
+  }
+
+  // ⭐⭐ ET LE TEMOIN INVERSE — sans lui, un § qui ne teste plus RIEN serait vert.
+  //   Le couple distingue « l'echantillon a maigri » de « le controle est mort ».
+  //   Meme dispositif que les cas ⑦/⑧ de `test:affichage`.
+  const CLASSE_ABSENTE = /[぀-ヿ一-鿿가-힯]/; // kana, han, hangul
+  ok(!CLASSE_ABSENTE.test(libelles),
+    'LE TEMOIN INVERSE — aucun non-latin : le controle sait encore repondre NON');
+
+  // 🔬 Contre-epreuve EXECUTEE, pas promise : sur un echantillon vide de tout
+  //    caractere difficile (l'etat d'avant le 11/08), les 8 classes doivent
+  //    echouer. Un § qui ne peut etre satisfait que d'une seule facon ne
+  //    distingue pas la conformite de la panne.
+  const NU = 'Spider-ManModern Marvel S1Batman Gold';
+  const rougissent = CLASSES.filter(([, re]) => !re.test(NU)).length;
+  ok(rougissent === CLASSES.length,
+    `sur l'echantillon d'AVANT (sans caractere difficile), les ${CLASSES.length} classes rougissent bien`);
 }
 
 // --------------------------------------------------------------------------
