@@ -8,7 +8,7 @@ import { dataset } from '../../../engine/lib/dataset.mjs';
 import Cote from '../Cote.astro';
 import { productLd, breadcrumbLd } from '../../../engine/lib/seo.mjs';
 import { manifest, siteUrl } from '../../../engine/lib/manifest.mjs';
-import { DESC_MAX } from '../../../engine/lib/editorial_pages.mjs';
+import { DESC_MIN, DESC_MAX } from '../../../engine/lib/editorial_pages.mjs';
 import { t, localize, numberLocale, dateLocale, nu } from '../../../engine/lib/i18n.mjs';
 import { postsForItem } from '../../../engine/lib/blog.mjs';
 import { rar, forme, delta, gemsM, RAR, omiM, mcpPoints, mentionEdition } from '../../../engine/lib/vitrine.mjs';
@@ -196,8 +196,30 @@ const descLongue = (!coteFermee && item.floor && item.totalPoints && anneeDebut)
   ? t(lang, 'desc.item', { name: item.qualifie || item.name, series: serieTxt, price: money(item.floor), n: item.totalPoints.toLocaleString(nf), year: anneeDebut, brand: m.site.brand })
   : null;
 const descCourte = t(lang, 'desc.itemShort', { name: item.qualifie || item.name, series: serieTxt, brand: m.site.brand });
+// 🔴🔴🔴 LOT 134c — LA FENETRE A **DEUX** BORNES, ET JE N'EN AI OUTILLE QU'UNE.
+// Le 134b a borne le HAUT (`Base.astro` coupe a `DESC_MAX`) et a laisse le BAS
+// sans surveillance. Deuxieme build Docker en echec, une seule page :
+// `/collectibles/kang/kang-2/`, **65 caracteres**. Sous ~70, Google jette la
+// balise et fabrique son propre extrait — elle est ecrite, servie, sans effet.
+// ⭐⭐⭐ ET C'EST « TROIS SUR QUATRE NE DIT RIEN DE LA QUATRIEME », APPLIQUE A MES
+// PROPRES BORNES : mon temoin du §5 fabriquait la piece la plus LONGUE du
+// catalogue et jamais la plus COURTE. *Un intervalle se teste par ses deux
+// extremites, sinon ce n'est pas un intervalle, c'est un plafond.*
+//
+// ⛔ ON N'ALLONGE PAS `desc.itemShort` POUR AUTANT : c'est elle qui sert de
+//    repli quand la version longue deborde (un nom de serie de 65 caracteres),
+//    et la rallonger la ferait deborder a son tour. Les deux bornes tirent en
+//    sens INVERSE sur la meme cle. ⇒ une TROISIEME formule, plus riche, reservee
+//    au cas ou le nom est court — elle ne peut pas deborder, puisqu'elle n'est
+//    choisie que quand il n'y a presque rien a mettre dedans.
+// ⭐ Elle ne cite AUCUN MONTANT, comme `desc.itemShort` : le repli reste sur
+//    dans le seul sens qui compte, il en dit moins, jamais plus.
+const descPlus = t(lang, 'desc.itemPlus', { name: item.qualifie || item.name, series: serieTxt, brand: m.site.brand });
 const tient = (x) => x && [...nu(x)].length <= DESC_MAX;
-const descItem = tient(descLongue) ? descLongue : descCourte;
+const assezLongue = (x) => x && [...nu(x)].length >= DESC_MIN;
+const descItem = tient(descLongue) ? descLongue
+  : (assezLongue(descCourte) ? descCourte
+    : (tient(descPlus) ? descPlus : descCourte));
 
 // ⭐⭐ DEUX LIBELLÉS D'ATTENTE, ET ILS NE DISENT PAS LA MÊME CHOSE.
 //   `enAttente`   : la donnée EST collectée, elle se perd entre le Sheet et le

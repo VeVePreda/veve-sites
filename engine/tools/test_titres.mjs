@@ -304,6 +304,8 @@ if (doublons.length) {
 const hors = [];
 const vues = new Set();
 let sansDesc = 0;
+let mini = null;
+let maxi = null;
 for (const [chemin, html] of contenu) {
   const m = html.match(/<meta\s+name="description"\s+content="([\s\S]*?)"\s*\/?>/i);
   if (!m) { sansDesc++; continue; }
@@ -311,10 +313,22 @@ for (const [chemin, html] of contenu) {
   if (vues.has(d)) continue;
   vues.add(d);
   const n = d.length;
+  if (!mini || n < mini.n) mini = { n, p: chemin };
+  if (!maxi || n > maxi.n) maxi = { n, p: chemin };
   if (n < DESC_MIN || n > DESC_MAX) hors.push(`${chemin} : ${n} car.`);
 }
 dit(sansDesc === 0, 'toutes les pages de contenu portent une <meta description>',
   sansDesc === 0 ? null : `${sansDesc} page(s) sans description`);
+// ⭐⭐ ET ON DIT LES EXTRÊMES OBSERVÉS, PAS SEULEMENT « aucun écart ».
+// Deux builds Docker ont échoué sur des pages dont AUCUNE n'existe dans
+// l'échantillon local : une à 168 caractères, une à 65. Un banc qui ne rend
+// qu'un verdict binaire ne laisse rien voir venir ; deux nombres imprimés à
+// chaque passage montrent la dérive AVANT qu'elle franchisse la borne.
+// *Une phrase se relit ; un nombre se vérifie.*
+if (mini && maxi) {
+  console.log(`     📏 observé : ${mini.n} car. (${mini.p}) … ${maxi.n} car. (${maxi.p})`
+    + ` — marge ${mini.n - DESC_MIN} en bas, ${DESC_MAX - maxi.n} en haut`);
+}
 dit(hors.length === 0,
   `${vues.size} description(s) distincte(s), toutes dans la fenêtre ${DESC_MIN}–${DESC_MAX} caractères`,
   hors.length === 0 ? null
@@ -417,21 +431,65 @@ dit(titresFab.every((t) => [...t].length <= TITLE_BUDGET),
 // pièce de l'échantillon hors ligne n'approche ça.
 // ⭐ On refait ici le geste de `Base.astro` — mesurer `nu()`, couper à
 // `DESC_MAX` — avec la VRAIE clé du dictionnaire et le PIRE nom réel connu.
+// 🔴🔴🔴 LES **DEUX** EXTRÉMITÉS, ET LA SECONDE A COÛTÉ UN BUILD DOCKER.
+// La première version de ce §5 fabriquait la pièce la plus LONGUE du catalogue
+// et jamais la plus COURTE. Le déploiement est reparti en échec sur une seule
+// page — `/collectibles/kang/kang-2/`, **65 caractères** — pendant que ce §5
+// restait vert. ⭐⭐⭐ *Un intervalle se teste par ses deux extrémités, sinon ce
+// n'est pas un intervalle, c'est un plafond.* C'est « trois sur quatre ne dit
+// rien de la quatrième », appliqué à mes propres bornes.
+// ⚠️ Et les deux bornes tirent en SENS INVERSE sur la même clé : allonger
+// `desc.itemShort` pour sauver le bas la ferait déborder par le haut. C'est
+// pour ça qu'il y a trois formules et pas deux — et c'est pour ça que ce §5
+// les juge toutes, avec les deux pires entrées réelles.
 const SERIE_MONSTRE = 'Disney100 Platinum Moments Walt Disney Animation Studios Series';
-const descFab = t('en', 'desc.item', {
+const PIECE_MINUSCULE = 'Kang 2';   // relevé en production : /collectibles/kang/kang-2/
+const MARQUE = 'VeVe Price';
+
+// ── LE HAUT : la pièce au nom de série démesuré ────────────────────────────
+const descHaute = t('en', 'desc.item', {
   name: 'Minnie Mouse Poster', series: ` — ${SERIE_MONSTRE}`,
-  price: '$41.00', n: '1,204', year: '2023', brand: 'VeVe Price',
+  price: '$41.00', n: '1,204', year: '2023', brand: MARQUE,
 });
-const descBornee = [...nu(descFab)].length > DESC_MAX ? couperMots(nu(descFab), DESC_MAX) : nu(descFab);
-dit([...descBornee].length <= DESC_MAX && [...descBornee].length >= DESC_MIN,
-  `la description de la pire pièce réelle tient dans ${DESC_MIN}–${DESC_MAX}`
-  + ` (${[...nu(descFab)].length} → ${[...descBornee].length} car.)`,
-  [...descBornee].length <= DESC_MAX && [...descBornee].length >= DESC_MIN ? null
-    : `elle sort à ${[...descBornee].length} — la borne de Base.astro ne tient pas`);
-dit([...nu(descFab)].length > DESC_MAX,
-  'et ce témoin dépasse bien la borne AVANT correction (sinon il ne prouve rien)',
-  [...nu(descFab)].length > DESC_MAX ? null
-    : `il fait ${[...nu(descFab)].length} car. — trouver un nom plus long, ou ce contrôle est décoratif`);
+// ⭐ On refait ici le geste de `Base.astro`, avec les mêmes fonctions.
+const bornee = (x) => ([...nu(x)].length > DESC_MAX ? couperMots(nu(x), DESC_MAX) : nu(x));
+const nHaute = [...bornee(descHaute)].length;
+dit(nHaute <= DESC_MAX && nHaute >= DESC_MIN,
+  `borne HAUTE : la pièce au nom de série démesuré tient dans ${DESC_MIN}–${DESC_MAX}`
+  + ` (${[...nu(descHaute)].length} → ${nHaute} car.)`,
+  nHaute <= DESC_MAX && nHaute >= DESC_MIN ? null
+    : `elle sort à ${nHaute} — la borne de Base.astro ne tient pas`);
+dit([...nu(descHaute)].length > DESC_MAX,
+  '…et ce témoin-là dépasse bien avant correction (sinon il ne prouve rien)',
+  [...nu(descHaute)].length > DESC_MAX ? null
+    : `il fait ${[...nu(descHaute)].length} car. — ce contrôle est devenu décoratif`);
+
+// ── LE BAS : la pièce au nom minuscule, sans série ─────────────────────────
+// ⭐ On refait la CASCADE de `Item.astro` : longue → courte → riche. Elle vit
+// dans un `.astro`, donc elle n'est pas importable ; c'est une copie, et sa
+// parade est d'appeler les MÊMES clés du MÊME dictionnaire.
+const courte = t('en', 'desc.itemShort', { name: PIECE_MINUSCULE, series: '', brand: MARQUE });
+const riche = t('en', 'desc.itemPlus', { name: PIECE_MINUSCULE, series: '', brand: MARQUE });
+const choisie = [...nu(courte)].length >= DESC_MIN ? courte : riche;
+const nBasse = [...bornee(choisie)].length;
+dit(nBasse >= DESC_MIN && nBasse <= DESC_MAX,
+  `borne BASSE : « ${PIECE_MINUSCULE} », sans série, tient dans ${DESC_MIN}–${DESC_MAX}`
+  + ` (${[...nu(courte)].length} → ${nBasse} car.)`,
+  nBasse >= DESC_MIN && nBasse <= DESC_MAX ? null
+    : `elle sort à ${nBasse} — Google jettera la balise et inventera son extrait`);
+dit([...nu(courte)].length < DESC_MIN,
+  '…et ce témoin-là passe bien SOUS le plancher avant correction',
+  [...nu(courte)].length < DESC_MIN ? null
+    : `il fait ${[...nu(courte)].length} car. — trouver plus court, ou ce contrôle est décoratif`);
+// ⛔ ET LA FORMULE RICHE NE DOIT PAS DEVENIR UN NOUVEAU PROBLEME DE HAUT.
+// Elle n'est choisie que sur un nom court, mais rien ne l'empêcherait d'être
+// choisie ailleurs si quelqu'un déplaçait la cascade. On la mesure vide.
+const richeNue = t('en', 'desc.itemPlus', { name: 'X', series: '', brand: MARQUE });
+dit([...nu(richeNue)].length >= DESC_MIN && [...nu(richeNue)].length <= DESC_MAX,
+  `la formule riche tient dans la fenêtre même sur un nom d'UN caractère`
+  + ` (${[...nu(richeNue)].length} car.)`,
+  [...nu(richeNue)].length >= DESC_MIN && [...nu(richeNue)].length <= DESC_MAX
+    ? null : `elle sort à ${[...nu(richeNue)].length}`);
 
 const tropLong = pageTitle(`Set : ${NOMS_REELS[2]}`, GABARIT, '', muet);
 dit([...tropLong].length < [...`Set : ${NOMS_REELS[2]}`].length,
