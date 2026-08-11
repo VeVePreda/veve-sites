@@ -271,6 +271,37 @@ jobs:
         if: always()
         run: npm run test:entetes
 
+      # 🔥 LOT 136 — LE CACHE, ET CETTE ETAPE EXISTE AVANT LA REGLE CLOUDFLARE.
+      # ═══════════════════════════════════════════════════════════════════════
+      # ⛔⛔ L'ORDRE EST LE DISPOSITIF : le banc, PUIS la Cache Rule. Une page de
+      #   compte servie depuis le bord est la fuite la plus chere de ce reseau —
+      #   elle ne casse rien, ne rougit nulle part, et se decouvre par un membre
+      #   qui voit le compte d'un autre. Un banc ecrit APRES la regle ne mesure
+      #   plus le passage dangereux : il constate un etat deja installe.
+      #
+      # 🔴🔴 MEME RAISON QUE `test:entetes` DE NE PAS ETRE DANS LA CHAINE.
+      #   `npm test` est une chaine `&&` declaree HORS RESEAU
+      #   (`WAREHOUSE_OFFLINE=1`) ; ce banc interroge Cloudflare. Un banc qui en
+      #   sort en 2 y arreterait les 40 autres.
+      # ⛔ LE PLANCHER RESTE A 40 ET IL EST JUSTE. La chaine `test` compte
+      #   toujours 40 bancs ; `test:entetes` et `test:cache` vivent DEHORS, dans
+      #   leur etape. Ne le montez ni a 41 ni a 42 — il rougirait a tort.
+      # ⭐⭐ Ce qui RECLAME ce banc n'est pas le plancher, c'est cette etape :
+      #   supprimez `test:cache` de `package.json` et elle echoue. Le circuit
+      #   reste ferme, il passe par une autre porte.
+      #
+      # ⛔ ET IL N'EST PAS DANS LE DOCKERFILE : un hoquet Cloudflare ne doit
+      #   jamais empecher un deploiement.
+      # ⭐ `if: always()` — une fuite de cache doit se voir MEME quand un autre
+      #   banc a deja echoue. C'est les jours ou tout va mal qu'on verifie le
+      #   moins, et c'est ces jours-la qu'on pose des rustines au bord.
+      # 🔴 Trois verdicts : conforme (0) · ecart (1) · INDECIDABLE (2). Reseau
+      #   muet ⇒ 2, JAMAIS 0.
+      # ⚠️ AUCUN `env:` ICI, ET C'EST DELIBERE : cette etape a besoin du reseau.
+      - name: Le cache ne sert-il aucune page privee ?
+        if: always()
+        run: npm run test:cache
+
       # 🔊 AJOUTÉ LE 07/08/2026 — MUTUALISATION DU CANAL DE PANNES.
       # ⭐⭐⭐ Un échec qui n'arrive nulle part n'est pas une alerte, c'est une
       # archive. Mesuré ce jour-là : 4 workflows sur 50 alertaient. Le ledger
