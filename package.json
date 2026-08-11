@@ -51,7 +51,8 @@
     "test:membre": "node engine/tools/test_membre.mjs",
     "test:tableau": "node engine/tools/test_tableau.mjs",
     "test:plages": "node engine/tools/test_plages.mjs",
-    "test:series": "node engine/tools/test_series.mjs"
+    "test:series": "node engine/tools/test_series.mjs",
+    "test:entetes": "node engine/tools/test_entetes.mjs"
   },
   "devDependencies": {
     "linkedom": "^0.18.12"
