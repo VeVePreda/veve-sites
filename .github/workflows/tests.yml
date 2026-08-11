@@ -238,8 +238,19 @@ jobs:
           # qu'un banc a disparu.
           # ⚠️ Ce fichier NE VOYAGE PAS EN ZIP (`.github/workflows/*`) : il se
           # colle a la main, PUIS on `diff` contre le depot.
-          [ "$n" -ge 40 ] || {
-            echo "ERREUR: la chaine est tombee a $n bancs (plancher 40)."
+          #
+          # 🔴🔴 RELEVE DE 40 A 41 LE 11/08/2026, ET LE RETARD ETAIT DEJA LA.
+          # `test:tiroir` a ete ajoute par le lot 139 : la chaine comptait donc
+          # 41 bancs pendant que ce plancher en reclamait 40. MESURE, pas relu —
+          # une note du dossier affirmait « plancher = 41 », elle avait tort.
+          # ⭐⭐⭐ LA MEME MALADIE QUE LE PLANCHER HSTS, LE MEME JOUR : un plancher
+          # se desarme par le simple passage du temps, et il continue d'AFFICHER
+          # qu'il garde quelque chose. Les deux ont ete releves dans le meme lot,
+          # et ce n'est pas une coincidence — c'est une classe de defaut.
+          # ⛔ SE VERIFIE, NE SE SUPPOSE PAS :
+          #      node -e "console.log(require('./package.json').scripts.test.split(' && ').length)"
+          [ "$n" -ge 41 ] || {
+            echo "ERREUR: la chaine est tombee a $n bancs (plancher 41)."
             echo "Un banc retire de \`npm test\` disparait SANS RIEN CASSER :"
             echo "ce plancher est la seule chose qui s'en plaigne."
             exit 1
