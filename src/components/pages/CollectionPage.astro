@@ -2,9 +2,9 @@
 // ⚠️ VeVePreda/veve-sites — src/components/pages/CollectionPage.astro
 import Base from '../../layouts/Base.astro';
 import Carte from '../Carte.astro';
-import { itemListLd } from '../../../engine/lib/seo.mjs';
+import { itemListLd, couperMilieu, TITLE_BUDGET } from '../../../engine/lib/seo.mjs';
 import { siteUrl } from '../../../engine/lib/manifest.mjs';
-import { t, localize, numberLocale } from '../../../engine/lib/i18n.mjs';
+import { t, localize, numberLocale, nu } from '../../../engine/lib/i18n.mjs';
 import { rar, gemsM } from '../../../engine/lib/vitrine.mjs';
 import { coteFermee as coteEstFermee } from '../../../engine/lib/cote.mjs';
 import Cote from '../Cote.astro';
@@ -39,7 +39,29 @@ const ld = [itemListLd(items.map((i) => ({ name: i.name, url: `${root}${localize
 // ⛔ Une variante « si ça dépasse 60, on lâche l'étiquette » a été écrite,
 //    mesurée et REJETÉE : elle remonte à 123 collisions. Plus élégante, deux
 //    fois pire. On garde la version simple.
-const titreCollection = `${t(lang, 'item.collection')} : ${col.name}`;
+// 🔴🔴 LOT 134b — LE TITRE DE SET SE COUPE AU MILIEU, ET **SEULEMENT** LUI.
+// Mesure du build Docker sur le catalogue reel (3 097 pages) : trois sets
+// Disney partagent **50 caracteres de prefixe** et ne different que par leur
+// fin — « … Series 1 », « … Series 2 », « … Studios Series ». Le budget vaut
+// 60 : une coupe par la fin tombe donc FORCEMENT dans le prefixe commun, et les
+// trois rendaient le meme `<title>`. Google n'en indexe qu'un.
+// ⭐⭐⭐ ET LA CORRECTION N'A PAS SA PLACE DANS `pageTitle()`. Je l'y ai mise
+// d'abord, globalement : le banc a rendu **4 nouvelles collisions** sur des
+// fiches de comics, ou le discriminant vit AU DEBUT (« Alex Ross Main Cover ·
+// Common · 3 — <serie partagee> »). *Deux familles de titres, deux endroits ou
+// vit l'information — aucune position de coupe unique ne sert les deux.*
+// ⇒ La coupe intelligente appartient a l'EMETTEUR, seul a savoir ou est son
+//   discriminant. Ici : au bout du nom, donc on elide le milieu.
+// ⛔ ET LA VARIANTE « LACHER L'ETIQUETTE QUAND CA DEPASSE » RESTE REJETEE (voir
+//    juste au-dessus) : 123 collisions, mesurees. On ne la reessaie pas.
+// ⚠️ `nu()` avant de mesurer ET de couper : sous `I18N_MARQUAGE=1`, `t()` ajoute
+//    des marqueurs invisibles — compter sans lui coupe un titre conforme,
+//    couper sans lui tranche au milieu d'un marqueur (64 `<head>` avales au 129).
+const etiqCol = t(lang, 'item.collection');
+const brutCollection = `${etiqCol} : ${col.name}`;
+const titreCollection = [...nu(brutCollection)].length <= TITLE_BUDGET
+  ? brutCollection
+  : `${nu(etiqCol)} : ${couperMilieu(nu(col.name), TITLE_BUDGET - [...nu(etiqCol)].length - 3)}`;
 ---
 <Base sect="sets" lang={lang} path={path} title={titreCollection}
       description={t(lang, 'desc.collection', { name: col.name, n: col.items.length })} ld={ld} updatedAt={updatedAt}

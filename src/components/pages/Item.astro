@@ -8,7 +8,8 @@ import { dataset } from '../../../engine/lib/dataset.mjs';
 import Cote from '../Cote.astro';
 import { productLd, breadcrumbLd } from '../../../engine/lib/seo.mjs';
 import { manifest, siteUrl } from '../../../engine/lib/manifest.mjs';
-import { t, localize, numberLocale, dateLocale } from '../../../engine/lib/i18n.mjs';
+import { DESC_MAX } from '../../../engine/lib/editorial_pages.mjs';
+import { t, localize, numberLocale, dateLocale, nu } from '../../../engine/lib/i18n.mjs';
 import { postsForItem } from '../../../engine/lib/blog.mjs';
 import { rar, forme, delta, gemsM, RAR, omiM, mcpPoints, mentionEdition } from '../../../engine/lib/vitrine.mjs';
 import { franchit, porte } from '../../../engine/lib/access.mjs';
@@ -175,9 +176,28 @@ const serieTxt = item.series ? ` (${item.series})` : '';
 // ⚠️ La reecriture des ~25 cles par langue qui PROMETTENT un prix est le
 // LOT 102 — celle-ci est traitee ici parce qu'elle FUIT une valeur, les
 // autres ne font que mentir sur ce que la page montre.
-const descItem = (!coteFermee && item.floor && item.totalPoints && anneeDebut)
+// 🔴 LOT 134b — ON PREFERE UNE PHRASE COURTE ET ENTIERE A UNE PHRASE LONGUE ET
+// COUPEE. Mesure du build Docker sur le catalogue reel : 17 fiches sortaient a
+// 161-168 caracteres, toutes sur le meme set au nom demesure (« Disney100
+// Platinum Moments Walt Disney Animation Studios Series » = 62 caracteres a lui
+// seul, avant meme le nom de la piece). `Base.astro` borne desormais TOUTE
+// description a `DESC_MAX` — mais se faire couper, c'est perdre « Full price
+// history on VeVe Price. », c'est-a-dire la fin, c'est-a-dire ce qu'on avait a
+// dire. La formule courte, elle, tient entiere.
+// ⭐⭐ LE REPLI EXISTAIT DEJA, POUR UNE AUTRE RAISON : `desc.itemShort` est la
+// version qui NE CITE AUCUN MONTANT, celle qu'on sert quand la cote est fermee.
+// L'emprunter ici est sur dans le seul sens qui compte — elle en dit MOINS,
+// jamais plus. ⛔ L'inverse (basculer sur `desc.item` pour gagner des
+// caracteres) serait une fuite de prix.
+// ⚠️ `nu()` pour mesurer : sous `I18N_MARQUAGE=1` la chaine porte des marqueurs
+// invisibles, et `.length` sur un resultat de `t()` ment de plusieurs dizaines
+// de caracteres.
+const descLongue = (!coteFermee && item.floor && item.totalPoints && anneeDebut)
   ? t(lang, 'desc.item', { name: item.qualifie || item.name, series: serieTxt, price: money(item.floor), n: item.totalPoints.toLocaleString(nf), year: anneeDebut, brand: m.site.brand })
-  : t(lang, 'desc.itemShort', { name: item.qualifie || item.name, series: serieTxt, brand: m.site.brand });
+  : null;
+const descCourte = t(lang, 'desc.itemShort', { name: item.qualifie || item.name, series: serieTxt, brand: m.site.brand });
+const tient = (x) => x && [...nu(x)].length <= DESC_MAX;
+const descItem = tient(descLongue) ? descLongue : descCourte;
 
 // ⭐⭐ DEUX LIBELLÉS D'ATTENTE, ET ILS NE DISENT PAS LA MÊME CHOSE.
 //   `enAttente`   : la donnée EST collectée, elle se perd entre le Sheet et le

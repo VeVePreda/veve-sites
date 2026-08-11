@@ -29,6 +29,72 @@ export const TITLE_BUDGET = 60;
 /** Longueur en caracteres reels (paires de substitution comptees pour 1). */
 export const clen = (s) => [...String(s ?? '')].length;
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 LOT 134b — L'ELLIPSE PASSE AU MILIEU, ET C'EST UNE CORRECTION DE FOND
+// ═══════════════════════════════════════════════════════════════════════════
+// TROUVE PAR `test:titres` DANS LE BUILD DOCKER, SUR LE CATALOGUE REEL — jamais
+// sur l'echantillon hors ligne (90 pieces), qui ne contient aucun de ces sets.
+//
+// LE DEFAUT, MESURE SUR 3 097 PAGES. Trois sets Disney partagent **50
+// caracteres de prefixe** :
+//     Set : Disney100 Platinum Moments Walt Disney Animation Series 1     (63)
+//     Set : Disney100 Platinum Moments Walt Disney Animation Series 2     (63)
+//     Set : Disney100 Platinum Moments Walt Disney Animation Studios Series (69)
+// Le budget vaut 60. Une coupe PAR LA FIN tombe donc forcement DANS le prefixe
+// commun, et les trois rendaient le meme titre :
+//     « Set : Disney100 Platinum Moments Walt Disney Animation… »
+//
+// ⭐⭐⭐ ET LA CAUSE N'EST PAS LA LONGUEUR, C'EST L'ENDROIT DE LA COUPE. Sur ce
+// site, ce qui DISTINGUE deux pages voisines vit systematiquement A LA FIN du
+// nom : le numero de serie, l'edition (AP / FE), la variante, la rarete, le
+// millesime. Couper par la fin, c'est jeter exactement le seul morceau qui
+// portait l'information. *Une troncature n'est pas neutre : elle choisit ce
+// qu'on perd, et par defaut elle choisit le plus utile.*
+//
+// ⛔ ET LA VARIANTE « LACHER L'ETIQUETTE QUAND CA DEPASSE » A DEJA ETE ECRITE,
+// MESUREE ET REJETEE (`CollectionPage.astro`, l. 39) : **123 collisions**, deux
+// fois pire. On ne la reessaie pas.
+//
+// ⇒ L'ellipse passe AU MILIEU : on garde la tete (on sait de quoi on parle) ET
+// la queue (on sait DUQUEL on parle). ⚠️ Deux titres qui ne differeraient QUE
+// dans la fenetre elidee collisionneraient encore — c'est pour ca que
+// `test:titres` reste le juge, et qu'il tourne sur `dist/` entier.
+/** Coupe `s` a `max` caracteres en elidant le MILIEU, tete et queue gardees. */
+export function couperMilieu(s, max) {
+  const txt = String(s ?? '');
+  if ([...txt].length <= max) return txt;
+  const mots = txt.split(/\s+/).filter(Boolean);
+  // ⭐ ON RAISONNE EN MOTS, PAS EN CARACTERES, ET ON REMPLIT LE BUDGET.
+  // Une premiere version coupait a un index puis reculait jusqu'a l'espace :
+  // elle rendait 45 caracteres pour un budget de 60 — quinze de gaspilles sur
+  // le seul texte que Google affiche. *Un budget qu'on n'utilise pas est une
+  // information qu'on jette deux fois.*
+  if (mots.length < 3) return couperMots(txt, max);
+  const LIEN = ' … ';
+  const dispo = max - LIEN.length;
+  // 1. LA QUEUE D'ABORD — c'est elle qui DISTINGUE (numero, edition, variante).
+  //    On lui reserve jusqu'a 45 % du budget, mot par mot depuis la fin.
+  const plafondQueue = Math.floor(dispo * 0.45);
+  let queue = '';
+  for (let i = mots.length - 1; i >= 1; i--) {
+    const essai = queue ? `${mots[i]} ${queue}` : mots[i];
+    if ([...essai].length > plafondQueue) break;
+    queue = essai;
+  }
+  // 2. LA TETE ENSUITE — elle prend TOUT ce qui reste.
+  let tete = '';
+  for (let i = 0; i < mots.length; i++) {
+    const essai = tete ? `${tete} ${mots[i]}` : mots[i];
+    if ([...essai].length + [...queue].length > dispo) break;
+    tete = essai;
+  }
+  // ⛔ Si l'un des deux est vide, l'elision n'a plus de sens : un seul mot tres
+  // long, ou un budget minuscule. On retombe sur la coupe simple plutot que de
+  // rendre « … quelquechose », qui ne dit rien du sujet.
+  if (!tete || !queue) return couperMots(txt, max);
+  return `${tete}${LIEN}${queue}`;
+}
+
 /** Coupe `s` a `max` caracteres sur une frontiere de mot, ellipse comprise. */
 export function couperMots(s, max) {
   const cs = [...String(s ?? '')];
@@ -88,6 +154,21 @@ export function pageTitle(titre, gabarit = '%s', secours = '', journal = null) {
     dire(`titre > ${TITLE_BUDGET} avec le suffixe de marque, suffixe abandonne : "${nu(brut)}" (${clen(nu(complet))})`);
     return brut;
   }
+  // 🔴🔴🔴 LOT 134b — ET C'EST BIEN `couperMots`, PAR LA FIN. J'AI ESSAYE
+  // `couperMilieu` ICI, GLOBALEMENT, ET LE BANC L'A REFUSE EN UNE MINUTE :
+  // 4 nouvelles collisions sur l'echantillon, toutes sur des fiches de comics.
+  // ⭐⭐⭐ LA RAISON EST STRUCTURELLE, ET ELLE EST LA LECON DU LOT :
+  //   · un SET s'appelle « Disney100 … Animation Series **1** » — ce qui le
+  //     distingue est A LA FIN ;
+  //   · une FICHE s'appelle « **Alex Ross Main Cover · Common · 3** — Return of
+  //     the Jedi #1: Poster Series » — ce qui la distingue est AU DEBUT, et la
+  //     fin est le nom de serie que ses quinze voisines partagent.
+  // ⇒ **AUCUNE POSITION DE COUPE UNIQUE NE SERT LES DEUX.** Une regle globale
+  //   choisie ici sauve une famille en cassant l'autre, sans qu'aucune des deux
+  //   ne le dise. La coupe intelligente appartient a l'EMETTEUR, qui sait ou vit
+  //   son discriminant — `CollectionPage.astro` pour les sets, `Item.astro` pour
+  //   les fiches. Ici on garde la regle neutre, celle qui etait deja verte sur
+  //   les 3 097 pages de production.
   const coupe = couperMots(nu(brut), TITLE_BUDGET);
   dire(`titre > ${TITLE_BUDGET} caracteres, coupe : "${nu(brut)}" (${clen(nu(brut))}) -> "${coupe}"`);
   return coupe;

@@ -2,11 +2,11 @@
 import { createHash } from 'node:crypto';
 import { manifest, siteUrl } from '../../engine/lib/manifest.mjs';
 import { acces, connecte } from '../../engine/lib/access.mjs';
-import { jsonld, websiteLd, pageTitle, homeTitle, breadcrumbLd } from '../../engine/lib/seo.mjs';
-import { locales, t, pick, localize, localeNames, dateLocale, numberLocale } from '../../engine/lib/i18n.mjs';
+import { jsonld, websiteLd, pageTitle, homeTitle, breadcrumbLd, couperMots } from '../../engine/lib/seo.mjs';
+import { locales, t, pick, localize, localeNames, dateLocale, numberLocale, nu } from '../../engine/lib/i18n.mjs';
 import { degradesSpark } from '../../engine/lib/vitrine.mjs';
 import { DOCS, legalTitle } from '../../engine/lib/legal.mjs';
-import { activeSections, sectionMeta, languesDuSite } from '../../engine/lib/editorial_pages.mjs';
+import { activeSections, sectionMeta, languesDuSite, DESC_MAX } from '../../engine/lib/editorial_pages.mjs';
 import { priceEnabled, searchEnabled } from '../../engine/lib/features.mjs';
 import Figures from '../components/Figures.astro';
 import CoteScript from '../components/CoteScript.astro';
@@ -115,7 +115,37 @@ const accueil = homeTitle({
   repliReseau: t(lang, 'title.home'), sitePrix: prixActifs, journal: journalSeo,
 });
 const fullTitle = pageTitle(title, m.seo.title_template, accueil, journalSeo);
-const desc = description || pick(m.site.description, lang) || pick(m.site.tagline, lang);
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴 LOT 134b — LA DESCRIPTION EST BORNEE **ICI**, PARCE QU'IL N'Y A QU'UN
+//                 SEUL EMETTEUR DE `<meta name="description">`
+// ═══════════════════════════════════════════════════════════════════════════
+// TROUVE PAR `test:titres` DANS LE BUILD DOCKER, sur le catalogue REEL : 17
+// pages a 161-168 caracteres, toutes sur le meme set au nom demesure
+// (« Disney100 Platinum Moments Walt Disney Animation Studios Series », 62
+// caracteres a lui seul). Au-dela de ~160, Google COUPE — et la fin, c'est ce
+// qu'on avait a dire.
+//
+// ⭐⭐⭐ POURQUOI ICI ET PAS DANS LES GABARITS QUI COMPOSENT. Chaque page
+// fabrique sa description a sa facon (`desc.item`, `desc.itemShort`,
+// `desc.collection`, `rayon.*.d`, les pages editoriales…). Borner chez
+// l'appelant, c'est ecrire la meme regle six fois — et *deux copies d'une meme
+// regle divergent*, ce depot l'a paye trois fois sur des gabarits. Il n'y a
+// qu'UN `<meta name="description">` dans tout le reseau : la garantie se pose
+// la ou elle ne peut pas etre oubliee, y compris par une page pas encore ecrite.
+// ⭐ Les gabarits gardent le droit de faire MIEUX (Item.astro bascule sur une
+// formule courte plutot que de se faire couper) ; ce plancher-ci n'est qu'un
+// filet, et un filet ne doit jamais etre la premiere solution.
+//
+// ⚠️ `nu()` AVANT DE MESURER ET DE COUPER, et ce n'est pas une precaution de
+// style : sous `I18N_MARQUAGE=1`, `t()` entoure chaque libelle de marqueurs
+// invisibles. Compter sans `nu()` couperait une description conforme ; couper
+// sans `nu()` trancherait au milieu d'un marqueur — et c'est exactement ce qui
+// a avale 64 `<head>` au lot 129.
+// ⭐ La borne vient d'`editorial_pages.mjs`, la meme que celle du banc et celle
+// de l'avertissement editorial. Un seuil recopie est un seuil qui divergera.
+const descBrute = description || pick(m.site.description, lang) || pick(m.site.tagline, lang);
+const descNue = nu(descBrute);
+const desc = [...String(descNue)].length > DESC_MAX ? couperMots(descNue, DESC_MAX) : descBrute;
 const canon = `${root}${localize(lang, path)}`;
 // Chaque langue a SA propre adresse ; hreflang les relie. Aucune redirection auto.
 // Si altPaths est fourni (articles : slugs differents par langue), on ne

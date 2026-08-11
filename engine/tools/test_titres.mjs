@@ -43,7 +43,7 @@
 
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { localeNames, nu } from '../lib/i18n.mjs';
+import { localeNames, nu, t } from '../lib/i18n.mjs';
 // ⭐⭐ LA FENÊTRE DES DESCRIPTIONS EXISTE DÉJÀ, ET ELLE N'AVAIT PAS DE JUGE.
 // `DESC_MIN = 70` / `DESC_MAX = 160` sont écrits dans `editorial_pages.mjs`
 // depuis l'audit SEO du 27/07 — mais ils n'y produisaient qu'un `console.warn`,
@@ -53,6 +53,7 @@ import { localeNames, nu } from '../lib/i18n.mjs';
 // nouveaux nombres ici. *Un seuil recopié est un seuil qui divergera ; un
 // avertissement qui n'arrête rien est un seuil qui n'existe pas.*
 import { DESC_MIN, DESC_MAX } from '../lib/editorial_pages.mjs';
+import { pageTitle, TITLE_BUDGET, couperMilieu, couperMots } from '../lib/seo.mjs';
 
 const R = new URL('../..', import.meta.url).pathname;
 // Deux modes, deux racines : `dist/` (static) ou `dist/client/` (server).
@@ -326,6 +327,116 @@ if (hors.length) {
   console.log(`     ⚠️  Les bornes viennent de \`engine/lib/editorial_pages.mjs\` — les changer`);
   console.log('        ici seulement les ferait diverger de l\'avertissement éditorial.');
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ── 5. LA CONDITION HOSTILE QUE L'ÉCHANTILLON NE CONTIENT PAS ──────────────
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 CE §5 EXISTE PARCE QUE LES §2–4 ONT ÉTÉ VERTS EN LOCAL ET ROUGES EN
+// PRODUCTION. Le build hors ligne rend 147 pages sur un échantillon de 90
+// pièces ; le catalogue réel en rend 3 097. Les trois sets Disney qui ont fait
+// échouer le déploiement du lot 134 **n'existent pas dans l'échantillon** — et
+// aucun `dist/` local ne les fera apparaître.
+// ⭐⭐ *Un banc qui ne juge que ce que l'échantillon contient déclare conforme
+// tout ce que l'échantillon ignore.* On fabrique donc la condition, avec les
+// noms EXACTS relevés dans le build Docker du 10/08 (log `echec2.txt`) — ⛔ pas
+// des noms inventés : une condition hostile qui n'existe pas en production
+// mesure un écran que personne ne verra.
+//
+// ⚠️ CE §5 NE LIT PAS `dist/` : il appelle les FONCTIONS. C'est volontaire — il
+// doit rester vrai même quand le `dist/` disponible est un échantillon, c'est
+// même sa seule raison d'être.
+// ⭐⭐⭐ DEUX FAMILLES, ET C'EST TOUT L'INTÉRÊT DE CE §5. Le discriminant ne vit
+// pas au même endroit selon le type de page — et une correction qui ne regarde
+// qu'une famille casse l'autre EN SILENCE. C'est arrivé pendant l'écriture de
+// ce lot : `couperMilieu` posée globalement dans `pageTitle()` a réparé les
+// trois sets et cassé quatre groupes de fiches, d'un seul geste.
+// ⇒ Les deux familles sont donc jugées ICI, ensemble, à chaque passage.
+const NOMS_REELS = [
+  // ── FAMILLE 1 : LES SETS — le discriminant est À LA FIN. ────────────────
+  // 50 caractères de préfixe commun, budget de titre à 60 : toute coupe PAR LA
+  // FIN tombe forcément dans le préfixe. Relevé dans le build Docker du 10/08.
+  'Disney100 Platinum Moments Walt Disney Animation Series 1',
+  'Disney100 Platinum Moments Walt Disney Animation Series 2',
+  'Disney100 Platinum Moments Walt Disney Animation Studios Series',
+];
+// ── FAMILLE 2 : LES FICHES — le discriminant est AU DÉBUT. ────────────────
+// La fin est le nom de série que quinze voisines partagent : une coupe qui
+// rogne la TÊTE pour préserver la queue les fait toutes collisionner.
+// ⛔ Ces trois-là existent dans l'échantillon hors ligne — mais ils sont écrits
+// ici quand même : le §2 ne les juge que si le `dist/` du moment les contient,
+// et un échantillon change.
+const FICHES_REELLES = [
+  'Alex Ross Main Cover · Common · 3 — Return of the Jedi #1: Poster Series',
+  'Alex Ross Main Cover · Common · AP — Return of the Jedi #1: Poster Series',
+  'Todd McFarlane Variant · Uncommon · FE — Return of the Jedi #1: Poster Series',
+];
+const GABARIT = '%s | VeVe Price';
+const muet = () => {};
+// ⚠️ CE BANC REFAIT LE GESTE DE `CollectionPage.astro`, IL NE L'IMPORTE PAS :
+// un composant `.astro` ne se charge pas depuis node. ⛔ C'est donc une COPIE,
+// et une copie diverge — la parade est qu'elle appelle les MÊMES fonctions
+// (`couperMilieu`, `TITLE_BUDGET`, `pageTitle`) : si le gabarit change de
+// stratégie sans toucher à celles-ci, ce §5 ment. Le §2, lui, lit `dist/` et ne
+// ment jamais : les deux ensemble, jamais l'un sans l'autre.
+const titreDeSet = (nom) => {
+  const brut = `Set : ${nom}`;
+  const t = [...brut].length <= TITLE_BUDGET
+    ? brut : `Set : ${couperMilieu(nom, TITLE_BUDGET - 'Set'.length - 3)}`;
+  return pageTitle(t, GABARIT, '', muet);
+};
+// ⭐ Le préfixe commun se CALCULE, il ne se recopie pas : le jour où quelqu'un
+// change un de ces noms, le libellé dit la vérité au lieu de citer un souvenir.
+const prefixeCommun = (() => {
+  let i = 0;
+  while (NOMS_REELS.every((n) => n[i] !== undefined && n[i] === NOMS_REELS[0][i])) i++;
+  return i;
+})();
+const titresFab = NOMS_REELS.map((n) => titreDeSet(n));
+const fichesFab = FICHES_REELLES.map((n) => pageTitle(n, GABARIT, '', muet));
+dit(new Set(titresFab).size === NOMS_REELS.length,
+  `${NOMS_REELS.length} noms réels partageant ${prefixeCommun} caractères de préfixe`
+  + ` rendent ${new Set(titresFab).size} titres DISTINCTS`,
+  new Set(titresFab).size === NOMS_REELS.length ? null
+    : `ils collisionnent : ${[...new Set(titresFab)].join(' | ')}`);
+dit(new Set(fichesFab).size === FICHES_REELLES.length,
+  `${FICHES_REELLES.length} fiches réelles au nom de série PARTAGÉ rendent ${
+    new Set(fichesFab).size} titres DISTINCTS`,
+  new Set(fichesFab).size === FICHES_REELLES.length ? null
+    : `⛔ une coupe qui protège la QUEUE les écrase : ${[...new Set(fichesFab)].join(' | ')}`);
+dit(titresFab.every((t) => [...t].length <= TITLE_BUDGET),
+  `…et aucun ne dépasse le budget de ${TITLE_BUDGET} caractères`,
+  titresFab.every((t) => [...t].length <= TITLE_BUDGET) ? null
+    : `le plus long : ${Math.max(...titresFab.map((t) => [...t].length))}`);
+// ⭐ ET LE CONTRÔLE SYMÉTRIQUE, CELUI QUI DIT QUE LE BANC SAIT ENCORE ÉCHOUER.
+// Sans lui, une `pageTitle()` qui rendrait le nom entier sans jamais couper
+// passerait les deux lignes ci-dessus — et le §2 aussi. On vérifie donc qu'un
+// titre trop long est bel et bien RACCOURCI.
+// ── ET LA DESCRIPTION, MÊME MÉTHODE ────────────────────────────────────────
+// Les 17 pages hors fenêtre du build Docker étaient TOUTES sur ce set-là : son
+// nom fait 62 caractères À LUI SEUL, avant même le nom de la pièce. Aucune
+// pièce de l'échantillon hors ligne n'approche ça.
+// ⭐ On refait ici le geste de `Base.astro` — mesurer `nu()`, couper à
+// `DESC_MAX` — avec la VRAIE clé du dictionnaire et le PIRE nom réel connu.
+const SERIE_MONSTRE = 'Disney100 Platinum Moments Walt Disney Animation Studios Series';
+const descFab = t('en', 'desc.item', {
+  name: 'Minnie Mouse Poster', series: ` — ${SERIE_MONSTRE}`,
+  price: '$41.00', n: '1,204', year: '2023', brand: 'VeVe Price',
+});
+const descBornee = [...nu(descFab)].length > DESC_MAX ? couperMots(nu(descFab), DESC_MAX) : nu(descFab);
+dit([...descBornee].length <= DESC_MAX && [...descBornee].length >= DESC_MIN,
+  `la description de la pire pièce réelle tient dans ${DESC_MIN}–${DESC_MAX}`
+  + ` (${[...nu(descFab)].length} → ${[...descBornee].length} car.)`,
+  [...descBornee].length <= DESC_MAX && [...descBornee].length >= DESC_MIN ? null
+    : `elle sort à ${[...descBornee].length} — la borne de Base.astro ne tient pas`);
+dit([...nu(descFab)].length > DESC_MAX,
+  'et ce témoin dépasse bien la borne AVANT correction (sinon il ne prouve rien)',
+  [...nu(descFab)].length > DESC_MAX ? null
+    : `il fait ${[...nu(descFab)].length} car. — trouver un nom plus long, ou ce contrôle est décoratif`);
+
+const tropLong = pageTitle(`Set : ${NOMS_REELS[2]}`, GABARIT, '', muet);
+dit([...tropLong].length < [...`Set : ${NOMS_REELS[2]}`].length,
+  'un titre au-dessus du budget est bien raccourci (l\'instrument sait échouer)',
+  `« ${tropLong} »`);
 
 console.log(ko === 0
   ? `\n✅ ${contenu.length} pages : un <h1> chacune, ${parTitre.size} titres tous distincts,`
