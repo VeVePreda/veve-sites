@@ -55,21 +55,40 @@ export const CACHE_RULE_POSEE = true;
 // 2. LE RÉGLAGE CHOISI — TTL court, aucune purge
 // ═══════════════════════════════════════════════════════════════════════════
 //
-// ⭐ DÉCISION DE PREDA (11/08/2026) : Edge TTL de 5 minutes, PAS de purge.
-//   Le raisonnement, et il est mesurable : une page servie 300 s depuis le bord
-//   au lieu de frapper l'origine à chaque visite, c'est déjà l'essentiel du
-//   gain (3 097 pages pré-générées, TTFB mesuré 98–164 ms). Un TTL long
-//   ajouterait quelques millisecondes et exigerait un jeton d'API Cloudflare,
-//   une étape de purge, et — surtout — un chemin de panne NEUF : une purge qui
-//   échoue en silence sert du périmé pendant 24 h sans que rien ne rougisse.
-// ⭐⭐ On achète l'essentiel du gain sans ouvrir de risque nouveau. Le reste se
-//   re-questionnera quand il sera MESURÉ, pas avant.
-export const TTL_EDGE_S = 300;
+// 🔴🔴 CE NOMBRE A CHANGÉ LE 11/08/2026, ET C'EST UNE MESURE QUI L'A CHANGÉ.
+//   La décision d'origine était « Edge TTL de 5 minutes ». Elle a été écrite
+//   sans vérifier ce que l'interface propose : sur le plan **Free**, le minimum
+//   d'Edge TTL est **2 heures** (Pro : 1 h · Business/Enterprise : 1 s). Les
+//   300 s n'étaient donc pas un compromis discutable, ils étaient **impossibles
+//   à poser**.
+//   ⭐⭐ *Une valeur qu'aucune interface n'accepte n'est pas une décision, c'est
+//   une intention — et une déclaration qui porte une intention fait rougir un
+//   banc pour une raison qui n'est pas une panne.*
+//
+// ⭐ CE QUI SURVIT DE LA DÉCISION D'ORIGINE : **AUCUNE PURGE.** Le raisonnement
+//   tient toujours, et il tient même mieux : une purge exigerait un jeton d'API
+//   Cloudflare, une étape de déploiement de plus, et un chemin de panne NEUF
+//   — une purge qui échoue en silence sert du périmé sans que rien ne rougisse.
+//   Sans purge, le pire retard est BORNÉ par le TTL, et il est mesurable.
+//
+// ⏱️ CE QUE ÇA COÛTE, ÉCRIT PLUTÔT QUE TU : après un déploiement, un visiteur
+//   peut voir une page publique vieille de 2 h au maximum. Les pages sont
+//   pré-générées, donc leur donnée a déjà l'âge du build ; 2 h s'ajoutent à un
+//   âge qui se compte déjà en heures. ⛔ Le jour où une page publique affichera
+//   un prix RAFRAÎCHI hors build, ce nombre se re-questionne — pas avant.
+// ⭐ Le contournement de mesure, pour ne pas attendre 2 h après un dépôt : une
+//   adresse portant une chaîne de requête inédite (`/?x=<horodatage>`) a une
+//   clé de cache neuve et revient donc de l'origine. C'est ainsi qu'on vérifie
+//   un déploiement sans purger.
+export const TTL_EDGE_S = 7200;
 
 // 🪜 L'échelle, pour que la montée soit un palier connu et pas une improvisation.
 //   ⚠️ Contrairement à HSTS, celle-ci est RÉVERSIBLE : on peut redescendre, et
 //   un cache se vide. C'est précisément ce qui autorise à commencer bas.
-export const ECHELLE_TTL = [0, 300, 3600, 86400];
+//   ⛔ 300 et 3600 restent sur l'échelle bien qu'INATTEIGNABLES sur le plan
+//   Free : ils redeviendraient posables sur un plan Business, et une échelle
+//   qu'on ampute perd la mémoire de ce qui a été envisagé.
+export const ECHELLE_TTL = [0, 300, 3600, 7200, 86400];
 
 // ⏱️ Combien de retard un visiteur peut-il voir après un déploiement ?
 //   Le banc s'en sert pour juger la fraîcheur de ce qui est servi (§ 5). On
