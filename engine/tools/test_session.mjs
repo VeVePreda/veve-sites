@@ -376,6 +376,35 @@ dit(iPre >= 0 && iFlag > iPre, 'le drapeau est posé APRÈS la sortie sur isPrer
 // ── 11. L'AVATAR ET LES DEUX ROUTES DE SERVICE (lot 98) ────────────────────
 console.log('\n11. L’avatar, la passerelle et la suppression');
 const base_ = lire(join(RACINE, 'src/layouts/Base.astro'));
+
+// ⚡ LOT 137 (A2 / OPT‑3) — CE BANC SUIT DÉSORMAIS LA CHAÎNE, PAS LE FICHIER.
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴 Les scripts d'en-tête et d'avatar ont quitté `Base.astro` pour
+// `src/socle/*.js` : ils sont servis par un fichier haché au lieu d'être
+// recopiés sur 3 097 pages. Trois contrôles de ce banc les cherchaient dans
+// `Base.astro` et ont rougi — ⭐⭐ **et ils avaient raison de rougir** : de leur
+// point de vue, le code avait disparu.
+// ⛔⛔ LA RÉPARATION N'EST PAS DE LES SUPPRIMER, NI DE LES ASSOUPLIR. Ce qu'ils
+// protègent n'a pas changé d'un mot ; c'est leur ADRESSE qui a changé. On leur
+// donne la vue complète — le gabarit ET le socle qu'il émet — ce qui est
+// exactement ce que le navigateur reçoit.
+// ⚠️ ET ON NE REMPLACE PAS `base_` PARTOUT, SURTOUT PAS. Les contrôles de
+// POSITION (« la décision membre est prise dans le `<head>` », « le
+// `<style is:inline>` est avant `</head>` ») n'ont de sens que dans le
+// gabarit : un `indexOf('</head>')` sur une concaténation mesurerait une
+// position qui n'existe nulle part. ⇒ deux variables, deux usages, et le
+// commentaire qui dit lequel.
+const socle_ = readdirSync(join(RACINE, 'src', 'socle'))
+  .filter((f) => f.endsWith('.js')).sort()
+  .map((f) => lire(join(RACINE, 'src', 'socle', f))).join('\n');
+// ⭐ Auto-contrôle : un socle vide rendrait les trois contrôles ci-dessous
+// verts pour de mauvaises raisons — ils cherchent une chaîne dans un texte, et
+// un texte absent ne contredit rien. *Un banc branché sur du vide rend tous
+// ses verdicts sur du vide.*
+dit(socle_.length > 2000, 'le socle JS a bien été lu — sinon les contrôles qui suivent jugent du vide',
+  `src/socle/ n'a rendu que ${socle_.length} caractère(s)`);
+const baseEtSocle = base_ + '\n' + socle_;
+
 // ⭐⭐ LE MÊME EN-TÊTE PARTOUT, ET C'ÉTAIT LE VRAI DÉFAUT. L'avatar est rendu
 // sur TOUTES les pages, masqué par défaut : le HTML servi reste identique pour
 // tout le monde (donc cachable, indexable, rapide), et c'est le navigateur qui
@@ -385,7 +414,7 @@ const base_ = lire(join(RACINE, 'src/layouts/Base.astro'));
 dit(/<details class="globe" data-membre hidden=\{!aUneSession\}>/.test(base_),
   'l’avatar est rendu partout, masqué tant qu’on ne sait pas',
   'un avatar rendu SEULEMENT si connecté ferait deux en-têtes différents');
-dit(/av\.hidden = !membre/.test(base_), 'le script révèle l’avatar sur les pages pré-générées');
+dit(/av\.hidden = !membre/.test(baseEtSocle), 'le script révèle l’avatar sur les pages pré-générées');
 dit((base_.match(/data-anonyme/g) || []).length >= 3,
   'le globe ET l’appel à l’inscription portent data-anonyme',
   'sans ça, un membre garde le sélecteur de langue dans l’en-tête — deux commandes pour un réglage');
@@ -395,7 +424,7 @@ dit(/action="\/api\/deconnexion"/.test(base_) && /method="POST"/.test(base_),
 // ⛔ LE SURVOL NE DOIT PAS ÊTRE LE SEUL MOYEN D'OUVRIR. `<details>` s'ouvre au
 // clic et au clavier sans JavaScript ; un menu qui n'existe qu'au survol
 // n'existe pas sur un téléphone.
-dit(/mouseenter/.test(base_) && /<details class="globe" data-membre/.test(base_),
+dit(/mouseenter/.test(baseEtSocle) && /<details class="globe" data-membre/.test(baseEtSocle),
   'le survol est un confort POSÉ SUR un <details> qui s’ouvre au clic');
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -423,7 +452,7 @@ dit(base_.indexOf('<style is:inline>') < iHead,
   'une feuille externe arrive parfois après la peinture ⇒ un clignotement intermittent, pire qu’un permanent');
 // ⭐ Et le script du bas ne doit PLUS relire le cookie : deux sources de
 // vérité pour la même question finissent par se contredire.
-dit(/hasAttribute\('data-membre'\)/.test(base_),
+dit(/hasAttribute\('data-membre'\)/.test(baseEtSocle),
   'le script du bas relit l’ATTRIBUT, pas le cookie',
   'deux lectures du même fait divergent le jour où un autre onglet efface le cookie');
 

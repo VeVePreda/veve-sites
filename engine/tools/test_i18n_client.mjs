@@ -220,9 +220,33 @@ window.localStorage = { getItem: (k) => rangé[k] ?? null, setItem: (k, v) => { 
 // ⛔ ON JOUE LE SCRIPT DE `Base.astro`, PAS UNE RÉÉCRITURE. Un banc qui
 // réimplémenterait l'échange mesurerait sa propre réimplémentation — et
 // resterait vert le jour où le vrai script casse.
-const src = [...document.querySelectorAll('script')].map((s) => s.textContent)
-  .find((x) => x && x.includes('data-i18n') && x.includes('vp_langue'));
-if (!src) { indecis('le script d\'échange', 'introuvable dans la page (cherché : vp_langue + data-i18n)'); fin(); }
+// ⚡ LOT 137 (A2 / OPT‑3) — ET LE SCRIPT SE CHERCHE MAINTENANT AUX DEUX
+// ENDROITS OÙ LE NAVIGATEUR LE TROUVE : en ligne, ou au bout d'un `src`.
+// ⭐⭐⭐ CE §4 EST « LE SEUL VERDICT QUI COMPTE », ET IL A FAILLI DEVENIR MUET.
+// Au premier build du lot 137 il est passé de VERT à INDÉCIDABLE — pas à
+// rouge. Un banc muet ne réveille personne : la chaîne restait verte, le
+// rapport disait « conforme », et plus rien ne vérifiait que l'échange des
+// libellés fonctionne sur les trois langues. *Un banc peut être vert, rouge ou
+// MUET pour de mauvaises raisons — et le muet est le plus cher des trois,
+// parce qu'il ressemble à un succès.*
+// ⛔ La réparation n'est donc pas d'accepter l'INDÉCIDABLE « puisque le code a
+// bougé » : c'est de suivre le `src`, comme le navigateur.
+const scriptsDeLaPage = [...document.querySelectorAll('script')];
+const corps = [];
+for (const s of scriptsDeLaPage) {
+  const href = s.getAttribute('src');
+  if (!href) { corps.push(s.textContent); continue; }
+  if (!/^\/socle-[a-f0-9]+\.js$/.test(href)) continue;   // umami & co : pas les nôtres
+  const f = join(RACINE, href.replace(/^\//, ''));
+  // ⛔ LE 404 MUET SE DIT ICI. Un `<script src>` vers un fichier absent laisse
+  // la page verte, le build vert, et l'interface définitivement anglaise pour
+  // les visiteurs fr/es/de. C'est exactement la panne que ce banc existe pour
+  // voir, et elle n'aurait produit aucune ligne rouge ailleurs.
+  if (!existsSync(f)) { verifie('le fichier ' + href + ' référencé par la page existe dans dist/', false, 'absent — <script src> vers un 404 : page verte, interface jamais traduite'); continue; }
+  corps.push(readFileSync(f, 'utf8'));
+}
+const src = corps.find((x) => x && x.includes('data-i18n') && x.includes('vp_langue'));
+if (!src) { indecis('le script d\'échange', 'introuvable, ni en ligne ni dans un socle référencé (cherché : vp_langue + data-i18n)'); fin(); }
 
 const avant = document.body.textContent;
 const faussetFetch = () => Promise.resolve({ ok: true, json: () => Promise.resolve(dicos[lang]) });

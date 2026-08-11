@@ -177,8 +177,48 @@ def rendre_dist_propre():
     (Cette fonction porte un nom plutot que d'appeler `construire()` en ligne :
     un correctif invisible dans le code est un correctif que les controles ne
     savent pas verifier — ils ignorent les commentaires, a juste titre.)
+
+    LOT 137 — « PROPRE » INCLUT LE MARQUAGE i18n, ET CA A COUTE UN ROUGE EN CI.
+    ================================================================
+    Mesure du 11/08/2026, run #115 : le job `bancs (veveprice)` sortait en 1 a
+    l'etape `npm test`, sur `test:i18n`, « 147 page(s) portent encore les
+    sentinelles ». Le banc avait RAISON.
+
+    LA CAUSE. Le lot 135B a ajoute `I18N_MARQUAGE: '1'` a l'etape `npm test`
+    (P32). Le workflow fait, dans l'ordre : build avec la variable, PUIS
+    `npm run marquer:i18n`, PUIS `npm test`. Mais `npm test` enchaine
+    `test:slugs`, qui reconstruit `dist/` trois fois — en heritant de la
+    variable, donc en REPOSANT les sentinelles — et personne ne rejoue le
+    post-traitement derriere. `test:i18n`, 38e de la chaine, les trouve.
+
+    POURQUOI VEVEWIKI RESTAIT VERT, ET CE N'EST PAS RASSURANT : ce fichier
+    sort en 0 des la ligne 103 sur un site sans page de prix. Il ne construit
+    jamais. Le defaut existait donc sur UN site sur deux, ce qui le rendait
+    parfaitement invisible dans une matrice a deux jobs dont un vert.
+
+    ETOILE LA LECON EST CELLE QUE CETTE FONCTION ENONCE DEJA, POUSSEE D'UN CRAN.
+    « Un test qui salit un artefact partage doit le rendre PROPRE » — et le
+    marquage fait partie de propre. Reconstruire sans re-marquer rend un
+    `dist/` qui a l'air complet, qui pese le bon nombre d'octets, et qui est
+    faux d'une maniere qu'aucun coup d'oeil ne rattrape.
+
+    ATTENTION ON NE RE-MARQUE QUE SI LA VARIABLE EST POSEE. Sans elle, le build
+    n'emet aucune sentinelle et `marquer:i18n` n'aurait rien a faire : le jouer
+    quand meme masquerait la difference entre les deux conditions, alors que
+    c'est precisement ce que la quatrieme condition du projet mesure.
     """
     construire()
+    if os.environ.get('I18N_MARQUAGE') == '1':
+        env = {**os.environ, 'WAREHOUSE_OFFLINE': '1'}
+        r = subprocess.run(['npm', 'run', 'marquer:i18n'], cwd=RACINE, env=env,
+                           capture_output=True, text=True)
+        # PAS DE SILENCE ICI. Si le post-traitement echoue, `dist/` reste
+        # sali et c'est `test:i18n` qui portera le chapeau trente secondes
+        # plus tard — un banc qui rougit pour la faute d'un autre est la
+        # panne la plus chere a diagnostiquer de ce projet.
+        if r.returncode != 0:
+            sys.exit('le re-marquage i18n a echoue apres la reconstruction :\n'
+                     + r.stdout[-2000:] + r.stderr[-2000:])
 
 
 sauvegarde = PRIX.with_suffix('.csv.bak')

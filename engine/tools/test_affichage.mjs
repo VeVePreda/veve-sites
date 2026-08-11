@@ -14,7 +14,7 @@
 // n'importe où dans le Dockerfile. Les §1 et §3 lisent des SOURCES, le §2 lit
 // `dist/`. Il est placé APRÈS `npm run build` pour le §2 — voir le Dockerfile.
 
-import { readFileSync, readdirSync, existsSync, statSync } from 'node:fs';
+import { readdirSync, readFileSync, existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 const ROOT = process.env.PROJECT_ROOT || process.cwd();
@@ -362,7 +362,25 @@ verifie('ouvert il capte les clics et s\'assombrit',
 // ⭐ « Qui écrit, qui lit ? » — la feuille LIT `body[data-tiroir]`. Sans
 //   personne pour le poser, le voile est une règle morte et le tiroir s'ouvre
 //   sur une page cliquable. Une règle sans émetteur ne lève rien.
-const base = lire('src/layouts/Base.astro');
+// ⚡ LOT 137 (A2 / OPT‑3) — L'ÉMETTEUR A CHANGÉ D'ADRESSE, PAS D'EXISTENCE.
+// Le pilote du tiroir a quitté `Base.astro` pour `src/socle/20-menu.js` : il
+// était identique sur 3 097 pages et partait 3 097 fois. Ces trois contrôles
+// ont rougi au premier build du lot — ⭐⭐ **et c'est le comportement attendu
+// d'un banc qui réclame un émetteur** : de son point de vue, l'émetteur avait
+// disparu. ⛔ On lui donne la vue que reçoit le navigateur (le gabarit ET le
+// socle qu'il émet) ; on ne retire pas le contrôle.
+// 🔴 Le socle est lu EN ENTIER, pas seulement `20-menu.js` : ce banc demande
+// « quelqu'un pose-t-il cet attribut ? », pas « ce fichier-là le pose-t-il ? ».
+// Nommer le fichier ferait rougir le jour où le morceau est renommé — un rouge
+// qui ne signale aucune panne, donc un rouge qu'on finit par désarmer.
+const base = lire('src/layouts/Base.astro') + '\n'
+  + readdirSync(join(ROOT, 'src', 'socle')).filter((f) => f.endsWith('.js')).sort()
+      .map((f) => lire(join('src', 'socle', f))).join('\n');
+// ⭐ Auto-contrôle : chercher une chaîne dans un texte vide rend « absent »,
+// pas « erreur ». Sans cette ligne, un socle introuvable ferait rougir les
+// trois contrôles pour une raison qui n'est pas la leur.
+verifie('le gabarit ET le socle ont bien été lus — sinon les trois contrôles qui suivent jugent du vide',
+  base.length > 20000);
 verifie('quelqu\'un POSE `data-tiroir` (sinon le voile est une règle morte)',
   /setAttribute\(\s*['"]data-tiroir['"]/.test(base));
 verifie('quelqu\'un le RETIRE (sinon le voile ne se lève jamais)',

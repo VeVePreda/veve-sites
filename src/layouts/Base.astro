@@ -12,6 +12,7 @@ import Figures from '../components/Figures.astro';
 import CoteScript from '../components/CoteScript.astro';
 import { blogEnabled, blogMeta, languesBlog } from '../../engine/lib/blog.mjs';
 import { feuilleTheme } from '../../engine/lib/feuille_theme.mjs';
+import { socleJs } from '../../engine/lib/socle_js.mjs';
 
 const m = manifest();
 const p = m.identity.palette || {};
@@ -182,6 +183,9 @@ const alternates = (altPaths
 // dans chacune des 8 484 pages, et c'est exactement ce que `test:feuille`
 // refuse désormais.
 const feuilleCss = feuilleTheme();
+// ⭐ MÊME FONCTION que la route qui sert le fichier : l'empreinte du `src` ne
+// peut donc pas désigner autre chose que ce qui sera servi.
+const socle = socleJs();
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  DEUX PALETTES — ajouté le 30/07/2026, RÉTROCOMPATIBLE PAR CONSTRUCTION
@@ -564,6 +568,31 @@ const menuComplet = wikiNav
     la page non habillée puis se rhabiller — le clignotement qu'on vient
     justement de payer trois lots de suite. */}
 <link rel="stylesheet" href={feuilleCss.href} />
+{/* ════════════════════════════════════════════════════════════════════════
+    ⚡ LE SOCLE JAVASCRIPT — LOT 137 (A2 / OPT‑3)
+    ════════════════════════════════════════════════════════════════════════
+    Les cinq scripts qui vivaient en bas du `<body>` sont partis dans un
+    fichier haché : ils étaient identiques sur les 3 097 pages, et la
+    compression n'agit pas ENTRE deux réponses. C'est le lot 105 appliqué au
+    JavaScript au lieu du CSS.
+
+    ⭐⭐ `defer` ET NON `async`, ET LA DIFFÉRENCE EST TOUT L'INTÉRÊT.
+    `defer` garantit DEUX choses qu'`async` ne garantit pas : le script
+    s'exécute APRÈS que le document est parsé (donc `getElementById('menu-b')`
+    trouve son bouton — ce qui serait faux pour un script de `<head>` sans
+    `defer`), et il s'exécute dans l'ORDRE de déclaration. Le socle concatène
+    cinq morceaux dont l'ordre est un contrat. Avec `async`, cet ordre
+    n'existe plus.
+    ⭐ Et le téléchargement, lui, démarre ICI, dès le `<head>`, en parallèle du
+    parsing et sans bloquer le rendu. Un script placé en bas du `<body>` n'était
+    découvert qu'après 80 Ko de HTML.
+
+    ⛔⛔ CE `<script>` NE REMPLACE PAS LES DEUX QUI SONT RESTÉS EN LIGNE dans
+    l'en-tête (`data-theme="nuit"`, `data-membre="1"`). Ceux-là doivent poser
+    leur attribut AVANT la première peinture ; les différer ramènerait l'éclair
+    blanc du lot 98 et le clignotement « Inscription → avatar » du lot 100.
+    Ils ne partiront jamais d'ici, et `test:entete` les y exige déjà. */}
+<script defer src={socle.href}></script>
 <Fragment set:html={jsonld(websiteLd(m.site.brand, root, searchEnabled()))} />
 {/* ⭐ Le fil d'Ariane était AFFICHÉ mais jamais DÉCLARÉ : 23 pages sur 83
     montraient « Accueil › Glossaire » à l'écran sans que Google puisse le
@@ -1072,22 +1101,7 @@ const menuComplet = wikiNav
     })();
   </script>
 )}
-<script is:inline>
-  // Reassemble les adresses de contact cote navigateur (anti-aspirateur).
-  (function () {
-    var els = document.querySelectorAll('.mail');
-    for (var i = 0; i < els.length; i++) {
-      var u = els[i].getAttribute('data-u'), d = els[i].getAttribute('data-d');
-      if (!u || !d) continue;
-      var a = u + String.fromCharCode(64) + d;
-      var link = document.createElement('a');
-      link.href = 'mai' + 'lto' + ':' + a;
-      link.textContent = a;
-      els[i].textContent = '';
-      els[i].appendChild(link);
-    }
-  })();
-</script>
+
 <script is:inline define:vars={{ suggestData, suggestTxt: t(lang, 'lang.suggest'), switchTxt: t(lang, 'lang.switch'), dismissTxt: t(lang, 'lang.dismiss') }}>
   // Detection DOUCE : on propose, on ne redirige jamais (sinon Googlebot ne verrait qu'une langue).
   (function () {
@@ -1213,53 +1227,7 @@ const menuComplet = wikiNav
     ⚠️ SANS JAVASCRIPT LE BOUTON EST INERTE — mais il n'est pas la seule voie :
     la barre du bas (`.onglets`) et le pied de page restent en HTML pur. On ne
     supprime jamais le dernier chemin, on en ajoute un plus commode. */}
-<script is:inline>
-  (function () {
-    var b = document.getElementById('menu-b');
-    var m = document.getElementById('menu-m');
-    if (!b || !m) return;
-    function poser(ouvert) {
-      m.hidden = !ouvert;
-      b.setAttribute('aria-expanded', String(ouvert));
-      // 🔴 LOT 118 — LE VOILE DU TIROIR. `body[data-tiroir]::after` l'allume.
-      // ⭐ UN SEUL ATTRIBUT POUR DEUX EFFETS (l'assombrissement ET
-      //   `pointer-events`), posé au même instant que `hidden`. Deux
-      //   interrupteurs pour un seul état finissent par diverger : un voile
-      //   resté transparent MAIS cliquable intercepte tous les clics de la
-      //   page en silence — c'est la panne de l'élément transparent du lot
-      //   111, vue de l'autre côté.
-      // ⛔ `document.body` et pas un nœud fabriqué ici : un élément ajouté par
-      //   ce script survivrait à une erreur survenue entre deux gestes, et
-      //   resterait affiché par-dessus la page sans plus rien pour le retirer.
-      if (ouvert) document.body.setAttribute('data-tiroir', '1');
-      else document.body.removeAttribute('data-tiroir');
-    }
-    b.addEventListener('click', function (e) {
-      e.stopPropagation();
-      poser(m.hidden);
-    });
-    // ⭐ Un clic AILLEURS referme. Sans ça, le menu reste ouvert par-dessus la
-    // page et on croit avoir cliqué à côté d'un lien alors qu'on a cliqué sur
-    // le voile invisible du menu.
-    document.addEventListener('click', function (e) {
-      if (!m.hidden && !m.contains(e.target) && e.target !== b) poser(false);
-    });
-    // 🔴 LOT 118 — UN LIEN DU TIROIR REFERME LE TIROIR.
-    // ⭐ Ça n'a l'air de rien et ça se remarque tout de suite : sur les
-    //   ancres internes (`/collections/#sets`) ou quand le navigateur restaure
-    //   la page depuis son cache arrière/avant, la navigation ne recharge pas
-    //   le document — le tiroir resterait ouvert par-dessus la page d'arrivée,
-    //   voile compris. Un panneau qui survit à sa propre navigation ressemble
-    //   à un écran figé. ⛔ Le `click` général au-dessus ne suffit pas : le
-    //   lien est DANS `m`, donc `m.contains(e.target)` est vrai.
-    m.addEventListener('click', function (e) {
-      if (e.target.closest && e.target.closest('a')) poser(false);
-    });
-    document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape' && !m.hidden) { poser(false); b.focus(); }
-    });
-  })();
-</script>
+
 {/* ═══════════════════════════════════════════════════════════════════════
     🍪 LE COOKIE D'AFFICHAGE — lot 97, demande de Preda du 06/08/2026.
     ═══════════════════════════════════════════════════════════════════════
@@ -1278,75 +1246,7 @@ const menuComplet = wikiNav
     ne peut PAS vivre dans le fichier lui-même.
     ⭐ Sans JavaScript, le bouton reste « Inscription » et mène à une page qui
     fonctionne. Une dégradation qui ne casse rien. */}
-{comptesOuverts && (
-<script is:inline>
-  (function () {
-    // ⚠️ `vp_membre=1` ET RIEN D'AUTRE. Un `indexOf('vp_membre')` dirait vrai
-    // pour un cookie nommé `vp_membre_ancien`, et un `vp_membre=` accepterait
-    // la valeur vide que pose l'effacement dans certains navigateurs.
-    // ⭐⭐ ON RELIT L'ATTRIBUT POSÉ DANS LE `<head>`, PAS LE COOKIE. Le
-    // clignotement du lot 98 venait de ce que la décision se prenait ici, en
-    // bas du `<body>`, après la première peinture. Elle se prend maintenant
-    // dans l'en-tête du document et l'AFFICHAGE est réglé par deux règles
-    // CSS. ⛔ Relire le cookie ici donnerait une SECONDE source de vérité
-    // pour la même question — et le jour où les deux divergeraient (cookie
-    // effacé dans un autre onglet, par exemple), l'écran se contredirait
-    // lui-même sans qu'on sache lequel croire.
-    var membre = document.documentElement.hasAttribute('data-membre');
 
-    // 👤 L'AVATAR — le CSS l'a déjà montré ou caché avant la peinture ; ce qui
-    // suit remet l'ATTRIBUT `hidden` en accord avec ce qui est affiché.
-    // ⭐ Ce n'est pas de la cosmétique : `hidden` n'est pas qu'un style, il
-    // retire l'élément de l'arbre d'accessibilité. Un avatar visible à l'œil
-    // et absent pour un lecteur d'écran serait un bouton qui n'existe que
-    // pour les voyants.
-    var av = document.querySelector('.globe[data-membre]');
-    if (av) av.hidden = !membre;
-
-    // ⛔ MÊME RAISON POUR CE QUI DOIT DISPARAÎTRE : l'appel à l'inscription et
-    // le globe des langues (le réglage de langue vit dans le compte).
-    // ⭐ Les liens de langue ne quittent PAS le DOM — le globe est `hidden`,
-    // ses `<a hreflang>` restent lisibles par un robot, et les
-    // `<link rel="alternate">` du <head> n'ont jamais bougé. Les retirer
-    // ferait disparaître le multilingue des résultats de recherche, un dégât
-    // invisible pendant des mois.
-    if (membre) {
-      var anon = document.querySelectorAll('[data-anonyme]');
-      for (var i = 0; i < anon.length; i++) anon[i].hidden = true;
-    }
-
-    // ⭐ LA BARRE MOBILE. Sur téléphone, `.onglets` est la navigation réelle ;
-    // sur une page pré-générée elle n'a que 3 entrées, puisque le gabarit
-    // n'ajoute `/compte/` qu'à quelqu'un qu'il sait connecté. Sa grille est
-    // déjà en 4 colonnes — la quatrième était simplement vide.
-    var nav = document.querySelector('nav.onglets');
-    if (membre && nav && av && !nav.querySelector('a[href="/compte/"]')) {
-      var lien = document.createElement('a');
-      lien.href = '/compte/';
-      lien.textContent = av.querySelector('summary').getAttribute('aria-label') || '';
-      if (lien.textContent) nav.appendChild(lien);
-    }
-
-    // 🖱️ LE SURVOL — demande de Preda. ⭐ C'EST UN CONFORT POSÉ PAR-DESSUS,
-    // jamais le seul moyen d'ouvrir : `<details>` s'ouvre au clic et au
-    // clavier sans une ligne de JavaScript, et il continue de le faire ici.
-    // Un menu qui n'existe qu'au survol n'existe pas sur un téléphone.
-    if (av) {
-      var fermeture = null;
-      av.addEventListener('mouseenter', function () {
-        if (fermeture) { clearTimeout(fermeture); fermeture = null; }
-        av.open = true;
-      });
-      // ⚠️ LE DÉLAI N'EST PAS UNE COQUETTERIE. Entre le bouton et le menu il y
-      // a quelques pixels de vide ; sans ce répit, le menu se referme pendant
-      // que la souris le traverse, et l'entrée devient impossible à cliquer.
-      av.addEventListener('mouseleave', function () {
-        fermeture = setTimeout(function () { av.open = false; }, 250);
-      });
-    }
-  })();
-</script>
-)}
 {/* 🔴 LOT 101 — LE REMPLISSAGE DES COTES VIT DANS SON PROPRE FICHIER.
     ⭐⭐⭐ ET CE N'EST PAS UN RANGEMENT. `test:session` refuse qu'un fichier
     melange le cookie d'affichage et une decision de palier ; ce gabarit porte
@@ -1375,45 +1275,6 @@ const menuComplet = wikiNav
     arrêterait tous les scripts qui suivent — dont l'en-tête.
     ⭐⭐ AUCUNE DONNÉE RÉSERVÉE : on ne mémorise qu'un `uuid` et un chemin,
     deux choses déjà publiques sur la page qui les porte. */}
-<script is:inline>
-  (function () {
-    var CLE = 'vp_fav';
-    function lire() {
-      try { return JSON.parse(localStorage.getItem(CLE) || '{}') || {}; }
-      catch (e) { return {}; }
-    }
-    function ecrire(o) {
-      try { localStorage.setItem(CLE, JSON.stringify(o)); } catch (e) { /* quota, mode privé */ }
-    }
-    var favs = lire();
-    var boutons = document.querySelectorAll('[data-fav]');
-    if (!boutons.length) return;
-    function peindre(b, on) {
-      b.setAttribute('aria-pressed', String(on));
-      var l = b.getAttribute(on ? 'data-l-on' : 'data-l-off');
-      if (l) { b.setAttribute('aria-label', l); b.setAttribute('title', l); b.setAttribute('data-l', l); }
-    }
-    boutons.forEach(function (b) {
-      var u = b.getAttribute('data-fav');
-      peindre(b, !!favs[u]);
-      b.addEventListener('click', function () {
-        favs = lire();                       // ⭐ on relit : un autre onglet a pu écrire
-        if (favs[u]) delete favs[u];
-        // ⭐⭐ ON MÉMORISE LE NOM ET LE CHEMIN, PAS SEULEMENT L'UUID.
-        //   La page /favoris/ est STATIQUE : elle ne peut pas retrouver le nom
-        //   d'une pièce à partir d'un uuid sans appeler le réseau. Trois
-        //   octets de plus ici évitent une requête là-bas — et la liste
-        //   s'affiche même hors ligne.
-        //   ⛔ On n'y met AUCUN prix : un favori est une intention, pas une
-        //   cote. Le mur reste exactement où il est.
-        else favs[u] = { p: b.getAttribute('data-fav-path') || '',
-                         n: b.getAttribute('data-fav-nom') || '', t: Date.now() };
-        ecrire(favs);
-        peindre(b, !!favs[u]);
-      });
-    });
-  })();
-</script>
 
 {/* ═══════════════════════════════════════════════════════════════════════
     🔴🔴🔴 LOT 129 — L'ÉCHANGE DES LIBELLÉS, CHEZ LE VISITEUR
@@ -1447,90 +1308,6 @@ const menuComplet = wikiNav
     phrase française avec le nombre au mauvais endroit, ou sans nombre du tout.
     ⭐ Une limite qu'on énonce reste une limite ; une limite qu'on tait devient
     un bug dans six mois. `test:i18n` les COMPTE et affiche le nombre. */}
-<script is:inline>
-  (function () {
-    var LANGUE_PIVOT = 'en';
-    var m = document.cookie.match(/(?:^|;\s*)vp_langue=([a-z]{2})/);
-    var lang = m && m[1];
-    if (!lang || lang === LANGUE_PIVOT) return;
 
-    // ⛔⛔ ON N'ÉCHANGE QUE SUR UNE PAGE SERVIE DANS LA LANGUE PIVOT.
-    // ⚠️ CE N'EST PAS UNE PRÉCAUTION THÉORIQUE : le réseau fait DEUX sites, et
-    // vevewiki, lui, génère vraiment `/fr/`, `/es/`, `/de/`, `/it/`. Sans cette
-    // ligne, quelqu'un qui lit `/fr/glossary/` avec un cookie `es` verrait sa
-    // page française réécrite en espagnol par-dessus — un site qui se traduit
-    // deux fois, dans le mauvais sens.
-    // ⭐ Elle protège aussi les pages membre de veveprice : elles sont rendues à
-    // la demande, DÉJÀ dans la bonne langue et sans aucun marquage. Le garde est
-    // redondant là-bas, et c'est très bien : *un garde-fou qui ne sert que dans
-    // le cas qu'on n'avait pas prévu est exactement celui qui manque le jour J.*
-    if ((document.documentElement.getAttribute('lang') || '') !== LANGUE_PIVOT) return;
-
-    var CLE = 'vp-i18n-' + lang;
-
-    function echanger(d) {
-      if (!d) return;
-      var n = document.querySelectorAll('[data-i18n]');
-      for (var i = 0; i < n.length; i++) {
-        var e = n[i];
-        if (e.hasAttribute('data-i18n-var')) continue;
-        var v = d[e.getAttribute('data-i18n')];
-        // ⚠️ `!== undefined` et pas un test de vérité : une traduction
-        // légitimement vide effacerait le texte anglais si on la refusait ici,
-        // et une chaîne vide est falsy. Le cas est rare — il est arrivé.
-        // ⛔ UN GABARIT NE S'ÉCHANGE PAS TEL QUEL. `movers.capped` vaut
-        // « Showing the top %s… » : le gabarit anglais a DÉJÀ été rempli au
-        // build (`.replace('%s', …)`), la traduction ne l'est pas. L'écrire
-        // afficherait « %s » à l'écran — un texte français FAUX vaut moins
-        // qu'un texte anglais juste.
-        // ⚠️ `\u007B` ET PAS UNE ACCOLADE LITTÉRALE. `test:gabarits` compte les
-        // accolades du corps pour repérer un gabarit mal fermé ; une accolade
-        // seule dans une chaîne JavaScript le fait rougir — 304 ouvertes, 303
-        // fermées. ⛔ On corrige LE CODE, pas le banc : il a raison de ne pas
-        // savoir lire le JavaScript, c'est un compteur, et un compteur qu'on
-        // apprend à taire ne compte plus rien.
-        if (v !== undefined && !/%s|\u007B/.test(v)) e.textContent = v;
-      }
-      // ── LES ATTRIBUTS. 3 924 libellés sur 10 919 vivent dans un `title=`,
-      // un `aria-label=` ou un `alt=` — 36 % du total, mesuré. Les laisser en
-      // anglais aurait donné une page française dont chaque infobulle parle
-      // anglais, **y compris pour un lecteur d'écran**.
-      // ⛔ `marquer_i18n.mjs` n'y note que les libellés qui occupent TOUTE la
-      // valeur : un attribut mixte reste anglais plutôt que d'être écrasé.
-      var a = document.querySelectorAll('[data-i18n-attr]');
-      for (var j = 0; j < a.length; j++) {
-        var paires = a[j].getAttribute('data-i18n-attr').split(' ');
-        for (var p = 0; p < paires.length; p++) {
-          var c = paires[p].indexOf(':');
-          if (c < 1) continue;
-          var w = d[paires[p].slice(c + 1)];
-          if (w !== undefined) a[j].setAttribute(paires[p].slice(0, c), w);
-        }
-      }
-      // ⭐ On corrige aussi l'attribut `lang` du document. Sans lui, un lecteur
-      // d'écran lit du français avec une voix anglaise — l'interface serait
-      // traduite pour l'œil et pas pour l'oreille.
-      document.documentElement.setAttribute('lang', lang);
-    }
-
-    var cache = null;
-    try { cache = JSON.parse(localStorage.getItem(CLE)); } catch (e) { cache = null; }
-    if (cache) { echanger(cache); return; }
-
-    fetch('/i18n/' + lang + '.json', { credentials: 'omit' })
-      .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (d) {
-        if (!d) return;
-        // ⛔ ON ÉCHANGE AVANT DE RANGER. Si `localStorage` est plein ou refusé
-        // (navigation privée), la page doit quand même être traduite : ranger
-        // d'abord ferait dépendre l'affichage d'un stockage qui n'est pas
-        // garanti. C'est le même principe que « prouver l'écriture ne prouve
-        // pas la lecture », pris dans l'autre sens.
-        echanger(d);
-        try { localStorage.setItem(CLE, JSON.stringify(d)); } catch (e) { /* tant pis */ }
-      })
-      .catch(function () { /* la page reste en anglais : lisible, juste, complète */ });
-  })();
-</script>
 </body>
 </html>

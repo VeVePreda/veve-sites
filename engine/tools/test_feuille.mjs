@@ -99,9 +99,29 @@ const PLAFOND_PAR_PAGE = 4096;
 //    passage tant qu'elle n'est pas atteinte : une dette qu'on lit à chaque run
 //    est une dette qu'on finit par payer ; une dette écrite dans un audit ne se
 //    relit qu'une fois.
-const SEUIL_JS = 36864;            // 36 Ko — cliquet au-dessus des 35 089 o mesurés
-const PLAFOND_JS_PAR_PAGE = 33792; // 33 Ko — cliquet au-dessus des 31 774 o mesurés
-const CIBLE_JS = 8192;             // la symétrie avec le <style>, quand OPT‑3 sera fait
+// ⚡⚡ LOT 137 (A2 / OPT‑3) — LE CLIQUET DESCEND, ET C'EST LA MOITIÉ DU LOT.
+// ═══════════════════════════════════════════════════════════════════════════
+// Le socle JS a sorti des pages tout ce qui y était recopié à l'identique.
+// MESURÉ, les quatre conditions, `dist/` réel :
+//
+//        site        avant        après      pire page (avant → après)
+//   veveprice   30 945 o/p    7 333 o/p    34 707 → 16 125
+//   vevewiki    19 031 o/p    7 606 o/p    26 431 → 12 638
+//
+// ⭐⭐⭐ LE CLIQUET NE MONTE JAMAIS — MAIS IL DOIT DESCENDRE, ET LE JOUR OÙ IL
+// PEUT. Laisser 36 864 / 33 792 après ce lot laisserait **26 Ko de marge par
+// page** : le banc afficherait « sous son cliquet » pendant qu'un lot futur
+// réinlinerait tranquillement tout ce qu'on vient de sortir, sans un mot. Un
+// cliquet qu'on oublie de resserrer se désarme exactement comme un plancher
+// qu'on oublie de relever — c'est le plancher resté à 25 pendant que la chaîne
+// montait à 40, vu dans l'autre sens.
+// ⇒ Les deux nombres sont posés JUSTE AU-DESSUS des valeurs mesurées, et de
+// rien de plus : la marge est celle du bruit, pas celle du confort.
+// ⛔ 🎯 ET LA CIBLE DE 8 192 EST TENUE SUR LES DEUX SITES. Elle reste écrite :
+// elle n'est plus une dette, elle est devenue le contrat.
+const SEUIL_JS = 17408;            // 17 Ko — cliquet au-dessus des 16 125 o mesurés (pire page, veveprice)
+const PLAFOND_JS_PAR_PAGE = 8192;  // 🎯 LA CIBLE EST DEVENUE LE PLAFOND — mesuré 7 333 (veveprice) et 7 606 (vevewiki)
+const CIBLE_JS = 8192;             // la symétrie avec le <style> — ✅ ATTEINTE au lot 137
 
 let ko = 0;
 const dit = (bon, quoi, detail) => {

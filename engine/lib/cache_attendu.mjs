@@ -49,7 +49,7 @@ export { ZONES, PASSAGES, PAUSE_MS, DELAI_MS, METHODE };
 //   ⭐ C'est le même dispositif que le `plancher` de HSTS, et pour la même
 //   raison : un état qui vit hors du dépôt n'existe pour le dépôt que si
 //   quelqu'un l'y écrit à la main, le jour même.
-export const CACHE_RULE_POSEE = false;
+export const CACHE_RULE_POSEE = true;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 2. LE RÉGLAGE CHOISI — TTL court, aucune purge

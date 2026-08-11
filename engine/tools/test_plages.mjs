@@ -178,8 +178,28 @@ if (!parseHTML) {
 //    la source : c'est ce que le navigateur reçoit qui décide. Un post-traitement
 //    (i18n, minification) passe entre les deux, et il a déjà avalé un `<head>`
 //    entier au lot 129.
-const scripts = [...fiche.html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g)]
-  .map((m) => m[1]).filter((s) => s.includes('data-cadran'));
+// ⚡ LOT 137 (A2 / OPT‑3) — LE SCRIPT VOYAGE ENCORE AVEC LA PAGE, MAIS PAR
+// RÉFÉRENCE. Le pilote du cadran pesait 8 194 o RENDUS sur chacune des 90
+// fiches ; il est parti dans `socle-<empreinte>.js`, servi une fois.
+// ⭐⭐ LA PHRASE CI-DESSUS RESTE VRAIE, ET C'EST TOUT L'INTÉRÊT : « c'est ce que
+// le navigateur reçoit qui décide ». Un navigateur qui lit
+// `<script src="/socle-….js">` va CHERCHER le fichier — donc ce banc aussi. Il
+// suit le `src` dans `dist/`, exactement comme le ferait le navigateur.
+// ⛔⛔ ET IL NE SE CONTENTE PAS D'EXISTER : le fichier référencé doit être
+// PRÉSENT dans `dist/`. Un `<script src>` vers un fichier absent est un 404
+// silencieux — la page s'affiche, le build est vert, et le cadran est mort sur
+// 1 201 fiches. C'est la panne que ce banc doit voir en premier.
+const enLigne = [...fiche.html.matchAll(/<script(?![^>]*\ssrc=)[^>]*>([\s\S]*?)<\/script>/g)]
+  .map((m) => m[1]);
+const externes = [...fiche.html.matchAll(/<script[^>]*\ssrc="(\/socle-[a-f0-9]+\.js)"[^>]*>/g)]
+  .map((m) => m[1])
+  .map((href) => {
+    const f = join(DIST, href.replace(/^\//, ''));
+    verifie(`le fichier ${href} référencé par la page existe dans dist/`, existsSync(f),
+      existsSync(f) ? '' : 'un <script src> vers un fichier absent est un 404 muet : page verte, cadran mort');
+    return existsSync(f) ? readFileSync(f, 'utf8') : '';
+  });
+const scripts = [...enLigne, ...externes].filter((s) => s.includes('data-cadran'));
 verifie('le script du cadran voyage bien avec la page', scripts.length === 1,
   `${scripts.length} script(s) portant « data-cadran »`);
 if (scripts.length !== 1) fin();
