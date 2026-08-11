@@ -183,7 +183,23 @@ jobs:
         env:
           SITE: ${{ matrix.site }}
           WAREHOUSE_OFFLINE: '1'
+          # 🔴 LOT 135B (P32) — LA CI CONSTRUISAIT SANS CE MARQUAGE, donc
+          # `test:i18n` sortait INDECIDABLE depuis le lot 130. Le Dockerfile de
+          # PRODUCTION le pose : sans lui ici, la CI ne teste pas la condition
+          # dans laquelle le site est reellement construit.
+          I18N_MARQUAGE: '1'
         run: npm run build
+
+      # ⛔⛔ L'ORDRE EXACT DU DOCKERFILE, ET IL N'EST PAS NEGOCIABLE :
+      #   `I18N_MARQUAGE=1 npm run build` PUIS `npm run marquer:i18n`.
+      # Le build DEPOSE des marqueurs invisibles ; cette etape les ECHANGE
+      # contre les libelles. Construire sans echanger laisserait un `dist/`
+      # marque que les autres bancs liraient de travers — c'est ce defaut qui a
+      # fait couper les `<title>` trop tot (P28) et avaler 64 `<head>` au 129.
+      - name: Echanger les marqueurs i18n (comme le Dockerfile)
+        env:
+          SITE: ${{ matrix.site }}
+        run: npm run marquer:i18n
 
       # ⭐ WAREHOUSE_OFFLINE=1 : les bancs ne doivent joindre AUCUNE source.
       # Un banc qui appelle le reseau ne prouve rien le jour ou le reseau tombe,
@@ -192,6 +208,7 @@ jobs:
         env:
           SITE: ${{ matrix.site }}
           WAREHOUSE_OFFLINE: '1'
+          I18N_MARQUAGE: '1'
         run: npm test
 
       # ⭐⭐ LE GARDE-FOU DU GARDE-FOU, ET IL VIT DEHORS DE CE QU'IL SURVEILLE.
@@ -227,6 +244,32 @@ jobs:
             echo "ce plancher est la seule chose qui s'en plaigne."
             exit 1
           }
+
+      # 🔐 LOT 135B — LES EN-TETES DE SECURITE, ET CE BANC EST HORS DE `npm test`.
+      # ═══════════════════════════════════════════════════════════════════════
+      # 🔴🔴 POURQUOI IL N'EST PAS DANS LA CHAINE. `npm test` est declaree « la
+      # chaine complete, HORS RESEAU » et tourne sous `WAREHOUSE_OFFLINE=1` :
+      # aucun de ses bancs ne joint quoi que ce soit. Celui-ci interroge
+      # Cloudflare. Or `npm test` est une chaine `&&` : un banc qui sort en 2
+      # ARRETE tout ce qui suit. L'y mettre ferait echouer les 40 autres des
+      # que le reseau manque — un banc qui rougit pour une raison qui n'est pas
+      # la sienne, et le contraire de ce qu'on cherche.
+      # ⇒ Il vit dans cette etape, qui EST ce qui le reclame : supprimez le
+      #   script `test:entetes` de `package.json`, et cette etape echoue. Le
+      #   circuit est ferme sans passer par le plancher.
+      # ⛔ LE PLANCHER RESTE DONC A 40, ET C'EST JUSTE : la chaine `test` compte
+      #   toujours 40 bancs. Ne le montez pas a 41, il rougirait a tort.
+      # ⛔ ET IL N'EST PAS DANS LE DOCKERFILE : un hoquet Cloudflare ne doit
+      #   jamais empecher un deploiement.
+      # ⭐ `if: always()` — un ecart d'en-tete doit se voir MEME quand un autre
+      #   banc a deja echoue. C'est justement les jours ou tout va mal qu'on
+      #   verifie le moins.
+      # 🔴 Trois verdicts : conforme (0) · ecart (1) · INDECIDABLE (2). Reseau
+      #   muet ⇒ 2, JAMAIS 0. Un vert obtenu sans mesure serait un mensonge.
+      # ⚠️ AUCUN `env:` ICI, ET C'EST DELIBERE : cette etape a besoin du reseau.
+      - name: Les en-tetes de securite sont-ils toujours poses ?
+        if: always()
+        run: npm run test:entetes
 
       # 🔊 AJOUTÉ LE 07/08/2026 — MUTUALISATION DU CANAL DE PANNES.
       # ⭐⭐⭐ Un échec qui n'arrive nulle part n'est pas une alerte, c'est une
