@@ -132,10 +132,20 @@ jobs:
       # la chaine s'est arretee la, sans jamais atteindre `test:indexnow`.
       #
       # ⭐ Pourquoi personne ne l'avait vu : ce banc n'avait JAMAIS ete joue par
-      # une automatisation. Le Dockerfile installe `python3` mais ne lance pas
-      # `test:nginx`. Une dependance manquante reste invisible aussi longtemps
-      # que rien n'execute le banc — c'est exactement la raison d'etre d'A7bis,
-      # et ca s'est demontre en un run.
+      # une automatisation. Une dependance manquante reste invisible aussi
+      # longtemps que rien n'execute le banc — la raison d'etre d'A7bis.
+      #
+      # 🔴🔴 LOT 126 — LES TROIS LIGNES CI-DESSUS ETAIENT FAUSSES SUR UN POINT.
+      # Elles disaient « le Dockerfile installe python3 ». Verifie le 10/08 : le
+      # stage de build n'avait AUCUN `apk add`, et il ne lancait pas
+      # `test:nginx`. Une phrase fausse dans un commentaire se lit comme un etat
+      # et dispense d'aller voir — elle a survecu onze jours.
+      # ⭐⭐ Et ce workflow tourne sur `push: main` : APRES le depot, EN MEME
+      # TEMPS que le deploiement Coolify. Il CONSTATE, il n'EMPECHE pas. Le
+      # Dockerfile, lui, est la porte que le deploiement respecte — `test:nginx`
+      # y est desormais, avec python3 et crossplane, avant tous les autres.
+      # ⇒ Ici il reste un second filet, et c'est bien : ce workflow joue les
+      #   DEUX sites, la ou un build Docker n'en construit qu'un a la fois.
       #
       # ⭐ A saluer : `test_nginx.py` fait `sys.exit("crossplane est absent")`
       # au lieu de sauter le controle. Un banc qui refuse de tourner vaut mille
@@ -195,13 +205,24 @@ jobs:
           set -u
           n=$(node -e "process.stdout.write(String(require('./package.json').scripts.test.split(' && ').length))")
           echo "chaine test : $n banc(s)"
-          # 🔴 LOT 102/103 — PLANCHER RELEVE DE 17 A 25. Il valait 17 depuis le
-          # 30/07 ; la chaine en compte 25 depuis le lot 103. Un plancher qu'on
-          # oublie de relever autorise silencieusement sept suppressions — c'est
-          # un garde-fou qui se desarme tout seul, par le simple passage du temps.
-          # ⛔ Le relever fait partie de tout lot qui ajoute un banc.
-          [ "$n" -ge 25 ] || {
-            echo "ERREUR: la chaine est tombee a $n bancs (plancher 25)."
+          # 🔴🔴 LOT 134 — PLANCHER RELEVE DE 25 A 40, ET LE RETARD ETAIT DE
+          # QUINZE. Il valait 17 au 30/07, releve a 25 au lot 103, puis PLUS
+          # JAMAIS — pendant que la chaine passait de 25 a 40 bancs (lots 104 a
+          # 134). Le garde-fou autorisait donc **quinze suppressions en
+          # silence** : on pouvait retirer test:plages, test:series,
+          # test:tableau, test:tuiles, test:i18n, test:membre, test:marche… et
+          # ce workflow serait reste VERT, plus vite qu'avant.
+          # ⭐⭐⭐ UN PLANCHER QU'ON OUBLIE DE RELEVER NE SE PLAINT PAS : il se
+          # desarme tout seul, par le simple passage du temps, et il continue
+          # d'AFFICHER qu'il garde quelque chose. C'est la forme la plus
+          # discrete du « pose et jamais lu » — pose, lu, et devenu faux.
+          # ⛔ LE RELEVER FAIT PARTIE DE TOUT LOT QUI AJOUTE UN BANC. Ce n'est
+          # pas une formalite : c'est la seule ligne du depot qui remarque
+          # qu'un banc a disparu.
+          # ⚠️ Ce fichier NE VOYAGE PAS EN ZIP (`.github/workflows/*`) : il se
+          # colle a la main, PUIS on `diff` contre le depot.
+          [ "$n" -ge 40 ] || {
+            echo "ERREUR: la chaine est tombee a $n bancs (plancher 40)."
             echo "Un banc retire de \`npm test\` disparait SANS RIEN CASSER :"
             echo "ce plancher est la seule chose qui s'en plaigne."
             exit 1
