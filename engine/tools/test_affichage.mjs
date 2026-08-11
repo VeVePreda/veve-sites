@@ -28,7 +28,7 @@ import { readdirSync, readFileSync, existsSync, statSync } from 'node:fs';
 //   build (ligne 399), il ouvre déjà `dist/`, et son §1 juge déjà la mention
 //   d'édition — c'est le même sujet, au bon moment.
 import { BUDGETS } from '../lib/vignette.mjs';
-import { clen } from '../lib/seo.mjs';
+import { clen, texteVu } from '../lib/seo.mjs';
 import { nu } from '../lib/i18n.mjs';
 import { coteFermee } from '../lib/cote.mjs';
 import { SEUILS, largeursABalayer, seuilsDe, estSeuilDeclare } from '../lib/seuils.mjs';
@@ -860,7 +860,21 @@ console.log(`\n── 5. la vignette ── 📄 ${fichiers.length} page(s) ouve
 //   Dockerfile de production pose — une chaîne porte des sentinelles
 //   invisibles ET le nom de sa clé : `.length` en déclarerait 61 là où l'œil
 //   en voit 45. C'est ce qui a fait collider trois titres de set au lot 134.
-const texte = (h) => nu(h.replace(/<[^>]+>/g, '')).trim();
+// 🔴🔴🔴 LOT 139b — CE `texte()` A ARRÊTÉ LE DÉPLOIEMENT DE PRODUCTION.
+//   Il appelait `nu()` — qui retire les sentinelles i18n — et **rien d'autre**.
+//   Sur les 147 pages du bac à sable : vert. Sur les 3 098 pages réelles :
+//   **714 noms « trop longs »**, dont
+//       « I&#39;ll Take Those Odds »  compté 24, réellement **20** ✅
+//       « Mrs. Potts &amp; Chip »     compté 21, réellement **17** ✅
+//   Les 714 étaient conformes. `couperMots()` coupe le texte RÉEL à son
+//   budget ; l'encodage HTML ne fait qu'allonger sa représentation.
+//   ⛔ La réparation n'était PAS de relever les budgets pour faire taire le
+//   banc — `test_titres.mjs` l'interdisait déjà en toutes lettres, pour
+//   l'autre moitié exacte de ce défaut, écrite la veille.
+//   ⭐⭐ Marqueurs i18n (invisibles, en trop) et entités (visibles, en trop)
+//   sont la MÊME faute : compter le tampon au lieu du texte. `texteVu()` fait
+//   les deux, une fois, dans `seo.mjs`, à côté de `clen()`.
+const texte = (h) => texteVu(h.replace(/<[^>]+>/g, ''));
 const attrapeur = (h, cl) => [...h.matchAll(new RegExp(
   `<(?:div|span)[^>]*class="${cl}"[^>]*>([\\s\\S]*?)</(?:div|span)>`, 'g'))].map((m) => texte(m[1]));
 
@@ -983,6 +997,26 @@ const CAS = [
    '<a class="col-carte revele" href="/c/"><span class="cartouche__n">Disney100 Platinum Moment</span></a>', false, false],
   ['⑥ LE TEMOIN DE LA PORTE — la meme ligne que ①, cote OUVERTE : rien a demander',
    '<li class="rayon__l"><a class="rayon__c" href="/x/"><span class="rayon__n">Batman</span></a></li>', false, false],
+  // ═══════════════════════════════════════════════════════════════════════
+  // 🔴🔴🔴 LOT 139b — LES DEUX CAS QUI MANQUAIENT, ET LEUR ABSENCE A COÛTÉ UN
+  // DÉPLOIEMENT. ⛔ NE JAMAIS LES RETIRER.
+  // ═══════════════════════════════════════════════════════════════════════
+  // Les noms sont RECOPIÉS DU JOURNAL DE PRODUCTION du 11/08, à l'octet près.
+  // ⭐⭐⭐ L'ÉCHANTILLON HORS LIGNE NE LES CONTIENT PAS : 147 pages contre
+  // 3 098, 159 vignettes contre 2 142, 90 lignes contre 19 425 — et pas une
+  // seule apostrophe, pas un seul `&` dans un nom. *Un banc vert sur un
+  // échantillon qui ne contient pas le cas n'a rien mesuré du cas.* La seule
+  // façon de tenir cette règle hors ligne est de FABRIQUER la condition.
+  ['⑦ le nom RÉEL qui a arrêté la prod : « I&#39;ll Take Those Odds » (24 bruts, 20 vus)',
+   '<li class="rayon__l"><a class="rayon__c" href="/x/"><span class="rayon__n">I&#39;ll Take Those Odds</span>'
+   + '<span class="rayon__ext"></span></a></li>', false, true],
+  ['⑧ LE TÉMOIN INVERSE — 24 caractères RÉELS, sans aucune entité',
+   '<li class="rayon__l"><a class="rayon__c" href="/x/"><span class="rayon__n">Ill Take Those Odds Now!</span>'
+   + '<span class="rayon__ext"></span></a></li>', true, true],
+  // ⭐ SANS LE ⑧, LE ⑦ SEUL SERAIT SATISFAIT PAR UN BANC QUI NE COMPTE PLUS
+  //   RIEN DU TOUT. Le couple distingue « il a cessé de compter les entités »
+  //   de « il a cessé de compter ». *Un contrôle qui ne peut être satisfait
+  //   que d'une seule façon ne distingue pas la conformité de la panne.*
   ['⑤ LE TEMOIN — une ligne parfaitement conforme', 
    '<li class="rayon__l"><a class="rayon__c" href="/x/"><span class="rayon__n">Batman Gold</span>'
    + '<span class="rayon__s">Cosmic</span><span class="rayon__ext"></span></a></li>', false, true],

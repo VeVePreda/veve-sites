@@ -53,7 +53,7 @@ import { localeNames, nu, t } from '../lib/i18n.mjs';
 // nouveaux nombres ici. *Un seuil recopié est un seuil qui divergera ; un
 // avertissement qui n'arrête rien est un seuil qui n'existe pas.*
 import { DESC_MIN, DESC_MAX } from '../lib/editorial_pages.mjs';
-import { pageTitle, TITLE_BUDGET, couperMilieu, couperMots } from '../lib/seo.mjs';
+import { pageTitle, TITLE_BUDGET, couperMilieu, couperMots, texteVu } from '../lib/seo.mjs';
 
 const R = new URL('../..', import.meta.url).pathname;
 // Deux modes, deux racines : `dist/` (static) ou `dist/client/` (server).
@@ -95,19 +95,16 @@ const compteH1 = (html) => (html.match(/<h1(?=[\s>])/gi) || []).length;
 // ⭐⭐ *On mesure ce que le LECTEUR reçoit, jamais la sérialisation.* Les
 // marqueurs i18n (invisibles, en trop) et les entités (visibles, en trop) sont
 // la même faute : compter le tampon au lieu du texte.
-const ENTITES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: '\u00a0' };
-const decoder = (s) => String(s)
-  .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
-  .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCodePoint(parseInt(n, 16)))
-  // ⚠️ `&amp;` EN DERNIER, ET CE N'EST PAS UN DETAIL : le decoder en premier
-  // transformerait `&amp;lt;` en `&lt;` puis en `<` — un decodage en deux
-  // tours qui invente un caractere que la page ne contient pas.
-  .replace(/&(lt|gt|quot|apos|nbsp);/g, (_, e) => ENTITES[e])
-  .replace(/&amp;/g, '&');
-// ⭐ LE TEXTE TEL QU'ON LE LIT : sans marqueurs i18n, entites decodees, espaces
-// normalisees. Une seule fonction pour le titre ET la description — deux copies
-// d'une meme regle divergent, ce depot l'a paye trois fois sur des gabarits.
-const texte = (s) => decoder(nu(s)).replace(/\s+/g, ' ').trim();
+// 🔴🔴 LOT 139b — CE DÉCODEUR A DÉMÉNAGÉ DANS `engine/lib/seo.mjs`, ET LA
+// COPIE QUI VIVAIT ICI A COÛTÉ UN DÉPLOIEMENT DE PRODUCTION.
+// Il était écrit ici, juste, complet, avec sa leçon en toutes lettres. Puis
+// `test:affichage` §5 a été écrit le lendemain avec `nu()` SEUL : vert sur les
+// 147 pages du bac à sable, vert dans les quatre conditions, et **714 faux
+// rouges** sur les 3 098 pages de production — assez pour arrêter le build.
+// ⭐⭐⭐ *La leçon avait été apprise sur UN CAS et jamais généralisée.* Le
+// commentaire qui la racontait donnait l'illusion qu'elle était acquise.
+// ⇒ un seul module, deux importateurs. Il n'y a plus de copie à oublier.
+const texte = (s) => texteVu(s);
 
 const titreDe = (html) => {
   const m = html.match(/<head[\s>][\s\S]*?<\/head>/i);

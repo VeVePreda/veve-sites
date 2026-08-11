@@ -30,6 +30,59 @@ export const TITLE_BUDGET = 60;
 export const clen = (s) => [...String(s ?? '')].length;
 
 // ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 LOT 139b — LE TEXTE QUE LE LECTEUR REÇOIT, JAMAIS LA SÉRIALISATION
+// ═══════════════════════════════════════════════════════════════════════════
+// CE MODULE EXISTE PARCE QU'IL A ÉTÉ ÉCRIT DEUX FOIS, ET QU'UNE DES DEUX
+// COPIES MANQUAIT AU MOMENT OÙ ELLE COMPTAIT.
+//
+// Le 11/08/2026, `test:titres` a découvert que cinq descriptions de marque
+// s'annonçaient à 161–162 caractères alors qu'elles en font exactement 160 :
+// `&amp;` occupe CINQ octets dans l'attribut et UN caractère à l'écran. La
+// leçon a été écrite, longuement, dans `test_titres.mjs` — et elle y est
+// restée.
+//
+// Le 11/08 au soir, `test:affichage` §5 a été écrit avec `nu()` seul. Il est
+// passé vert sur les 147 pages du bac à sable, vert dans les quatre
+// conditions, et il a **arrêté le déploiement de production** avec
+// **714 noms « trop longs »** dont voici les deux premiers :
+//
+//     « I&#39;ll Take Those Odds »   compté 24, réellement **20**  ✅ conforme
+//     « Mrs. Potts &amp; Chip »      compté 21, réellement **17**  ✅ conforme
+//
+// ⭐⭐⭐ SEPT CENT QUATORZE FAUX ROUGES, ET LE GABARIT AVAIT RAISON SUR LES
+// SEPT CENT QUATORZE. `couperMots()` coupe le texte RÉEL à son budget ;
+// l'encodage HTML ne fait qu'allonger sa représentation. ⛔ La réparation
+// n'était pas de relever les budgets pour que le banc se taise — c'est
+// exactement ce que `test_titres.mjs` interdisait déjà en toutes lettres,
+// pour l'autre moitié du même défaut.
+//
+// ⭐⭐ *Une leçon apprise sur un cas et jamais généralisée produit le cas
+// suivant, et le commentaire qui la raconte donne l'illusion qu'elle est
+// acquise.* Quatrième occurrence de cette loi dans ce seul lot.
+// ⇒ UN MODULE, DEUX IMPORTATEURS. `test:titres` et `test:affichage` appellent
+// la même fonction. Il n'y a plus de copie à oublier.
+//
+// ⚠️ ET ELLE VIT ICI, à côté de `clen()` et `couperMots()` : *la fonction qui
+// COMPTE et la fonction qui NETTOIE doivent se lire côte à côte*, sinon on
+// appelle la première sans la seconde — ce qui vient d'arriver.
+const ENTITES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: '\u00a0' };
+const decoder = (s) => String(s)
+  .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
+  .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCodePoint(parseInt(n, 16)))
+  // ⚠️ `&amp;` EN DERNIER, ET CE N'EST PAS UN DÉTAIL : le décoder en premier
+  // transformerait `&amp;lt;` en `&lt;` puis en `<` — un décodage en deux
+  // tours qui invente un caractère que la page ne contient pas.
+  .replace(/&(lt|gt|quot|apos|nbsp);/g, (_, e) => ENTITES[e])
+  .replace(/&amp;/g, '&');
+
+/** Le texte tel qu'un LECTEUR le reçoit : sans marqueurs i18n (invisibles, en
+ *  trop), entités décodées (visibles, en trop), espaces normalisées.
+ *  ⭐⭐ Les deux sont la MÊME faute sous deux costumes : compter le tampon au
+ *  lieu du texte. ⛔ Tout `clen()` / `.length` / `.slice()` appliqué à du HTML
+ *  servi passe par ici d'abord. */
+export const texteVu = (s) => decoder(nu(s)).replace(/\s+/g, ' ').trim();
+
+// ═══════════════════════════════════════════════════════════════════════════
 // 🔴🔴🔴 LOT 134b — L'ELLIPSE PASSE AU MILIEU, ET C'EST UNE CORRECTION DE FOND
 // ═══════════════════════════════════════════════════════════════════════════
 // TROUVE PAR `test:titres` DANS LE BUILD DOCKER, SUR LE CATALOGUE REEL — jamais
