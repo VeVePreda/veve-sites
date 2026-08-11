@@ -57,8 +57,36 @@ const ZONES = [
   // ⚠️ Elles ne peuvent etre effacees QUE parce qu'elles emettent desormais un
   // TALON (le `redirect` ajoute dans chaque page). Sans lui, ce garde-fou ne
   // les toucherait pas — il refuse d'effacer une vraie page, par conception.
+  // ═════════════════════════════════════════════════════════════════════════
+  // 🔴🔴 LOT 136 — `/favoris/` ET `/dashboard/` REJOIGNENT LA ZONE.
+  // ═════════════════════════════════════════════════════════════════════════
+  // MESURÉ SUR LA PRODUCTION LE 11/08/2026 : `vevewiki.com/favoris/` rendait
+  // **200** (418 o) et `/dashboard/` **200** (430 o) — deux TALONS de
+  // redirection vers `/connexion/`, qui est un **404** sur ce site. Deux pages
+  // fantômes qui envoient un visiteur nulle part, sur un site dont il est GELÉ
+  // qu'il n'aura jamais d'espace membre.
+  //
+  // ⭐⭐⭐ ET C'EST EXACTEMENT LE DÉFAUT DU LOT 44, DEUX LOTS PLUS TARD.
+  //   Le lot 104 a ajouté `market`, `favoris` et `dashboard` à `ROUTES_COMPTE`.
+  //   `/market/` s'est trouvé couvert PAR HASARD — il figure dans la zone
+  //   « prix ». Les deux autres n'étaient couverts par personne, et rien ne
+  //   pouvait le dire : le build restait vert, les pages étaient en `noindex`,
+  //   aucun humain ne va sur `/dashboard/` d'un wiki.
+  // ⭐⭐ C'est `regle-circuit-ouvert` en entier : QUELQU'UN ÉCRIT (le lot 104
+  //   ajoute des routes de compte), PERSONNE NE LIT (ce tableau n'a pas bougé).
+  //   Le fichier annonce pourtant en tête « ajouter une fonctionnalité gatée =
+  //   ajouter une ligne ici, rien d'autre » — le contrat était écrit, il n'était
+  //   réclamé par rien.
+  // ⇒ Le remède n'est pas cette ligne, c'est le § 1 de `test:cache` qui compare
+  //   désormais `ROUTES_COMPTE` à ces préfixes et rougit à la prochaine
+  //   omission. *Une phrase se relit ; un banc se déclenche.*
+  //
+  // ⚠️ Le garde-fou d'origine tient toujours : ces deux pages ne sont effacées
+  //   QUE parce qu'elles émettent un TALON (meta refresh + noindex) — mesuré
+  //   ci-dessus. Si l'une devenait une vraie page, l'intégration refuserait d'y
+  //   toucher et le dirait tout haut, par conception.
   { nom: 'comptes', actif: comptesActifs,
-    prefixes: ['/inscription/', '/compte/', '/connexion/'] },
+    prefixes: ['/inscription/', '/compte/', '/connexion/', '/favoris/', '/dashboard/'] },
 ];
 
 const estTalon = (html) =>

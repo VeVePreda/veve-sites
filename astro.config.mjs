@@ -103,4 +103,30 @@ export default defineConfig({
   build: { format: 'directory' },
   compressHTML: true,
   devToolbar: { enabled: false },
+  // ═════════════════════════════════════════════════════════════════════════
+  // 🔬 LOT 136 — L'IDENTITE DU BUILD, FIGEE A LA COMPILATION (P35)
+  // ═════════════════════════════════════════════════════════════════════════
+  // ⭐⭐ POURQUOI ICI ET PAS DANS LA ROUTE. Le processus qui SERT n'a pas
+  //   l'environnement du BUILD — c'est la lecon deja payee par `/api/sante`,
+  //   qui repondait `"mode":"static"` sur un site tournant en mode server parce
+  //   qu'elle lisait `process.env.RENDERING` a la requete. Une valeur de build
+  //   se GRAVE dans le bundle, elle ne se lit pas plus tard.
+  // ⭐ Et une horodatage calcule a la requete rendrait « maintenant » : la seule
+  //   reponse qui ne renseigne sur rien.
+  //
+  // ⛔ `__COMMIT__` vaut `null` si le constructeur ne passe pas de SHA, et ce
+  //   n'est PAS un defaut a masquer. INCONNU ≠ ZERO : `test:cache` sort
+  //   INDECIDABLE sur ce point. Le jour ou Coolify (ou un `--build-arg`) fournit
+  //   `SOURCE_COMMIT`, la valeur apparait sans qu'aucune ligne ne change ici.
+  //   ⚠️ Les trois noms sont acceptes parce qu'on ne sait pas lequel le
+  //   constructeur emploie — et le DEMANDER coute une conversation, alors que
+  //   les trois accepter coute une ligne. On mesurera lequel a servi.
+  vite: {
+    define: {
+      __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
+      __COMMIT__: JSON.stringify(
+        process.env.SOURCE_COMMIT || process.env.GIT_COMMIT || process.env.COMMIT_SHA || null,
+      ),
+    },
+  },
 });

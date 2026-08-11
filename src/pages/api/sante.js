@@ -69,6 +69,39 @@ const SITE = import.meta.env.SITE || 'veveprice';
 // ⭐⭐⭐ « CAUSE A » ET « CAUSE B » NE DOIVENT PAS EMPRUNTER LE MEME CHEMIN DE
 //   SORTIE, exactement comme « je ne sais pas » ne doit pas emprunter celui de
 //   « rien a signaler ».
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔬 LOT 136 — LA SONDE DIT ENFIN *QUELLE VERSION* ELLE SERT (P35)
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// CE QUE CA A COUTE DE NE PAS L'AVOIR, ET C'EST MESURE : le 11/08/2026, un
+// deploiement declare ECHOUE tournait, et DEUX conteneurs servaient en
+// parallele sur le meme reseau. Six `curl` identiques ne prouvaient rien : ils
+// pouvaient tomber sur l'un ou sur l'autre, et les deux repondaient `ok:true`.
+// « Quelle version sert la production ? » etait litteralement INDECIDABLE.
+//
+// ⭐⭐ ET LE CACHE REND CETTE QUESTION CENTRALE, PAS ANECDOTIQUE. A partir du
+//   moment ou Cloudflare sert le HTML depuis le bord, un deploiement peut
+//   REUSSIR sans atteindre personne : l'origine sert la nouvelle version, le
+//   bord continue de servir l'ancienne, et rien ne rougit nulle part. Sans ce
+//   champ, ce chemin de panne serait invisible — c'est exactement le profil
+//   « posé ≠ branché ».
+//
+// ⛔ `commit` PEUT ETRE `null`, ET C'EST ECRIT COMME TEL. Rien ne garantit que
+//   le constructeur passe un SHA (Coolify ne le fait pas toujours). ⭐ INCONNU
+//   ≠ ZERO : la sonde rend `null`, et `test:cache` sort INDECIDABLE sur ce
+//   point plutot que de conclure. Une valeur inventee serait pire qu'absente —
+//   c'est la lecon de la sonde qui repondait `"mode":"static"` sur un site en
+//   mode server.
+//
+// ⭐ Les deux valeurs sont FIGEES A LA COMPILATION (`vite.define` dans
+//   `astro.config.mjs`), pas lues a la requete. Meme raison que `MODE` juste
+//   au-dessus : le processus qui SERT n'a pas l'environnement du BUILD. Une
+//   sonde qui lit son horodatage a la requete rendrait « maintenant », c'est-a-
+//   dire la seule reponse qui ne renseigne sur rien.
+/* global __BUILD_TIME__, __COMMIT__ */
+const BUILD = typeof __BUILD_TIME__ === 'string' ? __BUILD_TIME__ : null;
+const COMMIT = typeof __COMMIT__ === 'string' && __COMMIT__ ? __COMMIT__ : null;
+
 const branche = () => ({
   inscription: Boolean(process.env.INSCRIPTION_API),
   session: Boolean(process.env.SESSION_API),
@@ -81,6 +114,9 @@ export const GET = ({ url }) => new Response(
     ok: true,
     mode: MODE,
     site: SITE,
+    // 🔬 P35 — ce que sert CE processus, pas ce qu'on croit avoir deploye.
+    build: BUILD,
+    commit: COMMIT,
     origin: url.origin,
     proto: url.protocol.replace(':', ''),
     comptes: branche(),
