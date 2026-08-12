@@ -86,10 +86,10 @@ jobs:
             secret_deploy: COOLIFY_DEPLOY_URL
     steps:
       - name: Checkout veve-sites
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Checkout scrapeur-veve (le récolteur)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: VeVePreda/scrapeur-veve
           token: ${{ secrets.SCRAPEUR_VEVE_PAT }}
