@@ -123,13 +123,30 @@ const corps = async (r) => JSON.parse(await r.text());
 // contrôle qui n'a rien inspecté n'a rien prouvé, et c'est justement sur
 // vevewiki qu'il vient de tomber. Les DEUX contrats sont vérifiés, chacun sur
 // le site où il s'applique.
-const { PALIERS, porte: porteAcces } = await import('../lib/access.mjs');
+const { PALIERS, porte: porteAcces, profondeur } = await import('../lib/access.mjs');
 const PORTE = porteAcces('price_history');
 const ACTIVE = PORTE.actif;
 const EXIGE = PORTE.tier;
-const DESSOUS = PALIERS[Math.max(0, PALIERS.indexOf(EXIGE) - 1)];
+// 🔴🔴🔴 LOT 140-1 — LA FRONTIERE A CHANGE DE NATURE, ET CE BANC RECLAMAIT
+// L'ANCIENNE LOI. Jusqu'au 12/08 la route etait un OUI/NON contre le palier de
+// la porte (`crevette`) : la frontiere etait « juste en dessous de EXIGE ».
+// Depuis, elle sert une PROFONDEUR lue dans `plages:` — un membre recoit 3 jours
+// au lieu d'un 403. Ce banc est donc devenu rouge, et il avait RAISON de l'etre :
+// il tenait le contrat d'avant.
+// ⭐⭐ ON LE RETOURNE, ON NE LE DESARME PAS. Il reclamait « le palier du dessous
+// ne recoit RIEN » ; il reclame maintenant la meme chose, mais sur la BONNE
+// frontiere — le dernier palier a qui la grille n'accorde aucune profondeur.
+// ⛔ Et il ne code toujours AUCUN palier en dur : il interroge la meme source
+// que le code teste. Un banc qui suppose le manifeste teste un site imaginaire.
+const SERVIS = PALIERS.filter((p) => profondeur({ palier: p }) !== 0);
+const PLUS_BAS_SERVI = SERVIS[0] || null;
+const DESSOUS = PLUS_BAS_SERVI
+  ? PALIERS[Math.max(0, PALIERS.indexOf(PLUS_BAS_SERVI) - 1)]
+  : PALIERS[Math.max(0, PALIERS.indexOf(EXIGE) - 1)];
 console.log(ACTIVE
-  ? `  (site à paliers : la porte exige « ${EXIGE} » ; juste en dessous : « ${DESSOUS} »)`
+  ? `  (site à paliers : la porte exige « ${EXIGE} » ; profondeurs : `
+    + PALIERS.map((p) => `${p}=${profondeur({ palier: p }) === -1 ? '∞' : profondeur({ palier: p }) + 'j'}`).join(' · ')
+    + `\n   le plus bas SERVI : « ${PLUS_BAS_SERVI} » ; juste en dessous, et qui ne doit RIEN recevoir : « ${DESSOUS} »)`
   : `  (site GRATUIT : price_history est inactive — tout le monde franchit, et`
     + ` c'est le contrat. Les cas de refus ne s'appliquent pas ici.)`);
 
@@ -144,7 +161,7 @@ await cas('AUCUNE session -> 401, et AUCUNE donnée', async () => {
 await cas('locals absent (middleware jamais exécuté) -> 401', async () => {
   assert.equal((await appel(A, undefined)).status, 401);
 });
-if (ACTIVE) await cas(`palier JUSTE EN DESSOUS (« ${DESSOUS} ») -> refus, et AUCUNE donnée`, async () => {
+if (ACTIVE) await cas(`palier JUSTE EN DESSOUS DU PREMIER SERVI (« ${DESSOUS} ») -> refus, et AUCUNE donnée`, async () => {
   // ⭐ Le palier immédiatement inférieur, pas `visitor` : c'est la frontière
   // qui se casse quand `auMoins()` passe d'un `>=` à un `>`, ou quand
   // quelqu'un insère un palier AU MILIEU de PALIERS (l'ordre est la seule
@@ -174,12 +191,59 @@ await cas("site gratuit : ce n'est PAS une fuite — rien n'est réservé", () =
     'porte inactive : le plafond doit être levé (Infinity), sinon le site tronque sans rien vendre');
 });
 }
-await cas(`palier SUFFISANT (« ${EXIGE} ») -> 200 et les points`, async () => {
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴 LOT 140-1 — LA PROFONDEUR SERVIE, ET SON TEMOIN INVERSE
+// ═══════════════════════════════════════════════════════════════════════════
+// ⛔⛔ SANS LE TEMOIN INVERSE, UN PLAFOND QUI NE TRONQUE RIEN SERAIT VERT.
+// C'est le defaut le plus probable de cette feature : la route rend 200, le
+// client dessine, l'ecran est joli — et le membre recoit TOUT l'historique,
+// c'est-a-dire la marchandise. On verifie donc les DEUX moities : ce qu'il
+// recoit, ET ce qu'il ne recoit pas.
+// ⭐ Aucune valeur n'est ecrite en dur : les bornes se lisent dans le FICHIER
+// de reserve, la profondeur dans le MANIFESTE. Le banc ne recalcule pas la
+// troncature avec la fonction qu'il teste — il verifie une PROPRIETE
+// (« tout ce qui est recu est dans la fenetre, et rien de ce qui est hors
+// fenetre n'est recu »), ce qui n'est pas la meme chose.
+const TOUS_PTS = lu.p;
+const FIN = TOUS_PTS[TOUS_PTS.length - 1][0];
+
+await cas(`palier SANS BORNE -> 200 et TOUS les points (aucune troncature)`, async () => {
+  const illimite = PALIERS.filter((p) => profondeur({ palier: p }) === -1).pop();
+  if (!illimite) return;                       // site sans palier illimite : rien a juger
+  const c = await corps(await appel(A, { palier: illimite }));
+  assert.equal(c.ok, true);
+  assert.equal(c.h.n, TOUS_PTS.length, `« ${illimite} » doit tout recevoir`);
+});
+
+for (const pal of PALIERS.filter((p) => profondeur({ palier: p }) > 0)) {
+  const N = profondeur({ palier: pal });
+  const dedans = TOUS_PTS.filter((p) => p[0] >= FIN - N * 86400);
+  const dehors = TOUS_PTS.filter((p) => p[0] < FIN - N * 86400);
+  await cas(`« ${pal} » (${N} j) -> 200, et SEULEMENT les relevés de la fenêtre`, async () => {
+    const r = await appel(A, { palier: pal });
+    assert.equal(r.status, 200, 'un palier a qui la grille accorde une profondeur ne doit plus recevoir 403');
+    const c = await corps(r);
+    assert.equal(c.ok, true);
+    assert.equal(c.profondeur, N, 'la réponse doit ANNONCER la profondeur servie');
+    assert.equal(c.h.n, c.h.p.length, '`n` doit décrire ce qui est RÉELLEMENT servi');
+    assert.equal(c.h.n, dedans.length, `${dedans.length} relevé(s) dans la fenêtre de ${N} j`);
+    // ⛔⛔ LE TEMOIN INVERSE : aucun relevé HORS fenêtre ne doit passer.
+    const recus = new Set(c.h.p.map((p) => p[0]));
+    for (const p of dehors) {
+      assert.equal(recus.has(p[0]), false,
+        `🔴 le relevé du ${new Date(p[0] * 1000).toISOString().slice(0, 10)} est HORS des ${N} j `
+        + `et il a été servi : la troncature ne tronque pas`);
+    }
+    // ⭐ Et c'est bien un SUFFIXE : les DERNIERS relevés, pas les premiers. Une
+    //   troncature qui garderait le debut rendrait un graphe faux, pas vide.
+    assert.deepEqual(c.h.p.map((p) => p[0]), dedans.map((p) => p[0]));
+  });
+}
+
+await cas(`palier SUFFISANT POUR LA PORTE (« ${EXIGE} ») -> 200`, async () => {
   const r = await appel(A, { palier: EXIGE });
   assert.equal(r.status, 200);
-  const c = await corps(r);
-  assert.equal(c.ok, true);
-  assert.equal(c.h.n, 3);
+  assert.equal((await corps(r)).ok, true);
 });
 await cas('la réponse n\'est JAMAIS mise en cache partagé', async () => {
   const r = await appel(A, { palier: EXIGE });

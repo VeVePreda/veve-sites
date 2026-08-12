@@ -29,7 +29,17 @@ hotes.forEach(function (hote) {
         credentials: 'same-origin', headers: { accept: 'application/json' }
       }).then(function (r) { return r.ok ? r.json() : null; }).then(function (c) {
         if (!c || !c.ok || !c.c || !c.c.courbe || c.c.courbe.length < 2) return null;
-        recevoir(c.c.courbe, { normalisee: true });
+        // 🔴🔴 LOT 140-2 — `palier: c.palier` ETAIT ABSENT, ET C'EST TOUTE LA PANNE.
+        // Cette branche est le REPLI : on n'y arrive qu'apres un refus de
+        // `/api/historique/`. C'est donc la SEULE que prend un palier a qui la
+        // porte `price_history` dit non — c'est-a-dire, du lot 132 au lot 140,
+        // TOUT MEMBRE. La reponse de `/api/cote/` porte son palier (route,
+        // ligne 72) ; on le jetait, `deverrouiller()` lisait `meta.palier ||
+        // 'visitor'`, et « 3 J — Member unlocks this » restait cadenasse A VIE.
+        // ⭐ Une ligne. Mais ce qui la tient, c'est `test_plages.mjs` §3 ter, qui
+        //   FABRIQUE le refus au lieu de l'esperer : le banc d'avant rendait 200
+        //   au premier appel, donc n'empruntait jamais ce chemin.
+        recevoir(c.c.courbe, { normalisee: true, palier: c.palier });
         return null;
       });
     }).catch(function (e) {

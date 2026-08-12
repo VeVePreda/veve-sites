@@ -142,6 +142,20 @@ export function acces() {
   // itere PORTES_CONNUES : une porte inventee dans le manifeste etait ignoree
   // EN SILENCE. Un manifeste qui ne fait rien et ne dit rien est pire qu'un
   // manifeste qui echoue. On tient la promesse ici.
+  // 🔴🔴 LOT 140-1 — `caps:` EST INTERDIT SUR `price_history`, ET C'EST LE COEUR
+  // DE LA FEATURE. La profondeur accordee a chaque palier se LIT dans
+  // `plages:` — la meme liste qui dessine les boutons. Declarer en plus des
+  // `caps` ici ecrirait la MEME decision a deux endroits : le jour ou Preda
+  // change la grille, les boutons diraient une chose et l'API en servirait une
+  // autre, sans qu'aucun build echoue. C'est le defaut de famille de ce projet
+  // (« deux verites, une seule appliquee »), et ce fichier existe pour le
+  // refuser. ⭐ `alerts` garde ses `caps` : la, il n'y a pas de deuxieme liste.
+  if ((brut.gates || {}).price_history && (brut.gates.price_history.caps !== undefined)) {
+    throw new Error('[acces] access.gates.price_history.caps est interdit : la profondeur '
+      + 'accordee a chaque palier se declare UNE SEULE FOIS, dans `plages:` '
+      + '(la liste qui dessine aussi les boutons). Retirer `caps:` et ajuster `plages:`.');
+  }
+
   const inconnues = Object.keys(brut.gates || {}).filter((n) => !PORTES_CONNUES.has(n));
   if (inconnues.length) {
     throw new Error(`[acces] porte inconnue dans access.gates : ${inconnues.join(', ')} `
@@ -385,6 +399,67 @@ export function plages() {
     const verrouillee = tier !== 'visitor' && tiers.includes(tier);
     return { cle: String(p.cle), jours: p.jours ?? null, tier, verrouillee };
   });
+}
+
+// ---------------------------------------------------------------------------
+// 🔴🔴🔴 LOT 140-1 — LA PROFONDEUR ACCORDEE : « combien de jours », pas « oui/non »
+// ---------------------------------------------------------------------------
+// ⭐⭐⭐ CE QU'ELLE REPARE, ET LA MESURE QUI L'A TROUVEE (12/08/2026).
+// `/api/historique/[uuid]` appelait `franchit('price_history')`, un OUI/NON
+// contre le palier de la porte (`crevette`). Or le manifeste declare, depuis le
+// lot 132, une grille GRADUEE : 3 j -> member · 7 j -> crevette · 30 j + 90 j ->
+// langouste · Max -> whale. Un membre etait donc refuse (403) par la seule route
+// capable de lui livrer ses 3 jours, retombait sur `/api/cote/`, et voyait
+// « 3 J — Member unlocks this » cadenasse A VIE.
+// ⭐⭐⭐ L'arbitrage du lot 132 etait juste, complet, ecrit au bon endroit — et
+// AUCUN mecanisme ne pouvait le livrer. Une demande juste peut viser un
+// mecanisme impuissant : on mesure qu'il PEUT produire l'effet, avant de coder.
+//
+// ⭐⭐ POURQUOI ELLE DERIVE DE `plages()` ET PAS DE `caps:`. `plafond()` savait
+// deja lire des `caps` par palier (`alerts` s'en sert) — c'etait la reponse
+// evidente. Elle aurait ecrit la profondeur DEUX FOIS : dans `caps:` pour l'API,
+// dans `plages:` pour les boutons. Ce depot a paye trois fois ce defaut : deux
+// listes ne divergent pas bruyamment, elles se contredisent en silence.
+// ⇒ La GRILLE FAIT LOI (arbitrage Preda du 12/08). Un invariant, pas une 2e
+//   liste. `acces()` LEVE si un manifeste declare `caps:` sur `price_history`.
+//
+// ⚠️ TROIS VALEURS, TROIS SENS, ET IL FAUT LES DIRE :
+//     -1  sans borne     (la porte est inactive, ou une plage `jours: null`)
+//      0  RIEN           (aucune plage n'est ouverte a ce palier -> 401/403)
+//      N  N jours        (la plus longue plage ouverte a ce palier)
+// ⛔ NE PAS confondre 0 et -1 : c'est exactement le piege de `plafond()`, qui
+//   rend -1 quand la porte dort et 0 quand le palier manque. Un site gratuit
+//   (vevewiki, `tiers: [visitor]`) doit rester ENTIEREMENT ouvert, pas muet.
+export function profondeur(locals) {
+  const p = porte('price_history');
+  // Porte inactive = site sans palier payant : tout est public, comme
+  // `franchit()` le fait deja. ⛔ Rendre 0 ici rendrait vevewiki muet.
+  if (!p.actif) return -1;
+
+  const grille = plages();
+  // ⛔ AUCUN DEFAUT INVENTE, ET AUCUNE REGRESSION NON PLUS. Un site qui active
+  // la porte sans declarer de plages n'a pas demande une grille : on retombe
+  // sur le comportement binaire d'avant le lot 140, mot pour mot. Rendre 0
+  // fermerait l'historique a tout le monde sur un manifeste parfaitement legal.
+  if (!grille.length) return franchit('price_history', locals) ? -1 : 0;
+
+  const moi = palierVisiteur(locals);
+  let max = 0;
+  for (const g of grille) {
+    // `auMoins` compare des RANGS : un whale franchit une plage `member`.
+    if (!auMoins(moi, g.tier)) continue;
+    // `jours: null` = sans borne, et elle DOMINE : inutile de continuer.
+    // ⚠️ « sans borne » n'est pas « 0 » — la confusion raboterait la courbe du
+    //   palier le plus cher a rien, ce que `test_plages.mjs` refuse deja cote
+    //   bouton. Ici c'est la meme faute, cote donnee.
+    if (g.jours === null) return -1;
+    const j = Number(g.jours);
+    // ⛔ Un NaN dans une profondeur est une mine : toute comparaison le rend
+    //   faux POUR TOUJOURS. On l'ignore, on ne le propage pas.
+    if (!Number.isFinite(j) || j <= 0) continue;
+    if (j > max) max = j;
+  }
+  return max;
 }
 
 // ---------------------------------------------------------------------------

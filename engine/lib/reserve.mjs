@@ -207,3 +207,40 @@ export function fermer(publies) {
 }
 
 export const estActive = () => actif;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴 LOT 140-1 — LA TRONCATURE, ET ELLE VIT ICI PARCE QUE LE FORMAT VIT ICI
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// ⭐ POURQUOI PAS DANS LA ROUTE. `fermer()`, dix lignes plus haut, ECRIT le
+// format `{u, n, p:[[ts, floor, listings], …]}` trie par ts. Une fonction qui
+// le RECOUPE doit vivre a cote de celle qui l'ECRIT, sinon le jour ou le format
+// bouge, l'une des deux ne le sait pas. Un seul fichier connait la forme.
+//
+// ⛔⛔ ELLE NE S'APPELLE JAMAIS AU BUILD. `dataset()` cuit les points dans le
+// HTML, et un build n'a QU'UN palier : tronquer la-bas graverait la profondeur
+// d'un seul palier dans 3 097 pages statiques. La troncature se fait A LA
+// LECTURE, dans la route, une fois qu'on sait QUI demande.
+// ⛔ Et elle n'ecrit RIEN : pas cinq fichiers de reserve par piece, un par
+//   palier. `test:reserve` fait echouer le build si la reserve entre dans dist/.
+//
+// ⭐⭐ L'ANCRAGE EST LE **DERNIER RELEVE**, PAS L'HEURE COURANTE (arbitrage Preda
+// du 12/08). Deux raisons, et la seconde est la vraie :
+//   · un scan en retard de deux jours servirait UN jour de courbe a un membre a
+//     qui on en promet trois — sans que rien n'echoue ni ne le dise ;
+//   · et `cadran.js` filtre DEJA comme ca cote client (`fin = dernier point ;
+//     seuil = fin - jours*86400`, comparaison `>=`). Deux regles differentes ici
+//     et la-bas se rattraperaient l'une l'autre et ne se verraient jamais.
+//   ⇒ MEME ancrage, MEME comparaison. C'est un invariant, pas une coincidence.
+//
+// @param {{u:string,n:number,p:number[][]}} serie  la reserve, telle qu'ecrite
+// @param {number} jours  -1 = sans borne · 0 = rien · N = les N derniers jours
+export function tronquer(serie, jours) {
+  const p = (serie && Array.isArray(serie.p)) ? serie.p : [];
+  if (jours === -1) return { ...serie, p, n: p.length, tronque: false };
+  if (!(jours > 0) || !p.length) return { ...serie, p: [], n: 0, tronque: true };
+  const fin = p[p.length - 1][0];
+  const seuil = fin - jours * 86400;
+  const vus = p.filter((pt) => pt[0] >= seuil);
+  return { ...serie, p: vus, n: vus.length, tronque: vus.length < p.length };
+}

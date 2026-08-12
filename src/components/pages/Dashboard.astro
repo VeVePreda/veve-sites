@@ -59,7 +59,7 @@
 import Base from '../../layouts/Base.astro';
 import { t, localize, numberLocale, pick } from '../../../engine/lib/i18n.mjs';
 import { manifest } from '../../../engine/lib/manifest.mjs';
-import { catalogueModules, porte, plages, PALIERS } from '../../../engine/lib/access.mjs';
+import { catalogueModules, porte, plages, PALIERS, profondeur as profondeurAccordee } from '../../../engine/lib/access.mjs';
 import { priceEnabled } from '../../../engine/lib/features.mjs';
 import { lireMarche } from '../../../engine/lib/cote.mjs';
 
@@ -109,9 +109,19 @@ const nb = (v) => (typeof v === 'number' ? v.toLocaleString(nf) : null);
 const LES_PLAGES = avecPrix ? plages() : [];
 const ouvertes = LES_PLAGES.filter((p) => monRang >= rang(p.tier));
 const suivante = LES_PLAGES.find((p) => monRang < rang(p.tier)) || null;
-const sansBorne = ouvertes.some((p) => p.jours === null);
-const profondeur = sansBorne ? null
-  : ouvertes.reduce((n, p) => Math.max(n, p.jours || 0), 0);
+// 🔴🔴 LOT 140-1 — CETTE PAGE RECALCULAIT LA PROFONDEUR, ET C'ETAIT LA TROISIEME
+// COPIE DE LA MEME LOI (l'API, les boutons de la fiche, et ici). Aucune n'etait
+// fausse — c'est ce qui rend ce defaut cher : trois lectures justes de la meme
+// liste, qui divergent le jour ou UNE d'entre elles apprend une regle de plus.
+// Le lot 140 en a ajoute une (`jours <= 0` ignore, NaN ignore) : les deux autres
+// ne l'auraient jamais sue. ⭐ On appelle donc la MEME fonction que la route.
+// ⚠️ TRADUCTION DES SENTINELLES, ET ELLE EST EXPLICITE : `access.mjs` parle en
+//   `-1 / 0 / N`, cette page en `null / 0 / N`. Le `-1` ne doit surtout pas
+//   tomber dans `t('dash.depth', { n: -1 })` — « -1 jour » sur un tableau de
+//   bord est exactement le chiffre faux que le commentaire du haut interdit.
+const profAccordee = avecPrix ? profondeurAccordee({ palier }) : 0;
+const sansBorne = profAccordee === -1;
+const profondeur = sansBorne ? null : profAccordee;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // LES TUILES

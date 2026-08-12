@@ -50,8 +50,8 @@ export function getStaticPaths() { return []; }
 
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { RESERVE_DIR, uuidValide } from '../../../../engine/lib/reserve.mjs';
-import { porte, franchit } from '../../../../engine/lib/access.mjs';
+import { RESERVE_DIR, uuidValide, tronquer } from '../../../../engine/lib/reserve.mjs';
+import { porte, profondeur } from '../../../../engine/lib/access.mjs';
 
 // ⭐ Un seul en-tête, posé une fois. `no-store` n'est pas une optimisation
 // négative : sans lui, un cache intermédiaire peut servir la réponse d'un
@@ -89,8 +89,22 @@ export async function GET({ params, locals }) {
   //    ⭐ `franchit()` répond à tout : porte inactive (site gratuit) => vrai
   //    pour tout le monde ; sinon comparaison de RANGS entre le palier de la
   //    session et celui du manifeste. Aucun test de palier n'est écrit ici.
+  //    🔴🔴🔴 LOT 140-1 — CE N'EST PLUS UN OUI/NON, C'EST UNE PROFONDEUR.
+  //    `franchit()` comparait le palier de la session à celui de la PORTE
+  //    (`crevette`). Un membre prenait donc 403 sur la seule route capable de
+  //    lui livrer les 3 jours que le manifeste lui promet depuis le lot 132 —
+  //    l'arbitrage était juste, complet, écrit au bon endroit, et AUCUN
+  //    mécanisme ne pouvait le livrer.
+  //    ⭐ `profondeur()` lit `plages:`, c'est-à-dire LA MÊME LISTE qui dessine
+  //    les boutons. Une seule déclaration : l'API ne peut plus servir autre
+  //    chose que ce que l'écran promet. (`acces()` LÈVE si un manifeste tente
+  //    d'écrire la même décision une deuxième fois, dans `caps:`.)
+  //    ⚠️ TROIS VALEURS, TROIS SENS : `-1` sans borne · `0` rien · `N` N jours.
+  //    Ne pas confondre `0` et `-1` — un site gratuit (vevewiki, porte
+  //    inactive) reçoit `-1` et reste ENTIÈREMENT ouvert.
   const p = porte('price_history');
-  if (!franchit('price_history', locals)) {
+  const prof = profondeur(locals);
+  if (prof === 0) {
     // 401 si personne n'est identifié (« connecte-toi »), 403 si quelqu'un
     // l'est mais n'a pas le rang (« ton palier ne suffit pas »). Les deux
     // méritent des messages différents DANS L'INTERFACE, et c'est le seul
@@ -114,14 +128,44 @@ export async function GET({ params, locals }) {
   }
 
   const brut = readFileSync(chemin, 'utf8');
+
+  // ⭐⭐ LE CHEMIN « SANS BORNE » NE CHANGE PAS D'UN OCTET, ET C'EST VOULU.
+  // Le fichier part TEL QUEL, sans parse, sans re-sérialisation : c'est la
+  // promesse d'origine de cette route (« moins elle en fait, moins elle peut
+  // mentir ») et c'est aussi le chemin le plus chaud. On ne paie le parse que
+  // pour les paliers qui ont réellement un plafond.
+  let corps = brut;
+  if (prof !== -1) {
+    // ⛔ LA TRONCATURE SE FAIT ICI, À LA LECTURE, ET NULLE PART AILLEURS.
+    // Pas au build (`dataset()` cuit les points dans le HTML, et un build n'a
+    // QU'UN palier), pas en écrivant cinq réserves par pièce (elles finiraient
+    // dans l'image, une par palier, pour la même donnée).
+    // ⭐ La règle vit dans `reserve.mjs`, à côté de celle qui ÉCRIT le format —
+    // et elle est identique à celle de `cadran.js` : ancrage sur le DERNIER
+    // relevé, comparaison `>=`.
+    try {
+      corps = JSON.stringify(tronquer(JSON.parse(brut), prof));
+    } catch (e) {
+      // ⚠️ UNE RÉSERVE ILLISIBLE EST UNE PANNE, PAS UN CAS LIMITE — et servir
+      // le fichier brut « pour dépanner » livrerait la profondeur COMPLÈTE au
+      // palier le plus bas, c'est-à-dire exactement la fuite du 06/08.
+      console.warn(`[historique] réserve illisible pour ${params.uuid} : ${e.message}`);
+      return refus(500, 'reserve');
+    }
+  }
+
   // ⭐ On enveloppe au lieu de renvoyer le fichier nu : le client a besoin de
   // savoir CE QU'IL VIENT D'OBTENIR (le palier qui a ouvert, la profondeur
   // publique qu'il remplace) pour l'annoncer à l'écran. Une donnée livrée sans
   // son origine oblige l'interface à la deviner.
+  // ⭐ `profondeur` est ANNONCÉE : une réponse tronquée qui ne dit pas qu'elle
+  // l'est oblige l'interface à comparer des dates pour le deviner — et c'est
+  // par ce genre de devinette que les deux côtés finissent par diverger.
   return new Response(
     `{"ok":true,"palier":${JSON.stringify(locals?.palier || 'visitor')},`
+    + `"profondeur":${prof},`
     + `"publicMax":${Number.isFinite(p.public_max) ? p.public_max : 0},`
     + `"publicDays":${Number.isFinite(p.public_days) ? p.public_days : 0},`
-    + `"h":${brut}}`,
+    + `"h":${corps}}`,
     { status: 200, headers: ENTETES });
 }

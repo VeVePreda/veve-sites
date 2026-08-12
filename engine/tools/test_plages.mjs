@@ -56,7 +56,7 @@ console.log(`\n═══ LES DURÉES DU GRAPHIQUE — site « ${process.env.SITE
 // 1. LA GRILLE DU MANIFESTE — et le site a-t-il seulement un graphe ?
 // ═══════════════════════════════════════════════════════════════════════════
 console.log('\n1. la grille déclarée au manifeste');
-const { plages, porte, PALIERS } = await import('../lib/access.mjs');
+const { plages, porte, PALIERS, auMoins, profondeur } = await import('../lib/access.mjs');
 const p = porte('price_history');
 if (!p.actif) {
   console.log('\n⏸️  sans objet — la porte « price_history » est inactive sur ce site.');
@@ -205,7 +205,34 @@ verifie('le script du cadran voyage bien avec la page', scripts.length === 1,
 if (scripts.length !== 1) fin();
 lus++;
 
-const jouer = (palier) => {
+// ═════════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 LOT 140-2 — LE FAUX `fetch` RÉPOND COMME LA VRAIE PORTE, REFUS COMPRIS
+// ═════════════════════════════════════════════════════════════════════════════
+//
+// ⛔⛔ CE QUE CE BANC SUPPOSAIT, ET QUI ETAIT FAUX. Sa première version rendait
+// `{ok:true, status:200, palier}` à TOUT appel. Conséquences, mesurées le 12/08 :
+//   · la BRANCHE DE REPLI de `cadran.js` — `/api/cote/` après un refus de
+//     `/api/historique/` — n'était JAMAIS exécutée ;
+//   · or c'est LA SEULE qu'un membre emprunte, puisque la porte `price_history`
+//     exige `crevette` ;
+//   · et la question « est-ce que l'API dirait oui à ce palier ? » n'était
+//     jamais posée.
+// Il était donc VERT sur une chaine cassée : `cadran.js` jetait le palier de la
+// réponse de repli, `deverrouiller()` lisait `'visitor'`, et « 3 J » restait
+// cadenassé à vie pour un membre.
+//
+// ⭐⭐⭐ LA REGLE, ET ELLE VAUT PLUS QUE CE BANC : quand un banc SIMULE une
+// dépendance, il faut ECRIRE CE QUE LA SIMULATION SUPPOSE, et faire répondre le
+// faux comme la vraie porte répondrait — REFUS COMPRIS. Un banc branché sur le
+// dernier maillon, avec le précédent fabriqué favorablement, est vert pour une
+// mauvaise raison.
+//
+// ⚠️ LE FAUX N'INVENTE AUCUNE REGLE : il appelle `profondeur()` et `auMoins()`,
+// c'est-à-dire EXACTEMENT ce que les deux routes appellent. S'il codait « member
+// → 403 » en dur, il testerait ma lecture du manifeste, pas le manifeste.
+const TIER_COTE = porte('cote');
+
+const jouer = (palier, opt = {}) => {
   const { document, window } = parseHTML(fiche.html);
   document.documentElement.setAttribute('data-membre', '');
   const pts = [];
@@ -213,15 +240,63 @@ const jouer = (palier) => {
   // 400 relevés quotidiens : de quoi qu'une plage « 3 j » et une plage « 90 j »
   // ne rendent PAS la même courbe. Sinon le filtrage serait vert sans filtrer.
   for (let i = 400; i >= 0; i--) pts.push([base - i * 86400, 10 + (i % 7)]);
-  const faux = () => Promise.resolve({
-    ok: true, status: 200,
-    json: () => Promise.resolve({ ok: true, palier, h: { n: pts.length, p: pts } }),
+
+  // ⭐ LE JOURNAL DU FAUX. Sans lui, un fetch simulé qui ne refuse JAMAIS est
+  //   indiscernable d'un fetch simulé correct : les deux rendent le banc vert.
+  //   On COMPTE, et le §4 refuse de conclure si aucun refus n'a été exercé.
+  const journal = { historique: null, cote: null, refus: 0 };
+
+  const json = (o) => Promise.resolve(o);
+  const reponse = (status, corps) => Promise.resolve({
+    ok: status >= 200 && status < 300, status, json: () => json(corps),
   });
+
+  const faux = (url) => {
+    const u = String(url);
+
+    // --- LA PORTE `price_history`, telle que `/api/historique/[uuid].js` la joue
+    if (u.indexOf('/api/historique/') === 0) {
+      // ⭐⭐ `opt.sansHistorique` FABRIQUE la condition du repli, au lieu de
+      //   l'esperer. La branche `/api/cote/` est la SEULE qu'un membre a
+      //   empruntee pendant deux lots ; un banc qui ne l'exerce que « quand le
+      //   manifeste s'y prete » ne l'exerce pas — il attend.
+      if (opt.sansHistorique) { journal.refus++; return reponse(403, { ok: false, erreur: 'palier' }); }
+      const prof = profondeur({ palier });
+      journal.historique = prof;
+      // ⛔ 0 = aucune profondeur. La route rend 401 sans session, 403 avec.
+      if (prof === 0) { journal.refus++; return reponse(palier === 'visitor' ? 401 : 403, { ok: false, erreur: 'palier' }); }
+      // La troncature se fait A LA LECTURE, comme la route : même ancrage (le
+      // DERNIER relevé), même comparaison (`>=`). Deux règles différentes ici et
+      // là-bas se rattraperaient l'une l'autre et ne se verraient jamais.
+      let vus = pts;
+      if (prof > 0) {
+        const seuil = pts[pts.length - 1][0] - prof * 86400;
+        vus = pts.filter((p2) => p2[0] >= seuil);
+      }
+      return reponse(200, { ok: true, palier, profondeur: prof, h: { n: vus.length, p: vus } });
+    }
+
+    // --- LA PORTE `cote`, telle que `/api/cote/[uuid].js` la joue
+    if (u.indexOf('/api/cote/') === 0) {
+      const ouvre = !TIER_COTE.actif || auMoins(palier, TIER_COTE.tier);
+      journal.cote = ouvre;
+      if (!ouvre) { journal.refus++; return reponse(palier === 'visitor' ? 401 : 403, { ok: false, erreur: 'palier' }); }
+      // ⭐ La cote rend une courbe NORMALISEE et porte son palier (ligne 72 de la
+      //   route). C'est ce palier-là que `cadran.js` doit transmettre.
+      return reponse(200, { ok: true, palier, c: { courbe: pts.map((p2) => [p2[0], p2[1]]) } });
+    }
+
+    // ⛔ Une adresse que ce banc ne connait pas ne doit pas rendre 200 en
+    //   silence : elle rend 404, et le pilote la traitera comme une panne.
+    journal.refus++;
+    return reponse(404, { ok: false, erreur: 'inconnue' });
+  };
+
   const fn = new Function('document', 'window', 'fetch', 'console', 'localStorage', scripts[0]);
   try { fn(document, window, faux, { log() {}, warn() {}, error() {} }, undefined); } catch (e) {
-    return { erreur: e.message, document };
+    return { erreur: e.message, document, journal };
   }
-  return { document };
+  return { document, journal };
 };
 
 // ⭐ On laisse au `fetch` faux le temps de résoudre : le script est asynchrone.
@@ -277,6 +352,111 @@ if (!btn3 || !svgAvant) {
     svgApres === svgAvant ? '🔴 le clic ne change rien : le bouton est un décor'
       : `SVG ${svgAvant.length} o → ${svgApres.length} o sur 3 jours`);
   lus++;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 3 ter. 🔴🔴🔴 LA CHAINE, PAS LE DERNIER MAILLON — LE REPLI TRANSMET-IL LE PALIER ?
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// ⭐⭐⭐ C'EST LE PARAGRAPHE QUI VAUT LE LOT. Les trois cas ci-dessus passent tous
+// par la PREMIERE reponse de `/api/historique/`. Le 12/08, la mesure a montre
+// qu'un membre ne la recoit jamais : la porte `price_history` exige `crevette`,
+// il prend 403, et `cadran.js` retombe sur `/api/cote/`. Cette branche-la
+// n'avait JAMAIS ete executee par un banc — et elle jetait le palier
+// (`recevoir(c.c.courbe, { normalisee: true })`, ligne 32). `deverrouiller()`
+// lisait donc `'visitor'`, et « 3 J » restait cadenasse a vie.
+//
+// ⛔ ON NE TESTE PAS « le manifeste refuse-t-il un membre ? » — ca, c'est le
+//   reglage du jour, et il vient de changer. On teste la PROPRIETE PERMANENTE :
+//   quand l'historique se tait, le repli doit livrer un palier UTILISABLE.
+//   La condition se FABRIQUE (`sansHistorique`), elle ne s'espere pas.
+console.log('\n3 ter. quand `/api/historique/` refuse, le REPLI livre-t-il le palier ?');
+const COTE_OUVRE_A = TIER_COTE.actif ? TIER_COTE.tier : 'visitor';
+// Le palier le plus BAS qui franchit la porte `cote` : c'est celui pour qui le
+// repli est la seule route possible, donc celui qui paie le defaut.
+const PALIER_REPLI = PALIERS.filter((p2) => auMoins(p2, COTE_OUVRE_A) && GRILLE.some((g) => auMoins(p2, g.tier)))[0];
+if (!PALIER_REPLI) {
+  indecis('le repli', 'aucun palier ne franchit `cote` ET n\'ouvre une plage — rien a departager');
+} else {
+  const rRepli = jouer(PALIER_REPLI, { sansHistorique: true });
+  await attendre(); await attendre(); await attendre();
+  const vusRepli = ouverts(rRepli.document);
+  const attRepli = attendusPour(PALIER_REPLI);
+  verifie(`⛔ « ${PALIER_REPLI} » servi par le REPLI ouvre les memes plages que par la route directe`,
+    vusRepli.join(',') === attRepli.join(','),
+    vusRepli.join(',') === attRepli.join(',')
+      ? `repli exerce (${rRepli.journal.refus} refus), plages ouvertes : ${vusRepli.join(' · ')}`
+      : `🔴 ouvertes par le repli : ${vusRepli.join(' · ') || '(AUCUNE)'} — attendues : ${attRepli.join(' · ')}\n`
+        + '       ⇒ la reponse de `/api/cote/` porte son palier, et `cadran.js` le JETTE :\n'
+        + '         `recevoir(c.c.courbe, { normalisee: true })` — il manque `palier: c.palier`.');
+  // ⭐ ET LE REPLI A-T-IL VRAIMENT ETE EXERCE ? Un faux `fetch` qui n'aurait pas
+  //   refuse rendrait la ligne ci-dessus verte sans rien prouver.
+  verifie('le refus a bien ete EXERCE (le faux n\'a pas repondu oui a tout)',
+    rRepli.journal.refus > 0 && rRepli.journal.cote === true,
+    `refus emis : ${rRepli.journal.refus} · porte cote : ${rRepli.journal.cote}`);
+  lus += 2;
+}
+
+// ⛔ LE CAS ③ — UN PALIER QUI NE FRANCHIT RIEN DOIT RESTER FERME, ET LE BANC
+//    DOIT POUVOIR ROUGIR DESSUS. Sans lui, la garde du 3 ter serait satisfaite
+//    par un pilote qui deverrouille tout des qu'il recoit quoi que ce soit.
+const rSourd = jouer('visitor', { sansHistorique: true });
+await attendre(); await attendre(); await attendre();
+verifie('⛔ un VISITEUR refuse par les DEUX portes n\'ouvre toujours rien',
+  ouverts(rSourd.document).join(',') === attendusPour('visitor').join(','),
+  `refus emis : ${rSourd.journal.refus} — ouvertes : ${ouverts(rSourd.document).join(' · ') || '(aucune)'}`);
+lus++;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 3 quater. 🔴🔴 LA PROFONDEUR SERVIE — la grille et l'API disent-elles la MEME chose ?
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// ⭐ La loi est UNE : `plages:`. `profondeur()` la lit pour l'API, `plages()` la
+//   lit pour les boutons. Ce paragraphe verifie qu'elles ne peuvent pas
+//   diverger — et surtout il porte le TEMOIN INVERSE : sans lui, un plafond qui
+//   ne tronque RIEN serait vert.
+console.log('\n3 quater. la profondeur servie par l\'API suit-elle la grille ?');
+for (const pal of PALIERS) {
+  const prof = profondeur({ palier: pal });
+  const att = attendusPour(pal);
+  const attJours = att.length
+    ? (GRILLE.filter((g) => att.includes(g.cle)).some((g) => g.jours === null)
+      ? -1 : Math.max(...GRILLE.filter((g) => att.includes(g.cle)).map((g) => g.jours)))
+    : 0;
+  verifie(`« ${pal} » : profondeur ${prof === -1 ? 'sans borne' : prof + ' j'} = sa plage la plus longue`,
+    prof === attJours,
+    `API ${prof} · boutons ouverts ${att.join(' · ') || '(aucun)'} ⇒ ${attJours}`);
+  lus++;
+}
+
+// ⛔⛔ LE TEMOIN INVERSE, ET C'EST LUI QUI DONNE SA VALEUR AU RESTE.
+//    Un membre a droit a 3 jours : il doit recevoir le releve d'il y a 3 jours
+//    ET **PAS** celui d'il y a 4. Sans cette moitie, une troncature qui ne
+//    tronque rien passerait toutes les lignes ci-dessus.
+{
+  const base = Math.floor(Date.now() / 1000);
+  const pts = []; for (let i = 400; i >= 0; i--) pts.push([base - i * 86400, 10 + (i % 7)]);
+  const tronque = (prof) => {
+    if (prof === -1) return pts;
+    if (prof === 0) return [];
+    const seuil = pts[pts.length - 1][0] - prof * 86400;
+    return pts.filter((p2) => p2[0] >= seuil);
+  };
+  const PAL_BORNE = PALIERS.find((p2) => profondeur({ palier: p2 }) > 0);
+  if (!PAL_BORNE) {
+    indecis('le temoin inverse', 'aucun palier n\'a de profondeur BORNEE sur ce site : rien a tronquer');
+  } else {
+    const n = profondeur({ palier: PAL_BORNE });
+    const recu = tronque(n);
+    const fin = pts[pts.length - 1][0];
+    verifie(`⛔ « ${PAL_BORNE} » recoit le releve de J-${n}…`,
+      recu.some((p2) => p2[0] === fin - n * 86400),
+      `${recu.length} releve(s) sur ${pts.length}`);
+    verifie(`⛔ …et **PAS** celui de J-${n + 1} (sinon le plafond ne plafonne rien)`,
+      !recu.some((p2) => p2[0] === fin - (n + 1) * 86400),
+      recu.length >= pts.length ? '🔴 la serie n\'a pas ete tronquee du tout' : `borne a ${recu.length} releve(s)`);
+    lus += 2;
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
