@@ -1,23 +1,44 @@
 ---
 // ⚠️ VeVePreda/veve-sites — src/components/pages/Favoris.astro  (NEUF — lot 116)
 //
-// ❤️ LA VUE DES FAVORIS — et elle est ENTIÈREMENT STATIQUE.
+// ❤️ LA VUE DES FAVORIS — et elle est DERRIÈRE LE MUR depuis le lot 118.
 //
-// ⭐⭐⭐ ELLE N'EST PAS UNE ROUTE DE COMPTE, ET C'EST CE QUI LA REND SÛRE.
-//    Les favoris vivent dans `localStorage` (arbitrage Preda : « le navigateur
-//    d'abord »). Cette page n'a donc RIEN à demander au serveur : pas de
-//    session, pas de `ROUTES_COMPTE`, pas de bascule à la demande.
-//    ⛔ L'inscrire dans `ROUTES_COMPTE` aurait été le réflexe — et une erreur :
-//    une page qui n'a pas besoin de session ne doit pas en réclamer une, sinon
-//    elle devient indisponible le jour où le service d'identité tombe.
-//    ⚠️ C'est aussi pour ça qu'elle échappe à la panne du lot 104 : elle est
-//    pré-générée ET elle n'a rien à lire côté serveur — les deux moitiés du
-//    piège sont absentes, pas contournées.
+// 🔴🔴 CET EN-TÊTE A MENTI PENDANT DEUX JOURS, ET C'EST LA 18ᵉ NOTE DÉMENTIE
+//    DU DOSSIER — LA PREMIÈRE QUI VIVAIT DANS LE DÉPÔT LUI-MÊME.
+//    Il affirmait en gros, et en trois étoiles, que cette page n'appartenait
+//    pas aux routes de compte, que c'était ce qui la rendait sûre, et que
+//    l'inscrire dans `ROUTES_COMPTE` aurait été le réflexe — et une erreur.
+//    Le lot 118 l'y a inscrite DEUX JOURS PLUS TARD
+//    (`astro_routes_compte.mjs` l. 128-129), et personne n'a touché au
+//    commentaire.
+//    ⭐⭐ LA PHRASE EST PARAPHRASÉE ICI, PAS RECOPIÉE, ET C'EST LE BANC QUI L'A
+//    IMPOSÉ : la première version de cet en-tête la citait mot pour mot pour
+//    la démentir, et `test_membre` §6 a rougi. Il avait raison. Un lecteur qui
+//    grep, ou qui survole, tombe sur la phrase — pas sur le démenti qui la
+//    suit. *Une affirmation fausse reproduite à l'identique reste lisible
+//    comme une affirmation.* Le prochain qui lisait ce fichier avant de coder était
+//    activement induit en erreur. ⭐ *Un commentaire faux est un banc à
+//    l'envers* — `test_membre` §6 refuse désormais que la phrase revienne.
 //
-// ⛔ AUCUN PRIX, AUCUNE COTE. La liste se construit à partir de ce que le
-//    navigateur a mémorisé : un nom et un chemin, deux choses déjà publiques
-//    sur la fiche qui les a écrits. Le mur ne bouge pas d'un pouce.
+// ⭐⭐⭐ CE QUE LE LOT 140-3 RÉPARE, ET C'ÉTAIT PIRE QU'UNE PAGE MORTE : le mur
+//    était réel, mais ce qu'il gardait appartenait au NAVIGATEUR
+//    (`localStorage`), pas au compte. Un membre qui se connectait depuis son
+//    téléphone voyait cette page vide — sans erreur, sans run rouge, sans
+//    plainte. *Le mur gardait une pièce qui n'était pas la sienne.*
+//    La liste vient maintenant de `/api/favoris`, rangée par compte.
+//
+// ⛔ AUCUN PRIX, AUCUNE COTE — inchangé, et c'est ce qui garde cette page hors
+//    du mur des abonnés : un uuid, un chemin et un nom, trois choses déjà
+//    publiques sur la fiche qui les a écrits.
+//
+// ⭐⭐ LE PILOTE A QUITTÉ LE HTML (lot 140-3). Il vivait ici en
+//    `<script is:inline>`, et son jumeau vivait dans `Dashboard.astro` — deux
+//    copies du même rendu de ligne, à un `slice(0, 8)` près. Les deux sont
+//    maintenant dans `src/socle/modules/favoris.js`, qui n'appelle pas le
+//    réseau lui-même : il passe par l'accès unique du socle.
 import Base from '../../layouts/Base.astro';
+import { moduleJs } from '../../../engine/lib/socle_js.mjs';
+const pilote = moduleJs('favoris');
 import { t, localize } from '../../../engine/lib/i18n.mjs';
 const { lang } = Astro.props;
 ---
@@ -37,37 +58,8 @@ const { lang } = Astro.props;
   <ul class="rayon" id="fav-l"></ul>
 </Base>
 
-{/* ⚠️ `try/catch` : en navigation privée, la simple LECTURE de `localStorage`
-    lève sur certains navigateurs. Sans ce garde, l'exception arrêterait les
-    scripts suivants — dont ceux de l'en-tête. */}
-<script is:inline>
-  (function () {
-    var hote = document.getElementById('fav-l');
-    var vide = document.getElementById('fav-vide');
-    if (!hote) return;
-    var favs = {};
-    try { favs = JSON.parse(localStorage.getItem('vp_fav') || '{}') || {}; } catch (e) { favs = {}; }
-    // ⭐ Le plus récemment ajouté en premier : c'est l'ordre dans lequel on
-    //   revient chercher ce qu'on vient de mettre de côté.
-    var cles = Object.keys(favs).sort(function (a, b) { return (favs[b].t || 0) - (favs[a].t || 0); });
-    if (!cles.length) return;
-    if (vide) vide.hidden = true;
-    cles.forEach(function (u) {
-      var f = favs[u] || {};
-      var li = document.createElement('li');
-      li.className = 'rayon__l';
-      // ⛔ `textContent`, JAMAIS `innerHTML` : le nom vient du stockage local,
-      //    donc d'une source qu'un autre script de la même origine peut avoir
-      //    écrite. On ne rend jamais du HTML issu d'une donnée.
-      var a = document.createElement(f.p ? 'a' : 'div');
-      a.className = 'rayon__c' + (f.p ? '' : ' rayon__c--muet');
-      if (f.p) a.setAttribute('href', f.p);
-      var n = document.createElement('span');
-      n.className = 'rayon__n';
-      n.textContent = f.n || u;
-      a.appendChild(n);
-      li.appendChild(a);
-      hote.appendChild(li);
-    });
-  })();
-</script>
+{/* ⭐ `defer` : il s'exécute APRÈS l'analyse du document — `#fav-l` existe
+    forcément. Et il vient APRÈS le socle du `<head>`, donc `window.vpFav` y
+    est déjà. Les deux garanties viennent de l'ordre du document, pas d'un
+    hasard de placement. */}
+<script defer src={pilote.href}></script>

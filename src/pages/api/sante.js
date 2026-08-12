@@ -102,6 +102,52 @@ const SITE = import.meta.env.SITE || 'veveprice';
 const BUILD = typeof __BUILD_TIME__ === 'string' ? __BUILD_TIME__ : null;
 const COMMIT = typeof __COMMIT__ === 'string' && __COMMIT__ ? __COMMIT__ : null;
 
+// ═══════════════════════════════════════════════════════════════════════════
+// ❤️ LOT 140-3 — LA SENTINELLE DU VOLUME, ET ELLE EXISTE POUR UN OUBLI PRÉCIS
+// ═══════════════════════════════════════════════════════════════════════════
+// Sans volume monté sur `/data`, LES FAVORIS FONCTIONNENT. Ils se posent, ils
+// se relisent, la page est correcte. Jusqu'au déploiement suivant, où le
+// conteneur est remplacé et où `/data` redevient un dossier vide de l'image :
+// tout disparaît, sans erreur, sans run rouge, et sans plainte puisqu'il n'y a
+// que deux comptes. ⭐⭐⭐ *Une feature que personne n'utilise ne se plaint
+// jamais d'être cassée* — donc rien ne se juge sur l'usage, tout sur le
+// MÉCANISME. Ce § est ce mécanisme.
+//
+// ⛔ DES BOOLÉENS, JAMAIS DE CHEMIN. La question est « est-ce monté ? », pas
+//    « monté où ». Le dossier n'apprend rien à un visiteur et cette route est
+//    publique.
+// ⭐ `montee: null` EST UNE RÉPONSE, et c'est la troisième. INCONNU ≠ FAUX :
+//    un `false` inventé parce qu'on n'a pas su lire ferait crier la sonde sur
+//    une installation correcte, et on apprendrait à l'ignorer. C'est la leçon
+//    de la sonde qui répondait `"mode":"static"` sur un site en mode server.
+// ⭐⭐ LA CONDITION VOYAGE AVEC LE CODE, OU ELLE DISPARAIT EN SILENCE.
+// vevewiki n'ouvre aucun compte : il n'a pas de favoris, donc pas de base, donc
+// pas de volume a monter. Sans cette porte, sa sonde annoncerait
+// `favoris:{ouverte:false}` — une sonde qui CRIE sur une installation
+// parfaitement correcte. On apprend a l'ignorer, et le jour ou elle crie pour
+// de bon, plus personne ne l'ecoute. C'est mesure : le build statique de
+// vevewiki rendait bien ce faux negatif avant cette ligne.
+// 🔴 ET LE PREDICAT EST IMPORTE, PAS RECOPIE. `socle_js.mjs` l. 119 emploie
+// EXACTEMENT `acces().tiers.length > 1` pour decider s'il embarque le script
+// d'espace membre. Ecrire ici `manifest().features.comptes`, qui « veut dire la
+// meme chose », donnerait deux definitions d'un seul etat — la panne P30 du
+// lot 139.
+import { acces } from '../../../engine/lib/access.mjs';
+import { etatDuStockage } from '../../../engine/lib/favoris.mjs';
+
+const comptesOuverts = () => acces().tiers.length > 1;
+
+const favoris = () => {
+  try {
+    const e = etatDuStockage();
+    return { ouverte: e.ouverte, montee: e.montee };
+  } catch {
+    // ⛔ La sonde ne tombe JAMAIS à cause de ce §. Une sonde de santé qui
+    //    échoue sur la question qu'elle pose est pire qu'absente.
+    return { ouverte: false, montee: null };
+  }
+};
+
 const branche = () => ({
   inscription: Boolean(process.env.INSCRIPTION_API),
   session: Boolean(process.env.SESSION_API),
@@ -120,6 +166,7 @@ export const GET = ({ url }) => new Response(
     origin: url.origin,
     proto: url.protocol.replace(':', ''),
     comptes: branche(),
+    ...(comptesOuverts() ? { favoris: favoris() } : {}),
   }),
   { headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } },
 );

@@ -57,6 +57,11 @@
 //    fois : une classe émise sans règle rend un élément nu, une règle sans
 //    émetteur est une intention en attente.
 import Base from '../../layouts/Base.astro';
+// ⚡ LOT 140-3 — le pilote de la tuile des favoris quitte le HTML : il était le
+//   JUMEAU de celui de `Favoris.astro`, au `slice(0, 8)` près. Un seul fichier
+//   les sert, et il ne parle pas au réseau (voir `src/socle/40-favoris.js`).
+import { moduleJs } from '../../../engine/lib/socle_js.mjs';
+const pilote = moduleJs('favoris');
 import { t, localize, numberLocale, pick } from '../../../engine/lib/i18n.mjs';
 import { manifest } from '../../../engine/lib/manifest.mjs';
 import { catalogueModules, porte, plages, PALIERS, profondeur as profondeurAccordee } from '../../../engine/lib/access.mjs';
@@ -314,48 +319,8 @@ const cadenas = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stro
   </ul>
 </Base>
 
-{/* ⚠️ `try/catch` AUTOUR DE `localStorage` : en navigation privée, sur certains
-    navigateurs, la simple LECTURE lève. Sans ce garde, l'exception arrêterait
-    tous les scripts qui suivent — dont ceux de l'en-tête. Payé une fois. */}
-<script is:inline>
-  (function () {
-    var hote = document.getElementById('tb-fav');
-    var vide = document.getElementById('tb-vide');
-    var cpt = document.getElementById('tb-nfav');
-    if (!hote) return;
-    var favs = {};
-    try { favs = JSON.parse(localStorage.getItem('vp_fav') || '{}') || {}; } catch (e) { favs = {}; }
-    var cles = Object.keys(favs).sort(function (a, b) { return (favs[b].t || 0) - (favs[a].t || 0); });
-    // ⭐ LE COMPTEUR DE LA TUILE VIT ICI, PAS AU SERVEUR, et il ne pouvait pas
-    //   vivre ailleurs : les favoris sont dans le navigateur (arbitrage Preda,
-    //   « le navigateur d'abord »). C'est la seule synthèse de cette page qui
-    //   ne peut pas être déposée au build — et la seule qui reste juste hors
-    //   ligne. Il est `hidden` par défaut : à zéro, il n'apparaît pas.
-    if (cpt && cles.length) { cpt.textContent = String(cles.length); cpt.hidden = false; }
-    if (!cles.length) return;
-    if (vide) vide.hidden = true;
-    // ⭐ HUIT, PAS TOUT. Le tableau de bord est un point de départ, pas la liste
-    //   complète — celle-ci vit sur `/favoris/`, et le lien vers elle est
-    //   maintenant DANS LE TITRE de la section : il ne dépend plus d'avoir plus
-    //   de huit favoris pour exister. Un « voir tout » qui n'apparaît qu'à
-    //   partir de neuf éléments est un lien qu'on n'apprend jamais.
-    var COUPE = 8;
-    cles.slice(0, COUPE).forEach(function (u) {
-      var f = favs[u] || {};
-      var li = document.createElement('li');
-      li.className = 'rayon__l';
-      // ⛔ `textContent`, JAMAIS `innerHTML` : le nom vient du stockage local,
-      //    donc d'une source qu'un autre script de la même origine a pu
-      //    écrire. On ne rend jamais du HTML issu d'une donnée.
-      var a = document.createElement(f.p ? 'a' : 'div');
-      a.className = 'rayon__c' + (f.p ? '' : ' rayon__c--muet');
-      if (f.p) a.setAttribute('href', f.p);
-      var n = document.createElement('span');
-      n.className = 'rayon__n';
-      n.textContent = f.n || u;
-      a.appendChild(n);
-      li.appendChild(a);
-      hote.appendChild(li);
-    });
-  })();
-</script>
+{/* ⭐⭐ LE COMPTEUR DE LA TUILE NE VIT PLUS DANS LE NAVIGATEUR. Il disait
+    « il ne pouvait pas vivre ailleurs : les favoris sont dans le navigateur ».
+    C'était vrai jusqu'au lot 140-3 — la raison a disparu avec sa cause.
+    ⭐ Il est toujours `hidden` par défaut : à zéro, il n'apparaît pas. */}
+<script defer src={pilote.href}></script>

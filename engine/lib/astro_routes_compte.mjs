@@ -134,6 +134,17 @@ const ROUTES_COMPTE = [
   // dans le fichier serait figée au build, au niveau visiteur. L'oublier dans
   // NGINX la laisse hors de `dist/` sans que personne la demande à Node —
   // 404, sur un build vert. Les deux pannes ont déjà été payées (lots 24, 119).
+  // ❤️ LOT 140-3 — `/api/favoris`, ET C'EST LA CINQUIÈME FOIS QU'ON ÉCRIT
+  // CETTE PHRASE. Cette liste est ÉCRITE À LA MAIN, ce n'est pas une règle :
+  // une route `/api/` qui n'y figure pas est PRÉ-GÉNÉRÉE EN SILENCE. Elle
+  // deviendrait un fichier figé rendant la même réponse à tout le monde — donc
+  // les favoris d'un compte servis à un autre, ou plus probablement une liste
+  // vide servie à tous, sur un build parfaitement vert. `test_membre` §6 exige
+  // désormais cette ligne, pour que l'oubli cesse d'être silencieux.
+  // ✅ ET C'EST LE SEUL DEUXIÈME ENDROIT : `nginx.server.conf` l. 119 porte
+  // déjà `location ^~ /api/`, qui proxie TOUT `/api/` vers Node. Pour une
+  // route d'API, ce sont DEUX endroits, pas trois.
+  'pages/api/favoris.js',
   'pages/dashboard/index.astro',
   'pages/[locale]/dashboard/index.astro',
 ];

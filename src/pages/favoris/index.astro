@@ -43,7 +43,10 @@ const lang = (_l && languesInterface().includes(_l)) ? _l : def;
 // ⭐ `connecte()` SEUL, PAS `franchit()`, et la différence est le produit.
 // « Qui es-tu » n'est pas « à quoi as-tu droit ». Les favoris ne sont pas un
 // module qui se vend : ils ne coûtent rien à servir et ne révèlent aucun prix
-// — ils vivent dans le `localStorage` du navigateur. Preda demande qu'ils
+// — ⚠️ LOT 140-3 : ils ne vivent PLUS dans le `localStorage` du navigateur,
+// mais dans une base rangée par COMPTE côté veveprice (`engine/lib/favoris.mjs`).
+// La phrase d'origine est devenue fausse le jour où ce mur a cessé de garder une
+// pièce vide ; le raisonnement, lui, tient toujours — un favori ne révèle aucun prix. Preda demande qu'ils
 // soient réservés aux comptes, pas aux abonnés. Exiger un palier ici
 // ajouterait un mur que personne n'a demandé, sur une page qui n'a rien à
 // vendre. ⛔ Et les confondre est la faute qui produit les élévations de

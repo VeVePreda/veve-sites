@@ -27,7 +27,14 @@ export const prerender = true;
 // `ID_SERVICE`, ce depot lisait `VEVEID_SERVICE`. On accepte les deux : un
 // secret partage qui porte deux noms selon le cote est une erreur de recopie
 // en attente.
-const secretDeService = () => process.env.VEVEID_SERVICE || process.env.ID_SERVICE || '';
+// 🔴 LOT 140-3 — LA DEFINITION A DEMENAGE, ELLE N'A PAS ETE RECOPIEE.
+// `engine/lib/compte.mjs` en a besoin pour interroger `/api/session?sid=`.
+// En ecrire une deuxieme copie ici aurait donne deux definitions d'un meme
+// secret : le jour ou l'une apprend un troisieme nom de variable et pas
+// l'autre, une moitie du site parle a veveid et l'autre non. C'est la panne
+// P30 du lot 139, et le lot 140-1 vient d'en payer une autre avec trois
+// lectures de `plages:`. ⛔ Un predicat recopie est un predicat qui divergera.
+import { secretDeService } from '../../../engine/lib/compte.mjs';
 
 // ⛔ LA LISTE EST FERMÉE ICI AUSSI, ET CE N'EST PAS UNE DUPLICATION INUTILE.
 // `veveid` refuse déjà toute destination hors de sa propre liste — c'est LUI

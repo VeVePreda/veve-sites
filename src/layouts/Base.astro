@@ -593,13 +593,38 @@ const menuComplet = wikiNav
          suffit toujours à effacer le `hero` pour un membre — c'est elle qui
          portait le travail, l'autre ne faisait que rouvrir le remplaçant. Ces sélecteurs ne peuvent toucher que des éléments qui
     portent `data-anonyme` ou `data-membre`, c'est-à-dire trois éléments de
-    l'en-tête. */}
+    l'en-tête.
+
+    ❤️ RÈGLE 6 — LOT 140-3 : LE ★ EST INVISIBLE TANT QU'ON N'EST PAS CONNECTÉ.
+    Arbitrage Preda du 12/08 : aucun favori possible avant la connexion, donc
+    aucun bouton à offrir à un anonyme.
+    ⛔⛔ MAIS IL RESTE ÉMIS DANS LE HTML POUR TOUT LE MONDE, et c'est cette
+    règle SEULE qui le masque. Le rendre conditionnel au build ferait rougir
+    `test_membre` §5, qui compte AUTANT DE CŒURS QUE D'ENVELOPPES `.carte-h`,
+    page par page — et le banc aurait raison : `.socle__fav` est stylée depuis
+    le lot 15 POUR une carte, et une règle sans émetteur est exactement la
+    panne qu'il surveille.
+    ⭐ `display:none` ET PAS `opacity:0` : seul `display:none` retire la boîte.
+    Un bouton à `opacity:0` reste cliquable et reste dans l'arbre
+    d'accessibilité — invisible à l'œil, présent pour un lecteur d'écran.
+    ⚠️ `!important` OBLIGATOIRE : `.socle__fav--fiche` (theme.css l. 2452)
+    repose `opacity:1` sur la fiche, et la variante gagne en spécificité.
+
+    🔴🔴 ET CE TEXTE EST ICI, PAS DANS LE `<style>`, PARCE QUE `test:feuille`
+    L'A EXIGÉ. La première version le mettait en commentaire CSS à l'intérieur
+    du bloc `is:inline` : 1 289 octets partant sur 3 097 pages, et le cliquet
+    de 4 096 o de CSS en ligne par page a sauté (4 130 o mesurés sur vevewiki).
+    ⭐⭐ Le banc avait raison, et il a été RETOURNÉ, pas désarmé : un
+    commentaire Astro `{…}` est retiré du HTML, un commentaire CSS est servi.
+    *Un contrôle qui rougit sur un lot qui « n'ajoute qu'une ligne » mesure
+    quelque chose que le lot n'avait pas regardé.* */}
 <style is:inline>
   html[data-membre] [data-anonyme] { display: none !important; }
   html[data-membre] .globe[data-membre] { display: block !important; }
   html:not([data-membre]) .h-cta[hidden] { display: inline-flex !important; }
   html[data-membre] a[data-membre][hidden] { display: inline-flex !important; }
   html[data-membre] form[data-membre][hidden] { display: block !important; }
+  html:not([data-membre]) .socle__fav { display: none !important; }
 </style>
 {/* ═══════════════════════════════════════════════════════════════════════
     🔥 LOT 105 — LE THÈME QUITTE LE HTML, ET C'EST TOUT CE QUI CHANGE ICI.

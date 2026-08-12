@@ -554,6 +554,26 @@ ARG SITE_URL=https://veveprice.com
 # ou personne ne peut plus les ecraser. Node n'est ainsi joignable que par
 # nginx : une seule porte d'entree, donc un seul jeu d'en-tetes.
 ENV NODE_ENV=production SITE=$SITE SITE_URL=$SITE_URL
+# ═══════════════════════════════════════════════════════════════════════════
+# ❤️ LOT 140-3 — LE DOSSIER DES FAVORIS, ET LA LIGNE QUI N'EST PAS ECRITE
+# ═══════════════════════════════════════════════════════════════════════════
+# La base SQLite des favoris (engine/lib/favoris.mjs, `node:sqlite`, integre a
+# Node 22 — aucune dependance ajoutee, package-lock.json ne bouge pas) vit ici.
+#
+# 🔴🔴 PAS DE `VOLUME ["/data"]`, ET C'EST VOLONTAIRE — recette reprise mot pour
+# mot du Dockerfile de veveid (l. 47-60), qui porte le meme avertissement.
+# Sans cette ligne, un `/data` non monte reste un simple dossier de l'image :
+# la sonde `/api/sante` le voit et le DIT (`favoris.montee: false`). Avec elle,
+# Docker cree un volume ANONYME au demarrage — la base survivrait au
+# redemarrage et mourrait au redeploiement. ⭐ Le pire des deux mondes est
+# celui qui a l'air de marcher.
+#
+# ⚠️ LE VOLUME COOLIFY EST CREE COTE PLATEFORME (12/08, avec Preda) et se
+# montera au deploiement de ce lot. ⭐⭐⭐ L'ORDRE EST UNE DONNEE : cree APRES
+# le premier deploiement, il masquerait un dossier deja ecrit et remettrait la
+# base a zero — une seconde perte, plus discrete que la premiere.
+RUN mkdir -p /data
+ENV DB_PATH=/data/veve-favoris.db
 COPY --from=build /app/.rendering ./.rendering
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/node_modules ./node_modules
