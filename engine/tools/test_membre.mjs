@@ -11,6 +11,7 @@
 //  §7  Le raccourci porte sa destination JUSQU'A veveid.  ← la panne du lot 141
 //  §8  « Ma collection » distingue VIDE de JE NE SAIS PAS.
 //  §9  Le HTML servi ne porte aucun commentaire de code.
+//  §10 Rien n'est servi AVANT `<html>`, et le `<head>` n'est pas creve.
 //
 // ⚠️ IL N'IMPORTE PAS `dataset.mjs` : il lit du texte et du `dist/`, rien de
 // plus. Il peut donc se placer après le build sans vider la réserve
@@ -903,6 +904,112 @@ console.log('\n9. le HTML servi ne porte-t-il plus de commentaire de code ?');
       bavardes.length
         ? `🔴 ${bavardes.length} page(s), ${octets} octets servis — ex. ${bavardes.slice(0, 3).map((f) => relative(DIST2, f)).join(' · ')} · un \`{/* */}\` est retiré, un \`<!-- -->\` ne l'est pas`
         : 'les notes du dépôt restent dans le dépôt');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+console.log('\n10. rien n\'est-il servi AVANT `<html>`, et le `<head>` tient-il ?');
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴 LA PANNE DU 12/08, ET ELLE EST NÉE DE LA NOTE QUI RACONTAIT LA PANNE
+//    PRÉCÉDENTE. Le commentaire du gabarit CITAIT la séquence qui ferme un
+//    commentaire d'expression. Le compilateur a donc fermé le commentaire au
+//    milieu de la phrase, et les 528 octets suivants sont partis en TEXTE NU,
+//    posés avant `<html>`. 158/158 pages construites, les deux sites.
+//
+// ⭐⭐⭐ ET LA CONSÉQUENCE EST BIEN PIRE QUE LES OCTETS : du texte avant `<html>`
+//    fait refermer le `<head>` au navigateur SUR-LE-CHAMP. Titre, description,
+//    canonical et hreflang basculent dans le `<body>` — et un canonical hors
+//    du `<head>` est **ignoré** par Google. Sur les 2 368 adresses des deux
+//    sitemaps. Rien n'a planté, aucun run n'a rougi.
+//
+// ⛔⛔ POURQUOI CE §10 NE RESSEMBLE PAS AU §9, ET C'EST TOUT LE SUJET.
+//    Le §9 a été écrit LA VEILLE, exactement pour « du dépôt qui part chez le
+//    visiteur » — et il était VERT pendant que la fuite passait, parce qu'il
+//    cherche un `<!--`. Ici il n'y a PAS de commentaire : du texte nu. *Un
+//    garde-fou taillé sur la FORME du bug précédent ne voit pas le suivant.*
+//    ⇒ Le §10 ne cherche donc AUCUNE forme : il tient un INVARIANT. Une page
+//    servie commence par le doctype, puis `<html`. Point. Tout ce qui s'y
+//    glisse est un écart, quelle que soit la forme qu'il prendra la prochaine
+//    fois.
+//
+// 🔴🔴 ET IL NE PASSE PAS PAR UN DOM — MESURÉ, PAS SUPPOSÉ. `linkedom` a été
+//    essayé sur la page fautive réelle : il rend un `<head>` de 33 enfants,
+//    `<title>` compris, là où le navigateur en rend ZÉRO. Il ne construit pas
+//    l'arbre comme la spec. Un §10 bâti dessus aurait été VERT sur la panne
+//    qu'il est censé attraper. On lit donc le TEXTE SERVI, qui ne ment pas.
+//
+// ⚠️ CE QUE CE BANC NE MESURE PAS : il lit `dist/`, donc le HTML au moment du
+//    build. Il ne voit pas ce qu'un intermédiaire (Cloudflare, nginx) pourrait
+//    ajouter ensuite — c'est le domaine de `test:cache` et `test:entetes`.
+{
+  const DIST3 = existsSync(join(ROOT, 'dist', 'client')) ? join(ROOT, 'dist', 'client') : join(ROOT, 'dist');
+  if (!existsSync(DIST3)) {
+    indecis('le préambule des pages servies', 'dist/ absent — jouer ce banc APRÈS npm run build');
+  } else {
+    const pages = [];
+    (function balaie(d) {
+      for (const e of readdirSync(d, { withFileTypes: true })) {
+        const p = join(d, e.name);
+        if (e.isDirectory()) balaie(p); else if (e.name.endsWith('.html')) pages.push(p);
+      }
+    })(DIST3);
+
+    // ── A. l'invariant : avant `<html`, il n'y a QUE le doctype ────────────
+    // ⭐ On mesure aussi les OCTETS. « 158 pages » est un constat ; « 158 pages
+    //   × 528 o » est une décision — et deux chiffres qui viennent de la même
+    //   lecture ne peuvent pas se contredire (le §9 a payé l'inverse).
+    const preambule = (t) => {
+      const i = t.search(/<html[\s>]/i);
+      return i < 0 ? null : t.slice(0, i);
+    };
+    let fautives = [], octets = 0, sansHtml = [];
+    for (const f of pages) {
+      const t = readFileSync(f, 'utf8');
+      const pre = preambule(t);
+      if (pre === null) { sansHtml.push(f); continue; }
+      if (!/^\s*<!doctype html>\s*$/i.test(pre)) {
+        fautives.push(f);
+        octets += Buffer.byteLength(pre, 'utf8') - '<!DOCTYPE html>'.length;
+      }
+    }
+    verifie(`⛔ rien n'est servi avant \`<html>\` (${pages.length} pages balayées)`,
+      fautives.length === 0,
+      fautives.length
+        ? `🔴 ${fautives.length} page(s), ${octets} octets servis en trop — ex. ${fautives.slice(0, 3).map((f) => relative(DIST3, f)).join(' · ')}`
+          + `\n      🔴 le navigateur referme le <head> ici : titre, canonical et hreflang basculent dans le <body>`
+          + `\n      ⭐ extrait : ${JSON.stringify(preambule(readFileSync(fautives[0], 'utf8')).replace(/^\s*<!doctype html>/i, '').trim().slice(0, 120))}`
+        : 'le doctype, puis <html> — rien entre les deux');
+
+    // Une page sans `<html>` du tout n'est pas « conforme », elle est HORS SUJET :
+    // on la dit INDÉCIDABLE plutôt que de la compter verte par omission.
+    if (sansHtml.length) indecis(`${sansHtml.length} page(s) sans balise <html>`, sansHtml.slice(0, 3).map((f) => relative(DIST3, f)).join(' · '));
+
+    // ── B. le `<head>` ne porte pas de texte nu ────────────────────────────
+    // 🔴 SECOND MÉCANISME, PAS UNE REDITE DU A. Une prose qui fuirait ENTRE
+    //    `<head>` et `</head>` referme le head tout autant, et le A ne la
+    //    verrait pas. On retire les balises et le contenu légitime (`title`,
+    //    `script`, `style`, `noscript`) : ce qui reste doit être du vide.
+    const nuDansHead = (t) => {
+      const m = t.match(/<head[^>]*>([\s\S]*?)<\/head>/i);
+      if (!m) return null;
+      return m[1]
+        .replace(/<(title|script|style|noscript)\b[\s\S]*?<\/\1>/gi, '')
+        .replace(/<!--[\s\S]*?-->/g, '')
+        .replace(/<[^>]*>/g, '')
+        .trim();
+    };
+    let bavardes = [], sansHead = [];
+    for (const f of pages) {
+      const r = nuDansHead(readFileSync(f, 'utf8'));
+      if (r === null) { sansHead.push(f); continue; }
+      if (r) bavardes.push([f, r]);
+    }
+    verifie('⛔ et le `<head>` ne porte aucun texte nu',
+      bavardes.length === 0,
+      bavardes.length
+        ? `🔴 ${bavardes.length} page(s) — ex. ${relative(DIST3, bavardes[0][0])} : ${JSON.stringify(bavardes[0][1].slice(0, 100))}`
+        : `${pages.length} pages, que des balises`);
+    if (sansHead.length) indecis(`${sansHead.length} page(s) sans <head>`, sansHead.slice(0, 3).map((f) => relative(DIST3, f)).join(' · '));
   }
 }
 

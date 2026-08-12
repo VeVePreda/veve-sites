@@ -440,9 +440,24 @@ const menuComplet = wikiNav
      ═══════════════════════════════════════════════════════════════════════
      🔴🔴 LOT 141 — CE COMMENTAIRE ETAIT UN `<!-- -->`, DONC IL ETAIT *SERVI*.
      ═══════════════════════════════════════════════════════════════════════
-     564 octets, sur ~3 097 pages, sur DEUX sites. Un `{/* */}` est retire par
-     le compilateur ; un `<!-- -->` traverse le build et part chez le visiteur.
+     564 octets, sur ~3 097 pages, sur DEUX sites. Un commentaire d'EXPRESSION
+     est retire par le compilateur ; un commentaire HTML traverse le build et
+     part chez le visiteur.
      Les deux se ressemblent exactement dans un editeur.
+     ═══════════════════════════════════════════════════════════════════════
+     🔴🔴 12/08, DEUXIEME PANNE — NEE DE LA NOTE QUI RACONTAIT LA PREMIERE.
+     ═══════════════════════════════════════════════════════════════════════
+     ⛔⛔ NE JAMAIS CITER ICI LA SEQUENCE QUI FERME CE COMMENTAIRE. Elle le
+     ferme A CET ENDROIT MEME, et tout ce qui suit devient du TEXTE SERVI,
+     pose AVANT `<html>`. Le navigateur referme alors le `<head>` aussitot :
+     titre, description, canonical et hreflang basculent dans le `<body>`,
+     ou Google IGNORE le canonical. 158/158 pages construites, 528 o chacune.
+     ⭐⭐ ET LE BANC ECRIT LA VEILLE POUR CA ETAIT VERT : il cherchait un
+     commentaire HTML, or ici il n'y a PAS de commentaire — du texte nu. Un
+     garde-fou taille sur la FORME du bug precedent ne voit pas le suivant.
+     ⇒ §10 de `test:membre` tient desormais l'INVARIANT, pas la forme :
+     une page servie commence par le doctype puis `<html`, et son `<head>`
+     n'est jamais vide. PARAPHRASER, ne pas CITER.
      ⛔ ET AUCUN CLIQUET NE POUVAIT LE VOIR : ceux du depot comptent le CSS et
      le JS en ligne (4 096 o / 17 408 o par page), pas le HTML. C'etait le
      SEUL de tout `src/` — mesure le 12/08 — ce qui est precisement ce qui le
