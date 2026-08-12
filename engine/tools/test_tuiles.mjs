@@ -293,6 +293,57 @@ catch (e) { leve = e.message; }
 verifie('le pilote de la barre s\'exécute sans lever', !leve, leve || 'aucune exception');
 if (leve) fin(1);
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 🆕 LOT 143 — LE LIBELLÉ D'ATTENTE N'EST PLUS SERVI, IL EST REPOSÉ
+// ═══════════════════════════════════════════════════════════════════════════
+// Mesuré le 12/08 : il partait 7 fois par ligne dans le HTML, 630 fois sur
+// 90 lignes en bac à sable, environ 1 855 fois en production. `/market/` n'est
+// jamais servie par le bord — elle est `no-store` et redirige en anonyme —
+// donc ces octets repartaient de l'origine à chaque visite.
+// ⭐⭐⭐ LE CONTRÔLE SE FAIT DANS LES DEUX SENS, et c'est tout l'intérêt :
+//   ① le HTML SERVI n'en porte plus aucun — sinon on n'a rien économisé ;
+//   ② le DOM APRÈS pilote les porte TOUS — sinon on n'a pas allégé la page,
+//      on a supprimé une aide, et personne ne s'en apercevrait avant un
+//      utilisateur qui survole une cellule vide et ne comprend pas.
+// Un banc qui ne tiendrait que ① serait vert le jour où le pilote cesse de
+// reposer le libellé. C'est la faute du §9 de `test:membre` la veille du
+// lot 142 : contrôler la forme qu'on vient de retirer, pas l'effet voulu.
+// ⚠️ Le libellé est TRADUIT : on ne compare pas à une chaîne écrite ici, on
+// compare à ce que le gabarit a déclaré. Une valeur en dur dans ce banc
+// deviendrait fausse à la première page servie dans une autre langue.
+{
+  const declare = (document.getElementById('vue-tbl') || {}).getAttribute
+    ? document.getElementById('vue-tbl').getAttribute('data-attente-txt')
+    : null;
+  verifie('le libellé d\'attente est déclaré UNE fois sur l\'hôte du tableau',
+    !!declare, declare ? `« ${declare} »` : '🔴 `data-attente-txt` absent de #vue-tbl');
+  if (declare) {
+    // ⚠️ LE PÉRIMÈTRE SE DÉCLARE, IL NE SE RÉTRÉCIT PAS EN SILENCE. Ce qui
+    // coûtait, c'est la RÉPÉTITION par ligne, pas le libellé lui-même : une
+    // occurrence isolée hors du tableau (la puce verrouillée de la barre) est
+    // légitime et vaut 25 o. On mesure donc les deux, avec un plafond nommé —
+    // un contrôle qu'on restreint jusqu'à ce qu'il passe finit par ne plus
+    // rien interdire.
+    const PLAFOND_HORS_TABLEAU = 2;
+    const compte = (t) => (t.match(/title="[^"]*"/g) || [])
+      .filter((x) => x === `title="${declare}"`).length;
+    const corpsHtml = (html.match(/<tbody[\s\S]*?<\/tbody>/i) || [''])[0];
+    const dansCorps = compte(corpsHtml);
+    const surPage = compte(html);
+    verifie('① le corps du tableau ne répète plus le libellé', dansCorps === 0,
+      dansCorps ? `🔴 ${dansCorps} occurrence(s) dans le <tbody>` : `zéro dans le <tbody>, ${surPage} ailleurs sur la page`);
+    verifie(`…et le reste de la page en garde au plus ${PLAFOND_HORS_TABLEAU}`,
+      surPage - dansCorps <= PLAFOND_HORS_TABLEAU,
+      `${surPage - dansCorps} hors tableau (plafond ${PLAFOND_HORS_TABLEAU})`);
+    const cells = [...document.querySelectorAll('#vue-tbl [data-attente]')];
+    const nus = cells.filter((e) => e.getAttribute('title') !== declare);
+    verifie('② le pilote le repose sur CHAQUE cellule en attente', cells.length > 0 && nus.length === 0,
+      cells.length === 0 ? '🔴 aucune cellule `data-attente` — le banc ne mesure rien'
+        : (nus.length ? `🔴 ${nus.length}/${cells.length} cellule(s) sans libellé`
+          : `${cells.length} cellule(s) servies par le pilote`));
+  }
+}
+
 const visibles = (sel) => [...document.querySelectorAll(sel)].filter((x) => !x.hasAttribute('hidden')).length;
 const lignesDom = [...document.querySelectorAll('#vue-tbl tbody tr')];
 

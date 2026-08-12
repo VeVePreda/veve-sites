@@ -257,14 +257,20 @@ const PAR_TRANCHE = 60;
             ⚠️ `data-b` COMME LE PANNEAU MARQUE : le champ de recherche du lot
             115b cherche cet attribut. Un second nom d'attribut aurait demandé un
             second script, pour le même geste. */}
-        <div class="cols-l" id="s-lics">
-          {licences.map((l) => (
-            <label class="puce" data-b={l.nom.toLowerCase()}>
-              <input type="checkbox" name="s-lic" value={l.nom} /> {l.nom}
-              <span class="etiq" style="opacity:.65;margin-left:5px">{l.n}</span>
-            </label>
-          ))}
-        </div>
+        {/* LOT 143 - LA LISTE DES PUCES N'EST PLUS SERVIE, ELLE EST CONSTRUITE.
+            Mesure du 12/08 sur la production : les 83 licences et les 469
+            marques pesaient 84 423 o et 1 187 noeuds sur CHACUNE des visites,
+            dans un formulaire porte par data-membre et hidden. Deux comptes
+            existent ; les 3 097 pages sont pre-generees, donc tout le monde
+            recevait le panneau, y compris ceux qui ne peuvent pas l'ouvrir.
+            Aucune donnee ne disparait : chaque valeur etait DEJA dans le DOM,
+            sur les cartes (data-lic et data-brand). Verifie a la mesure :
+            83 sur 83 et 469 sur 469, et zero valeur absente du texte visible
+            des cartes une fois les entites resolues.
+            La construction lit LA CARTE, jamais le nom du set - c'est la meme
+            source que garde() plus bas, donc les deux ne peuvent pas diverger.
+            Le compteur se compte, il ne se recopie pas. */}
+        <div class="cols-l" id="s-lics" data-puces="lic"></div>
       </div>
     )}
 
@@ -288,9 +294,10 @@ const PAR_TRANCHE = 60;
         <label class="sr-only" for="s-bq">{t(lang, 'sets.brandSearch')}</label>
         <input type="search" id="s-bq" class="champ-f" autocomplete="off"
                placeholder={t(lang, 'sets.brandSearch')} />
-        <div class="cols-l" id="s-brands">
-          {marques.map((b) => (<label class="puce" data-b={b.toLowerCase()}><input type="checkbox" name="s-brand" value={b} /> {b}</label>))}
-        </div>
+        {/* LOT 143 - construite, comme le panneau licence au-dessus.
+            Le champ de recherche du lot 115b continue de chercher data-b : cet
+            attribut est pose par la construction, avec la meme casse basse. */}
+        <div class="cols-l" id="s-brands" data-puces="brand"></div>
         <p class="etiq" id="s-bq-vide" hidden>{t(lang, 'sets.brandNone')}</p>
       </div>
     )}

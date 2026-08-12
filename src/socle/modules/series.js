@@ -42,6 +42,61 @@
 // jours. Le Marché, lui, est un poste de travail : il mémorise.
 (function () {
   var f = document.getElementById('f-sets'); if (!f) return;
+
+  // LOT 143 - LES PUCES SONT CONSTRUITES ICI, PLUS SERVIES DANS LE HTML.
+  // Mesure du 12/08 sur la production : 83 licences et 469 marques pesaient
+  // 84 423 o et 1 187 noeuds sur chaque visite, dans un formulaire hidden que
+  // seuls les membres peuvent ouvrir. Les 3 097 pages sont pre-generees : le
+  // meme HTML part vers tout le monde, donc on ne peut pas conditionner au
+  // palier - on peut seulement ne pas l'ecrire.
+  // La valeur est lue SUR LA CARTE et pas retrimee. C'est volontaire : garde()
+  // plus bas compare exactement dataset.brand et dataset.lic. Une puce trimee
+  // cesserait de correspondre a la carte le jour ou une valeur du catalogue
+  // porte un espace de bord, et le filtre repondrait sans rien selectionner.
+  // Les deux ordres du serveur sont reproduits, ils ne sont pas decoratifs :
+  // licences par nombre de sets decroissant, marques par ordre alphabetique.
+  var puceFaite = {};
+  function remplirPuces(hote){
+    if (!hote) return false;
+    var axe = hote.getAttribute('data-puces');
+    if (!axe || puceFaite[axe]) return false;
+    var grille = document.getElementById('s-grille'); if (!grille) return false;
+    var champ = (axe === 'lic') ? 'lic' : 'brand';
+    var nom   = (axe === 'lic') ? 's-lic' : 's-brand';
+    var n = {}, ordre = [];
+    [].slice.call(grille.querySelectorAll('.col-carte')).forEach(function(c){
+      var v = c.dataset[champ];
+      if (!v) return;
+      if (!(v in n)) { n[v] = 0; ordre.push(v); }
+      n[v]++;
+    });
+    if (ordre.length < 2) return false;
+    ordre.sort((axe === 'lic')
+      ? function(a, b){ return (n[b] - n[a]) || a.localeCompare(b); }
+      : function(a, b){ return a.localeCompare(b); });
+    var frag = document.createDocumentFragment();
+    ordre.forEach(function(v){
+      var l = document.createElement('label');
+      l.className = 'puce';
+      l.setAttribute('data-b', v.toLowerCase());
+      var i = document.createElement('input');
+      i.type = 'checkbox'; i.name = nom; i.value = v;
+      l.appendChild(i);
+      l.appendChild(document.createTextNode(' ' + v + ' '));
+      if (axe === 'lic') {
+        var e = document.createElement('span');
+        e.className = 'etiq';
+        e.style.opacity = '.65';
+        e.style.marginLeft = '5px';
+        e.textContent = String(n[v]);
+        l.appendChild(e);
+      }
+      frag.appendChild(l);
+    });
+    hote.appendChild(frag);
+    puceFaite[axe] = true;
+    return true;
+  }
   // 🔴 LOT 115b — la recherche DANS la liste des marques.
   // ⭐ Elle ne touche ni aux cases cochées ni à la grille : elle masque des
   //   étiquettes, rien de plus. `hidden` et pas une classe — une étiquette
@@ -52,8 +107,11 @@
     var hote = document.getElementById('s-brands');
     var vide = document.getElementById('s-bq-vide');
     if (!q || !hote) return;
-    var etiquettes = hote.querySelectorAll('[data-b]');
+    // LOT 143 - la liste se relit, elle ne se capture plus au chargement :
+    // les etiquettes n'existent qu'apres la premiere ouverture du panneau.
+    var etiquettes = [];
     q.addEventListener('input', function () {
+      if (!etiquettes.length) etiquettes = [].slice.call(hote.querySelectorAll('[data-b]'));
       var t = q.value.trim().toLowerCase();
       var n = 0;
       etiquettes.forEach(function (el) {
@@ -175,6 +233,9 @@
   boutons.forEach(function(b){
     var pan = document.getElementById('sp-' + b.dataset.g); if (!pan) return;
     b.addEventListener('click', function(){
+      // LOT 143 - on remplit avant d'afficher, jamais apres : un panneau
+      // montre puis rempli fait sauter la mise en page sous le doigt.
+      remplirPuces(pan.querySelector('[data-puces]'));
       var ouvrir = pan.hidden;
       boutons.forEach(function(o){ var p2 = document.getElementById('sp-' + o.dataset.g);
         if (p2) p2.hidden = true; o.setAttribute('aria-expanded', 'false'); });

@@ -461,6 +461,24 @@ RUN WAREHOUSE_OFFLINE=1 npm run test:pages
 #   adresse et n'y voient pas la meme chose.
 # ⚠️ IL N'IMPORTE PAS `dataset.mjs` — il ne peut pas vider la reserve.
 RUN WAREHOUSE_OFFLINE=1 npm run test:tuiles
+# 🆕 LOT 143 — TROIS BANCS QUI VIVAIENT HORS DE CETTE PORTE.
+# Mesure du 12/08 : `npm test` chaine 41 bancs, ce Dockerfile en lancait 31.
+# Les dix absents tournent en CI et n'y ARRETENT rien : la CI constate, seul le
+# Dockerfile empeche. Un banc vert dans un onglet pendant qu'une image part en
+# production est un banc decoratif.
+# ⛔ ILS VONT APRES LE BUILD, comme `test:tuiles` juste au-dessus : les trois
+#   lisent `dist/`. Place avant, `test:series` ne trouverait pas la page des
+#   sets et sortirait INDECIDABLE — c'est-a-dire vert, sans avoir rien mesure.
+# ⭐ `test:series` garde le lot 143 : depuis ce lot les puces des filtres ne
+#   sont plus servies, elles se construisent a l'ouverture du panneau. Le banc
+#   ouvre le panneau et exige que chaque valeur proposee existe sur une carte,
+#   et l'inverse. Sans cette ligne, personne n'arreterait leur disparition.
+# ⚠️ `test:indexnow` n'a besoin ni de `dist/` ni du reseau — il rejoue son
+#   `main()` sur un faux sitemap. Il est ici par commodite de lecture, pas par
+#   dependance : le deplacer plus haut ne casserait rien.
+RUN WAREHOUSE_OFFLINE=1 npm run test:series
+RUN WAREHOUSE_OFFLINE=1 npm run test:tableau
+RUN npm run test:indexnow
 # 🌍🔴 `test:i18n` — LOT 129. L'ECHANGE DES LIBELLES, JOUE POUR DE VRAI.
 # Preda, 10/08 : « la langue est un coup en anglais, un coup en francais. »
 # Les 3 097 pages publiques sont pre-generees en ANGLAIS et pre-compressees :

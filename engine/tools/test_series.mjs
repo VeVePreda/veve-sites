@@ -87,15 +87,80 @@ lus += 3;
 // ═══════════════════════════════════════════════════════════════════════════
 console.log('\n2. le filtre et le tri sont-ils ÉMIS, et cohérents avec les cartes ?');
 const sansScripts = html.replace(/<script[\s\S]*?<\/script>/g, '');
-const proposees = [...sansScripts.matchAll(/name="s-lic" value="([^"]*)"/g)].map((m) => m[1]);
+let proposees = [...sansScripts.matchAll(/name="s-lic" value="([^"]*)"/g)].map((m) => m[1]);
 const portees = [...sansScripts.matchAll(/data-lic="([^"]*)"/g)].map((m) => m[1]);
 lus += proposees.length + portees.length;
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴 LOT 143 — CE § A ÉTÉ VERT SUR UN BUILD QU'IL N'AVAIT PAS MESURÉ
+// ═══════════════════════════════════════════════════════════════════════════
+// Le repli d'origine déduisait « moins de deux licences » de « aucune puce
+// trouvée dans le HTML ». Les deux phrases n'ont jamais été la même. Mesuré le
+// 12/08 : un build portant QUATRE licences distinctes sortait
+// « INDÉCIDABLE — moins de deux licences », et le banc se déclarait vert.
+// ⭐⭐⭐ La donnée qui départage était déjà là, deux lignes plus haut :
+// `portees` compte les licences que les CARTES portent. Le banc l'avait
+// collectée et ne s'en servait pas.
+// ⭐⭐ Et un message d'échec est une instruction : celui-là nommait une cause
+// qu'il ne pouvait pas départager, donc il envoyait chercher au mauvais
+// endroit. Il nomme maintenant ce qu'il a compté, dans les deux cas.
+//
+// ⇒ DEPUIS LE LOT 143 LES PUCES NE SONT PLUS SERVIES : le pilote les construit
+//   à la première ouverture du panneau, depuis les cartes. Un banc qui lit le
+//   HTML statique ne peut donc PLUS voir le filtre — il faut l'ouvrir.
+//   ⛔ On n'assouplit pas le contrat pour autant : il se vérifie sur le DOM
+//   APRÈS ouverture, dans les deux sens, exactement comme avant.
+const licPortees = new Set(portees.filter(Boolean)).size;
 if (proposees.length === 0) {
-  // ⭐ Le gabarit n'émet le panneau qu'à partir de DEUX licences : sur un
-  //   catalogue mono-licence, son absence est CORRECTE. On ne peut pas juger.
-  indecis('le filtre licence', 'moins de deux licences dans ce build — le panneau ne s\'émet pas, et c\'est voulu');
-  fin();
+  const conteneur = /id="s-lics"[^>]*data-puces="lic"/.test(sansScripts);
+  if (!conteneur && licPortees > 1) {
+    // Ni puces servies, ni conteneur à remplir, mais des cartes qui portent
+    // plusieurs licences : le filtre a disparu, ce n'est pas un cas SANS OBJET.
+    verifie('le filtre licence existe sous une forme ou une autre', false,
+      `🔴 ${licPortees} licence(s) portées par les cartes, aucune puce et aucun conteneur \`data-puces="lic"\``);
+    fin();
+  }
+  if (!conteneur) {
+    indecis('le filtre licence',
+      `${licPortees} licence(s) portée(s) par les cartes — sous deux, le panneau ne s'émet pas, et c'est voulu`);
+    fin();
+  }
+  // Le conteneur est là : on exécute le pilote et on OUVRE le panneau.
+  const { monterDOM: monterPourPuces } = await import('./_dom_banc.mjs');
+  const srcPilote = join(R, 'src', 'socle', 'modules', 'series.js');
+  const domP = existsSync(srcPilote) ? await monterPourPuces(html) : null;
+  if (!domP) {
+    indecis('le filtre licence construit',
+      'linkedom ou le pilote absent — le panneau n\'a pas pu être ouvert, donc rien n\'a été mesuré');
+    fin();
+  }
+  const fnP = new Function('document', 'window', 'console', 'localStorage',
+    readFileSync(srcPilote, 'utf8'));
+  try { fnP(domP.document, domP.window, { log() {}, warn() {}, error() {} }, undefined); } catch (e) {
+    verifie('le pilote s\'exécute avant d\'ouvrir le panneau', false, `🔴 ${e.message}`);
+    fin();
+  }
+  const bt = domP.document.querySelector('.f-b[data-g="licence"]');
+  // ⭐ AVANT / APRÈS MESURÉS, jamais un seul état : si le panneau contenait
+  //   déjà des puces avant le clic, le clic ne prouverait rien.
+  const avant = domP.document.querySelectorAll('#s-lics .puce').length;
+  if (bt) bt.dispatchEvent(new domP.window.Event('click', { bubbles: true }));
+  const apres = [...domP.document.querySelectorAll('#s-lics input[name="s-lic"]')];
+  verifie('ouvrir le panneau CONSTRUIT les puces — sinon ce § ne prouve rien',
+    avant === 0 && apres.length > 0, `avant ${avant}, après ${apres.length}`);
+  if (!apres.length) fin();
+  proposees = apres.map((x) => x.getAttribute('value'));
+  lus += proposees.length;
+  // ⭐⭐ L'ORDRE EST UNE DÉCISION DU LOT 133, PAS UN HASARD : les licences se
+  //   rangent par nombre de sets décroissant pour que Marvel arrive en tête.
+  //   Un tri alphabétique passerait tous les contrôles de contenu ci-dessous
+  //   et enterrerait quand même la licence majoritaire.
+  const n = {};
+  for (const v of portees.filter(Boolean)) n[v] = (n[v] || 0) + 1;
+  const attendu = [...proposees].sort((a, b) => (n[b] - n[a]) || a.localeCompare(b));
+  verifie('les puces construites gardent l\'ordre du serveur (par nombre de sets)',
+    proposees.join('\u0000') === attendu.join('\u0000'),
+    proposees.slice(0, 3).map((v) => `${v} ${n[v] || 0}`).join(' · '));
 }
 verifie('le panneau `sp-licence` est émis', /id="sp-licence"/.test(sansScripts),
   `${proposees.length} licence(s) proposée(s)`);
@@ -327,8 +392,17 @@ const compte = {};
 for (const v of portees) if (v) compte[v] = (compte[v] || 0) + 1;
 const [licence, attendus] = Object.entries(compte).sort((a, b) => b[1] - a[1])[0];
 
+// 🆕 LOT 143 — LA CASE N'EXISTE QU'APRÈS OUVERTURE DU PANNEAU. Le pilote
+// construit les puces au premier clic ; les chercher sans avoir cliqué revient
+// à mesurer un état que l'utilisateur ne rencontre jamais. ⛔ Et on ne remplace
+// pas ce contrôle par un `if (coche)` complaisant : sans case, la suite du § ne
+// mesure plus rien, donc l'absence reste un ÉCHEC — c'est le clic qui manquait,
+// pas l'exigence.
+const btLic = document.querySelector('.f-b[data-g="licence"]');
+if (btLic) btLic.dispatchEvent(new window.Event('click', { bubbles: true }));
 const coche = document.querySelector(`input[name="s-lic"][value="${licence}"]`);
-verifie(`la case de la licence « ${licence} » existe dans le DOM`, !!coche);
+verifie(`la case de la licence « ${licence} » existe dans le DOM`, !!coche,
+  coche ? 'panneau ouvert, puce construite' : '🔴 panneau ouvert et toujours aucune puce');
 if (!coche) fin();
 // ⭐ L'AVANT SE MESURE, IL NE SE SUPPOSE PAS — voir le commentaire de `cocher()`.
 const [avant] = (compteur().match(/\d+/g) || ['0']).map(Number);

@@ -496,7 +496,19 @@ const ILE_TUILES = JSON.stringify({
       « aller directement aux résultats » vise une ancre, pas un titre, et une
       ancre supprimée est un lien mort que rien ne signale. */}
 
-  <div id="vue-tbl" class="tbl-hote">
+  {/* LOT 143 - LE LIBELLE D'ATTENTE EST DECLARE ICI, UNE FOIS.
+      Mesure du 12/08 : il partait 7 fois par ligne dans le HTML servi, soit
+      16 380 o sur 90 lignes en bac a sable et environ 51 000 o sur la
+      production. Cette page n'est jamais servie par le bord (no-store, elle
+      redirige vers la connexion en anonyme) : chaque visite la retelechargeait
+      en entier depuis l'origine, ces octets compris.
+      Le pilote le repose sur chaque data-attente AU CHARGEMENT, pas au survol.
+      La difference n'est pas un detail : une infobulle posee au survol
+      n'existe pas pour un lecteur d'ecran, qui lit le DOM et ne survole rien.
+      Posee au chargement, l'aide reste exactement ce qu'elle etait.
+      Sans JavaScript elle disparait - mais cette page ne filtre, ne trie et ne
+      s'affiche deja pas sans JavaScript, et elle exige un compte. */}
+  <div id="vue-tbl" class="tbl-hote" data-attente-txt={attente}>
     <table id="resultats" tabindex="-1">
       {/* ═══════════════════════════════════════════════════════════════════
           LE MARCHÉ À DEUX LIGNES — demande Preda du 03/08/2026 (lot 43)
@@ -581,7 +593,7 @@ const ILE_TUILES = JSON.stringify({
           {/* LISTINGS — VeVe puis StackR */}
           <td class="n c-4" data-col="lst"><span class="m2">
             <span class="m2__a muted">{i.listings ?? '—'}</span>
-            <span class="m2__b muted" data-attente title={attente}>—</span>
+            <span class="m2__b muted" data-attente>—</span>
           </span></td>
 
           {/* PLANCHER — gems chez VeVe, OMI chez StackR */}
@@ -595,15 +607,15 @@ const ILE_TUILES = JSON.stringify({
           <td class="n" data-prix><span class="m2">
             <span class="m2__a"><span class="num"><Fragment set:html={gemsU} /> {money(i.floor)}</span>
               {i.listings <= 1 && <span class="alerte" title={t(lang, 'item.outlier')}>!</span>}</span>
-            <span class="m2__b muted" data-attente title={attente}><Fragment set:html={omiM()} /> —</span>
+            <span class="m2__b muted" data-attente><Fragment set:html={omiM()} /> —</span>
           </span></td>
 
           {/* VARIATION 24 H — absente des DEUX côtés : le moteur ne conserve
               que 7 jours et 30 jours. Ce n'est pas un oubli de collecte, c'est
               la profondeur de l'entrepôt. */}
           <td class="n c-5" data-col="d24"><span class="m2">
-            <span class="m2__a muted" data-attente title={attente}>—</span>
-            <span class="m2__b muted" data-attente title={attente}>—</span>
+            <span class="m2__a muted" data-attente>—</span>
+            <span class="m2__b muted" data-attente>—</span>
           </span></td>
 
           {/* 7 j — LA COURBE, désormais la colonne elle-même.
@@ -633,7 +645,7 @@ const ILE_TUILES = JSON.stringify({
               : <span class="m2__a num" title={noteMcp}>
                   <Fragment set:html={gemsU} /> {money(parMcp(i))}
                 </span>}
-            <span class="m2__b muted" data-attente title={attente}><Fragment set:html={omiM()} /> —</span>
+            <span class="m2__b muted" data-attente><Fragment set:html={omiM()} /> —</span>
           </span></td>
 
           {/* LIENS — LOT 68 : DEUX BOUTONS SUR UNE SEULE LIGNE, SÉPARÉS PAR UNE
@@ -651,9 +663,9 @@ const ILE_TUILES = JSON.stringify({
               d'autre ne bouge. */}
           <td class="c-4" data-col="liens">
             <span class="liens-2">
-              <span class="lien-b" data-attente title={attente}>VeVe</span>
+              <span class="lien-b" data-attente>VeVe</span>
               <span class="liens-2__sep" aria-hidden="true">/</span>
-              <span class="lien-b" data-attente title={attente}>StackR</span>
+              <span class="lien-b" data-attente>StackR</span>
             </span>
           </td>
         </tr>
@@ -754,6 +766,18 @@ const ILE_TUILES = JSON.stringify({
       var pas    = bPlus ? parseInt(bPlus.dataset.pas, 10) : 0;
       var montre = pas;
       var CLE = 'vp-filtres-2', corpus = '', vue = 'tbl';
+
+      // LOT 143 - le libelle d'attente est lu une fois et repose sur place.
+      // Il n'est plus ecrit 7 fois par ligne dans le HTML servi. Le texte est
+      // traduit cote serveur, donc il vient du DOM et n'est pas recompose ici :
+      // une seconde table de traduction dans le pilote aurait diverge de celle
+      // du gabarit au premier libelle change d'un seul cote.
+      var hoteTbl = document.getElementById('vue-tbl');
+      var ATT = hoteTbl ? (hoteTbl.dataset.attenteTxt || '') : '';
+      if (ATT) {
+        [].slice.call(document.querySelectorAll('#vue-tbl [data-attente]'))
+          .forEach(function (e) { if (!e.getAttribute('title')) e.setAttribute('title', ATT); });
+      }
 
       // ⭐ NOUVELLE CLÉ DE STOCKAGE (`-2`). L'ancienne forme n'avait ni tri ni
       // colonnes : la relire produirait un état à moitié rempli, donc des

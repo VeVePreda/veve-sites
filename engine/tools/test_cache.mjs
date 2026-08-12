@@ -502,15 +502,66 @@ for (const zone of ZONES) {
       // Deux frappes rapprochées : la première peuple, la seconde doit toucher.
       const a = await frappe(url); await dodo(PAUSE);
       const b = await frappe(url); await dodo(PAUSE);
-      const statuts = [a, b].filter((r) => r.ok).map((r) => r.h['cf-cache-status'] || '(aucun)');
-      verifie(`${zone.nom} · ${page.chemin} — servie depuis le bord`,
-        [a, b].some((r) => r.ok && estHit(r)),
-        `statuts vus : ${statuts.join(', ')}` +
-        ([a, b].some((r) => r.ok && estHit(r)) ? '' :
-          '\n       🔴 `CACHE_RULE_POSEE = true` mais rien ne vient du bord. ⇒ soit la ' +
-          'règle a été retirée ou désactivée, soit elle ne couvre pas cette adresse.\n' +
-          '       ⛔ Ne « réparez » pas ce banc en remettant le booléen à `false` : ' +
-          'ce serait éteindre le témoin au lieu de rallumer la règle.'));
+      let frappes = [a, b];
+      // ═════════════════════════════════════════════════════════════════════
+      // 🆕🟠 LOT 143 — CE CONTRÔLE COURAIT AVEC LA PURGE. 15 ÉCHECS SUR 63.
+      // ═════════════════════════════════════════════════════════════════════
+      // Les deux workflows partent sur le MÊME `push` : celui-ci demande un
+      // HIT pendant que l'autre vide le cache. L'échec était donc réel et sans
+      // objet à la fois — et c'est l'INTERMITTENCE qui est dangereuse : on
+      // apprend à ne plus lire un rouge qui passe une fois sur quatre, et le
+      // jour où il dit vrai on ne le lit pas non plus.
+      // ⛔ CE QU'ON NE FAIT PAS : baisser l'exigence, réessayer jusqu'à ce que
+      //   ça passe, ou remettre le booléen à `false`. Ce banc est la seule
+      //   sentinelle d'une fuite de cache ; l'assouplir pour éteindre un rouge
+      //   reviendrait à retirer le détecteur parce qu'il siffle en cuisinant.
+      // ⭐⭐⭐ CE QU'ON FAIT : ON SÉPARE DEUX QUESTIONS QUI ÉTAIENT CONFONDUES.
+      //   « la règle s'applique-t-elle ? » et « le cache est-il peuplé ? » ne
+      //   sont pas la même chose, et le statut de Cloudflare les distingue :
+      //     · MISS / EXPIRED / REVALIDATED → la règle S'APPLIQUE, le cache est
+      //       simplement vide. C'est exactement ce qu'une purge vient de faire.
+      //     · DYNAMIC / BYPASS / rien       → AUCUNE règle ne s'applique. Ça,
+      //       c'est la panne, et elle reste un ÉCART.
+      //   Mesuré le 12/08 en production : `/sets/` sans paramètre rend MISS
+      //   puis HIT six secondes plus tard ; `/market/`, qui n'est pas cachée,
+      //   rend DYNAMIC. Les deux familles ne se confondent pas.
+      // ⚠️ ET L'INDÉCIDABLE NE DOIT PAS S'INSTALLER : on frappe une troisième
+      //   fois, après une pause plus longue. Un cache qui se repeuple a touché
+      //   au troisième coup ; s'il n'a toujours pas touché, ce n'est plus une
+      //   course, et on le dit sans trancher la cause.
+      const REPEUPLE = ['MISS', 'EXPIRED', 'REVALIDATED'];
+      const statutDe = (r) => String(r.h?.['cf-cache-status'] || '').toUpperCase();
+      if (!frappes.some((r) => r.ok && estHit(r))
+          && frappes.filter((r) => r.ok).every((r) => REPEUPLE.includes(statutDe(r)))) {
+        // ⚠️ LA PAUSE NORMALE SUFFIT, ET C'EST MESURÉ. Ce délai n'est pas un
+        // temps de propagation : la frappe précédente a déjà peuplé le bord,
+        // il faut seulement une requête DE PLUS pour le constater. Une attente
+        // de six secondes par cible ajoutait plus d'une minute au banc pour
+        // rien — un banc qu'on n'ose plus lancer ne mesure rien non plus.
+        await dodo(PAUSE);
+        frappes = frappes.concat([await frappe(url)]);
+      }
+      const statuts = frappes.filter((r) => r.ok).map((r) => r.h['cf-cache-status'] || '(aucun)');
+      const touche = frappes.some((r) => r.ok && estHit(r));
+      const repeuplement = !touche
+        && frappes.filter((r) => r.ok).length > 0
+        && frappes.filter((r) => r.ok).every((r) => REPEUPLE.includes(statutDe(r)));
+      if (repeuplement) {
+        indecis(`${zone.nom} · ${page.chemin} — servie depuis le bord`,
+          `statuts vus : ${statuts.join(', ')} — la règle s'applique (aucun DYNAMIC) mais le ` +
+          'cache est vide sur les trois frappes. ⇒ une purge vient de passer, ou cette adresse ' +
+          'ne reçoit pas assez de trafic pour rester chaude. ⛔ Ce n\'est PAS un vert : ' +
+          'le gain n\'a pas été mesuré ici.');
+      } else {
+        verifie(`${zone.nom} · ${page.chemin} — servie depuis le bord`, touche,
+          `statuts vus : ${statuts.join(', ')}` +
+          (touche ? '' :
+            '\n       🔴 `CACHE_RULE_POSEE = true` et le bord répond sans que la règle ' +
+            's\'applique (statut hors MISS/EXPIRED/REVALIDATED). ⇒ soit la règle a été ' +
+            'retirée ou désactivée, soit elle ne couvre pas cette adresse.\n' +
+            '       ⛔ Ne « réparez » pas ce banc en remettant le booléen à `false` : ' +
+            'ce serait éteindre le témoin au lieu de rallumer la règle.'));
+      }
     } else {
       const enCache = estHit(nu);
       note(`${zone.nom} · ${page.chemin} — ${nu.h['cf-cache-status'] || '(aucun statut)'}` +
