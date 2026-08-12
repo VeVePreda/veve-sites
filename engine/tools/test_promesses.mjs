@@ -47,6 +47,7 @@ process.env.SITE = process.env.SITE || 'veveprice';
 const R = new URL('../..', import.meta.url).pathname;
 
 let ko = 0;
+let indecidable = 0;
 const dit = (bon, quoi, detail) => {
   if (!bon) ko++;
   console.log(`  ${bon ? 'ok ' : 'KO '} ${quoi}${detail ? ` — ${detail}` : ''}`);
@@ -241,5 +242,91 @@ dit(fausses.length === 0, 'une porte marquee provisoire est ouverte a un palier 
       + ` : marquee(s) provisoire(s) mais hors de ${ATTEIGNABLES.join('/')} — personne ne peut y arriver sans payer, donc rien n'est ouvert`
     : (provisoires.length ? `${provisoires.map((p) => `${p.nom}→${p.tier}`).join(', ')}` : 'aucune porte provisoire'));
 
-console.log(ko === 0 ? '\n✅ rien n\'est vendu qui n\'existe pas\n' : `\n🔴 ${ko} controle(s) en echec\n`);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴 LOT 140-4 — UN PALIER GRATUIT ET OUVERT NE DIT PAS « BIENTOT »
+// ═══════════════════════════════════════════════════════════════════════════
+// MESURE EN PRODUCTION LE 12/08/2026 : /offre/ servait « Plans open soon. »
+// QUATRE fois — une par carte, y compris sur `member`, dont le prix est 0 et
+// dont la porte est OUVERTE depuis le 06/08 (l'inscription par courriel est en
+// production). Le bouton disait « bientot » d'une chose qu'on pouvait faire
+// tout de suite, sur la page dont le seul travail est de convertir.
+//
+// ⭐⭐ LE DEFAUT VENAIT D'UNE CONDITION JUSTE APPLIQUEE TROP LARGE : le gabarit
+// testait `offer.url`, qui decrit la VENTE, pour decider du bouton de TOUS les
+// paliers — y compris de celui qui ne se vend pas. Un palier gratuit n'a pas
+// besoin d'un prestataire de paiement pour s'ouvrir.
+//
+// ⛔ ET ON MESURE SUR LE HTML SERVI, PAS SUR LE GABARIT. Un controle qui lirait
+// `Offre.astro` verifierait qu'une intention est ECRITE ; ce §-ci verifie
+// qu'elle est RENDUE — c'est-a-dire ce que la personne lit. Le gabarit et la
+// page ont deja diverge deux fois sur ce depot (lots 24 et 119).
+//
+// ⭐⭐⭐ ET LE CONTROLE NE VAUT QUE VENTE FERMEE, CE QU'IL DIT. Le jour ou
+// `offer.url` se remplit, toutes les cartes portent un vrai appel a l'action et
+// il n'y a plus rien a departager. Un banc qui resterait branche ce jour-la
+// rougirait sur une page parfaitement juste — et on l'aurait desarme.
+{
+  const { readFileSync, existsSync: existe } = await import('node:fs');
+  const { join: joindre } = await import('node:path');
+  const tiers = (m.access?.tiers || []);
+  const plans = (offre.plans || []).filter((p) => tiers.includes(p.cle));
+  const gratuits = plans.filter((p) => Number(p.prix) === 0);
+  const payants = plans.filter((p) => Number(p.prix) !== 0);
+  // ⭐ Le mode `server` range les pages pre-generees sous `dist/client/`.
+  const RACINE = existe(joindre(R, 'dist', 'client')) ? joindre(R, 'dist', 'client') : joindre(R, 'dist');
+  const PAGE = joindre(RACINE, 'offre', 'index.html');
+
+  if (venteOuverte) {
+    console.log('  --  la vente est OUVERTE : chaque carte porte un vrai appel a l\'action, rien a departager.');
+    console.log('      ⭐ Ce message est volontaire : un banc muet et un banc vert se ressemblent.');
+  } else if (!gratuits.length) {
+    console.log(`  --  aucun palier gratuit declare sur « ${process.env.SITE} » : ce controle n'a rien a mesurer.`);
+    console.log('      ⭐ Ce message est volontaire : un banc muet et un banc vert se ressemblent.');
+  } else if (!existe(PAGE)) {
+    // ⛔ INDECIDABLE, JAMAIS VERT. « zero parce que c'est casse » et « zero
+    //    parce qu'il n'y a rien ici » sont deux verdicts opposes.
+    indecidable++;
+    console.log(`  ⚠️  INDECIDABLE — ${PAGE.replace(R, '')} absente : jouer ce banc APRES npm run build.`);
+  } else {
+    const html = readFileSync(PAGE, 'utf8');
+    // ⛔ ON DECOUPE LA GRILLE DES TARIFS. `btn--verrou` et `/inscription/`
+    //    vivent aussi dans l'en-tete et le pied de page : compter sur la page
+    //    entiere melangerait des boutons qui n'ont rien a voir. Mesure du
+    //    12/08 : 1 lien `/inscription/` hors grille sur cette page.
+    const i = html.indexOf('class="tarifs"');
+    const zone = i < 0 ? '' : html.slice(i, html.indexOf('compa-t__h') > 0 ? html.indexOf('compa-t__h') : html.length);
+    dit(Boolean(zone), 'la grille des tarifs est lisible dans la page servie',
+      zone ? `${zone.length} octets` : 'aucun bloc `class="tarifs"` : l\'instrument ne peut rien mesurer');
+    if (zone) {
+      const cartes = (zone.match(/class="tarif[ "]/g) || []).length;
+      const verrous = (zone.match(/btn--verrou/g) || []).length;
+      const inscriptions = (zone.match(/href="\/inscription\/"/g) || []).length;
+      console.log(`\n  · ${cartes} carte(s) rendue(s) · ${gratuits.length} gratuite(s) · ${payants.length} payante(s)`);
+      console.log(`  · ${verrous} bouton(s) « bientot » · ${inscriptions} lien(s) vers l'inscription`);
+      // ⭐ L'INSTRUMENT SE CONTROLE AVANT LA MESURE : si la page ne rend pas
+      //    autant de cartes que le manifeste declare de plans, les deux
+      //    comptages qui suivent porteraient sur autre chose.
+      dit(cartes === plans.length, 'la page rend exactement une carte par plan declare',
+        cartes === plans.length ? `${cartes} = ${plans.length}` : `${cartes} carte(s) pour ${plans.length} plan(s) : l'instrument mesure autre chose`);
+      dit(verrous === payants.length,
+        'seuls les paliers PAYANTS disent « bientot »',
+        verrous === payants.length ? `${verrous} verrou(s) pour ${payants.length} palier(s) payant(s)`
+          : `${verrous} bouton(s) verrouille(s) pour ${payants.length} palier(s) payant(s) : `
+            + (verrous > payants.length
+              ? `${verrous - payants.length} palier(s) GRATUIT(s) annoncent « bientot » une chose deja ouverte`
+              : 'un palier payant a perdu son verrou — la vente est fermee, rien ne doit se cliquer'));
+      dit(inscriptions === gratuits.length,
+        'et chaque palier gratuit porte un chemin pour y entrer',
+        inscriptions === gratuits.length ? `${inscriptions} lien(s) pour ${gratuits.length} palier(s) gratuit(s)`
+          : `${inscriptions} lien(s) vers /inscription/ pour ${gratuits.length} palier(s) gratuit(s) : `
+            + 'un palier ouvert sans porte est un palier ferme');
+    }
+  }
+}
+
+console.log(
+  ko === 0 && indecidable === 0 ? '\n✅ rien n\'est vendu qui n\'existe pas\n'
+  : ko === 0 ? `\n⚠️  conforme, mais ${indecidable} point(s) INDECIDABLE(S)\n`
+  : `\n🔴 ${ko} controle(s) en echec\n`);
 process.exit(ko === 0 ? 0 : 1);

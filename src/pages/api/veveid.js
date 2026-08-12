@@ -42,7 +42,21 @@ import { secretDeService } from '../../../engine/lib/compte.mjs';
 // pouvoir POSTER une valeur arbitraire vers un service : le refus au plus près
 // de la saisie évite un aller-retour réseau pour rien, et surtout il dit ce
 // que CE site sait demander.
-const DESTINATIONS = ['compte', 'verifier'];
+// ❤️ LOT 141 — `decouvrir` REJOINT LA LISTE, ET L'OUBLIER AURAIT ÉTÉ MUET.
+// Le gabarit de `/compte/` demande désormais `decouvrir` quand aucun
+// portefeuille n'est encore saisi. ⛔ Une valeur absente d'ici ne provoque
+// AUCUNE erreur : la boucle ci-dessous la laisse tomber et `vers` garde son
+// défaut, `verifier` — c'est-à-dire exactement l'ancien parcours, sur un build
+// vert et sans un message. ⭐⭐⭐ C'est pour ça que `test:membre` §7 EXERCE la
+// passerelle au lieu de lire ce fichier : il extrait les destinations que la
+// page demande vraiment, et vérifie qu'elles arrivent intactes chez veveid.
+// ⚠️ Et il y a bien DEUX listes, ici et chez veveid, ce qui est voulu : veveid
+// décide seul de ce qu'il sert ; celle-ci dit ce que CE site sait demander, et
+// évite qu'un formulaire de ce domaine poste une valeur arbitraire vers un
+// service. ⛔ Mais elles doivent grandir ENSEMBLE — et veveid a été déposé en
+// premier, exprès : entre les deux dépôts, le site n'envoyait encore que des
+// destinations que veveid connaissait déjà.
+const DESTINATIONS = ['compte', 'verifier', 'decouvrir'];
 
 export async function POST({ request, cookies, redirect }) {
   const sid = cookies.get('vp_session')?.value || null;

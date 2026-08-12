@@ -26,6 +26,18 @@ import { manifest } from '../../../engine/lib/manifest.mjs';
 import { acces, palierVisiteur, sessionDe } from '../../../engine/lib/access.mjs';
 import { t, localize, locales, localeNames, languesInterface, choisirLangue, COOKIE_LANGUE } from '../../../engine/lib/i18n.mjs';
 import { comptesActifs } from '../../../engine/lib/features.mjs';
+// ❤️ LOT 141 — `avoirsDeLaSession()` VIT DANS LE MOTEUR, PAS ICI.
+// ⭐⭐ Elle porte QUATRE ÉTATS NOMMÉS (liste · vide · inconnu · nonverifie) et
+// c'est un module Node, donc `test:membre` §8 peut l'IMPORTER et l'exercer sur
+// ses huit cas. Écrite dans ce frontmatter, la même logique aurait été
+// invérifiable : un fichier `.astro` ne s'importe pas depuis un banc, et la
+// seule mesure possible aurait été de relire du texte.
+// ⭐ `secretDeService` EST IMPORTÉE, PLUS RECOPIÉE : cette page en portait sa
+// propre définition depuis le lot 98, et `engine/lib/compte.mjs` la porte
+// depuis le 140-3. Deux copies d'un même prédicat sont deux copies qui
+// divergeront le jour où un troisième nom de variable apparaît — c'est la
+// panne P30 du lot 139, et le commentaire de `compte.mjs` le dit déjà.
+import { avoirsDeLaSession, secretDeService } from '../../../engine/lib/compte.mjs';
 
 // ⭐ CES PAGES SONT RENDUES À LA DEMANDE : elles peuvent donc lire l'en-tête
 // `Accept-Language`, ce qu'une page pré-générée ne peut pas faire. Autant s'en
@@ -161,12 +173,12 @@ const languesDispo = languesInterface().map((l) => ({ l, n: localeNames[l] || l.
 // la session garantit déjà — le palier — et on le dit.
 const sid = Astro.cookies.get('vp_session')?.value || null;
 const idApi = process.env.SESSION_API || '';
-const secretDeService = process.env.VEVEID_SERVICE || process.env.ID_SERVICE || '';
+
 let dossier = null;
 if (aLaDemande && connecte && sid && idApi) {
   try {
     const r = await fetch(`${idApi}/api/session?sid=${encodeURIComponent(sid)}`, {
-      headers: { accept: 'application/json', 'x-service': secretDeService },
+      headers: { accept: 'application/json', 'x-service': secretDeService() },
       signal: AbortSignal.timeout(2500),
     });
     if (r.ok) dossier = await r.json();
@@ -180,6 +192,25 @@ if (aLaDemande && connecte && sid && idApi) {
 }
 // ⭐ Les codes d'erreur des routes de service reviennent ICI : la personne doit
 // retrouver son compte, jamais un cul-de-sac. Un seul endroit les traduit.
+// ═══════════════════════════════════════════════════════════════════════════
+// ❤️ CE QUE LE PORTEFEUILLE VÉRIFIÉ RAPPORTE — lot 141
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴 IL NE RAPPORTAIT RIEN. `dossier.wallet` et `dossier.verifie` n'étaient
+// lus qu'à trois lignes de tout `src/`, et ces trois lignes AFFICHAIENT
+// l'adresse. `veveid` promet pourtant « retrouvez vos collectibles ici » : la
+// donnée était collectée puis jetée, pour la treizième fois sur ce dossier.
+//
+// ⛔ AUCUN JAVASCRIPT : le serveur rend la liste. Un pilote en ligne aurait
+// rouvert le piège de l'ordre du document (socle dans le `<head>`, module dans
+// le `<body>`), et « filtres OU pagination, jamais les deux » interdit d'y
+// ajouter un tri client dans le même geste. Le premier jet est du HTML.
+//
+// ⚠️ ON N'INTERROGE QUE SI LE PORTEFEUILLE EST DÉJÀ VÉRIFIÉ. Sans ce garde,
+// chaque affichage de `/compte/` paierait un aller-retour réseau pour recevoir
+// un 409 connu d'avance.
+const collection = (aLaDemande && connecte && dossier?.verifie)
+  ? await avoirsDeLaSession(sid)
+  : null;
 const echec = Astro.url.searchParams.get('e');
 ---
       {/* ⛔ UNE SEULE LANGUE DÉCLARÉE, ET C'EST LE CORRECTIF DU 404.
@@ -332,14 +363,101 @@ const echec = Astro.url.searchParams.get('e');
         <h3 style="margin:0 0 var(--s3)">{t(lang, 'account.id.title')}</h3>
         <p class="muted respire" style="margin:0 0 var(--s3)">{t(lang, 'account.id.who')}</p>
         <p class="muted respire" style="margin:0 0 var(--s4)">{t(lang, 'account.id.how')}</p>
+        {/* ═══════════════════════════════════════════════════════════════
+            🔴 LOT 141 — LA DESTINATION SUIT L'ÉTAT DU PORTEFEUILLE
+            ═══════════════════════════════════════════════════════════════
+            Cette valeur était `verifier`, en dur. Chez veveid, `verifier` mène
+            à `/choisir`, qui renvoie vers `/compte` tant qu'aucune adresse
+            n'est saisie : deux redirections et un second clic avant
+            d'atteindre `/decouvrir` — c'est-à-dire la page que les trois
+            paragraphes ci-dessus viennent de décrire, geste par geste.
+            ⭐ La condition est celle que veveid applique lui-même : sans
+            adresse connue, on va DÉCOUVRIR ; avec une adresse dont la preuve
+            n'est pas finie, on va la VÉRIFIER. Deux états, deux portes.
+            ⛔ ELLE EST ÉCRITE ICI, EN LIGNE, ET PAS DANS LE FRONTMATTER —
+            volontairement. `test:membre` §7 extrait les destinations de CETTE
+            expression, puis les fait traverser `api/veveid.js` pour de vrai.
+            Une variable calculée plus haut aurait forcé le banc à tenir une
+            seconde liste, qui aurait vieilli sans que rien ne le dise. */}
         <form method="POST" action="/api/veveid" style="margin:0">
-          <input type="hidden" name="vers" value="verifier" />
+          <input type="hidden" name="vers" value={dossier?.wallet ? 'verifier' : 'decouvrir'} />
           <button class="btn btn--principal btn--sm" type="submit">{t(lang, 'account.id.go')}</button>
         </form>
         <p class="muted" style="font-size:13px;margin:var(--s3) 0 0">{t(lang, 'account.id.leaves')}</p>
       </>
     )}
   </section>
+
+  {/* ═══════════════════════════════════════════════════════════════════════
+      ❤️ MA COLLECTION — la première chose qu'un portefeuille vérifié rapporte
+      ═══════════════════════════════════════════════════════════════════════
+      ⭐⭐⭐ TROIS SORTIES, JAMAIS DEUX, ET C'EST TOUT L'ENJEU DE CE BLOC.
+      « il n'y a rien » et « je ne sais pas » se ressemblent sur le disque —
+      `avoirs: []` dans les deux cas — et ce sont deux verdicts opposés. Les
+      aplatir afficherait « aucun collectible » à quelqu'un qui en a trois
+      cents, sur une coupure réseau de deux secondes, et personne ne verrait
+      jamais l'erreur. `avoirsDeLaSession()` les sépare, ce bloc les dit.
+      ⛔ AUCUNE CLASSE NEUVE : `panneau champ`, `stats`, `stat`, `mono-t`,
+      `etiq`, `muted` existent et sont peintes. ⚠️ `.ligne` a été écartée après
+      mesure — elle n'existe QUE sous `.graph` (theme.css l. 823), c'est un
+      tracé SVG : l'émettre sur un `<li>` aurait produit une classe que
+      personne ne peint, exactement la panne que `css-mort` ne sait pas voir.
+      ⛔ PAS D'IMAGES dans ce premier jet : une collection de trois cents
+      pièces ferait trois cents requêtes sur une page rendue à la demande.
+      ⭐ Et la liste n'est pas tronquée. Une coupe silencieuse à cinquante
+      cacherait des pièces à leur propriétaire sans qu'aucun compteur ne le
+      dise — le nombre affiché ci-dessous est celui de la liste rendue. */}
+  {collection && (
+    <>
+      <div class="sect-t sect-t--gd"><h2>{t(lang, 'account.vault')}</h2></div>
+      <section class="panneau champ" style="margin-bottom:var(--s5)">
+        <p class="muted respire" style="margin:0 0 var(--s4)">{t(lang, 'account.vault.d')}</p>
+
+        {collection.etat === 'liste' && (
+          <>
+            {/* ⚠️ Une liste incomplète s'AFFICHE, mais elle se dit incomplète :
+                la cacher ferait attendre pour rien, la donner pour entière
+                ferait croire à une perte. */}
+            {collection.partiel && (
+              <p class="etiq" style="margin:0 0 var(--s4)">⏳ {t(lang, 'account.vault.partial')}</p>
+            )}
+            <div class="stats" style="margin-bottom:var(--s4)">
+              <div class="stat"><div class="k">{t(lang, 'account.vault')}</div>
+                <div class="v">{collection.avoirs.length}</div></div>
+            </div>
+            <ul style="list-style:none;margin:0;padding:0">
+              {collection.avoirs.map((a) => (
+                <li style="padding:var(--s3) 0;border-top:1px solid var(--rule)">
+                  <span class="mono-t" style="font-size:15px">{a.nom || a.mint_key}</span>
+                  {a.edition ? (
+                    <span class="muted" style="font-size:13px;margin-left:8px">
+                      {t(lang, 'account.vault.ed')} #{a.edition}
+                    </span>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+
+        {/* ⭐ « VIDE » EST UN FAIT, et il ne se dit que lorsque veveid a fini de
+            parcourir la chaîne. C'est la seule branche de ce bloc qui affirme
+            quelque chose sur la collection de la personne. */}
+        {collection.etat === 'vide' && (
+          <p class="etiq" style="margin:0">{t(lang, 'account.vault.none')}</p>
+        )}
+
+        {/* ⛔⛔ ET CELLE-CI N'AFFIRME RIEN. Tout ce qui n'est ni une liste ni un
+            vide établi tombe ici : service muet, réseau coupé, secret absent,
+            synchronisation en cours, ou un 409 qui contredirait le `verifie`
+            de `/api/session`. Le message dit « on n'a pas pu lire », jamais
+            « vous n'avez rien ». */}
+        {collection.etat !== 'liste' && collection.etat !== 'vide' && (
+          <p class="etiq" style="margin:0">⚠️ {t(lang, 'account.vault.unknown')}</p>
+        )}
+      </section>
+    </>
+  )}
 
   {enDemo && (
     /* ⭐⭐ LE JETON NOMINATIF SE DIT. Un palier prêté qui ne s'annonce pas est

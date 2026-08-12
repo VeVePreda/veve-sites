@@ -22,6 +22,11 @@ import { dataset } from '../../../engine/lib/dataset.mjs';   // 🔴 LOT 112 —
 import { manifest } from '../../../engine/lib/manifest.mjs';
 import { acces, porte, catalogueModules } from '../../../engine/lib/access.mjs';
 import { forme, iconePalier } from '../../../engine/lib/vitrine.mjs';
+// 🔴 LOT 140-4 — un palier gratuit ne s'ouvre que si le site ouvre des comptes.
+// ⛔ Sans ce prédicat, un site qui déclare `member` mais dont l'inscription est
+// éteinte enverrait vers une page que l'intégration `fonctionnalites-eteintes`
+// vient d'effacer : un bouton parfaitement visible vers un 404.
+import { comptesActifs } from '../../../engine/lib/features.mjs';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 🔴🔴 LOT 104 — LE CATALOGUE VIENT DU MANIFESTE, ET IL DIT CE QUI N'EXISTE PAS
@@ -229,9 +234,36 @@ const dsOffre = await dataset();
               tarifs est le genre de bug qui se voit depuis la rue. */}
           {p.alertes === -1 ? '∞' : p.alertes} {t(lang, 'offer.alerts')}
         </p>
+        {/* ═══════════════════════════════════════════════════════════════
+            🔴🔴 LOT 140-4 — UN PALIER GRATUIT ET OUVERT NE DIT PAS « BIENTOT »
+            ═══════════════════════════════════════════════════════════════
+            MESURÉ EN PRODUCTION LE 12/08 : cette page servait « Plans open
+            soon. » QUATRE fois, une par carte — y compris sur `member`, dont
+            le prix est 0 et dont la porte est ouverte depuis le 06/08, jour où
+            l'inscription par courriel est passée en production.
+            ⭐⭐ LE DÉFAUT VENAIT D'UNE CONDITION JUSTE APPLIQUÉE TROP LARGE :
+            `offer.url` décrit la VENTE, et il décidait du bouton de TOUS les
+            paliers — y compris de celui qui ne se vend pas. Un palier gratuit
+            n'a pas besoin d'un prestataire de paiement pour s'ouvrir. Le
+            visiteur, lui, lisait « bientôt » d'une chose faisable tout de
+            suite, sur la page dont le seul travail est de convertir.
+            ⛔ L'ORDRE DES TROIS BRANCHES COMPTE. La vente ouverte passe en
+            premier : le jour où `offer.url` se remplit, chaque carte retrouve
+            un vrai appel à l'action, y compris la gratuite, et rien de ce
+            bloc ne reste à départager.
+            ⚠️ `/inscription/` EN DUR, SANS `localize()` — comme le bouton du
+            gabarit (Base.astro l. 1004). Cette route est rendue à la demande
+            et n'a qu'UNE adresse : `/fr/inscription/` n'existe pas, et un
+            lien localisé vers elle serait un 404 pour trois langues sur cinq.
+            ⭐ `test:promesses` §5 compte désormais, dans la page SERVIE, un
+            bouton verrouillé par palier payant et un chemin d'entrée par
+            palier gratuit. Il mesure ce qui est RENDU, pas ce qui est écrit
+            ici — le gabarit et la page ont déjà divergé deux fois. */}
         {m.offer?.url
           ? <a class="btn btn--principal btn--sm" href={m.offer.url}>{t(lang, 'offer.cta')}</a>
-          : <span class="btn btn--verrou btn--sm" aria-disabled="true">{t(lang, 'account.soon')}</span>}
+          : (p.prix === 0 && comptesActifs())
+            ? <a class="btn btn--principal btn--sm" href="/inscription/">{t(lang, 'signup.title')}</a>
+            : <span class="btn btn--verrou btn--sm" aria-disabled="true">{t(lang, 'account.soon')}</span>}
       </div>
     ))}
   </div>

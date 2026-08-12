@@ -429,14 +429,25 @@ const menuComplet = wikiNav
 // dirait qu'après un build — c'est la panne du lot 34.
 ---
 <!doctype html>
-<!-- ⭐ `data-nf` — LOT 101. Le script des cotes met en forme des nombres et
+{/* ⭐ `data-nf` — LOT 101. Le script des cotes met en forme des nombres et
      doit donc connaitre la locale. ⛔ Il ne peut PAS la deduire de
      `<html lang>` : le site sert `en`, `fr`, `es`, `de` alors que les
      formats attendus sont `en-GB`, `fr-FR`… — c'est `numberLocale` qui
      fait la correspondance, cote serveur, et lui seul. Un `toLocaleString`
      nourri d'un code de langue nu ne plante pas : il rend un format
      plausible et faux, ce qui est exactement le genre de defaut qu'on ne
-     voit jamais depuis la langue par defaut. -->
+     voit jamais depuis la langue par defaut.
+     ═══════════════════════════════════════════════════════════════════════
+     🔴🔴 LOT 141 — CE COMMENTAIRE ETAIT UN `<!-- -->`, DONC IL ETAIT *SERVI*.
+     ═══════════════════════════════════════════════════════════════════════
+     564 octets, sur ~3 097 pages, sur DEUX sites. Un `{/* */}` est retire par
+     le compilateur ; un `<!-- -->` traverse le build et part chez le visiteur.
+     Les deux se ressemblent exactement dans un editeur.
+     ⛔ ET AUCUN CLIQUET NE POUVAIT LE VOIR : ceux du depot comptent le CSS et
+     le JS en ligne (4 096 o / 17 408 o par page), pas le HTML. C'etait le
+     SEUL de tout `src/` — mesure le 12/08 — ce qui est precisement ce qui le
+     rendait invisible : rien ne se comparait a rien.
+     ⭐ `test:membre` §9 balaie desormais `dist/` et compte les octets servis. */}
 <html lang={lang} data-nf={numberLocale[lang] || 'en-GB'}>
 <head>
 <meta charset="utf-8" />

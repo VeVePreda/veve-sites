@@ -90,3 +90,92 @@ export async function compteDeLaSession(sid) {
   //   `41` et un `'41'` sont deux lignes différentes dans SQLite.
   return String(id);
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ❤️ LOT 141 — CE QUE LE PORTEFEUILLE VÉRIFIÉ RAPPORTE ENFIN
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴 LA DONNÉE ÉTAIT DÉJÀ COLLECTÉE, PUIS JETÉE — LA 13ᵉ FOIS SUR CE DOSSIER.
+// `veveid` expose `GET /api/avoirs` depuis des semaines, derrière `x-service`.
+// Le site ne l'appelait jamais. `veveid` promet pourtant, mot pour mot :
+// « Vérifiez le vôtre pour retrouver vos collectibles ici » — et `/compte/`
+// n'affichait que l'adresse. ⇒ Aucune collecte nouvelle n'a été nécessaire.
+//
+// ⛔⛔ ON DEMANDE AVEC LE `sid`, JAMAIS AVEC UN IDENTIFIANT DE COMPTE, et
+// l'enchaînement par l'identifiant MARCHERAIT — `/api/session` le rend juste
+// au-dessus. C'est exactement pour ça qu'il faut refuser de l'écrire : le
+// principe ne protège pas contre un identifiant inventé par un navigateur, il
+// protège contre CE SITE-LÀ, compromis, qui parcourrait les comptes avec le
+// secret de service. Le contourner « puisque ça marche » serait une leçon
+// apprise sur un cas et non généralisée, au premier essai.
+//
+// ⭐⭐⭐ QUATRE ÉTATS NOMMÉS, ET AUCUN N'EMPRUNTE LA SORTIE D'UN AUTRE :
+//   · `liste`      → on a la collection (et `partiel` dit si elle est entière) ;
+//   · `vide`       → veveid a répondu, la synchronisation est FINIE, il n'y a
+//                    rien : c'est un fait, on peut l'écrire à l'écran ;
+//   · `personne`   → veveid a répondu « non » (session inconnue ou révoquée) ;
+//   · `inconnu`    → ON NE SAIT PAS : service muet, réseau coupé, secret
+//                    absent, ou synchronisation encore en cours.
+//   · `nonverifie` → le portefeuille n'est pas prouvé : ce n'est pas une
+//                    panne, c'est une étape du parcours, et elle a son mot.
+//
+// ⛔ APLATIR `inconnu` SUR `vide` EST LA SEULE VRAIE FAUTE POSSIBLE ICI, et
+// elle est invisible : sur le disque, « aucun avoir parce que la
+// synchronisation n'a pas fini » et « aucun avoir parce qu'il n'y en a pas »
+// s'écrivent tous les deux `avoirs: []`. La première afficherait « aucun
+// collectible » à quelqu'un qui en a trois cents, sur une simple coupure
+// réseau, et personne ne verrait jamais l'erreur. C'est la même leçon que la
+// sonde qui répondait `"mode":"static"` sur un site en mode server.
+//
+// ⚠️ CETTE FONCTION NE LÈVE PAS, contrairement à `compteDeLaSession()` — et la
+// différence est délibérée. Son appelant est un GABARIT, pas une route d'API :
+// une exception dans le frontmatter d'une page rendue à la demande donne une
+// 500 à un membre parfaitement connecté. L'indécidable devient donc une VALEUR
+// (`inconnu`) que la page sait dire, au lieu d'une exception que personne
+// n'attrape. ⛔ Ce n'est pas un aplatissement : l'état reste distinct de `vide`.
+export async function avoirsDeLaSession(sid) {
+  if (!sid || typeof sid !== 'string') return { etat: 'personne', avoirs: [], partiel: false, wallet: null };
+  const base = process.env.SESSION_API || '';
+  const secret = secretDeService();
+  // ⛔ Sans service configuré, ce n'est pas « personne » : c'est « je ne sais
+  //    pas ». Un site mal configuré n'est pas un compte vide.
+  if (!base || !secret) return { etat: 'inconnu', avoirs: [], partiel: false, wallet: null, pourquoi: 'service' };
+
+  let r;
+  try {
+    // ⚠️ MÊME DÉLAI que `/api/session` juste au-dessus : deux délais différents
+    // vers le même service seraient deux comportements à expliquer.
+    r = await fetch(`${base}/api/avoirs?sid=${encodeURIComponent(sid)}`, {
+      headers: { accept: 'application/json', 'x-service': secret },
+      signal: AbortSignal.timeout(4000),
+    });
+  } catch {
+    return { etat: 'inconnu', avoirs: [], partiel: false, wallet: null, pourquoi: 'reseau' };
+  }
+
+  // ⭐ 409 = veveid a répondu, et sa réponse est « ce portefeuille n'est pas
+  //   prouvé ». C'est une étape du parcours, pas un refus et pas une panne.
+  if (r.status === 409) return { etat: 'nonverifie', avoirs: [], partiel: false, wallet: null };
+  // ⭐ 401 / 403 / 404 = veveid a répondu « non ». Un refus n'est pas une panne.
+  if (r.status === 401 || r.status === 403 || r.status === 404) {
+    return { etat: 'personne', avoirs: [], partiel: false, wallet: null };
+  }
+  if (!r.ok) return { etat: 'inconnu', avoirs: [], partiel: false, wallet: null, pourquoi: `http ${r.status}` };
+
+  const j = await r.json().catch(() => null);
+  if (!j) return { etat: 'inconnu', avoirs: [], partiel: false, wallet: null, pourquoi: 'corps illisible' };
+  // ⛔ UN COMPTE SUPPRIMÉ N'EST PAS UN COMPTE — même règle que ci-dessus.
+  if (j.supprime) return { etat: 'personne', avoirs: [], partiel: false, wallet: null };
+
+  const avoirs = Array.isArray(j.avoirs) ? j.avoirs : [];
+  // ⭐ `complet` vaut 1 quand veveid a fini de parcourir la chaîne. Absent, on
+  //   ne suppose pas qu'il est fini : on ne le sait pas, et c'est la valeur
+  //   par défaut la plus sûre puisqu'elle n'efface jamais rien à l'écran.
+  const complet = Number(j?.sync?.complet ?? 0) === 1;
+  const wallet = typeof j.wallet === 'string' ? j.wallet : null;
+
+  if (avoirs.length) return { etat: 'liste', avoirs, partiel: !complet, wallet };
+  // 🔴🔴 ICI, ET NULLE PART AILLEURS, SE JOUE LE LOT. Une liste vide ne devient
+  //    un FAIT que si la synchronisation est terminée.
+  if (!complet) return { etat: 'inconnu', avoirs: [], partiel: true, wallet, pourquoi: 'sync' };
+  return { etat: 'vide', avoirs: [], partiel: false, wallet };
+}
