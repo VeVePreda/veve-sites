@@ -98,7 +98,7 @@ jobs:
         # trouve quelque chose. Ne le publier qu'en cas de succes reviendrait a
         # jeter la seule sortie qui compte.
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: audit-seo-${{ matrix.site }}
           path: audit-${{ matrix.site }}.txt
