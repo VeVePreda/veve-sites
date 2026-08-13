@@ -77,10 +77,23 @@ const coteFermee = coteEstFermee();
 //
 // 🔴🔴 IL APPARTIENT AU MUR DE GAUCHE, ET C'EST UNE DECISION, PAS UN HASARD.
 // `derniereVariation` vient de `prices.csv` (le marche VeVe, en gems) via
-// `last_ts` des baselines. `releveLe` du mur de DROITE date une observation
-// StackR. ⛔⛔ Les poser cote a cote dans le meme mur attribuerait la date
-// d'un marche a l'autre — et les deux marches ont un rapport non constant.
-// La place juste est sous le plancher VeVe, pas sous le plancher StackR.
+// `last_ts` des baselines. ⛔⛔ Poser deux dates de marches DIFFERENTS cote a
+// cote attribuerait celle de l'un a l'autre — et les deux marches ont un
+// rapport non constant. La place juste est sous le plancher VeVe.
+//
+// 🔴🔴🔴 CORRIGE AU LOT 146, ET LA PHRASE D'ORIGINE EST GARDEE ICI PARCE
+// QU'ELLE EST LA FAUTE : ce commentaire affirmait « `releveLe` du mur de
+// DROITE date une observation StackR ». MESURE SUR LA PRODUCTION du 13/08,
+// 1 200 fiches sur 1 200 : la date servie sous « StackR Floor » venait du
+// marche VEVE sur 904 d'entre elles (75,3 % — comics 127/148, collectibles
+// 777/795). `releveLe` etait le MAX des deux marches, pas la date de StackR.
+// ⭐⭐⭐ Le raisonnement qui a produit ce bloc etait JUSTE, et il s'appuyait
+// sur une premisse fausse posee dans la meme phrase : le lot 145 a deplace la
+// bonne date pour la bonne raison en laissant la voisine au mauvais endroit.
+// Une lecon apprise sur UN cas ne se generalise pas toute seule — elle a
+// fabrique le cas suivant. Chaque mur porte desormais la date de SON marche
+// (`releveVeveLe`, `releveStackrLe`), ou rien.
+// → [[regle-lecon-non-generalisee]]
 //
 // ⛔ CE N'EST PAS UN DOUBLON DE `releveLe`, ET C'EST MESURE. Sur le fichier
 // PUBLIE (13/08, 6 408 pieces portant les deux dates) : **8,6 % seulement**
@@ -102,8 +115,17 @@ const coteFermee = coteEstFermee();
 // la donnee » — et aucun banc ne verrait la difference.
 // → [[regle-circuit-ouvert]]
 const varLe = item.derniereVariation || null;
+// 🔴 LOT 146 — LA COHERENCE SE JUGE DANS UN SEUL MARCHE. Elle se lisait contre
+// `releveLe`, c'est-a-dire contre le releve le PLUS FRAIS des deux marches :
+// sur 904 fiches, c'est une observation StackR qui decidait si une variation
+// du marche VeVe etait « posterieure ». Deux horloges, deux marches, et une
+// comparaison qui traversait les deux. `derniereVariation` et `releveVeveLe`
+// decrivent tous deux le marche VeVe : ils sont comparables, et eux seuls.
+// ⚠️ Une fiche sans releve VeVe reste `affichable` — c'est le comportement
+// d'avant (`item.releveLe &&`), et il est voulu : ne pas pouvoir contredire
+// une date n'est pas une raison de la taire.
 const varEtat = !varLe ? 'absent'
-  : (item.releveLe && varLe > item.releveLe) ? 'posterieur'
+  : (item.releveVeveLe && varLe > item.releveVeveLe) ? 'posterieur'
   : 'affichable';
 // 🔴 LOT 123 — `svg` A ÉTÉ RETIRÉ, ET C'EST LA MOITIÉ QUI SE VOIT LE MOINS.
 // Il calculait la courbe publique, que le bloc `{!coteFermee && …}` n'affichait
@@ -610,6 +632,29 @@ const mcpJour = mcpPoints(item.rarity, item.type);
                data-variation-etat={varEtat}>{varEtat === 'affichable'
             ? <>{t(lang, 'item.derniereVariation')} {varLe}</>
             : <span class="muted">{t(lang, 'item.varInconnue')}</span>}</div>
+          {/* 🔴🔴 LOT 146 — LA DATE DE RELEVE DU MARCHE VEVE, SOUS LE PLANCHER
+              VEVE. Elle etait servie sous le plancher StackR sur 904 fiches
+              sur 1 200 (75,3 %), juste au-dessus d'un « Not collected yet »
+              qui parlait du meme plancher. La date etait juste, le mur ne
+              l'etait pas — et c'est le mur qui dit de QUOI on parle.
+              ⭐⭐ ELLE SE POSE ICI SANS RIEN DEPLACER : `derniereVariation`
+              (« quand ca a bouge ») et `releveVeveLe` (« quand on a regarde »)
+              decrivent le MEME marche, et c'est leur cohabitation qui porte
+              l'information — « regarde ce matin, inchange depuis 178 jours »
+              enonce une STABILITE, ce qu'aucune des deux ne dit seule. Le
+              commentaire du lot 145, quinze lignes plus haut, l'annoncait.
+              ⛔ `data-attente` ET PAS `muted` : ici l'absence veut dire « rien
+              n'est collecte pour ce marche », la meme cause que le tiret du
+              mur StackR — et pas « je ne montre pas », qui est le cadenas.
+              ⭐ `data-releve-veve` N'EST PAS UN ORNEMENT : meme role que
+              `data-releve-corps` au lot 145. Le banc ne doit JAMAIS reperer ce
+              bloc par sa POSITION dans le mur — quatre selecteurs positionnels
+              ont deja ete payes par ce dossier, et le dernier l'a ete par le
+              lot qui a insere une ligne au-dessus de celui-ci.
+              → [[regle-selecteur-de-classe-en-prefixe]] */}
+          <div class="mur__eq" data-releve-veve={item.releveVeveLe || ''}>{item.releveVeveLe
+            ? <>{t(lang, 'item.releveLe')} {item.releveVeveLe}</>
+            : <span data-attente title={t(lang, 'data.notCollected')}>—</span>}</div>
           {/* 🔴🔴 LOT 112 — LA VARIATION SORT DU PUBLIC.
               Mesuré le 10/08 sur la production : les prix étaient tous fermés
               (84 emplacements à « — » sur l'accueil) et les VARIATIONS étaient
@@ -699,8 +744,11 @@ const mcpJour = mcpPoints(item.rarity, item.type);
               le cadenas de <Cote> sur le second. Deux causes opposees ne
               partagent pas un signe.
               ⭐⭐ LA DATE ISO EST LUE PAR `test:fraicheur`, qui la compare a
-              celle du pied de page. Deux composants rendent `item.releveLe` ;
-              s'ils divergent, c'est que le pied a ete rebranche ailleurs. */}
+              celle du pied de page. 🔴 LOT 146 : le pied porte `releveLe` (le
+              plus frais des DEUX marches), ce bloc porte `releveStackrLe`.
+              L'egalite simple d'avant n'a plus de sens — le banc compare
+              desormais le pied au MAX des deux murs, et c'est plus exigeant :
+              il attrape aussi le cas ou un mur cesse d'etre rendu. */}
           <div class="mur__v">{item.floorStackr != null || coteFermee
             ? (coteFermee
                 ? <Cote lang={lang} uuid={item.uuid} champ="floorStackr" />
@@ -715,11 +763,28 @@ const mcpJour = mcpPoints(item.rarity, item.type);
               JSX : ils ne peuvent pas diverger sans que le diff le montre — et
               le banc verifie quand meme que la date de l'attribut apparait
               dans le texte rendu. → [[regle-selecteur-de-classe-en-prefixe]] */}
-          <div class="mur__eq" data-releve-corps={item.releveLe || ''}>{item.releveLe
-            ? <>{t(lang, 'item.releveLe')} {item.releveLe}</>
+          <div class="mur__eq" data-releve-corps={item.releveStackrLe || ''}>{item.releveStackrLe
+            ? <>{t(lang, 'item.releveLe')} {item.releveStackrLe}</>
             : <span data-attente title={t(lang, 'data.notCollected')}>—</span>}</div>
+          {/* 🔴 LOT 146 — LA LEGENDE SUIT LA DATE DU MUR, PLUS LE « PLUS FRAIS ».
+              `releveSource` valait la source de la ligne la plus RECENTE, tous
+              marches confondus : elle disait « veve » sur 904 fiches, donc
+              cette legende imprimait « Not collected yet » sous une date. Deux
+              nœuds voisins qui se contredisent, et aucun banc ne les lisait
+              ensemble. Un seul fait decide maintenant des deux : `releveStackrLe`.
+              ⛔ NE PAS revenir a `releveSource` ici — il reste projete pour le
+              pied de page et pour les lecteurs qui veulent savoir QUI a gagne
+              le « plus frais », ce qui est une autre question. */}
           <div class="mur__d">
-            <span class="muted">{item.releveSource === 'stackr'
+            {/* ⭐⭐ `data-legende-stackr` EXISTE POUR QUE LE BANC N'AIT PAS A
+                COMPTER LES NŒUDS. Le contrôle du lot 146 doit lire ENSEMBLE la
+                date du mur et sa légende — c'est leur contradiction qui était
+                la panne, et aucun des deux seul ne la montre. Le repérer par
+                « le `mur__d` qui suit » serait un cinquième critère de
+                POSITION, dans le fichier même où le quatrième a coûté 55 faux
+                rouges au lot 145. ⛔ Ne pas retirer en le prenant pour du
+                décor. → [[regle-selecteur-de-classe-en-prefixe]] */}
+            <span class="muted" data-legende-stackr={item.releveStackrLe ? 'stackr' : 'aucune'}>{item.releveStackrLe
               ? t(lang, 'item.floorStackr')
               : t(lang, 'data.notCollected')}</span>
           </div>

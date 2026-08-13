@@ -114,7 +114,12 @@ export const CHAMPS_COTE = [
 // « ces chiffres datent de quand ? », qui est la question qu'un visiteur pose
 // avant meme de regarder un prix, et a laquelle 1 200 fiches repondaient par
 // l'heure du deploiement.
-export const CHAMPS_FRAICHEUR = ['releveLe', 'releveSource', 'derniereVariation'];
+// 🔴 LOT 146 — LES DEUX DATES PAR MARCHE ENTRENT ICI, ET CE N'EST PAS DU
+// ZELE. Sans cette ligne l'invariant ci-dessous ne les couvre pas : on
+// pourrait les glisser dans `CHAMPS_COTE` sans qu'aucun banc ne bronche, et
+// les murs se remettraient a se taire derriere le cadenas.
+export const CHAMPS_FRAICHEUR = ['releveLe', 'releveSource', 'derniereVariation',
+  'releveVeveLe', 'releveStackrLe'];
 
 // ⛔⛔ UN INVARIANT, PAS UN COMMENTAIRE. Le jour ou quelqu'un ajoutera
 // `releveLe` a `CHAMPS_COTE` — de bonne foi, « c'est lie a un prix » — ce

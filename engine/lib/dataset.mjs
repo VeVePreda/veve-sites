@@ -201,6 +201,36 @@ function quotasDuManifeste(pub) {
 // non constant. Le floor de StackR se retient A PART du « plus frais » — si la
 // ligne la plus fraiche est celle de VeVe (le cas le plus courant), la valeur
 // OMI existe quand meme et n'a aucune raison d'etre jetee avec sa ligne.
+// ═══ LOT 146 — UNE DATE PAR MARCHE, PARCE QU'IL Y A DEUX MARCHES ═══
+// Le lot 144 ne retenait qu'un `sec` : le PLUS FRAIS des deux marches, toutes
+// sources confondues. Le lot 145 a ecrit, en toutes lettres et de bonne foi,
+// « `releveLe` du mur de DROITE date une observation StackR ». C'ETAIT FAUX,
+// et c'est mesure sur la PRODUCTION du 13/08, 1 200 fiches sur 1 200 :
+//
+//     date servie sous « StackR Floor »          943
+//        dont la ligne la plus fraiche est VEVE     904   (75,3 % du site)
+//        dont elle est vraiment STACKR               39
+//        comics 127/148 · collectibles 777/795
+//
+// ⇒ 904 fiches servaient « Recorded on <date> » sous le plancher StackR, la
+// ligne SUIVANTE disant « Not collected yet » pour ce meme plancher. Deux
+// affirmations contradictoires, cote a cote, sur les trois quarts du site.
+// La date etait juste ; le mur ne l'etait pas.
+//
+// ⭐⭐⭐ C'EST LA MEME FAUTE QUE LE LOT 145 A CORRIGEE UN MUR PLUS LOIN, et le
+// commentaire qui la corrigeait s'appuyait sur elle pour se justifier. Une
+// lecon apprise sur UN cas ne se generalise pas toute seule : elle a produit
+// le cas suivant. → [[regle-lecon-non-generalisee]]
+//
+// ⭐ `stackrSec` EXISTAIT DEJA — pose par le lot 144 pour ne pas jeter la
+// valeur OMI, jamais lu pour sa DATE. DIX-SEPTIEME occurrence de « collectee
+// puis jetee ». → [[regle-donnee-collectee-puis-jetee]]
+//
+// ⛔ ET IL NE POUVAIT PAS SERVIR TEL QUEL, la raison est une horloge de plus :
+// il n'avance QUE si `floor` est un nombre fini, parce qu'il date la VALEUR.
+// « J'ai regarde » et « il y avait un prix » sont deux faits distincts, et un
+// releve sans montant reste un releve. D'ou `stackrObsSec`, qui date
+// l'OBSERVATION et ne regarde pas le montant.
 export function indexerReleves(releves) {
   const par = new Map();
   let ignorees = 0;
@@ -210,12 +240,22 @@ export function indexerReleves(releves) {
     if (!u || !Number.isFinite(sec) || sec <= 0) { ignorees++; continue; }
     const src = String(r.source || '').trim();
     let e = par.get(u);
-    if (!e) { e = { sec: -Infinity, source: null, stackr: null, stackrSec: -Infinity }; par.set(u, e); }
+    if (!e) {
+      e = { sec: -Infinity, source: null, stackr: null, stackrSec: -Infinity,
+            stackrObsSec: -Infinity, veveSec: -Infinity };
+      par.set(u, e);
+    }
     if (sec > e.sec) { e.sec = sec; e.source = src || null; }
     if (src === 'stackr') {
+      if (sec > e.stackrObsSec) e.stackrObsSec = sec;
       const f = Number(r.floor);
       if (Number.isFinite(f) && sec >= e.stackrSec) { e.stackr = f; e.stackrSec = sec; }
+    } else if (src === 'veve') {
+      if (sec > e.veveSec) e.veveSec = sec;
     }
+    // ⛔ PAS DE `else` FOURRE-TOUT. Une troisieme source atterrirait dans
+    // `sec` (donc dans le pied de page) sans jamais atteindre un mur. Le banc
+    // du lot 146 le dirait : le pied depasserait le max des deux murs.
   }
   return { par, ignorees };
 }
@@ -488,8 +528,20 @@ async function construireDataset() {
       // de relevement ne DESIGNE aucun montant — contrairement a `athDate`,
       // qui croisee a une courbe pointe un prix. Le montant, lui (`floorStackr`),
       // part derriere le mur.
+      // ⭐ `releveLe` RESTE, et il garde exactement son sens : le plus frais
+      // des deux marches. C'est ce que le PIED DE PAGE doit dire — « la donnee
+      // de cette page a ete regardee le … » ne parle d'aucun marche en
+      // particulier. ⛔ Ce qu'il ne doit plus faire, c'est atterrir sous UN
+      // plancher : un mur porte la date de SON marche, ou rien.
       releveLe: rel.has(uuid) ? jourDeReleve(rel.get(uuid).sec) : null,
       releveSource: rel.has(uuid) ? (rel.get(uuid).source || null) : null,
+      // 🔴 LOT 146 — UNE DATE PAR MUR. `-Infinity` est le « jamais observe » de
+      // `indexerReleves` ; `Number.isFinite` est le seul test qui l'ecarte
+      // (⛔ `if (sec)` laisserait passer -Infinity, ⛔ `> 0` aussi).
+      releveVeveLe: Number.isFinite(rel.get(uuid)?.veveSec)
+        ? jourDeReleve(rel.get(uuid).veveSec) : null,
+      releveStackrLe: Number.isFinite(rel.get(uuid)?.stackrObsSec)
+        ? jourDeReleve(rel.get(uuid).stackrObsSec) : null,
       // 🔒 UN PRIX. Il entre dans `CHAMPS_COTE` et n'atteint donc jamais le HTML
       // public. ⛔ EN OMI, et ⛔⛔ AUCUNE conversion vers le dollar : `sfloors`
       // et `vfloors` sont deux MARCHES (rapport median 4 423, p10 2 273,

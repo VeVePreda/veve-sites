@@ -201,13 +201,38 @@ const RE_VAR_VAL = /data-variation="(\d{4}-\d{2}-\d{2})"/;
 // bloc. On lit desormais le contenu DU NOEUD, borne a son `</div>`.
 // → [[regle-instrument-de-mesure]] · [[regle-critere-juge-la-valeur-cherche-la-chaine]]
 const RE_VAR_TEXTE = /data-variation-etat="affichable"[^>]*>([\s\S]{0,300}?)<\/div>/;
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴 LOT 146 — LE MUR DE GAUCHE A SA PROPRE DATE, ET SA PROPRE ANCRE
+// ═══════════════════════════════════════════════════════════════════════════
+// ⛔ `data-releve-corps` NE VEUT PLUS DIRE « la date de la fiche ». Il veut
+// dire « la date du marche StackR », et c'est tout le lot : sur 904 fiches de
+// production sur 1 200, il portait une date VEVE. Un banc qui continuerait de
+// le lire comme « LA » date validerait exactement la faute qu'on corrige.
+const RE_VEVE_ISO = /data-releve-veve="(\d{4}-\d{2}-\d{2})"/;
+// ⛔ MEME PIEGE QU'AU LOT 145, ET IL EST DEJA ECRIT : Astro rend `attribut`,
+// pas `attribut=""`. La PRESENCE du nœud se teste donc SANS le `="…"`, sinon
+// le banc annonce « le bloc a disparu » pour toute fiche sans date — et
+// accuse le gabarit d'une faute qui est la sienne.
+const RE_VEVE_NOEUD = /data-releve-veve(?:=|[\s>])/;
+const RE_VEVE_TEXTE = /data-releve-veve="[^"]*"[^>]*>([\s\S]{0,300}?)<\/div>/;
+// ⭐⭐⭐ LA LEGENDE SE LIT PAR SON NOM, PAS PAR SA POSITION. Elle vaut
+// `stackr` ou `aucune`, elle n'est JAMAIS vide (lecon de `data-variation-etat`
+// au lot 145 : un critere pose sur un champ qui peut disparaitre juge la
+// presence du champ, pas l'etat de la page).
+const RE_LEGENDE = /data-legende-stackr="(stackr|aucune)"/;
 
 let nPages = 0, nFiches = 0, nAutres = 0, nAutresDatees = 0;
 let nDonnee = 0, nAucune = 0, nBuildSurFiche = 0, nDouble = 0, nMuette = 0;
 let nConcorde = 0, nDiverge = 0;
 let nVarDistinct = 0, nVarComparables = 0;
 let nVarNoeud = 0, nVarAff = 0, nVarPost = 0, nVarAbs = 0, nVarMuet = 0, nVarTexte = 0, nVarIncoherent = 0;
+// ── LOT 146 ──
+let nVeveNoeud = 0, nVeveMuet = 0, nVeveDate = 0, nVeveTexte = 0;
+let nStackrDate = 0, nLegende = 0, nLegendeMuette = 0, nContradiction = 0, nOrphelin = 0;
+let nPiedCouvert = 0, nPiedDepasse = 0, nSansAucunMur = 0;
+let nVeveSeul = 0, nStackrSeul = 0, nLesDeux = 0;
 const exVarMuet = [], exVarIncoherent = [];
+const exVeveMuet = [], exContradiction = [], exOrphelin = [], exPiedDepasse = [];
 const datesFiches = new Set();
 const exBuild = [], exMuette = [], exDiverge = [];
 const MAX_EX = 5;
@@ -231,6 +256,55 @@ const MAX_EX = 5;
     // ── LOT 145 · LA DATE DE DERNIERE VARIATION, LUE DANS LE MEME `texte` ──
     // ⭐ Aucune lecture de fichier supplementaire : la lecon des 3 Go de tas du
     // lot 104 tient toujours.
+    // ── LOT 146 · LE MUR DE GAUCHE, SA LEGENDE, ET LEUR CROISEMENT ──
+    // ⭐ Toujours le meme `texte` : la lecon des 3 Go de tas du lot 104 tient.
+    const veve = (texte.match(RE_VEVE_ISO) || [])[1] || null;
+    const stackr = (texte.match(RE_CORPS_ISO) || [])[1] || null;
+    const legende = (texte.match(RE_LEGENDE) || [])[1] || null;
+    if (!RE_VEVE_NOEUD.test(texte)) {
+      nVeveMuet++;
+      if (exVeveMuet.length < MAX_EX) exVeveMuet.push(p.slice(RACINE.length));
+    } else {
+      nVeveNoeud++;
+      if (veve) {
+        nVeveDate++;
+        const dedans = (texte.match(RE_VEVE_TEXTE) || [])[1] || '';
+        if (texteVu(dedans).includes(veve)) nVeveTexte++;
+      }
+    }
+    if (stackr) nStackrDate++;
+    // 🔴🔴 MUTANT M8 — ROUTER LES RELEVES VEVE DANS `stackrObsSec` EST PASSE
+    // VERT CONTRE MA PREMIERE VERSION. La legende et la date derivaient toutes
+    // deux de `releveStackrLe` : elles bougeaient ENSEMBLE, donc elles etaient
+    // toujours d'accord, et le controle ⑬ ne pouvait pas les departager.
+    // ⭐⭐⭐ Deux nœuds qu'un seul fait decide ne se contredisent jamais — un
+    // banc qui n'observe que leur accord fabrique sa propre condition.
+    // → [[regle-banc-fabrique-la-condition]]
+    if (veve && !stackr) nVeveSeul++;
+    else if (stackr && !veve) nStackrSeul++;
+    else if (veve && stackr) nLesDeux++;
+    if (!legende) {
+      nLegendeMuette++;
+    } else {
+      nLegende++;
+      // 🔴🔴 LA PANNE DU LOT 146, ET ELLE SE LIT SUR DEUX NŒUDS A LA FOIS.
+      // « Recorded on <date> » sous « StackR Floor », puis « Not collected
+      // yet » a la ligne suivante — pour le MEME plancher. Aucun des deux
+      // nœuds ne ment tout seul ; c'est leur voisinage qui est faux, et c'est
+      // pour ca qu'aucun banc ne l'avait vu. 904 fiches sur 1 200 le 13/08.
+      if (stackr && legende !== 'stackr') {
+        nContradiction++;
+        if (exContradiction.length < MAX_EX) exContradiction.push(`${p.slice(RACINE.length)} date=${stackr} legende=${legende}`);
+      }
+      // ⛔ ET LE SENS INVERSE, DANS LE MEME PASSAGE. Une legende qui annonce
+      // StackR sans date au-dessus est l'autre moitie du meme desaccord : un
+      // controle qui ne teste qu'un bout d'un intervalle laisse passer l'autre.
+      // → [[regle-echantillon-ne-contient-pas]]
+      if (!stackr && legende === 'stackr') {
+        nOrphelin++;
+        if (exOrphelin.length < MAX_EX) exOrphelin.push(p.slice(RACINE.length));
+      }
+    }
     const mv = texte.match(RE_VAR_ETAT);
     if (!mv) {
       nVarMuet++;
@@ -245,11 +319,15 @@ const MAX_EX = 5;
         const dedans = (texte.match(RE_VAR_TEXTE) || [])[1] || '';
         if (val && texteVu(dedans).includes(val)) nVarTexte++;
         // ⛔ L'INVARIANT : une variation ne peut pas etre POSTERIEURE au releve.
-        const corps = (texte.match(RE_CORPS_ISO) || [])[1] || null;
-        if (corps && val) { nVarComparables++; if (val !== corps) nVarDistinct++; }
-        if (corps && val > corps) {
+        // 🔴 LOT 146 — ON COMPARE DANS UN SEUL MARCHE. Ce couple se lisait
+        // contre `data-releve-corps`, donc contre StackR : sur 904 fiches,
+        // une observation StackR decidait si une variation du marche VEVE
+        // etait « posterieure ». `derniereVariation` et `releveVeveLe`
+        // decrivent tous deux le marche VeVe — eux seuls sont comparables.
+        if (veve && val) { nVarComparables++; if (val !== veve) nVarDistinct++; }
+        if (veve && val > veve) {
           nVarIncoherent++;
-          if (exVarIncoherent.length < MAX_EX) exVarIncoherent.push(`${p.slice(RACINE.length)} variation=${val} > releve=${corps}`);
+          if (exVarIncoherent.length < MAX_EX) exVarIncoherent.push(`${p.slice(RACINE.length)} variation=${val} > releve VeVe=${veve}`);
         }
       } else if (etat === 'posterieur') nVarPost++;
       else nVarAbs++;
@@ -270,11 +348,34 @@ const MAX_EX = 5;
       // le BOM par accident, pas par conception.
       datesFiches.add(texteVu(txt).trim());
       const pied = (texte.match(RE_PIED_ISO) || [])[1] || null;
-      const corps = (texte.match(RE_CORPS_ISO) || [])[1] || null;
-      if (pied && corps && pied === corps) nConcorde++;
-      else {
+      // 🔴🔴 LOT 146 — LE PIED SE COMPARE AU MAX DES DEUX MURS, ET C'EST PLUS
+      // EXIGEANT QUE L'EGALITE D'AVANT. `Base.astro` rend `item.releveLe`, le
+      // plus frais des deux marches ; chaque mur rend le sien. L'ancienne
+      // egalite `pied === corps` etait vraie par accident tant qu'un seul mur
+      // portait une date — elle serait devenue rouge sur 922 fiches saines.
+      // ⭐ Ce controle attrape maintenant DEUX pannes d'un coup : un pied
+      // rebranche ailleurs (il depasserait les murs), ET un mur qui cesse
+      // d'etre rendu (le pied depasserait ce qui reste). C'est le meme fait :
+      // le pied ne doit RIEN affirmer que les murs ne portent pas.
+      // ⛔ Comparaison de chaines ISO, pas de `Date` : `2026-08-13` se compare
+      // lexicographiquement, et un `new Date()` par fiche sur 3 097 pages
+      // coute sans rien apporter.
+      const murMax = [veve, stackr].filter(Boolean).sort().pop() || null;
+      if (!murMax) {
+        // La fiche se declare datee et aucun mur ne porte de date : ce n'est
+        // ni une concordance ni une divergence, c'est un pied SANS SOURCE.
+        nSansAucunMur++;
         nDiverge++;
-        if (exDiverge.length < MAX_EX) exDiverge.push(`${p.slice(RACINE.length)} pied=${pied || 'aucun'} corps=${corps || 'aucun'}`);
+        if (exDiverge.length < MAX_EX) exDiverge.push(`${p.slice(RACINE.length)} pied=${pied || 'aucun'} — AUCUN mur date`);
+      } else if (pied && pied === murMax) {
+        nConcorde++; nPiedCouvert++;
+      } else {
+        nDiverge++;
+        if (pied && pied > murMax) {
+          nPiedDepasse++;
+          if (exPiedDepasse.length < MAX_EX) exPiedDepasse.push(`${p.slice(RACINE.length)} pied=${pied} > murs=${murMax}`);
+        }
+        if (exDiverge.length < MAX_EX) exDiverge.push(`${p.slice(RACINE.length)} pied=${pied || 'aucun'} veve=${veve || '—'} stackr=${stackr || '—'}`);
       }
     } else {
       nAucune++;
@@ -339,11 +440,15 @@ dit(nDonnee > 0,
 // au premier deploiement en accusant `Base.astro` d'une faute inexistante — et
 // on aurait « corrige » un code sain pour lui plaire.
 dit(nDiverge === 0,
-  `${nConcorde} fiche(s) : le pied et le bloc StackR portent LA MEME date`,
+  `${nConcorde} fiche(s) : le pied porte LA DATE DU MUR LE PLUS FRAIS`,
   nDiverge === 0 ? null
     : `${nDiverge} divergence(s), dont ${exDiverge.join(' · ')}`
-      + '\n     🔴 Deux composants rendent `item.releveLe` et ne disent pas la meme chose :'
-      + '\n        le pied a ete rebranche sur autre chose que la donnee de la fiche.');
+      + (nPiedDepasse ? `\n     🔴 ${nPiedDepasse} fiche(s) ou le PIED DEPASSE les deux murs (${exPiedDepasse.join(' · ')}) :`
+          + '\n        le pied affirme une fraicheur qu\'aucun mur ne porte — soit il a ete'
+          + '\n        rebranche ailleurs, soit un mur a cesse d\'etre rendu.' : '')
+      + (nSansAucunMur ? `\n     🔴 ${nSansAucunMur} fiche(s) se declarent datees SANS aucun mur date :`
+          + '\n        `dataset.mjs` retient `releveLe` mais plus `releveVeveLe`/`releveStackrLe`.' : '')
+      + '\n     ⛔ Le pied (`Base.astro`) et les murs (`Item.astro`) lisent la MEME source.');
 // ⭐ Le nombre de dates distinctes reste AFFICHE — il ne juge plus, il informe.
 console.log(`  ..  ${datesFiches.size} date(s) distincte(s) sur les ${nDonnee} fiche(s) datees (indicatif, non juge)`);
 
@@ -444,6 +549,115 @@ dit(nVarAff + nVarPost + nVarAbs + nVarMuet === nFiches,
   `la somme fait le total : ${nVarAff} + ${nVarPost} + ${nVarAbs} + ${nVarMuet} = ${nFiches}`,
   nVarAff + nVarPost + nVarAbs + nVarMuet === nFiches ? null
     : 'une fiche echappe au classement de la variation : le banc ne mesure pas ce qu\'il croit');
+
+// ═══════════════════════════════════════════════════════════════════════════
+// §6 · LOT 146 — CHAQUE MUR PORTE LA DATE DE SON MARCHE, OU RIEN
+// ═══════════════════════════════════════════════════════════════════════════
+// ⛔⛔ CE QUI EST JUGE ICI N'EST PAS « UNE DATE EST-ELLE AFFICHEE ». C'est
+// « la date affichee parle-t-elle du marche sous lequel elle est posee ». Les
+// quatre controles precedents etaient TOUS VERTS sur les 904 fiches fautives :
+// la date existait, elle etait dans le texte, elle concordait avec le pied,
+// elle n'etait pas posterieure. Aucun ne lisait la LEGENDE d'a cote.
+// ⭐⭐⭐ Un banc mesure ce qu'il regarde ensemble. Deux nœuds justes separement
+// peuvent former une page fausse. → [[regle-instrument-de-mesure]]
+console.log('\n6. chaque mur parle de son marche');
+
+// ── ⑩ LE NŒUD DE GAUCHE EXISTE, MEME MUET ────────────────────────────────
+// Meme raison qu'au ⑤, et la meme que le lot 145 a payee : sans ce controle,
+// un gabarit qui cesserait de rendre le bloc sortirait VERT — « 0 date VeVe »
+// se lit alors comme « aucune piece n'a de releve VeVe », qui est faux.
+// → [[regle-circuit-ouvert]]
+dit(nVeveMuet === 0,
+  `${nVeveNoeud} fiche(s) portent le bloc de releve du marche VeVe`,
+  nVeveMuet === 0 ? null
+    : `${nVeveMuet} fiche(s) SANS le bloc, dont ${exVeveMuet.join(' · ')}`
+      + '\n     🔴 `Item.astro` ne rend plus le mur de gauche : « pas de donnee » et'
+      + '\n        « plus de gabarit » redeviennent indiscernables.');
+
+// ── ⑪ LE MECANISME EST VIVANT ────────────────────────────────────────────
+// 🔴 SEPARE DU PRECEDENT, comme ⑤/⑥ : celui-ci nomme `dataset.mjs`, l'autre
+// nomme `Item.astro`. Deux causes, deux messages — un message d'echec qui
+// nomme une cause qu'il ne departage pas envoie corriger le mauvais fichier.
+// ⛔ SEUIL 1, PAS UN POURCENTAGE : la part de fiches ayant un releve VeVe
+// depend du collecteur (922/1 200 en prod le 13/08). Un banc cale dessus
+// serait rouge en production sur du code sain.
+// → [[regle-banc-nomme-une-cause]] · [[regle-banc-cale-sur-la-dispersion]]
+dit(nVeveNoeud === 0 || nVeveDate > 0,
+  nVeveNoeud === 0 ? 'SANS OBJET : aucun bloc VeVe a lire (voir le controle ci-dessus)'
+    : `${nVeveDate} fiche(s) datent leur releve du marche VeVe`,
+  nVeveDate > 0 ? null
+    : 'AUCUNE — `releveVeveLe` n\'est plus projete par `dataset.mjs`, ou `indexerReleves`'
+      + '\n        ne remplit plus `veveSec`. ⛔ PAS la meme panne qu\'un bloc absent.');
+
+// ── ⑫ L'ATTRIBUT NE SE CROIT PAS LUI-MEME ────────────────────────────────
+// ⭐⭐ « AFFIRME » N'EST PAS « CITE » — et le mutant M7 du lot 145 a montre que
+// chercher la date dans TOUTE la page mesure la page, pas le bloc : elle
+// figure aussi dans le JSON-LD et le pied. On lit le contenu DU NŒUD.
+dit(nVeveTexte === nVeveDate,
+  `${nVeveTexte} date(s) VeVe annoncee(s) par l'attribut sont AUSSI dans le texte rendu`,
+  nVeveTexte === nVeveDate ? null
+    : `${nVeveDate - nVeveTexte} fiche(s) portent la date en attribut sans l'afficher :`
+      + '\n     🔴 l\'attribut et le texte ont ete separes, le banc mesurait un fantome.');
+
+// ── ⑬ L'INVARIANT DU LOT : AUCUNE DATE SOUS UN PLANCHER QUI SE DIT VIDE ──
+// 🔴🔴 C'EST LA PANNE, ET ELLE ETAIT SERVIE 904 FOIS SUR 1 200. « Recorded on
+// 2026-08-13 » sous « StackR Floor », et la ligne suivante : « Not collected
+// yet ». La date venait du marche VeVe. Un lecteur ne pouvait pas trancher.
+// ⭐⭐⭐ CE N'EST PAS UN GARDE-FOU TAILLE SUR LA FORME DU BUG : il ne cherche
+// pas « une date VeVe sous StackR » (ce que le HTML ne dit pas), il exige que
+// la date et sa legende soient d'accord — quelle que soit la forme que
+// prendra la prochaine regression.
+// → [[regle-note-qui-cite-son-terminateur]]
+dit(nContradiction === 0 && nOrphelin === 0,
+  `${nStackrDate} date(s) StackR servies, toutes sous une legende qui les confirme`,
+  (nContradiction === 0 && nOrphelin === 0) ? null
+    : (nContradiction ? `${nContradiction} fiche(s) datent un plancher que la legende dit NON COLLECTE`
+        + `\n        (${exContradiction.join(' · ')})`
+        + '\n     🔴 Une date est posee sous un marche qui n\'a rien fourni : c\'est la date'
+        + '\n        de l\'AUTRE marche. `Item.astro` doit lire `releveStackrLe`, pas `releveLe`.' : '')
+      + (nOrphelin ? `\n     🔴 ${nOrphelin} fiche(s) annoncent StackR SANS date au-dessus (${exOrphelin.join(' · ')}) :`
+        + '\n        la legende et la date ne sont plus decidees par le meme fait.' : ''));
+
+// ── LA SOMME FAIT LE TOTAL, SUR L'AXE DU LOT 146 AUSSI ───────────────────
+// ⭐⭐ Une fiche qui n'aurait ni legende ni bloc echapperait aux quatre
+// controles ci-dessus sans qu'aucun ne rougisse.
+// 🔴🔴 MUTANT M6 — CETTE SOMME ETAIT VACUEUSE, ET ELLE A LAISSE PASSER LE
+// RETRAIT DE L'ANCRE. `nLegende + nLegendeMuette` vaut `nFiches` PAR
+// CONSTRUCTION : chaque fiche incremente l'un ou l'autre. L'egalite ne pouvait
+// pas etre fausse, donc elle ne mesurait rien — un controle vert par identite
+// algebrique, pas par conformite. ⭐⭐⭐ Une somme ne prouve quelque chose que
+// si l'un de ses termes est cense valoir ZERO. → [[regle-banc-deduit-au-lieu-de-compter]]
+dit(nLegendeMuette === 0,
+  `${nLegende} fiche(s) portent l'ancre de legende StackR`,
+  nLegendeMuette === 0 ? null
+    : `${nLegendeMuette} fiche(s) SANS \`data-legende-stackr\``
+      + '\n     🔴 L\'ancre a ete retiree de `Item.astro` — prise pour du decor. Sans elle le'
+      + '\n        controle ci-dessus n\'a plus rien a lire et devient VERT PAR SILENCE.');
+dit(nVeveNoeud + nVeveMuet === nFiches,
+  `la somme fait le total : murs VeVe ${nVeveNoeud}+${nVeveMuet} = ${nFiches}`,
+  nVeveNoeud + nVeveMuet === nFiches ? null
+    : `une fiche echappe au classement (murs ${nVeveNoeud + nVeveMuet}, fiches ${nFiches})`);
+
+// ── ⑮ LES DEUX MURS SONT ALIMENTES PAR DEUX FAITS ────────────────────────
+// 🔴🔴 PAYE PAR LE MUTANT M8. Router les releves VeVe dans `stackrObsSec`
+// laissait TOUT vert : les deux murs portaient la meme date, la legende
+// confirmait, le pied concordait. La seule trace du melange est qu'il ne
+// reste plus une seule piece observee par UN marche et pas par l'autre.
+// ⛔ SEUIL 1, ET SUR `nVeveSeul` SEULEMENT — c'est un arbitrage, pas un oubli.
+// Mesure du 13/08 sur la production : 280 fiches VeVe-sans-StackR (47 comics,
+// 233 collectibles) contre 21 StackR-sans-VeVe. Asserter les deux calerait le
+// banc sur une dispersion de 21 pieces, que la couverture StackR peut faire
+// tomber a zero sans qu'aucun code ne bouge — un rouge sur du code sain.
+// `nStackrSeul` est donc AFFICHE, pas juge. → [[regle-banc-cale-sur-la-dispersion]]
+dit(nVeveDate === 0 || nVeveSeul > 0,
+  nVeveDate === 0 ? 'SANS OBJET : aucune date VeVe a departager'
+    : `${nVeveSeul} fiche(s) observees par VeVe et PAS par StackR — les deux murs ont deux sources`,
+  nVeveSeul > 0 ? null
+    : 'AUCUNE : toute piece datee par VeVe l\'est aussi par StackR. Un seul fait nourrit'
+      + '\n        les deux murs — `indexerReleves` melange les sources, ou le gabarit copie'
+      + '\n        une date d\'un mur a l\'autre. ⛔ Les deux murs redeviennent d\'accord PAR'
+      + '\n        CONSTRUCTION, et le controle ci-dessus ne peut plus rien departager.');
+console.log(`  ..  repartition : ${nVeveSeul} VeVe seul · ${nStackrSeul} StackR seul · ${nLesDeux} les deux (indicatif, non juge)`);
 
 // ── ET LES AUTRES PAGES N'ONT PAS ETE CASSEES AU PASSAGE ──────────────────
 // ⭐ 30 fichiers passent `updatedAt` a `Base` (blog, legales, plan du site) :
