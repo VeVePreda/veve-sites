@@ -122,6 +122,39 @@ console.log('\n2. le lecteur retient le plus frais (fonction pure)');
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// §2 bis · CE SITE PUBLIE-T-IL SEULEMENT DES FICHES ? — le manifeste repond
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴 CORRECTIF DU 13/08 13 h 30, ET C'EST MOI QUI AVAIS INTRODUIT LA PANNE.
+// Le lot 144‑B est sorti VERT sur `veveprice` et ROUGE sur `vevewiki` : le wiki
+// ne publie **aucune** fiche de prix (263 pages, 0 sous `/collectibles/`), et le
+// §3 exigeait « plus de 50 fiches ». ⭐⭐ *Corrigé sur un site n'est pas
+// corrigé* : ce dépôt construit DEUX sites, et je n'en avais éprouvé qu'un.
+//
+// ⛔ LA CORRECTION N'EST **PAS** « si 0 fiche, sortir vert ». Sur `veveprice`,
+// zéro fiche EST la panne — et un banc qui déduit sa raison d'être de ce qu'il
+// trouve sur le disque est exactement le défaut que `test_fuite_prix` a payé le
+// 07/08 (il héritait d'un `.reserve/` laissé par l'autre site).
+// ⭐⭐⭐ LA QUESTION A UNE REPONSE EXACTE, ET ELLE EST DANS LE MANIFESTE.
+// `priceEnabled()` (`engine/lib/features.mjs`) dit si le site déclare des
+// modules de données prix ; c'est ce même prédicat qui fait rendre `[]` aux
+// six routes de fiches. Le banc lit donc LA MEME source que le rendu — deux
+// définitions de « ce site publie-t-il des fiches » divergeraient un jour.
+// → [[regle-banc-deduit-au-lieu-de-compter]] · [[regle-invariant-plutot-quune-seconde-liste]]
+//
+// ⚠️ L'import est DYNAMIQUE et vient APRES le réglage de `SITE` : `manifest()`
+// lit cette variable, et un import statique serait hissé avant la ligne
+// suivante — le banc jugerait alors le manifeste d'un autre site.
+process.env.SITE = process.env.SITE || 'veveprice';
+const { priceEnabled } = await import('../lib/features.mjs');
+if (!priceEnabled()) {
+  console.log(`\n  ..  SANS OBJET : ${process.env.SITE} ne publie AUCUNE page de prix`);
+  console.log('      (manifeste : `content.data_modules` vide, et les 6 routes de fiches rendent []).');
+  console.log('      ⚠️ Sur veveprice, CE MESSAGE EST LA PANNE — les 1 200 fiches devraient exister.');
+  console.log(ko === 0 ? '\n✅ rien a verifier sur ce site\n' : `\n🔴 ${ko} controle(s) en echec\n`);
+  process.exit(ko === 0 ? 0 : 1);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // §3 · LE PARCOURS DE `dist/` — un seul passage, rien n'est garde
 // ═══════════════════════════════════════════════════════════════════════════
 // ⭐⭐ UN SEUL `readFileSync` PAR FICHIER, ET SON CONTENU EST RELACHE AVANT LE
