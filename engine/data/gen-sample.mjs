@@ -92,7 +92,21 @@ for (let i = 0; i < N; i++) {
   const fl = hist.map((h) => h.floor).sort((a, b) => a - b);
   const q = (p) => fl[Math.min(fl.length - 1, Math.floor(fl.length * p))];
   const last = hist[hist.length - 1];
-  baselines.push(`${uuid},${hist.length},${fl[0]},${q(0.05)},${q(0.25)},${q(0.5)},${q(0.75)},${q(0.95)},${fl[fl.length-1]},${last.listings},${last.listings},${last.floor},${last.listings}`);
+  // 🔴🔴 LOT 144 — QUATRIEME FOIS QUE L'ECHANTILLON MENT SUR SON PROPRE SCHEMA.
+  // Le commentaire de l'ecriture, plus bas, annonce « EN-TETE REEL de
+  // prices_baselines, copie de scraper/price_baseline.py ». Mesure du 13/08 sur
+  // le fichier PUBLIE (`prices-full/prices_baselines.csv.gz`, 13 868 lignes) :
+  // la production a SEIZE colonnes, l'echantillon en avait TREIZE. Manquaient
+  // `first_ts`, `last_ts` et `listings_max`.
+  // ⭐⭐⭐ ET LA CONSEQUENCE EST CELLE DE TOUJOURS : un champ lu depuis
+  // `last_ts` vaut `undefined` hors reseau, donc `null`, donc AUCUN banc
+  // hors-ligne ne peut le voir — il serait muet, c'est-a-dire vert.
+  // ⛔ L'ordre suit la SOURCE, pas la commodite : `first_ts`/`last_ts` en 3e et
+  // 4e, `listings_max` apres `listings_p90`. Un en-tete qui ne colle pas a ses
+  // lignes decale tout, en silence, et `parseCSV` associe des valeurs a des
+  // noms voisins sans lever la moindre erreur.
+  const lstMax = Math.max(...hist.map((h) => h.listings));
+  baselines.push(`${uuid},${hist.length},${hist[0].ts},${last.ts},${fl[0]},${q(0.05)},${q(0.25)},${q(0.5)},${q(0.75)},${q(0.95)},${fl[fl.length-1]},${last.listings},${last.listings},${lstMax},${last.floor},${last.listings}`);
   // ═══════════════════════════════════════════════════════════════════════
   // 🔴🔴🔴 LOT 118 — L'ÉCHANTILLON AVAIT 15 COLONNES, LA PRODUCTION EN A 22
   // ═══════════════════════════════════════════════════════════════════════
@@ -167,7 +181,14 @@ writeFileSync(join(OUT, 'prices.csv'), 'veve_uuid,ts_utc,floor,listings\n' + pri
 // C'est la 3e fois qu'un echantillon ecrit selon MES conventions masque la
 // realite (apres kind='comic' au lieu de 'Comic'). Regle : l'echantillon copie
 // le schema de la SOURCE, jamais l'inverse.
-writeFileSync(join(OUT, 'prices_baselines.csv'), 'veve_uuid,n_points,floor_min,floor_p5,floor_p25,floor_p50,floor_p75,floor_p95,floor_max,listings_p50,listings_p90,last_floor,last_listings\n' + baselines.join('\n') + '\n');
+// 🔴🔴 LOT 144 — ET IL A FALLU LE MESURER POUR LE VOIR. Le commentaire
+// ci-dessus dit « en-tete REEL », et il etait faux depuis le lot qui l'a ecrit :
+// 13 colonnes ici, 16 dans le fichier publie. ⭐⭐⭐ *Un commentaire qui
+// promet qu'une verification a eu lieu se relit comme la verification.*
+// → [[regle-lecon-non-generalisee]] — la regle « l'echantillon copie le schema
+// de la SOURCE » etait deja ECRITE, juste au-dessus, et elle n'a pas ete
+// appliquee au fichier qu'elle commente.
+writeFileSync(join(OUT, 'prices_baselines.csv'), 'veve_uuid,n_points,first_ts,last_ts,floor_min,floor_p5,floor_p25,floor_p50,floor_p75,floor_p95,floor_max,listings_p50,listings_p90,listings_max,last_floor,last_listings\n' + baselines.join('\n') + '\n');
 
 const parKind = {};
 for (const l of cat) { const k = l.split(',')[1]; parKind[k] = (parKind[k] || 0) + 1; }

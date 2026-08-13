@@ -90,7 +90,46 @@ export const CHAMPS_COTE = [
   // clair sur l'accueil. Le lot 112 les a fermés DANS LES GABARITS ; ce lot-ci
   // les retire DE LA DONNÉE — on ne cache pas un champ, on ne le projette pas.
   'change7d', 'change30d',
+  // 🔒 LOT 144 — LE PLANCHER STACKR, ET IL N'Y A PAS A HESITER : C'EST UN PRIX.
+  // Il arrive de `releves.csv` en OMI. Le publier serait la fuite du lot 101
+  // refaite par la porte d'a cote — un montant exact, sur 652 fiches, en clair.
+  // ⛔ Il ne se convertit PAS en dollars : `sfloors` (OMI) et `vfloors` (USD)
+  // sont deux MARCHES, rapport non constant (mediane 4 423, p10 2 273,
+  // p90 8 520 sur 1 306 items communs). Une conversion inventerait un chiffre.
+  'floorStackr',
 ];
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LA LIGNE DE PARTAGE, ECRITE DANS LE CODE — lot 144
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐⭐⭐ ELLE EST TENUE DANS LES DEUX SENS, ET C'EST TOUT LE POINT. Un lot qui
+// ne garderait que « aucun prix ne fuit » laisserait passer son exact contraire :
+// tout reserver, y compris la DATE — et la fiche redeviendrait muette sans
+// qu'un seul run rougisse. Les mutants M5 et M6 du banc de fraicheur sont
+// opposes pour cette raison.
+//
+// Pourquoi une DATE reste publique alors que `athDate` ne l'est pas : la date
+// d'un EXTREME, croisee a une courbe, DESIGNE un montant (« le plus haut, c'est
+// ce pic-la »). Une date de RELEVEMENT ne designe rien du tout — elle repond a
+// « ces chiffres datent de quand ? », qui est la question qu'un visiteur pose
+// avant meme de regarder un prix, et a laquelle 1 200 fiches repondaient par
+// l'heure du deploiement.
+export const CHAMPS_FRAICHEUR = ['releveLe', 'releveSource', 'derniereVariation'];
+
+// ⛔⛔ UN INVARIANT, PAS UN COMMENTAIRE. Le jour ou quelqu'un ajoutera
+// `releveLe` a `CHAMPS_COTE` — de bonne foi, « c'est lie a un prix » — ce
+// module refusera de se charger, dans le build comme dans les 42 bancs, avant
+// qu'une seule page soit rendue. Une regle tenue par la discipline seule se
+// defait au lot suivant.
+{
+  const collision = CHAMPS_FRAICHEUR.filter((c) => CHAMPS_COTE.includes(c));
+  if (collision.length) {
+    throw new Error(
+      `[cote] LIGNE DE PARTAGE VIOLEE : ${collision.join(', ')} est a la fois public et reserve. `
+      + 'Un champ de FRAICHEUR ne peut pas entrer dans CHAMPS_COTE : la fiche cesserait de dire '
+      + 'quand sa donnee a ete relevee, et aucun banc ne le verrait comme une panne.');
+  }
+}
 
 // ⛔ CE QUI RESTE PUBLIC, ET POURQUOI — à relire avant d'ajouter une ligne
 // au-dessus. `storePrice` : le PRIX DE DROP, explicitement conservé par Preda,

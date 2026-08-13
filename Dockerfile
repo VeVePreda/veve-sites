@@ -82,6 +82,24 @@ RUN set -e; \
 #    lui devient un `"&&" unexpected`. Il a rougi sur ma premiere version.
 RUN apk add --no-cache python3 py3-pip && pip install --no-cache-dir --break-system-packages crossplane
 RUN npm run test:nginx
+# ═══════════════════════════════════════════════════════════════════════════
+# 🔴🔴 LOT 144 (B-8) — SEPT BANCS NE GARDAIENT AUCUNE PORTE, ET C'ETAIT MESURABLE
+# ═══════════════════════════════════════════════════════════════════════════
+# Mesure du 13/08/2026 : `npm test` chainait **41** bancs, ce `Dockerfile` en
+# lancait **34**. Les sept absents : test:adresses, test:demo, test:dockerfile,
+# test:entrepot, test:plages, test:session, test:slugs.
+# ⭐⭐ ET C'EST LE `Dockerfile` QUI COMPTE, PAS LA CI. « Le Dockerfile est la
+# seule porte que le deploiement respecte ; la CI CONSTATE, elle n'EMPECHE
+# pas. » Un banc absent d'ici est un banc qui peut rougir dans `tests.yml`
+# pendant que Coolify met le site en ligne.
+# ⛔ `test:slugs` RESTE DEHORS, et ce n'est pas un oubli : il enchaine trois
+# `npm run build` (voir la note de `freeze-slugs` plus bas). Les six autres
+# tournent en moins d'une minute a eux tous — mesure faite dans le bac a sable,
+# apres un build reel.
+# ⚠️ CHACUN EST PLACE OU IL PEUT MESURER, PAS EN BLOC : cinq avant le build (ils
+# n'ont besoin que du code), un apres (il lit `dist/`).
+RUN npm run test:dockerfile
+RUN WAREHOUSE_OFFLINE=1 npm run test:entrepot
 
 RUN WAREHOUSE_OFFLINE=1 npm run test:donnees
 # Verifie qu'aucun type n'est evince de la vitrine (le 18/07 la prod a
@@ -108,6 +126,12 @@ RUN WAREHOUSE_OFFLINE=1 npm run test:quotas
 #    abonne n'aurait vu un seul prix.
 RUN WAREHOUSE_OFFLINE=1 npm run test:rayon
 RUN WAREHOUSE_OFFLINE=1 npm run test:acces
+# ⭐ LOT 144 (B-8) — `test:session` et `test:demo` sont les deux controles du
+# CIRCUIT de session, et ni l'un ni l'autre n'arretait un deploiement. Ils
+# voisinent `test:acces` parce qu'ils repondent a la meme question — « qui a le
+# droit de voir quoi » — et parce qu'aucun des deux ne lit `dist/`.
+RUN WAREHOUSE_OFFLINE=1 npm run test:session
+RUN WAREHOUSE_OFFLINE=1 npm run test:demo
 # ═══════════════════════════════════════════════════════════════════════════
 # 🔴🔴🔴 `test:projection` — LOT 117. IL IMPORTE `dataset()` : IL EST **ICI**.
 # ═══════════════════════════════════════════════════════════════════════════
@@ -215,6 +239,10 @@ RUN node outils/imports-orphelins.mjs
 RUN node outils/cascade-aplatie.mjs
 
 RUN WAREHOUSE_OFFLINE=1 npm run test:renommage
+# ⭐ LOT 144 (B-8) — `test:adresses` juge la hierarchie /comics/<serie>/<num>/
+# <rarete>/ : meme sujet que `test:renommage`, meme moment (il appelle
+# `dataset()` hors ligne, donc AVANT le build, comme test:quotas et test:rayon).
+RUN WAREHOUSE_OFFLINE=1 npm run test:adresses
 
 # ⚠️ LE DOSSIER EXISTE TOUJOURS, MEME VIDE. En mode static (vevewiki) la
 # reserve ne s'ouvre jamais : la porte `price_history` est inactive, tout
@@ -424,6 +452,26 @@ RUN WAREHOUSE_OFFLINE=1 npm run test:marche
 # ⛔ IL VA APRES `npm run build` : les §4 et §5 lisent `dist/`.
 # ⚠️ IL N'IMPORTE PAS `dataset.mjs` — il ne peut donc pas vider la reserve.
 RUN WAREHOUSE_OFFLINE=1 npm run test:membre
+# ═══════════════════════════════════════════════════════════════════════════
+# 🔴 `test:fraicheur` — LOT 144 (B-5). IL LIT `dist/` : IL EST **ICI**.
+# ═══════════════════════════════════════════════════════════════════════════
+# L'invariant : aucune page publique ne peut afficher une date de fraicheur qui
+# ne provienne pas de la donnee qu'elle decrit — et toute fiche sans date de
+# relevement doit le DIRE, parce que le silence est indiscernable d'une donnee
+# fraiche.
+# ⛔ PLACE AVANT LE BUILD, IL SORTIRAIT INDECIDABLE, c'est-a-dire VERT SANS
+# AVOIR MESURE : son §3 ouvre les fiches publiees une par une.
+# ⭐⭐ IL COMPTE, IL NE DEDUIT PAS : il annonce combien de fiches il a ouvertes,
+# combien portent une date, combien portent l'avertissement, et il EXIGE QUE LA
+# SOMME FASSE LE TOTAL. Il compare aussi, fiche par fiche, la date du PIED a
+# celle du bloc StackR — deux composants, une seule source.
+# ⚠️ IL N'APPELLE PAS `dataset()` : seulement `indexerReleves()`, qui est pure.
+# Il ne peut donc pas vider la reserve — la panne du lot 104, ou un banc a fait
+# passer `.reserve/cote/` de 1 201 fichiers a 0 en rappelant `dataset()`.
+RUN WAREHOUSE_OFFLINE=1 npm run test:fraicheur
+# ⭐ LOT 144 (B-8) — `test:plages` lit `dist/` lui aussi (« ce banc va APRES
+# npm run build », dit son propre code). Il n'arretait rien jusqu'ici.
+RUN WAREHOUSE_OFFLINE=1 npm run test:plages
 # 🔴🔴🔴 `test:pages` — LOT 124. IL LANCE LE SERVEUR ET DEMANDE LES PAGES.
 # ═══════════════════════════════════════════════════════════════════════════
 # LE 10/08, `/connexion/` et `/inscription/` ont rendu 500 (`ReferenceError`).

@@ -245,8 +245,19 @@ const enAttente = t(lang, 'data.notCollected');
 const pasCollecte = t(lang, 'data.notCollected');
 const mcpJour = mcpPoints(item.rarity, item.type);
 ---
+{/* 🔴🔴 LOT 144 — `fraicheurDonnee` EST CE QUI FAIT BASCULER LE PIED.
+    `updatedAt` reste passe : il nourrit toujours `<meta name="build-time">`,
+    ou il est EXACT — il date le deploiement, et c'est bien de cela qu'il parle.
+    Ce qu'il ne doit plus faire, c'est repondre a « ces chiffres datent de
+    quand ? » sur une page qui decrit une donnee.
+    ⭐⭐ `{ le: null }` N'EST PAS LA MEME CHOSE QUE NE RIEN PASSER. Ne rien
+    passer voudrait dire « cette page ne decrit pas une donnee » et rendrait la
+    date du build. `{ le: null }` dit « elle en decrit une, et j'ignore sa
+    date » — ce que 257 fiches sur 1 200 doivent pouvoir dire. Le silence est
+    indiscernable d'une donnee fraiche. */}
 <Base lang={lang} path={path} sect={item.type === 'comic' ? 'comics' : 'collectibles'}
-      title={titreItem} description={descItem} crumbs={crumbs} ld={ld} updatedAt={updatedAt}>
+      title={titreItem} description={descItem} crumbs={crumbs} ld={ld} updatedAt={updatedAt}
+      fraicheurDonnee={{ le: item.releveLe || null }}>
   <BarreAcces lang={lang} />
 
   {/* ═══ LA FICHE — structure de la maquette, à la classe près ═══
@@ -610,10 +621,49 @@ const mcpJour = mcpPoints(item.rarity, item.type);
             <span class="lien-b" data-attente title={t(lang, 'data.notCollected')}
                   style="margin-left:auto">{t(lang, 'item.viewStackr')} ↗</span>
           </div>
-          <div class="mur__v" data-attente title={t(lang, 'data.notCollected')}>—<span class="mur__u">OMI</span></div>
-          <div class="mur__eq" data-attente title={t(lang, 'data.notCollected')}>—</div>
+          {/* ═══ LOT 144 — LA SOURCE EXISTE DEPUIS LE 03/08, ET CE CADRE
+              AFFICHAIT ENCORE DES TIRETS. ═══
+              🔴🔴 Le commentaire ci-dessus disait vrai le 03/08 et faux depuis :
+              `floor_watch.py` pose l'horodate et `_releve_sfloors()` la compte.
+              Mesure du 13/08 : **652 fiches sur 1 200 (54 %)** portaient un
+              floor StackR DATE dans la donnee, et affichaient « — ».
+              ⭐⭐⭐ QUINZIEME OCCURRENCE DE « COLLECTEE PUIS JETEE », et de
+              nouveau c'est un COMMENTAIRE RASSURANT qui a tenu lieu de
+              verification — « cette donnee n'existe pas encore » se relit
+              comme une mesure alors que c'en etait une, perimee.
+              → [[regle-donnee-collectee-puis-jetee]]
+
+              ⛔ LE MONTANT PART DERRIERE LE MUR, LA DATE RESTE DEVANT, et les
+              deux passent par le meme bloc. `floorStackr` est dans
+              `CHAMPS_COTE` : a l'instant ou ce gabarit est rendu, le champ
+              n'existe DEJA PLUS sur l'objet public — <Cote> ne recoit qu'un
+              uuid et le NOM du champ. Il n'y a rien a masquer, donc rien a
+              rouvrir au lot suivant.
+              ⛔⛔ AUCUNE CONVERSION VERS LE DOLLAR. `mur__eq` porte la DATE, pas
+              un equivalent : le taux OMI horodate n'est stocke nulle part, et
+              les deux marches ont un rapport non constant (mediane 4 423,
+              p10 2 273, p90 8 520). Le jour ou un taux date existera, ce bloc
+              changera de SOURCE sans changer de FORME — c'est ce que son
+              commentaire d'origine promettait, et cette fois c'est mesure.
+              ⭐ La distinction « — parce que rien n'est collecte » / « — parce
+              que je ne montre pas » reste tenue : `data-attente` sur le premier,
+              le cadenas de <Cote> sur le second. Deux causes opposees ne
+              partagent pas un signe.
+              ⭐⭐ LA DATE ISO EST LUE PAR `test:fraicheur`, qui la compare a
+              celle du pied de page. Deux composants rendent `item.releveLe` ;
+              s'ils divergent, c'est que le pied a ete rebranche ailleurs. */}
+          <div class="mur__v">{item.floorStackr != null || coteFermee
+            ? (coteFermee
+                ? <Cote lang={lang} uuid={item.uuid} champ="floorStackr" />
+                : money(item.floorStackr))
+            : <span data-attente title={t(lang, 'data.notCollected')}>—</span>}<span class="mur__u">OMI</span></div>
+          <div class="mur__eq">{item.releveLe
+            ? <>{t(lang, 'item.releveLe')} {item.releveLe}</>
+            : <span data-attente title={t(lang, 'data.notCollected')}>—</span>}</div>
           <div class="mur__d">
-            <span class="muted">{t(lang, 'data.notCollected')}</span>
+            <span class="muted">{item.releveSource === 'stackr'
+              ? t(lang, 'item.floorStackr')
+              : t(lang, 'data.notCollected')}</span>
           </div>
         </div>
       </div>

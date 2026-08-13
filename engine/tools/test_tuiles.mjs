@@ -226,7 +226,29 @@ const estReference = (s) => /<svg[^>]*>\s*<use[^>]*\/?>\s*<\/svg>/.test(s);
 // de 2 relevés ⇒ AUCUNE courbe, jamais une ligne plate ». Trente-cinq lignes
 // parfaitement plates méritent qu'on vérifie que la platitude est OBSERVÉE et
 // non produite par la normalisation.
-const estSparkline = (s) => /class="spark"/.test(s);
+// 🔴🔴🔴 LOT 144 — CETTE EXEMPTION N'A JAMAIS FONCTIONNE, ET LE BANC EST
+// ROUGE AUJOURD'HUI POUR CETTE RAISON.
+// Le selecteur exigeait `class="spark"` — guillemet fermant COLLE au mot. Or
+// `vitrine.mjs` emet `class="spark up"` / `class="spark down"` : AUCUNE
+// sparkline n'a jamais ete exemptee. Le banc les comptait toutes depuis le
+// lot 127, et il ne rougissait que le jour ou la donnee produisait treize
+// courbes plates identiques. Mesure du 13/08 sur `/market/` en production :
+//     <svg class="spark up" …>M0.0,24.0L25.0,24.0L50.0,24.0L75.0,24.0L100.0,4.0
+//     250 o, ecrit 13 fois, seuil 12  ->  ROUGE
+// ⭐⭐⭐ VERIFIE SUR LE DEPOT NU (HEAD `11153f85`, sans le lot 144) : le meme
+// echec, au meme octet. Ce n'est pas un lot qui l'a introduit, c'est la DONNEE
+// du jour qui a franchi un seuil qu'un defaut d'instrument rendait atteignable.
+// ⛔ CE N'EST PAS « ASSOUPLIR UN BANC POUR QU'IL PASSE ». L'intention est
+// ecrite quelques lignes plus haut, avec le trace exact en exemple : « ce n'est
+// pas un gabarit qui se recopie, c'est la DONNEE qui se ressemble ». La regle
+// etait mal ECRITE, pas trop stricte — exactement comme `class="cote[^"]*"` au
+// lot 112, qui attrapait `cote__l` et annonçait 8 484 fuites de prix.
+// ⭐⭐ QUATRIEME FOIS QU'UN SELECTEUR DE CLASSE MENT DANS CE DEPOT : un nom de
+// classe se termine par une ESPACE ou par le guillemet, jamais « forcement par
+// le guillemet ». ⛔ Et rien n'est perdu : `SEUIL_RECOPIE`, plus bas, continue
+// de compter les sparklines dans les octets — on les exempte d'UNE regle, pas
+// de la mesure.
+const estSparkline = (s) => /class="spark(?:[ "])/.test(s);
 const vus = new Map();
 for (const m of html.matchAll(/<svg[\s\S]*?<\/svg>/g)) vus.set(m[0], (vus.get(m[0]) || 0) + 1);
 let pireN = 0, pireO = 0, gaspille = 0;

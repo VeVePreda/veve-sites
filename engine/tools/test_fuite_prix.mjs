@@ -130,9 +130,32 @@ const distinctif = (v) => Number.isFinite(v) && !Number.isInteger(v)
 // « 1 234,5 » en francais et « 1,234.5 » en anglais : chercher `1234.5` serait
 // vert sur une page qui affiche le montant en toutes lettres.
 const FORMATS = ['en-GB', 'fr-FR', 'es-ES', 'de-DE'];
+// 🔴🔴🔴 LOT 144 — LA DISTINCTIVITE ETAIT JUGEE SUR LA VALEUR ET CHERCHEE SUR
+// LA FORME, ET LES DEUX NE COINCIDENT PAS.
+// Mesure du 13/08 sur un build de PRODUCTION : `prixMedian = 1099.995` passe
+// `distinctif()` (non entier, >= 100, deuxieme decimale a 5). Mais
+// `toLocaleString('en-GB', { maximumFractionDigits: 2 })` l'ARRONDIT en
+// « 1,100 » — quatre chiffres ronds, qu'un TIRAGE de 1 100 pieces ecrit tel
+// quel (`<span class="rayon__t">1,100</span>`). Le banc annonçait une FUITE DE
+// PRIX sur trois pages qui n'en portaient aucune.
+// ⭐⭐⭐ C'EST LA MEME FAMILLE QUE LE DEFAUT 3 DU LOT 104, UNE COUCHE PLUS BAS :
+// le critere se resserrait sur le NOMBRE, la recherche se faisait sur la
+// CHAINE, et l'arrondi les separait. *Un instrument qui ne mesure pas ce qu'il
+// juge finit par nommer une cause qu'il ne departage pas.*
+// ⚠️ VERIFIE : l'ANCIEN instrument est rouge et le NOUVEAU vert sur le MEME
+// `dist/`, et la chaine trouvee est un tirage, pas un prix. Ce n'est pas un lot
+// qui l'a introduit — c'est la donnee du jour qui a fait apparaitre un temoin
+// dont l'arrondi tombe rond.
+// ⛔ ON NE RETIRE PAS LE TEMOIN, ON RETIRE LA FORME : la valeur reste comparee
+// sous ses autres ecritures (« 1.099,99 » en de-DE reste un temoin valable).
+// Et le plancher de 20 formes, plus bas, dit tout de suite si on a trop coupe.
+const formeDistinctive = (f) => /[.,]\d?[1-9]$/.test(f);
 const formes = (v) => {
   const out = new Set();
-  for (const l of FORMATS) out.add(Number(v).toLocaleString(l, { maximumFractionDigits: 2 }));
+  for (const l of FORMATS) {
+    const f = Number(v).toLocaleString(l, { maximumFractionDigits: 2 });
+    if (formeDistinctive(f)) out.add(f);
+  }
   return [...out];
 };
 

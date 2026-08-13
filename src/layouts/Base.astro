@@ -21,7 +21,7 @@ const links = m.links || {};
 // `langs` : les langues où CETTE page existe vraiment. Non fourni = les langues
 // du site. C'est ce qui empêche un hreflang d'annoncer /es/brands/ quand cette
 // page n'est pas construite (cf. engine/lib/langues.mjs).
-const { lang, path = '/', altPaths = null, langs = null, title, description, crumbs = [], ld = [], updatedAt = null, noindex = false, image = null, sect = 'general' } = Astro.props;
+const { lang, path = '/', altPaths = null, langs = null, title, description, crumbs = [], ld = [], updatedAt = null, noindex = false, image = null, sect = 'general', fraicheurDonnee = null } = Astro.props;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 🔴🔴 LA COULEUR PAR SECTION — DIX RÈGLES DE THÈME QUE RIEN N'ACTIVAIT
@@ -220,7 +220,51 @@ const canary = createHash('sha256')
 
 const team = links.team || [];
 const affiliate = links.affiliate || [];
-const fresh = updatedAt ? new Date(updatedAt).toLocaleDateString(dateLocale[lang] || 'en-GB') : null;
+// ═══════════════════════════════════════════════════════════════════════════
+// LA FRAICHEUR — LOT 144 : LE PIED CESSE D'AFFIRMER CE QU'IL NE SAIT PAS
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴 CE QUE CETTE LIGNE FAISAIT, ET QUI ETAIT FAUX SUR 1 200 PAGES.
+// `updatedAt` est l'heure du DEPLOIEMENT. Sur une page qui decrit une donnee,
+// « Donnees mises a jour le 12/08/2026 » ne parle pas de la donnee : il parle
+// du jour ou l'on a reconstruit le site. Les 1 200 fiches affichaient donc
+// toutes la MEME date, et 257 d'entre elles affirmaient une fraicheur que
+// personne n'avait mesuree.
+//
+// ⭐⭐ LA DISTINCTION SE FAIT ICI, ET PAS CHEZ LES APPELANTS. Trente fichiers
+// passent `updatedAt` a ce gabarit — le blog, les pages legales, le plan du
+// site — et pour eux « mis a jour le <build> » est EXACT : ces pages ne
+// decrivent aucune donnee, elles SONT la donnee. ⛔ Le lot ne les touche pas.
+// Une page qui decrit une donnee le dit en passant `fraicheurDonnee`, et c'est
+// la SEULE chose qui bascule le pied.
+//
+// ⛔⛔ ET SURTOUT PAS UNE LISTE DE CHEMINS. `ROUTES_COMPTE` est tenue a la main :
+// une route oubliee y est pre-generee EN SILENCE. Une liste de chemins ici
+// aurait le meme defaut, en pire — elle laisserait la page suivante mentir sans
+// qu'un run rougisse. → [[regle-invariant-plutot-quune-seconde-liste]]
+//
+// TROIS ETATS, ET AUCUN N'EST APLATI :
+//   `fraicheurDonnee` absent      -> page qui ne decrit pas une donnee : build.
+//   `{ le: '2026-08-13' }`        -> la date de SA donnee.
+//   `{ le: null }`                -> ⭐⭐ elle DIT qu'elle ne sait pas. Le
+//     silence est indiscernable d'une donnee fraiche : ne rien afficher aurait
+//     ete la meme faute, en plus discrete.
+//
+// ⚠️ `T12:00:00Z` ET NON LA DATE NUE. `new Date('2026-08-13')` est minuit UTC :
+// dans un fuseau en retard, `toLocaleDateString` rend la VEILLE. Un decalage
+// d'un jour sur une date de fraicheur est exactement le genre de faux que
+// personne ne remarque et que tout le monde croit.
+const dateJour = (iso) => new Date(`${iso}T12:00:00Z`).toLocaleDateString(dateLocale[lang] || 'en-GB');
+const decritDonnee = fraicheurDonnee !== null && fraicheurDonnee !== undefined;
+const releveLe = decritDonnee && fraicheurDonnee.le ? dateJour(fraicheurDonnee.le) : null;
+// ⛔ `fresh` NE PEUT PLUS ATTEINDRE UNE PAGE QUI DECRIT UNE DONNEE. C'est le
+// mutant M2 : le remettre inconditionnel doit faire rougir le banc.
+const fresh = (!decritDonnee && updatedAt)
+  ? new Date(updatedAt).toLocaleDateString(dateLocale[lang] || 'en-GB') : null;
+// ⭐ LA PROVENANCE N'EST PAS CALCULEE ICI, ELLE EST PORTEE PAR LA LIGNE ELLE-MEME
+// (`data-fraicheur`, plus bas). Une variable de plus aurait ete un second
+// endroit ou dire la meme chose, et deux verites divergent toujours.
+// ⛔ Et pas de marqueur au niveau de <html> : ce serait 18 octets SERVIS sur
+// 3 097 pages pour repeter ce que le pied dit deja.
 const analytics = m.analytics || {};
 // ═══ LE FOURNISSEUR DE MESURE — audit d'hygiene du 03/08/2026 ═══
 // ⚠️ `analytics.provider` etait DECLARE dans le manifeste et LU NULLE PART : le
@@ -1335,7 +1379,22 @@ const menuComplet = wikiNav
             site de prix, et la seule information du pied qui change tous les
             jours. La mettre ici la sort de la ligne de mentions légales, où
             elle se lisait comme une clause. */}
-        {fresh && <li>{t(lang, 'footer.updated')} {fresh}.</li>}
+        {/* ⭐ LA FRAICHEUR RESTE UNE PHRASE, PAS UN LIEN (lot 139) — et depuis
+            le lot 144 elle dit de QUOI elle parle. Trois formes, une seule
+            rendue, et `data-fraicheur` porte laquelle : c'est ce que
+            `test:fraicheur` compte, page par page.
+            ⭐⭐ `data-releve` porte la date en ISO. Elle est LUE PAR LE BANC et
+            comparee a celle que `Item.astro` rend dans le bloc StackR : deux
+            composants, une seule source (`item.releveLe`). Un banc qui ne
+            lirait que l'etiquette `data-fraicheur` — emise par le gabarit qu'il
+            juge — fabriquerait sa propre condition.
+            ⛔ Ne jamais rendre les trois « au cas ou » : deux dates dans un
+            pied, c'est une page qui se contredit devant un visiteur. */}
+        {fresh && <li data-fraicheur="build">{t(lang, 'footer.updated')} {fresh}.</li>}
+        {releveLe && <li data-fraicheur="donnee" data-releve={fraicheurDonnee.le}>{t(lang, 'footer.releve')} {releveLe}.</li>}
+        {decritDonnee && !releveLe && (
+          <li data-fraicheur="aucune" class="muted">{t(lang, 'footer.releveInconnu')}</li>
+        )}
       </ul>
     </div>
 

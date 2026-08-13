@@ -9,7 +9,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { projeter as projeterCote, deposerMarche, CHAMPS_COTE } from './cote.mjs';
-import { getCatalogue, getBaselines, streamPrices } from '../data/warehouse.mjs';
+import { getCatalogue, getBaselines, getReleves, streamPrices } from '../data/warehouse.mjs';
 import { manifest, SITE } from './manifest.mjs';
 import { porte } from './access.mjs';
 import { jourISO } from './vitrine.mjs';   // 🔴 LOT 113 — JJ/MM/AAAA, jamais `new Date(chaine)`
@@ -172,6 +172,57 @@ function quotasDuManifeste(pub) {
   return { collectible: total, comic: 0 };
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// LES RELEVES — ON RETIENT LE PLUS FRAIS, ET C'EST TOUT LE LOT 144
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐⭐⭐ ELLE EST EXPORTEE, ET C'EST DELIBERE : c'est la SEULE partie de ce lot
+// qu'un banc puisse departager sans reconstruire un site. Laissee en ligne dans
+// `construireDataset()`, la regle « on garde le plus frais » n'aurait ete
+// verifiable que par ses CONSEQUENCES sur 1 200 pages — c'est-a-dire pas du
+// tout, puisqu'une date perimee a exactement la meme forme qu'une date juste.
+// ⛔ Un banc ne doit JAMAIS rappeler `dataset()` pour se donner de la matiere
+// (lecon du lot 104 : il DETRUISAIT la reserve du build, 1 201 fichiers -> 0).
+// Une fonction pure, elle, se teste avec quatre lignes de fixture.
+//
+// 🔴🔴🔴 LE PIEGE N'EST PAS THEORIQUE, IL EST MAJORITAIRE.
+// Mesure du 13/08 sur le fichier PUBLIE (10 886 lignes) : 3 470 uuid sur 7 416
+// (47 %) portent DEUX lignes — une par marche. Le writer trie sur `(uuid, ts)`,
+// donc la premiere ligne d'un uuid est sa PLUS ANCIENNE : verifie 3 470 fois
+// sur 3 470, sans une exception. Un lecteur qui garderait la premiere — c'est-
+// a-dire tout lecteur ecrit sans y penser — publierait une date perimee de
+// 2,9 j en mediane, 8,5 j au p90, 23,8 j au maximum, EN SORTANT VERT.
+//
+// ⚠️ `ts_releve` EST UN EPOCH EN SECONDES (`"%.0f"` cote workflow), pas une date
+// ISO : `new Date('1786525683')` rend `Invalid Date` sans rien lever. Une valeur
+// non finie, vide ou <= 0 est IGNOREE — ⛔ jamais comptee comme « datee ».
+// ⚠️ `floor` sort en `repr` de flottant Python (`900000.0`) ⇒ `Number()`,
+// ⛔ jamais `parseInt` (900000 ici, mais 7 sur « 7.98 »).
+// ⛔⛔ DEUX MARCHES, PAS DEUX UNITES : `stackr` en OMI, `veve` en USD, rapport
+// non constant. Le floor de StackR se retient A PART du « plus frais » — si la
+// ligne la plus fraiche est celle de VeVe (le cas le plus courant), la valeur
+// OMI existe quand meme et n'a aucune raison d'etre jetee avec sa ligne.
+export function indexerReleves(releves) {
+  const par = new Map();
+  let ignorees = 0;
+  for (const r of releves || []) {
+    const u = r.veve_uuid || r.uuid;
+    const sec = Number(r.ts_releve);
+    if (!u || !Number.isFinite(sec) || sec <= 0) { ignorees++; continue; }
+    const src = String(r.source || '').trim();
+    let e = par.get(u);
+    if (!e) { e = { sec: -Infinity, source: null, stackr: null, stackrSec: -Infinity }; par.set(u, e); }
+    if (sec > e.sec) { e.sec = sec; e.source = src || null; }
+    if (src === 'stackr') {
+      const f = Number(r.floor);
+      if (Number.isFinite(f) && sec >= e.stackrSec) { e.stackr = f; e.stackrSec = sec; }
+    }
+  }
+  return { par, ignorees };
+}
+
+/** La date d'un releve, en ISO court. ⚠️ Epoch en SECONDES. */
+export const jourDeReleve = (sec) => new Date(sec * 1000).toISOString().slice(0, 10);
+
 async function construireDataset() {
   if (_ds) return _ds;
   const m = manifest();
@@ -192,7 +243,10 @@ async function construireDataset() {
   const FACTEUR_ABERRANT = Math.max(2, Number(pub.outlier_factor) || 10);
   const CHANGE = { minPoints: 5, minRef: 1, maxAbs: 300 };
 
-  const [cat, baselines] = await Promise.all([getCatalogue(), getBaselines()]);
+  // ⭐ `getReleves()` est FACULTATIF (`chargerFacultatif`) : son absence rend
+  // `[]` et crie, elle n'interrompt pas le build. ⛔ Ne jamais le remplacer par
+  // `load('releves')` — voir le bloc de `warehouse.mjs` qui dit pourquoi.
+  const [cat, baselines, releves] = await Promise.all([getCatalogue(), getBaselines(), getReleves()]);
 
   // --- Agregation EN FLUX -------------------------------------------------
   // Par item on ne retient que : le nombre total de releves, la date du
@@ -245,6 +299,12 @@ async function construireDataset() {
 
   const bl = new Map();
   for (const b of baselines) bl.set(b.veve_uuid || b.uuid, b);
+
+  const { par: rel, ignorees: relIgnores } = indexerReleves(releves);
+  // ⭐⭐ L'INSTRUMENT SE DECLARE, MEME QUAND IL VA BIEN. Un `0` sur cette ligne
+  // est la seule trace, dans 3 000 lignes de log, de la difference entre « la
+  // source est absente » et « la source est la et ne joint rien ».
+  console.log(`[entrepot] releves : ${releves.length} ligne(s), ${rel.size} uuid date(s), ${relIgnores} ligne(s) sans horodate exploitable`);
   // ⭐ Le schema de l'entrepot n'est pas fige : on le JOURNALISE au lieu de le
   // supposer. Un champ absent ne provoque aucune erreur, il rend juste une
   // valeur nulle — le defaut le plus difficile a voir. C'est exactement ce qui
@@ -400,6 +460,41 @@ async function construireDataset() {
       nomComic: String(c.veve_comic_name || '').trim() || null,
       athDate: String(c.ath_date || '').trim() || null,
       atlDate: String(c.atl_date || '').trim() || null,
+      // ═══════════════════════════════════════════════════════════════════════
+      // LOT 144 — LES DEUX HORLOGES, ET ELLES NE DISENT PAS LA MEME CHOSE
+      // ═══════════════════════════════════════════════════════════════════════
+      // ⭐⭐⭐ `releveLe` = QUAND ON A REGARDE.  `derniereVariation` = QUAND CA
+      // A BOUGE. Sur un fichier append-on-change, la seconde peut avoir six mois
+      // pendant que la premiere date de ce matin — et c'est alors la preuve
+      // d'une STABILITE, pas d'un abandon. Confondre les deux est exactement ce
+      // qui faisait afficher l'heure du DEPLOIEMENT sur 1 200 fiches.
+      // → [[regle-deux-horloges-changement-observation]]
+      //
+      // ⚠️ LE COMMENTAIRE DE LA JAUGE, QUELQUES LIGNES PLUS HAUT, N'EST PAS
+      // CONTREDIT : il refuse `last_ts` comme date d'un EXTREME, et il a raison
+      // — « plus haut historique atteint le <last_ts> » serait faux. Ici on ne
+      // dit rien d'un extreme, on dit la date du dernier CHANGEMENT. Le refus
+      // est etendu, pas leve : ⛔ `derniereVariation` ne doit JAMAIS servir de
+      // repli a `athDate`/`atlDate`.
+      //
+      // ⭐ `b.last_ts` etait DEJA CHARGE (`bl.get(uuid)`) et jete — quatorzieme
+      // occurrence dans ce dossier. → [[regle-donnee-collectee-puis-jetee]]
+      // 🔴 Il a fallu, pour le rendre mesurable hors ligne, corriger
+      // `engine/data/sample/prices_baselines.csv` : la production a 16 colonnes,
+      // l'echantillon en avait 13, et `first_ts`/`last_ts` en faisaient partie.
+      // Sans ce correctif, ce champ aurait ete `null` dans TOUS les bancs.
+      derniereVariation: String(b.last_ts || '').trim().slice(0, 10) || null,
+      // 🌐 PUBLICS, ET LA LIGNE DE PARTAGE EST ECRITE DANS `cote.mjs`. Une date
+      // de relevement ne DESIGNE aucun montant — contrairement a `athDate`,
+      // qui croisee a une courbe pointe un prix. Le montant, lui (`floorStackr`),
+      // part derriere le mur.
+      releveLe: rel.has(uuid) ? jourDeReleve(rel.get(uuid).sec) : null,
+      releveSource: rel.has(uuid) ? (rel.get(uuid).source || null) : null,
+      // 🔒 UN PRIX. Il entre dans `CHAMPS_COTE` et n'atteint donc jamais le HTML
+      // public. ⛔ EN OMI, et ⛔⛔ AUCUNE conversion vers le dollar : `sfloors`
+      // et `vfloors` sont deux MARCHES (rapport median 4 423, p10 2 273,
+      // p90 8 520). Le taux OMI horodate n'est stocke nulle part.
+      floorStackr: rel.get(uuid)?.stackr ?? null,
       // ═══════════════════════════════════════════════════════════════════════
       // LES SIX COLONNES QUE LE CATALOGUE PORTAIT ET QUE CE FICHIER JETAIT
       // ═══════════════════════════════════════════════════════════════════════

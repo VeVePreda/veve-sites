@@ -31,6 +31,45 @@ const SOURCES = {
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // LES RELEVES HORODATES — lot 144, 13/08/2026
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ⭐ « QUAND CE PRIX A-T-IL ETE OBSERVE ? » — la seule question a laquelle
+  // aucun autre fichier de l'entrepot ne repond. `prices.csv.gz` est
+  // append-on-change : sa derniere ligne date le CHANGEMENT, jamais
+  // l'OBSERVATION. Une piece stable depuis six mois y a un `last_ts` de six
+  // mois, et elle a pourtant ete relevee ce matin. Les deux horloges ne sont
+  // pas la meme, et les confondre est ce qui a produit ce lot.
+  //
+  // Schema, releve dans `floor-watch.yml` (144-A, en prod depuis 09:15 UTC) :
+  //     veve_uuid, ts_releve, source, floor, unite
+  // · `ts_releve` : EPOCH EN SECONDES, entier (`"%.0f" % v[4]`).
+  // · `source`    : `stackr` (floor OMI) ou `veve` (floor USD).
+  // · `floor`     : ⚠️ `repr` de flottant Python — `900000.0`. Le `"%.0f"` du
+  //   workflow s'applique au TS, pas au floor. ⇒ `Number()` cote lecteur,
+  //   ⛔ jamais `parseInt`, ⛔ jamais la chaine brute a l'ecran.
+  // · `unite`     : OMI ou USD. ⛔⛔ DEUX MARCHES, PAS DEUX UNITES — rapport
+  //   non constant (mediane 4 423, p10 2 273, p90 8 520 sur 1 306 items
+  //   communs). AUCUNE conversion, ici ni ailleurs.
+  //
+  // 🔴 PLUSIEURS LIGNES PAR PIECE, ET LA PREMIERE EST LA PLUS ANCIENNE.
+  // Mesure du 13/08 sur le fichier PUBLIE : 3 470 uuid sur 7 416 (47 %) portent
+  // deux lignes, et le writer trie sur `(uuid, ts)` — donc la premiere ligne
+  // d'un uuid est sa plus VIEILLE, 3 470 fois sur 3 470, sans exception. Un
+  // lecteur qui garde la premiere publierait une date perimee de 2,9 j en
+  // mediane, 23,8 j au maximum, EN SORTANT VERT. ⇒ le lecteur retient `MAX(ts)`.
+  //
+  // ⛔ PAS DE `prev` — ET C'EST MESURE, PAS OMIS. La release
+  // `etat-floor-watch-prev` N'EXISTE PAS (404 sur l'API le 13/08). Une entree
+  // `prev` fantome ferait deux choses, toutes deux mauvaises : une requete
+  // perdue a chaque build, et surtout un `noterRepli()` joignable — donc, sous
+  // `WAREHOUSE_REFUSE_PREV=1`, un `throw` que `chargerFacultatif()` avalerait.
+  // Un secours qui n'existe pas ne se declare pas.
+  releves: {
+    url: process.env.RELEVES_URL || base('etat-floor-watch', 'releves.csv'),
+    sample: 'releves.csv',
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // LES DÉRIVÉS DU GRAND LIVRE — lot 44, 03/08/2026
   // ═══════════════════════════════════════════════════════════════════════════
   // ⭐⭐ RIEN À CALCULER, RIEN À PUBLIER : CES FICHIERS EXISTENT DÉJÀ.
@@ -176,7 +215,11 @@ export async function load(name) {
   // pointe deja la release N-1.
   let rangLu = -1;
   if (!OFFLINE) {
-    const urls = [src.url, src.prev];
+    // ⭐ `.filter(Boolean)` — une source PEUT n'avoir aucun secours N-1, et
+    // `fetch(undefined)` leverait une erreur qu'on relirait comme « la release
+    // N-1 est injoignable ». Un rang qui n'existe pas ne doit pas produire un
+    // echec qui ressemble a un rang qui a echoue.
+    const urls = [src.url, src.prev].filter(Boolean);
     for (let i = 0; i < urls.length; i++) {
       const url = urls[i];
       try {
@@ -211,6 +254,50 @@ export async function load(name) {
   }
   cache.set(name, rows);
   return rows;
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// UNE SOURCE FACULTATIVE — lot 144
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴 CE LOT A FAILLI ETRE ECRIT SUR UNE ANALOGIE FAUSSE, ET ELLE AURAIT
+// PRODUIT UN DEPLOIEMENT ROUGE, PAS UNE DATE ABSENTE.
+// Le plan disait : « ajouter `releves` dans SOURCES, lue sans etre exigee,
+// comme `nomComic` au 01/08 ». Or `nomComic` est une COLONNE d'une source deja
+// chargee : absente, elle vaut `null` et rien ne s'affiche. `releves` est une
+// SOURCE : `load()` **`throw`** quand la fraiche ET le secours N-1 echouent
+// (l. ~205, correctif A3 du 29/07), et le build du `Dockerfile` tourne RESEAU
+// OUVERT, sans `WAREHOUSE_OFFLINE=1`.
+// ⭐⭐⭐ L'ANALOGIE CHANGEAIT DE COUCHE. Une colonne facultative n'est pas une
+// source facultative. La verification n'etait pas dans le plan, elle etait dans
+// les `throw` du chargeur. → [[regle-analogie-qui-change-de-couche]]
+//
+// ⛔ POURQUOI PAS ASSOUPLIR `load()` : ses deux `throw` sont precisement ce
+// qu'un lot a ferme expres, pour que le repli N-1 CRIE. Y ajouter une porte
+// muette rouvre en une ligne ce qui a coute un correctif entier.
+// ⛔ POURQUOI PAS UN `try/catch` CHEZ L'APPELANT : `load()` met en CACHE. Un
+// echec attrape apres mise en cache se relirait comme « 0 ligne » pour les six
+// gabarits, sans que rien ne le dise.
+//
+// ⭐ Cette porte-ci CRIE (`console.warn` + annotation GitHub), rend `[]`, et
+// **ne met pas le vide en cache** : un 404 passager ne doit pas geler la date
+// pour tout le reste du build.
+// 🔴🔴 ET ELLE RE-LEVE LE REFUS DE REPLI. `WAREHOUSE_REFUSE_PREV=1` (pose par
+// `freeze-slugs`, dont le gel est IRREVERSIBLE) fait `throw` a `noterRepli()`.
+// Avaler celui-la transformerait un refus deliberement fatal en un repli
+// silencieux de plus — exactement la panne que le correctif A3 a fermee.
+// ⭐⭐ « Un garde-fou qui casse tout casse aussi ce qu'il fallait laisser
+// passer » : on laisse passer l'absence, on ne laisse pas passer le refus.
+export async function chargerFacultatif(name) {
+  try {
+    return await load(name);
+  } catch (e) {
+    if (String(e && e.message).includes(MARQUEUR_REPLI)) throw e;
+    console.warn(`[entrepot] ${name} : source FACULTATIVE absente (${e.message}) — on continue sans.`);
+    console.warn(`::warning title=Source facultative absente::${name} n'a pas ete lue. Les fiches diront qu'elles ne connaissent pas leur date de relevement.`);
+    cache.delete(name);
+    return [];
+  }
 }
 
 
@@ -289,6 +376,11 @@ export async function streamPrices(onRow) {
 
 export const getCatalogue = () => load('catalogue');
 export const getBaselines = () => load('baselines');
+
+// ⭐ FACULTATIF, ET LE NOM DE LA FONCTION LE DIT. Le jour ou quelqu'un le
+// remplacera par `load('releves')` « pour faire comme les autres », il aura
+// devant les yeux la seule ligne qui explique pourquoi ce n'en est pas un.
+export const getReleves = () => chargerFacultatif('releves');
 
 // Les dérivés du grand livre. ⚠️ Réservés : ne jamais les passer à un composant
 // rendu au build — ils vont dans `.reserve/`, servis par `/api/analytics/`.
