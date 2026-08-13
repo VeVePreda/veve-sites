@@ -171,11 +171,43 @@ const RE_MARQ = /data-fraicheur="(build|donnee|aucune)"[^>]*>([^<]*)</g;
 // par `Base.astro` (le pied) ; la date ISO du bloc StackR est ecrite par
 // `Item.astro` (le corps). DEUX COMPOSANTS, UNE SEULE SOURCE — `item.releveLe`.
 const RE_PIED_ISO = /data-releve="(\d{4}-\d{2}-\d{2})"/;
-const RE_CORPS_ISO = /class="mur__eq"[^>]*>[\s\S]{0,200}?(\d{4}-\d{2}-\d{2})/;
+// 🔴🔴 LOT 145 — CE SELECTEUR ETAIT POSITIONNEL, ET LE LOT 145 L'AURAIT
+// RETOURNE EN SILENCE. Il lisait « la premiere `mur__eq` porteuse d'une date » ;
+// le lot 145 en insere une AVANT elle dans le mur de gauche, et il se serait mis
+// a comparer le pied de page a la date de DERNIERE VARIATION — donc a rougir sur
+// 91 % des fiches en accusant `Base.astro` d'un defaut inexistant.
+// ⭐⭐⭐ Un critere de POSITION tient jusqu'a ce qu'on insere quelque chose
+// au-dessus, et rien ne previent. `data-releve-corps` est ecrit par `Item.astro`
+// depuis `item.releveLe`, dans la meme expression que le texte visible.
+// → [[regle-selecteur-de-classe-en-prefixe]] · [[regle-note-qui-cite-son-terminateur]]
+const RE_CORPS_ISO = /data-releve-corps="(\d{4}-\d{2}-\d{2})"/;
+// ⛔ L'ATTRIBUT NE SE CROIT PAS LUI-MEME. Un attribut qui double un texte peut
+// mentir : on exige que sa date soit AUSSI dans le texte rendu de la page.
+// 🔴🔴 MESURE DU 13/08 : ASTRO N'ECRIT PAS `attr=""`, IL ECRIT `attr`. Ma
+// premiere version exigeait `data-variation="…"` suivi de l'etat : elle a
+// declare « 20 fiche(s) SANS le bloc » alors que le bloc etait la, rendu, avec
+// l'attribut vide reduit a son nom. ⭐⭐⭐ Le banc accusait le GABARIT d'une
+// faute qui etait la sienne — et il a fallu ouvrir le HTML pour le voir.
+// ⇒ ON CLASSE SUR `data-variation-etat`, qui n'est JAMAIS vide, et la valeur se
+// lit SEPAREMENT. Un critere pose sur un champ qui peut disparaitre juge la
+// presence du champ, pas l'etat de la page.
+const RE_VAR_ETAT = /data-variation-etat="(affichable|posterieur|absent)"/;
+const RE_VAR_VAL = /data-variation="(\d{4}-\d{2}-\d{2})"/;
+// 🔴🔴 LE MUTANT M7 EST PASSE VERT CONTRE MA PREMIERE VERSION, ET LA LECON EST
+// UNE ECHELLE. J'ecrivais `texteVu(page).includes(date)` : la date d'une piece
+// figure aussi dans le JSON-LD, dans le pied et dans la courbe, donc un gabarit
+// qui affichait le LIBELLE SANS LA DATE passait le controle sans broncher.
+// ⭐⭐⭐ Chercher une chaine dans TOUTE la page, c'est mesurer la page, pas le
+// bloc. On lit desormais le contenu DU NOEUD, borne a son `</div>`.
+// → [[regle-instrument-de-mesure]] · [[regle-critere-juge-la-valeur-cherche-la-chaine]]
+const RE_VAR_TEXTE = /data-variation-etat="affichable"[^>]*>([\s\S]{0,300}?)<\/div>/;
 
 let nPages = 0, nFiches = 0, nAutres = 0, nAutresDatees = 0;
 let nDonnee = 0, nAucune = 0, nBuildSurFiche = 0, nDouble = 0, nMuette = 0;
 let nConcorde = 0, nDiverge = 0;
+let nVarDistinct = 0, nVarComparables = 0;
+let nVarNoeud = 0, nVarAff = 0, nVarPost = 0, nVarAbs = 0, nVarMuet = 0, nVarTexte = 0, nVarIncoherent = 0;
+const exVarMuet = [], exVarIncoherent = [];
 const datesFiches = new Set();
 const exBuild = [], exMuette = [], exDiverge = [];
 const MAX_EX = 5;
@@ -196,6 +228,32 @@ const MAX_EX = 5;
     }
     nFiches++;
     if (marques.length > 1) nDouble++;
+    // ── LOT 145 · LA DATE DE DERNIERE VARIATION, LUE DANS LE MEME `texte` ──
+    // ⭐ Aucune lecture de fichier supplementaire : la lecon des 3 Go de tas du
+    // lot 104 tient toujours.
+    const mv = texte.match(RE_VAR_ETAT);
+    if (!mv) {
+      nVarMuet++;
+      if (exVarMuet.length < MAX_EX) exVarMuet.push(p.slice(RACINE.length));
+    } else {
+      nVarNoeud++;
+      const etat = mv[1];
+      const val = (texte.match(RE_VAR_VAL) || [])[1] || '';
+      if (etat === 'affichable') {
+        nVarAff++;
+        // l'attribut doit se retrouver DANS le texte rendu, sinon il ment
+        const dedans = (texte.match(RE_VAR_TEXTE) || [])[1] || '';
+        if (val && texteVu(dedans).includes(val)) nVarTexte++;
+        // ⛔ L'INVARIANT : une variation ne peut pas etre POSTERIEURE au releve.
+        const corps = (texte.match(RE_CORPS_ISO) || [])[1] || null;
+        if (corps && val) { nVarComparables++; if (val !== corps) nVarDistinct++; }
+        if (corps && val > corps) {
+          nVarIncoherent++;
+          if (exVarIncoherent.length < MAX_EX) exVarIncoherent.push(`${p.slice(RACINE.length)} variation=${val} > releve=${corps}`);
+        }
+      } else if (etat === 'posterieur') nVarPost++;
+      else nVarAbs++;
+    }
     if (!marques.length) {
       nMuette++;
       if (exMuette.length < MAX_EX) exMuette.push(p.slice(RACINE.length));
@@ -288,6 +346,104 @@ dit(nDiverge === 0,
       + '\n        le pied a ete rebranche sur autre chose que la donnee de la fiche.');
 // ⭐ Le nombre de dates distinctes reste AFFICHE — il ne juge plus, il informe.
 console.log(`  ..  ${datesFiches.size} date(s) distincte(s) sur les ${nDonnee} fiche(s) datees (indicatif, non juge)`);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// §5 · LOT 145 — « DEPUIS QUAND CE PRIX N'A-T-IL PAS BOUGE ? »
+// ═══════════════════════════════════════════════════════════════════════════
+console.log('\n5. la date de derniere variation');
+
+// ── ⑤ LE NOEUD EXISTE SUR CHAQUE FICHE, MEME MUET ─────────────────────────
+// ⭐⭐⭐ CE CONTROLE-LA EST LE PLUS IMPORTANT DES QUATRE, ET C'EST LE MOINS
+// EVIDENT. Sans lui, un gabarit qui cesserait de rendre le bloc sortirait VERT :
+// « 0 fiche affichable, 0 incoherence » est exactement ce que produit un lot qui
+// supprime la fonction. Un banc qui ne regarde que ce qui existe ne voit jamais
+// ce qui manque. → [[regle-circuit-ouvert]]
+dit(nVarMuet === 0,
+  `${nVarNoeud} fiche(s) portent le bloc de derniere variation`,
+  nVarMuet === 0 ? null
+    : `${nVarMuet} fiche(s) SANS le bloc, dont ${exVarMuet.join(' · ')}`
+      + '\n     🔴 Le bloc n\'est plus rendu : « pas de donnee » et « plus de gabarit »'
+      + '\n        deviennent indiscernables, et ce banc serait vert sans lui.');
+
+// ── ⑥ LE MECANISME EST VIVANT ─────────────────────────────────────────────
+// 🔴 SEPARE DU PRECEDENT, POUR LA RAISON QUI A DEJA COUTE UN MUTANT AU §3 : si
+// `derniereVariation` cessait d'etre projete, le bloc serait la, muet, sur 100 %
+// des fiches — et « le noeud existe » resterait vert. Ce controle-ci nomme
+// `dataset.mjs`, l'autre nomme `Item.astro`. Deux causes, deux messages.
+// ⛔ Le seuil est 1, PAS un pourcentage : la part d'affichables depend de la
+// dispersion de DEUX collecteurs, et un banc cale sur une dispersion est vert
+// hors ligne et rouge en production sur du code sain (lot 144, mesure).
+// → [[regle-banc-cale-sur-la-dispersion]]
+// 🔴🔴 LE GARDE, ET IL A ETE PAYE PAR LE MUTANT M2. Quand le bloc disparait du
+// gabarit, ce controle-ci rougissait AUSSI, en envoyant chercher la panne dans
+// `dataset.mjs` — alors qu'elle etait dans `Item.astro`, et que le controle du
+// dessus le disait deja. ⭐⭐⭐ Deux rouges pour une faute, dont un qui MENT sur
+// sa cause, c'est pire qu'un seul : on corrige le fichier qu'on vient de lire.
+// Sans noeud a lire, ce controle n'a pas d'objet — il se tait, il ne devine pas.
+// → [[regle-banc-nomme-une-cause]]
+dit(nVarNoeud === 0 || nVarAff > 0,
+  nVarNoeud === 0 ? 'SANS OBJET : aucun bloc a lire (voir le controle ci-dessus)' : `${nVarAff} affichable(s) · ${nVarPost} tue(s) par incoherence · ${nVarAbs} sans donnee`,
+  nVarAff > 0 ? null
+    : 'AUCUNE fiche n\'affiche de date de variation — `derniereVariation` n\'est plus'
+      + '\n        projete par `dataset.mjs`, ou `last_ts` est vide dans les baselines.'
+      + '\n        ⛔ Ce n\'est PAS la meme panne qu\'un bloc absent (controle ci-dessus).');
+
+// ── ⑦ L'ATTRIBUT NE MENT PAS ──────────────────────────────────────────────
+// ⭐⭐ « AFFIRME » N'EST PAS « CITE ». Un attribut qui porte une date que la page
+// n'affiche pas laisserait le banc valider une fiche que le visiteur voit vide.
+dit(nVarTexte === nVarAff,
+  `${nVarTexte} date(s) annoncee(s) par l'attribut sont AUSSI dans le texte rendu`,
+  nVarTexte === nVarAff ? null
+    : `${nVarAff - nVarTexte} fiche(s) portent la date en attribut sans l'afficher :`
+      + '\n     🔴 l\'attribut et le texte ont ete separes, le banc mesurait un fantome.');
+
+// ── ⑧ L'INVARIANT : ON NE CHANGE PAS AVANT D'AVOIR REGARDE ────────────────
+// 🔴🔴 UN INVARIANT, PAS UN GARDE-FOU TAILLE SUR LE BUG DU JOUR. La condition
+// vit dans `Item.astro` (`varEtat`) ; ce controle dit qu'elle TIENT dans le HTML
+// servi, quelle que soit la forme que prendra la prochaine regression.
+// Mesure du 13/08 : 158 pieces sur 6 408 (2,5 %) en production, 20 sur 75 hors
+// ligne — le cas est donc reellement traverse par les bancs, pas theorique.
+dit(nVarIncoherent === 0,
+  'aucune fiche n\'affiche une variation POSTERIEURE a son propre releve',
+  nVarIncoherent === 0 ? null
+    : `${nVarIncoherent} fiche(s), dont ${exVarIncoherent.join(' · ')}`
+      + '\n     🔴 « Releve le 1er, change le 10 » se lit comme une contradiction.'
+      + '\n        `varEtat` doit taire ce cas, pas l\'afficher.');
+
+// ── ⑨ LES DEUX HORLOGES NE SONT PAS LA MEME ──────────────────────────────
+// 🔴🔴 SANS CE CONTROLE, LE MUTANT LE PLUS PROBABLE PASSAIT. Un gabarit qui
+// afficherait `item.releveLe` a la place de `item.derniereVariation` — copier la
+// ligne d'a cote et oublier de changer le champ — sortait VERT sur les quatre
+// controles precedents : l'attribut serait rempli, le texte concordant, la date
+// jamais posterieure a elle-meme. La fiche afficherait deux fois la meme date
+// sous deux libelles differents, et rien ne l'aurait dit.
+// ⛔ LE SEUIL EST 1, PAS UN POURCENTAGE. La part de fiches ou les deux dates
+// different depend de deux collecteurs : 91 % en production (13/08, 6 408
+// pieces), 100 % hors ligne. Un banc cale sur cette part serait vert ici et
+// rouge en prod sur du code sain — c'est la faute exacte qui a coute deux
+// versions du §4. Ici on ne mesure pas une proportion, on mesure qu'un
+// MECANISME peut produire deux dates differentes.
+// → [[regle-banc-cale-sur-la-dispersion]] · [[regle-demande-juste-mecanisme-impuissant]]
+// ⛔ LE GARDE PORTE SUR `nVarAff`, PAS SUR `nVarNoeud`, ET LE MUTANT M3 A
+// TRANCHE ENTRE LES DEUX. Quand `dataset.mjs` cesse de projeter le champ, les
+// blocs sont TOUS rendus (donc `nVarNoeud` = 90) et TOUS vides : ce controle-ci
+// rougissait en accusant le gabarit d'une copie qu'il n'avait pas faite. La
+// question « les deux dates different-elles ? » n'a d'objet que s'il existe au
+// moins un COUPLE lisible — le mutant M5 (ancrage du releve retire) a montre que
+// `nVarAff > 0` ne suffisait pas : les dates etaient la, l'autre bout manquait.
+// → [[regle-banc-nomme-une-cause]] · [[regle-echantillon-ne-contient-pas]]
+dit(nVarComparables === 0 || nVarDistinct > 0,
+  nVarComparables === 0 ? 'SANS OBJET : aucun couple (variation, releve) lisible' : `${nVarDistinct} fiche(s) portent une variation DIFFERENTE de leur date de releve`,
+  nVarDistinct > 0 ? null
+    : 'AUCUNE : les deux dates sont toujours egales. Le gabarit affiche probablement'
+      + '\n        `item.releveLe` sous le libelle de la variation — deux libelles, une'
+      + '\n        seule horloge, et la fiche ment sur ce qu\'elle montre.');
+
+// ── LA SOMME FAIT LE TOTAL, ICI AUSSI ─────────────────────────────────────
+dit(nVarAff + nVarPost + nVarAbs + nVarMuet === nFiches,
+  `la somme fait le total : ${nVarAff} + ${nVarPost} + ${nVarAbs} + ${nVarMuet} = ${nFiches}`,
+  nVarAff + nVarPost + nVarAbs + nVarMuet === nFiches ? null
+    : 'une fiche echappe au classement de la variation : le banc ne mesure pas ce qu\'il croit');
 
 // ── ET LES AUTRES PAGES N'ONT PAS ETE CASSEES AU PASSAGE ──────────────────
 // ⭐ 30 fichiers passent `updatedAt` a `Base` (blog, legales, plan du site) :

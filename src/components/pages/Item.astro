@@ -66,6 +66,45 @@ const df = dateLocale[lang] || 'en-GB';
 // ⛔ NE PAS faire une fonction unique qui devine : un rendu qui decide seul
 // s'il a le droit d'ecrire un prix est un verrou pose sur une heuristique.
 const coteFermee = coteEstFermee();
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LOT 145 — « DEPUIS QUAND CE PRIX N'A-T-IL PAS BOUGE ? »
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐⭐ LE CHAMP EXISTAIT, IL ETAIT PUBLIC, ET AUCUN GABARIT NE LE MONTRAIT.
+// `derniereVariation` est projete depuis le lot 144 (`CHAMPS_FRAICHEUR`),
+// il traverse la porte fermee, et il finissait dans le HTML de personne.
+// SEIZIEME occurrence de « collectee puis jetee » dans ce dossier.
+//
+// 🔴🔴 IL APPARTIENT AU MUR DE GAUCHE, ET C'EST UNE DECISION, PAS UN HASARD.
+// `derniereVariation` vient de `prices.csv` (le marche VeVe, en gems) via
+// `last_ts` des baselines. `releveLe` du mur de DROITE date une observation
+// StackR. ⛔⛔ Les poser cote a cote dans le meme mur attribuerait la date
+// d'un marche a l'autre — et les deux marches ont un rapport non constant.
+// La place juste est sous le plancher VeVe, pas sous le plancher StackR.
+//
+// ⛔ CE N'EST PAS UN DOUBLON DE `releveLe`, ET C'EST MESURE. Sur le fichier
+// PUBLIE (13/08, 6 408 pieces portant les deux dates) : **8,6 % seulement**
+// ont la meme date, l'ecart median est de **14 jours**, 62 % depassent 7 jours
+// et 2 % depassent six mois (max 893 j). Une fiche qui dit « releve ce matin,
+// inchange depuis 178 jours » ne repete rien : elle enonce une STABILITE, et
+// c'est l'information que la premiere date ne peut pas porter.
+// → [[regle-deux-horloges-changement-observation]]
+//
+// 🔴🔴 LA CONDITION DE COHERENCE N'EST PAS DECORATIVE. 158 pieces sur 6 408
+// (2,5 %) ont un `last_ts` POSTERIEUR a leur dernier releve — deux collecteurs,
+// deux horloges, aucune anomalie en soi. Mais « releve le 1er, change le 10 »
+// se lit comme une contradiction. On se TAIT dans ce cas, on n'invente pas.
+// ⚠️ Hors ligne l'echantillon en compte 20 sur 75 (27 %) : le cas est donc
+// EPROUVABLE dans les bancs, et sa frequence hors ligne ne dit rien de la prod.
+//
+// ⭐⭐ LE NOEUD EST RENDU MEME QUAND IL N'AFFICHE RIEN. Un gabarit qui omet le
+// bloc rendrait « le champ a disparu » indiscernable de « cette piece n'a pas
+// la donnee » — et aucun banc ne verrait la difference.
+// → [[regle-circuit-ouvert]]
+const varLe = item.derniereVariation || null;
+const varEtat = !varLe ? 'absent'
+  : (item.releveLe && varLe > item.releveLe) ? 'posterieur'
+  : 'affichable';
 // 🔴 LOT 123 — `svg` A ÉTÉ RETIRÉ, ET C'EST LA MOITIÉ QUI SE VOIT LE MOINS.
 // Il calculait la courbe publique, que le bloc `{!coteFermee && …}` n'affichait
 // jamais et que le <Cadran> recevait en fond flouté. Les deux chemins sont
@@ -561,6 +600,16 @@ const mcpJour = mcpPoints(item.rarity, item.type);
             ? <Cote lang={lang} uuid={item.uuid} champ="floor" />
             : money(item.floor)}<span class="mur__u">gems</span></div>
           <div class="mur__eq">{item.listings ?? '—'} {t(lang, 'item.listings')}</div>
+          {/* ⭐⭐ `mur__eq` EST REUTILISEE TELLE QUELLE : zero octet de CSS
+              ajoute, donc zero pression sur le cliquet de 4 096 o — servi
+              3 097 fois. Une classe neuve ici aurait coute plus cher que ce
+              qu'elle affiche. ⛔ Et pas de `data-attente` : la donnee EST
+              collectee, c'est nous qui refusons de l'afficher. Deux causes
+              opposees ne partagent pas un signe (lecon du mur StackR). */}
+          <div class="mur__eq" data-variation={varEtat === 'affichable' ? varLe : ''}
+               data-variation-etat={varEtat}>{varEtat === 'affichable'
+            ? <>{t(lang, 'item.derniereVariation')} {varLe}</>
+            : <span class="muted">{t(lang, 'item.varInconnue')}</span>}</div>
           {/* 🔴🔴 LOT 112 — LA VARIATION SORT DU PUBLIC.
               Mesuré le 10/08 sur la production : les prix étaient tous fermés
               (84 emplacements à « — » sur l'accueil) et les VARIATIONS étaient
@@ -657,7 +706,16 @@ const mcpJour = mcpPoints(item.rarity, item.type);
                 ? <Cote lang={lang} uuid={item.uuid} champ="floorStackr" />
                 : money(item.floorStackr))
             : <span data-attente title={t(lang, 'data.notCollected')}>—</span>}<span class="mur__u">OMI</span></div>
-          <div class="mur__eq">{item.releveLe
+          {/* 🔴🔴 LOT 145 — `data-releve-corps` N'EST PAS UN ORNEMENT. Le banc
+              lisait « la premiere `mur__eq` porteuse d'une date » ; le lot 145
+              en ajoute une AVANT celle-ci dans le mur de gauche, et ce
+              selecteur se serait mis a lire la mauvaise. Un critere positionnel
+              tient jusqu'a ce qu'on insere quelque chose au-dessus.
+              ⭐ L'attribut et le texte sont la MEME expression dans le MEME
+              JSX : ils ne peuvent pas diverger sans que le diff le montre — et
+              le banc verifie quand meme que la date de l'attribut apparait
+              dans le texte rendu. → [[regle-selecteur-de-classe-en-prefixe]] */}
+          <div class="mur__eq" data-releve-corps={item.releveLe || ''}>{item.releveLe
             ? <>{t(lang, 'item.releveLe')} {item.releveLe}</>
             : <span data-attente title={t(lang, 'data.notCollected')}>—</span>}</div>
           <div class="mur__d">
