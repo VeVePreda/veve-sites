@@ -149,23 +149,62 @@ if (!applicables.length) {
   process.exit(RETIREES.length ? 0 : 1);
 }
 
-// ── 1. LES PHRASES DU REGISTRE ────────────────────────────────────────────
-for (const r of applicables) {
-  const trouvees = pages.filter((f) => readFileSync(f, 'utf8').includes(r.quoi));
-  dit(trouvees.length === 0, `« ${r.quoi} » (retirée au lot ${r.lot})`,
-    trouvees.length === 0 ? null
-      : `${trouvees.length} page(s), dont ${trouvees[0].replace(RACINE, '')} — ${r.pourquoi}`);
-}
-
-// ── 2. LES TROUS DE SUBSTITUTION NON REMPLIS ──────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴 LOT 150 C — UNE SEULE PASSE SUR `dist/`, ET LE COMPTE EST MESURÉ
+// ═══════════════════════════════════════════════════════════════════════════
+// CE BANC RELISAIT `dist/` VINGT FOIS. Une passe complète par phrase du
+// registre (18 sur veveprice), plus une pour les trous de substitution, plus
+// une pour l'auto-contrôle « absente ». Mesuré le 14/08 à l'instrument, sur un
+// `dist/` de 5 200 pages : **104 001 lectures, 2 965 577 531 octets**.
+//
+// ⛔ CE N'ÉTAIT PAS UN PROBLÈME DE MÉMOIRE, ET IL FAUT LE DIRE.
+// Le pic est resté à **76 Mo** : chaque chaîne meurt à l'itération suivante et
+// V8 la ramasse à coût constant. ⭐⭐⭐ *Ce qui coûte de la mémoire, c'est ce
+// qu'on RETIENT, jamais ce qu'on lit.*
+//
+// ⭐ C'ÉTAIT UN PROBLÈME DE TEMPS, ET IL SE PAYAIT À CHAQUE DÉPLOIEMENT.
+// Log Coolify du 14/08 (déploiement `28e854f`, 55/55) : cette étape est le
+// **4ᵉ poste du build**, à **11,6 s** sur 3 103 pages — derrière `marquer:i18n`
+// (30,0 s) et deux étapes d'image. Une seule passe la ramène à ~0,8 s.
+// ⚠️ Et le lot 150 B porte le site à 3 903 pages : ce poste-là grandit avec le
+// catalogue, à raison de 18 relectures par page ajoutée.
+//
+// ⚠️ LES VERDICTS NE CHANGENT PAS D'UN OCTET, et l'ordre d'affichage non plus.
+// Contre-épreuve du 14/08 : sortie standard comparée caractère pour caractère
+// avec la version précédente, sur le même `dist/` — identique.
+const trouvees = new Map(applicables.map((r) => [r.quoi, []]));
 const metas = [];
+let temoin = false;
+let fantome = false;
+
 for (const f of pages) {
   const h = readFileSync(f, 'utf8');
+  const court = f.replace(RACINE, '');
+
+  // §1 — les phrases du registre
+  for (const r of applicables) if (h.includes(r.quoi)) trouvees.get(r.quoi).push(court);
+
+  // §2 — les trous de substitution
   const t = h.match(/<title>(.*?)<\/title>/s);
   const d = h.match(/<meta name="description" content="(.*?)"/s);
   const o = h.match(/<meta property="og:description" content="(.*?)"/s);
-  for (const m of [t, d, o]) if (m && TROUS.test(m[1])) metas.push(`${f.replace(RACINE, '')} : ${m[1].slice(0, 80)}`);
+  for (const m of [t, d, o]) if (m && TROUS.test(m[1])) metas.push(`${court} : ${m[1].slice(0, 80)}`);
+
+  // §3 — les deux témoins de l'auto-contrôle
+  if (!temoin && h.includes('<html')) temoin = true;
+  if (!fantome && h.includes('phrase-temoin-xyzzy-102')) fantome = true;
+  // ⭐ `h` sort de portée ici. C'est toute la différence avec la version d'avant.
 }
+
+// ── 1. LES PHRASES DU REGISTRE ────────────────────────────────────────────
+for (const r of applicables) {
+  const t = trouvees.get(r.quoi);
+  dit(t.length === 0, `« ${r.quoi} » (retirée au lot ${r.lot})`,
+    t.length === 0 ? null
+      : `${t.length} page(s), dont ${t[0]} — ${r.pourquoi}`);
+}
+
+// ── 2. LES TROUS DE SUBSTITUTION NON REMPLIS ──────────────────────────────
 dit(metas.length === 0, 'aucun trou de substitution non rempli dans un titre ou une description',
   metas.length === 0 ? null : `${metas.length}, dont ${metas[0]}`);
 
@@ -174,11 +213,9 @@ dit(metas.length === 0, 'aucun trou de substitution non rempli dans un titre ou 
 // détecteur sait dire OUI : sans ça, tous les verdicts ci-dessus seraient vrais
 // pour la seule raison que la recherche ne trouve jamais rien.
 console.log('\n  — auto-contrôle —');
-const temoin = pages.some((f) => readFileSync(f, 'utf8').includes('<html'));
 dit(temoin, 'le détecteur sait trouver une chaîne présente (« <html »)',
   'sinon ce banc rend tous ses verdicts sur du vide');
-dit(!pages.some((f) => readFileSync(f, 'utf8').includes('phrase-temoin-xyzzy-102')),
-  'le détecteur sait dire « absente »');
+dit(!fantome, 'le détecteur sait dire « absente »');
 // ⭐ L'auto-contrôle porte sur le REGISTRE, pas sur le site : « ce banc a-t-il
 // une raison d'exister ? » se pose une fois pour le dépôt, pas une fois par
 // site. Le cas « ce site n'a rien à interdire » est traité plus haut, et il
