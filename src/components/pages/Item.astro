@@ -6,7 +6,7 @@ import Base from '../../layouts/Base.astro';
 import Cadran from '../Cadran.astro';
 import { dataset } from '../../../engine/lib/dataset.mjs';
 import Cote from '../Cote.astro';
-import { productLd, breadcrumbLd } from '../../../engine/lib/seo.mjs';
+import { productLd, breadcrumbLd, couperMilieu } from '../../../engine/lib/seo.mjs';
 import { manifest, siteUrl } from '../../../engine/lib/manifest.mjs';
 import { DESC_MIN, DESC_MAX } from '../../../engine/lib/editorial_pages.mjs';
 import { t, localize, numberLocale, dateLocale, nu } from '../../../engine/lib/i18n.mjs';
@@ -217,6 +217,56 @@ const titreItem = (() => {
   // 24 : de quoi laisser passer un vrai nom de serie (« Return of the Jedi #1 »)
   // plutot qu'un moignon (« Return of the… ») qui ne se cherche pas.
   const MINI = 24;
+  // ═══════════════════════════════════════════════════════════════════════
+  // 🔴🔴🔴 LOT COMICS (14/08/2026) — LA REGLE DU 134b SE RETOURNE SUR LES COMICS
+  // ═══════════════════════════════════════════════════════════════════════
+  // TROUVE PAR `test:titres` SUR LE `dist/` REEL DU PALIER 5 210 : **24
+  // doublons**, tous des comics. Trois exemples, deux series chacun :
+  //     #1 (2024) — Free Comic Book Day 2024…   (Marvel's Voices / Ultimate Universe)
+  //     #1 (2023) · Secret Rare — Garbage Pail Kids…  (Origins / Trashin' Through Time)
+  //     #1 (2020) · Common — Mirka Andolfo's…   (Un/Sacred Vol 1 / Vol 2)
+  //
+  // ⭐⭐⭐ LA CAUSE EST DANS LE COMMENTAIRE DE `seo.mjs` LUI-MEME : « une FICHE
+  // se distingue AU DEBUT, la fin est le nom de serie que ses quinze voisines
+  // partagent ». VRAI POUR LES COLLECTIBLES, FAUX POUR LES COMICS : une fiche
+  // comic s'appelle `#1 (2024) · Common`, un en-tete que des DIZAINES de series
+  // partagent. Le discriminant EST le nom de serie, donc a la fin, donc
+  // exactement ce que la coupe par la fin jette. *La regle etait juste sur la
+  // famille ou elle a ete ecrite, et elle a produit la famille suivante.*
+  //
+  // ⛔⛔ QUATRE VARIANTES CONSTRUITES POUR DE VRAI. TROIS SONT REJETEES PAR LEUR
+  // FACTURE, ET C'EST LA MESURE QUI A CHOISI — PAS LE RAISONNEMENT :
+  //   A `couperMilieu` pour TOUTES les fiches ... 0 collision, mais **764 titres
+  //     collectibles DEJA EN LIGNE changent (30 %)** et en pire :
+  //     `The Mandalorian #1…` -> `The … Framed Art`. Le mot cherche part.
+  //     ⇒ 3e preuve qu'AUCUNE POSITION DE COUPE UNIQUE NE SERT LES DEUX FAMILLES.
+  //   C lacher l'annee du comic ......... 0 -> **8 doublons**. ⛔ MON DEDUCTION
+  //     ETAIT FAUSSE : « l'annee n'est jamais un discriminant » — si, elle l'est
+  //     (`/all-new-captain-america/1/secret-rare/` ET `/1/secret-rare-1-2014/`).
+  //     Le banc l'a rendu en un build. *On ne deduit pas ce qu'on peut batir.*
+  //   D serie en tete ................... 0 collision, mais **17,9 %** de titres
+  //     encore tronques : `The … 1 - Annual #10 (1967)`. Reordonner ne cree pas
+  //     de place.
+  //   E CELLE-CI ........................ **0 collision, 0 collectible touche,
+  //     troncature 17,9 % -> 4,1 %**, et 133 des 400 comics en ligne voient leur
+  //     titre devenir ENTIER : `The Amazing Spider-Man…` -> `… Vol. 1`.
+  //
+  // ⭐⭐⭐ LE VRAI LEVIER N'ETAIT PAS OU DE COUPER, C'ETAIT LE BUDGET. `budget`
+  // vaut 60 MOINS le gabarit de marque (~47) — on amputait donc le nom de serie
+  // pour proteger « | VeVe Price ». Or `pageTitle()` SAIT DEJA lacher ce suffixe
+  // quand le titre nu tient dans TITLE_BUDGET (60), et il le journalise : c'est
+  // un mecanisme VOULU, pas un contournement. On lui laisse ce droit AVANT
+  // d'amputer. Prix paye, mesure : **25,5 % des titres comics perdent le
+  // suffixe de marque** — sur des pages ou le nom de la serie est justement le
+  // terme que les gens tapent. *Un budget qu'on defend contre son contenu
+  // protege la mauvaise chose.*
+  // ⚠️ CE BLOC NE TOUCHE QUE LES COMICS (`item.nomComic`). Mesure contre la
+  // PRODUCTION : **0 titre collectible change sur les 910 tronques**.
+  if (item.nomComic) {
+    if (complet.length <= 60) return complet;
+    const place2 = Math.max(MINI, 60 - base.length - 4);
+    return `${base} — ${couperMilieu(item.series, place2)}`;
+  }
   const place = Math.max(MINI, budget - base.length - 4);   // 3 pour " — ", 1 pour l'ellipse
   if (item.series.length <= place) return complet;
   let bout = item.series.slice(0, place);

@@ -142,9 +142,40 @@ publication:
   #   et l'écart entre DEUX RUNS AU MÊME QUOTA (0,49 Go) dépasse l'écart entre
   #   les quotas. ⛔ La mesure hors ligne du 14/08 (« 749 Mo, 24 % du plafond »)
   #   SOUS-ESTIMAIT D'UN FACTEUR 3 : la marge réelle est ~0,8 Go, pas 2,3 Go.
+  # ═══════════════════════════════════════════════════════════════════════
+  # 🔴🔴 LOT COMICS (14/08/2026) — 5210 N'EST NI L'ELIGIBLE, NI UN CHIFFRE ROND
+  # ═══════════════════════════════════════════════════════════════════════
+  # Le 153 a appris qu'un quota est un BUDGET et qu'il faut ecrire l'ELIGIBLE
+  # MESURE. Ici l'eligible vaut 7 647 — ET C'EST ENCORE LE MAUVAIS CHIFFRE.
+  # MESURE, deux builds reels :
+  #     comic: 7647 -> ecartes par le plafond de 12/serie : 2437 -> PUBLIE 5210
+  #     comic: 5210 -> ecartes par le plafond de 12/serie : 2433 -> PUBLIE 5210
+  #   Les deux rendent EXACTEMENT le meme site : 11 682 pages, sitemap 10 700.
+  # ⭐⭐⭐ LE PLAFOND DES COMICS N'EST PAS LE QUOTA, C'EST `max_new_per_series`.
+  #   Il n'ecarte AUCUN collectible (0 a tous les paliers) et il mord de plus en
+  #   plus fort sur les comics : 0 -> 226 -> 1 345 -> 2 437 quand le quota monte.
+  # ⛔⛔ ET LES 2 437 PLACES NON DEPENSEES NE DEBORDENT NULLE PART : les
+  #   collectibles sont a 100 % de leur eligible, donc elles sont PERDUES EN
+  #   SILENCE — et `report 0` ne le dit pas. Un manifeste a 7647 annoncerait
+  #   7 647 comics pour 5 210 servis.
+  # ⇒ UN SECOND PLAFOND PEUT RENDRE LE PREMIER INATTEIGNABLE. Le chiffre a
+  #   ecrire n'est ni le rond, ni l'eligible : c'est CE QUE LE BUILD PUBLIE.
+  #
+  # 📐 CE QUE CE PALIER PRODUIT, MESURE (7 builds reels, hors ligne exclu) :
+  #   comics 400 -> 5 210 · series /collection/ 1 174 -> 2 945 · pages
+  #   5 101 -> 11 682 · sitemap 4 119 -> 10 700 · dist/ 200 -> 452 Mo.
+  #   ⭐ Le reveil de series SATURE ici aussi : +1 007 series pour les 1 600
+  #   premiers comics, +243 pour les 1 210 derniers.
+  # ✅ PIC MEMOIRE : 1,73 a 2,32 Go a 11 682 pages — LA MEME BANDE QU'A 5 101
+  #   PAGES (2,10 ; 2,17-2,27 mesures au 153). L'ecart entre deux runs au meme
+  #   palier depasse l'ecart entre les paliers ⇒ le nombre de pages NE PILOTE
+  #   PAS le pic, la marge ~0,8 Go tient. Idem la duree : 43 a 68 s de 5 101 a
+  #   11 682 pages, aucun modele n'en sort.
+  # 🔴 CE PALIER A EXIGE UN CORRECTIF DE TITRE (`Item.astro`) : `test:titres`
+  #   rendait 24 doublons, tous des comics. Voir le bloc de ce fichier-la.
   quotas:
     collectible: 2534
-    comic: 400
+    comic: 5210
   quota_spillover: true    # un type qui ne remplit pas sa part cède ses places à l'autre
   max_new_per_series: 12   # diversité : nouvelles fiches max par série (0 = pas de plafond)
 
