@@ -173,9 +173,46 @@ publication:
   #   11 682 pages, aucun modele n'en sort.
   # 🔴 CE PALIER A EXIGE UN CORRECTIF DE TITRE (`Item.astro`) : `test:titres`
   #   rendait 24 doublons, tous des comics. Voir le bloc de ce fichier-la.
+  #
+  # ═══════════════════════════════════════════════════════════════════════
+  # 🎯 PALIER A (14/08/2026, arbitrage Preda apres §M-183) — 5210 -> 6306
+  # ═══════════════════════════════════════════════════════════════════════
+  # ⛔⛔ CE N'EST PAS `max_new_per_series` QUI ETAIT LE VERROU. Les deux
+  #   plafonds sont EN SERIE et le QUOTA MORD LE PREMIER (dataset.mjs L.736) :
+  #       places[comic] = quotas.comic - deja geles = 5210 - 5210 = 0
+  #   ⇒ relever `max_new_per_series` SEUL n'aurait publie ZERO fiche. On monte
+  #   donc le quota, et on LAISSE le plafond de serie a 12.
+  #
+  # 📐 BASE MESUREE (sitemap servi x entrepot, 14/08, joint a 99,7 %) :
+  #     eligibles 7609 · publies 5193 · RESTANTS 2445, repartis sur 836 series.
+  #   Ce que le plafond de 12/serie laisse passer, par palier :
+  #     12 -> +1113   16 -> +1293   20 -> +1444   24 -> +1567   0 -> +2445
+  #   ⇒ a 12, le gisement atteignable est +1113, soit 45 % du total. C'est LUI
+  #   qui fixe ce quota : 5193 + 1113 = 6306.
+  #
+  # 🔴 MARGE MINCE, ASSUMEE : le quota demande 1096 places (6306 - 5210) et le
+  #   plafond de serie en offre 1113. **17 de marge (1,5 %).** Si le build
+  #   annonce `PUBLIE` < 6306, ce n'est PAS un bug du quota : c'est le second
+  #   plafond qui a mordu, et il faut relire `ecartes par le plafond de 12/serie`.
+  #   ⛔ Ne PAS remonter le quota dans ce cas — monter `max_new_per_series`.
+  #
+  # 💶 FACTURE ANNONCEE, A VERIFIER SUR LE SITEMAP SERVI (poids : 10 mesures
+  #   en production, fiche comic 32 129 o, page /collection/ 33 237 o, +45 % de
+  #   precompression) :
+  #     +1096 fiches · +138 pages /collection/ · +1234 pages · dist/ 453 -> ~511 Mo
+  #     sitemap 10 700 -> 11 934   (comics 5210 -> 6306 · collection 2945 -> 3083)
+  #   ⚠️ 1096, PAS 1113 : les places offertes valent 6306 - 5210 (les fiches DEJA
+  #     GELEES consomment le quota), pas 6306 - 5193 (le joint du sitemap en
+  #     laisse 17 de cote). Les 17 restants sont la marge, pas des fiches en plus.
+  #   ⏱️ duree ~10 min 34 (+31 s) — 🟠 ESTIMATION, elasticite VPS du §M-179
+  #   (+129 % de pages -> +62 % de duree). ⛔ Le bac a sable ne la predit pas.
+  #
+  # 🔐 APRES LE DEPLOIEMENT : `npm run slugs` (le gel passe de 7744 a 8978).
+  #   (7744 + 1234 = 8978.) Le gel est IRREVERSIBLE A LA BAISSE — d'ou le palier, plutot que le
+  #   plafond retire d'un coup.
   quotas:
     collectible: 2534
-    comic: 5210
+    comic: 6306
   quota_spillover: true    # un type qui ne remplit pas sa part cède ses places à l'autre
   max_new_per_series: 12   # diversité : nouvelles fiches max par série (0 = pas de plafond)
 
