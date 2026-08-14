@@ -115,7 +115,7 @@ publication:
   # dedans. L'ensemble publié est collant (slugs.json) -> relever ces nombres
   # est IRRÉVERSIBLE. Monter par paliers, en s'appuyant sur la Search Console.
   quotas:
-    collectible: 800
+    collectible: 1600
     comic: 400
   quota_spillover: true    # un type qui ne remplit pas sa part cède ses places à l'autre
   max_new_per_series: 12   # diversité : nouvelles fiches max par série (0 = pas de plafond)
