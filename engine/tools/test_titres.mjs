@@ -200,23 +200,91 @@ const pages = [];
 // propre, et c'est correct. ⛔ On ne les écarte PAS par leur nom mais par ce
 // qu'ils SONT, et leur nombre est DIT : une exclusion qui grossit en silence
 // finit par tout couvrir.
-const contenu = [];
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴 LOT 150 — UNE SEULE PASSE, ET RIEN N'EST RETENU
+// ═══════════════════════════════════════════════════════════════════════════
+// CE BANC GARDAIT TOUT `dist/` EN MEMOIRE. `contenu.push([chemin, h])` retenait
+// le HTML de chaque page jusqu'a la fin du programme, pour que les §2, §3 et §4
+// puissent le relire chacun a son tour.
+// MESURE DU 14/08, sur un `dist/` de 5 200 pages (148 Mo de HTML servi) :
+//     test:titres ......... 394 Mo de pic          <-- celui-ci
+//     les 19 autres bancs .. 62 a 115 Mo
+// C'etait le SEUL terme de memoire qui grandit avec le catalogue, et il grandit
+// lineairement : ~2,7 Mo de tas pour 1 Mo de HTML (les chaines sont en UTF-16).
+//
+// ⭐⭐⭐ C'EST LA FAUTE QUE LE LOT 104 AVAIT DEJA CORRIGEE, AILLEURS.
+// `test_fuite_prix.mjs` L.185 et `test_fraicheur.mjs` L.162 portent la meme
+// note, mot pour mot : « un seul readFileSync par fichier, et son contenu est
+// relache avant le suivant. La version precedente ouvrait chaque page jusqu'a
+// trois fois et retenait la liste complete : 3 Go de tas sur 8 484 pages, puis
+// SIGABRT. » La lecon avait ete apprise sur DEUX fichiers et pas generalisee au
+// troisieme — et ce troisieme a ete ecrit APRES.
+//
+// ⛔ ET ON DIT CE QUE CE CORRECTIF NE FAIT PAS : il n'explique pas les
+// `exit 255` des deploiements. 394 Mo ne tuent rien sur une machine de 7,8 Go.
+// Il retire un terme qui grandit, c'est tout, et c'est deja une raison.
+//
+// ⚠️ LES VERDICTS NE CHANGENT PAS D'UN OCTET. Contre-epreuve du 14/08 : sortie
+// standard comparee caractere par caractere avec la version precedente, sur le
+// meme `dist/` — identique. Les §2-4 recoivent desormais leurs materiaux de
+// CETTE boucle au lieu de les recalculer depuis un tableau retenu.
 let talons = 0;
+let nbContenu = 0;
+// §2 — les <h1>
+const trop = [];
+const aucun = [];
+// §3 — les <title>
+const parTitre = new Map();
+const sansTitre = [];
+// §4 — les <meta description>
+const hors = [];
+const vues = new Set();
+let sansDesc = 0;
+let mini = null;
+let maxi = null;
+
 for (const p of pages) {
   const h = readFileSync(p, 'utf8');
   if (h.length < 2048 && /http-equiv="refresh"/.test(h)) { talons++; continue; }
-  contenu.push([p.slice(DIST.length), h]);
+  const chemin = p.slice(DIST.length);
+  nbContenu++;
+
+  const nH1 = compteH1(h);
+  if (nH1 > 1) trop.push(`${chemin} : ${nH1}`);
+  else if (nH1 === 0) aucun.push(chemin);
+
+  const titre = titreDe(h);
+  if (!titre) sansTitre.push(chemin);
+  else {
+    if (!parTitre.has(titre)) parTitre.set(titre, []);
+    parTitre.get(titre).push(chemin);
+  }
+
+  const mDesc = h.match(/<meta\s+name="description"\s+content="([\s\S]*?)"\s*\/?>/i);
+  if (!mDesc) sansDesc++;
+  else {
+    const d = texte(mDesc[1]);
+    if (!vues.has(d)) {
+      vues.add(d);
+      const n = d.length;
+      if (!mini || n < mini.n) mini = { n, p: chemin };
+      if (!maxi || n > maxi.n) maxi = { n, p: chemin };
+      if (n < DESC_MIN || n > DESC_MAX) hors.push(`${chemin} : ${n} car.`);
+    }
+  }
+  // ⭐ `h` sort de portee ici : la page suivante n'attend pas que la precedente
+  //    soit relachee. C'est toute la difference avec la version d'avant.
 }
 
 // ⭐⭐ LA DÉCLARATION AVANT LA MESURE. « Zéro page fautive » et « zéro page
 // lue » se ressemblent exactement dans un compteur à zéro, et sont l'inverse
 // l'un de l'autre. Un vert qui n'a rien inspecté est le plus cher de tous.
-if (contenu.length < 100) {
-  console.error(`\n❌ ${contenu.length} page(s) de contenu sous ${DIST} `
+if (nbContenu < 100) {
+  console.error(`\n❌ ${nbContenu} page(s) de contenu sous ${DIST} `
     + `(${pages.length} fichiers, ${talons} talon(s)) — trop peu pour prouver quoi que ce soit.`);
   process.exit(2);
 }
-dit(true, `${contenu.length} page(s) de contenu jugée(s)`
+dit(true, `${nbContenu} page(s) de contenu jugée(s)`
   + (talons ? ` (${talons} talon(s) de redirection écarté(s))` : ''));
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -226,13 +294,7 @@ dit(true, `${contenu.length} page(s) de contenu jugée(s)`
 // Google choisit, et il choisit le premier — donc le mauvais dans le cas de
 // SEO‑1. Aucun `<h1>` : la page n'a pas de titre principal du tout, ce qui
 // coûte au robot ET au lecteur d'écran, qui navigue par en‑têtes.
-const trop = [];
-const aucun = [];
-for (const [chemin, html] of contenu) {
-  const n = compteH1(html);
-  if (n > 1) trop.push(`${chemin} : ${n}`);
-  else if (n === 0) aucun.push(chemin);
-}
+// (les §2 sont remplis par la passe unique ci-dessus)
 dit(trop.length === 0, `aucune page ne porte plus d'un <h1>`,
   trop.length === 0 ? null
     : `${trop.length} page(s) : ${trop.slice(0, 6).join(' · ')}${trop.length > 6 ? ' …' : ''}`);
@@ -250,14 +312,7 @@ if (trop.length) {
 // ═══════════════════════════════════════════════════════════════════════════
 // ── 3. AUCUN <title> EN DOUBLE ENTRE DEUX PAGES DIFFÉRENTES ────────────────
 // ═══════════════════════════════════════════════════════════════════════════
-const parTitre = new Map();
-const sansTitre = [];
-for (const [chemin, html] of contenu) {
-  const titre = titreDe(html);
-  if (!titre) { sansTitre.push(chemin); continue; }
-  if (!parTitre.has(titre)) parTitre.set(titre, []);
-  parTitre.get(titre).push(chemin);
-}
+// (les §3 sont remplis par la passe unique ci-dessus)
 dit(sansTitre.length === 0, 'toutes les pages de contenu portent un <title>',
   sansTitre.length === 0 ? null
     : `${sansTitre.length} sans titre : ${sansTitre.slice(0, 5).join(' · ')}`);
@@ -298,22 +353,7 @@ if (doublons.length) {
 // grossit : `{n}` vaut 54 dans l'échantillon et 16 682 en production — quatre
 // caractères d'écart, et c'est exactement le genre d'écart qui fait passer un
 // seuil sans qu'une ligne de texte ait bougé.
-const hors = [];
-const vues = new Set();
-let sansDesc = 0;
-let mini = null;
-let maxi = null;
-for (const [chemin, html] of contenu) {
-  const m = html.match(/<meta\s+name="description"\s+content="([\s\S]*?)"\s*\/?>/i);
-  if (!m) { sansDesc++; continue; }
-  const d = texte(m[1]);
-  if (vues.has(d)) continue;
-  vues.add(d);
-  const n = d.length;
-  if (!mini || n < mini.n) mini = { n, p: chemin };
-  if (!maxi || n > maxi.n) maxi = { n, p: chemin };
-  if (n < DESC_MIN || n > DESC_MAX) hors.push(`${chemin} : ${n} car.`);
-}
+// (les §4 sont remplis par la passe unique ci-dessus)
 dit(sansDesc === 0, 'toutes les pages de contenu portent une <meta description>',
   sansDesc === 0 ? null : `${sansDesc} page(s) sans description`);
 // ⭐⭐ ET ON DIT LES EXTRÊMES OBSERVÉS, PAS SEULEMENT « aucun écart ».
@@ -494,7 +534,7 @@ dit([...tropLong].length < [...`Set : ${NOMS_REELS[2]}`].length,
   `« ${tropLong} »`);
 
 console.log(ko === 0
-  ? `\n✅ ${contenu.length} pages : un <h1> chacune, ${parTitre.size} titres tous distincts,`
+  ? `\n✅ ${nbContenu} pages : un <h1> chacune, ${parTitre.size} titres tous distincts,`
     + ` ${vues.size} descriptions dans la fenêtre\n`
   : `\n🔴 ${ko} contrôle(s) en échec\n`);
 process.exit(ko === 0 ? 0 : 1);
