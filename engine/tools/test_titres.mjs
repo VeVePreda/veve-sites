@@ -442,6 +442,50 @@ const prefixeCommun = (() => {
   while (NOMS_REELS.every((n) => n[i] !== undefined && n[i] === NOMS_REELS[0][i])) i++;
   return i;
 })();
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 FAMILLE 3 — LE DISCRIMINANT AU MILIEU. AJOUTÉE LE 14/08 (lot 150 B)
+// ═══════════════════════════════════════════════════════════════════════════
+// `couperMilieu` garde la tête et la queue et jette LE MILIEU. Les familles 1
+// et 2 portent leur discriminant à la fin ou au début : elles survivent. ⭐⭐⭐
+// **Une troisième famille le porte pile dans la fenêtre élidée**, et le fichier
+// `seo.mjs` l'avait ANNONCÉE dès le lot 134b — « deux titres qui ne
+// différeraient QUE dans la fenêtre élidée collisionneraient encore » — sans
+// que personne n'écrive le cas. Il est arrivé le 14/08, au déploiement du quota
+// à 1600, et il a coûté un déploiement rouge.
+//
+// ⚠️ LES DEUX PAIRES SONT ICI, PAS SEULEMENT CELLE QUI A ROUGI. La première a
+// fait échouer le build ; la SECONDE n'était pas encore publiée et serait
+// tombée au palier suivant. Mesurées ensemble sur les 2 168 séries du catalogue
+// réel. *Le banc voit ce qui est publié ; la mesure voit ce qui va l'être.*
+// → regle-echantillon-ne-contient-pas
+//
+// ⛔ CE §5 NE REMPLACE PAS LE §3. Un ratio de coupe ne peut pas garantir
+// l'absence de collision sur un catalogue qui grandit : aucune position de
+// coupe ne distingue deux noms sans connaître le voisin. Le §3 lit `dist/`
+// entier et reste le juge. Celui-ci sert à ce que CES régressions-là se voient
+// **hors ligne**, avant le déploiement.
+const NOMS_MILIEU = [
+  // Relevés dans le log Coolify du 14/08 10:05 (déploiement `tmcshmkg…`, KO 44/55).
+  'JURASSIC WORLD DOMINION UCI Cinemas (Germany) Digital Collectible',
+  'JURASSIC WORLD DOMINION UCI Cinemas (Italy) Digital Collectible',
+  // Jamais déployés : mesurés dans `catalogue.csv.gz` le 14/08, 2 168 séries.
+  'Disney100 Platinum Moments Walt Disney Animation Studios Series 1 - Transformative Potion',
+  'Disney100 Platinum Moments Walt Disney Animation Studios Series 2 - Transformative Potion',
+];
+const titresMilieu = NOMS_MILIEU.map((n) => titreDeSet(n));
+dit(new Set(titresMilieu).size === NOMS_MILIEU.length,
+  `${NOMS_MILIEU.length} noms réels dont le discriminant est AU MILIEU rendent ${
+    new Set(titresMilieu).size} titres DISTINCTS`,
+  new Set(titresMilieu).size === NOMS_MILIEU.length ? null
+    : `⛔ l'élision mange le discriminant : ${[...new Set(titresMilieu)].join(' | ')}`);
+// ⭐ ET LE CONTRÔLE QUI EMPÊCHE CE §-CI D'ÊTRE VERT PAR PARESSE. Si un jour la
+// coupe disparaissait, les quatre noms rendraient leur texte entier — distincts,
+// donc verts, et sans avoir rien prouvé. On vérifie qu'ils sont bien COUPÉS.
+dit(titresMilieu.every((t) => t.includes(' … ')),
+  '…et les quatre sont bien passés par une élision (sinon ce contrôle est vide)',
+  titresMilieu.every((t) => t.includes(' … ')) ? null
+    : 'au moins un tient sans coupe — ce §5 ne mesure alors plus la coupe');
+
 const titresFab = NOMS_REELS.map((n) => titreDeSet(n));
 const fichesFab = FICHES_REELLES.map((n) => pageTitle(n, GABARIT, '', muet));
 dit(new Set(titresFab).size === NOMS_REELS.length,

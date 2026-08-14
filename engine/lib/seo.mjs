@@ -145,8 +145,47 @@ export function couperMilieu(s, max) {
   const LIEN = ' … ';
   const dispo = max - LIEN.length;
   // 1. LA QUEUE D'ABORD — c'est elle qui DISTINGUE (numero, edition, variante).
-  //    On lui reserve jusqu'a 45 % du budget, mot par mot depuis la fin.
-  const plafondQueue = Math.floor(dispo * 0.45);
+  //    On lui reserve une part du budget, mot par mot depuis la fin.
+  // ═════════════════════════════════════════════════════════════════════════
+  // 🔴🔴 LOT 150 B — 0,45 -> 0,55, ET C'EST LA MESURE QUI CHOISIT LE CHIFFRE
+  // ═════════════════════════════════════════════════════════════════════════
+  // LA PANNE, ANNONCEE DIX LIGNES PLUS HAUT PAR CE FICHIER LUI-MEME :
+  // « Deux titres qui ne differeraient QUE dans la fenetre elidee
+  //   collisionneraient encore. » C'est arrive le 14/08, au deploiement du
+  //   quota a 1600, et `test:titres` l'a arrete :
+  //     JURASSIC WORLD DOMINION UCI Cinemas (Germany) Digital Collectible
+  //     JURASSIC WORLD DOMINION UCI Cinemas (Italy)   Digital Collectible
+  //   -> « Set : JURASSIC WORLD DOMINION UCI … Digital Collectible », deux fois.
+  //   Le discriminant (`Germany` / `Italy`) vit AU MILIEU, pile dans l'elision.
+  //
+  // ⭐⭐⭐ LE CHIFFRE N'EST PAS TAILLE SUR CE CAS-LA. Il est mesure sur le
+  // CATALOGUE ENTIER — les 2 168 series de `catalogue.csv.gz`, publiees ou non,
+  // avec CETTE fonction, pas une reecriture :
+  //     ratio   collisions   titre le + long
+  //     0,45         2            60      <- avant (les deux ci-dessous)
+  //     0,50         1            60
+  //     0,55         0            60      <- retenu, premier a zero
+  //     0,60-0,75    0            60
+  // ⚠️ ET LA SECONDE COLLISION N'AVAIT PAS ENCORE ROUGI — elle serait tombee au
+  // palier suivant :
+  //     Disney100 Platinum Moments Walt Disney Animation Studios Series 1
+  //       - Transformative Potion   (et la Series 2)
+  // *Le banc voit ce qui est publie ; la mesure voit ce qui va l'etre.*
+  //
+  // 📐 CE QUE CA COUTE, MESURE AUSSI. Seules **38 series sur 2 168 (1,8 %)**
+  // depassent le budget et sont donc coupees. Au ratio 0,55, **27 titres
+  // changent**, dont **12 correspondent a une page DEJA EN LIGNE** (sur 910
+  // `/collection/` publiees, soit 1,3 %). La tete moyenne passe de ~31 a
+  // **23,9 caracteres** — assez pour savoir de quoi on parle, et la queue porte
+  // desormais le discriminant.
+  //
+  // ⛔ ET ON DIT CE QUE CE CHIFFRE NE FAIT PAS : **un ratio ne peut pas garantir
+  // l'absence de collision sur un catalogue qui grandit.** Il n'y a pas de
+  // position de coupe qui distingue deux noms sans connaitre le voisin. Le
+  // garde-fou reste `test:titres` §3, qui juge `dist/` entier — et le §5 porte
+  // desormais les DEUX paires reelles, pour que la regression se voie hors
+  // ligne. → regle-note-qui-cite-son-terminateur
+  const plafondQueue = Math.floor(dispo * 0.55);
   let queue = '';
   for (let i = mots.length - 1; i >= 1; i--) {
     const essai = queue ? `${mots[i]} ${queue}` : mots[i];
