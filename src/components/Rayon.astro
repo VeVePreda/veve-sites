@@ -39,6 +39,14 @@ import Cote from './Cote.astro';
 import { moduleJs } from '../../engine/lib/socle_js.mjs';
 import { coteFermee } from '../../engine/lib/cote.mjs';
 const pilote = moduleJs('rayon');
+// 🔴 LOT 155-B — LE CHARGEUR D'INDEX EST UN SECOND MODULE, ET IL PART D'ABORD.
+// `series.js` lit le même `/rayon-index/*.json` depuis ce lot : le `fetch`, la
+// lecture de `cols` et la convention des dictionnaires vivent désormais dans un
+// seul fichier (`index_rayon.js`), que les deux pilotes appellent.
+// ⭐ L'ORDRE EST GARANTI PAR `defer`, PAS PAR LA CHANCE : deux scripts `defer`
+// s'exécutent dans l'ordre du document. C'est exactement la garantie qui manquait
+// au lot 139, quand un `is:inline` lisait un bouton pas encore analysé.
+const chargeur = moduleJs('index_rayon');
 // ⭐⭐ LA BARRE NE SORT QUE LÀ OÙ UNE COTE EXISTE, ET LA CONDITION EST IMPORTÉE,
 //   PAS RÉÉCRITE. `coteFermee()` est ce que `Extremes.astro` interroge pour
 //   décider d'émettre un badge ; l'écrire ici en `manifest().features…` donnerait
@@ -229,5 +237,6 @@ const cadenasSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" s
       attend la fin de l'analyse par construction : la position du script dans le
       document cesse d'être un pari. C'est la panne du lot 139 sur `series.js`,
       qui lisait `#s-plus` avant que l'analyseur ne l'ait atteint. */}
+  {filtrable && <script defer src={chargeur.href}></script>}
   {filtrable && <script defer src={pilote.href}></script>}
 </Base>

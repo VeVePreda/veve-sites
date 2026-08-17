@@ -76,35 +76,32 @@
   // ═══════════════════════════════════════════════════════════════════════
   //  ① CHARGER L'INDEX
   // ═══════════════════════════════════════════════════════════════════════
+  // 🔴 LOT 155-B — LE `fetch` A DÉMÉNAGÉ DANS `index_rayon.js`, ET CE N'EST PAS
+  // UN RANGEMENT. `series.js` lit désormais le MÊME fichier pour `/sets/` :
+  // deux `fetch`, deux lectures de `cols`, deux conventions de dictionnaire, et
+  // c'est le motif que ce dépôt a payé quatre fois. ⭐ Même geste qu'au §M-193 ⑧
+  // avec `window.vpCote` : un seul appelant du même échange.
+  // ⛔ CE QUI RESTE ICI EST CE QUI EST PROPRE À CETTE PAGE — le message d'attente,
+  // le message d'échec, `bornes()` et `elaguer()`. Un chargeur qui écrirait dans
+  // le compteur déciderait à la place du pilote de ce qu'un échec veut dire.
   function charger() {
     if (idx) return Promise.resolve(true);
     if (enCours) return enCours;
     CPT.textContent = txt('chargement');
-    enCours = fetch(f.getAttribute('data-index'), { headers: { accept: 'application/json' } })
-      .then(function (r) {
-        if (!r.ok) throw new Error('HTTP ' + r.status);
-        return r.json();
-      })
-      .then(function (j) {
-        // ⛔ UN INDEX VIDE N'EST PAS UN INDEX. `priceEnabled()` faux rend une
-        // charge à zéro ligne (cf. la route) : prendre la main dessus
-        // remplacerait la page par du néant. On refuse, et on le dit.
-        if (!j || !j.lignes || !j.lignes.length) throw new Error('index vide');
-        idx = j;
-        pos = {};
-        for (var k = 0; k < idx.cols.length; k++) pos[idx.cols[k]] = k;
-        bornes();
-        elaguer();
-        return true;
-      })
-      .catch(function (e) {
+    enCours = window.vpIndexRayon(f.getAttribute('data-index')).then(function (ix) {
+      if (!ix) {
         // 🔴 ON NE TOUCHE PAS À LA LISTE. La page du serveur reste servie,
         // paginée, exacte. Le compteur porte l'échec — le silence serait pire.
         enCours = null;
         CPT.textContent = txt('echec');
-        if (window.console) console.warn('[rayon] index indisponible : ' + e.message);
         return false;
-      });
+      }
+      idx = ix.charge;
+      pos = ix.pos;
+      bornes();
+      elaguer();
+      return true;
+    });
     return enCours;
   }
 

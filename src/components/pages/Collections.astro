@@ -7,6 +7,10 @@ import CarteSet from '../CarteSet.astro';
 //   en bas de fichier, et l'en-tête de `src/socle/modules/series.js`.
 import { moduleJs } from '../../../engine/lib/socle_js.mjs';
 const pilote = moduleJs('series');
+// 🔴 LOT 155-B — LE CHARGEUR D'INDEX, PARTAGÉ AVEC `/comics/` ET `/collectibles/`.
+// Voir l'en-tête de `src/socle/modules/index_rayon.js`. ⭐ L'ordre des deux
+// `<script defer>` est garanti par `defer` lui-même, pas par la position.
+const chargeur = moduleJs('index_rayon');
 import { dataset } from '../../../engine/lib/dataset.mjs';
 import { t, localize, numberLocale } from '../../../engine/lib/i18n.mjs';
 import { jourISO } from '../../../engine/lib/vitrine.mjs';
@@ -337,14 +341,31 @@ const PAR_TRANCHE = 60;
 
   <p class="respire" id="s-vide" hidden>{t(lang, 'sets.empty')}</p>
 
+  {/* 🔴🔴🔴 LOT 155-B — LES DEUX MORCEAUX QUE LE PILOTE NE DOIT PAS RÉÉCRIRE.
+      Cette page ne rend plus que 60 cartes ; le pilote bâtit les autres depuis
+      `/rayon-index/sets.json`. Deux morceaux d'une carte ne sont NI dans
+      l'index NI dérivables : le glyphe de l'hexagone gris, et le libellé
+      « pièces », qui est traduit.
+      ⛔ ET ILS NE VOYAGENT PAS DANS UN ATTRIBUT `data-*`. C'est la panne de ce
+      matin, payée 978 pages : `marquer_i18n.mjs` post-traite le HTML servi, et
+      du HTML glissé dans un attribut désynchronise son analyse — build vert,
+      aucun banc rouge. **Un `<template>` est fait exactement pour ça** : son
+      contenu n'est jamais peint, il traverse le marquage i18n comme du corps de
+      page, et `innerHTML` rend le glyphe DU SERVEUR.
+      ⭐ Même mécanisme que `#r-cadenas` au lot 155-A, et pour la même raison :
+      *quand deux fabriques doivent montrer la même chose, on transporte le
+      RÉSULTAT, pas la recette.* */}
+  <template id="s-hexa"><span class="forme forme--xl" style="--c-a:var(--rule-2)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M12 2.9 19.9 7.5v9L12 21.1 4.1 16.5v-9Z" /></svg></span></template>
+  <template id="s-lot"><span class="etiq etiq--bleu"><b>0</b> {t(lang, 'collections.items')}</span></template>
+
   <span class="sep-v" aria-hidden="true"></span>
-  <div class="grille grille--series" id="s-grille">
+  <div class="grille grille--series" id="s-grille" data-rendu={String(PAR_TRANCHE)}>
     {/* ⭐ LE MÊME COMPOSANT QUE `/collections/`, AVEC ses attributs de filtre.
         `axes` est passé ici et seulement ici : c'est cette page qui porte le
         pilote qui les LIT (`data-n`, `data-brand`, `data-an`, `data-ty`,
         `data-taille`). ⛔ Le jour où le filtrage passe côté serveur, ces
         attributs disparaissent d'un seul endroit. */}
-    {axes.map(({ c, an, ty }) => (
+    {axes.slice(0, PAR_TRANCHE).map(({ c, an, ty }) => (
       <CarteSet lang={lang} col={c} axes={{ an, ty }} />
     ))}
   </div>
@@ -377,7 +398,8 @@ const PAR_TRANCHE = 60;
       lourde qu'une ligne de tableau mais on en voit plus à l'écran. */}
   {axes.length > PAR_TRANCHE && (
     <p style="margin:var(--s5) 0 0;text-align:center">
-      <button type="button" id="s-plus" class="btn btn--sm" data-pas={PAR_TRANCHE}>{t(lang, 'movers.more')}</button>
+      <button type="button" id="s-plus" class="btn btn--sm" data-pas={PAR_TRANCHE}
+              data-total={String(axes.length)} data-index="/rayon-index/sets.json">{t(lang, 'movers.more')}</button>
       <span class="etiq" id="s-plus-cpt" style="display:block;margin-top:8px;color:var(--muted)"></span>
     </p>
   )}

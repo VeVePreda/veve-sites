@@ -44,7 +44,7 @@ import { t, localize } from '../../engine/lib/i18n.mjs';
 // 🔴 LOT 139 — le budget de coupe est DÉCLARÉ, pas écrit ici : `nomSet` vaut
 //   30 et pas 20, et c'est une décision de Preda prise SUR MESURE (585 des
 //   910 noms de set dépassent 20 caractères). Voir `engine/lib/vignette.mjs`.
-import { nomSet } from '../../engine/lib/vignette.mjs';
+import { nomSet, pileSet } from '../../engine/lib/vignette.mjs';
 
 const { lang, col, axes = null, pile = 3 } = Astro.props;
 const nom = nomSet(col.name);
@@ -72,9 +72,13 @@ const nom = nomSet(col.name);
 // pile garde son épaisseur, et un repère gris dit « pas de couverture », pas
 // « pas de pièce ». Un set d'une seule pièce rend une seule vignette — on ne
 // fabrique pas de fausse épaisseur.
-const avec = col.items.filter((i) => i.image).slice(0, pile);
-const sans = col.items.filter((i) => !i.image).slice(0, Math.max(0, pile - avec.length));
-const vignettes = [...avec, ...sans];
+// 🔴 LOT 155-B — LE CHOIX DES VIGNETTES A DÉMÉNAGÉ DANS `vignette.mjs`, ET CE
+// N'EST PAS UN RANGEMENT : `/sets/` ne rend plus que 60 cartes, le pilote peint
+// les 3 053 autres depuis l'index. Deux fabriques choisissent donc cette pile —
+// elles doivent choisir la MÊME, et une règle recopiée diverge au premier lot.
+// ⛔ Ne pas remettre le filtre ici : `pileSet()` porte la mesure des 6 609
+// comics sans `image_url` et la raison de ne pas re-trier.
+const vignettes = pileSet(col, pile);
 ---
 <a class="col-carte revele" href={localize(lang, `/collection/${col.slug}/`)}
    data-n={axes ? col.name.toLowerCase() : undefined}

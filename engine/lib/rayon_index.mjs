@@ -91,6 +91,10 @@ export const CORPUS = ['comics', 'collectibles', 'sets'];
 // ⭐ *Quand deux fabriques doivent montrer la même chose, on transporte le
 // résultat, pas la recette.*
 import { rar, mentionEdition, RAR } from './vitrine.mjs';
+// 🔴 LOT 155-B — `nomSet` ET `pileSet` S'IMPORTENT, ILS NE SE REFONT PAS.
+// Voir le bloc de `COLS_SET` : l'index dépose le nom COUPÉ et les vignettes
+// CHOISIES, parce que le pilote ne peut redériver ni l'un ni l'autre.
+import { nomSet, pileSet } from './vignette.mjs';
 
 // ⭐⭐ L'ORDRE DES CASES EST UN CONTRAT AVEC LE PILOTE, ET IL VOYAGE AVEC LA
 // CHARGE (`cols`). Le jour où une colonne s'ajoute au milieu, le pilote lit
@@ -119,7 +123,66 @@ import { rar, mentionEdition, RAR } from './vitrine.mjs';
 // ⭐ `0` pour une ligne sans fiche : pas de fiche, pas de cote, pas d'uuid à
 // porter. 10 692 lignes sur 19 532 coûtent donc un octet.
 const COLS_PIECE = ['n', 'se', 'p', 'u', 'r', 'e', 'b', 'l', 'a', 't'];
-const COLS_SET = ['n', 'p', 'b', 'l', 'a', 't', 'ty'];
+// 🔴🔴🔴 LOT 155-B — `nv` ET `c` REJOIGNENT LES SETS, ET C'EST LA MÊME DÉCISION
+// QUE L'UUID CI-DESSUS, PRISE POUR LA MÊME RAISON.
+// `/sets/` rendait ses 3 113 cartes dans une seule page — **3 391 892 o bruts,
+// 454 436 o GZIP servis à CHAQUE visiteur** (mesuré en production le 17/08 avec
+// `?cb=`, ⛔ pas sur le brut : la note de reprise disait 3,4 Mo, le fil dit
+// 454 Ko). `/comics/`, à côté, en coûte 10 859. Le pilote peint désormais les
+// cartes depuis cet index ⇒ **tout ce que la carte MONTRE doit y être**, sinon
+// c'est `regle-seconde-fabrique-ne-montre-que-sa-source`, QUATRIÈME occurrence.
+//
+// ⭐ `nv` — LE NOM TEL QU'IL EST ÉCRIT, PAS LE NOM COMPLET.
+//   `CarteSet.astro` n'affiche pas `col.name` : il affiche `nomSet(col.name).vu`,
+//   coupé à 30 par `couperMots()` (⛔ pas `.slice()`) après `nu()` (⛔ les
+//   sentinelles i18n). Mesuré : **727 des 3 113 noms sont coupés (23,4 %)**, et
+//   le résultat N'EST PAS un préfixe — « Once Upon a Mouse…in the Future #1 »
+//   devient « Once Upon a Mouse…in the… ». Un pilote ne peut donc PAS le
+//   redériver ; réécrire `couperMots` en JavaScript client serait la cinquième
+//   « même règle dans deux langages », celle qui a cassé 978 pages ce matin.
+//   ⇒ `0` quand le nom n'est pas coupé : on ne paie que les 727. **23 404 o
+//   bruts**, et gzip les paie bien moins (chaque `nv` suit son `n`).
+//   ⚠️ `n` RESTE LE NOM COMPLET : c'est lui que la recherche compare et lui que
+//   le gabarit pose en `title` — un nom coupé sans moyen de lire l'entier est
+//   une perte d'information.
+//
+// ⭐ `c` — LES VIGNETTES, CHOISIES PAR `pileSet()`, JAMAIS REDEVINÉES.
+//   Un tableau de 0 à 3 entrées : l'adresse de la couverture, ou `0` pour le
+//   repère gris. Sa LONGUEUR est le nombre de socles — ⛔ pas `min(3, t)`
+//   recalculé côté client : un set peut avoir 5 pièces et 1 seule illustrée.
+//   ⚠️ CE QUE ÇA COÛTE, MESURÉ le 17/08 sur les 6 087 vraies adresses :
+//       index sets **68 106 → 359 439 o gzip (+291 333)**.
+//   ⛔ ET JE REFUSE LA MICRO-ÉCONOMIE QUI SE PRÉSENTAIT, comme au 155-A :
+//   découper chaque adresse en `[tête, uuid+uuid, queue]` avec deux
+//   dictionnaires ne gagne que **10 729 o gzip (3 %)** — mesuré, pas estimé —
+//   contre un décodeur des deux côtés. *On ne paie pas un mécanisme qui
+//   divergera pour 3 %.* Deux uuid par adresse sont de l'entropie : gzip ne
+//   les compresse pas, et c'est le plancher.
+//   ⭐ Le préfixe du CDN est factorisé dans `cdn`, comme `prefixe` l'est pour
+//   les adresses : 37 octets × 6 087. ⛔ Mais une adresse qui ne le porte pas
+//   est stockée ENTIÈRE — `dataset.mjs` n'accepte que du `https://`, il
+//   n'impose pas un hébergeur, et fabriquer un préfixe qu'une adresse ne suit
+//   pas rendrait une image cassée sans le dire.
+const COLS_SET = ['n', 'p', 'b', 'l', 'a', 't', 'ty', 'nv', 'c'];
+
+/** Le préfixe factorisé des couvertures. ⭐ Il se MESURE sur les adresses du
+ *  build, il ne se déclare pas : un hébergeur écrit en dur ici deviendrait faux
+ *  le jour où VeVe en change, et l'index sortirait vert avec 6 087 images
+ *  mortes. `0` quand les adresses ne partagent rien. */
+function prefixeCommun(adresses) {
+  if (!adresses.length) return '';
+  let p = adresses[0];
+  for (const a of adresses) {
+    let i = 0;
+    while (i < p.length && i < a.length && p[i] === a[i]) i++;
+    p = p.slice(0, i);
+    if (!p) return '';
+  }
+  // ⛔ On ne coupe qu'à une frontière d'adresse (`/`) : un préfixe qui s'arrête
+  // au milieu d'un identifiant se recolle mal à lire et n'économise rien.
+  const f = p.lastIndexOf('/');
+  return f > 8 ? p.slice(0, f + 1) : '';
+}
 
 // ⛔ LA MÊME LISTE QUE `test:rayon` §①, ÉLARGIE AUX CHAMPS DÉRIVÉS DU PRIX, ET
 // ELLE S'IMPORTE PLUTÔT QUE DE SE RECOPIER. Deux listes d'interdits divergent
@@ -170,13 +233,20 @@ export function indexRayon(ds, corpus) {
   if (corpus === 'sets') {
     const dic = { b: dictionnaire(), l: dictionnaire(), ty: dictionnaire() };
     const cols = [...ds.collections.values()].sort((a, b) => b.items.length - a.items.length);
-    const lignes = cols.map((c) => {
+    // ⭐ LOT 155-B — LES PILES SONT CHOISIES AVANT LA BOUCLE, PARCE QUE LE
+    // PRÉFIXE SE MESURE SUR L'ENSEMBLE. On ne peut pas factoriser un préfixe
+    // qu'on découvre ligne par ligne : il faut avoir vu la dernière adresse
+    // pour savoir ce que la première a en commun avec elle.
+    const piles = cols.map((c) => pileSet(c));
+    const cdn = prefixeCommun(piles.flat().map((i) => i.image).filter(Boolean));
+    const lignes = cols.map((c, k) => {
       // ⚠️ CHAQUE AXE EST DÉRIVÉ DES PIÈCES DU SET, JAMAIS DÉCLARÉ SUR LE SET —
       // c'est le raisonnement du lot 68, repris ici parce que la source est la
       // même. L'année est la PLUS ANCIENNE (un set naît avec sa première pièce,
       // il ne renaît pas à chaque ajout) ; le type est le MAJORITAIRE (les
       // mélanges existent, on suit la majorité et on ne prétend pas trancher).
       const ans = c.items.map((i) => annee(i.releaseDate)).filter(Boolean).sort();
+      const nomCoupe = nomSet(c.name);
       const nbComic = c.items.filter((i) => i.type === 'comic').length;
       return [
         c.name || '',
@@ -186,9 +256,16 @@ export function indexRayon(ds, corpus) {
         ans[0] || 0,
         c.items.length,
         dic.ty.idx(nbComic * 2 > c.items.length ? 'comic' : 'collectible'),
+        // ⭐ LE NOM COUPÉ, ET SEULEMENT S'IL EST COUPÉ — voir le bloc de COLS_SET.
+        nomCoupe.tronque ? nomCoupe.vu : 0,
+        // ⭐ LA PILE : l'adresse, ou `0` pour le repère gris. ⛔ `0` et JAMAIS
+        // une chaîne vide : `src=""` recharge la PAGE COURANTE (lot 131).
+        piles[k].map((i) => (i.image
+          ? (cdn && i.image.startsWith(cdn) ? i.image.slice(cdn.length) : i.image)
+          : 0)),
       ];
     });
-    return charge('sets', '/collection/', COLS_SET, dic, lignes);
+    return charge('sets', '/collection/', COLS_SET, dic, lignes, { cdn });
   }
 
   // ═══ LES PIÈCES ═══
@@ -235,11 +312,15 @@ export function indexRayon(ds, corpus) {
   return charge(corpus, prefixe, COLS_PIECE, dic, lignes);
 }
 
-function charge(corpus, prefixe, cols, dic, lignes) {
+function charge(corpus, prefixe, cols, dic, lignes, extra = {}) {
   const c = {
     v: 1,
     corpus,
     prefixe,
+    // ⭐ LOT 155-B — `extra` porte `cdn` pour les sets, et rien pour les deux
+    // autres corpus. ⛔ Il est étalé AVANT les champs nommés : un `extra` qui
+    // pourrait écraser `cols` ou `lignes` ferait de ce paramètre une porte.
+    ...extra,
     cols,
     dic: Object.fromEntries(Object.entries(dic).map(([k, d]) => [k, d.valeurs()])),
     total: lignes.length,

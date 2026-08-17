@@ -90,3 +90,39 @@ export function coupe(texte, budget) {
 export const nomItem = (s) => coupe(s, BUDGETS.item);
 export const nomSerie = (s) => coupe(s, BUDGETS.serie);
 export const nomSet = (s) => coupe(s, BUDGETS.set);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LA PILE D'UNE CARTE DE SET — DÉCLARÉE ICI PARCE QUE DEUX FABRIQUES LA LISENT
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 LOT 155-B — ELLE VIVAIT DANS `CarteSet.astro`, ET ELLE NE POUVAIT PLUS
+// Y RESTER. `/sets/` ne rend plus ses 3 113 cartes : il en rend 60, et le pilote
+// peint le reste depuis `/rayon-index/sets.json`. Deux fabriques doivent donc
+// choisir LES MÊMES vignettes dans le MÊME ordre — et « choisir les premières
+// qui ont une image, puis compléter avec celles qui n'en ont pas » est
+// exactement le genre de règle qu'on recopie de travers.
+// ⇒ `pileSet()` est la seule qui choisisse. `CarteSet.astro` l'appelle pour
+// rendre, `rayon_index.mjs` l'appelle pour déposer. Elles ne peuvent pas
+// diverger : il n'y a plus qu'un choix.
+// ⭐ C'est la leçon des lots 127/131/132 appliquée AVANT la divergence, pas
+// après — et c'est la même que celle des dictionnaires de `rayon_index.mjs` :
+// *quand deux fabriques doivent montrer la même chose, on transporte le
+// RÉSULTAT, pas la recette.*
+//
+// ⚠️ LE COMMENTAIRE D'ORIGINE VAUT TOUJOURS, ET IL EST LA RAISON DU `filter` :
+// 6 609 comics n'ont pas d'`image_url` (`ARCHIVE_HEADER` jette 14 champs sur
+// 25). `col.items` arrive trié par plancher DÉCROISSANT (`dataset.mjs`, lot
+// 101) : un set dont les trois pièces les plus chères sont des variantes rares
+// non illustrées rendrait trois hexagones gris alors que la donnée est là, deux
+// rangs plus bas. *Prendre le premier élément d'une liste triée, c'est hériter
+// de son critère de tri sans le vouloir.*
+// ⛔ On complète avec des pièces SANS image pour garder l'ÉPAISSEUR de la pile,
+// et un set d'une seule pièce rend une seule vignette — on ne fabrique pas de
+// fausse épaisseur.
+// ⛔ Et on ne re-trie PAS : sous la porte « cote », `floor` n'existe plus et un
+// tri local trierait sur `undefined`.
+export function pileSet(col, pile = 3) {
+  const items = (col && col.items) || [];
+  const avec = items.filter((i) => i.image).slice(0, pile);
+  const sans = items.filter((i) => !i.image).slice(0, Math.max(0, pile - avec.length));
+  return [...avec, ...sans];
+}

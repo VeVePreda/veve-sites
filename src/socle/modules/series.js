@@ -132,6 +132,162 @@
   var C = [].slice.call(G.querySelectorAll('.col-carte'));
   var cpt = document.getElementById('s-cpt'), vide = document.getElementById('s-vide');
   var corpus = '';
+
+  // ═══════════════════════════════════════════════════════════════════════
+  //  🔴🔴🔴 LOT 155-B — LE RESTE DE LA GRILLE ARRIVE DE L'INDEX
+  // ═══════════════════════════════════════════════════════════════════════
+  //
+  // CE QUE ÇA CORRIGE, MESURÉ EN PRODUCTION LE 17/08 AVEC `?cb=` :
+  //   `/sets/`  3 391 892 o bruts — **454 436 o GZIP**, servis à CHAQUE visiteur
+  //   `/comics/`   61 865 o bruts —  **10 859 o gzip**
+  // 3 369 815 des 3 391 892 octets étaient la grille : 3 113 cartes et 6 090
+  // `<img>`, dont le navigateur n'en montrait que 60. ⭐ *La page payait 3 053
+  // cartes pour que le filtre soit exact* — c'est la règle du lot 113, et elle
+  // était juste. Ce qui a changé, c'est qu'un index porte maintenant le rayon.
+  //
+  // ⭐⭐⭐ ET LE PILOTE N'A PAS CHANGÉ DE RÈGLES : il bâtit les cartes
+  // MANQUANTES, avec les mêmes `data-*`, puis `garde()`, `ORDRE` et
+  // `remplirPuces()` continuent de travailler sur des `.col-carte` — inchangés,
+  // au caractère près. ⛔ Réécrire le filtrage autour des lignes de l'index
+  // aurait refait le filtre une seconde fois, dans un second langage, pour un
+  // gain nul : c'est la faute que ce dépôt a payée aux lots 127, 131 et 132.
+  //
+  // 🔴🔴 CE QUI SERAIT ARRIVÉ SANS ÇA, ET IL FAUT L'ÉCRIRE : `remplirPuces()`
+  // compte les marques et les licences SUR LES CARTES DU DOM. Avec 60 cartes,
+  // il aurait offert les marques de 60 sets sur 3 113 — un filtre qui RÉPOND, et
+  // dont la réponse est fausse. *C'est exactement ce que le lot 113 refusait, et
+  // ça revenait par la porte de derrière.*
+  //
+  // ⚠️ CE QUE ÇA COÛTE, ET À QUI — mesuré, pas estimé :
+  //   · qui ne fait rien : **454 436 → ~13 000 o gzip**. C'est tout le monde.
+  //   · qui ouvre les filtres OU clique « voir plus » : l'index, **359 439 o
+  //     gzip** (68 106 avant ce lot : les couvertures pèsent +291 333).
+  //   ⛔ Donc un anonyme qui clique « voir plus » paie l'index alors qu'il ne
+  //   filtrera jamais. Assumé : il payait 454 Ko à l'arrivée, sans rien demander.
+  var idx = null, enCours = null;
+  var TOTAL = bPlusTotal();
+  function bPlusTotal() {
+    var b = document.getElementById('s-plus');
+    var n = b && parseInt(b.getAttribute('data-total'), 10);
+    return n || 0;
+  }
+
+  // ⭐ LES DEUX MORCEAUX QUI VIENNENT DU SERVEUR, JAMAIS RÉÉCRITS ICI.
+  // `innerHTML` d'un `<template>` : le contenu n'est pas peint, et c'est
+  // toujours le glyphe et le libellé traduits DU SERVEUR — une seule source.
+  var TPL_HEXA = document.getElementById('s-hexa');
+  var TPL_LOT = document.getElementById('s-lot');
+
+  /** Bâtit une carte à l'identique de `CarteSet.astro`.
+   *  🔴🔴 CHAQUE CHAMP VIENT DE L'INDEX, AUCUN N'EST REDÉRIVÉ — et c'est
+   *  `regle-seconde-fabrique-ne-montre-que-sa-source`, vue AVANT d'écrire :
+   *    · `nv` (le nom COUPÉ) est déposé par le serveur parce que `nomSet()`
+   *      coupe aux MOTS après `nu()` — « Once Upon a Mouse…in the Future #1 »
+   *      devient « Once Upon a Mouse…in the… », qui n'est PAS un préfixe.
+   *      Réécrire `couperMots` ici serait la règle de ce matin, celle qui a
+   *      cassé 978 pages : la même logique dans deux langages.
+   *    · `c` (les vignettes) est CHOISI par `pileSet()` au build — « les
+   *      premières qui ont une image, puis compléter » — et pas ici.
+   *  ⛔ `0` dans `c` donne l'hexagone gris, JAMAIS un `src` vide : `src=""`
+   *  recharge la PAGE COURANTE (lot 131). */
+  function batir(ix, l) {
+    var nom = ix.val(l, 'n') || '';
+    var vu = ix.val(l, 'nv');
+    var marque = ix.mot(l, 'b');
+    var taille = ix.val(l, 't') || 0;
+
+    var a = document.createElement('a');
+    a.className = 'col-carte revele';
+    a.href = ix.charge.prefixe + ix.val(l, 'p');
+    // ⚠️ LES MÊMES `data-*`, AVEC LES MÊMES VALEURS NON RETRIMÉES que le
+    // serveur : `garde()` compare `dataset.brand` à la valeur de la puce, et
+    // une valeur trimée d'un seul côté cesserait de correspondre — le filtre
+    // répondrait sans rien sélectionner.
+    a.setAttribute('data-n', nom.toLowerCase());
+    a.setAttribute('data-brand', marque);
+    a.setAttribute('data-lic', ix.mot(l, 'l'));
+    a.setAttribute('data-an', ix.val(l, 'a') ? String(ix.val(l, 'a')) : '');
+    a.setAttribute('data-ty', ix.mot(l, 'ty'));
+    a.setAttribute('data-taille', String(taille));
+
+    var pile = document.createElement('span');
+    pile.className = 'col-carte__pile';
+    pile.setAttribute('aria-hidden', 'true');
+    (ix.val(l, 'c') || []).forEach(function (u) {
+      var socle = document.createElement('span');
+      socle.className = 'socle';
+      if (u) {
+        var img = document.createElement('img');
+        img.className = 'socle__net ok';
+        // ⭐ LE PRÉFIXE EST RECOLLÉ, PAS DEVINÉ : le producteur ne factorise que
+        // les adresses qui le portent, et stocke les autres ENTIÈRES.
+        img.src = (String(u).indexOf('http') === 0 ? '' : (ix.charge.cdn || '')) + u;
+        img.alt = ''; img.width = 400; img.height = 600;
+        img.loading = 'lazy'; img.decoding = 'async';
+        socle.appendChild(img);
+      } else if (TPL_HEXA) {
+        socle.innerHTML = TPL_HEXA.innerHTML;
+      }
+      pile.appendChild(socle);
+    });
+    a.appendChild(pile);
+
+    var cart = document.createElement('span');
+    cart.className = 'cartouche';
+    var n1 = document.createElement('span');
+    n1.className = 'cartouche__n';
+    // ⭐ Le `title` porte le nom ENTIER, et seulement s'il a été coupé — un nom
+    // tronqué sans moyen de lire l'entier est une perte d'information.
+    if (vu) n1.title = nom;
+    n1.textContent = vu || nom;
+    cart.appendChild(n1);
+    if (marque) {
+      var m = document.createElement('span');
+      m.className = 'etiq';
+      m.textContent = marque;
+      cart.appendChild(m);
+    }
+    if (TPL_LOT) {
+      var lot = document.createElement('span');
+      lot.innerHTML = TPL_LOT.innerHTML;
+      var el = lot.firstElementChild;
+      if (el) {
+        var b = el.querySelector('b');
+        if (b) b.textContent = String(taille);
+        cart.appendChild(el);
+      }
+    }
+    a.appendChild(cart);
+    return a;
+  }
+
+  /** Charge l'index et complète la grille. Rend `true` si elle est complète.
+   *  ⛔ SI LE `fetch` ÉCHOUE, ON NE TOUCHE À RIEN : les 60 cartes du serveur
+   *  restent, exactes. Le compteur porte l'échec — le silence serait pire. */
+  function completer() {
+    if (idx) return Promise.resolve(true);
+    if (enCours) return enCours;
+    if (!TOTAL || C.length >= TOTAL) return Promise.resolve(true);
+    enCours = window.vpIndexRayon('/rayon-index/sets.json').then(function (ix) {
+      if (!ix) { enCours = null; return false; }
+      idx = ix;
+      // ⭐⭐ ON NE REBÂTIT PAS LES 60 DÉJÀ SERVIES. Deux raisons, et la seconde
+      // est la bonne : on ne repeint pas ce qui est correct, et surtout **une
+      // divergence entre les deux fabriques reste VISIBLE** — les 60 du serveur
+      // et les suivantes sont côte à côte dans la même grille. Tout repeindre
+      // masquerait l'écart au lieu de le révéler. C'est ce que `test:series`
+      // mesure, et c'est pour ça qu'il peut le mesurer.
+      var frag = document.createDocumentFragment();
+      for (var i = C.length; i < ix.charge.lignes.length; i++) {
+        var el = batir(ix, ix.charge.lignes[i]);
+        frag.appendChild(el);
+        C.push(el);
+      }
+      G.appendChild(frag);
+      return true;
+    });
+    return enCours;
+  }
   function num(v){ var n = parseInt(v, 10); return isNaN(n) ? null : n; }
   function val(id){ var e = document.getElementById(id); return e ? e.value.trim() : ''; }
   function coches(nom){
@@ -193,10 +349,19 @@
     // doit jamais révéler une carte que le filtre a écartée.
     if (bPlus) {
       for (var k = 0; k < vis.length; k++) vis[k].hidden = k >= montre;
-      bPlus.hidden = vis.length <= montre;
-      cPlus.textContent = Math.min(montre, vis.length) + ' / ' + vis.length;
+      // 🔴 LOT 155-B — TANT QUE L'INDEX N'EST PAS LÀ, LE BOUTON RESTE.
+      // Sans ce `|| !idx`, la grille servie (60 cartes, tranche de 60) cacherait
+      // « voir plus » AVANT d'avoir chargé quoi que ce soit : 3 053 sets
+      // deviendraient inatteignables, et la page aurait l'air complète.
+      // ⭐⭐ C'est le défaut le plus dangereux de ce lot, parce qu'il ne
+      // ressemble pas à une panne — il ressemble à un catalogue plus petit.
+      bPlus.hidden = !(!idx || vis.length > montre);
+      cPlus.textContent = Math.min(montre, vis.length) + ' / ' + (idx ? vis.length : TOTAL);
     }
-    cpt.textContent = vis.length + ' / ' + C.length;
+    // ⚠️ LE DÉNOMINATEUR EST LE CORPUS, PAS CE QUI EST DANS LE DOM. Avant
+    // chargement, `C.length` vaut 60 : le compteur aurait annoncé « 60 / 60 »
+    // sur un rayon de 3 113 sets.
+    cpt.textContent = vis.length + ' / ' + (idx ? C.length : (TOTAL || C.length));
     vide.hidden = vis.length !== 0;
     var j = document.getElementById('s-actifs'); j.innerHTML = '';
     function jeton(txt, retirer){
@@ -222,30 +387,61 @@
       var v = par[b.dataset.g] || 0; c.textContent = v; c.hidden = !v;
     });
   }
+  // 🔴🔴 LOT 155-B — TOUT GESTE COMPLÈTE LA GRILLE AVANT D'AGIR.
+  // ⛔ Un filtre appliqué sur 60 cartes RÉPONDRAIT, et sa réponse serait fausse
+  // — c'est mot pour mot ce que le lot 113 refusait. `completer()` ne fait qu'un
+  // seul `fetch`, quel que soit le nombre de gestes.
+  function apresChargement(fn) {
+    return function () {
+      var args = arguments, self = this;
+      completer().then(function () { fn.apply(self, args); });
+    };
+  }
   [].slice.call(f.querySelectorAll('[data-corpus]')).forEach(function(b){
-    b.addEventListener('click', function(){
+    b.addEventListener('click', apresChargement(function(){
       corpus = b.dataset.corpus;
       [].slice.call(f.querySelectorAll('[data-corpus]')).forEach(function(o){ o.setAttribute('aria-pressed', o === b ? 'true' : 'false'); });
       appliquer();
-    });
+    }));
   });
   var boutons = [].slice.call(f.querySelectorAll('.f-b[data-g]'));
   boutons.forEach(function(b){
     var pan = document.getElementById('sp-' + b.dataset.g); if (!pan) return;
-    b.addEventListener('click', function(){
+    b.addEventListener('click', apresChargement(function(){
       // LOT 143 - on remplit avant d'afficher, jamais apres : un panneau
       // montre puis rempli fait sauter la mise en page sous le doigt.
+      // 🔴 LOT 155-B — ET APRÈS `completer()`, jamais avant : `remplirPuces()`
+      // compte les marques SUR LES CARTES. Sur les 60 servies, il aurait offert
+      // les marques de 60 sets sur 3 113.
       remplirPuces(pan.querySelector('[data-puces]'));
       var ouvrir = pan.hidden;
       boutons.forEach(function(o){ var p2 = document.getElementById('sp-' + o.dataset.g);
         if (p2) p2.hidden = true; o.setAttribute('aria-expanded', 'false'); });
       pan.hidden = !ouvrir; b.setAttribute('aria-expanded', String(ouvrir));
-    });
+    }));
   });
-  if (bPlus) bPlus.addEventListener('click', function(){ montre += pas; appliquer(); });
+  if (bPlus) bPlus.addEventListener('click', apresChargement(function(){ montre += pas; appliquer(); }));
   // ⛔ Changer de filtre revient à la première tranche : sinon « 300 / 12 ».
-  f.addEventListener('input',  function(){ montre = pas || 1e9; appliquer(); });
-  f.addEventListener('change', function(){ montre = pas || 1e9; appliquer(); });
-  f.addEventListener('reset',  function(){ setTimeout(function(){ corpus = ''; montre = pas || 1e9; appliquer(); }, 0); });
+  f.addEventListener('input',  apresChargement(function(){ montre = pas || 1e9; appliquer(); }));
+  f.addEventListener('change', apresChargement(function(){ montre = pas || 1e9; appliquer(); }));
+  f.addEventListener('reset',  apresChargement(function(){ setTimeout(function(){ corpus = ''; montre = pas || 1e9; appliquer(); }, 0); }));
+  // ⭐⭐⭐ ON CHARGE À L'INTENTION, PAS AU CLIC — ET C'EST `test:series` QUI A
+  // RENDU CE DÉFAUT VISIBLE. Le lot 143 exige de remplir un panneau AVANT de
+  // l'afficher (« un panneau montré puis rempli fait sauter la mise en page
+  // sous le doigt »). Mais depuis ce lot, remplir veut dire attendre le réseau :
+  // le membre cliquerait « Licence » et **rien ne se passerait** le temps du
+  // `fetch`. Un contrôle qui ne répond pas au doigt se lit comme une panne.
+  // ⇒ Approcher la barre EST le premier geste. `pointerenter` et `focusin`
+  // lancent le chargement pendant que la main arrive ; le clic, lui, retrouve
+  // l'index déjà là. ⛔ Et la garde asynchrone RESTE : elle est la correction,
+  // ceci n'est que le confort. *Un préchargement qui devient la seule garantie
+  // est une garantie qui dépend d'une souris.*
+  // ⛔ Et ça ne charge rien pour qui ne voit pas la barre : elle est `hidden`
+  // et `data-membre`. Un anonyme ne la survole pas.
+  f.addEventListener('pointerenter', function () { completer(); });
+  f.addEventListener('focusin', function () { completer(); });
+  // ⭐ LE PREMIER `appliquer()` NE CHARGE RIEN, ET C'EST TOUT L'INTÉRÊT DU LOT :
+  // il peint les 60 cartes du serveur. L'index n'arrive qu'au premier geste —
+  // même politique que la barre de rayon du 155-A, et que `search-index.json`.
   appliquer();
 })();

@@ -91,6 +91,30 @@ let proposees = [...sansScripts.matchAll(/name="s-lic" value="([^"]*)"/g)].map((
 const portees = [...sansScripts.matchAll(/data-lic="([^"]*)"/g)].map((m) => m[1]);
 lus += proposees.length + portees.length;
 
+// 🔴🔴🔴 LOT 155-B — LA POPULATION DE RÉFÉRENCE A CHANGÉ, ET CE BANC L'A DIT.
+// Il comparait « licences proposées » à « licences portées par les cartes du
+// HTML SERVI ». Depuis ce lot, `/sets/` ne sert plus que 60 cartes sur 3 113 :
+// il a donc annoncé **70 options mortes** qui n'en sont pas — la référence
+// était devenue un échantillon, sans que la question change.
+// ⭐⭐⭐ *Un invariant juste peut répondre à la mauvaise question.* Le contrat
+// (« aucune option ne filtre vers le vide », « aucun set n'est inatteignable »)
+// reste exactement le bon ; c'est le CORPUS contre lequel il se mesure qui doit
+// être le rayon entier. Et le rayon entier, c'est l'index — le fichier que le
+// build vient de déposer, pas une reconstruction.
+// ⛔ On ne remplace pas `portees` : les cartes SERVIES doivent toujours porter
+// `data-lic`, et ce contrôle-là garde sa valeur. On ajoute la seconde
+// population, et chaque contrôle dit désormais sur laquelle il porte.
+const fIndexSets = join(R, 'dist', 'client', 'rayon-index', 'sets.json');
+const idxSets = existsSync(fIndexSets) ? JSON.parse(readFileSync(fIndexSets, 'utf8')) : null;
+const porteesRayon = idxSets
+  ? idxSets.lignes.map((l) => {
+    const k = idxSets.cols.indexOf('l');
+    const i = k < 0 ? 0 : l[k];
+    return (i && idxSets.dic.l) ? idxSets.dic.l[i - 1] : '';
+  })
+  : portees;
+if (idxSets) lus += porteesRayon.length;
+
 // ═══════════════════════════════════════════════════════════════════════════
 // 🔴🔴 LOT 143 — CE § A ÉTÉ VERT SUR UN BUILD QU'IL N'AVAIT PAS MESURÉ
 // ═══════════════════════════════════════════════════════════════════════════
@@ -134,17 +158,134 @@ if (proposees.length === 0) {
       'linkedom ou le pilote absent — le panneau n\'a pas pu être ouvert, donc rien n\'a été mesuré');
     fin();
   }
+  // 🔴🔴🔴 LOT 155-B — LE PILOTE NE SUFFIT PLUS, ET C'EST CE BANC QUI L'A DIT.
+  // `/sets/` ne rend plus que 60 cartes : le pilote appelle `window.vpIndexRayon`
+  // (module `index_rayon.js`, partagé avec la barre de rayon) pour bâtir les
+  // 3 053 autres. Ce banc chargeait `series.js` seul — il a levé
+  // « window.vpIndexRayon is not a function », c'est-à-dire exactement ce
+  // qu'une page à qui il manquerait un `<script>` aurait fait.
+  // ⭐⭐ ON MONTE DONC LES DEUX MODULES, DANS L'ORDRE DU DOCUMENT, et on
+  // remplace le SEUL point de réseau par le fichier que le build vient de
+  // déposer. ⛔ Pas par un faux : un index inventé mesurerait le banc, pas le
+  // site. C'est `dist/client/rayon-index/sets.json`, au chiffre près.
+  const srcChargeur = join(R, 'src', 'socle', 'modules', 'index_rayon.js');
+  const fIdx = join(R, 'dist', 'client', 'rayon-index', 'sets.json');
+  if (!existsSync(srcChargeur) || !existsSync(fIdx)) {
+    indecis('le pilote de sets',
+      `${existsSync(srcChargeur) ? '' : 'index_rayon.js absent · '}`
+      + `${existsSync(fIdx) ? '' : 'dist/client/rayon-index/sets.json absent'} — rien n'a été mesuré`);
+    fin();
+  }
+  const chargeIdx = JSON.parse(readFileSync(fIdx, 'utf8'));
+  domP.window.fetch = () => Promise.resolve({
+    ok: true, status: 200, json: () => Promise.resolve(chargeIdx),
+  });
+  const fnC = new Function('document', 'window', 'console', 'localStorage',
+    readFileSync(srcChargeur, 'utf8'));
   const fnP = new Function('document', 'window', 'console', 'localStorage',
     readFileSync(srcPilote, 'utf8'));
-  try { fnP(domP.document, domP.window, { log() {}, warn() {}, error() {} }, undefined); } catch (e) {
+  try {
+    fnC(domP.document, domP.window, { log() {}, warn() {}, error() {} }, undefined);
+    fnP(domP.document, domP.window, { log() {}, warn() {}, error() {} }, undefined);
+  } catch (e) {
     verifie('le pilote s\'exécute avant d\'ouvrir le panneau', false, `🔴 ${e.message}`);
     fin();
+  }
+  // ⭐⭐⭐ §2 bis — LA CONTRE-ÉPREUVE DES DEUX FABRIQUES, ET ELLE EST LE CŒUR
+  // DE CE LOT. Le serveur rend 60 cartes, le pilote en bâtit 3 053 : c'est
+  // `regle-seconde-fabrique-ne-montre-que-sa-source`, cinquième occurrence. Un
+  // champ que l'index ne porte pas est structurellement inaffichable, et
+  // l'écart ne se voit PAS — la grille a l'air pleine.
+  // ⇒ On compare la carte n° 60 (SERVEUR) à la carte n° 61 (PILOTE) : mêmes
+  // attributs présents, même squelette. ⛔ Pas les mêmes VALEURS — ce sont deux
+  // sets différents ; ce qu'on mesure est la FORME.
+  const avantBatir = domP.document.querySelectorAll('#s-grille .col-carte').length;
+  const bPlusB = domP.document.getElementById('s-plus');
+  if (bPlusB) bPlusB.dispatchEvent(new domP.window.Event('click', { bubbles: true }));
+  await new Promise((r) => setImmediate(r));
+  const toutes = [...domP.document.querySelectorAll('#s-grille .col-carte')];
+  verifie('cliquer « voir plus » BÂTIT les cartes manquantes — sinon ce § ne prouve rien',
+    avantBatir > 0 && toutes.length > avantBatir,
+    `avant ${avantBatir}, après ${toutes.length} (index : ${chargeIdx.total})`);
+  if (toutes.length > avantBatir) {
+    verifie('la grille bâtie porte EXACTEMENT le corpus de l\'index',
+      toutes.length === chargeIdx.total, `${toutes.length} carte(s) contre ${chargeIdx.total}`);
+    const duServeur = toutes[avantBatir - 1];
+    const duPilote = toutes[avantBatir];
+    const ATTRS = ['data-n', 'data-brand', 'data-lic', 'data-an', 'data-ty', 'data-taille'];
+    const manquants = ATTRS.filter((a) => duServeur.hasAttribute(a) && !duPilote.hasAttribute(a));
+    verifie('la carte du PILOTE porte les mêmes `data-*` que celle du SERVEUR',
+      manquants.length === 0,
+      manquants.length ? `🔴 absent(s) du pilote : ${manquants.join(', ')} — le filtre les lit`
+        : ATTRS.join(' · '));
+    const squelette = (el) => ['.col-carte__pile', '.cartouche', '.cartouche__n']
+      .filter((sel) => el.querySelector(sel));
+    verifie('la carte du PILOTE a le même squelette que celle du SERVEUR',
+      squelette(duPilote).join('|') === squelette(duServeur).join('|'),
+      `serveur ${squelette(duServeur).length} · pilote ${squelette(duPilote).length}`);
+    // 🔴🔴🔴 CONTRE-ÉPREUVE — ET LA PREMIÈRE VERSION DE CE BLOC NE MESURAIT RIEN.
+    // Elle comparait la carte bâtie à la valeur lue DANS L'INDEX. J'ai vidé la
+    // colonne des vignettes, puis remplacé chaque nom coupé par le nom entier :
+    // **le banc est resté vert les deux fois**. Évidemment — les deux côtés de
+    // la comparaison venaient du même fichier. *Un contrôle qui interroge sa
+    // propre source ne peut pas échouer.*
+    // ⭐⭐⭐ L'ANCRE EXISTE, ET ELLE EST DANS LA PAGE : les 60 cartes que le
+    // SERVEUR a rendues correspondent, une à une et dans l'ordre, aux 60
+    // premières lignes de l'index. Ce sont les MÊMES sets rendus par les DEUX
+    // fabriques — c'est le seul endroit du site où on peut les mettre côte à
+    // côte, et c'est exactement ce que `regle-seconde-fabrique` demande de
+    // vérifier. Vider `c` ou fausser `nv` casse désormais la comparaison.
+    const kNv = chargeIdx.cols.indexOf('nv');
+    const kC = chargeIdx.cols.indexOf('c');
+    const kN = chargeIdx.cols.indexOf('n');
+    const cdn = chargeIdx.cdn || '';
+    let ecartNom = null, ecartVig = null, coupesVues = 0;
+    for (let i = 0; i < avantBatir && i < chargeIdx.lignes.length; i++) {
+      const l = chargeIdx.lignes[i];
+      const carte = toutes[i];
+      // ① LE NOM AFFICHÉ PAR LE SERVEUR EST-IL CELUI QUE L'INDEX DÉPOSE ?
+      const attendu = l[kNv] === 0 ? l[kN] : l[kNv];
+      const vu = carte.querySelector('.cartouche__n');
+      if (l[kNv] !== 0) coupesVues++;
+      if (!ecartNom && (!vu || vu.textContent.trim() !== String(attendu).trim())) {
+        ecartNom = `ligne ${i} : serveur « ${vu ? vu.textContent.trim() : '—'} » · index « ${attendu} »`;
+      }
+      // ② LES VIGNETTES DU SERVEUR SONT-ELLES CELLES QUE L'INDEX DÉPOSE ?
+      const srcs = [...carte.querySelectorAll('img')].map((im) => im.getAttribute('src'));
+      const attSrcs = (l[kC] || []).filter((u) => u !== 0)
+        .map((u) => (String(u).indexOf('http') === 0 ? '' : cdn) + u);
+      const socles = carte.querySelectorAll('.socle').length;
+      if (!ecartVig && (srcs.join('|') !== attSrcs.join('|') || socles !== (l[kC] || []).length)) {
+        ecartVig = `ligne ${i} : serveur ${srcs.length} image(s)/${socles} socle(s) · `
+          + `index ${attSrcs.length} image(s)/${(l[kC] || []).length} socle(s)`;
+      }
+    }
+    verifie('le nom que l\'index dépose est celui que le SERVEUR affiche (60 cartes témoins)',
+      !ecartNom && coupesVues > 0,
+      ecartNom ? `🔴 ${ecartNom} — le pilote écrirait un autre texte que le serveur`
+        : `${avantBatir} carte(s) comparées, dont ${coupesVues} au nom coupé`);
+    verifie('…et les vignettes que l\'index dépose sont celles que le SERVEUR rend',
+      !ecartVig,
+      ecartVig ? `🔴 ${ecartVig} — les cartes bâties n'auraient pas les mêmes images`
+        : `${avantBatir} pile(s) comparées, adresse par adresse`);
+    // ⛔ ET LE TÉMOIN QUI REND CES DEUX CONTRÔLES ATTEIGNABLES : sans une seule
+    // carte au nom coupé parmi les 60, le premier ne regarderait que des noms
+    // entiers et resterait vert quoi qu'il arrive.
+    if (!coupesVues) {
+      indecis('la coupe des noms', 'aucune des 60 cartes témoins n\'a un nom coupé — rien à comparer');
+    }
   }
   const bt = domP.document.querySelector('.f-b[data-g="licence"]');
   // ⭐ AVANT / APRÈS MESURÉS, jamais un seul état : si le panneau contenait
   //   déjà des puces avant le clic, le clic ne prouverait rien.
   const avant = domP.document.querySelectorAll('#s-lics .puce').length;
   if (bt) bt.dispatchEvent(new domP.window.Event('click', { bubbles: true }));
+  // 🔴 LOT 155-B — ON REND LA MAIN AVANT DE COMPTER. Depuis ce lot, ouvrir un
+  // panneau passe par `completer()` : le remplissage arrive une micro-tâche
+  // plus tard, même quand l'index est déjà là. Compter tout de suite mesurait
+  // la promesse, pas le panneau — et le banc rougissait « avant 0, après 0 »
+  // pour une raison qui n'était pas le site.
+  await new Promise((r) => setImmediate(r));
   const apres = [...domP.document.querySelectorAll('#s-lics input[name="s-lic"]')];
   verifie('ouvrir le panneau CONSTRUIT les puces — sinon ce § ne prouve rien',
     avant === 0 && apres.length > 0, `avant ${avant}, après ${apres.length}`);
@@ -156,7 +297,7 @@ if (proposees.length === 0) {
   //   Un tri alphabétique passerait tous les contrôles de contenu ci-dessous
   //   et enterrerait quand même la licence majoritaire.
   const n = {};
-  for (const v of portees.filter(Boolean)) n[v] = (n[v] || 0) + 1;
+  for (const v of porteesRayon.filter(Boolean)) n[v] = (n[v] || 0) + 1;
   const attendu = [...proposees].sort((a, b) => (n[b] - n[a]) || a.localeCompare(b));
   verifie('les puces construites gardent l\'ordre du serveur (par nombre de sets)',
     proposees.join('\u0000') === attendu.join('\u0000'),
@@ -176,7 +317,8 @@ verifie('les cartes portent `data-lic`', portees.length > 0, `${portees.length} 
 // Un banc qui ne tiendrait qu'un des deux sens laisserait passer l'autre —
 // c'est la leçon des classes de thème émises sans règle (lot 131).
 const setProp = new Set(proposees);
-const setPort = new Set(portees.filter(Boolean));
+// ⭐ LE RAYON ENTIER, PAS LA TRANCHE SERVIE — voir le bloc du lot 155-B ci-dessus.
+const setPort = new Set(porteesRayon.filter(Boolean));
 const mortes = [...setProp].filter((v) => !setPort.has(v));
 const orphelines = [...setPort].filter((v) => !setProp.has(v));
 verifie('aucune licence proposée n\'est vide de sets (option morte)',
@@ -280,8 +422,24 @@ const monter = async () => {
     document.body.appendChild(cpt);
   }
   if (plus) plus.setAttribute('data-pas', String(TRANCHE));
+  // 🔴 LOT 155-B — LE PILOTE NE VIT PLUS SEUL : la page émet DEUX `<script
+  // defer>`, `index_rayon.js` puis `series.js`. Un banc qui n'en monte qu'un
+  // mesure une page qui n'existe pas — c'est la leçon de ce matin, celle des
+  // 978 pages : *éprouver sans la condition de production, c'est éprouver dans
+  // une condition qui n'existe pas.*
+  if (!plus || !plus.getAttribute('data-total')) {
+    if (plus) plus.setAttribute('data-total', String(idxSets ? idxSets.total : 0));
+  }
+  window.fetch = () => Promise.resolve({
+    ok: true, status: 200, json: () => Promise.resolve(idxSets),
+  });
+  const fnCh = new Function('document', 'window', 'console', 'localStorage',
+    readFileSync(join(R, 'src', 'socle', 'modules', 'index_rayon.js'), 'utf8'));
   const fn = new Function('document', 'window', 'console', 'localStorage', scripts[0]);
-  try { fn(document, window, { log() {}, warn() {}, error() {} }, undefined); } catch (e) {
+  try {
+    fnCh(document, window, { log() {}, warn() {}, error() {} }, undefined);
+    fn(document, window, { log() {}, warn() {}, error() {} }, undefined);
+  } catch (e) {
     return { erreur: e.message, document, window };
   }
   return { document, window };
@@ -293,13 +451,25 @@ verifie('le pilote s\'exécute sans lever', !r.erreur, r.erreur || 'aucune excep
 if (r.erreur) fin();
 const { document, window } = r;
 
-const cartes = [...document.querySelectorAll('#s-grille .col-carte')];
-const visibles = () => cartes.filter((c) => !c.hasAttribute('hidden'));
+// 🔴🔴🔴 LOT 155-B — DEUX POPULATIONS, ET LES CONFONDRE OUVRAIT UN TROU.
+// `cartesServies` est ce que le serveur a écrit (60 depuis ce lot) : c'est la
+// bonne mesure pour « la tranche mord ». `grille()` INTERROGE le DOM à chaque
+// appel : c'est la bonne mesure une fois que le pilote a bâti les 3 053 autres.
+// ⛔ Garder une liste FIGÉE de 60 pour juger le filtre aurait été pire qu'un
+// faux : les cartes retenues par « Marvel » ne sont pas dans les 60 premières,
+// donc `visibles()` aurait rendu un tableau VIDE — et `.every()` sur un tableau
+// vide est VRAI. Le contrôle « toutes les cartes visibles portent la licence »
+// serait passé sans jamais regarder une seule carte.
+// ⭐⭐⭐ *Un terme à zéro qui n'est pas atteignable ne mesure rien* — c'est la
+// règle du 155-A, et elle vaut aussi pour le dénominateur d'un banc.
+const cartesServies = [...document.querySelectorAll('#s-grille .col-carte')];
+const grille = () => [...document.querySelectorAll('#s-grille .col-carte')];
+const visibles = () => grille().filter((c) => !c.hasAttribute('hidden'));
 const compteur = () => (document.getElementById('s-cpt') || {}).textContent || '';
 
 verifie('la tranche forcée MORD — sinon ce banc ne prouve rien',
-  cartes.length > TRANCHE && visibles().length === TRANCHE,
-  `${cartes.length} carte(s) dans le DOM, ${visibles().length} visible(s) (tranche ${TRANCHE})`);
+  cartesServies.length > TRANCHE && visibles().length === TRANCHE,
+  `${cartesServies.length} carte(s) servie(s), ${visibles().length} visible(s) (tranche ${TRANCHE})`);
 lus++;
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -389,7 +559,7 @@ lus++;
 
 // La licence la plus portée : c'est celle qui donnera l'écart le plus net.
 const compte = {};
-for (const v of portees) if (v) compte[v] = (compte[v] || 0) + 1;
+for (const v of porteesRayon) if (v) compte[v] = (compte[v] || 0) + 1;
 const [licence, attendus] = Object.entries(compte).sort((a, b) => b[1] - a[1])[0];
 
 // 🆕 LOT 143 — LA CASE N'EXISTE QU'APRÈS OUVERTURE DU PANNEAU. Le pilote
@@ -398,15 +568,31 @@ const [licence, attendus] = Object.entries(compte).sort((a, b) => b[1] - a[1])[0
 // pas ce contrôle par un `if (coche)` complaisant : sans case, la suite du § ne
 // mesure plus rien, donc l'absence reste un ÉCHEC — c'est le clic qui manquait,
 // pas l'exigence.
+// 🔴 LOT 155-B — ON COMPLÈTE LA GRILLE AVANT DE JUGER LE FILTRE, et on rend la
+// main entre chaque geste : depuis ce lot, ouvrir un panneau passe par une
+// promesse (le chargement de l'index). Compter tout de suite mesurerait la
+// promesse, pas le panneau.
+const btPlus0 = document.getElementById('s-plus');
+if (btPlus0) btPlus0.dispatchEvent(new window.Event('click', { bubbles: true }));
+await new Promise((r2) => setImmediate(r2));
 const btLic = document.querySelector('.f-b[data-g="licence"]');
 if (btLic) btLic.dispatchEvent(new window.Event('click', { bubbles: true }));
+await new Promise((r2) => setImmediate(r2));
 const coche = document.querySelector(`input[name="s-lic"][value="${licence}"]`);
 verifie(`la case de la licence « ${licence} » existe dans le DOM`, !!coche,
   coche ? 'panneau ouvert, puce construite' : '🔴 panneau ouvert et toujours aucune puce');
 if (!coche) fin();
+// 🔴 LOT 155-B — ON REND LA MAIN APRÈS CHAQUE GESTE. Les écouteurs du pilote
+// passent désormais par `completer()` : ils s'exécutent une micro-tâche après
+// l'événement, même quand l'index est déjà chargé. ⛔ Lire le compteur tout de
+// suite mesurerait l'état d'AVANT le geste — et le banc rougissait « le
+// compteur n'a pas bougé : ce filtre décore », en accusant le site d'un défaut
+// qui était dans l'instrument. *Un rouge ne prouve que ce qu'il a regardé.*
+const tick = () => new Promise((r2) => setImmediate(r2));
 // ⭐ L'AVANT SE MESURE, IL NE SE SUPPOSE PAS — voir le commentaire de `cocher()`.
 const [avant] = (compteur().match(/\d+/g) || ['0']).map(Number);
 cocher(coche, window, document.getElementById('f-sets'));
+await tick();
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ⭐⭐⭐ LA MESURE QUI DÉCIDE DE TOUT
@@ -418,27 +604,30 @@ const [retenus] = (compteur().match(/\d+/g) || ['0']).map(Number);
 verifie('⭐ le filtre traverse TOUT le DOM, pas la tranche affichée',
   retenus === attendus && attendus > TRANCHE,
   retenus === attendus
-    ? `${retenus} set(s) retenus sur ${cartes.length}, alors que ${TRANCHE} seulement sont à l'écran`
+    ? `${retenus} set(s) retenus sur ${grille().length}, alors que ${TRANCHE} seulement sont à l'écran`
     : `🔴 ${retenus} retenu(s) au lieu de ${attendus} — le filtre n'a vu qu'une partie du DOM.\n`
       + '       ⇒ c\'est « filtres OU pagination » : la grille RÉPOND, et sa réponse est fausse.');
 verifie('…et la tranche continue de s\'appliquer APRÈS le filtre',
   visibles().length === Math.min(TRANCHE, attendus),
   `${visibles().length} visible(s) sur ${retenus} retenu(s)`);
 verifie('…et toutes les cartes visibles portent bien cette licence',
-  visibles().every((c) => c.getAttribute('data-lic') === licence),
-  '⛔ sinon le filtre affiche autre chose que ce qu\'il compte');
+  visibles().length > 0 && visibles().every((c) => c.getAttribute('data-lic') === licence),
+  visibles().length
+    ? `${visibles().length} carte(s) à l'écran, toutes en « ${licence} »`
+    : '🔴 AUCUNE carte visible — `.every()` sur un tableau vide est VRAI, ce contrôle ne mesurerait rien');
 lus += 3;
 
 // ⛔ LA CONTRE-ÉPREUVE. Sans elle, un pilote qui ne filtrerait JAMAIS rien
 //    passerait la ligne du dessus dès que la licence majoritaire couvre tout.
 cocher(coche, window, document.getElementById('f-sets'), false);
+await tick();
 const [retenusApres] = (compteur().match(/\d+/g) || ['0']).map(Number);
 // ⛔ ON COMPARE TROIS NOMBRES MESURÉS — avant, pendant, après — et surtout PAS
 //    au nombre attendu calculé depuis le HTML. C'est la faute qui a rendu ma
 //    première version verte alors que RIEN n'était jamais coché.
 verifie('⛔ cocher puis décocher fait bouger le compteur DANS LES DEUX SENS',
-  avant === cartes.length && retenus < avant && retenusApres === avant,
-  `avant ${avant} → coché ${retenus} → décoché ${retenusApres} (sur ${cartes.length})`
+  avant === grille().length && retenus < avant && retenusApres === avant,
+  `avant ${avant} → coché ${retenus} → décoché ${retenusApres} (sur ${grille().length})`
   + (retenus === avant ? '\n       🔴 le compteur n\'a pas bougé au cochage : ce filtre décore' : ''));
 lus++;
 
@@ -451,6 +640,7 @@ if (!tri) { indecis('le tri', 'sélecteur `s-tri` absent'); fin(); }
 // ⭐ `choisir()` pose la valeur ET prévient la page. Poser `.value` seul ne
 //   déclencherait rien : le pilote écoute `change` sur le formulaire.
 choisir(tri, 'licence', window, document.getElementById('f-sets'));
+await tick();
 
 const ordre = [...document.querySelectorAll('#s-grille .col-carte')]
   .map((c) => c.getAttribute('data-lic') || '');
