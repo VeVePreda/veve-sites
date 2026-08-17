@@ -480,6 +480,45 @@ function resumerPourLeTableauDeBord(ds) {
   };
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 LOT 155-D — LA PROJECTION NE PORTE QUE CE QUE LA PAGE LIT
+// ═══════════════════════════════════════════════════════════════════════════
+// MESURÉ, ET PAYÉ D'UN DÉPLOIEMENT ROUGE (17/08, étape 45/55) :
+//     déploiement A ... 169 ms pour 15 802 Ko   (seuil 250 : vert, 32 % de marge)
+//     déploiement B ... 887 ms pour 15 802 Ko   ❌ — même fichier, machine chargée
+// Le lot 155-C a fait passer la projection de 200 à 8 840 lignes : 360 Ko → 15,8 Mo.
+// La marge était déjà mince ; deux builds en parallèle l'ont mangée d'un coup.
+//
+// ⛔ RELEVER LE SEUIL AURAIT ÉTÉ LA MAUVAISE RÉPONSE — « un plafond relevé une
+// fois de trop est un plafond désarmé », et celui-ci garde une vraie panne (les
+// 10 328 ms du lot 125). ⭐ On réduit le TRAVAIL, pas le thermomètre.
+//
+// ⭐⭐⭐ LA LISTE EST L'INVENTAIRE DE CE QUE LE CODE LIT VRAIMENT — relevé sur
+// `Market.astro` et `marche_selection.mjs`, pas deviné :
+//     uuid · name · series · type · rarity · tirage · path · image · releaseDate
+// Les 36 autres champs (dont `description`, **24,9 % du fichier à lui seul**,
+// `veveUrl`, `veveMarketUrl`, `legacySlug`, `licensor`…) n'étaient lus par
+// PERSONNE : ils voyageaient du build jusqu'au disque, et le serveur les
+// reparsait à chaque requête. → `regle-donnee-collectee-puis-jetee`
+//
+// 🔴 ET LE GARDE-FOU EST DANS `test:marche` §9, PAS DANS UN COMMENTAIRE : il
+// relit les deux fichiers, extrait chaque `i.<champ>` et EXIGE qu'il soit ici
+// ou dans `CHAMPS_COTE`. Sans lui, la prochaine addition au gabarit lirait
+// `undefined` — et une colonne vide n'a l'air d'une panne pour personne.
+// ⚠️ Un champ qui vient de la COTE (floor, listings, change7d, courbe…) n'a
+// rien à faire ici : il est réinjecté au rendu par `lireCotes()`.
+export const CHAMPS_MARCHE = ['uuid', 'name', 'series', 'type', 'rarity',
+                              'tirage', 'path', 'image', 'releaseDate'];
+
+/** Ne garde que les champs de `CHAMPS_MARCHE`. ⛔ Une clé absente de la fiche
+ *  n'est PAS écrite : `{image: undefined}` deviendrait `"image":null` dans le
+ *  JSON, soit 14 octets par ligne pour dire « rien » — 124 Ko sur 8 840. */
+export function maigrir(i) {
+  const o = {};
+  for (const k of CHAMPS_MARCHE) if (i[k] !== undefined && i[k] !== null) o[k] = i[k];
+  return o;
+}
+
 export function deposerMarche(ds) {
   mkdirSync(dirname(MARCHE_FICHIER), { recursive: true });
   const charge = {
@@ -489,7 +528,9 @@ export function deposerMarche(ds) {
     itemsTotal: Array.isArray(ds.items) ? ds.items.length : 0,
     marcheTotal: ds.marcheTotal,
     resume: resumerPourLeTableauDeBord(ds),
-    marche: ds.marche,
+    // ⭐ L'ORDRE EST CONSERVÉ : `maigrir()` filtre des CLÉS, il ne touche pas à
+    //   la liste. L'ordre neutre posé dans `dataset.mjs` traverse intact.
+    marche: (ds.marche || []).map(maigrir),
   };
   writeFileSync(MARCHE_FICHIER, JSON.stringify(charge), 'utf8');
   console.log(`[marche] projection deposee : ${charge.marche.length} ligne(s) sur ${charge.marcheTotal}, `
@@ -516,7 +557,35 @@ export function lireMarche() {
       + `(3) RESERVE_MARCHE pointe ailleurs. `
       + `⛔ On ne retombe PAS sur dataset() : ce repli couterait 10 s par visite et masquerait la panne.`);
   }
+  // 🔴🔴 LOT 155-D — ON NE RELIT LE FICHIER QU'UNE FOIS PAR PROCESSUS.
+  // ⭐ Ce cache est LÉGITIME ici alors qu'il ne l'était pas au lot 125 pour
+  // `dataset()`, et la différence tient en une phrase : `.reserve/` est déposée
+  // AU BUILD et ne bouge plus de la vie du conteneur. Un contenu figé peut se
+  // garder ; un calcul qui retélécharge 2,37 millions de lignes, non.
+  // ⚠️ Le premier visiteur paie toujours la lecture — c'est ce que `test:marche`
+  // mesure, et c'est pour ça que le fichier a MAIGRI en même temps (155-D) :
+  // le cache masquerait le coût sans le supprimer, et le banc serait devenu
+  // muet sur une dérive qu'il garde depuis le lot 125.
+  // ⛔ Pas de `Date.now()`, pas de durée de vie : une expiration ferait relire un
+  // fichier qui n'a pas changé, donc payer pour rien, à un moment imprévisible.
+  if (_cacheMarche && _cacheMarcheDe === MARCHE_FICHIER) return _cacheMarche;
   const c = JSON.parse(readFileSync(MARCHE_FICHIER, 'utf8'));
   if (!Array.isArray(c.marche)) throw new Error(`[marche] projection illisible : champ \`marche\` absent`);
+  _cacheMarche = c;
+  _cacheMarcheDe = MARCHE_FICHIER;
   return c;
 }
+
+// ⚠️ LA CLÉ EST LE CHEMIN, ET JE DIS POURQUOI EXACTEMENT — parce que la raison
+// évidente est fausse : `MARCHE_FICHIER` est calculé UNE FOIS, à l'import,
+// donc changer `RESERVE_MARCHE` après coup ne le déplace pas. La clé ne sert
+// donc à rien AUJOURD'HUI. Elle coûte deux comparaisons et elle couvre le jour
+// où quelqu'un rendra ce chemin dynamique : ce jour-là, un cache aveugle
+// servirait la projection d'un autre fichier, en silence, à un banc qui se
+// croirait vert. → `regle-cle-de-cache-independante-du-contenu`
+let _cacheMarche = null;
+let _cacheMarcheDe = null;
+
+/** ⛔ POUR LES BANCS UNIQUEMENT. Un cache qu'on ne peut pas vider est un cache
+ *  qui rend un banc dépendant de l'ordre de ses propres sections. */
+export function oublierMarche() { _cacheMarche = null; _cacheMarcheDe = null; }

@@ -97,6 +97,26 @@ deposerMarche(FAUX);
 const relu = lireMarche();
 
 verifie('les 200 lignes reviennent', relu.marche.length === 200, `${relu.marche.length} ligne(s)`);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴 LOT 155-D — LE CACHE DE `lireMarche()` NE DOIT PAS SURVIVRE À SON SUJET
+// ═══════════════════════════════════════════════════════════════════════════
+// La projection est désormais lue UNE FOIS par processus (15,8 → 3,6 Mo, mais
+// surtout : plus de relecture par requête). Un cache est une seconde source de
+// vérité : il faut prouver qu'il rend bien le fichier, et qu'il se vide.
+// ⛔ Et il faut le prouver ICI plutôt que de l'affirmer en commentaire : un
+// `oublierMarche()` exporté que personne n'appelle est du code mort qui a
+// l'air vivant — `regle-circuit-ouvert`, deux écrivains et aucun lecteur.
+{
+  const { oublierMarche } = await import('../lib/cote.mjs');
+  const deuxieme = lireMarche();
+  verifie('la seconde lecture ne retourne pas au disque (même objet)', relu === deuxieme,
+    relu === deuxieme ? 'mémoïsée' : '🔴 le fichier est relu à chaque appel — 3,6 Mo par requête');
+  oublierMarche();
+  const troisieme = lireMarche();
+  verifie('…et `oublierMarche()` le vide vraiment', troisieme !== relu && troisieme.marche.length === relu.marche.length,
+    troisieme !== relu ? 'nouvel objet, même contenu' : '🔴 le cache survit à son propre effacement');
+}
 verifie('le TOTAL avant plafond survit au voyage', relu.marcheTotal === 1200, String(relu.marcheTotal));
 verifie('`itemsTotal` remplace `items` (le nombre, pas les 19 412 objets)',
   relu.itemsTotal === 19412 && relu.items === undefined,
@@ -667,6 +687,98 @@ console.log('\n8. la sélection serveur (marche_selection.mjs) ?');
         croissant && (inconnus === 0 || queue),
         `${connus.length} valeur(s) triée(s), ${inconnus} inconnue(s) en fin`
           + (croissant ? '' : ' 🔴 ordre rompu') + (queue || !inconnus ? '' : ' 🔴 des inconnus en tête'));
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 LOT 155-D — LA LISTE BLANCHE COUVRE-T-ELLE TOUT CE QUE LA PAGE LIT ?
+// ═══════════════════════════════════════════════════════════════════════════
+// La projection ne porte plus que 9 champs sur 45 (15,8 Mo → 3,6 Mo). Le gain
+// est réel ; le risque l'est tout autant, et il est SILENCIEUX : ajouter
+// `i.licensor` au gabarit lirait désormais `undefined`, et une colonne vide n'a
+// l'air d'une panne pour personne. C'est exactement
+// `regle-seconde-fabrique-ne-montre-que-sa-source`, retournée contre nous —
+// **cinq fois en cinq jours** d'après le dossier du projet.
+//
+// ⭐⭐⭐ CE CONTRÔLE LIT LE CODE ET NON LA DONNÉE, et c'est obligatoire : la
+// donnée dit ce qui EST porté, jamais ce qui est ATTENDU. Un champ oublié ne
+// se voit pas dans un fichier — il se voit dans le gabarit qui le demande.
+// ⛔ SON ANCRE EST INDÉPENDANTE de `cote.mjs` : elle vient des sources qui
+// CONSOMMENT la projection. Les deux côtés ne peuvent pas se confirmer l'un
+// l'autre.
+console.log('\n9. la projection porte-t-elle tout ce que la page LIT ?');
+{
+  const { CHAMPS_MARCHE } = await import('../lib/cote.mjs');
+  const SOURCES = [
+    'src/components/pages/Market.astro',
+    'engine/lib/marche_selection.mjs',
+  ];
+  // ⚠️ ON RETIRE LES COMMENTAIRES AVANT DE CHERCHER. Ces deux fichiers PARLENT
+  //   beaucoup de `i.floor` et `i.description` dans leurs explications : un
+  //   relevé naïf réclamerait des champs que personne n'utilise, et on
+  //   regrossirait le fichier pour satisfaire un banc mal branché.
+  const sansCommentaires = (t) => t
+    .replace(/\{\/\*[\s\S]*?\*\/\}/g, ' ')
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .split('\n').filter((l) => !/^\s*(\/\/|\*)/.test(l)).join('\n');
+
+  const demandes = new Set();
+  const absents = [];
+  for (const rel of SOURCES) {
+    const f = join(ROOT, rel);
+    if (!existsSync(f)) { absents.push(rel); continue; }
+    const txt = sansCommentaires(readFileSync(f, 'utf8'));
+    for (const m of txt.matchAll(/\bi\.([A-Za-z_][A-Za-z0-9_]*)/g)) demandes.add(m[1]);
+  }
+  if (absents.length) {
+    // ⛔ Un fichier introuvable N'EST PAS un contrôle réussi : c'est un banc
+    //    débranché. → `regle-fichier-absent-a-la-racine`
+    verifie('les sources de la page sont lisibles', false, `🔴 introuvable(s) : ${absents.join(', ')}`);
+  } else if (demandes.size === 0) {
+    verifie('le relevé trouve des champs à couvrir', false,
+      '🔴 aucun `i.<champ>` relevé : le motif ne mord plus, ce contrôle ne prouve rien');
+  } else {
+    // ⭐⭐⭐ LA SECONDE PROVENANCE SE LIT SUR LE DISQUE, PAS DANS UNE LISTE.
+    // Première version : `CHAMPS_MARCHE ∪ CHAMPS_COTE`. **Elle a rendu ROUGE un
+    // code correct** en réclamant `courbe` et `listings` — parce que
+    // `CHAMPS_COTE` n'est PAS la liste de ce que la cote porte : c'est la liste
+    // des champs INTERDITS dans un index public (10 entrées), et le fichier de
+    // cote en porte 11, dont `listings`, `courbe`, `prixAberrant` et `maj`.
+    // *Deux listes voisines, deux questions différentes* — les confondre
+    // aurait fait grossir la projection de champs qu'elle n'a pas à porter.
+    // ⇒ On lit les clés d'une cote RÉELLE : c'est la source, pas sa description.
+    const dossierCote2 = join(ROOT, '.reserve', 'cote');
+    let clesCote = null;
+    if (existsSync(dossierCote2)) {
+      const un = readdirSync(dossierCote2).find((f) => f.endsWith('.json'));
+      if (un) { try { clesCote = Object.keys(JSON.parse(readFileSync(join(dossierCote2, un), 'utf8'))); } catch (e) { clesCote = null; } }
+    }
+    if (!clesCote) {
+      // ⛔ Sans cote lisible, on ne peut pas savoir ce qui est réinjecté au
+      //    rendu. Rendre vert serait mentir ; rendre rouge accuserait un code
+      //    correct. Troisième verdict.
+      indecis('la couverture des champs lus', 'aucune cote lisible dans .reserve/cote/ — impossible de savoir ce que le rendu réinjecte');
+    }
+    // ⭐ `history` : supprimé par `projeter()` et lu avec un repli explicite
+    //   depuis le lot 117 — c'est une absence VOULUE, pas un oubli.
+    const permis = new Set([...CHAMPS_MARCHE, ...CHAMPS_COTE, ...(clesCote || []), 'history']);
+    const orphelins = [...demandes].filter((c) => !permis.has(c)).sort();
+    if (clesCote) verifie('⛔ chaque champ lu par la page vient de la projection ou de la cote',
+      orphelins.length === 0,
+      orphelins.length
+        ? `🔴 ${orphelins.join(', ')} — lu(s) par la page, porté(s) par PERSONNE : la colonne serait vide `
+          + 'sans erreur. Ajouter à `CHAMPS_MARCHE` (cote.mjs) ou retirer du gabarit.'
+        : `${demandes.size} champ(s) relevé(s), tous couverts (${CHAMPS_MARCHE.length} projetés + ${clesCote.length} réinjectés par la cote)`);
+
+    // ⭐⭐ ET L'INVERSE : UN CHAMP PROJETÉ QUE PERSONNE NE LIT EST DU POIDS PAYÉ
+    //    À CHAQUE REQUÊTE. C'est la moitié du lot 155-D — 36 champs voyageaient
+    //    pour rien. ⚠️ Simple avertissement : `uuid` est la clé de jointure, il
+    //    ne s'écrit pas `i.uuid` partout où il sert.
+    const jamais = CHAMPS_MARCHE.filter((c) => !demandes.has(c) && c !== 'uuid');
+    if (jamais.length) {
+      indecis('un champ projeté que le relevé ne voit lire nulle part',
+        `${jamais.join(', ')} — poids payé à chaque requête, à vérifier avant de le garder`);
     }
   }
 }
