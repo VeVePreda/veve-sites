@@ -49,6 +49,14 @@
   // les appels à `t()`, pas les littéraux d'un fichier `.js`.
   function txt(cle) { return f.getAttribute('data-' + cle) || ''; }
 
+  // 🔴 LE CADENAS VIENT D'UN `<template>`, PAS D'UN ATTRIBUT — voir le bloc de
+  //   `BarreRayon.astro` : un SVG dans une valeur d'attribut désynchronise
+  //   `marquer_i18n.mjs` sous `I18N_MARQUAGE=1`, et casse la balise entière.
+  //   ⭐ `innerHTML` d'un `<template>` : le contenu n'est jamais peint, et c'est
+  //   toujours le glyphe du serveur — une seule source.
+  var TPL = document.getElementById('r-cadenas');
+  var CADENAS = TPL ? TPL.innerHTML : '';
+
   var idx = null;        // la charge de l'index, une fois arrivée
   var pos = {};          // nom de colonne -> position dans une ligne
   var enCours = null;    // la promesse du fetch, pour ne pas le lancer deux fois
@@ -414,7 +422,7 @@
       + '<span class="cote" data-cote="' + uuid + '" data-champ="' + champ + '"'
       + ' title="' + txt('titrecote').replace(/"/g, '&quot;') + '">'
       + '<span class="cote__v" data-cote-v>—</span>'
-      + '<span class="cote__l" aria-hidden="true">' + txt('cadenas') + '</span>'
+      + '<span class="cote__l" aria-hidden="true">' + CADENAS + '</span>'
       + '</span></b></span>';
   }
 

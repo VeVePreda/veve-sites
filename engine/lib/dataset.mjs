@@ -14,6 +14,7 @@ import { projeter as projeterCote, deposerMarche, CHAMPS_COTE } from './cote.mjs
 //    il ne copie que des champs déjà publics, et il est déposé APRÈS
 //    `projeterCote()` pour que ce soit vrai par construction.
 import { deposerVignettes } from './vignettes.mjs';
+import { deposerRayonIndex } from './rayon_index.mjs';
 import { getCatalogue, getBaselines, getReleves, streamPrices } from '../data/warehouse.mjs';
 import { manifest, SITE } from './manifest.mjs';
 import { porte } from './access.mjs';
@@ -1301,6 +1302,21 @@ async function construireDataset() {
   //   coûte un fichier ; une garde de trop coûte une page vide qu'on met trois
   //   jours à expliquer.
   deposerVignettes(_ds);
+  // 🔎 LOT 155 — LES TROIS INDEX DE RAYON, AU MÊME ENDROIT ET POUR LA MÊME
+  // RAISON QUE LES DEUX DÉPÔTS AU-DESSUS : `ds` est chaud ici, et il ne le sera
+  // plus jamais aussi bon marché.
+  // 🔴🔴 ET C'EST UN DÉPLOIEMENT ROUGE QUI L'A MIS LÀ. La première version les
+  // faisait construire par la route `/rayon-index/[corpus].json`, donc TROIS
+  // fois pendant la génération des pages — au moment où ce processus retient
+  // déjà 2,1 M de relevés et 40,6 Mo de réserve. Le build est mort à l'étape
+  // 31/55, à 187 s, après 4 189 pages sur 12 946, sans ERROR ni code de sortie.
+  // ⭐ Ici, les tableaux vivent le temps d'un tour de boucle et se libèrent.
+  // ⚠️ AUCUNE GARDE `PORTE_PRIX`, et c'est le raisonnement de `deposerVignettes`
+  // juste au-dessus : ces index ne portent AUCUN montant — des noms, des séries,
+  // des licences. Sous une porte des prix, ils diraient « pas de licence sans
+  // plancher », ce qui n'a pas de sens. Sur vevewiki le fichier pèsera ce que
+  // pèse son catalogue, et personne ne le lira.
+  for (const l of deposerRayonIndex(_ds)) console.log(l);
 
   return _ds;
 }

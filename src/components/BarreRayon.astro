@@ -96,8 +96,29 @@ const ONGLETS = [
       data-corpus={corpus} data-index={`/rayon-index/${corpus}.json`} data-pas={String(pas)}
       data-chargement={t(lang, 'rayon.loading')} data-echec={t(lang, 'rayon.indexFail')}
       data-sansfiche={t(lang, 'rayon.sansfiche')} data-titrecote={t(lang, 'cote.reserve')}
-      data-cadenas={cadenas}
       aria-label={t(lang, 'movers.filters')}>
+
+  {/* 🔴🔴🔴 LE CADENAS VOYAGE DANS UN `<template>`, ET **PAS** DANS UN ATTRIBUT.
+      C'EST UNE PANNE MESURÉE, PAS UNE PRÉCAUTION.
+      Première version : `data-cadenas={cadenas}`, avec le SVG dans la valeur.
+      Ça rendait un HTML parfaitement valide… jusqu'à `I18N_MARQUAGE=1`, qui
+      n'est posé QUE dans le Dockerfile (l. 273). `outils/marquer_i18n.mjs`
+      cherche alors la fin de la balise pour y écrire `data-i18n-attr` : les `>`
+      et les `&quot;` du SVG l'ont désynchronisé, et il a inséré son attribut
+      **AU MILIEU** de la valeur de `data-cadenas` :
+          data-cadenas="<svg … stroke-linecap=&quot;round&quot;
+                        data-i18n-attr="data-chargement:…"><rect …/></svg>"
+      ⇒ `data-cadenas` se fermait trop tôt, le `<rect>` fuyait dans la soupe
+      d'attributs, et l'`aria-label` juste après sortait
+      `aria-label="<span data-i18n=…>Filters</span>"`.
+      ⭐⭐⭐ ET RIEN N'AURAIT ROUGI : `test:i18n` ne cherche que les sentinelles
+      SURVIVANTES, il n'y en avait aucune. La panne n'existe que dans la
+      condition de production, et mon premier build de ce lot ne l'avait pas.
+      → `pieges-environnement` : `RENDERING`, `RECETTE` et `I18N_MARQUAGE=1`.
+      ⛔ Et on ne recopie PAS le SVG dans `rayon.js` : ce serait une seconde
+      source du même glyphe. Un `<template>` n'est pas rendu, ne coûte aucun
+      nœud peint, et reste UNE seule source — celle du serveur. */}
+  <template id="r-cadenas" set:html={cadenas}></template>
   <div class="barre-f__l">
     <span class="barre-f__t">{t(lang, 'movers.filters')}</span>
 

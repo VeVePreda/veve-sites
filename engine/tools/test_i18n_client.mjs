@@ -121,6 +121,38 @@ if (!marquees.length) {
 console.log(`     ${marquees.length} page(s) marquées sur ${pages.length}`);
 
 // ═══════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 LOT 155 — LE MARQUAGE PEUT ÉCRIRE **DANS** UNE VALEUR D'ATTRIBUT
+// ═══════════════════════════════════════════════════════════════════════════
+// Le §1 ci-dessus ne cherche que les sentinelles SURVIVANTES. Il y a une seconde
+// façon pour le post-traitement de casser une page, et elle laisse ZÉRO
+// sentinelle derrière elle : `marquer_i18n.mjs` cherche la fin de la balise pour
+// y écrire `data-i18n-attr`. Si un attribut porte du HTML — un SVG, par exemple —
+// ses `>` et ses `&quot;` le désynchronisent, et il écrit son attribut AU MILIEU
+// d'une valeur. La balise se referme trop tôt, le reste fuit dans la soupe
+// d'attributs, et l'`aria-label` voisin sort en
+//     aria-label="<span data-i18n="…">Filters</span>"
+// ⭐ Mesuré le 17/08 sur le lot 155 : `data-cadenas={svg}` produisait exactement
+// ça sur les 978 pages de rayon. Le build était VERT, `test:i18n` §1 VERT, et le
+// cadenas des lignes filtrées était du texte cassé.
+// ⭐⭐⭐ LE TERME EST À ZÉRO ET IL EST ATTEIGNABLE : la version fautive en
+// produisait 1 par page de rayon. C'est ce qui distingue ce contrôle d'un vœu.
+// ⇒ La leçon, générale : *on ne fait pas voyager du HTML dans un attribut sur un
+//   site qui post-traite son HTML.* Un `<template>` est fait pour ça.
+console.log('\n1 bis. le marquage n\'a pas écrit à l\'intérieur d\'une valeur d\'attribut');
+{
+  // ⚠️ On cherche la SIGNATURE, pas la cause : une balise ouvrante de marquage
+  //    juste après un `="` ne peut arriver que par désynchronisation.
+  const SIGNATURE = /="\s*<span[^>]*data-i18n/;
+  const casses = pages.filter((f) => SIGNATURE.test(readFileSync(f, 'utf8')));
+  verifie('⛔ aucun `<span data-i18n>` ouvert à l\'intérieur d\'une valeur d\'attribut',
+    casses.length === 0,
+    casses.length
+      ? `🔴 ${casses.length} page(s) — un attribut porte du HTML et a désynchronisé `
+        + `marquer_i18n.mjs. Ex. ${casses.slice(0, 3).map((f) => f.replace(RACINE, '')).join(', ')}`
+      : `${pages.length} page(s) inspectées`);
+}
+
 console.log('\n2. le SEO reste ANGLAIS — c\'est la contrepartie de la décision');
 // ⭐⭐ SANS CE POINT, LE LOT SE RETOURNERAIT CONTRE SA PROPRE RAISON D'ÊTRE.
 // On a choisi l'échange navigateur POUR ne pas toucher au cache partagé ni au

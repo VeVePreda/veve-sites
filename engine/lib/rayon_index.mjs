@@ -269,6 +269,91 @@ function charge(corpus, prefixe, cols, dic, lignes) {
   return c;
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+//  🔴🔴🔴 DÉPÔT AU BUILD, LECTURE À LA ROUTE — ET C'EST UN DÉPLOIEMENT ROUGE
+//  QUI L'A EXIGÉ (17/08, commit `a4b613c`)
+// ═══════════════════════════════════════════════════════════════════════════
+// La première version faisait construire l'index PAR LA ROUTE, trois fois,
+// pendant la génération des pages. Le build est mort sur le VPS à l'étape
+// **31/55** (`npm run build`), à **187 s**, après **4 189 pages sur 12 946**,
+// **sans ERROR et sans code de sortie** — conteneur TUÉ.
+// ⭐ Mesuré dans le bac à sable, dans la condition EXACTE du Dockerfile
+// (`I18N_MARQUAGE=1`), pic de mémoire résidente :
+//     sans le lot                    1 776 468 Ko
+//     la barre seule, sans les routes 1 628 512 Ko
+//     le lot complet                 1 912 788 Ko
+// ⚠️⚠️ ET LE BRUIT ENTRE DEUX RUNS EST DE ~150 Mo : « la barre seule » sort
+// SOUS « sans le lot », ce qui est impossible. ⇒ **On ne peut donc pas attribuer
+// un nombre exact aux routes** ; ce qu'on peut dire, c'est que les trois
+// constructions arrivent AU PIRE MOMENT — pendant la génération des pages, quand
+// `dataset()` retient déjà 2,1 M de relevés et 40,6 Mo de réserve.
+// → `regle-statistique-sans-contre-epreuve` : je dis ce que la mesure permet, et
+//   pas plus.
+//
+// ⇒ **Le correctif ne dépend pas de l'attribution exacte** : construire trois
+// fois 16 789 lignes au moment le plus chargé du build est un gaspillage, quelle
+// qu'en soit la facture. ⭐⭐ Et la maison a déjà la bonne forme, DEUX fois :
+// `deposerMarche()` et `deposerVignettes()` déposent à la fin de `dataset()`, où
+// `ds` est chaud, et une route relit le fichier. On la suit — les tableaux sont
+// construits UNE fois, dans une portée qui se libère aussitôt.
+// ⛔ ET LA ROUTE NE RETOMBE PAS SUR `indexRayon()` SI LE FICHIER MANQUE. C'est la
+// règle de `lireMarche()`, mot pour mot : un repli silencieux coûterait le pic
+// qu'on vient de supprimer, et masquerait une image mal construite.
+
+import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+
+// ⭐ `PROJECT_ROOT || cwd()` — LA LIGNE EXACTE DE `cote.mjs` l. 61 ET DE
+//   `vignettes.mjs`. ⛔ Pas `import.meta.url` : Astro **bundle** ce module dans
+//   `dist/server/`, et les fichiers seraient partis dans
+//   `dist/server/.reserve/` — build VERT, journal fier, et en production une
+//   barre de filtres qui ne trouve rien. C'est la panne du §M‑190, déjà payée.
+//   *Trois dépôts du build, une seule façon de calculer où ils vont.*
+const RACINE = process.env.PROJECT_ROOT || process.cwd();
+export const RAYON_INDEX_DIR = process.env.RESERVE_RAYON_INDEX || join(RACINE, '.reserve', 'rayon-index');
+
+export const fichierIndex = (corpus) => join(RAYON_INDEX_DIR, `${corpus}.json`);
+
+/** Dépose les trois index. Appelé UNE FOIS, à la fin de `dataset()`.
+ *  ⚠️ Rend le journal de chaque corpus, que l'appelant écrit : ce module ne
+ *  décide pas de ce qui va dans le log du build. */
+export function deposerRayonIndex(ds) {
+  mkdirSync(RAYON_INDEX_DIR, { recursive: true });
+  const lignes = [];
+  for (const corpus of CORPUS) {
+    // ⭐ LA PORTÉE EST LE CORRECTIF : `c` et son texte meurent à chaque tour de
+    //   boucle. Trois charges vivantes en même temps, c'était le défaut.
+    const c = indexRayon(ds, corpus);
+    const texte = JSON.stringify(c);
+    writeFileSync(fichierIndex(corpus), texte, 'utf8');
+    lignes.push(journalIndex(c) + ` — deposé (${texte.length} o)`);
+    if (!c.total) {
+      lignes.push(`[rayon-index] ATTENTION ${corpus} est VIDE : la barre de filtres `
+        + 'se montrera et ne trouvera rien. Verifier ds.rayon / ds.collections.');
+    }
+  }
+  return lignes;
+}
+
+/** Relit un index déposé, **en TEXTE**.
+ *  ⭐⭐ On ne fait PAS `JSON.parse` puis `JSON.stringify` : la route n'a rien à
+ *  inspecter, elle a un fichier à servir. Analyser 1,5 Mo pour le réécrire à
+ *  l'identique, c'est payer deux fois le pic qu'on essaie de supprimer.
+ *  ⛔ NE RETOMBE SUR RIEN — voir le bloc ci-dessus. */
+export function lireRayonIndex(corpus) {
+  const f = fichierIndex(corpus);
+  if (!existsSync(f)) {
+    throw new Error(
+      `[rayon-index] index absent (${f}). Trois causes, dans cet ordre de cout : `
+      + '(1) le build n\'a pas appele deposerRayonIndex() — regarder la fin de dataset() ; '
+      + '(2) `.reserve/` n\'a pas ete copiee dans l\'image (COPY --from=build /app/.reserve) ; '
+      + '(3) RESERVE_RAYON_INDEX pointe ailleurs. '
+      + '⛔ On ne retombe PAS sur indexRayon() : ce repli ramenerait le pic memoire '
+      + 'qui a tue le build du 17/08, et masquerait une image mal construite.');
+  }
+  return readFileSync(f, 'utf8');
+}
+
 /** Le journal du build. ⭐ Il dit les octets ET le remplissage de chaque axe :
  *  un axe vide à 90 % est un filtre qui répondra « aucun résultat » et aura
  *  l'air cassé. C'est la seule façon de le voir AVANT le déploiement. */
