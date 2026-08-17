@@ -204,25 +204,58 @@ if (proposees.length === 0) {
   if (bPlusB) bPlusB.dispatchEvent(new domP.window.Event('click', { bubbles: true }));
   await new Promise((r) => setImmediate(r));
   const toutes = [...domP.document.querySelectorAll('#s-grille .col-carte')];
-  verifie('cliquer « voir plus » BÂTIT les cartes manquantes — sinon ce § ne prouve rien',
-    avantBatir > 0 && toutes.length > avantBatir,
-    `avant ${avantBatir}, après ${toutes.length} (index : ${chargeIdx.total})`);
-  if (toutes.length > avantBatir) {
+  // 🔴🔴🔴 LE CORPUS PEUT ÊTRE PLUS PETIT QU'UNE TRANCHE, ET CE BANC L'A APPRIS
+  // EN ROUGISSANT SUR `main` (17/08, run 32023786925).
+  // La CI construit avec **`WAREHOUSE_OFFLINE=1`** : le rayon y fait **48 sets**,
+  // sous la tranche de 60. Le gabarit ne rend donc **aucun bouton « voir plus »**
+  // (`axes.length > PAR_TRANCHE` est faux), les 48 partent au serveur, et il n'y
+  // a **rien à bâtir**. Le site est CORRECT ; c'est ce contrôle qui exigeait un
+  // bâtissage impossible.
+  // ⭐⭐⭐ *Un banc doit distinguer « faux » de « sans objet ».* Les quatre
+  // verdicts existent pour ça, et j'ai rendu un ÉCHEC là où la bonne réponse
+  // était SANS OBJET. ⛔ Et ce n'est pas un assouplissement : la condition porte
+  // sur le **CORPUS** (`total <= tranche servie`), pas sur ce que la page a
+  // rendu. Le jour où la production servirait tout son rayon, `total` vaudrait
+  // 3 113 et le contrôle mordrait — c'est exactement le cas qu'il doit attraper.
+  // ⚠️ ET J'AURAIS DÛ LE VOIR : ma propre mémoire dit « ⛔ ne pas juger
+  // l'échelle sur `WAREHOUSE_OFFLINE=1` ». Je l'avais lue comme « ne mesure pas
+  // des tailles là-dedans » ; elle dit aussi **« la CI, elle, y vit »**.
+  const corpusTient = chargeIdx.total <= avantBatir;
+  if (corpusTient) {
+    indecis('le bâtissage des cartes manquantes',
+      `SANS OBJET — le rayon entier (${chargeIdx.total} set(s)) tient dans la tranche servie `
+      + `(${avantBatir}) : le gabarit n'émet pas « voir plus », il n'y a rien à bâtir. `
+      + 'C\'est le corpus hors réseau de la CI ; en production il fait 3 113.');
+  } else {
+    verifie('cliquer « voir plus » BÂTIT les cartes manquantes — sinon ce § ne prouve rien',
+      avantBatir > 0 && toutes.length > avantBatir,
+      `avant ${avantBatir}, après ${toutes.length} (index : ${chargeIdx.total})`);
     verifie('la grille bâtie porte EXACTEMENT le corpus de l\'index',
       toutes.length === chargeIdx.total, `${toutes.length} carte(s) contre ${chargeIdx.total}`);
-    const duServeur = toutes[avantBatir - 1];
-    const duPilote = toutes[avantBatir];
-    const ATTRS = ['data-n', 'data-brand', 'data-lic', 'data-an', 'data-ty', 'data-taille'];
-    const manquants = ATTRS.filter((a) => duServeur.hasAttribute(a) && !duPilote.hasAttribute(a));
-    verifie('la carte du PILOTE porte les mêmes `data-*` que celle du SERVEUR',
-      manquants.length === 0,
-      manquants.length ? `🔴 absent(s) du pilote : ${manquants.join(', ')} — le filtre les lit`
-        : ATTRS.join(' · '));
-    const squelette = (el) => ['.col-carte__pile', '.cartouche', '.cartouche__n']
-      .filter((sel) => el.querySelector(sel));
-    verifie('la carte du PILOTE a le même squelette que celle du SERVEUR',
-      squelette(duPilote).join('|') === squelette(duServeur).join('|'),
-      `serveur ${squelette(duServeur).length} · pilote ${squelette(duPilote).length}`);
+  }
+  // ⭐⭐⭐ CE QUI SUIT NE DÉPEND PAS DU BÂTISSAGE, ET C'EST VOULU : la
+  // comparaison SERVEUR ↔ INDEX est le cœur du lot, et elle doit tourner AUSSI
+  // dans la CI. Elle ne demande que les cartes servies et l'index — les deux
+  // existent quel que soit le corpus. ⛔ La laisser sous le `if` l'aurait rendue
+  // muette hors réseau, c'est-à-dire **muette là où elle garde `main`**.
+  {
+    // ⭐ La carte n° 60 vient du SERVEUR, la n° 61 du PILOTE. ⛔ SANS OBJET quand
+    // il n'y a pas de n° 61 — voir le bloc du corpus court ci-dessus.
+    if (!corpusTient && toutes.length > avantBatir) {
+      const duServeur = toutes[avantBatir - 1];
+      const duPilote = toutes[avantBatir];
+      const ATTRS = ['data-n', 'data-brand', 'data-lic', 'data-an', 'data-ty', 'data-taille'];
+      const manquants = ATTRS.filter((a) => duServeur.hasAttribute(a) && !duPilote.hasAttribute(a));
+      verifie('la carte du PILOTE porte les mêmes `data-*` que celle du SERVEUR',
+        manquants.length === 0,
+        manquants.length ? `🔴 absent(s) du pilote : ${manquants.join(', ')} — le filtre les lit`
+          : ATTRS.join(' · '));
+      const squelette = (el) => ['.col-carte__pile', '.cartouche', '.cartouche__n']
+        .filter((sel) => el.querySelector(sel));
+      verifie('la carte du PILOTE a le même squelette que celle du SERVEUR',
+        squelette(duPilote).join('|') === squelette(duServeur).join('|'),
+        `serveur ${squelette(duServeur).length} · pilote ${squelette(duPilote).length}`);
+    }
     // 🔴🔴🔴 CONTRE-ÉPREUVE — ET LA PREMIÈRE VERSION DE CE BLOC NE MESURAIT RIEN.
     // Elle comparait la carte bâtie à la valeur lue DANS L'INDEX. J'ai vidé la
     // colonne des vignettes, puis remplacé chaque nom coupé par le nom entier :
@@ -260,7 +293,7 @@ if (proposees.length === 0) {
           + `index ${attSrcs.length} image(s)/${(l[kC] || []).length} socle(s)`;
       }
     }
-    verifie('le nom que l\'index dépose est celui que le SERVEUR affiche (60 cartes témoins)',
+    verifie(`le nom que l'index dépose est celui que le SERVEUR affiche (${avantBatir} cartes témoins)`,
       !ecartNom && coupesVues > 0,
       ecartNom ? `🔴 ${ecartNom} — le pilote écrirait un autre texte que le serveur`
         : `${avantBatir} carte(s) comparées, dont ${coupesVues} au nom coupé`);
