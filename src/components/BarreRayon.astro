@@ -1,0 +1,223 @@
+---
+// ⚠️ VeVePreda/veve-sites — src/components/BarreRayon.astro   (FICHIER NEUF — lot 155)
+//
+// ═══════════════════════════════════════════════════════════════════════════
+//  UNE SEULE BARRE DE FILTRES, POUR LES TROIS RAYONS
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// ⭐⭐⭐ POURQUOI UN COMPOSANT ET PAS UNE BARRE PAR PAGE (demande Preda, 17/08 :
+// « une seule barre de filtres pour trois pages »). Le dépôt a déjà payé quatre
+// fois « deux gabarits qui rendent la même liste divergent en silence » (lots
+// 127, 131, 132, 139). Trois barres écrites séparément se ressemblent six mois,
+// puis plus : l'une gagne une recherche dans son filtre Licence, les deux autres
+// non — c'est EXACTEMENT l'écart que Preda a signalé entre les filtres Marque et
+// Licence de `/sets/`, à vingt lignes de distance dans le même fichier.
+//
+// ⛔⛔ LES FILTRES SONT RÉSERVÉS, ET LA FORME EST CELLE DU LOT 115 :
+// `data-anonyme` sur le mur, `data-membre hidden` sur le formulaire.
+// ⚠️ SURTOUT PAS `{aUneSession && …}` : un bloc enveloppé dans un test de
+// session disparaît du DOM sur les routes rendues à la demande et RESTE sur les
+// pages pré-générées — deux pages, donc un défaut « parfois », donc
+// irreproductible. `test:entete` refuse cette forme, et un rayon est
+// pré-généré : le test de session y répondrait « personne », toujours.
+// ⭐ Les règles CSS `html[data-membre] [data-anonyme]{display:none}` et son
+// symétrique existent déjà dans `Base.astro` depuis le lot 139 : zéro règle
+// neuve, zéro script de plus.
+//
+// ⛔ CE N'EST PAS UNE PORTE, C'EST UN AFFICHAGE — même phrase qu'au lot 115.
+// Les lignes du rayon restent dans le HTML public : ce sont des noms, des
+// séries et des tirages, pas des prix. On retire un OUTIL, on ne cache pas une
+// donnée, et il ne faut pas confondre les deux sous peine de croire le mur plus
+// haut qu'il n'est.
+//
+// ─────────────────────────────────────────────────────────────────────────────
+//  🔴🔴 LA BARRE N'ANNONCE AUCUN CHIFFRE QU'ELLE N'A PAS COMPTÉ
+// ─────────────────────────────────────────────────────────────────────────────
+// `/sets/` émet aujourd'hui ses puces de licence AVEC leur nombre de sets,
+// calculé au serveur. Ici, les puces et leurs compteurs sont construits par le
+// pilote À PARTIR DE L'INDEX : le compteur se compte, il ne se recopie pas.
+// ⭐ C'est la leçon du lot 143, et elle a un effet mesurable : les 83 licences
+// et 469 marques de `/sets/` pesaient 84 423 o et 1 187 nœuds sur CHAQUE visite,
+// dans un formulaire que la plupart des visiteurs ne peuvent pas ouvrir.
+// ⇒ Cette barre sort **vide de puces**. Elles naissent au premier clic sur un
+// onglet, depuis l'index, donc justes par construction.
+//
+// ⛔ ET AUCUN AXE DE PRIX N'ENTRE ICI. L'index est un fichier public : ses axes
+// sont licence, marque, série, rareté, édition, année, tirage. Le plancher, la
+// variation et le rendement restent sur `/market/`, derrière la porte. *On ne
+// cache pas un champ, on ne le projette pas.*
+import { t } from '../../engine/lib/i18n.mjs';
+
+// ⭐⭐ `pas` ET `cadenas` VIENNENT DE L'APPELANT, ILS NE SONT PAS ÉCRITS ICI.
+//   · `pas` est le `PAR_PAGE` de `Rayon.astro` : une tranche filtrée doit faire
+//     la même taille qu'une page du rayon, sinon la liste change de rythme dès
+//     qu'on filtre. Deux constantes à 20 divergent au premier réglage.
+//   · `cadenas` est le SVG de `Cote.astro`, qui doit apparaître à l'identique
+//     dans les lignes peintes par le pilote. ⛔ Le recopier dans le module en
+//     ferait une seconde source : le jour où le glyphe change, une liste filtrée
+//     dessinerait l'ancien, et personne ne verrait les deux côte à côte.
+const { lang, corpus, pas = 20, cadenas = '' } = Astro.props;
+
+// ⭐ LE CHEVRON EST LE MÊME QUE PARTOUT — recopié depuis `Collections.astro`
+// plutôt qu'importé parce qu'il n'existe nulle part en tant que composant. ⚠️ Le
+// jour où il en devient un, les deux endroits le suivent (`Market.astro` en a un
+// troisième, à l'identique).
+const chevron = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
+
+// ⭐⭐ LES ONGLETS SONT DÉCLARÉS, PAS ÉCRITS À LA MAIN SIX FOIS. Le bouton, son
+// panneau et le compteur du pilote lisent la MÊME liste : impossible d'ajouter
+// un axe et d'oublier son panneau, ou l'inverse. C'est le motif `COLONNES` de
+// `Market.astro`, et il a été écrit là-bas après le défaut « deux menus, deux
+// vérités » du 03/08.
+// ⚠️ `puces` dit au pilote d'où viennent les cases : `l` = licence, `b` =
+// marque, `r` = rareté, `e` = édition. Ce sont les clés des dictionnaires de
+// l'index — un nom qui n'y correspondrait pas rendrait un panneau vide.
+const ONGLETS = [
+  { g: 'licence', l: t(lang, 'sets.licence'), puces: 'l', recherche: true },
+  { g: 'marque', l: t(lang, 'sets.brand'), puces: 'b', recherche: true },
+  { g: 'rarete', l: t(lang, 'item.rarity'), puces: 'r' },
+  { g: 'edition', l: t(lang, 'rayon.edition'), puces: 'e' },
+  { g: 'annee', l: t(lang, 'sets.year') },
+  { g: 'tirage', l: t(lang, 'item.supply') },
+];
+---
+{/* ⭐ LE MUR, ET IL DIT CE QU'IL FAUT FAIRE. Un formulaire simplement absent
+    laisse croire que la page n'a pas de filtre ; une phrase dit qu'il existe et
+    à quelle condition. Même clé que `/sets/` : une seule phrase à traduire, et
+    surtout une seule à corriger le jour où elle change. */}
+<p class="etiq filtres-mur" data-anonyme>{t(lang, 'sets.filtersLocked')}</p>
+
+{/* ⚠️ TOUT CE QUE LE PILOTE NE PEUT PAS DEVINER PASSE PAR UN `data-`, ET RIEN
+    D'AUTRE. Un libellé écrit dans `src/socle/modules/rayon.js` serait servi en
+    ANGLAIS aux cinq langues, et `test:cles` ne le verrait jamais : il lit les
+    appels à `t()`, pas les littéraux d'un fichier `.js`. C'est la faute la plus
+    discrète de ce dépôt — elle passe la revue et elle passe le build. */}
+<form class="barre-f" id="f-rayon" role="search" data-membre hidden
+      data-corpus={corpus} data-index={`/rayon-index/${corpus}.json`} data-pas={String(pas)}
+      data-chargement={t(lang, 'rayon.loading')} data-echec={t(lang, 'rayon.indexFail')}
+      data-sansfiche={t(lang, 'rayon.sansfiche')} data-titrecote={t(lang, 'cote.reserve')}
+      data-cadenas={cadenas}
+      aria-label={t(lang, 'movers.filters')}>
+  <div class="barre-f__l">
+    <span class="barre-f__t">{t(lang, 'movers.filters')}</span>
+
+    {/* ⭐⭐ « AVEC UNE FICHE » EST LE PREMIER FILTRE, ET C'EST UNE MESURE QUI LE
+        MET LÀ : seuls 8 840 des 19 532 lignes du catalogue ont une page, et
+        2,4 % des comics en avaient au lot 113. Un collectionneur qui cherche à
+        LIRE une cote veut d'abord écarter les lignes muettes ; c'est le tri que
+        le serveur applique déjà par défaut, offert ici comme un filtre.
+        ⛔ On ne retire pas les lignes sans fiche du rayon : le catalogue reste
+        entier, l'ordre cesse d'être hostile. */}
+    <div class="seg-p" role="group" aria-label={t(lang, 'movers.filters')}>
+      <button type="button" data-fiche="" aria-pressed="true">{t(lang, 'movers.all')}</button>
+      <button type="button" data-fiche="1" aria-pressed="false">{t(lang, 'rayon.withPage')}</button>
+      <button type="button" data-fiche="0" aria-pressed="false">{t(lang, 'rayon.sansfiche')}</button>
+    </div>
+
+    <span class="sep-v"></span>
+    <div class="champ champ--sm" style="flex:1;min-width:180px;max-width:280px">
+      <label class="sr-only" for="r-q">{t(lang, 'rayon.search')}</label>
+      <input type="search" id="r-q" placeholder={t(lang, 'rayon.search')} autocomplete="off" />
+    </div>
+
+    <div class="barre-f__tri">
+      <label for="r-tri">{t(lang, 'movers.sortBy')}</label>
+      <div class="champ champ--sm" style="width:200px">
+        {/* 🔴 LE PREMIER TRI EST CELUI DU SERVEUR, ET IL DOIT L'ÊTRE.
+            `Rayon.astro` trie « ce qui a une fiche d'abord, puis série, puis
+            nom ». Si le tri par défaut de ce sélecteur était autre chose, la
+            liste SAUTERAIT à l'ouverture de la barre sans qu'on ait rien
+            demandé — un défaut qu'on met une heure à reproduire parce qu'il n'a
+            l'air d'être rien. */}
+        <select id="r-tri">
+          <option value="fiche">{t(lang, 'rayon.sortFiche')}</option>
+          <option value="nom">{t(lang, 'sets.sortName')}</option>
+          <option value="annee">{t(lang, 'sets.sortYear')}</option>
+          <option value="tirage">{t(lang, 'movers.sort.supplyAsc')}</option>
+          <option value="licence">{t(lang, 'sets.sortLicence')}</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="f-onglets" role="group" aria-label={t(lang, 'movers.filters')}>
+    {ONGLETS.map((o) => (
+      <button type="button" class="f-b" data-g={o.g} aria-expanded="false" aria-controls={`rp-${o.g}`}>
+        {o.l}<span class="cpt-f" hidden>0</span><Fragment set:html={chevron} />
+      </button>
+    ))}
+    <button type="reset" class="f-b">{t(lang, 'movers.reset')}</button>
+  </div>
+
+  {/* 🔴🔴 LES PANNEAUX SORTENT VIDES, ET C'EST LE LIVRABLE, PAS UN RESTE.
+      Voir l'en-tête : les puces sont construites par le pilote depuis l'index,
+      au premier clic. Un panneau servi plein coûterait ses octets sur les 839
+      pages du rayon, y compris à qui ne peut pas l'ouvrir.
+      ⚠️ `data-puces` porte la clé du dictionnaire de l'index — c'est le même
+      attribut que `/sets/` depuis le lot 143, et le champ de recherche cherche
+      le même `data-b` sur les étiquettes. Un second nom d'attribut aurait
+      demandé un second script pour le même geste. */}
+  {ONGLETS.filter((o) => o.puces).map((o) => (
+    <div class="f-panneau" id={`rp-${o.g}`} hidden>
+      <div class="f-panneau__t">{o.l}</div>
+      {o.recherche && (
+        <>
+          {/* ⭐ LA RECHERCHE DANS LE FILTRE LICENCE — demande de Preda, et le
+              modèle existait déjà à vingt lignes de là (`#s-bq`, filtre Marque,
+              lot 115b). Avec 93 licences, une liste de cases se parcourt à
+              l'œil ligne par ligne : chercher « Marvel » demande de le trouver,
+              pas de le taper.
+              ⭐ ELLE NE FILTRE QUE L'AFFICHAGE DES CASES, jamais les lignes. Une
+              case décochée reste décochée quand elle réapparaît — sinon taper
+              trois lettres effacerait la sélection en cours, et personne ne
+              comprendrait pourquoi la liste a bougé.
+              ⚠️ `name` ABSENT, délibérément : sans `name`, le champ ne part pas
+              avec le formulaire, et le bouton `reset` du groupe ne le vide pas —
+              on remet les cases à zéro, pas la recherche. */}
+          <label class="sr-only" for={`rq-${o.g}`}>
+            {o.g === 'licence' ? t(lang, 'rayon.licSearch') : t(lang, 'sets.brandSearch')}
+          </label>
+          <input type="search" id={`rq-${o.g}`} class="champ-f" autocomplete="off" data-cherche={o.g}
+                 placeholder={o.g === 'licence' ? t(lang, 'rayon.licSearch') : t(lang, 'sets.brandSearch')} />
+        </>
+      )}
+      <div class="cols-l" data-puces={o.puces}></div>
+      {o.recherche && <p class="etiq" data-vide={o.g} hidden>{t(lang, 'sets.brandNone')}</p>}
+    </div>
+  ))}
+
+  {/* ⚠️ DEUX BORNES SANS `placeholder` GRAVÉ. Un « ex. 1 000 » écrit en dur se
+      périme le jour où le catalogue bouge, en silence, et personne ne relit un
+      placeholder. Le pilote les remplit depuis l'index — donc depuis le corpus
+      réel, comme `bornes` le fait au serveur sur `/market/`. */}
+  <div class="f-panneau" id="rp-annee" hidden>
+    <div class="f-panneau__t">{t(lang, 'sets.year')}</div>
+    <div class="tiroir__c">
+      <div class="champ champ--sm" style="width:150px"><label class="etiq" for="r-a1">{t(lang, 'sets.yearFrom')}</label>
+        <input id="r-a1" type="number" step="1" /></div>
+      <div class="champ champ--sm" style="width:150px"><label class="etiq" for="r-a2">{t(lang, 'sets.yearTo')}</label>
+        <input id="r-a2" type="number" step="1" /></div>
+    </div>
+  </div>
+
+  <div class="f-panneau" id="rp-tirage" hidden>
+    <div class="f-panneau__t">{t(lang, 'item.supply')}</div>
+    <div class="tiroir__c">
+      <div class="champ champ--sm" style="width:150px"><label class="etiq" for="r-t1">{t(lang, 'movers.supplyMin')}</label>
+        <input id="r-t1" type="number" min="0" step="1" /></div>
+      <div class="champ champ--sm" style="width:150px"><label class="etiq" for="r-t2">{t(lang, 'movers.supplyMax')}</label>
+        <input id="r-t2" type="number" min="0" step="1" /></div>
+    </div>
+  </div>
+
+  {/* ⛔ `#r-cpt` SORT VIDE, ET SURTOUT PAS AVEC « chargement… ». Le pilote ne
+      charge l'index qu'au premier geste : un « chargement… » servi par le
+      serveur resterait affiché pour l'éternité chez un membre qui ne clique
+      rien, et il resterait pour toujours si le JavaScript ne s'exécute pas.
+      *Une étiquette qui décrit un état qu'on n'a pas encore atteint est un
+      mensonge servi par défaut.* Le libellé voyage dans `data-chargement`. */}
+  <div class="actifs" id="r-actifs" aria-live="polite"></div>
+  <p class="etiq" id="r-cpt" role="status"></p>
+</form>
+
+<p class="respire" id="r-vide" hidden>{t(lang, 'movers.empty')}</p>

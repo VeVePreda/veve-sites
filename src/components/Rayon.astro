@@ -27,6 +27,25 @@ import { rar, mentionEdition } from '../../engine/lib/vitrine.mjs';
 //   quatrième occurrence de « deux gabarits qui rendent la même liste ».
 import Extremes from './Extremes.astro';
 import { nomItem, nomSerie, nomSet } from '../../engine/lib/vignette.mjs';
+// 🔎 LOT 155 — LA BARRE DE FILTRES UNIQUE ET SON PILOTE.
+// ⭐ Le composant et le module sont écrits UNE FOIS et servent les trois rayons :
+//   voir l'en-tête de `BarreRayon.astro` et de `engine/lib/rayon_index.mjs`.
+// ⛔ Le pilote est un module de COMPOSANT, pas un morceau du socle : 12 946 pages
+//   sur 12 946 n'ont pas de barre de rayon sauf ces 839-là. Le verser au socle
+//   commun déplacerait le gaspillage au lieu de le supprimer — c'est l'arbitrage
+//   du cadran, lot 137.
+import BarreRayon from './BarreRayon.astro';
+import Cote from './Cote.astro';
+import { moduleJs } from '../../engine/lib/socle_js.mjs';
+import { coteFermee } from '../../engine/lib/cote.mjs';
+const pilote = moduleJs('rayon');
+// ⭐⭐ LA BARRE NE SORT QUE LÀ OÙ UNE COTE EXISTE, ET LA CONDITION EST IMPORTÉE,
+//   PAS RÉÉCRITE. `coteFermee()` est ce que `Extremes.astro` interroge pour
+//   décider d'émettre un badge ; l'écrire ici en `manifest().features…` donnerait
+//   deux définitions d'un seul état, et le jour où elles divergent vevewiki sert
+//   une barre de filtres pour un catalogue qu'il n'a pas. *Un prédicat recopié
+//   est un prédicat qui divergera.*
+const filtrable = coteFermee();
 
 const { lang, rayon, page = 1 } = Astro.props;
 export const PAR_PAGE = 20;
@@ -87,6 +106,18 @@ const url = (p) => (p <= 1 ? racine : `${racine}page/${p}/`);
 //    mais tout le monde veut la première et la dernière.
 const fenetre = [...new Set([1, n - 1, n, n + 1, pages].filter((p) => p >= 1 && p <= pages))]
   .sort((a, b) => a - b);
+
+// 🔒 LE CADENAS DU LOT 155 — ⭐ IL VOYAGE PAR UN ATTRIBUT, IL N'EST PAS RECOPIÉ
+//   DANS LE PILOTE. `rayon.js` doit rendre le MÊME `<span class="cote">` que
+//   `Cote.astro`, cadenas compris. Écrire le SVG en dur dans le module en ferait
+//   une seconde source : le jour où le glyphe change, une liste filtrée
+//   dessinerait l'ancien, et personne ne verrait les deux côte à côte.
+//   ⚠️ Le `title` PART AUSSI PAR ATTRIBUT, donc traduit par `t()` : un libellé
+//   écrit dans un `.js` du socle serait servi en anglais aux cinq langues, et
+//   `test:cles` ne le verrait pas — il lit les appels à `t()`.
+const cadenasSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"'
+  + ' stroke-linecap="round"><rect x="5" y="11" width="14" height="9" rx="1.8"/>'
+  + '<path d="M8.2 11V8.6a3.8 3.8 0 0 1 7.6 0V11"/></svg>';
 ---
 {/* 🔴 `noindex` DÈS LA PAGE 2, et ce n'est pas de la prudence : 835 pages de
     liste quasi identiques diluent le site entier. La page 1 porte le rayon,
@@ -116,7 +147,17 @@ const fenetre = [...new Set([1, n - 1, n, n + 1, pages].filter((p) => p >= 1 && 
 
   <AVenir lang={lang} rayon={rayon} />
 
-  <ul class="rayon">
+  {/* 🔎 LOT 155 — LA BARRE. ⛔ Elle est émise sur TOUTES les pages du rayon, pas
+      seulement la première : un membre qui filtre depuis la page 412 doit
+      obtenir le rayon entier, pas la page 412 filtrée. C'est le pilote qui
+      prend la main sur la liste, et il la prend d'où qu'on vienne.
+      ⭐ `data-*` porte ce que le pilote ne peut pas deviner : le pas de la
+      tranche (celui du serveur), et quatre libellés traduits. */}
+  {filtrable && (
+    <BarreRayon lang={lang} corpus={rayon} pas={PAR_PAGE} cadenas={cadenasSvg} />
+  )}
+
+  <ul class="rayon" id="r-liste">
     {tranche.map((l) => {
       // ⭐⭐⭐ LE TAG EST UNE VARIABLE ; LE CORPS S'ÉCRIT UNE FOIS.
       //    Ce fichier écrivait ses cinq `<span>` DEUX FOIS — branche `<a>`,
@@ -161,7 +202,7 @@ const fenetre = [...new Set([1, n - 1, n, n + 1, pages].filter((p) => p >= 1 && 
   </ul>
 
   {pages > 1 && (
-  <nav class="pagin" aria-label={t(lang, 'rayon.page')}>
+  <nav class="pagin" id="r-pagin" aria-label={t(lang, 'rayon.page')}>
     {n > 1 && <a class="pagin__b" rel="prev" href={localize(lang, url(n - 1))}>‹</a>}
     {fenetre.map((p, k) => (<>
       {k > 0 && fenetre[k - 1] < p - 1 && <span class="pagin__e">…</span>}
@@ -172,4 +213,21 @@ const fenetre = [...new Set([1, n - 1, n, n + 1, pages].filter((p) => p >= 1 && 
     {n < pages && <a class="pagin__b" rel="next" href={localize(lang, url(n + 1))}>›</a>}
   </nav>
   )}
+
+  {/* ⭐ LE DÉVOILEMENT PAR TRANCHES DE LA LISTE FILTRÉE — même pas que la page
+      du serveur, et `hidden` au départ : il n'a de sens qu'une fois que le
+      pilote a pris la main. ⛔ Ce n'est PAS une pagination : aucune adresse
+      neuve n'est créée, la page reste celle du rayon. Même politique que le
+      Marché et que `/sets/`, pour la même raison — les adresses sont gelées. */}
+  {filtrable && (
+    <p id="r-plus-h" style="margin:var(--s5) 0 0;text-align:center">
+      <button type="button" id="r-plus" class="btn btn--sm" hidden>{t(lang, 'movers.more')}</button>
+      <span class="etiq" id="r-plus-cpt" style="display:block;margin-top:8px;color:var(--muted)"></span>
+    </p>
+  )}
+  {/* ⚡ LE PILOTE DESCEND DANS LE SOCLE (mécanisme du lot 137), et `defer`
+      attend la fin de l'analyse par construction : la position du script dans le
+      document cesse d'être un pari. C'est la panne du lot 139 sur `series.js`,
+      qui lisait `#s-plus` avant que l'analyseur ne l'ait atteint. */}
+  {filtrable && <script defer src={pilote.href}></script>}
 </Base>

@@ -1164,6 +1164,22 @@ async function construireDataset() {
     edition_type: c.edition_type || '',
     series: c.series || '',
     brand: c.brand || '',
+    // 🏷️ LOT 155 — LA LICENCE ENTRE DANS LA LISTE BLANCHE, ET C'ÉTAIT LA CAUSE
+    //   D'UN FILTRE QU'ON CROYAIT IMPOSSIBLE. Preda demande une barre de filtres
+    //   sur `/comics/` et `/collectibles/` ; l'axe par lequel un collectionneur
+    //   pense — « je cherche du Marvel » — n'existait pas sur une ligne de rayon.
+    //   ⭐⭐ La donnée était DÉJÀ COLLECTÉE, puis jetée ici : `licensor` est
+    //   rempli à 100 % au catalogue (mesuré au lot 133), et `Collections.astro`
+    //   s'en sert depuis. C'est `rayonDe()` qui ne le nommait pas.
+    //   🔴 MESURÉ le 17/08 avant de l'ajouter : en la reconstruisant depuis le
+    //   set qui porte la pièce, la licence ne couvrait que 6 306 comics sur
+    //   16 789 — une pièce hors set n'a pas de set d'où la déduire. Un filtre
+    //   « Marvel » aurait donc caché 62 % des comics Marvel, en RÉPONDANT.
+    //   ⛔ CE N'EST PAS UN PRIX : `test:rayon` §① tient la liste des champs
+    //   interdits (floor, listings, ath, atl, prixMedian, p95, store_price,
+    //   history, courbe) et `licensor` n'en fait pas partie. Vérifié, pas
+    //   supposé — c'est le geste que demande `image` trois lignes plus bas.
+    licensor: c.licensor || '',
     tirage: Number(c.tirage) || null,
     releaseDate: c.release_date || '',
     // 🖼️ LOT 118 — L'IMAGE ENTRE DANS LA LISTE BLANCHE DU RAYON.

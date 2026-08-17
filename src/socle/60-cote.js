@@ -21,7 +21,31 @@
 var membre = /(?:^|;\s*)vp_membre=1(?:;|$)/.test(document.cookie || '');
 if (!membre) return;
 
-var places = document.querySelectorAll('[data-cote]');
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 LOT 155 — CE REMPLISSAGE DEVIENT RAPPELABLE, ET C'ETAIT LA SEULE FACON
+// ═══════════════════════════════════════════════════════════════════════════
+// Ce script ne tournait QU'UNE FOIS, au chargement, sur les `[data-cote]`
+// presents a cet instant. La barre de filtres du lot 155 PEINT des lignes apres
+// coup : sans point d'entree, leurs badges ATL/ATH resteraient cadenasses pour
+// une raison FAUSSE — « je ne montre pas » la ou la verite est « on n'a pas
+// encore demande ». Un cadenas qui ment est pire qu'un tiret nu (cf. Cote.astro).
+// ⭐⭐ ET SURTOUT : ON N'ECRIT PAS UN SECOND APPELANT DE `/api/cote/lot`.
+// Le pilote du rayon aurait pu faire son propre `fetch` — ce serait la deuxieme
+// implementation du meme echange, donc la deuxieme a maintenir, avec son propre
+// plafond de 60, sa propre lecture du 401 et son propre format de nombre. C'est
+// exactement la faute « deux gabarits qui rendent la meme liste », transposee a
+// un appel reseau. ⇒ UN SEUL remplisseur, expose, appele par qui peint.
+// ⛔ `window.vpCote` et pas un evenement : un evenement se poste dans le vide si
+// personne n'ecoute, et on ne le sait jamais. Un appel a une fonction absente
+// leve — et `rayon.js` teste sa presence AVANT (il peut tourner sur un site sans
+// porte des prix, ou ce fichier n'est pas embarque : voir CONDITIONS dans
+// socle_js.mjs). *La condition voyage avec le code, ou elle disparait.*
+window.vpCote = remplir;
+
+remplir(document);
+
+function remplir(racine) {
+var places = (racine || document).querySelectorAll('[data-cote]:not([data-ouverte])');
 if (!places.length) return;
 
 var uuids = [];
@@ -66,4 +90,5 @@ fetch('/api/cote/lot?u=' + uuids.join(','), {
     el.removeAttribute('title');
   }
 }).catch(function (e) { console.warn('[cote] ' + e.message); });
+}
 })();
