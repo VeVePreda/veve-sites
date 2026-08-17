@@ -768,6 +768,21 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 .tbl-obj__n{font-family:var(--geo);font-weight:500;color:var(--text);display:block;overflow:hidden; text-overflow:ellipsis;white-space:nowrap;max-width:34ch}
 .tbl-obj__s{font-family:var(--tech);font-size:10px;color:var(--muted);overflow:hidden; text-overflow:ellipsis;white-space:nowrap;display:block;max-width:34ch}
 .rang{font-family:var(--tech);color:var(--muted);width:1%;padding-right:0!important;font-variant-numeric:tabular-nums}
+/* 🖼️ LOT 155-C — LA COUVERTURE A REMPLACE LE RANG DANS LA PREMIERE COLONNE
+   (Preda : « vignette moyenne, 48 px »). 48x72 = le ratio 2:3 des couvertures
+   VeVe, le meme que les tuiles (400x600).
+   ⛔ LA LARGEUR EST POSEE SUR LA CELLULE, PAS SEULEMENT SUR L'IMAGE : avec
+   `loading="lazy"`, l'image n'a aucune taille tant qu'elle n'est pas arrivee —
+   la colonne se recalerait image par image et le tableau sauterait pendant tout
+   le chargement. Les attributs `width`/`height` du `<img>` disent le ratio, ce
+   `width` dit la colonne : il faut les deux.
+   ⭐ `line-height:0` sur la cellule : sans lui, la ligne du tableau garde
+   l'interligne du texte SOUS l'image, et chaque ligne grandit de 4 px pour
+   rien. */
+.vign{width:1%;padding-right:0!important;line-height:0}
+.vign__i{display:block;width:48px;height:72px;object-fit:cover;border-radius:3px;background:var(--rule-2)}
+.vign__v{display:grid;place-items:center;width:48px;height:72px;color:var(--rule-2)}
+.vign__v svg{width:24px;height:24px}
 .ticker{border-block:1px solid var(--rule);background:var(--surface);overflow:hidden;position:relative; mask-image:linear-gradient(90deg,transparent,#000 4%,#000 96%,transparent)}
 .ticker__piste{display:flex;gap:var(--s5);padding:11px 0;width:max-content;animation:defile 48s linear infinite}
 .ticker:hover .ticker__piste,.ticker:focus-within .ticker__piste{animation-play-state:paused}

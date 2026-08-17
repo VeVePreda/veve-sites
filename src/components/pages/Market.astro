@@ -28,6 +28,13 @@ import Base from '../../layouts/Base.astro';
 import BarreAcces from '../BarreAcces.astro';
 import { t, localize, numberLocale } from '../../../engine/lib/i18n.mjs';
 import { rar, forme, delta, gemsM, omiM, RAR, mcpPoints, sparklineNormalisee, jourISO } from '../../../engine/lib/vitrine.mjs';
+// 🔴🔴🔴 LOT 155-C — LA SÉLECTION EST SORTIE D'ICI. Filtrer, trier et
+// trancher 8 840 fiches est du calcul, pas du balisage : dans un module pur
+// ça s'éprouve sans DOM, sans build et dans les DEUX corpus. Ici, ça ne
+// s'éprouverait qu'en servant la page — c'est-à-dire jamais, puisque
+// `test:pages` reçoit un 302 sur `/market/` et n'atteint pas le rendu.
+import { lireParams, selectionMarche, facettes, parMcp, filtreActif,
+         PAR_PAGE, RENDU_MAX, TRIS as TRIS_CLES } from '../../../engine/lib/marche_selection.mjs';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 🔴🔴 LOT 104 (07/08/2026) — LA PAGE REVIENT, RÉSERVÉE AUX COMPTES
@@ -91,95 +98,78 @@ const mcpDe = (r, type) => {
 //     saute, en plus lent.
 // ⚠️ Le floor est un prix DEMANDÉ : ce ratio est un PLAFOND de rendement, pas
 // un rendement observé. L'infobulle le dit, et elle doit continuer de le dire.
-const parMcp = (i) => {
-  const m = mcpPoints(i.rarity, i.type);
-  if (!m || m <= 0) return null;
-  if (i.floor === null || i.floor === undefined) return null;
-  return i.floor / m;
-};
+// ⭐⭐ `parMcp` A DÉMÉNAGÉ DANS `marche_selection.mjs`, ET C'EST LE LOT QUI
+// L'EXIGE : le TRI « $/MCP croissant » et la COLONNE doivent lire la MÊME
+// valeur. Deux définitions, c'est un tableau trié dans un ordre que la colonne
+// ne montre pas — et les deux moitiés ont l'air correctes.
+// ⚠️ Le raisonnement (les trois refus, le « plafond de rendement ») est parti
+// avec la fonction : il n'est pas perdu, il est là où le code est.
 const noteMcp = t(lang, 'movers.perMcpNote');
 
 // Le même libellé pour tous les tirets en attente : une seule phrase à
 // traduire, et surtout une seule à corriger le jour où elle change.
 const attente = t(lang, 'data.notCollected');
 
-// ⚠️ Les fiches SANS variation ne sont pas jetées, elles vont en fin de liste.
-// Une fiche neuve n'a pas sept jours d'historique ; la faire disparaître
-// donnerait un site qui cache ses nouveautés.
-// ⛔⛔ PLAFOND — demande de Preda : « on ne doit pas charger les 1 200 lignes ».
-// Le tableau les rendait TOUTES (les tuiles, elles, étaient plafonnées à 120
-// depuis le début : deux vues du même écran, deux politiques, une seule
-// documentée). 1 200 <tr> de 9 cellules = ~11 000 nœuds pour une page dont
-// l'intérêt décroît après la 50ᵉ ligne — c'est un classement par variation.
-// ⭐ 200 et pas 1 200 : au-delà, la « plus forte variation » ne dit plus rien.
-// ⛔ PAS DE NOUVELLES ADRESSES. Une vraie pagination `/market/2/` créerait des
-// URL, or les 1 200 adresses du site sont GELÉES et le gel est ce qui protège
-// le SEO d'un renommage. Ajouter des pages de liste est une décision à part.
-// Ici : plafond au rendu, puis dévoilement par tranches côté client.
-const PLAFOND = 200;
-// ⭐ 20 ET NON 50 (demande de Preda, 01/08). ⛔ Ce n'est PAS une pagination :
-// les 1 200 adresses du site sont gelees, et une vraie page `/market/2/`
-// creerait des URL. C'est un devoilement par tranches, sans nouvelle adresse.
-const PAR_PAGE = 20;
-// ⭐⭐ LA LISTE EST DÉJÀ FILTRÉE ET TRIÉE — `dataset.mjs` l'a faite AVANT
-// `projeterCote()`, quand `floor` existait encore. ⛔ NE PAS re-trier ni
-// re-filtrer ici : sur des champs projetés, le comparateur rendrait 0 pour
-// toutes les paires et le filtre viderait la page. L'ORDRE DU TABLEAU PORTE
-// L'INFORMATION.
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 LOT 155-C — LA PAGE DEVIENT LE CATALOGUE COTÉ, ET ELLE TRANCHE ICI
+// ═══════════════════════════════════════════════════════════════════════════
+// ⛔ LE PLAFOND DE 200 N'EXISTE PLUS — ni ici (`PLAFOND`, mort depuis le lot
+// 104 : la ligne suivante disait déjà `const lignes = toutes;`), ni dans
+// `dataset.mjs` (`MARCHE_MAX`, retiré par ce lot). `ds.marche` porte désormais
+// les **8 840 fiches cotées**.
+//
+// ⭐⭐⭐ CE QUI REMPLACE LE PLAFOND : LE SERVEUR FILTRE, TRIE ET TRANCHE.
+// La mesure du 17/08 tranche seule : porter 8 840 fiches jusqu'ici coûte 43 ms
+// (`JSON.parse`) + 112 ms (`lireCotes`) ; les ENVOYER coûterait 28 Mo de HTML
+// et ~80 000 nœuds, **repayés à chaque visite** puisque cette page est
+// `private, no-store` et n'est jamais servie par le bord.
+// ⛔ ET C'EST POURQUOI CE N'EST PAS LE PATRON DE `/sets/` : là-bas la page est
+// en `HIT` au edge, un index client se paie une fois pour tout le monde. Ici
+// non — et surtout `rayon_index.mjs` (l. 190, `INTERDITS`) **refuse tout champ
+// de prix dans un index public**, or les tris demandés portent sur `floor`,
+// `change7d` et `$/MCP`. `rayon.js` ne peut pas être le pilote de cette page.
+//
 // ⭐ LES MONTANTS SONT RÉINJECTÉS ICI, ET SEULEMENT ICI. `cotes` vient de la
 // réserve, lue par la route après qu'elle a reconnu une session. Sur une page
 // servie à quelqu'un sans droit, `cotes` est vide : les lignes restent, les
 // montants deviennent des tirets. ⛔ Un `{...i, ...cote}` et pas une écriture
-// dans `i` : `ds.items` est mémoïsé pour la durée du build, le muter
-// contaminerait les 8 500 pages pré-générées construites après celle-ci.
+// dans `i` : `ds.marche` est mémoïsé pour la durée du processus, le muter
+// contaminerait la visite suivante — le défaut n'apparaîtrait qu'au DEUXIÈME
+// visiteur, ce qui est la pire forme d'un défaut.
 const toutes = ds.marche.map((i) => ({ ...i, ...(cotes[i.uuid] || {}) }));
 
-// ⭐ Les raretés dans l'ORDRE CANONIQUE DE VEVE, jamais alphabétique :
-// « Artist Proof, Common, Rare, Secret… » ne veut rien dire pour un collectionneur.
-// ⚠️ `PLAFOND` reste déclaré au-dessus pour la documentation qu'il porte, mais
-// la coupe se fait maintenant dans `dataset.mjs` — au même endroit que le tri,
-// donc sur la donnée complète. Re-couper ici serait sans effet aujourd'hui et
-// faux le jour où les deux valeurs divergeraient.
-const lignes = toutes;
-const presentes = new Set(toutes.map((i) => i.rarity).filter(Boolean));
-const rarete = Object.keys(RAR).filter((r) => presentes.has(r));
-const nbColl = toutes.filter((i) => i.type === 'collectible').length;
-const nbComic = toutes.length - nbColl;
+// ⭐⭐ LES FACETTES SE CALCULENT SUR LES 8 840, JAMAIS SUR LA TRANCHE. Bornes
+// des filtres, raretés proposées, compteurs Collectibles/Comics : tous parlent
+// du CATALOGUE. Les calculer sur ce qui est rendu les ferait rétrécir à chaque
+// filtre, en silence — la barre finirait par proposer « de 4 à 9 gems » sur un
+// catalogue qui va de 0,5 à 12 000.
+const F = facettes(toutes);
+const bornes = F.bornes;
+const rarete = Object.keys(RAR).filter((r) => F.rarete.has(r));
+const nbColl = F.nbColl;
+const nbComic = F.nbComic;
 
-// ═══════════════════════════════════════════════════════════════════════════
-// LOT 68 — LES FILTRES QUI MANQUAIENT, ET POURQUOI ILS SONT CEUX-LÀ
-// ═══════════════════════════════════════════════════════════════════════════
-// La maquette (l. 2523-2600) déclare SIX groupes : Place · Type & rareté ·
-// Prix & valeur · Tirage & mint · Dates · Colonnes. Le moteur n'en servait
-// que deux (Rareté, Variation), sans le tri ni les jetons — d'où « il manque
-// des filtres et la présentation n'est pas fidèle ».
-//
-// ⭐⭐ CHAQUE CRITÈRE EST ADOSSÉ À UN CHAMP QUE `dataset.mjs` REND VRAIMENT :
-//   floor, listings, tirage, releaseDate, rarity, type, change7d.
-// ⛔ ET DEUX CRITÈRES DE LA MAQUETTE N'EN ONT PAS, DONC ILS NE FILTRENT RIEN :
-//   · « place : StackR » — aucun collecteur ne remonte le plancher StackR ;
-//   · « mint % »         — le pourcentage de mint n'est nulle part.
-//   Ils restent AFFICHÉS, verrouillés et dits (`data-verrou`), plutôt que
-//   supprimés : une case absente laisse croire que le critère n'existe pas,
-//   une case grisée dit qu'il existe et qu'il attend sa donnée. C'est la même
-//   règle que les tirets `data-attente` du tableau, appliquée aux filtres.
-//
-// ⚠️ LES BORNES SONT CALCULÉES SUR LE CORPUS PUBLIÉ, JAMAIS ÉCRITES EN DUR.
-// Un `placeholder="ex. 1 000"` gravé se périme le jour où le catalogue bouge,
-// en silence, et personne ne relit un placeholder.
-const bornes = (() => {
-  const nb = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
-  const floors = toutes.map((i) => nb(i.floor)).filter((v) => v !== null);
-  const tirages = toutes.map((i) => nb(i.tirage)).filter((v) => v !== null && v > 0);
-  const dates = toutes.map((i) => jourISO(i.releaseDate)).filter(Boolean).sort();
-  return {
-    floorMin: floors.length ? Math.floor(Math.min(...floors)) : 0,
-    floorMax: floors.length ? Math.ceil(Math.max(...floors)) : 0,
-    tirageMin: tirages.length ? Math.min(...tirages) : 0,
-    tirageMax: tirages.length ? Math.max(...tirages) : 0,
-    dateMin: dates[0] || '',
-    dateMax: dates[dates.length - 1] || '',
-  };
+// ⭐ L'ÉTAT VIENT DE L'URL, ET DE NULLE PART AILLEURS. Une page rendue à la
+// demande a le droit de lire sa requête ; c'est même la seule source qui
+// survive à un partage de lien et à un rechargement.
+// ⛔ Le pilote ne garde plus d'état en `localStorage` : deux sources d'état,
+// c'est une barre qui affiche un filtre que le tableau n'applique pas.
+const P = lireParams(Astro.url.searchParams);
+const SEL = selectionMarche(toutes, P);
+const lignes = SEL.lignes;
+const aFiltre = filtreActif(P);
+// ⭐ La valeur du « voir plus » : la tranche suivante, bornée par `RENDU_MAX`.
+// ⛔ Elle se calcule ICI, pas dans le pilote : le bouton doit fonctionner même
+// si le JavaScript ne s'exécute pas — c'est un lien, pas un geste.
+const suite = Math.min(RENDU_MAX, P.n + PAR_PAGE);
+// ⭐ L'URL de la tranche suivante se dérive de CELLE DE LA REQUÊTE : tous les
+// filtres en cours voyagent avec, sans qu'aucun n'ait à être recopié. Recopier
+// treize champs à la main, c'est en oublier un le jour où un quatorzième
+// arrive — et le « voir plus » perdrait un filtre sans rien dire.
+const urlSuite = (() => {
+  const u = new URL(Astro.url);
+  u.searchParams.set('f-n', String(suite));
+  return `${u.pathname}${u.search}#resultats`;
 })();
 
 // ⭐ LES COLONNES OPTIONNELLES, DÉCLARÉES UNE FOIS. Le `<th>`, le `<td>` et la
@@ -196,24 +186,44 @@ const COLONNES = [
   { c: 'liens', l: t(lang, 'movers.links') },
 ];
 
-// ⚠️ Le tri par défaut est celui du rendu serveur (variation 7 j décroissante).
-// Le sélecteur ne fait que RÉORDONNER ce qui est déjà là — il ne va pas
-// chercher de lignes au-delà du plafond de 200, et le libellé ne le promet pas.
-const TRIS = [
-  { v: 'ch-desc',   l: t(lang, 'movers.sort.var7') },
-  { v: 'floor-desc', l: t(lang, 'movers.sort.floorDesc') },
-  { v: 'floor-asc',  l: t(lang, 'movers.sort.floorAsc') },
-  { v: 'sup-asc',    l: t(lang, 'movers.sort.supplyAsc') },
-  { v: 'mcp-asc',    l: t(lang, 'movers.sort.mcpAsc') },
-  { v: 'nom-asc',    l: t(lang, 'movers.sort.nameAsc') },
-];
+// ⭐⭐ LES CLÉS DE TRI VIENNENT DU MODULE, LES LIBELLÉS DE L'I18N. Une seule
+// liste de clés, dans le seul fichier qui sait trier — le gabarit ne fait que
+// l'habiller. ⛔ Une liste recopiée ici proposerait un jour un tri que le
+// serveur ne connaît pas : le `<select>` l'afficherait, le serveur retomberait
+// silencieusement sur le défaut, et personne ne saurait pourquoi l'ordre ne
+// change pas.
+// ⚠️ `defaut` EN TÊTE ET SÉLECTIONNÉ PAR DÉFAUT : depuis ce lot, `/market/` est
+// le catalogue coté en ordre neutre (récentes d'abord, posé dans
+// `dataset.mjs`). « Plus fortes variations » est devenu un tri parmi d'autres.
+const LIB_TRI = {
+  defaut: 'movers.sort.default',
+  'ch-desc': 'movers.sort.var7',
+  'floor-desc': 'movers.sort.floorDesc',
+  'floor-asc': 'movers.sort.floorAsc',
+  'sup-asc': 'movers.sort.supplyAsc',
+  'mcp-asc': 'movers.sort.mcpAsc',
+  'nom-asc': 'movers.sort.nameAsc',
+};
+const TRIS = TRIS_CLES.map((v) => ({ v, l: t(lang, LIB_TRI[v]) }));
 
-// La date de sortie, en ISO court, pour le filtre par dates. Vide = jamais
-// écartée par une borne de date : une fiche sans date de sortie n'est pas une
-// fiche « d'avant 1970 ».
-// ⚠️ `jourISO` et PAS un `slice(0,10)` : voir le commentaire du 05/08 en bas
-// de `engine/lib/vitrine.mjs`. La donnée est en JJ/MM/AAAA, un découpage
-// naïf rendait un filtre par dates qui ne mordait jamais.
+// ═══ CE QUI EST DE L'AFFICHAGE PUR RESTE ICI ═══════════════════════════════
+// ⭐ La vue (tableau/tuiles) et les colonnes masquées ne changent RIEN à la
+// sélection : elles n'ont donc rien à faire dans `marche_selection.mjs`. Mais
+// elles doivent SURVIVRE à l'aller-retour, sinon chaque filtre ramènerait le
+// visiteur en vue Tableau avec toutes ses colonnes revenues — le genre de
+// détail qui fait abandonner une barre de filtres.
+const VUE = Astro.url.searchParams.get('f-vue') === 'tui' ? 'tui' : 'tbl';
+// 🔴 LE PIÈGE DES CASES À COCHER, ET IL EST CLASSIQUE : un groupe dont TOUTES
+// les cases sont décochées n'envoie AUCUN paramètre — indiscernable d'une
+// première visite. Sans témoin, décocher la dernière colonne les ferait toutes
+// revenir, et le visiteur conclurait que la case ne marche pas.
+// ⇒ le pilote pose `f-cx=1` en soumettant : « cette liste est explicite, même
+//   vide ». Sans JavaScript, le témoin est absent et tout s'affiche — ce qui
+//   est le bon repli.
+const colsExpl = Astro.url.searchParams.get('f-cx') === '1';
+const COLS_VUES = colsExpl ? Astro.url.searchParams.getAll('f-col') : null;
+const colVue = (c) => (COLS_VUES === null ? true : COLS_VUES.includes(c));
+
 const jour = (i) => jourISO(i.releaseDate);
 const chevron = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
 
@@ -361,26 +371,58 @@ const ILE_TUILES = JSON.stringify({
       `[hidden]{display:none!important}` — ses champs sortent donc de l'ordre de
       tabulation, comme le faisait `<details>`. On ne perd pas l'accessibilité
       en gagnant l'apparence. */}
-  <form class="barre-f" id="filtres" role="search" aria-label={t(lang, 'movers.filters')}>
+  {/* 🔴🔴🔴 LOT 155-C — CE FORMULAIRE PART AU SERVEUR, ET IL PARTAIT DÉJÀ
+      PRESQUE. Tous ses champs portaient un `name` (`f-rar`, `f-pmin`…) depuis
+      le lot 68 : il ne manquait que `method="get"` et trois témoins. On ne
+      renomme donc RIEN — ces noms sont lus par le pilote
+      (`input[name="f-rar"]:checked`) et par le thème.
+      ⭐ `method="get"` : l'état vit dans l'URL. Elle se partage, elle se
+      recharge, et le bouton « précédent » du navigateur redevient une annulation
+      de filtre — trois comportements qu'un état en `localStorage` ne rend pas.
+      ⛔ AUCUNE ADRESSE N'EST CRÉÉE : `/market/` est réservée, `no-store`,
+      absente du sitemap et redirige l'anonyme. Le gel des 11 964 adresses ne
+      voit pas passer un paramètre de requête. ⚠️ Cette phrase vaut pour CETTE
+      page ; sur une page publique elle serait fausse.
+      ⭐ `action` explicite : sans lui, un formulaire GET soumis depuis une URL
+      déjà paramétrée reconduit… ses propres paramètres en double. */}
+  <form class="barre-f" id="filtres" role="search" method="get" action={Astro.url.pathname}
+        aria-label={t(lang, 'movers.filters')}>
+    {/* ⭐ LES TROIS TÉMOINS. Ils ne sont pas des filtres : ils portent ce que
+        des boutons (et non des champs) décident. Sans eux, le corpus et la vue
+        seraient perdus à chaque soumission.
+        ⚠️ `f-n` REPART À UNE TRANCHE À CHAQUE CHANGEMENT DE FILTRE, et c'est la
+        règle du 01/08 : quelqu'un qui a déplié 200 lignes puis restreint à une
+        rareté ne doit pas garder un « 200 / 12 » absurde. Le « voir plus » est
+        un LIEN qui porte sa propre valeur — il ne passe pas par ce champ. */}
+    <input type="hidden" name="f-c" id="f-c" value={P.corpus} />
+    <input type="hidden" name="f-vue" id="f-vue" value={VUE} />
+    <input type="hidden" name="f-cx" id="f-cx" value={colsExpl ? '1' : ''} />
+    <input type="hidden" name="f-n" value={String(PAR_PAGE)} />
     {/* ⭐ Le CORPUS avant les filtres : « Tout / Collectibles / Comics » n'est
         pas un filtre parmi d'autres, c'est l'ensemble sur lequel les autres
         s'appliquent. Les mettre au même rang embrouillait la barre. */}
     <div class="barre-f__l">
       <span class="barre-f__t">{t(lang, 'movers.filters')}</span>
       <div class="seg-p" role="group" aria-label={t(lang, 'movers.type')}>
-        <button type="button" data-corpus="" aria-pressed="true">{t(lang, 'movers.all')} <span class="etiq" style="opacity:.7">{toutes.length}</span>{/* ⭐ le nombre RENDU, pas le total : ce bouton filtre les lignes présentes */}</button>
-        <button type="button" data-corpus="collectible" aria-pressed="false">Collectibles <span class="etiq" style="opacity:.7">{nbColl}</span></button>
-        <button type="button" data-corpus="comic" aria-pressed="false">Comics <span class="etiq" style="opacity:.7">{nbComic}</span></button>
+        {/* ⭐ LES COMPTEURS SONT CEUX DU CATALOGUE COTÉ (8 840), plus ceux des
+            lignes rendues : depuis que la page ne rend qu'une tranche, « le
+            nombre présent » ne voudrait plus rien dire — il afficherait 20.
+            ⚠️ Ils ne tiennent pas compte des autres filtres actifs : ce sont
+            des repères de corpus, et le compteur sous la barre dit, lui, ce que
+            la recherche en cours a retenu. */}
+        <button type="button" data-corpus="" aria-pressed={P.corpus === '' ? 'true' : 'false'}>{t(lang, 'movers.all')} <span class="etiq" style="opacity:.7">{toutes.length}</span></button>
+        <button type="button" data-corpus="collectible" aria-pressed={P.corpus === 'collectible' ? 'true' : 'false'}>Collectibles <span class="etiq" style="opacity:.7">{nbColl}</span></button>
+        <button type="button" data-corpus="comic" aria-pressed={P.corpus === 'comic' ? 'true' : 'false'}>Comics <span class="etiq" style="opacity:.7">{nbComic}</span></button>
       </div>
       <span class="sep-v"></span>
       <div class="champ champ--sm" style="flex:1;min-width:170px;max-width:260px">
         <label class="sr-only" for="f-q">{t(lang, 'search.placeholder')}</label>
-        <input type="search" id="f-q" placeholder={t(lang, 'search.placeholder')} autocomplete="off" />
+        <input type="search" id="f-q" name="f-q" value={P.q} placeholder={t(lang, 'search.placeholder')} autocomplete="off" />
       </div>
       <span class="sep-v"></span>
       <div class="seg-p" role="group" aria-label={t(lang, 'movers.view')}>
-        <button type="button" class="v-b" data-vue="tbl" aria-pressed="true">{t(lang, 'movers.table')}</button>
-        <button type="button" class="v-b" data-vue="tui" aria-pressed="false">{t(lang, 'movers.tiles')}</button>
+        <button type="button" class="v-b" data-vue="tbl" aria-pressed={VUE === 'tbl' ? 'true' : 'false'}>{t(lang, 'movers.table')}</button>
+        <button type="button" class="v-b" data-vue="tui" aria-pressed={VUE === 'tui' ? 'true' : 'false'}>{t(lang, 'movers.tiles')}</button>
       </div>
       {/* ⭐ LE TRI EST UN `<select>`, PAS SIX BOUTONS. Six ordres possibles en
           boutons segmentés débordent sur tout écran sous 1 200 px, et un tri
@@ -388,7 +430,7 @@ const ILE_TUILES = JSON.stringify({
       <div class="barre-f__tri">
         <label for="f-tri">{t(lang, 'movers.sortBy')}</label>
         <div class="champ champ--sm" style="width:190px">
-          <select id="f-tri">{TRIS.map((o) => (<option value={o.v}>{o.l}</option>))}</select>
+          <select id="f-tri" name="f-tri">{TRIS.map((o) => (<option value={o.v} selected={o.v === P.tri}>{o.l}</option>))}</select>
         </div>
       </div>
     </div>
@@ -401,7 +443,13 @@ const ILE_TUILES = JSON.stringify({
       <button type="button" class="f-b" data-g="mint" aria-expanded="false" aria-controls="fp-mint">{t(lang, 'movers.g.mint')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevronU} /></button>
       <button type="button" class="f-b" data-g="date" aria-expanded="false" aria-controls="fp-date">{t(lang, 'movers.g.date')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevronU} /></button>
       <button type="button" class="f-b" data-g="cols" aria-expanded="false" aria-controls="fp-cols">{t(lang, 'movers.g.cols')}<Fragment set:html={chevronU} /></button>
-      <button type="reset" class="f-b" id="f-raz">{t(lang, 'movers.reset')}</button>
+      {/* ⭐ « RAZ » EST UN LIEN VERS LA PAGE NUE, PLUS UN `type="reset"`.
+          Un reset HTML rend aux champs leur valeur INITIALE — or depuis ce lot
+          la valeur initiale EST l'état filtré rendu par le serveur : le bouton
+          n'aurait rien remis à zéro, il aurait annulé la saisie en cours. Le
+          défaut aurait été invisible à la relecture du code et évident à
+          l'usage. ⭐ Et comme le « voir plus », il marche sans JavaScript. */}
+      <a class="f-b" id="f-raz" href={Astro.url.pathname}>{t(lang, 'movers.reset')}</a>
     </div>
 
     {/* ─── PLACE ─── ⛔ StackR est VERROUILLÉ, pas absent : le critère existe,
@@ -420,7 +468,7 @@ const ILE_TUILES = JSON.stringify({
       <div class="cols-l">
         {rarete.map((r) => (
           <label class={`puce puce--rar ${RAR[r].cl}`}>
-            <input type="checkbox" name="f-rar" value={r} />
+            <input type="checkbox" name="f-rar" value={r} checked={P.rar.includes(r)} />
             <Fragment set:html={formeU.get(cleRar(r)) ?? forme(r)} />{RAR[r].l}
           </label>
         ))}
@@ -432,16 +480,16 @@ const ILE_TUILES = JSON.stringify({
       <div class="f-panneau__t">{t(lang, 'movers.g.price')}</div>
       <div class="tiroir__c">
         <div class="champ champ--sm" style="width:150px"><label class="etiq" for="f-pmin">{t(lang, 'movers.floorMin')}</label>
-          <input id="f-pmin" name="f-pmin" type="number" min="0" step="any" placeholder={String(bornes.floorMin)} /></div>
+          <input id="f-pmin" name="f-pmin" type="number" min="0" step="any" value={P.pmin ?? ''} placeholder={String(bornes.floorMin)} /></div>
         <div class="champ champ--sm" style="width:150px"><label class="etiq" for="f-pmax">{t(lang, 'movers.floorMax')}</label>
-          <input id="f-pmax" name="f-pmax" type="number" min="0" step="any" placeholder={String(bornes.floorMax)} /></div>
+          <input id="f-pmax" name="f-pmax" type="number" min="0" step="any" value={P.pmax ?? ''} placeholder={String(bornes.floorMax)} /></div>
         <div class="champ champ--sm" style="width:150px"><label class="etiq" for="f-mcp">{t(lang, 'movers.mcpMax')}</label>
-          <input id="f-mcp" name="f-mcp" type="number" min="0" step="any" placeholder="∞" /></div>
+          <input id="f-mcp" name="f-mcp" type="number" min="0" step="any" value={P.mcp ?? ''} placeholder="∞" /></div>
       </div>
       <div class="cols-l" style="margin-top:12px">
-        <label class="puce"><input type="radio" name="f-var" value="" checked /> {t(lang, 'movers.all')}</label>
-        <label class="puce"><input type="radio" name="f-var" value="up" /> ▲ {t(lang, 'movers.up')}</label>
-        <label class="puce"><input type="radio" name="f-var" value="down" /> ▼ {t(lang, 'movers.down')}</label>
+        <label class="puce"><input type="radio" name="f-var" value="" checked={P.vari === ''} /> {t(lang, 'movers.all')}</label>
+        <label class="puce"><input type="radio" name="f-var" value="up" checked={P.vari === 'up'} /> ▲ {t(lang, 'movers.up')}</label>
+        <label class="puce"><input type="radio" name="f-var" value="down" checked={P.vari === 'down'} /> ▼ {t(lang, 'movers.down')}</label>
       </div>
     </div>
 
@@ -451,11 +499,11 @@ const ILE_TUILES = JSON.stringify({
       <div class="f-panneau__t">{t(lang, 'movers.g.mint')}</div>
       <div class="tiroir__c">
         <div class="champ champ--sm" style="width:150px"><label class="etiq" for="f-smin">{t(lang, 'movers.supplyMin')}</label>
-          <input id="f-smin" name="f-smin" type="number" min="0" step="1" placeholder={String(bornes.tirageMin)} /></div>
+          <input id="f-smin" name="f-smin" type="number" min="0" step="1" value={P.smin ?? ''} placeholder={String(bornes.tirageMin)} /></div>
         <div class="champ champ--sm" style="width:150px"><label class="etiq" for="f-smax">{t(lang, 'movers.supplyMax')}</label>
-          <input id="f-smax" name="f-smax" type="number" min="0" step="1" placeholder={String(bornes.tirageMax)} /></div>
+          <input id="f-smax" name="f-smax" type="number" min="0" step="1" value={P.smax ?? ''} placeholder={String(bornes.tirageMax)} /></div>
         <div class="champ champ--sm" style="width:150px"><label class="etiq" for="f-lmin">{t(lang, 'movers.listingsMin')}</label>
-          <input id="f-lmin" name="f-lmin" type="number" min="0" step="1" placeholder="0" /></div>
+          <input id="f-lmin" name="f-lmin" type="number" min="0" step="1" value={P.lmin ?? ''} placeholder="0" /></div>
       </div>
     </div>
 
@@ -465,9 +513,9 @@ const ILE_TUILES = JSON.stringify({
       <div class="f-panneau__t">{t(lang, 'movers.g.date')}</div>
       <div class="tiroir__c">
         <div class="champ champ--sm" style="width:180px"><label class="etiq" for="f-d1">{t(lang, 'movers.after')}</label>
-          <input id="f-d1" name="f-d1" type="date" min={bornes.dateMin} max={bornes.dateMax} /></div>
+          <input id="f-d1" name="f-d1" type="date" value={P.d1} min={bornes.dateMin} max={bornes.dateMax} /></div>
         <div class="champ champ--sm" style="width:180px"><label class="etiq" for="f-d2">{t(lang, 'movers.before')}</label>
-          <input id="f-d2" name="f-d2" type="date" min={bornes.dateMin} max={bornes.dateMax} /></div>
+          <input id="f-d2" name="f-d2" type="date" value={P.d2} min={bornes.dateMin} max={bornes.dateMax} /></div>
       </div>
     </div>
 
@@ -476,7 +524,7 @@ const ILE_TUILES = JSON.stringify({
       <div class="f-panneau__t">{t(lang, 'movers.g.cols')}</div>
       <div class="cols-l">
         {COLONNES.map((c) => (
-          <label class="puce"><input type="checkbox" name="f-col" value={c.c} checked /> {c.l}</label>
+          <label class="puce"><input type="checkbox" name="f-col" value={c.c} checked={colVue(c.c)} /> {c.l}</label>
         ))}
       </div>
       <p class="etiq" style="margin:10px 0 0;color:var(--muted)">{t(lang, 'movers.colsHint')}</p>
@@ -486,7 +534,21 @@ const ILE_TUILES = JSON.stringify({
         résultat est vide par erreur. `aria-live` : un compteur muet ne sert
         qu'aux voyants. Les filtres actifs deviennent des JETONS retirables. */}
     <div class="actifs" id="actifs" aria-live="polite"></div>
-    <p class="etiq" id="cpt" role="status"></p>
+    {/* ⭐⭐ LE COMPTEUR EST ÉCRIT PAR LE SERVEUR, PLUS PAR LE PILOTE. Il comptait
+        des `<tr>` présents — un nombre devenu faux le jour où la page ne rend
+        qu'une tranche : il aurait affiché « 20 / 20 » sur 8 840 fiches, sans
+        rien casser. C'est le serveur qui sait combien de fiches le filtre a
+        retenues, parce que c'est lui qui a filtré.
+        ⭐ TROIS NOMBRES QUI NE DISENT PAS LA MÊME CHOSE : rendues · retenues ·
+        cotées. Les confondre, c'est le compteur qui ment sans jamais rougir.
+        ⚠️ `role="status"` conservé : sans JavaScript le texte est là dès le
+        rendu, avec JavaScript il change à chaque aller-retour de page — dans
+        les deux cas il est lu. */}
+    <p class="etiq" id="cpt" role="status">
+      {aFiltre
+        ? t(lang, 'movers.showing', { a: SEL.rendues.toLocaleString(nf), b: SEL.retenues.toLocaleString(nf), c: SEL.total.toLocaleString(nf) })
+        : t(lang, 'movers.capped', { a: SEL.rendues.toLocaleString(nf), b: SEL.total.toLocaleString(nf) })}
+    </p>
   </form>
 
   {/* ⛔ LE TITRE INTERMÉDIAIRE A ÉTÉ RETIRÉ (demande de Preda, 05/08). Il
@@ -508,7 +570,11 @@ const ILE_TUILES = JSON.stringify({
       Posee au chargement, l'aide reste exactement ce qu'elle etait.
       Sans JavaScript elle disparait - mais cette page ne filtre, ne trie et ne
       s'affiche deja pas sans JavaScript, et elle exige un compte. */}
-  <div id="vue-tbl" class="tbl-hote" data-attente-txt={attente}>
+  {/* ⭐ `hidden` POSÉ PAR LE SERVEUR : la vue demandée est connue avant le
+      premier octet. Avant ce lot, le pilote la restituait depuis
+      `localStorage` — donc le tableau s'affichait puis disparaissait au profit
+      des tuiles, à chaque chargement. */}
+  <div id="vue-tbl" class="tbl-hote" data-attente-txt={attente} hidden={VUE !== 'tbl'}>
     <table id="resultats" tabindex="-1">
       {/* ═══════════════════════════════════════════════════════════════════
           LE MARCHÉ À DEUX LIGNES — demande Preda du 03/08/2026 (lot 43)
@@ -549,7 +615,16 @@ const ILE_TUILES = JSON.stringify({
           colonne. L'infobulle rend cette lecture sans reprendre une colonne.
           ⛔ `data-ch` n'est PAS décoratif : c'est la clé du tri côté client. */}
       <thead><tr>
-        <th scope="col" class="rang">#</th>
+        {/* 🖼️ LOT 155-C ② — LA COLONNE « # » DEVIENT LA COUVERTURE (Preda, 48 px).
+            ⭐ AUCUNE SOURCE NOUVELLE : `i.image` est déjà sur la fiche projetée —
+            c'est un champ PUBLIC (absent de `CHAMPS_COTE`), il survit donc à
+            `projeterCote()` et il alimente déjà les tuiles par `ILE_TUILES.img`.
+            ⛔ Ne PAS aller lire `.reserve/vignettes.json` : ce serait un
+            troisième index pour une donnée déjà sur la page.
+            ⚠️ Le RANG disparaît, et c'est voulu : « 001 » n'avait de sens que
+            sur un classement par variation. Sur un catalogue trié par date, un
+            numéro d'ordre est un chiffre qui a l'air d'être une donnée. */}
+        <th scope="col" class="rang"><span class="sr-only">{t(lang, 'item.cover')}</span></th>
         <th scope="col" class="tri">{t(lang, 'movers.item')}</th>
         <th scope="col" class="c-3" data-col="rar">{t(lang, 'item.rarity')}</th>
         <th scope="col" class="n c-4" data-col="sup">{t(lang, 'item.supply')}</th>
@@ -574,7 +649,21 @@ const ILE_TUILES = JSON.stringify({
             data-lst={i.listings === null || i.listings === undefined ? '' : String(i.listings)}
             data-mcp={parMcp(i) === null ? '' : parMcp(i).toFixed(3)}
             data-date={jour(i)}>
-          <td class="rang">{String(k + 1).padStart(3, '0')}</td>
+          {/* ⚠️ `alt=""` ET C'EST DÉLIBÉRÉ : le nom de la pièce est dans la
+              cellule suivante, à 40 px de là. Une alternative qui le répéterait
+              ferait dire le titre DEUX FOIS à chaque ligne — 40 annonces pour
+              20 pièces. L'image est ici décorative au sens strict : elle
+              n'apporte rien que le texte voisin ne porte déjà.
+              ⭐ `width`/`height` en attributs : ils réservent la place et
+              évitent le décalage de mise en page. `loading="lazy"` fait qu'une
+              tranche de 20 ne décode que ce qui est à l'écran.
+              ⛔ Pas de couverture ⇒ le losange du socle, jamais un carré vide :
+              une case grise ressemble à une image qui n'a pas chargé. */}
+          <td class="rang vign">
+            {i.image
+              ? <img class="vign__i" src={i.image} alt="" width="48" height="72" loading="lazy" decoding="async" />
+              : <span class="vign__v forme" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#s-r-ULTRA_RARE"/></svg></span>}
+          </td>
           <td><a class="tbl-obj" href={localize(lang, i.path)}>
             <span><span class="tbl-obj__n">{i.name}</span><span class="tbl-obj__s">{i.series}</span></span>
           </a></td>
@@ -673,21 +762,13 @@ const ILE_TUILES = JSON.stringify({
     </table>
   </div>
 
-  {/* ⭐ DIRE QU'ON PLAFONNE. Un classement tronqué sans le dire laisse croire
-      que le catalogue fait 200 pièces. Le nombre réel est déjà sur le filtre,
-      mais il faut que la TRONCATURE soit énoncée là où elle s'applique —
-      c'est la même règle que « une donnée masquée est une donnée livrée ». */}
-  {/* 🔴 LOT 104 — `ds.marcheTotal` ET PAS `toutes.length`. La coupe a descendu
-      dans `dataset.mjs` : `toutes` VAUT déjà 200, donc `toutes.length > PLAFOND`
-      est faux par construction et cette mention aurait disparu en silence.
-      ⭐ Exactement le défaut que ce commentaire dénonce, retourné contre lui :
-      la troncature aurait cessé d'être énoncée le jour où elle a changé de
-      place. Le total ne se recalcule PAS ici — `ds.items` a perdu `floor`. */}
-  {ds.marcheTotal > lignes.length && (
-    <p class="etiq" style="margin:var(--s4) 0 0;color:var(--muted)">
-      {t(lang, 'movers.capped').replace('%s', ds.marcheTotal.toLocaleString(nf))}
-    </p>
-  )}
+  {/* ⛔ LA MENTION « TOP 200 SUR N » A DISPARU, ET C'EST LE LOT : il n'y a plus
+      de troncature à énoncer, il y a une TRANCHE — et elle se dit dans le
+      compteur, au-dessus, avec le bouton qui la prolonge juste en dessous.
+      ⚠️ La règle qu'elle portait reste vraie mot pour mot : « un classement
+      tronqué sans le dire laisse croire que le catalogue fait 200 pièces ».
+      C'est pour ça que le compteur donne TOUJOURS les deux nombres, même quand
+      aucun filtre n'est posé. */}
   {/* ═══ LOT 71 — LES DEUX VUES MONTRENT DÉSORMAIS LE MÊME CORPUS ═══
       🔴 Preda : « le filtre ne fonctionne pas en vue tuiles ». Deux causes, et
       la seconde est la vraie.
@@ -712,7 +793,7 @@ const ILE_TUILES = JSON.stringify({
       « Tuiles », depuis les lignes du tableau (cf. `batirTuiles()` plus bas).
       ⛔ ON NE LA SUPPRIME PAS : `appliquer()` la montre et la masque, et le
       thème stylise `.tuiles`. C'est son CONTENU qui part, pas son existence. */}
-  <div id="vue-tui" class="tuiles" hidden></div>
+  <div id="vue-tui" class="tuiles" hidden={VUE !== 'tui'}></div>
 
   {/* ⭐ L'ÎLE — ce que la ligne du tableau ne peut PAS fournir, et rien d'autre :
       l'image (le tableau n'en porte aucune) et le pourcentage AFFICHÉ (`data-ch`
@@ -724,48 +805,70 @@ const ILE_TUILES = JSON.stringify({
       avec du code. */}
   <script type="application/json" id="tui-src" set:html={ILE_TUILES}></script>
 
-  {/* ⛔⛔ LE BOUTON EST DESCENDU ICI LE 01/08/2026. Il etait ecrit entre le
-      tableau et la grille de tuiles : en vue Tableau il tombait bien en bas,
-      mais en vue Tuiles il s'affichait AU-DESSUS des vignettes — un « voir
-      plus » avant d'avoir rien vu.
-      ⭐ Le defaut ne venait pas du bouton mais de l'ordre du document : deux
-      vues alternatives se suivent dans le HTML, donc tout ce qui les CONCLUT
-      doit venir apres les deux, jamais entre. `hidden` masque la vue inactive,
-      il ne deplace pas ce qui est coince au milieu. */}
-  {lignes.length > PAR_PAGE && (
+  {/* ⛔⛔ LE BOUTON EST DESCENDU ICI LE 01/08/2026 : écrit entre le tableau et
+      la grille, il s'affichait AU-DESSUS des vignettes en vue Tuiles — un
+      « voir plus » avant d'avoir rien vu. Deux vues alternatives se suivent
+      dans le HTML, donc tout ce qui les CONCLUT vient après les deux.
+
+      🔴🔴🔴 LOT 155-C — C'EST UN LIEN, PLUS UN BOUTON, ET CE N'EST PAS UN
+      DÉTAIL. Il ne dévoile plus des lignes déjà rendues : il en DEMANDE
+      d'autres, que seul le serveur possède. Un `<button>` piloté par JavaScript
+      aurait fait de la tranche suivante quelque chose d'inatteignable sans
+      script, sur une page qui, elle, marche très bien sans.
+      ⭐ `#resultats` dans l'adresse : après le rechargement, on revient là où on
+      lisait, pas en haut de la barre de filtres.
+      ⭐ L'adresse est DÉRIVÉE de la requête en cours (cf. `urlSuite`) : les
+      treize filtres voyagent sans qu'aucun ne soit recopié — donc sans qu'on
+      en oublie un le jour où un quatorzième arrive.
+      ⚠️ `RENDU_MAX` (500) est un plafond de RENDU, pas de corpus : au-delà, le
+      bouton disparaît et c'est le filtre qui prend le relais. Rendre 8 840
+      lignes ferait 28 Mo de HTML — mesuré, pas supposé. */}
+  {SEL.reste > 0 && P.n < RENDU_MAX && (
     <p style="margin:var(--s4) 0 0;text-align:center">
-      <button type="button" id="plus" class="btn btn--sm"
-              data-pas={PAR_PAGE} data-total={lignes.length}>{t(lang, 'movers.more')}</button>
-      <span class="etiq" id="plus-cpt" style="display:block;margin-top:8px;color:var(--muted)"></span>
+      <a class="btn btn--sm" id="plus" href={urlSuite}
+         data-pas={PAR_PAGE} data-total={SEL.retenues}>{t(lang, 'movers.more')}</a>
+      <span class="etiq" id="plus-cpt" style="display:block;margin-top:8px;color:var(--muted)">
+        {SEL.rendues.toLocaleString(nf)} / {SEL.retenues.toLocaleString(nf)}
+      </span>
     </p>
   )}
 
-  <p class="respire" id="vide" hidden>{t(lang, 'movers.empty')}</p>
+  {/* ⭐ LE SERVEUR SAIT S'IL N'A RIEN RETENU — le pilote n'a plus à le déduire
+      d'un comptage de nœuds visibles. `hidden` reste dans le balisage : c'est
+      l'attribut, et non une classe, que le thème respecte partout ailleurs. */}
+  <p class="respire" id="vide" hidden={SEL.retenues !== 0}>{t(lang, 'movers.empty')}</p>
 
   <script is:inline>
     // ═══════════════════════════════════════════════════════════════════════
-    // LE PILOTE DE LA BARRE — filtrer, trier, masquer des colonnes
+    // LE PILOTE — CE QU'IL FAIT ENCORE, ET SURTOUT CE QU'IL NE FAIT PLUS
     // ═══════════════════════════════════════════════════════════════════════
-    // ⛔ AUCUN CADRE, AUCUN MODULE. Cette page rend 200 lignes ; tout ce qui
-    // suit tourne sur des tableaux natifs et se lit d'un bout à l'autre.
-    // ⭐ UN SEUL ÉTAT, UN SEUL POINT D'ENTRÉE (`appliquer`). Le défaut du lot
-    // précédent était une fonction `tranche()` DÉFINIE ET JAMAIS APPELÉE : du
-    // code mort qui a l'air vivant, que rien ne signale. Ici chaque réglage
-    // passe par `appliquer()`, et `appliquer()` fait tout dans l'ordre —
-    // filtrer, trier, tronquer, compter, écrire.
+    // 🔴🔴🔴 LOT 155-C — IL A PERDU LE FILTRE, LE TRI ET LA TRANCHE.
+    // Ils sont passés au serveur (`marche_selection.mjs`), et ce n'est pas un
+    // déplacement de confort : à 8 840 fiches, filtrer dans le navigateur
+    // suppose de LUI AVOIR ENVOYÉ les 8 840 — 28 Mo de HTML, ou 434 Ko à
+    // 3,8 Mo de JSON selon la maigreur, **repayés à chaque visite** puisque
+    // cette page est `no-store`. Le serveur, lui, les filtre en 43 ms.
+    //
+    // ⭐⭐⭐ CE QU'IL A GAGNÉ EN ÉCHANGE : il n'y a plus de SECONDE FABRIQUE de
+    // sélection. Deux implémentations du même filtre — un `garde()` ici, un
+    // `garde()` là-bas — divergent toujours ; c'est déjà arrivé sur cette page
+    // (lot 71 : le tableau rendait 200 pièces, la grille 120, et « le filtre ne
+    // marche pas en vue tuiles »). Il n'en reste qu'une, côté serveur, et elle
+    // est éprouvable sans DOM.
+    //
+    // ⛔ ET IL A PERDU `localStorage`. L'état vit dans l'URL : elle se partage,
+    // elle se recharge, et « précédent » redevient une annulation de filtre.
+    // Deux sources d'état, c'est une barre qui affiche un filtre que le tableau
+    // n'applique pas — et c'est le genre de désaccord qu'aucun banc ne voit.
+    //
+    // ⭐ CE QU'IL GARDE, PARCE QUE C'EST DE L'AFFICHAGE PUR ET QUE ÇA NE DOIT
+    // COÛTER AUCUN ALLER-RETOUR : les panneaux, la bascule Tableau/Tuiles, les
+    // colonnes, les jetons, et la construction des tuiles (lot 127).
     (function () {
       var f = document.getElementById('filtres'); if (!f) return;
-      var corps  = document.querySelector('#vue-tbl tbody');
       var grille = document.getElementById('vue-tui');
       var L      = [].slice.call(document.querySelectorAll('#vue-tbl tbody tr'));
       var T      = [];   // 🔴 LOT 127 — rempli par `batirTuiles()`, plus par le serveur
-      var cpt    = document.getElementById('cpt');
-      var vide   = document.getElementById('vide');
-      var bPlus  = document.getElementById('plus');
-      var cPlus  = document.getElementById('plus-cpt');
-      var pas    = bPlus ? parseInt(bPlus.dataset.pas, 10) : 0;
-      var montre = pas;
-      var CLE = 'vp-filtres-2', corpus = '', vue = 'tbl';
 
       // LOT 143 - le libelle d'attente est lu une fois et repose sur place.
       // Il n'est plus ecrit 7 fois par ligne dans le HTML servi. Le texte est
@@ -779,37 +882,6 @@ const ILE_TUILES = JSON.stringify({
           .forEach(function (e) { if (!e.getAttribute('title')) e.setAttribute('title', ATT); });
       }
 
-      // ⭐ NOUVELLE CLÉ DE STOCKAGE (`-2`). L'ancienne forme n'avait ni tri ni
-      // colonnes : la relire produirait un état à moitié rempli, donc des
-      // colonnes masquées sans case décochée. Une structure qui change change
-      // de nom — sinon c'est l'utilisateur qui hérite du bug.
-      function lire(){ try { return JSON.parse(localStorage.getItem(CLE)) || {}; } catch(e){ return {}; } }
-      function ecrire(o){ try { localStorage.setItem(CLE, JSON.stringify(o)); } catch(e){} }
-      function num(v){ var n = parseFloat(v); return isNaN(n) ? null : n; }
-
-      // ═══════════════════════════════════════════════════════════════════
-      // 🔴🔴🔴 LOT 127 — LE BÂTISSEUR DES TUILES
-      // ═══════════════════════════════════════════════════════════════════
-      // Le serveur rendait 200 tuiles `hidden` : 374 450 o mesurés, 35,1 % de
-      // la page, pour une vue que la plupart des visiteurs n'ouvrent jamais.
-      // Elles se bâtissent désormais au PREMIER passage en vue Tuiles, et une
-      // seule fois — `tuilesFaites` n'est jamais remis à faux : le corpus ne
-      // change pas, seuls les filtres bougent, et ils opèrent sur les nœuds.
-      //
-      // ⭐⭐⭐ CHAQUE TUILE EST BÂTIE DEPUIS SA LIGNE, PAS DEPUIS LES DONNÉES.
-      // C'est la décision centrale du lot. Le lot 71 exigeait « une seule
-      // liste, un seul plafond, un seul compteur » et le tenait par DISCIPLINE
-      // — deux gabarits à garder d'accord. Le 10/08, `test:tuiles` a montré
-      // qu'ils avaient déjà divergé : `data-ch` valait « 300 » côté tuile et
-      // « 300.00 » côté ligne, parce que le lot 125 n'avait arrondi que le
-      // tableau. Personne ne l'avait vu — deux vues qui trient légèrement
-      // différemment ne cassent rien, elles mentent.
-      // ⇒ Il n'y a plus qu'un endroit où l'attribut s'écrit.
-      //
-      // ⛔ ON CLONE, ON NE REFABRIQUE PAS. Le prix, la forme de rareté : ce
-      // sont des nœuds RECOPIÉS de la ligne. Réécrire « le même » balisage en
-      // JavaScript, c'est une seconde source qui attend de diverger — celle
-      // qu'on vient précisément de supprimer.
       var ile = null;
       try { ile = JSON.parse(document.getElementById('tui-src').textContent); } catch (e) { ile = null; }
       var tuilesFaites = false;
@@ -929,196 +1001,132 @@ const ILE_TUILES = JSON.stringify({
         // la grille serait bâtie ET jamais filtrée.
         T = [].slice.call(grille.querySelectorAll('.tuile'));
       }
-      function val(id){ var e = document.getElementById(id); return e ? e.value.trim() : ''; }
-      function coches(nom){
-        return [].slice.call(f.querySelectorAll('input[name="' + nom + '"]:checked')).map(function(x){ return x.value; });
+
+      // ═══════════════════════════════════════════════════════════════════
+      //  ① PARTIR AU SERVEUR — le seul geste qui coûte un aller-retour
+      // ═══════════════════════════════════════════════════════════════════
+      // ⚠️ `requestSubmit()` ET PAS `submit()` : `submit()` contourne la
+      // validation HTML et n'émet aucun événement `submit` — un champ `type
+      // ="date"` mal rempli partirait quand même, et rien n'aurait pu s'y
+      // opposer. Le repli n'est là que pour les navigateurs qui l'ignorent.
+      // ⭐ LE `f-cx` EST POSÉ ICI, ET SEULEMENT ICI : à partir du moment où le
+      // pilote soumet, la liste des colonnes devient explicite — même vide.
+      // Sans témoin, tout décocher revient à ne rien envoyer, ce qui est
+      // indiscernable d'une première visite : les colonnes reviendraient
+      // toutes, et la case aurait l'air cassée.
+      var cx = document.getElementById('f-cx');
+      var enVol = false;
+      function envoyer() {
+        if (enVol) return;          // ⛔ deux soumissions pour un geste = deux builds de page
+        enVol = true;
+        if (cx) cx.value = '1';
+        if (f.requestSubmit) f.requestSubmit(); else f.submit();
+      }
+      // ⭐ LA SAISIE ATTEND, LE CLIC PART. Une frappe par lettre lancerait une
+      // requête par lettre : `spider-man` en coûterait dix. 400 ms, c'est la
+      // pause qu'on fait naturellement en finissant de taper.
+      var minuteur = null;
+      function envoyerPlusTard() {
+        if (minuteur) clearTimeout(minuteur);
+        minuteur = setTimeout(envoyer, 400);
       }
 
-      function etat(){
-        return {
-          q: (val('f-q') || '').toLowerCase(),
-          corpus: corpus, vue: vue,
-          tri: val('f-tri') || 'ch-desc',
-          vari: (f.querySelector('input[name=f-var]:checked') || {}).value || '',
-          rar: coches('f-rar'),
-          pmin: num(val('f-pmin')), pmax: num(val('f-pmax')), mcpMax: num(val('f-mcp')),
-          smin: num(val('f-smin')), smax: num(val('f-smax')), lmin: num(val('f-lmin')),
-          d1: val('f-d1'), d2: val('f-d2'),
-          cols: coches('f-col')
-        };
-      }
-
-      // ⭐ UNE ABSENCE N'EST PAS UN ZÉRO. Une fiche sans tirage connu ne doit
-      // pas être écartée par « tirage min = 1 » : on ne sait pas, donc on ne
-      // tranche pas. Le filtre ne mord que sur les valeurs qu'on possède.
-      function dans(v, mn, mx){
-        if (v === null) return true;
-        if (mn !== null && v < mn) return false;
-        if (mx !== null && v > mx) return false;
-        return true;
-      }
-      function garde(e, l){
-        var d = l.dataset;
-        if (e.q && d.n.indexOf(e.q) === -1) return false;
-        if (e.corpus && d.type !== e.corpus) return false;
-        if (e.vari && d.var !== e.vari) return false;
-        if (e.rar.length && e.rar.indexOf(d.rar) === -1) return false;
-        if (!dans(num(d.floor), e.pmin, e.pmax)) return false;
-        if (!dans(num(d.sup), e.smin, e.smax)) return false;
-        if (!dans(num(d.lst), e.lmin, null)) return false;
-        if (e.mcpMax !== null && num(d.mcp) !== null && num(d.mcp) > e.mcpMax) return false;
-        // ⚠️ Une pièce SANS date de sortie traverse les bornes de date. Une
-        // date absente n'est pas une date ancienne.
-        if (d.date) {
-          if (e.d1 && d.date < e.d1) return false;
-          if (e.d2 && d.date > e.d2) return false;
-        }
-        return true;
-      }
-
-      // ── LE TRI. ⛔ Il réordonne CE QUI EST DÉJÀ RENDU (200 lignes au plus),
-      //    il ne va rien chercher de plus : le libellé du plafond le dit.
-      var ORDRE = {
-        'ch-desc':    function(a,b){ return (num(b.dataset.ch) === null ? -Infinity : num(b.dataset.ch)) - (num(a.dataset.ch) === null ? -Infinity : num(a.dataset.ch)); },
-        'floor-desc': function(a,b){ return (num(b.dataset.floor) || 0) - (num(a.dataset.floor) || 0); },
-        'floor-asc':  function(a,b){ return (num(a.dataset.floor) || 0) - (num(b.dataset.floor) || 0); },
-        'sup-asc':    function(a,b){ return (num(a.dataset.sup) === null ? Infinity : num(a.dataset.sup)) - (num(b.dataset.sup) === null ? Infinity : num(b.dataset.sup)); },
-        'mcp-asc':    function(a,b){ return (num(a.dataset.mcp) === null ? Infinity : num(a.dataset.mcp)) - (num(b.dataset.mcp) === null ? Infinity : num(b.dataset.mcp)); },
-        'nom-asc':    function(a,b){ return a.dataset.n.localeCompare(b.dataset.n); }
-      };
-
-      // ── LES COLONNES. En-tête ET cellules portent le même `data-col`.
-      function colonnes(actives){
-        [].slice.call(document.querySelectorAll('#vue-tbl [data-col]')).forEach(function(c){
+      // ═══════════════════════════════════════════════════════════════════
+      //  ② CE QUI RESTE INSTANTANÉ — vue et colonnes, zéro requête
+      // ═══════════════════════════════════════════════════════════════════
+      // ⭐ Ni l'une ni l'autre ne change la SÉLECTION : masquer une colonne ou
+      // basculer en tuiles, c'est regarder autrement les mêmes lignes. Les
+      // faire passer par le serveur serait payer un aller-retour pour rien.
+      // Elles voyagent quand même dans l'URL — mais en PASSAGERS du prochain
+      // filtre, pas en déclencheurs.
+      function colonnes() {
+        var actives = [].slice.call(f.querySelectorAll('input[name="f-col"]:checked'))
+          .map(function (c) { return c.value; });
+        [].slice.call(document.querySelectorAll('#vue-tbl [data-col]')).forEach(function (c) {
           c.hidden = actives.indexOf(c.dataset.col) === -1;
         });
+        if (cx) cx.value = '1';
+      }
+      var champVue = document.getElementById('f-vue');
+      function peindreVue(v) {
+        if (champVue) champVue.value = v;
+        if (v === 'tui') batirTuiles();
+        var tbl = document.getElementById('vue-tbl');
+        if (tbl) tbl.hidden = v !== 'tbl';
+        if (grille) grille.hidden = v !== 'tui';
       }
 
-      function tranche(visibles){
-        if (!bPlus) { return; }
-        for (var i = 0; i < visibles.length; i++) visibles[i].hidden = i >= montre;
-        bPlus.hidden = visibles.length <= montre;
-        if (cPlus) cPlus.textContent = Math.min(montre, visibles.length) + ' / ' + visibles.length;
-      }
-
-      function appliquer(){
-        var e = etat(), n = 0, visT = [], visU = [];
-        // ⭐ AU PLUS TARD, ET UNE SEULE FOIS. Tant que personne n'ouvre la vue
-        // Tuiles, aucun de ces 200 nœuds n'existe. C'est le lot entier.
-        if (e.vue === 'tui') batirTuiles();
-        L.forEach(function(l){ var ok = garde(e, l); l.hidden = !ok; if (ok) { n++; visT.push(l); } });
-        T.forEach(function(x){ var ok = garde(e, x); x.hidden = !ok; if (ok) visU.push(x); });
-
-        // ⭐ ON TRIE PUIS ON RÉINSÈRE, sans reconstruire le tableau : les nœuds
-        // sont les mêmes, donc les écouteurs et le focus survivent.
-        var cmp = ORDRE[e.tri] || ORDRE['ch-desc'];
-        visT.sort(cmp);
-        if (corps) visT.forEach(function(l){ corps.appendChild(l); });
-        // ⭐ LE TRI S'APPLIQUE AUX DEUX VUES. Un ordre qui change quand on
-        // bascule Tableau/Tuiles est un ordre auquel on cesse de faire
-        // confiance — et c'est le même reproche que le corpus à deux tailles.
-        visU.sort(cmp);
-        if (grille) visU.forEach(function(x){ grille.appendChild(x); });
-        // Le rang se RENUMÉROTE : « 001 » sur la troisième ligne d'un
-        // classement trié autrement serait un chiffre qui ment.
-        visT.forEach(function(l, k){
-          var r = l.querySelector('.rang'); if (r) r.textContent = String(k + 1).padStart(3, '0');
-        });
-
-        tranche(e.vue === 'tui' ? visU : visT);
-        colonnes(e.cols);
-        cpt.textContent = n + ' / ' + L.length;
-
-        // ── LES JETONS : un par filtre actif, cliquable pour le retirer.
-        var j = document.getElementById('actifs'); j.innerHTML = '';
-        function jeton(texte, retirer){
+      // ═══════════════════════════════════════════════════════════════════
+      //  ③ LES JETONS — ils LISENT le formulaire, ils ne le devinent pas
+      // ═══════════════════════════════════════════════════════════════════
+      // ⭐ Le formulaire est rempli PAR LE SERVEUR avec l'état de l'URL : le
+      // lire suffit, et il n'y a donc aucune seconde description des filtres
+      // actifs à tenir à jour. Retirer un jeton vide son champ et repart.
+      var hoteJ = document.getElementById('actifs');
+      function jetons() {
+        if (!hoteJ) return;
+        hoteJ.innerHTML = '';
+        function jeton(texte, retirer) {
           var b = document.createElement('button');
           b.type = 'button'; b.className = 'jeton';
-          b.innerHTML = texte + ' <span aria-hidden="true">×</span>';
-          b.setAttribute('aria-label', b.textContent);
-          b.onclick = function(){ retirer(); montre = pas; appliquer(); };
-          j.appendChild(b);
+          b.appendChild(document.createTextNode(texte + ' '));
+          var x = document.createElement('span');
+          x.setAttribute('aria-hidden', 'true'); x.textContent = '×';
+          b.appendChild(x);
+          b.setAttribute('aria-label', texte);
+          b.addEventListener('click', function () { retirer(); envoyer(); });
+          hoteJ.appendChild(b);
         }
-        e.rar.forEach(function(r){
-          jeton(r, function(){ var c = f.querySelector('input[name=f-rar][value="' + r + '"]'); if (c) c.checked = false; });
+        [].slice.call(f.querySelectorAll('input[name="f-rar"]:checked')).forEach(function (c) {
+          jeton(c.value, function () { c.checked = false; });
         });
-        if (e.vari) jeton(e.vari === 'up' ? '▲' : '▼', function(){ var c = f.querySelector('input[name=f-var][value=""]'); if (c) c.checked = true; });
-        [['f-pmin', e.pmin], ['f-pmax', e.pmax], ['f-mcp', e.mcpMax],
-         ['f-smin', e.smin], ['f-smax', e.smax], ['f-lmin', e.lmin]].forEach(function(pair){
-          if (pair[1] === null) return;
-          var champ = document.getElementById(pair[0]);
-          var etiq = champ && champ.parentNode.querySelector('.etiq');
-          jeton((etiq ? etiq.textContent + ' ' : '') + pair[1], function(){ champ.value = ''; });
-        });
-        [['f-d1', e.d1], ['f-d2', e.d2]].forEach(function(pair){
-          if (!pair[1]) return;
-          var champ = document.getElementById(pair[0]);
-          var etiq = champ && champ.parentNode.querySelector('.etiq');
-          jeton((etiq ? etiq.textContent + ' ' : '') + pair[1], function(){ champ.value = ''; });
-        });
-
-        vide.hidden = n !== 0;
-        document.getElementById('vue-tbl').hidden = e.vue !== 'tbl';
-        document.getElementById('vue-tui').hidden = e.vue !== 'tui';
-
-        // Le compteur porté par CHAQUE bouton de groupe. ⭐ Sans lui, un filtre
-        // posé dans un panneau replié est un filtre qu'on a oublié d'avoir mis.
-        var actifsPar = {
-          place: 0,
-          type: e.rar.length,
-          prix: (e.pmin !== null) + (e.pmax !== null) + (e.mcpMax !== null) + (e.vari ? 1 : 0),
-          mint: (e.smin !== null) + (e.smax !== null) + (e.lmin !== null),
-          date: (e.d1 ? 1 : 0) + (e.d2 ? 1 : 0)
-        };
-        [].slice.call(f.querySelectorAll('.f-b[data-g]')).forEach(function(b){
-          var c = b.querySelector('.cpt-f'); if (!c) return;
-          var v = actifsPar[b.dataset.g] || 0;
-          c.textContent = v; c.hidden = !v;
-        });
-        ecrire(e);
-      }
-
-      // ── RESTITUTION DE L'ÉTAT MÉMORISÉ
-      var st = lire();
-      if (st.q) document.getElementById('f-q').value = st.q;
-      if (st.corpus) corpus = st.corpus;
-      if (st.vue) vue = st.vue;
-      if (st.tri) { var sel = document.getElementById('f-tri'); if (sel) sel.value = st.tri; }
-      if (st.vari) { var v = f.querySelector('input[name=f-var][value="' + st.vari + '"]'); if (v) v.checked = true; }
-      (st.rar || []).forEach(function(x){ var c = f.querySelector('input[name=f-rar][value="' + x + '"]'); if (c) c.checked = true; });
-      [['f-pmin','pmin'],['f-pmax','pmax'],['f-mcp','mcpMax'],['f-smin','smin'],['f-smax','smax'],['f-lmin','lmin'],['f-d1','d1'],['f-d2','d2']]
-        .forEach(function(pair){
-          var champ = document.getElementById(pair[0]);
-          if (champ && st[pair[1]] !== null && st[pair[1]] !== undefined && st[pair[1]] !== '') champ.value = st[pair[1]];
-        });
-      if (Array.isArray(st.cols)) {
-        [].slice.call(f.querySelectorAll('input[name=f-col]')).forEach(function(c){ c.checked = st.cols.indexOf(c.value) !== -1; });
-      }
-
-      // ── LES SEGMENTS (corpus, vue)
-      function seg(sel, get, set){
-        [].slice.call(f.querySelectorAll(sel)).forEach(function(b){
-          b.setAttribute('aria-pressed', get(b) ? 'true' : 'false');
-          b.addEventListener('click', function(){
-            set(b);
-            [].slice.call(f.querySelectorAll(sel)).forEach(function(o){ o.setAttribute('aria-pressed', o === b ? 'true' : 'false'); });
-            montre = pas; appliquer();
+        var v = f.querySelector('input[name="f-var"]:checked');
+        if (v && v.value) {
+          jeton(v.value === 'up' ? '\u25B2' : '\u25BC', function () {
+            var z = f.querySelector('input[name="f-var"][value=""]'); if (z) z.checked = true;
           });
+        }
+        ['f-pmin', 'f-pmax', 'f-mcp', 'f-smin', 'f-smax', 'f-lmin', 'f-d1', 'f-d2'].forEach(function (id) {
+          var champ = document.getElementById(id);
+          if (!champ || !champ.value) return;
+          var etiq = champ.parentNode.querySelector('.etiq');
+          jeton((etiq ? etiq.textContent + ' ' : '') + champ.value, function () { champ.value = ''; });
+        });
+        var q = document.getElementById('f-q');
+        if (q && q.value) jeton(q.value, function () { q.value = ''; });
+      }
+
+      // ⭐ Le compteur porté par CHAQUE bouton de groupe. Sans lui, un filtre
+      // posé dans un panneau replié est un filtre qu'on a oublié d'avoir mis.
+      function compteurs() {
+        var n = function (id) { var e = document.getElementById(id); return e && e.value ? 1 : 0; };
+        var vv = f.querySelector('input[name="f-var"]:checked');
+        var par = {
+          place: 0,
+          type: f.querySelectorAll('input[name="f-rar"]:checked').length,
+          prix: n('f-pmin') + n('f-pmax') + n('f-mcp') + (vv && vv.value ? 1 : 0),
+          mint: n('f-smin') + n('f-smax') + n('f-lmin'),
+          date: n('f-d1') + n('f-d2')
+        };
+        [].slice.call(f.querySelectorAll('.f-b[data-g]')).forEach(function (b) {
+          var c = b.querySelector('.cpt-f'); if (!c) return;
+          var v2 = par[b.dataset.g] || 0;
+          c.textContent = v2; c.hidden = !v2;
         });
       }
-      seg('[data-corpus]', function(b){ return b.dataset.corpus === corpus; }, function(b){ corpus = b.dataset.corpus; });
-      seg('.v-b',          function(b){ return b.dataset.vue === vue; },       function(b){ vue = b.dataset.vue; });
 
-      // ── LES PANNEAUX : un seul ouvert à la fois.
+      // ═══════════════════════════════════════════════════════════════════
+      //  ④ LES PANNEAUX — un seul ouvert à la fois
+      // ═══════════════════════════════════════════════════════════════════
       // ⚠️ Sinon la barre pousse le tableau hors de l'écran et on filtre à
       // l'aveugle — mesuré sur la maquette avant de la porter.
       var boutons = [].slice.call(f.querySelectorAll('.f-b[data-g]'));
-      boutons.forEach(function(b){
+      boutons.forEach(function (b) {
         var panneau = document.getElementById('fp-' + b.dataset.g);
         if (!panneau) return;
-        b.addEventListener('click', function(){
+        b.addEventListener('click', function () {
           var ouvrir = panneau.hidden;
-          boutons.forEach(function(o){
+          boutons.forEach(function (o) {
             var p2 = document.getElementById('fp-' + o.dataset.g);
             if (p2) p2.hidden = true;
             o.setAttribute('aria-expanded', 'false');
@@ -1128,14 +1136,63 @@ const ILE_TUILES = JSON.stringify({
         });
       });
 
-      if (bPlus) bPlus.addEventListener('click', function(){ montre += pas; appliquer(); });
-      // ⛔ Changer de filtre REVIENT à la première tranche. Sans ça, quelqu'un
-      // qui a déplié 200 lignes puis restreint à une rareté garde un
-      // « 200 / 12 » absurde, et le bouton reste caché sur un corpus tout neuf.
-      f.addEventListener('input',  function(){ montre = pas; appliquer(); });
-      f.addEventListener('change', function(){ montre = pas; appliquer(); });
-      f.addEventListener('reset',  function(){ setTimeout(function(){ corpus = ''; montre = pas; appliquer(); }, 0); });
-      appliquer();
+      // ═══════════════════════════════════════════════════════════════════
+      //  ⑤ LES SEGMENTS — le corpus part, la vue reste
+      // ═══════════════════════════════════════════════════════════════════
+      var champC = document.getElementById('f-c');
+      [].slice.call(f.querySelectorAll('[data-corpus]')).forEach(function (b) {
+        b.addEventListener('click', function () {
+          if (champC) champC.value = b.dataset.corpus;
+          envoyer();
+        });
+      });
+      [].slice.call(f.querySelectorAll('.v-b')).forEach(function (b) {
+        b.addEventListener('click', function () {
+          [].slice.call(f.querySelectorAll('.v-b')).forEach(function (o) {
+            o.setAttribute('aria-pressed', o === b ? 'true' : 'false');
+          });
+          peindreVue(b.dataset.vue);
+        });
+      });
+
+      // ═══════════════════════════════════════════════════════════════════
+      //  ⑥ LE BRANCHEMENT — et il distingue ce qui coûte de ce qui ne coûte pas
+      // ═══════════════════════════════════════════════════════════════════
+      // 🔴 UN SEUL GESTE NE DOIT PARTIR QU'UNE FOIS. Un `<select>` émet `input`
+      // ET `change` : écouter les deux au même niveau enverrait deux requêtes
+      // pour un choix de tri. On sépare donc par NATURE de champ, pas par
+      // événement — la saisie temporise, le choix part.
+      f.addEventListener('input', function (e) {
+        var t2 = e.target;
+        if (!t2 || t2.name === 'f-col') return;
+        if (t2.tagName === 'INPUT' && /^(search|number|date|text)$/.test(t2.type)) envoyerPlusTard();
+      });
+      f.addEventListener('change', function (e) {
+        var t2 = e.target;
+        if (!t2) return;
+        // ⭐ Les colonnes ne partent JAMAIS : elles se peignent sur place.
+        if (t2.name === 'f-col') { colonnes(); return; }
+        if (t2.tagName === 'SELECT' || (t2.tagName === 'INPUT' && /^(checkbox|radio)$/.test(t2.type))) envoyer();
+      });
+      // ⭐ ENTRÉE dans la recherche : on part TOUT DE SUITE, sans attendre les
+      // 400 ms — quelqu'un qui valide a fini de taper, et le formulaire aurait
+      // de toute façon été soumis par le navigateur.
+      f.addEventListener('submit', function () {
+        if (minuteur) clearTimeout(minuteur);
+        if (cx) cx.value = '1';
+        enVol = true;
+      });
+
+      // ⭐ L'ÉTAT INITIAL EST CELUI DU SERVEUR : on ne le restitue pas, on le
+      // PEINT. Les colonnes et la vue sont déjà justes dans le HTML — ces deux
+      // appels ne servent qu'aux cas où le navigateur restaure d'anciennes
+      // valeurs de champs (retour arrière), et ils ne coûtent aucune requête.
+      colonnes();
+      if (cx) cx.value = (cx.value === '1' ? '1' : '');
+      jetons();
+      compteurs();
+      var vueInit = champVue ? champVue.value : 'tbl';
+      if (vueInit === 'tui') peindreVue('tui');
     })();
   </script>
   {/* ⛔ LE SCEAU « REGISTRE INDÉPENDANT / jamais de publicité payée » A ÉTÉ

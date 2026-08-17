@@ -1027,18 +1027,63 @@ async function construireDataset() {
   // ⭐ On calcule TANT QUE LE PRIX EXISTE, et l'ORDRE DU TABLEAU porte
   // l'information. Meme regle que `collections` et `rarities` au-dessus.
   //
-  // ⚠️ LE PLAFOND EST ICI AUSSI, ET C'EST VOULU. Preda : « on ne doit pas
-  // charger les 1 200 lignes ». Le laisser au gabarit ferait voyager 1 200
-  // objets pour en rendre 200.
-  const MARCHE_MAX = 200;
+  // ═══════════════════════════════════════════════════════════════════════
+  // 🔴🔴🔴 LOT 155-C — LE PLAFOND TOMBE, ET L'ORDRE PAR DEFAUT CHANGE DE NATURE
+  // ═══════════════════════════════════════════════════════════════════════
+  // ⛔ `MARCHE_MAX = 200` a ete retire. Ce qu'il protegeait reste protege, mais
+  // AILLEURS : la page ne rend plus qu'une TRANCHE (`marche_selection.mjs`,
+  // `PAR_PAGE = 20`, plafond dur `RENDU_MAX = 500`). Le plafond a change de
+  // couche parce que la MESURE a change de reponse.
+  //
+  // CE QUI A ETE MESURE LE 17/08, sur la `.reserve/` d'un build reel :
+  //     `JSON.parse` de la projection de 16,3 Mo ........ 42,6 ms
+  //     `lireCotes()` sur 8 841 fichiers ................ 112 ms a froid
+  //     le `<tbody>` rendu .............................. 3 185 o par ligne
+  // ⇒ porter les 8 840 fiches jusqu'au serveur coute des MILLISECONDES ; les
+  // envoyer au navigateur couterait 28 Mo de HTML et ~80 000 noeuds. Le plafond
+  // utile n'est donc pas ici, il est au RENDU. Le garder ici en plus rendrait
+  // le filtre aveugle a 8 640 fiches — un filtre qui ne voit pas le catalogue
+  // est un filtre qui ment, et il ment en silence.
+  // 🔴 CE FICHIER PESE DESORMAIS ~16,3 Mo SUR LE DISQUE DU SERVEUR. C'est
+  // assume et c'est mesure : il est lu une fois par requete, en 43 ms, et il ne
+  // part JAMAIS dans `dist/client/` (cf. `deposerMarche`, sous `PORTE_PRIX`).
+  //
+  // ⭐⭐⭐ ET L'ORDRE PAR DEFAUT DEVIENT NEUTRE — arbitrage Preda du 17/08 :
+  // `/market/` devient LE CATALOGUE COTE. « Les plus fortes variations » cesse
+  // d'etre sa nature et devient UN TRI PARMI D'AUTRES (`ch-desc`).
+  // ⚠️ ET IL RESTE POSE ICI, PAS DANS LE GABARIT. C'est le seul endroit ou
+  // l'ordre est juste POUR TOUT LE MONDE : on trie AVANT `projeterCote()`,
+  // donc tant que les montants existent, et le gabarit — qui ne voit que des
+  // champs projetes — n'a plus qu'a rendre. C'est la regle des 20 lignes
+  // au-dessus, appliquee a une seconde liste.
+  // ⭐ `releaseDate` decroissante : un ordre STABLE, independant des prix, et
+  // comprehensible sans legende — « les plus recentes d'abord ».
+  // ⛔ LES FICHES SANS DATE NE SONT PAS JETEES, ELLES VONT AU BOUT. Une date
+  // absente n'est pas « 1970 » : la trier comme telle mettrait en tete du
+  // catalogue les fiches dont on ne sait rien.
+  // ⭐ Le nom en second critere : sans lui, deux sorties du meme jour
+  // s'ordonnent par hasard d'insertion, et la page 2 peut reafficher une ligne
+  // de la page 1 — une pagination qui saute des lignes sans rien signaler.
+  const jourDe = (i) => jourISO(i.releaseDate) || '';
   const marche = items
     .filter((i) => i.floor !== null && i.floor !== undefined)
-    .sort((a, b) => (b.change7d ?? -Infinity) - (a.change7d ?? -Infinity))
-    .slice(0, MARCHE_MAX);
+    .sort((a, b) => {
+      const da = jourDe(a), db = jourDe(b);
+      if (da !== db) {
+        if (!da) return 1;
+        if (!db) return -1;
+        return db < da ? -1 : 1;
+      }
+      return String(a.name || '').localeCompare(String(b.name || ''));
+    });
   // ⭐ Le TOTAL avant plafond : la page annonce « 200 sur N », et N ne peut pas
   // se recalculer apres coup — `items` aura perdu `floor`.
   const marcheTotal = items.filter((i) => i.floor !== null && i.floor !== undefined).length;
-  console.log(`[marche] ${marcheTotal} fiche(s) avec un plancher · ${marche.length} rendue(s) (plafond ${MARCHE_MAX})`);
+  // ⭐ LE JOURNAL DIT DESORMAIS « projetee(s) », PAS « rendue(s) ». Le mot
+  // comptait : depuis le lot 155-C ce nombre n'est plus ce que la page rend,
+  // c'est ce que le filtre du serveur peut voir. Un journal qui garde l'ancien
+  // mot ferait chercher une troncature qui n'existe plus.
+  console.log(`[marche] ${marcheTotal} fiche(s) avec un plancher · ${marche.length} projetee(s) (aucun plafond depuis le lot 155-C)`);
   if (marcheTotal === 0) {
     console.log('[marche] ATTENTION AUCUNE fiche avec plancher : la page /market/ sortira vide. '
       + 'Verifier que ce calcul est bien AVANT projeterCote().');

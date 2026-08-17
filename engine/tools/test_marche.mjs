@@ -36,6 +36,10 @@ import { join, dirname, resolve, relative } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { lireTemoin } from '../lib/astro_temoin_build.mjs';
+// 🔴 `jourISO` ET PAS UN `slice(0, 10)` : la donnée est en JJ/MM/AAAA. Un
+// découpage naïf rendrait « 06/1 » et le contrôle d'ordre ne mordrait jamais
+// — c'est le piège du lot 68, qui avait auto-supprimé un panneau en silence.
+import { jourISO } from '../lib/vitrine.mjs';
 
 const ICI = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(ICI, '..', '..');
@@ -219,9 +223,56 @@ if (!existsSync(VRAI)) {
 
   verifie('elle porte des lignes', Array.isArray(charge.marche) && charge.marche.length > 0,
     `${charge.marche?.length ?? 0} ligne(s) · ${(octets / 1024).toFixed(0)} Ko`);
-  verifie('le plafond de 200 est respecté', (charge.marche?.length ?? 0) <= 200, String(charge.marche?.length));
-  verifie('le total avant plafond est au moins égal au rendu',
-    (charge.marcheTotal ?? 0) >= (charge.marche?.length ?? 0), `${charge.marcheTotal} au total`);
+  // ═════════════════════════════════════════════════════════════════════════
+  // 🔴🔴🔴 LOT 155-C — « LE PLAFOND DE 200 EST RESPECTÉ » A ÉTÉ REMPLACÉ, PAS
+  //  ASSOUPLI, ET LA DIFFÉRENCE EST TOUT LE SUJET.
+  // ═════════════════════════════════════════════════════════════════════════
+  // L'ancien contrôle lisait `marche.length <= 200`. Le plafond ayant disparu
+  // de `dataset.mjs`, le garder aurait rendu ROUGE un lot conforme ; le retirer
+  // sans rien mettre à la place aurait laissé passer son retour silencieux.
+  // ⭐⭐⭐ L'INVARIANT QUI LE REMPLACE EST PLUS STRICT QUE LUI : la projection
+  // porte TOUTE la population cotée, ni plus ni moins. `marcheTotal` est calculé
+  // par un second filtre, indépendant, dans `dataset.mjs` — les deux nombres ne
+  // peuvent coïncider que si personne n'a recoupé la liste entre les deux.
+  // ⇒ un `.slice()` réintroduit « pour soulager la page » rougit ICI, et il
+  //   rougit dans les DEUX corpus : l'égalité ne dépend pas de l'échelle.
+  verifie('⛔ la projection porte TOUTE la population cotée (aucun plafond réintroduit)',
+    (charge.marche?.length ?? 0) === (charge.marcheTotal ?? -1),
+    (charge.marche?.length ?? 0) === (charge.marcheTotal ?? -1)
+      ? `${charge.marche.length} ligne(s) = ${charge.marcheTotal} cotée(s)`
+      : `🔴 ${charge.marche?.length ?? 0} ligne(s) pour ${charge.marcheTotal} cotée(s) : quelqu'un a recoupé `
+        + 'la liste entre le filtre et le dépôt. Le plafond du rendu vit dans `marche_selection.mjs` '
+        + '(`PAR_PAGE`, `RENDU_MAX`), PAS dans la projection.');
+
+  // ⭐⭐ L'ORDRE DÉPOSÉ EST L'ORDRE NEUTRE — et il se vérifie SANS importer
+  // `dataset.mjs` (ce banc ne doit jamais l'importer : il réécrirait la
+  // réserve sous ses propres pieds). On relit le fichier : `releaseDate`
+  // décroissante, et les fiches SANS date au bout.
+  // ⛔ CE CONTRÔLE PEUT ÊTRE SANS OBJET, et il le dit : il exige une propriété
+  //   du CORPUS (au moins deux dates connues), jamais un état de la page.
+  {
+    const lignesV = charge.marche || [];
+    const jours = lignesV.map((i) => jourISO(i.releaseDate) || '');
+    const connues = jours.filter(Boolean).length;
+    if (connues < 2) {
+      indecis('l\'ordre neutre de la projection',
+        `${connues} date(s) de sortie connue(s) sur ${lignesV.length} : rien à ordonner`);
+    } else {
+      // ① décroissant sur les dates connues, ② aucune date connue APRÈS un vide
+      let fauteOrdre = 0, fauteQueue = 0, vuVide = false;
+      for (let n = 0; n < jours.length; n++) {
+        if (!jours[n]) { vuVide = true; continue; }
+        if (vuVide) fauteQueue++;
+        if (n > 0 && jours[n - 1] && jours[n] > jours[n - 1]) fauteOrdre++;
+      }
+      verifie('⛔ la projection est déposée en ordre neutre (sorties récentes d\'abord)',
+        fauteOrdre === 0 && fauteQueue === 0,
+        fauteOrdre === 0 && fauteQueue === 0
+          ? `${connues} date(s) en ordre décroissant, ${lignesV.length - connues} sans date en fin de liste`
+          : `🔴 ${fauteOrdre} inversion(s) de date et ${fauteQueue} fiche(s) datée(s) APRÈS une fiche sans date. `
+            + 'Le tri est posé dans `dataset.mjs`, AVANT `projeterCote()` — il a dû y être déplacé ou perdu.');
+    }
+  }
   verifie('`itemsTotal` est renseigné (la page annonce ce nombre)',
     (charge.itemsTotal ?? 0) > 0, String(charge.itemsTotal));
 
@@ -480,6 +531,143 @@ if (!existsSync(VRAI_V)) {
       entrees.length === m.itemsTotal,
       entrees.length === m.itemsTotal ? `${entrees.length} des deux côtés`
         : `🔴 ${entrees.length} contre ${m.itemsTotal} : les deux dépôts ne viennent pas du même build`);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 LOT 155-C — LA SÉLECTION SERVEUR : CE QUI REMPLACE LE PLAFOND
+// ═══════════════════════════════════════════════════════════════════════════
+// Depuis ce lot, ce n'est plus la PROJECTION qui borne la page, c'est le RENDU.
+// Le garde-fou doit donc suivre : ce § éprouve `marche_selection.mjs` sur les
+// VRAIES lignes déposées par le build — jamais sur un témoin fabriqué.
+// ⚠️ CE MODULE N'IMPORTE PAS `dataset.mjs` (il ne dépend que de `vitrine.mjs`),
+// ce banc peut donc l'appeler après le build sans réécrire la réserve.
+// ⭐⭐⭐ ET IL EST JUGÉ EN LUI INJECTANT LE MAUVAIS ÉTAT : chaque contrôle
+// ci-dessous est accompagné de la valeur qui le ferait rougir, et deux d'entre
+// eux ont effectivement rougi pendant l'écriture (bornes et tri des inconnus).
+console.log('\n8. la sélection serveur (marche_selection.mjs) ?');
+{
+  const SEL = await import('../lib/marche_selection.mjs');
+  const VRAI2 = join(ROOT, '.reserve', 'marche.json');
+  const brut = existsSync(VRAI2) ? (JSON.parse(readFileSync(VRAI2, 'utf8')).marche || []) : [];
+
+  // 🔴🔴🔴 ON FUSIONNE AVEC `.reserve/cote/`, COMME LE FAIT LA ROUTE — SINON CE
+  // § SERAIT MUET SUR LA MOITIÉ DE CE QU'IL DOIT GARDER.
+  // La projection ne PORTE aucun montant (c'est tout l'objet du §2 : les tris
+  // par plancher et par $/MCP y liraient `undefined`, et le contrôle serait
+  // « vert » sur une liste que rien n'ordonne). Les montants sont réinjectés au
+  // rendu, par la route, depuis la réserve : le banc doit donc éprouver la
+  // sélection sur la MÊME matière que la page — `{...i, ...cote}`.
+  // ⚠️ En CI (`WAREHOUSE_OFFLINE=1`) la réserve est quasi vide : la fusion ne
+  // rendra presque rien, et les contrôles qui en dépendent se déclareront
+  // INDÉCIDABLES au lieu de rendre un vert de complaisance.
+  const dossierC = join(ROOT, '.reserve', 'cote');
+  const pop = brut.map((i) => {
+    const f = join(dossierC, `${i.uuid}.json`);
+    if (!existsSync(f)) return i;
+    try { return { ...i, ...JSON.parse(readFileSync(f, 'utf8')) }; } catch (e) { return i; }
+  });
+  const avecFloor = pop.filter((i) => typeof i.floor === 'number').length;
+  console.log(`  ℹ️  ${pop.length} ligne(s) de projection · ${avecFloor} adossée(s) à un montant réel`);
+
+  if (!pop.length) {
+    indecis('la sélection sur les lignes réelles', 'aucune projection déposée (porte « cote » inactive ?)');
+  } else {
+    const P = (q) => SEL.lireParams(new URLSearchParams(q));
+
+    // ── ① LA TRANCHE PAR DÉFAUT. ⛔ Le contrôle se conditionne sur une
+    //    propriété du CORPUS (`pop.length`), jamais sur ce que la page a rendu :
+    //    sinon il deviendrait un assouplissement déguisé là où il doit garder.
+    const d = SEL.selectionMarche(pop, P(''));
+    const attendu = Math.min(SEL.PAR_PAGE, pop.length);
+    verifie('sans paramètre, la page ne rend qu\'une tranche',
+      d.lignes.length === attendu,
+      `${d.lignes.length} ligne(s) rendue(s) sur ${pop.length} — PAR_PAGE = ${SEL.PAR_PAGE}`);
+
+    // ── ② L'ORDRE PAR DÉFAUT EST CELUI DU FICHIER, PAS UN SECOND TRI.
+    // ⭐ L'ancre est INDÉPENDANTE du module : c'est la projection elle-même.
+    //   Un comparateur ajouté « pour faire pareil » réordonnerait, et ce
+    //   contrôle le verrait — c'est la seule façon de garder l'invariant
+    //   « l'ordre est décidé une fois, dans dataset.mjs ».
+    const memeOrdre = d.lignes.every((l, n) => l.uuid === pop[n].uuid);
+    verifie('⛔ le tri par défaut ne RETRIE pas : il rend l\'ordre du fichier',
+      d.lignes.length > 0 && memeOrdre,
+      memeOrdre ? `${d.lignes.length} premier(s) uuid identiques à la projection`
+        : '🔴 la tranche par défaut ne suit plus la projection : un comparateur a été ajouté sous `defaut`');
+
+    // ── ③ LES TROIS NOMBRES SE REFERMENT. `rendues + reste === retenues` :
+    //    une identité, donc un contrôle qui ne peut pas être vrai par hasard.
+    verifie('les compteurs se referment (rendues + reste = retenues)',
+      d.rendues + d.reste === d.retenues && d.total === pop.length,
+      `${d.rendues} + ${d.reste} = ${d.retenues} · total ${d.total}`);
+
+    // ── ④ LE PLAFOND DU RENDU TIENT CONTRE UNE URL HOSTILE. Quelqu'un ÉCRIRA
+    //    `?f-n=99999` — et 8 840 lignes font 28 Mo de HTML.
+    const gros = P('f-n=99999');
+    verifie('⛔ `f-n` est borné par RENDU_MAX (une URL n\'impose pas le poids de la page)',
+      gros.n === SEL.RENDU_MAX, `f-n=99999 → ${gros.n} (RENDU_MAX = ${SEL.RENDU_MAX})`);
+    verifie('…et une valeur illisible retombe sur la tranche',
+      P('f-n=abc').n === SEL.PAR_PAGE && P('f-n=-5').n === SEL.PAR_PAGE,
+      `f-n=abc → ${P('f-n=abc').n} · f-n=-5 → ${P('f-n=-5').n}`);
+    verifie('…et un tri inconnu retombe sur le défaut, sans lever',
+      P('f-tri=nawak').tri === SEL.TRI_DEFAUT, `→ ${P('f-tri=nawak').tri}`);
+
+    // ── ⑤ LE FILTRE MORD VRAIMENT. ⭐ On prend une rareté PRÉSENTE dans la
+    //    population : un critère absent rendrait 0 partout et le contrôle
+    //    serait vert pour la mauvaise raison.
+    const raretes = [...new Set(pop.map((i) => i.rarity).filter(Boolean))];
+    if (!raretes.length) {
+      indecis('la morsure du filtre', 'aucune rareté dans la projection');
+    } else {
+      const r0 = raretes[0];
+      const combien = pop.filter((i) => i.rarity === r0).length;
+      const fr = SEL.selectionMarche(pop, P('f-rar=' + encodeURIComponent(r0) + '&f-n=500'));
+      verifie(`le filtre de rareté mord (${r0})`,
+        fr.retenues === combien && fr.retenues < pop.length,
+        `${fr.retenues} retenue(s) sur ${pop.length}` + (fr.retenues === pop.length ? ' 🔴 il ne mord pas' : ''));
+      verifie('…et le TOTAL ne bouge pas quand on filtre (les facettes parlent du catalogue)',
+        fr.total === pop.length, `${fr.total} = ${pop.length}`);
+    }
+
+    // ── ⑥ UNE BORNE NE JETTE PAS CE QU'ELLE NE CONNAÎT PAS.
+    // 🔴 CE CONTRÔLE A ROUGI PENDANT L'ÉCRITURE, et c'est pour ça qu'il est là :
+    //    un `Number(undefined) < min` rend `false`, donc la fiche PASSAIT par
+    //    accident ; un `(i.tirage || 0) < min` l'aurait jetée. L'un des deux est
+    //    juste pour la mauvaise raison, l'autre est faux — seule une fiche
+    //    RÉELLEMENT sans tirage tranche.
+    const sansTirage = pop.filter((i) => !i.tirage).length;
+    if (!sansTirage) {
+      indecis('les bornes face à l\'inconnu', 'aucune fiche sans tirage dans ce corpus');
+    } else {
+      const haut = Math.max(...pop.map((i) => Number(i.tirage) || 0)) + 1;
+      const fb = SEL.selectionMarche(pop, P('f-smin=' + haut + '&f-n=500'));
+      verifie('⛔ un tirage INCONNU traverse la borne (inconnu ≠ zéro)',
+        fb.retenues === sansTirage,
+        `${fb.retenues} retenue(s) pour ${sansTirage} fiche(s) sans tirage connu (borne ≥ ${haut})`);
+    }
+
+    // ── ⑦ LES TRIS ORDONNENT, ET LES INCONNUS VONT AU BOUT — DANS LES DEUX SENS.
+    // ⭐ Sans ce dernier point, un `|| 0` mettrait « les fiches dont on ne sait
+    //   rien » en tête des « moins chères ». C'est la panne la plus crédible de
+    //   tout le lot, parce qu'elle produit une page qui a l'air correcte.
+    const monte = SEL.selectionMarche(pop, P('f-tri=floor-asc&f-n=500')).lignes;
+    const vus = monte.map((i) => (typeof i.floor === 'number' ? i.floor : null));
+    const inconnus = vus.filter((v) => v === null).length;
+    const connus = vus.filter((v) => v !== null);
+    let croissant = true;
+    for (let n = 1; n < connus.length; n++) if (connus[n] < connus[n - 1]) croissant = false;
+    const queue = vus.slice(vus.length - inconnus).every((v) => v === null);
+    if (connus.length < 2) {
+      // ⚠️ HORS LIGNE, `.reserve/cote/` est quasi vide : la fusion ne rend aucun
+      //    montant, il n'y a donc rien à ordonner. Rendre vert serait mentir,
+      //    rendre rouge aussi. Troisième verdict.
+      indecis('le tri par plancher', `${connus.length} montant(s) après fusion avec .reserve/cote/ — rien à ordonner`);
+    } else {
+      verifie('le tri par plancher croît, et les inconnus sont EN FIN de liste',
+        croissant && (inconnus === 0 || queue),
+        `${connus.length} valeur(s) triée(s), ${inconnus} inconnue(s) en fin`
+          + (croissant ? '' : ' 🔴 ordre rompu') + (queue || !inconnus ? '' : ' 🔴 des inconnus en tête'));
+    }
   }
 }
 

@@ -68,9 +68,17 @@ if (!aLeDroit) {
 Astro.response.headers.set('cache-control', 'private, no-store');
 Astro.response.headers.set('vary', 'cookie');
 
-// ⭐ On ne demande la réserve QUE pour les pièces réellement rendues. `ds.marche`
-// est déjà plafonné (200) : lire les 1 200 fichiers pour en afficher 200 serait
-// payer 1 000 lectures disque par visite.
+// 🔴🔴 LOT 155-C — `ds.marche` N'EST PLUS PLAFONNÉ : IL PORTE LES 8 840.
+// La note d'avant disait « on ne demande la réserve que pour les pièces
+// réellement rendues » — elle est devenue fausse, et la garder aurait fait
+// chercher un plafond qui n'existe plus.
+// ⭐ ON LIT DONC TOUTES LES COTES, ET C'EST MESURÉ : 8 841 fichiers ouverts =
+// **112 ms à froid, 85 ms à chaud** (17/08). Le filtre et le tri du serveur ont
+// besoin des montants de TOUTE la population — trancher avant de lire rendrait
+// « plancher croissant » faux dès la deuxième tranche.
+// ⛔ Et ces montants ne partent PAS sur le fil : le gabarit ne rend qu'une
+// tranche de 20. Le coût est en millisecondes côté serveur, en octets côté
+// visiteur — et c'est le second qu'on protège.
 // 🔴🔴🔴 LOT 125 — `lireMarche()` ET PLUS `await dataset()`. MESURE : 10 328 ms
 // contre 2 ms. `dataset()` retelechargeait 2,37 millions de lignes de prix et
 // REECRIVAIT `.reserve/cote/` a chaque demarrage du conteneur, dans le
