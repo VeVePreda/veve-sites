@@ -1,88 +1,71 @@
-// ⚠️ VeVePreda/veve-sites — src/socle/modules/favoris.js  (NEUF — lot 140-3)
+// ⚠️ VeVePreda/veve-sites — src/socle/modules/favoris.js  (lot 140-3, REFONDU au 154-A)
 // ═══════════════════════════════════════════════════════════════════════════
-// LE PILOTE DES DEUX VUES — `/favoris/` et la tuile du tableau de bord
+// LE PILOTE DE `/favoris/` — IL NE BÂTIT PLUS LA LISTE, IL LA CORRIGE
 // ═══════════════════════════════════════════════════════════════════════════
 //
-// ⭐⭐⭐ IL NE PARLE PAS AU RÉSEAU. Le seul appel à `/api/favoris` du dépôt vit
-// dans `src/socle/40-favoris.js` ; ce fichier consomme `window.vpFav`. C'est
-// la contrainte que `test_membre` §6 mesure — « un accès unique » — et elle
-// existe parce que le lot 140-1 a payé trois lectures indépendantes et toutes
-// justes d'une même donnée, qui ont divergé dès qu'UNE a appris une règle de
-// plus.
-// ⚠️ L'ORDRE EST GARANTI : le socle est émis dans le `<head>` (Base.astro
-// l. 651), ce module dans le `<body>` ; les deux sont `defer`, donc exécutés
-// dans l'ordre du document. `window.vpFav` existe forcément ici.
+// 🔴🔴🔴 CE QUI A CHANGÉ AU LOT 154-A, ET POURQUOI CE N'ÉTAIT PAS UN CHOIX.
+// Ce fichier remplissait `#fav-l` (et `#tb-fav`, sur le tableau de bord) depuis
+// `window.vpFav`. La page est passée en TUILES — et une tuile veut une
+// COUVERTURE, que `window.vpFav` n'a pas : un favori ne retient qu'un uuid, un
+// chemin et un nom. L'adresse de l'image ne se devine pas davantage
+// (`…image.<uuid>.<SECOND-uuid>.full.jpeg`). ⇒ La liste est désormais rendue
+// AU SERVEUR, qui lit l'index déposé au build (`engine/lib/vignettes.mjs`).
+// ⛔ La vue `tb-*` est partie avec les deux objets Favoris du tableau de bord
+//    (demande de Preda, 14/08). Elle n'a pas été « désactivée » : une branche
+//    morte que le filtre d'existence écarte en silence est une branche que
+//    personne ne corrige.
 //
-// ⭐⭐ ET IL N'EST PAS EN LIGNE, C'EST TOUT L'INTÉRÊT DE CE DÉPLACEMENT. Un
-// `<script is:inline>` s'exécute quand l'analyseur l'atteint : un `#id` déclaré
-// plus bas rend `null`, et un banc qui monte le HTML entier y est aveugle. Les
-// deux scripts que ce fichier remplace vivaient après leur cible et
-// marchaient — mais la règle du dépôt est que tout pilote sort du HTML, et ces
-// deux-là partaient en double sur deux gabarits.
+// ⭐⭐ IL RESTE UN TRAVAIL, ET IL N'EXISTAIT PAS AVANT. Sur une page rendue au
+// serveur, décocher un cœur ne fait plus rien disparaître : la tuile reste là
+// jusqu'au rechargement. Sur la page dont c'est le seul sujet, ça se lit comme
+// « le clic n'a pas marché ». Ce fichier ne fait donc plus qu'une chose : quand
+// un cœur de CETTE page passe à « éteint », sa tuile s'en va.
 //
-// ⭐ DEUX VUES, UN FICHIER : elles affichent la MÊME liste, dans le MÊME ordre,
-// avec le MÊME rendu de ligne. Les séparer aurait recréé le doublon qu'on
-// vient de retirer, à un `slice(0, 8)` près.
+// ⭐⭐⭐ IL OBSERVE `aria-pressed`, IL N'APPELLE RIEN ET NE DÉCIDE DE RIEN.
+// C'est `40-favoris.js` qui parle au réseau — l'accès unique que `test_membre`
+// §6 mesure — et surtout qui REPEINT SUR LA RÉPONSE, pas sur l'intention : si
+// le serveur refuse le retrait, `aria-pressed` revient à `true` et la tuile ne
+// bouge pas. En écoutant l'attribut plutôt que le clic, ce pilote hérite de
+// cette garantie au lieu d'en écrire une seconde, qui divergerait.
+// ⛔ Ne pas remplacer par un `addEventListener('click')` : ce serait revenir à
+//    juger sur l'intention, et faire disparaître une tuile qu'un 409 « plafond »
+//    ou un 503 vient de refuser d'ôter.
 
 (function () {
-  var vues = [
-    // `/favoris/` — la liste complète.
-    { hote: 'fav-l', vide: 'fav-vide', compteur: null, coupe: 0 },
-    // Le tableau de bord — un point de départ, pas la liste complète.
-    // ⭐ HUIT, PAS TOUT : le lien « voir tout » vit dans le TITRE de la
-    //   section, il ne dépend plus d'avoir plus de huit favoris pour exister.
-    { hote: 'tb-fav', vide: 'tb-vide', compteur: 'tb-nfav', coupe: 8 },
-  ];
+  var hote = document.getElementById('fav-l');
+  if (!hote) return;
+  var vide = document.getElementById('fav-vide');
 
-  var actives = vues.filter(function (v) { return document.getElementById(v.hote); });
-  if (!actives.length) return;
-  // ⛔ AUCUN REPLI LOCAL. La clé du navigateur est morte au lot 140-3 : sans
-  //    l'accès du socle, ce pilote ne fait rien plutôt que de rouvrir en
-  //    silence la source qu'on vient de fermer.
-  if (!window.vpFav) return;
+  function retirerLaTuile(bouton) {
+    // ⚠️ `.carte-h` ET NON `.carte` : le cœur est un FRÈRE du lien, pas un
+    //    enfant (`.carte` EST un `<a>`, et un bouton dans un lien est du HTML
+    //    invalide — lot 126). L'unité à retirer est l'enveloppe, qui porte les
+    //    deux. Retirer `.carte` laisserait un cœur orphelin flottant.
+    var enveloppe = bouton.closest('.carte-h');
+    if (!enveloppe || !hote.contains(enveloppe)) return;
+    enveloppe.remove();
 
-  window.vpFav.liste().then(function (r) {
-    var favs = r.favoris || {};
-    // ⭐ Le serveur rend déjà le plus récent en premier (`ORDER BY pose_le
-    //   DESC`). ⛔ On ne retrie pas ici : ce serait une deuxième définition de
-    //   « l'ordre des favoris », et deux définitions finissent par diverger.
-    var cles = Object.keys(favs);
+    // ⭐ ET L'ÉTAT VIDE REVIENT QUAND LA DERNIÈRE PART. Il est rendu au build,
+    //   `hidden` : sans cette ligne, quelqu'un qui décoche son dernier favori
+    //   se retrouve devant une page sans liste ET sans phrase — un blanc qui
+    //   ressemble à une panne.
+    if (!hote.querySelector('.carte-h')) {
+      hote.hidden = true;
+      if (vide) vide.hidden = false;
+    }
+  }
 
-    actives.forEach(function (v) {
-      var hote = document.getElementById(v.hote);
-      var vide = document.getElementById(v.vide);
-      var cpt = v.compteur ? document.getElementById(v.compteur) : null;
-
-      // ⭐ Le compteur est `hidden` par défaut : à zéro, il n'apparaît pas.
-      if (cpt && cles.length) { cpt.textContent = String(cles.length); cpt.hidden = false; }
-      if (!cles.length) return;
-      // ⭐ L'ÉTAT VIDE EST RENDU AU BUILD ET VISIBLE PAR DÉFAUT ; on le masque
-      //   seulement si on a trouvé quelque chose. L'inverse montrerait un écran
-      //   nu à qui n'a pas de JavaScript, et un clignotement à tous les autres.
-      if (vide) vide.hidden = true;
-
-      (v.coupe ? cles.slice(0, v.coupe) : cles).forEach(function (u) {
-        var f = favs[u] || {};
-        var li = document.createElement('li');
-        li.className = 'rayon__l';
-        // ⛔ `textContent`, JAMAIS `innerHTML`. Le nom vient maintenant du
-        //    SERVEUR, mais il y a été écrit par un navigateur : la précaution
-        //    ne change pas de nature en changeant de source.
-        var a = document.createElement(f.p ? 'a' : 'div');
-        a.className = 'rayon__c' + (f.p ? '' : ' rayon__c--muet');
-        if (f.p) a.setAttribute('href', f.p);
-        var n = document.createElement('span');
-        n.className = 'rayon__n';
-        n.textContent = f.n || u;
-        a.appendChild(n);
-        li.appendChild(a);
-        hote.appendChild(li);
-      });
-    });
-  }).catch(function () {
-    // ⛔ 503 : LA BASE EST MUETTE, ET ON NE DIT PAS « AUCUN FAVORI ». L'état
-    //    vide rendu au build reste affiché tel quel — il dit « rien à
-    //    montrer », pas « vous n'avez rien ». Écraser l'écran avec une liste
-    //    vide serait affirmer une chose qu'on ne sait pas.
+  // ⚠️ UN SEUL OBSERVATEUR SUR L'HÔTE, PAS UN PAR TUILE. `subtree: true` suit
+  //    les 30 cœurs d'une même liste sans en enregistrer 30 — et il continue de
+  //    fonctionner si une tuile est ajoutée plus tard (lot 154-C).
+  var oeil = new MutationObserver(function (changements) {
+    for (var i = 0; i < changements.length; i += 1) {
+      var c = changements[i];
+      var b = c.target;
+      if (!b || !b.getAttribute) continue;
+      if (!b.hasAttribute('data-fav')) continue;
+      if (b.getAttribute('aria-pressed') === 'false') retirerLaTuile(b);
+    }
   });
+  oeil.observe(hote, { subtree: true, attributes: true, attributeFilter: ['aria-pressed'] });
 })();

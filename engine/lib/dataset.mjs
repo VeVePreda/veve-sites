@@ -9,6 +9,11 @@ import { readFileSync, existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { projeter as projeterCote, deposerMarche, CHAMPS_COTE } from './cote.mjs';
+// 🖼️ LOT 154-A — l'index « uuid → couverture », lu par `/favoris/` à la demande
+//    et, au lot 155, par les tuiles de `/market/`. Voir l'en-tête du module :
+//    il ne copie que des champs déjà publics, et il est déposé APRÈS
+//    `projeterCote()` pour que ce soit vrai par construction.
+import { deposerVignettes } from './vignettes.mjs';
 import { getCatalogue, getBaselines, getReleves, streamPrices } from '../data/warehouse.mjs';
 import { manifest, SITE } from './manifest.mjs';
 import { porte } from './access.mjs';
@@ -1268,6 +1273,18 @@ async function construireDataset() {
   // ⚠️ Sous la porte « cote » inactive (vevewiki), il n'y a pas de page de
   // marche : on ne depose rien, comme `reserve.ouvrir()` juste au-dessus.
   if (PORTE_PRIX.actif) deposerMarche(_ds);
+  // 🖼️ LOT 154-A — MÊME ENDROIT, MÊME RAISON, ET UNE GARDE DIFFÉRENTE.
+  // ⭐ `deposerMarche()` est sous `PORTE_PRIX` parce qu'il dépose une
+  //   PROJECTION DE MARCHÉ : sans porte des prix, il n'y a pas de page de
+  //   marché. L'index des vignettes, lui, ne porte AUCUN prix — il porte des
+  //   couvertures et des noms. Le mettre sous la même garde reviendrait à dire
+  //   « pas de couverture sans plancher », ce qui n'a pas de sens, et casserait
+  //   le jour où une page publique voudrait le lire.
+  // ⚠️ Il est déposé quoi qu'il arrive, y compris sur vevewiki : le fichier y
+  //   pèsera ce que pèse son catalogue, et personne ne le lira. Un dépôt inutile
+  //   coûte un fichier ; une garde de trop coûte une page vide qu'on met trois
+  //   jours à expliquer.
+  deposerVignettes(_ds);
 
   return _ds;
 }

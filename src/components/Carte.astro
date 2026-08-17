@@ -32,7 +32,22 @@ import { nomItem } from '../../engine/lib/vignette.mjs';
 // NUMÉRO d'édition, pas la mention, et il est fermé depuis.
 // ⭐ La prop survit pour qu'un appelant puisse la RETIRER (`ed={false}`) ;
 //   c'est l'inverse du défaut qu'on ferme, et ça ne coûte rien.
-const { item, lang, href, nf, i = 0, ed = true, libre = false } = Astro.props;
+// 🔴🔴 LOT 154-A — `cote` : UNE CARTE QUI NE PARLE PAS D'ARGENT.
+// `/favoris/` est la seule page du site qui n'a JAMAIS porté ni prix ni cote —
+// c'est écrit dans son en-tête depuis le lot 116, et c'est ce qui la garde hors
+// du mur des abonnés : « un uuid, un chemin et un nom, trois choses déjà
+// publiques ». Le lot 154-A l'a passée en tuiles ; elle doit donc appeler CE
+// gabarit sans hériter de sa ligne de prix.
+// ⛔⛔ ET SURTOUT PAS EN RECOPIANT LE BALISAGE DANS `Favoris.astro`. Une
+// seconde fabrique de carte aurait divergé au premier lot qui touche celle-ci —
+// c'est exactement le défaut que le lot 140-3 a payé sur le pilote des favoris
+// (« deux copies du même rendu de ligne, à un `slice(0, 8)` près »), et celui
+// que le 155 doit refermer sur les tuiles de `/market/`.
+// ⇒ UNE PROP, comme `ed`, et la valeur par défaut ne change rien pour personne.
+// ⚠️ `cote={false}` retire DEUX choses, et les deux sont des données de cote :
+//    la ligne du plancher ET le bandeau `<Extremes>` (ATL/ATH). Retirer l'une
+//    sans l'autre laisserait passer par le bandeau ce qu'on ferme par la ligne.
+const { item, lang, href, nf, i = 0, ed = true, libre = false, cote = true } = Astro.props;
 const nom = nomItem(item.name);
 // 🔴 LOT 101 — la carte ne porte plus de montant quand la cote est fermee.
 // ⭐ ELLE NE TESTE PAS `item.floor` : apres `projeter()` ce champ est absent
@@ -100,7 +115,7 @@ const money = (v) => (v === null || v === undefined ? '—' : v.toLocaleString(n
         « cote fermée / cote ouverte », et c'est précisément pour ça qu'il
         n'existait que sur les deux pages qui appellent CE gabarit. Mesuré :
         0 sur 40 lignes de rayon, 0 sur 910 cartes de set. ⇒ `<Extremes>`. */}
-    <Extremes lang={lang} uuid={item.uuid} item={item} nf={nf} />
+    {cote && <Extremes lang={lang} uuid={item.uuid} item={item} nf={nf} />}
     {libre && <span class="socle__coin etiq">Libre</span>}
   </div>
 
@@ -115,7 +130,12 @@ const money = (v) => (v === null || v === undefined ? '—' : v.toLocaleString(n
           ne connaît pas la largeur de la boîte, une coupe CSS ne connaît pas
           le nombre de caractères. Les deux, et pas l'une à la place de l'autre. */}
       <div class="cartouche__n" title={nom.tronque ? nom.complet : undefined}>{nom.vu}</div>
-    <div class="cartouche__l">
+    {/* ⚠️ `border:0` QUAND LA LIGNE DE PRIX N'EST PAS RENDUE. Ce filet est un
+        SÉPARATEUR entre deux lignes ; sans la seconde, il devient un trait qui
+        pend sous la dernière. Un `style` en ligne et non une classe : les trois
+        contrôles CSS tournent avant le compilateur, et une classe émise sans
+        règle dans les thèmes les ferait crier — à juste titre. */}
+    <div class="cartouche__l" style={cote ? undefined : 'border:0'}>
       {/* ⚠️ `rar--sur-blanc` est OBLIGATOIRE ici : le cartouche est le seul vrai
           blanc de la page, et la forme y bascule sur son encre foncée. Sans
           cette classe, le tracé clair sur blanc tombe à 1,22:1 — invisible. */}
@@ -127,6 +147,7 @@ const money = (v) => (v === null || v === undefined ? '—' : v.toLocaleString(n
           reste, et un `<span>` vide n'occupe aucune place. */}
       <span class="cartouche__s">{ed ? mentionEdition(item.edition_type) : ''}</span>
     </div>
+    {cote && (
     <div class="cartouche__l" style="border:0;padding-top:0">
       {/* ⭐ LE PICTOGRAMME GEMS RESTE, MEME FERME. Il dit dans quelle UNITE se
           compte ce qui est cache — et une unite n'est pas un montant. Le retirer
@@ -139,6 +160,7 @@ const money = (v) => (v === null || v === undefined ? '—' : v.toLocaleString(n
           le seul accueil. */}
       {!coteFermee && <Fragment set:html={delta(item.change7d, { blanc: true })} />}
     </div>
+    )}
   </div>
 </a>
   <button type="button" class="socle__fav" data-fav={item.uuid}

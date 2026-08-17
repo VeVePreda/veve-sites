@@ -1,5 +1,5 @@
 ---
-// ⚠️ VeVePreda/veve-sites — src/components/pages/Favoris.astro  (NEUF — lot 116)
+// ⚠️ VeVePreda/veve-sites — src/components/pages/Favoris.astro  (lot 116, EN TUILES au 154-A)
 //
 // ❤️ LA VUE DES FAVORIS — et elle est DERRIÈRE LE MUR depuis le lot 118.
 //
@@ -13,53 +13,111 @@
 //    commentaire.
 //    ⭐⭐ LA PHRASE EST PARAPHRASÉE ICI, PAS RECOPIÉE, ET C'EST LE BANC QUI L'A
 //    IMPOSÉ : la première version de cet en-tête la citait mot pour mot pour
-//    la démentir, et `test_membre` §6 a rougi. Il avait raison. Un lecteur qui
-//    grep, ou qui survole, tombe sur la phrase — pas sur le démenti qui la
-//    suit. *Une affirmation fausse reproduite à l'identique reste lisible
-//    comme une affirmation.* Le prochain qui lisait ce fichier avant de coder était
-//    activement induit en erreur. ⭐ *Un commentaire faux est un banc à
-//    l'envers* — `test_membre` §6 refuse désormais que la phrase revienne.
+//    la démentir, et `test_membre` §6 a rougi. Il avait raison. *Une
+//    affirmation fausse reproduite à l'identique reste lisible comme une
+//    affirmation.* ⭐ *Un commentaire faux est un banc à l'envers.*
 //
-// ⭐⭐⭐ CE QUE LE LOT 140-3 RÉPARE, ET C'ÉTAIT PIRE QU'UNE PAGE MORTE : le mur
-//    était réel, mais ce qu'il gardait appartenait au NAVIGATEUR
-//    (`localStorage`), pas au compte. Un membre qui se connectait depuis son
-//    téléphone voyait cette page vide — sans erreur, sans run rouge, sans
-//    plainte. *Le mur gardait une pièce qui n'était pas la sienne.*
-//    La liste vient maintenant de `/api/favoris`, rangée par compte.
+// ═══════════════════════════════════════════════════════════════════════════
+// 🖼️🔴🔴🔴 LOT 154-A — LES TUILES, ET LE MANQUE ÉTAIT DE SOURCE, PAS D'HABILLAGE
+// ═══════════════════════════════════════════════════════════════════════════
+// Preda, 14/08 : « Mes favoris : présentation en TUILES ». Mesuré AVANT
+// d'écrire : un favori ne retient que `uuid`, `chemin`, `nom`. Une tuile bâtie
+// depuis cette source n'a **aucune couverture à montrer**, et l'adresse de
+// l'image ne se devine pas (`…image.<uuid>.<SECOND-uuid>.full.jpeg`, mesuré en
+// production le 17/08). ⛔ Ajouter des `<span>` au gabarit n'aurait rien
+// produit — c'est la panne des tuiles de `/market/`, à l'identique.
+// ⇒ `engine/lib/vignettes.mjs` dépose au build « uuid → couverture, nom,
+//   rareté, mention d'édition », et cette page la rend AU SERVEUR. Elle est
+//   déjà rendue à la demande et déjà `no-store` : ça ne coûte pas un cache.
 //
-// ⛔ AUCUN PRIX, AUCUNE COTE — inchangé, et c'est ce qui garde cette page hors
-//    du mur des abonnés : un uuid, un chemin et un nom, trois choses déjà
-//    publiques sur la fiche qui les a écrits.
+// ⭐⭐⭐ ET LE MOTIF S'INVERSE, DÉLIBÉRÉMENT. Jusqu'ici : page vide + script qui
+// remplit. Cette page-là ne PEUT plus fonctionner ainsi — le navigateur n'a pas
+// les couvertures, et il ne peut pas les fabriquer. Le serveur, lui, sait déjà
+// QUI regarde (elle est derrière `connecte()`) : il rend la liste finie.
+// ⭐ Bénéfice qui n'était pas cherché : plus de clignotement, plus d'écran
+//   blanc sans JavaScript, et un aller-retour réseau de moins par visite.
 //
-// ⭐⭐ LE PILOTE A QUITTÉ LE HTML (lot 140-3). Il vivait ici en
-//    `<script is:inline>`, et son jumeau vivait dans `Dashboard.astro` — deux
-//    copies du même rendu de ligne, à un `slice(0, 8)` près. Les deux sont
-//    maintenant dans `src/socle/modules/favoris.js`, qui n'appelle pas le
-//    réseau lui-même : il passe par l'accès unique du socle.
+// ⛔⛔ AUCUN PRIX, AUCUNE COTE — LA PROPRIÉTÉ DU LOT 116 EST TENUE, ET ELLE EST
+//    TENUE PAR TROIS CHOSES QUI SE GARDENT L'UNE L'AUTRE :
+//      ① `vignettes.mjs` a une liste FERMÉE de six champs, aucun n'est un
+//         montant, et il est déposé APRÈS `projeterCote()` ;
+//      ② `<Carte cote={false}>` ne rend ni la ligne du plancher ni le bandeau
+//         ATL/ATH — retirer l'une sans l'autre aurait laissé passer par le
+//         bandeau ce qu'on ferme par la ligne ;
+//      ③ `test:fuite` balaie le rendu.
+//    ⇒ C'est ce qui garde cette page hors du mur des ABONNÉS : elle est
+//      réservée aux COMPTES, pas aux paliers, et « qui es-tu » n'est pas « à
+//      quoi as-tu droit ».
+//
+// ⛔ ON NE RECOPIE PAS LE BALISAGE DE `Carte.astro` ICI. Une seconde fabrique
+//    de carte diverge au premier lot qui touche la première — c'est ce que le
+//    lot 140-3 a payé sur le pilote des favoris, et ce que le 155 doit
+//    refermer sur `/market/`. Une prop, pas un jumeau.
 import Base from '../../layouts/Base.astro';
+import Carte from '../Carte.astro';
 import { moduleJs } from '../../../engine/lib/socle_js.mjs';
 const pilote = moduleJs('favoris');
-import { t, localize } from '../../../engine/lib/i18n.mjs';
-const { lang } = Astro.props;
+import { t, localize, numberLocale } from '../../../engine/lib/i18n.mjs';
+
+// ⚠️ `items` ARRIVE DE LA ROUTE, PAS D'UN APPEL FAIT ICI. `Astro.locals` et les
+// cookies n'existent que sur la ROUTE ; un composant qui irait chercher la
+// session lui-même rendrait « personne » sur toute page pré-générée, sans
+// erreur et sans banc rouge. C'est la leçon de `palierVisiteur()` au lot 131.
+// ⚠️ `indisponible` N'EST PAS `items: []`, ET LES DEUX NE SE DISENT PAS PAREIL.
+//    « Je ne sais pas » (base muette, veveid muet) n'emprunte jamais la sortie
+//    de « vous n'avez rien » : afficher « aucun favori » à quelqu'un qui en a
+//    trente est une affirmation fausse, et c'est la seule faute qu'on ne
+//    rattrape pas sur ce projet.
+const { lang, items = [], indisponible = false } = Astro.props;
+const nf = numberLocale[lang] || 'en-GB';
 ---
 <Base sect="general" lang={lang} path="/favoris/" noindex={true}
       title={t(lang, 'fav.title')} description={t(lang, 'fav.desc')}
       crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') },
                { name: t(lang, 'fav.title') }]}>
 
-  <div class="sect-t sect-t--gd"><h1 class="mono-t">{t(lang, 'fav.title')}</h1></div>
+  <div class="sect-t sect-t--gd"><h1 class="mono-t">{t(lang, 'fav.title')}</h1>
+    {items.length > 0 && <span class="etiq etiq--bleu">{items.length}</span>}</div>
   <p class="etiq">{t(lang, 'fav.note')}</p>
 
-  {/* ⭐ L'ÉTAT VIDE EST RENDU AU BUILD, VISIBLE PAR DÉFAUT, et le script le
-      masque s'il trouve quelque chose. L'inverse — partir d'une page blanche
-      et laisser le script écrire — montrerait un écran nu à qui n'a pas de
-      JavaScript, et un clignotement à tous les autres. */}
-  <p class="filtres-mur" id="fav-vide">{t(lang, 'fav.empty')}</p>
-  <ul class="rayon" id="fav-l"></ul>
+  {indisponible
+    ? <p class="filtres-mur">{t(lang, 'fav.hs')}</p>
+    : items.length === 0
+      ? <p class="filtres-mur" id="fav-vide">{t(lang, 'fav.empty')}</p>
+      : (
+        <>
+        {/* ⭐ `.grille` ET `<Carte>`, LE MÊME COUPLE QUE L'ACCUEIL ET
+            `/collections/`. Aucune classe neuve : `.grille>*` porte déjà le
+            décalage d'apparition (`--i`), que `Carte.astro` pose sur son
+            enveloppe. ⛔ `cote={false}` — voir le ⓶ de l'en-tête.
+            ⚠️ `href={it.path}` SANS `localize()` : cette page est rendue à la
+            demande et lit sa langue dans le cookie ; `localize()` fabriquerait
+            `/fr/collectibles/…`, une adresse qui n'existe pas sur veveprice.
+            C'est le défaut du lot 128, et il a déjà été payé dans les deux sens. */}
+        <div class="grille" id="fav-l">
+          {items.map((it, k) => (
+            it.path
+              ? <Carte item={it} lang={lang} href={it.path} nf={nf} i={k} cote={false} />
+              /* ⚠️ UN FAVORI SANS ADRESSE RESTE AFFICHÉ, ET IL N'EST PAS UN
+                 LIEN. Il en existe : un item sorti du catalogue n'a plus
+                 d'entrée dans l'index, et le chemin rangé dans la base peut
+                 dater. ⛔ Le retirer silencieusement de la liste de quelqu'un
+                 serait effacer sa donnée pour un défaut d'affichage. */
+              : <Carte item={it} lang={lang} href={undefined} nf={nf} i={k} cote={false} />
+          ))}
+        </div>
+        <p class="filtres-mur" id="fav-vide" hidden>{t(lang, 'fav.empty')}</p>
+        </>
+      )}
 </Base>
 
-{/* ⭐ `defer` : il s'exécute APRÈS l'analyse du document — `#fav-l` existe
-    forcément. Et il vient APRÈS le socle du `<head>`, donc `window.vpFav` y
-    est déjà. Les deux garanties viennent de l'ordre du document, pas d'un
-    hasard de placement. */}
+{/* ⭐⭐ LE PILOTE NE BÂTIT PLUS LA LISTE — LE SERVEUR LA REND. Il ne lui reste
+    qu'un travail, et il n'existait pas avant : faire DISPARAÎTRE la tuile dont
+    on vient d'éteindre le cœur. Sans lui, on décoche un favori et la tuile
+    reste là jusqu'au rechargement — sur une page dont c'est le seul sujet,
+    c'est l'impression que le clic n'a pas marché.
+    ⚠️ `defer` : il s'exécute après l'analyse du document, donc `#fav-l` existe.
+    Et il vient après le socle du `<head>`, donc le gestionnaire global des
+    cœurs (`40-favoris.js`) est déjà branché. Les deux garanties viennent de
+    l'ordre du document, pas d'un hasard de placement. */}
 <script defer src={pilote.href}></script>

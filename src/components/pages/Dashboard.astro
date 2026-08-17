@@ -57,11 +57,13 @@
 //    fois : une classe émise sans règle rend un élément nu, une règle sans
 //    émetteur est une intention en attente.
 import Base from '../../layouts/Base.astro';
-// ⚡ LOT 140-3 — le pilote de la tuile des favoris quitte le HTML : il était le
-//   JUMEAU de celui de `Favoris.astro`, au `slice(0, 8)` près. Un seul fichier
-//   les sert, et il ne parle pas au réseau (voir `src/socle/40-favoris.js`).
-import { moduleJs } from '../../../engine/lib/socle_js.mjs';
-const pilote = moduleJs('favoris');
+// 🔴 LOT 154-A — L'IMPORT DU PILOTE DES FAVORIS EST PARTI AVEC SES DEUX OBJETS.
+//   Il vivait ici pour remplir `#tb-fav` et `#tb-nfav` ; les deux ont quitté
+//   cette page. ⛔ Le laisser aurait émis 1 `<script defer>` de plus dans le
+//   `<body>` de chaque membre pour piloter un hôte qui n'existe plus — le
+//   pilote s'en serait tiré sans bruit (il filtre sur l'existence de l'hôte),
+//   et c'est exactement ce qui rend ce genre d'oubli invisible pendant six mois.
+//   ⭐ `src/socle/modules/favoris.js` reste : `/favoris/` s'en sert toujours.
 import { t, localize, numberLocale, pick } from '../../../engine/lib/i18n.mjs';
 import { manifest } from '../../../engine/lib/manifest.mjs';
 import { catalogueModules, porte, plages, PALIERS, profondeur as profondeurAccordee } from '../../../engine/lib/access.mjs';
@@ -141,7 +143,6 @@ const DESTINATIONS = [
                                                      ? t(lang, 'dash.depth.max')
                                                      : profondeur ? t(lang, 'dash.depth', { n: profondeur }) : null) },
   { cle: 'modules',       href: '/analytics/',     chiffre: () => nb(R.publies) },
-  { cle: 'favoris',       href: '/favoris/',       chiffre: () => null, compteur: 'tb-nfav' },
 ];
 
 // ⛔ ET CE QUI N'A PAS DE TUILE, AVEC SA RAISON, PARCE QUE L'ABSENCE SE JUSTIFIE
@@ -153,6 +154,14 @@ const SANS_TUILE = {
   extremes:  'vit DANS /analytics/, que la tuile `modules` ouvre déjà',
   metadata:  'c\'est la fiche elle-même — la tuile serait un lien vers 3 000 pages sans en désigner une',
   dashboard: 'c\'est CETTE page : une tuile qui pointe sur elle-même est du bruit',
+  // 🔴 LOT 154-A — RETIRÉE À LA DEMANDE DE PREDA (14/08), ET ELLE REVIENDRA.
+  //   Les favoris occupaient DEUX objets sur cette page — une tuile et une
+  //   section entière — pour une liste que `/favoris/` montre en entier. Ils
+  //   reviennent au lot 154-C sous la forme que Preda a demandée : un module
+  //   d'accès rapide qu'on AJOUTE, SUPPRIME et AGENCE soi-même. ⛔ Les laisser
+  //   en dur aurait figé dans le gabarit la seule chose que le 154-C rend
+  //   configurable — et une tuile en double avec le module qu'elle préfigure.
+  favoris:   'retirée au lot 154-A : elle revient en module d\'accès rapide configurable (lot 154-C), et une tuile en dur ferait doublon avec lui',
 };
 
 const MODULES = avecPrix ? catalogueModules() : [];
@@ -250,16 +259,17 @@ const cadenas = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stro
     </>
   )}
 
-  {/* ═══ MES FAVORIS ═════════════════════════════════════════════════════════
-      ⭐ L'ÉTAT VIDE EST RENDU AU BUILD ET VISIBLE PAR DÉFAUT ; le script le
-      masque s'il trouve quelque chose. Le motif inverse — page nue que le
-      script remplit — montre un écran blanc à qui n'a pas de JavaScript, et un
-      clignotement à tous les autres. Même dispositif que `/favoris/`. */}
-  <div class="sect-t"><h2 class="mono-t">{t(lang, 'dash.fav')}</h2>
-    <a class="etiq" href={localize(lang, '/favoris/')}>{t(lang, 'dash.fav.all')}</a></div>
-  <p class="filtres-mur" id="tb-vide">{t(lang, 'dash.fav.empty')}</p>
-  <ul class="rayon" id="tb-fav"></ul>
-
+  {/* ═══ MES FAVORIS — RETIRÉE AU LOT 154-A ══════════════════════════════════
+      Preda, 14/08 : retirer les DEUX objets Favoris du tableau de bord. La
+      tuile et cette section-ci montraient la même liste à deux endroits, à un
+      `slice(0, 8)` près, sur une page qui porte déjà un lien vers `/favoris/`.
+      ⭐ Ce qui revient au lot 154-C n'est pas ce bloc : c'est UN module
+      d'accès rapide, ajoutable et déplaçable par le membre — donc rangé dans
+      le magasin de préférences du 154-B, pas écrit ici en dur.
+      ⛔ Les hôtes `#tb-fav`, `#tb-vide` et `#tb-nfav` sont partis AVEC leur
+      pilote (import retiré en tête de fichier) et AVEC sa vue dans
+      `src/socle/modules/favoris.js`. Laisser l'un des trois aurait produit le
+      silence habituel : un pilote qui ne trouve pas son hôte ne dit rien. */}
   {/* ═══ LE CATALOGUE ════════════════════════════════════════════════════════
       ⛔ CE N'EST PAS UNE RANGÉE DE MODULES, ET LE TITRE LE DIT. Les rayons sont
       PUBLICS : les mettre parmi les tuiles laisserait croire qu'un compte les
@@ -301,26 +311,21 @@ const cadenas = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stro
     </>
   )}
 
-  {/* ═══ LES RÉGLAGES ════════════════════════════════════════════════════════
-      ⭐ EN DERNIER, ET C'EST L'ORDRE DE L'USAGE : ce qu'on vient chercher en se
-      connectant d'abord, ce qu'on règle une fois tous les six mois à la fin.
-      ⚠️ `localize()` sur CHAQUE adresse — sauf `/compte/`, qui n'est PAS
-      localisée : elle est rendue à la demande et lit la langue dans le cookie.
-      `localize(lang, '/compte/')` fabriquerait `/fr/compte/`, une page qui
-      n'existe pas. C'est le défaut du lot 128, dans l'autre sens. */}
-  <div class="sect-t"><h2 class="mono-t">{t(lang, 'dash.settings')}</h2></div>
-  <ul class="rayon">
-    <li class="rayon__l"><a class="rayon__c" href="/compte/">
-      <span class="rayon__n">{t(lang, 'account.title')}</span>
-      <span class="rayon__s">{t(lang, 'dash.account.d')}</span></a></li>
-    <li class="rayon__l"><a class="rayon__c" href={localize(lang, '/offre/')}>
-      <span class="rayon__n">{t(lang, 'offer.title')}</span>
-      <span class="rayon__s">{t(lang, 'dash.offer.d')}</span></a></li>
-  </ul>
+  {/* ═══ LES RÉGLAGES — RETIRÉE AU LOT 154-A ═════════════════════════════════
+      Preda, 14/08. Ce bloc était une liste de deux liens, et les deux existent
+      ailleurs — ⭐ VÉRIFIÉ AVANT DE LE RETIRER, PAS APRÈS :
+        · `/compte/` est dans le menu de l'avatar (`Base.astro`, le `<details
+          class="globe" data-membre>`), sur TOUTES les pages, y compris
+          celle-ci ;
+        · `/offre/` est une entrée `nav:` du manifeste, donc dans l'en-tête et
+          dans le tiroir — et le bloc « la prochaine marche » ci-dessus y mène
+          déjà, avec son chiffre.
+      ⇒ On n'orpheline aucune adresse. C'est la seule question qui comptait :
+        retirer un bloc de navigation sans vérifier ce qu'il était le seul à
+        atteindre est la façon la plus discrète de rendre une page injoignable.
+      ⚠️ Les six clés qu'ils étaient seuls à lire (`dash.fav`, `dash.fav.all`,
+      `dash.fav.empty`, `dash.settings`, `dash.account.d`, `dash.offer.d`) sont
+      retirées des CINQ dictionnaires. Une clé posée que personne ne lit ne
+      fait pas de bruit non plus — et elle voyage dans les cinq fichiers. */}
 </Base>
 
-{/* ⭐⭐ LE COMPTEUR DE LA TUILE NE VIT PLUS DANS LE NAVIGATEUR. Il disait
-    « il ne pouvait pas vivre ailleurs : les favoris sont dans le navigateur ».
-    C'était vrai jusqu'au lot 140-3 — la raison a disparu avec sa cause.
-    ⭐ Il est toujours `hidden` par défaut : à zéro, il n'apparaît pas. */}
-<script defer src={pilote.href}></script>

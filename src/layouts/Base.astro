@@ -622,6 +622,55 @@ const menuComplet = wikiNav
     } catch (e) { /* pas de cookies : on reste sur la version visiteur */ }
   })();
 </script>
+{/* ═══════════════════════════════════════════════════════════════════════
+    🏠🔴🔴 LOT 154-A — L'ACCUEIL RENVOIE AU TABLEAU DE BORD POUR UN MEMBRE, ET
+    CE NE POUVAIT PAS ÊTRE UNE REDIRECTION DE SERVEUR.
+    ═══════════════════════════════════════════════════════════════════════
+    🔴 MESURÉ AVANT D'ÉCRIRE, ET C'EST LA MESURE QUI COMMANDE LA SOLUTION :
+    `curl -I /` avec un cookie de session rend `cf-cache-status: HIT`. Pour un
+    membre, cette page NE TOUCHE JAMAIS LE SERVEUR — elle sort du edge
+    Cloudflare. Une redirection écrite dans `nginx.server.conf` ou dans une
+    route Astro ne s'exécuterait donc JAMAIS. ⛔ Et la basculer en rendu à la
+    demande coûterait le cache de la page la plus demandée du site, pour un
+    confort qui ne concerne que deux comptes.
+    ⇒ La seule voie est le NAVIGATEUR, sur le cookie que le `<head>` lit déjà
+      juste au-dessus. Rien de neuf n'est introduit : même cookie, même test,
+      même endroit.
+
+    ⭐⭐ IL EST ÉMIS SUR L'ACCUEIL ET SUR RIEN D'AUTRE (`path === '/'`). Un
+    pilote posé dans le `<head>` de toutes les pages serait servi 8 840 fois
+    pour ne rien faire 8 839 fois — *ce qui est dans le HTML est servi.*
+
+    ⭐ `location.replace` ET NON `location.href` : `replace` n'ajoute pas
+    d'entrée à l'historique. Avec `href`, le bouton Retour depuis le tableau de
+    bord ramènerait sur l'accueil, qui redirigerait à nouveau — une souris de
+    laboratoire.
+
+    ⭐ GOOGLEBOT N'A PAS DE COOKIE : il lit l'accueil, l'indexe, et ce script
+    ne s'exécute pas pour lui. Le HTML reste identique pour tout le monde, donc
+    la page reste cachable — c'est la même discipline que `data-membre`.
+
+    ⚠️ LA SECONDE GARDE EST UNE CEINTURE, PAS UNE REDONDANCE. `path` est ce que
+    le BUILD croit ; `location.pathname` est là où le fichier est RÉELLEMENT
+    servi. Les deux ont déjà divergé sur ce projet (une règle de cache qui sert
+    un fichier à une autre adresse). Si jamais l'accueil est servi ailleurs, on
+    ne redirige pas — le côté sûr.
+
+    ⚠️ `comptesOuverts` : vevewiki n'a ni compte ni tableau de bord. Sans cette
+    garde, le jour où quelqu'un y pose un cookie `vp_membre`, l'encyclopédie
+    renverrait sur une page qui n'existe pas. */}
+{path === '/' && comptesOuverts && (
+<script is:inline>
+  (function () {
+    try {
+      if (!/(?:^|;\s*)vp_membre=1(?:;|$)/.test(document.cookie)) return;
+      var ici = location.pathname;
+      if (ici !== '/' && ici !== '/index.html') return;
+      location.replace('/dashboard/');
+    } catch (e) { /* pas de cookies : l'accueil reste l'accueil */ }
+  })();
+</script>
+)}
 {/* ⛔ CES DEUX RÈGLES NE VONT PAS DANS LE THÈME, ET C'EST DÉLIBÉRÉ. Elles
     n'habillent rien : elles n'existent que pour supprimer un instant de
     mauvais affichage, et elles doivent arriver AVANT la première peinture.
@@ -1178,8 +1227,34 @@ const menuComplet = wikiNav
         `55-langue.js`, qui lit le cookie. Même dispositif que `data-membre` et
         que la bascule nuit : *un HTML identique partout, un script qui ajuste.*
         ⛔ Ne pas « simplifier » en écrivant `aria-current` au build. */}
+    {/* ═══════════════════════════════════════════════════════════════════
+       🌍🔴🔴 LOT 154-A — `data-anonyme` : LE GLOBE EST PUBLIC, PAS ANONYME,
+       ET CE N'EST PAS LA MÊME QUESTION.
+       ═══════════════════════════════════════════════════════════════════
+       Preda, 14/08 : « sur les pages publiques il doit rester, c'est le seul
+       moyen qu'ont les visiteurs de changer de langue » — et il ne doit plus
+       s'afficher pour un membre, qui règle sa langue dans son compte.
+       ⛔⛔ L'INVARIANT DU LOT 139 RÉPOND À L'AUTRE QUESTION. `pagePreGeneree`
+       demande « QUELLE PAGE ? » ; Preda demande « QUI REGARDE ? ». Les deux
+       sont justes, ils ne se remplacent pas : un membre qui lit une fiche
+       publique est sur une page pré-générée, donc `selecteurLangueUi` vaut
+       vrai, donc il voyait le globe. C'est exactement le cas qui passait.
+       ⭐⭐ ET LA RÈGLE EXISTE DÉJÀ, DEPUIS LE LOT 100 :
+       `html[data-membre] [data-anonyme] { display:none !important }`, posée
+       dans le `<style is:inline>` du `<head>` de ce fichier. Zéro CSS neuf,
+       zéro script, HTML IDENTIQUE pour tout le monde — donc toujours cachable
+       et toujours indexable. Googlebot n'a pas de cookie : il voit le globe.
+       ⛔ PAS DE `hidden={aUneSession}` ICI, ET C'EST MESURÉ, PAS PAR ÉCONOMIE.
+       `selecteurLangueUi` contient déjà `pagePreGeneree` : sur une page rendue
+       à la demande ce bloc n'existe PAS DU TOUT, et sur une page pré-générée
+       `aUneSession` vaut faux pour tout le monde, membres compris. L'attribut
+       serait donc toujours absent — un modificateur qui ne modifie jamais rien.
+       Le voisin d'en haut (`.globe[data-anonyme] hidden={aUneSession}`, l. 1003)
+       le porte parce que LUI se rend aussi à la demande.
+       ⚠️ `test:entete` RÉCLAME que `id="langue-ui"` soit ÉMIS : il reste vert,
+       puisqu'on CACHE, on ne RETIRE pas. C'est la différence qui compte. */}
     {selecteurLangueUi && (
-    <details class="globe" id="langue-ui">
+    <details class="globe" id="langue-ui" data-anonyme>
       <summary aria-label={t(lang, 'lang.pick')} title={t(lang, 'lang.pick')}>
         <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6">
           <circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c2.5 2.6 2.5 15.4 0 18M12 3c-2.5 2.6-2.5 15.4 0 18" />

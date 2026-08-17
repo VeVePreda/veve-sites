@@ -336,6 +336,154 @@ if (!existsSync(VRAI)) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// 6. 🖼️ L'INDEX DES VIGNETTES — LOT 154-A
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐ IL VIT ICI ET NON DANS UN 43ᵉ BANC. C'est le MÊME objet que la projection
+// du marché — un fichier déposé au build, dans `.reserve/`, relu à la demande
+// par une route de compte, et qui ne doit porter AUCUN montant. Un banc de plus
+// aurait dupliqué `champsVus()`, `CHAMPS_COTE` et la règle du dossier jetable ;
+// c'est la troisième fois que ce dépôt paie une seconde liste.
+//
+// 🔴🔴 CE QU'IL GARDE, ET LE DÉFAUT QU'IL RENDRAIT VISIBLE : `/favoris/` rend
+// désormais des TUILES depuis cet index. S'il est vide, la page sort sans une
+// seule couverture — une grille de gemmes grises, sans erreur, sans run rouge,
+// et personne pour le dire. C'est exactement la forme de panne que ce projet
+// paie le plus souvent : la dégradation muette.
+console.log('\n6. l\'index des vignettes se dépose-t-il, et reste-t-il muet sur les montants ?');
+
+{
+  const DIRV = mkdtempSync(join(tmpdir(), 'vignettes-banc-'));
+  process.env.RESERVE_VIGNETTES = join(DIRV, 'vignettes.json');
+  const { deposerVignettes, lireVignettes, vignette, VIGNETTES_FICHIER } =
+    await import('../lib/vignettes.mjs');
+
+  verifie('le banc écrit dans un dossier temporaire, pas dans .reserve/',
+    VIGNETTES_FICHIER === join(DIRV, 'vignettes.json'), VIGNETTES_FICHIER);
+
+  const TEMOIN = {
+    updatedAt: '2026-08-17T00:00:00.000Z',
+    items: [
+      { uuid: 'u-1', name: 'Piece une', qualifie: 'Serie — Piece une',
+        path: '/collectibles/serie/piece-une/', rarity: 'RARE', edition_type: 'FA',
+        image: 'https://exemple/collectible_type_image.u-1.autre.full.jpeg' },
+      // ⭐ UNE ENTRÉE SANS IMAGE, DÉLIBÉRÉMENT : c'est le cas dégradé que la
+      //   page doit savoir rendre, et le compteur du journal de build doit le
+      //   voir. Un témoin dont toutes les lignes sont parfaites ne mesure que
+      //   le cas facile.
+      { uuid: 'u-2', name: 'Piece deux', path: '/comics/serie/2/rare/', rarity: 'COMMON' },
+    ],
+  };
+  deposerVignettes(TEMOIN);
+  const idx = lireVignettes();
+
+  verifie('les deux entrées reviennent', Object.keys(idx).length === 2,
+    `${Object.keys(idx).length} entrée(s)`);
+  verifie('les clés courtes sont rendues en clair (image, rarity, edition_type)',
+    idx['u-1'].image && idx['u-1'].rarity === 'RARE' && idx['u-1'].edition_type === 'FA',
+    JSON.stringify(idx['u-1']));
+  verifie('un champ absent ne devient pas une chaîne vide',
+    idx['u-2'].image === undefined && idx['u-2'].edition_type === undefined,
+    JSON.stringify(idx['u-2']));
+
+  // ⭐⭐⭐ L'INDEX GAGNE SUR LE FAVORI, ET C'EST CE QU'ON MESURE — pas le
+  //   contraire. Le nom rangé dans la base a été écrit par un navigateur, il
+  //   peut avoir des mois ; l'index est reconstruit à chaque build.
+  const v1 = vignette('u-1', { n: 'un nom d’il y a six mois', p: '/vieille/adresse/' });
+  verifie('`vignette()` préfère le catalogue au nom rangé dans la base',
+    v1.name === 'Piece une' && v1.path === '/collectibles/serie/piece-une/',
+    `${v1.name} · ${v1.path}`);
+  // ⚠️ …ET LE FAVORI RESTE LE REPLI. Un item sorti du catalogue ne doit pas
+  //    disparaître de la liste de quelqu'un : il ressort dégradé, pas effacé.
+  const v9 = vignette('u-inconnu', { n: 'Sorti du catalogue', p: '/ancienne/fiche/' });
+  verifie('un favori absent de l\'index ressort dégradé, pas effacé',
+    v9.name === 'Sorti du catalogue' && v9.path === '/ancienne/fiche/' && v9.image === null,
+    `${v9.name} · sans couverture`);
+  verifie('⛔ `vignette()` ne rend jamais de montant', v9.floor === null && v1.floor === null,
+    'floor = null dans les deux cas');
+
+  // ═════════════════════════════════════════════════════════════════════════
+  // 🔴🔴🔴 LA CONTRE-ÉPREUVE — ON JUGE LE BANC EN LUI DONNANT LE MAUVAIS CODE
+  // ═════════════════════════════════════════════════════════════════════════
+  // ⭐⭐⭐ SANS ELLE, LE CONTRÔLE CI-DESSOUS EST UNE DÉCLARATION. « Aucun
+  // montant dans l'index » est vrai d'un index VIDE, d'un index mal lu, et d'un
+  // contrôle qui regarde la mauvaise clé. On lui présente donc un jeu qui
+  // PORTE des montants, et on exige qu'ils n'arrivent PAS dans le dépôt —
+  // c'est la liste FERMÉE `CHAMPS` de `vignettes.mjs` qui doit les arrêter.
+  // *Un terme à zéro qui n'est atteignable par aucune entrée ne garde rien.*
+  const PIEGE = {
+    updatedAt: '2026-08-17T00:00:00.000Z',
+    items: [{ uuid: 'p-1', name: 'Piege', path: '/x/', image: 'https://exemple/i.jpg',
+      ...Object.fromEntries(CHAMPS_COTE.map((c) => [c, 42])) }],
+  };
+  process.env.RESERVE_VIGNETTES = join(DIRV, 'piege.json');
+  const { deposerVignettes: deposer2 } = await import('../lib/vignettes.mjs?piege');
+  deposer2(PIEGE);
+  const brutPiege = JSON.parse(readFileSync(join(DIRV, 'piege.json'), 'utf8'));
+  const fuitPiege = CHAMPS_COTE.filter((c) => JSON.stringify(brutPiege).includes(`"${c}"`));
+  verifie('⛔ un item qui PORTE des montants les laisse tous à la porte',
+    fuitPiege.length === 0,
+    fuitPiege.length ? `🔴 ${fuitPiege.join(', ')} — la liste fermée CHAMPS a été élargie`
+      : `${CHAMPS_COTE.length} champ(s) présentés, 0 déposé`);
+  // ⭐ ET ON VÉRIFIE QUE LE PIÈGE ÉTAIT BIEN ARMÉ : si l'item témoin ne portait
+  //   AUCUN montant, le contrôle ci-dessus serait vert pour rien.
+  verifie('…et le piège portait bien de quoi fuir',
+    CHAMPS_COTE.length > 0 && CHAMPS_COTE.every((c) => PIEGE.items[0][c] === 42),
+    `${CHAMPS_COTE.length} champ(s) armés dans le témoin`);
+
+  rmSync(DIRV, { recursive: true, force: true });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 7. 🖼️ L'INDEX RÉELLEMENT DÉPOSÉ PAR LE BUILD
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐ Le §6 prouve que le contrôle SAIT rougir ; celui-ci prouve que la SORTIE
+// est propre. Les deux moitiés, jamais l'une sans l'autre.
+console.log('\n7. l\'index déposé par le build : est-il là, et est-il plein ?');
+
+const VRAI_V = join(ROOT, '.reserve', 'vignettes.json');
+if (!existsSync(VRAI_V)) {
+  // ⚠️ INDÉCIDABLE ET NON ROUGE : ce banc tourne aussi hors d'un build (au
+  //    dépôt, dans le bac à sable). « Je n'ai pas pu mesurer » n'est pas « c'est
+  //    conforme », et ce n'est pas non plus « c'est cassé ».
+  indecis('l\'index des vignettes n\'a pas été déposé ici',
+    `${VRAI_V} absent — attendu hors build ; ANORMAL après \`npm run build\` sur veveprice`);
+} else {
+  const c = JSON.parse(readFileSync(VRAI_V, 'utf8'));
+  const entrees = Object.keys(c.index || {});
+  const avecImage = entrees.filter((u) => c.index[u].i);
+  const octets = statSync(VRAI_V).size;
+
+  verifie('il porte des entrées', entrees.length > 0,
+    `${entrees.length} entrée(s) · ${(octets / 1024).toFixed(0)} Ko`);
+  // 🔴🔴 LE CHIFFRE QUI COMPTE N'EST PAS LE NOMBRE D'ENTRÉES, C'EST LA PART
+  // QUI PORTE UNE COUVERTURE. Un index complet dont aucune ligne n'a d'image
+  // rendrait une page de gemmes grises — et les deux contrôles ci-dessus
+  // seraient verts. ⭐ Le seuil est en PROPORTION, pas en valeur absolue : un
+  // garde-fou absolu sur une grandeur qui grandit se désarme tout seul.
+  const part = entrees.length ? avecImage.length / entrees.length : 0;
+  verifie('…et au moins 8 entrées sur 10 portent une couverture',
+    part >= 0.8,
+    `${avecImage.length} / ${entrees.length} (${(part * 100).toFixed(1)} %)`);
+
+  const fuitV = CHAMPS_COTE.filter((ch) => JSON.stringify(c).includes(`"${ch}"`));
+  verifie('⛔ aucun montant dans l\'index réellement déposé', fuitV.length === 0,
+    fuitV.length ? `🔴 ${fuitV.join(', ')} — deposerVignettes() est passée AVANT projeterCote()`
+      : `0 sur ${CHAMPS_COTE.length} champs`);
+
+  // ⭐ LA COHÉRENCE AVEC L'AUTRE DÉPÔT DU BUILD — même leçon qu'au §5 : un banc
+  //   qui n'interroge qu'un seul fichier ne peut pas savoir que ce fichier est
+  //   celui d'un build précédent. `itemsTotal` de `marche.json` compte les
+  //   MÊMES items que l'index.
+  if (existsSync(VRAI)) {
+    const m = JSON.parse(readFileSync(VRAI, 'utf8'));
+    verifie('…et il compte autant d\'items que la projection du marché en annonce',
+      entrees.length === m.itemsTotal,
+      entrees.length === m.itemsTotal ? `${entrees.length} des deux côtés`
+        : `🔴 ${entrees.length} contre ${m.itemsTotal} : les deux dépôts ne viennent pas du même build`);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 console.log(
   ko === 0 && indecidable === 0 ? '\n✅ marché : tout est conforme'
   : ko === 0 ? `\n⚠️  marché : conforme, mais ${indecidable} point(s) INDÉCIDABLE(S) — voir ci-dessus`

@@ -27,6 +27,13 @@ export const prerender = true;
 import Favoris from '../../components/pages/Favoris.astro';
 import { locales, COOKIE_LANGUE, languesInterface } from '../../../engine/lib/i18n.mjs';
 import { connecte } from '../../../engine/lib/access.mjs';
+// 🖼️ LOT 154-A — LA LISTE SE LIT ICI, SUR LA ROUTE, ET NULLE PART AILLEURS.
+//    `Astro.cookies` et `Astro.locals` n'existent QUE sur une route ; un
+//    composant qui irait chercher la session tout seul rendrait « personne »
+//    sur toute page pré-générée, sans erreur et sans banc rouge (lot 131).
+import { compteDeLaSession } from '../../../engine/lib/compte.mjs';
+import { lireFavoris } from '../../../engine/lib/favoris.mjs';
+import { vignette } from '../../../engine/lib/vignettes.mjs';
 
 // 🌍 LOT 123 — CETTE PAGE AUSSI LIT LA PRÉFÉRENCE DE LANGUE.
 // Elle est rendue à la demande et réservée : elle peut donc servir des
@@ -68,5 +75,49 @@ if (!connecte(Astro.locals)) {
 // c'est pour ça que la précaution est répétée ici plutôt que centralisée.
 Astro.response.headers.set('cache-control', 'private, no-store');
 Astro.response.headers.set('vary', 'cookie');
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🖼️ LOT 154-A — LA LISTE, RENDUE AU SERVEUR
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐ POURQUOI ELLE MONTE ICI ALORS QU'ELLE VIVAIT DANS LE NAVIGATEUR : les
+//   tuiles demandent une COUVERTURE, et le navigateur ne l'a pas (un favori ne
+//   retient qu'un uuid, un chemin, un nom). L'index du build l'a ; il se lit
+//   côté serveur. Voir l'en-tête de `engine/lib/vignettes.mjs`.
+// ⭐ ET ÇA NE COÛTE PAS UN ALLER-RETOUR DE PLUS, ÇA EN ÉCONOMISE UN : la page
+//   faisait déjà exactement ces deux appels, depuis le navigateur, via
+//   `/api/favoris`. Ils changent de côté, ils ne s'ajoutent pas.
+//
+// 🔴🔴 TROIS SORTIES, ET ELLES NE SE CONFONDENT PAS — c'est la règle que
+// `/api/favoris` tient déjà, et l'aplatir ici la déferait par la porte d'à
+// côté :
+//   · une liste          → on sait, et on montre ;
+//   · une liste VIDE     → on sait, et il n'y a rien ;
+//   · `indisponible`     → on NE SAIT PAS (veveid muet, base muette).
+// ⛔ Rendre `[]` sur une panne afficherait « aucun favori » à quelqu'un qui en
+//    a trente. « Je ne sais pas » n'emprunte jamais la sortie de « rien à
+//    signaler ».
+// ⛔ ET ON NE FAIT PAS TOMBER LA PAGE. Un `throw` ici rendrait un 500 sur la
+//    page d'un membre pour une base momentanément muette — on dégrade, on ne
+//    casse pas.
+let items = [];
+let indisponible = false;
+try {
+  const sid = Astro.cookies.get('vp_session')?.value || null;
+  const compte = sid ? await compteDeLaSession(sid) : null;
+  if (!compte) {
+    // ⚠️ `connecte()` a dit oui plus haut et veveid dit non ici : la session a
+    //    expiré entre les deux, ou le service est muet. Dans les deux cas on ne
+    //    sait pas ce que cette personne a mis en favori.
+    indisponible = true;
+  } else {
+    const favs = lireFavoris(compte) || {};
+    // ⭐ L'ORDRE VIENT DE LA BASE (`ORDER BY pose_le DESC`) et on ne le REFAIT
+    //   pas ici : ce serait une deuxième définition de « l'ordre des favoris »,
+    //   et deux définitions finissent par diverger.
+    items = Object.keys(favs).map((u) => vignette(u, favs[u]));
+  }
+} catch {
+  indisponible = true;
+}
 ---
-<Favoris lang={lang} />
+<Favoris lang={lang} items={items} indisponible={indisponible} />
