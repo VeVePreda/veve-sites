@@ -46,7 +46,7 @@
 // panne qu'il surveille. ⛔ On corrige l'instrument, jamais le code pour lui plaire.
 
 import { spawn } from 'node:child_process';
-import { existsSync, writeFileSync, mkdtempSync } from 'node:fs';
+import { existsSync, writeFileSync, mkdtempSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createServer } from 'node:http';
@@ -147,14 +147,48 @@ verifie('avec session, /market/ rend la page (200)', rep.status === 200, `reçu 
 // construction — la panne exacte que `test:marche` a payée du lot 125 au 128,
 // et qui a fait lire le message Discord comme du bruit pendant trois lots.
 // ⇒ On compare à ce que le build a SIGNÉ dans `.reserve/_temoin-build.json`.
+// 🔴🔴🔴 LOT 155-C — CE CONTRÔLE A ÉTÉ REMPLACÉ, ET IL A ROUGI EN PRODUCTION
+// AVANT DE L'ÊTRE (déploiement `ef9ddcd`, étape 50/55) :
+//     « elle rend exactement les lignes que le build a déposées
+//       — 20 ligne(s) rendue(s) pour 8840 déposée(s) »
+// Il exigeait `rendues === déposées`. C'était l'invariant juste tant que la page
+// rendait TOUT ce que le build projetait ; depuis que le serveur tranche, c'est
+// exactement ce qu'il ne faut PLUS. ⭐ Le banc avait raison de rougir : il
+// gardait une propriété que le lot a délibérément cassée, et il l'a dit avant le
+// déploiement — c'est le Dockerfile qui a fait son travail.
+//
+// ⭐⭐⭐ CE QUI LE REMPLACE EST PLUS FORT QUE LUI. L'ancien vérifiait un nombre ;
+// celui-ci vérifie que la TRANCHE EST PILOTÉE — la page rend `PAR_PAGE`, et elle
+// en rend `40` quand l'URL le demande. Un serveur qui aurait cessé de trancher
+// (ou qui ignorerait `f-n`) est rouge dans les deux cas.
+// ⛔ `PAR_PAGE` N'EST PAS RECOPIÉ ICI : il vient du module qui tranche. Un « 20 »
+// écrit dans ce banc deviendrait faux le jour où Preda demande 30, et le banc
+// serait rouge pour une raison qui n'est pas une panne.
+const { PAR_PAGE, RENDU_MAX } = await import('../lib/marche_selection.mjs');
 const temoin = lireTemoin(ROOT);
 const nLignes = (html.match(/<tr data-type=/g) || []).length;
 const attendues = temoin?.marche ?? null;
 if (attendues === null) {
   indecis('le nombre de lignes', `pas de témoin de build — la page en rend ${nLignes}, on ne sait pas ce qu'elle devrait en rendre`);
 } else {
-  verifie('elle rend exactement les lignes que le build a déposées',
-    nLignes === attendues, `${nLignes} ligne(s) rendue(s) pour ${attendues} déposée(s)`);
+  const tranche = Math.min(PAR_PAGE, attendues);
+  verifie('elle rend UNE TRANCHE, pas le catalogue',
+    nLignes === tranche,
+    `${nLignes} ligne(s) rendue(s) · PAR_PAGE = ${PAR_PAGE} · ${attendues} déposée(s)`);
+
+  // ⛔ CE SECOND CONTRÔLE PEUT ÊTRE SANS OBJET, ET IL SE CONDITIONNE SUR LE
+  //    CORPUS (`attendues > PAR_PAGE`), jamais sur ce que la page a rendu.
+  //    Hors réseau le corpus peut tenir sous la tranche : il n'y a alors rien à
+  //    prolonger, et le dire est plus honnête qu'un vert.
+  if (attendues > PAR_PAGE) {
+    const vise = Math.min(PAR_PAGE * 2, attendues);
+    const rep2 = await fetch(`http://127.0.0.1:${PORT}/market/?f-n=${vise}`, { headers: { cookie: 'vp_session=banc-tuiles' } });
+    const n2 = ((await rep2.text()).match(/<tr data-type=/g) || []).length;
+    verifie('…et la tranche est PILOTÉE par l\'URL (`?f-n=`)',
+      n2 === vise, `?f-n=${vise} → ${n2} ligne(s)`);
+  } else {
+    indecis('la tranche pilotée par l\'URL', `le corpus (${attendues}) tient sous PAR_PAGE (${PAR_PAGE}) : rien à prolonger`);
+  }
 }
 if (nLignes === 0) { arreter(); fin(1); }
 
@@ -306,8 +340,16 @@ if (!dom) {
 }
 const { document, window } = dom;
 
-const src = [...document.querySelectorAll('script')].map((s) => s.textContent).find((t) => t && t.includes('function appliquer'));
-if (!src) { indecis('le pilote de la barre', 'aucun <script> ne contient `function appliquer`'); fin(); }
+// 🔴🔴 LOT 155-C — LE REPÈRE A CHANGÉ, ET LE PRÉCÉDENT A RENDU CE § MUET.
+// Le banc cherchait `function appliquer` : le lot 155-C a supprimé cette
+// fonction (le filtre et le tri sont passés au serveur), et TOUT le §3 s'est
+// déclaré INDÉCIDABLE d'un coup — l'exécution du pilote, le libellé d'attente,
+// la construction des tuiles. **Un banc qui perd son point d'accroche ne rougit
+// pas : il se tait**, et il se tait sur ce qu'il gardait le mieux.
+// ⭐ On s'accroche donc à `batirTuiles`, qui est LE SUJET de ce banc : le jour
+// où elle disparaît, c'est qu'il n'y a plus de tuiles à garder.
+const src = [...document.querySelectorAll('script')].map((s) => s.textContent).find((t) => t && t.includes('function batirTuiles'));
+if (!src) { indecis('le pilote de la barre', 'aucun <script> ne contient `function batirTuiles`'); fin(); }
 
 let leve = '';
 try { new Function('document', 'window', 'localStorage', 'console', src)(document, window, undefined, { log() {}, warn() {}, error() {} }); }
@@ -400,24 +442,72 @@ if (t0 && l0) {
       : 'les deux vues filtrent sur la même matière');
 }
 
-// ── ET LE FILTRE MORD SUR LES DEUX VUES, SUR LE MÊME CORPUS.
-// 🔴 C'est la cause ② du lot 71 : tableau 200 pièces, grille 120. « 3 résultats »
-// en Tableau et RIEN en Tuiles — un filtre qui ment une fois sur deux.
+// ── ET LE FILTRE MORD — MAIS IL A CHANGÉ DE CÔTÉ, ET LE CONTRÔLE AUSSI.
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 LOT 155-C — CE CONTRÔLE ÉTAIT DEVENU IMPOSSIBLE À TENIR TEL QUEL.
+// Il cochait une case et comptait les tuiles restées visibles : c'était juste
+// tant que le pilote filtrait des nœuds. Depuis, cocher une case SOUMET le
+// formulaire — dans `linkedom` il ne se passerait rien du tout, et le banc
+// aurait mesuré l'absence de réaction d'un DOM sans navigateur.
+//
+// ⭐⭐⭐ ON LE POSE DONC LÀ OÙ LE FILTRE VIT MAINTENANT : sur le vrai serveur,
+// avec une vraie requête. C'est plus fort que l'ancien à trois titres — il
+// exerce la CHAÎNE ENTIÈRE (URL → `lireParams` → `selectionMarche` → HTML), il
+// ne dépend d'aucun émulateur de DOM, et il vérifie que ce que la page AFFICHE
+// est ce qu'elle a RETENU.
+// ⛔ La cause ② du lot 71 reste gardée, autrement : les tuiles se bâtissent
+// DEPUIS les lignes servies (contrôle ci-dessus, `bati === lignesDom.length`).
+// Deux corpus différents entre les vues sont devenus structurellement
+// impossibles — il n'y a plus qu'une liste, et c'est le serveur qui la fait.
 const rarete = [...document.querySelectorAll('input[name=f-rar]')].map((x) => x.value)[0];
-if (rarete) {
-  const attendu = lignesDom.filter((x) => x.dataset.rar === rarete).length;
-  const c = document.querySelector(`input[name=f-rar][value="${rarete}"]`);
-  c.checked = true; c.setAttribute('checked', '');
-  document.getElementById('filtres').dispatchEvent(new window.Event('change', { bubbles: true }));
-  const cpt = document.getElementById('cpt').textContent;
-  const vuesT = visibles('#vue-tui .tuile');
-  const paquet = Math.min(attendu, 20);   // la première tranche
-  verifie(`le filtre « ${rarete} » mord sur la grille comme sur le tableau`,
-    vuesT === paquet && cpt.startsWith(String(attendu)),
-    vuesT === paquet ? `${attendu} pièce(s), ${vuesT} montrée(s), compteur « ${cpt} »`
-      : `🔴 ${attendu} attendue(s), ${vuesT} tuile(s) montrée(s), compteur « ${cpt} »`);
-} else {
+if (!rarete) {
   indecis('le filtre de rareté', 'aucune case f-rar dans la page');
+} else {
+  const rf = await fetch(`http://127.0.0.1:${PORT}/market/?f-rar=${encodeURIComponent(rarete)}&f-n=${RENDU_MAX}`,
+    { headers: { cookie: 'vp_session=banc-tuiles' } });
+  const hf = await rf.text();
+  const trs = hf.match(/<tr data-type=[\s\S]*?data-date="[^"]*"/g) || [];
+  const horsFiltre = trs.filter((t) => !t.includes(`data-rar="${rarete}"`)).length;
+
+  // ⭐ L'ANCRE EST INDÉPENDANTE DE LA PAGE FILTRÉE : c'est la projection du
+  //   build. Compter les lignes retenues dans le HTML puis les comparer à ce
+  //   même HTML serait un contrôle qui interroge sa propre source — il ne
+  //   pourrait pas échouer.
+  const proj = JSON.parse(readFileSync(join(ROOT, '.reserve', 'marche.json'), 'utf8'));
+  const attendu = (proj.marche || []).filter((i) => i.rarity === rarete).length;
+
+  verifie(`⛔ le filtre « ${rarete} » mord AU SERVEUR — aucune ligne étrangère`,
+    trs.length > 0 && horsFiltre === 0,
+    trs.length === 0 ? '🔴 aucune ligne rendue : le filtre a tout jeté'
+      : (horsFiltre ? `🔴 ${horsFiltre} ligne(s) d'une autre rareté sur ${trs.length}`
+        : `${trs.length} ligne(s), toutes en ${rarete}`));
+
+  // ⛔ ET IL DOIT MORDRE SUR LE CATALOGUE ENTIER, PAS SUR LA TRANCHE. C'est la
+  //    panne que ce lot rendrait possible : filtrer APRÈS avoir tranché rendrait
+  //    « 3 résultats » là où il y en a 300, sans qu'aucun nombre n'ait l'air faux.
+  if (attendu > 0) {
+    verifie('…et il a vu TOUT le catalogue coté, pas la tranche affichée',
+      trs.length === Math.min(attendu, RENDU_MAX),
+      `${trs.length} rendue(s) pour ${attendu} en ${rarete} dans la projection (RENDU_MAX = ${RENDU_MAX})`);
+  } else {
+    indecis('la portée du filtre', `aucune fiche « ${rarete} » dans la projection : rien à retenir`);
+  }
+
+  // ⭐ LE COMPTEUR EST ÉCRIT PAR LE SERVEUR DEPUIS CE LOT : il doit dire le
+  //   nombre RETENU, pas le nombre rendu. Un compteur qui recopierait la
+  //   tranche afficherait « 20 » sur 300 correspondances — et il aurait l'air
+  //   parfaitement normal.
+  const cptTxt = (hf.match(/id="cpt"[^>]*>([\s\S]*?)<\/p>/) || [, ''])[1].replace(/<[^>]*>/g, ' ');
+  // ⛔ ON NE DEVINE PAS LE SÉPARATEUR DE MILLIERS. `toLocaleString` rend « 8 840 »
+  //    avec une espace fine insécable en français, une virgule en anglais, un
+  //    point en allemand : un motif qui en suppose un serait rouge dans quatre
+  //    langues sur cinq. On recolle les groupes de chiffres séparés par UN seul
+  //    caractère quelconque, et on compare des nombres.
+  const compact = cptTxt.replace(/(\d)[^\d\w](\d)/g, '$1$2').replace(/(\d)[^\d\w](\d)/g, '$1$2');
+  const chiffres = (compact.match(/\d+/g) || []).map(Number);
+  verifie('le compteur annonce le nombre RETENU, pas la tranche',
+    attendu === 0 || chiffres.includes(attendu),
+    `« ${cptTxt.trim()} » · attendu ${attendu} quelque part`);
 }
 
 fin();
