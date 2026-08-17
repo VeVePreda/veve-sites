@@ -319,6 +319,114 @@ if (!refs.length) {
 // ═══════════════════════════════════════════════════════════════════════════
 // 3. LE SCRIPT DE LA PAGE, JOUÉ POUR DE VRAI
 // ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 LOT 155-C — LE FILTRE S'ÉPROUVE ICI, ET LA PLACE EST LE SUJET
+// ═══════════════════════════════════════════════════════════════════════════
+// PAYÉ LE 17/08 : ce bloc était écrit à la fin du §3, après `arreter()`. Il
+// demandait une page à un serveur déjà tué — `TypeError: fetch failed`,
+// `SocketError: other side closed`, et le banc ne rougissait pas : **il
+// PLANTAIT**, message Node à l'appui, sur un déploiement dont tous les
+// contrôles étaient verts. ⭐ *Un contrôle réseau posé après la coupure du
+// serveur ne mesure rien — il tombe.* ⇒ tout ce qui parle au serveur vit AVANT
+// `arreter()`, et le `try/catch` ci-dessous nomme la cause si ça recommence.
+//
+// ⭐⭐⭐ ET IL REMPLACE L'ANCIEN CONTRÔLE CLIENT (cocher une case, compter les
+// tuiles restées visibles), devenu impossible : depuis le lot 155-C, cocher une
+// case SOUMET le formulaire — dans `linkedom` il ne se passerait rien, et le
+// banc aurait mesuré l'absence de réaction d'un DOM sans navigateur.
+// Il est plus fort à trois titres : il exerce la CHAÎNE ENTIÈRE (URL →
+// `lireParams` → `selectionMarche` → HTML), il ne dépend d'aucun émulateur, et
+// son ANCRE est indépendante — le nombre attendu vient de `.reserve/marche.json`,
+// pas de la page qu'on juge.
+// ⛔ La cause ② du lot 71 (« deux vues, deux corpus ») reste gardée autrement :
+// les tuiles se bâtissent DEPUIS les lignes servies (§3, `bati === lignesDom`).
+console.log('\n2 bis. le filtre mord-il AU SERVEUR, et sur tout le catalogue ?');
+{
+  const proj = JSON.parse(readFileSync(join(ROOT, '.reserve', 'marche.json'), 'utf8'));
+  const pop = proj.marche || [];
+  // ⭐ La rareté vient de la PROJECTION, pas de la page : un critère lu sur la
+  //   page qu'on juge serait un contrôle qui interroge sa propre source.
+  //   ⛔ Et on prend la PLUS FRÉQUENTE : une rareté à 1 exemplaire rendrait le
+  //   contrôle vrai pour la mauvaise raison — « 1 sur 1 », c'est aussi ce que
+  //   rend un filtre cassé qui ne garde que la première ligne.
+  const parRar = {};
+  for (const it of pop) if (it.rarity) parRar[it.rarity] = (parRar[it.rarity] || 0) + 1;
+  const rarete = Object.keys(parRar).sort((a, b) => parRar[b] - parRar[a])[0];
+  if (!rarete) {
+    indecis('le filtre de rareté', 'aucune rareté dans la projection : rien à filtrer');
+  } else {
+    const attendu = parRar[rarete];
+    // 🔴🔴🔴 ON DEMANDE UNE TRANCHE COURTE, PAS `RENDU_MAX`, ET C'EST TOUT LE
+    // CONTRÔLE. Première version : `?f-n=RENDU_MAX`, puis « le nombre de lignes
+    // rendues = le nombre de fiches de cette rareté ». **Elle est restée VERTE
+    // sous injection** — j'ai fait filtrer le serveur APRÈS avoir tranché (la
+    // panne exacte que ce § doit attraper) et rien n'a bougé : sur un corpus
+    // plus petit que `RENDU_MAX`, trancher puis filtrer et filtrer puis trancher
+    // rendent la MÊME liste. *Un contrôle dont le terme à zéro n'est pas
+    // atteignable ne garde rien.*
+    // ⭐⭐⭐ En demandant `PAR_PAGE`, les deux nombres se séparent : la page rend
+    // 20 lignes, mais le COMPTEUR doit annoncer les 55 retenues. Un serveur qui
+    // filtrerait la tranche annoncerait 20 — et la différence se voit à toute
+    // échelle, y compris hors réseau.
+    let hf = null, erreur = '';
+    try {
+      const rf = await fetch(`http://127.0.0.1:${PORT}/market/?f-rar=${encodeURIComponent(rarete)}&f-n=${PAR_PAGE}`,
+        { headers: { cookie: 'vp_session=banc-tuiles' } });
+      hf = await rf.text();
+    } catch (e) { erreur = e.message; }
+
+    if (hf === null) {
+      // ⛔ PAS « INDÉCIDABLE » : un serveur qui ne répond plus au milieu d'un banc
+      //    EST une faute, et le message dit laquelle chercher en premier.
+      verifie('le serveur répond encore pour la requête filtrée', false,
+        `🔴 ${erreur} — ce bloc est-il passé APRÈS arreter() ? (panne du 17/08)`);
+    } else {
+      // ⛔ ON S'ARRÊTE AU PREMIER `>`, PAS À `data-date`. Un attribut vide peut
+      //    disparaître au rendu : une regex qui exige `data-date` avalerait la
+      //    ligne suivante sur toute fiche sans date, et SOUS-compterait — un banc
+      //    trop indulgent, en silence. ⭐ `data-rar` est écrit AVANT `data-n` :
+      //    même si un nom contenait un `>`, la rareté est déjà captée.
+      const trs = hf.match(/<tr data-type=[\s\S]*?>/g) || [];
+      const horsFiltre = trs.filter((t) => !t.includes(`data-rar="${rarete}"`)).length;
+      verifie(`⛔ le filtre « ${rarete} » mord AU SERVEUR — aucune ligne étrangère`,
+        trs.length > 0 && horsFiltre === 0,
+        trs.length === 0 ? '🔴 aucune ligne rendue : le filtre a tout jeté'
+          : (horsFiltre ? `🔴 ${horsFiltre} ligne(s) d'une autre rareté sur ${trs.length}`
+            : `${trs.length} ligne(s), toutes en ${rarete}`));
+
+      verifie('…et la page filtrée rend bien UNE TRANCHE',
+        trs.length === Math.min(PAR_PAGE, attendu),
+        `${trs.length} ligne(s) pour ${Math.min(PAR_PAGE, attendu)} attendue(s)`);
+
+      // ⭐ Le compteur est écrit par le SERVEUR depuis ce lot : il annonce ce que
+      //   le filtre a RETENU sur tout le catalogue, pas ce que la page montre.
+      // ⛔ ON NE DEVINE PAS LE SÉPARATEUR DE MILLIERS : « 8 840 », « 8,840 » et
+      //   « 8.840 » sont le même nombre. Un motif qui en suppose un serait rouge
+      //   dans quatre langues sur cinq.
+      const cptTxt = (hf.match(/id="cpt"[^>]*>([\s\S]*?)<\/p>/) || [, ''])[1].replace(/<[^>]*>/g, ' ');
+      const compact = cptTxt.replace(/(\d)[^\d\w](\d)/g, '$1$2').replace(/(\d)[^\d\w](\d)/g, '$1$2');
+      const chiffres = (compact.match(/\d+/g) || []).map(Number);
+      const lisible = cptTxt.trim().replace(/\s+/g, ' ');
+      if (attendu <= PAR_PAGE) {
+        // ⛔ SANS OBJET, ET ÇA SE DIT : quand la rareté la plus fréquente tient
+        //    dans une tranche, « rendues » et « retenues » sont le même nombre —
+        //    le contrôle ne peut pas les départager. Se conditionner sur le
+        //    CORPUS, jamais sur ce que la page a rendu.
+        indecis('la portée du filtre',
+          `la rareté la plus fréquente (${rarete}) n'a que ${attendu} fiche(s), sous PAR_PAGE (${PAR_PAGE}) : rendues et retenues se confondent`);
+      } else {
+        verifie('⛔ le filtre a vu TOUT le catalogue coté, pas la tranche affichée',
+          chiffres.includes(attendu),
+          chiffres.includes(attendu)
+            ? `${trs.length} ligne(s) rendue(s), compteur « ${lisible} »`
+            : `🔴 le compteur ne dit nulle part ${attendu} : « ${lisible} » — le serveur a-t-il filtré APRÈS avoir tranché ?`);
+      }
+    }
+  }
+}
+
+arreter();
+
+// ═══════════════════════════════════════════════════════════════════════════
 console.log('\n3. la vue Tuiles marche-t-elle ENCORE ? (le script de la page est exécuté)');
 arreter();
 
@@ -440,74 +548,6 @@ if (t0 && l0) {
     differents.length === 0,
     differents.length ? `🔴 divergent : ${differents.map((k) => `${k} (tuile « ${t0.dataset[k]} » ≠ ligne « ${l0.dataset[k]} »)`).join(', ')}`
       : 'les deux vues filtrent sur la même matière');
-}
-
-// ── ET LE FILTRE MORD — MAIS IL A CHANGÉ DE CÔTÉ, ET LE CONTRÔLE AUSSI.
-// ═══════════════════════════════════════════════════════════════════════════
-// 🔴🔴🔴 LOT 155-C — CE CONTRÔLE ÉTAIT DEVENU IMPOSSIBLE À TENIR TEL QUEL.
-// Il cochait une case et comptait les tuiles restées visibles : c'était juste
-// tant que le pilote filtrait des nœuds. Depuis, cocher une case SOUMET le
-// formulaire — dans `linkedom` il ne se passerait rien du tout, et le banc
-// aurait mesuré l'absence de réaction d'un DOM sans navigateur.
-//
-// ⭐⭐⭐ ON LE POSE DONC LÀ OÙ LE FILTRE VIT MAINTENANT : sur le vrai serveur,
-// avec une vraie requête. C'est plus fort que l'ancien à trois titres — il
-// exerce la CHAÎNE ENTIÈRE (URL → `lireParams` → `selectionMarche` → HTML), il
-// ne dépend d'aucun émulateur de DOM, et il vérifie que ce que la page AFFICHE
-// est ce qu'elle a RETENU.
-// ⛔ La cause ② du lot 71 reste gardée, autrement : les tuiles se bâtissent
-// DEPUIS les lignes servies (contrôle ci-dessus, `bati === lignesDom.length`).
-// Deux corpus différents entre les vues sont devenus structurellement
-// impossibles — il n'y a plus qu'une liste, et c'est le serveur qui la fait.
-const rarete = [...document.querySelectorAll('input[name=f-rar]')].map((x) => x.value)[0];
-if (!rarete) {
-  indecis('le filtre de rareté', 'aucune case f-rar dans la page');
-} else {
-  const rf = await fetch(`http://127.0.0.1:${PORT}/market/?f-rar=${encodeURIComponent(rarete)}&f-n=${RENDU_MAX}`,
-    { headers: { cookie: 'vp_session=banc-tuiles' } });
-  const hf = await rf.text();
-  const trs = hf.match(/<tr data-type=[\s\S]*?data-date="[^"]*"/g) || [];
-  const horsFiltre = trs.filter((t) => !t.includes(`data-rar="${rarete}"`)).length;
-
-  // ⭐ L'ANCRE EST INDÉPENDANTE DE LA PAGE FILTRÉE : c'est la projection du
-  //   build. Compter les lignes retenues dans le HTML puis les comparer à ce
-  //   même HTML serait un contrôle qui interroge sa propre source — il ne
-  //   pourrait pas échouer.
-  const proj = JSON.parse(readFileSync(join(ROOT, '.reserve', 'marche.json'), 'utf8'));
-  const attendu = (proj.marche || []).filter((i) => i.rarity === rarete).length;
-
-  verifie(`⛔ le filtre « ${rarete} » mord AU SERVEUR — aucune ligne étrangère`,
-    trs.length > 0 && horsFiltre === 0,
-    trs.length === 0 ? '🔴 aucune ligne rendue : le filtre a tout jeté'
-      : (horsFiltre ? `🔴 ${horsFiltre} ligne(s) d'une autre rareté sur ${trs.length}`
-        : `${trs.length} ligne(s), toutes en ${rarete}`));
-
-  // ⛔ ET IL DOIT MORDRE SUR LE CATALOGUE ENTIER, PAS SUR LA TRANCHE. C'est la
-  //    panne que ce lot rendrait possible : filtrer APRÈS avoir tranché rendrait
-  //    « 3 résultats » là où il y en a 300, sans qu'aucun nombre n'ait l'air faux.
-  if (attendu > 0) {
-    verifie('…et il a vu TOUT le catalogue coté, pas la tranche affichée',
-      trs.length === Math.min(attendu, RENDU_MAX),
-      `${trs.length} rendue(s) pour ${attendu} en ${rarete} dans la projection (RENDU_MAX = ${RENDU_MAX})`);
-  } else {
-    indecis('la portée du filtre', `aucune fiche « ${rarete} » dans la projection : rien à retenir`);
-  }
-
-  // ⭐ LE COMPTEUR EST ÉCRIT PAR LE SERVEUR DEPUIS CE LOT : il doit dire le
-  //   nombre RETENU, pas le nombre rendu. Un compteur qui recopierait la
-  //   tranche afficherait « 20 » sur 300 correspondances — et il aurait l'air
-  //   parfaitement normal.
-  const cptTxt = (hf.match(/id="cpt"[^>]*>([\s\S]*?)<\/p>/) || [, ''])[1].replace(/<[^>]*>/g, ' ');
-  // ⛔ ON NE DEVINE PAS LE SÉPARATEUR DE MILLIERS. `toLocaleString` rend « 8 840 »
-  //    avec une espace fine insécable en français, une virgule en anglais, un
-  //    point en allemand : un motif qui en suppose un serait rouge dans quatre
-  //    langues sur cinq. On recolle les groupes de chiffres séparés par UN seul
-  //    caractère quelconque, et on compare des nombres.
-  const compact = cptTxt.replace(/(\d)[^\d\w](\d)/g, '$1$2').replace(/(\d)[^\d\w](\d)/g, '$1$2');
-  const chiffres = (compact.match(/\d+/g) || []).map(Number);
-  verifie('le compteur annonce le nombre RETENU, pas la tranche',
-    attendu === 0 || chiffres.includes(attendu),
-    `« ${cptTxt.trim()} » · attendu ${attendu} quelque part`);
 }
 
 fin();
