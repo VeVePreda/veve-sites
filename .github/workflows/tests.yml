@@ -249,8 +249,18 @@ jobs:
           # et ce n'est pas une coincidence — c'est une classe de defaut.
           # ⛔ SE VERIFIE, NE SE SUPPOSE PAS :
           #      node -e "console.log(require('./package.json').scripts.test.split(' && ').length)"
-          [ "$n" -ge 41 ] || {
-            echo "ERREUR: la chaine est tombee a $n bancs (plancher 41)."
+          #
+          # 🔴🔴 RELEVE DE 41 A 44 LE 18/08/2026 (lot 154-B), ET LE RETARD ETAIT
+          # DE DEUX. La chaine comptait 43 bancs pendant que ce plancher en
+          # reclamait 41 : deux suppressions passaient donc en silence. Le lot
+          # 154-B ajoute `test:prefs` (44e), et RELEVE LE PLANCHER DANS LE MEME
+          # DEPOT — c'est la troisieme fois qu'on constate le retard apres coup.
+          # ⭐⭐⭐ MESURE, PAS RELU (la note du 11/08 disait deja qu'une note du
+          #   dossier affirmait « plancher = 41 » et avait tort) :
+          #      node -e "console.log(require('./package.json').scripts.test.split(' && ').length)"
+          #      → 44
+          [ "$n" -ge 44 ] || {
+            echo "ERREUR: la chaine est tombee a $n bancs (plancher 44)."
             echo "Un banc retire de \`npm test\` disparait SANS RIEN CASSER :"
             echo "ce plancher est la seule chose qui s'en plaigne."
             exit 1
@@ -268,8 +278,14 @@ jobs:
       # ⇒ Il vit dans cette etape, qui EST ce qui le reclame : supprimez le
       #   script `test:entetes` de `package.json`, et cette etape echoue. Le
       #   circuit est ferme sans passer par le plancher.
-      # ⛔ LE PLANCHER RESTE DONC A 40, ET C'EST JUSTE : la chaine `test` compte
-      #   toujours 40 bancs. Ne le montez pas a 41, il rougirait a tort.
+      # ⛔ CE BANC-CI NE COMPTE PAS DANS LE PLANCHER, et c'est tout ce que ce
+      #   paragraphe voulait dire. ⚠️ Les deux phrases qui suivaient (« le
+      #   plancher reste donc a 40 », « la chaine compte toujours 40 bancs »)
+      #   ont ete RETIREES le 18/08/2026 : elles etaient fausses depuis le lot
+      #   139 et se citaient elles-memes. La chaine compte 44 bancs, le plancher
+      #   est a 44, et les deux se lisent trois lignes plus haut.
+      # ⭐⭐⭐ *Un commentaire qui survit a sa cause devient un mensonge qui se
+      #   cite* — meme maladie que le plancher qu'il decrivait.
       # ⛔ ET IL N'EST PAS DANS LE DOCKERFILE : un hoquet Cloudflare ne doit
       #   jamais empecher un deploiement.
       # ⭐ `if: always()` — un ecart d'en-tete doit se voir MEME quand un autre
