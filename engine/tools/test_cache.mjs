@@ -192,7 +192,22 @@ verifie(`${PRIVEES.length} route(s) privée(s) déclarée(s)`, PRIVEES.length >=
   }
   if (features) {
     // Les préfixes déclarés, toutes zones confondues.
-    const prefixes = new Set([...features.matchAll(/'(\/[a-z0-9-]+\/)'/g)].map((m) => m[1]));
+    // 🔴🔴 LOT 157-B — LE MOTIF NE SAVAIT LIRE QU'UN SEUL SEGMENT.
+    // `'(\/[a-z0-9-]+\/)'` attrapait `/favoris/` mais PAS `/analytics/market/`.
+    // Tant qu'aucune fonctionnalité gatée n'avait de sous-chemin, il disait
+    // vrai ; le 157 en a ajouté quatre, et le motif serait devenu un juge qui
+    // ne voit pas la moitié des pièces — il aurait déclaré « non éteintes » des
+    // adresses parfaitement déclarées dans `astro_features.mjs`.
+    // ⭐⭐ ON ÉLARGIT ICI SANS AFFAIBLIR, ET LA NUANCE COMPTE : le § 1 interdit
+    // d'élargir un motif pour faire taire un rouge — là, ça masquerait une
+    // route non gardée. Ici c'est l'INVERSE : le motif élargi fait VOIR PLUS de
+    // préfixes déclarés, donc il rend le contrôle plus exigeant, jamais moins.
+    // ⛔ La différence entre les deux : est-ce que le motif décrit ce qu'on
+    //    GARDE, ou ce dont on se PLAINT ? Élargir le premier renforce ; élargir
+    //    le second aveugle.
+    const prefixes = new Set(
+      [...features.matchAll(/'(\/[a-z0-9-]+(?:\/[a-z0-9-]+)*\/)'/g)].map((m) => m[1]),
+    );
     // Les adresses de compte qui sont de VRAIES pages (les `/api/` ne sont
     // jamais émises comme fichiers : elles n'ont rien à éteindre).
     const pagesDeCompte = PRIVEES

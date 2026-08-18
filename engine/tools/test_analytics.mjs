@@ -34,6 +34,10 @@
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+// ⭐ LA MÊME SOURCE QUE LA ZONE « comptes » DE `astro_features.mjs` — `tiers.length > 1`.
+// ⛔ Pas un `if (site === 'vevewiki')` : ce serait une seconde définition de
+//    « ce site vend-il un abonnement », et deux définitions divergent toujours.
+import { comptesActifs } from '../lib/features.mjs';
 
 const RACINE = process.env.PROJECT_ROOT || process.cwd();
 const ICI = dirname(fileURLToPath(import.meta.url));
@@ -75,6 +79,62 @@ dit(sourcesLa, 'les deux composants d\'Analytics existent',
 if (!sourcesLa) { console.log('\n⛔ banc creux : on s\'arrête ici.'); process.exit(1); }
 
 const distLa = existsSync(CLIENT) && existsSync(join(CLIENT, 'analytics', 'index.html'));
+const batiLa = existsSync(CLIENT) && existsSync(join(CLIENT, 'index.html'));
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 0 bis. LE SITE A-T-IL SEULEMENT UN ESPACE MEMBRE ? — lot 157-B
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴 SUR vevewiki, TOUT CE QUI SUIT S'INVERSE, ET LA PREMIÈRE VERSION DE CE
+// BANC NE LE SAVAIT PAS. Elle rendait « INDÉCIDABLE — jouer après le build »,
+// ce qui est FAUX DEUX FOIS : le build avait eu lieu, et l'absence de
+// `/analytics/` y est **voulue** (arbitrage Preda du 18/08 : « le wiki n'a plus
+// de page Analytics »). ⭐ Un verdict imprécis envoie chercher un build qui a
+// déjà tourné.
+// ⭐⭐ QUATRE VERDICTS, PAS TROIS : conforme · écart · indécidable · SANS OBJET.
+// Et « sans objet » ne veut pas dire « rien à contrôler » : sur ce site-là, la
+// question devient l'INVERSE — *l'extinction a-t-elle bien tout emporté ?*
+// C'est ce que le § 1 bis vérifie, et il aurait attrapé le défaut du 18/08
+// (4 talons fantômes servis en 200 sur le wiki).
+if (!comptesActifs()) {
+  console.log('\n⏸️  SANS OBJET — ce site n\'a pas d\'espace membre (`access.tiers` = 1 palier).');
+  console.log('   Analytics y est ÉTEINTE par `astro_features.mjs` — arbitrage Preda du 18/08.');
+  console.log('\n1 bis. l\'extinction a-t-elle TOUT emporté ?');
+  if (!batiLa) {
+    indecidable('aucune page d\'Analytics ne survit', `${CLIENT} ne contient pas d'index.html — jouer après \`npm run build\``);
+  } else {
+    // ⛔ ON BALAIE `dist/`, ON NE TESTE PAS QUATRE CHEMINS. Les préfixes de
+    //    langue en fabriquent d'autres (`/fr/analytics/…`) — c'est la panne du
+    //    lot 139 : « le talon racine partait, ses trois traductions restaient ».
+    const restants = [];
+    (function balayer(d) {
+      for (const e of readdirSync(d, { withFileTypes: true })) {
+        const f = join(d, e.name);
+        if (e.isDirectory()) { if (e.name !== 'server' && e.name !== 'chunks') balayer(f); }
+        else if (e.name === 'index.html' && /(^|\/)analytics(\/|$)/.test(f.slice(CLIENT.length).replace(/\\/g, '/'))) {
+          restants.push(f.slice(CLIENT.length).replace(/\\/g, '/'));
+        }
+      }
+    })(CLIENT);
+    dit(restants.length === 0, 'aucune page d\'Analytics ne survit dans dist/',
+      restants.length
+        ? `🔴 ${restants.length} page(s) FANTÔME(S) : ${restants.slice(0, 8).join(', ')} — servies en 200, `
+          + 'en `noindex`, donc jamais visitées et jamais signalées. ⇒ leur préfixe manque dans '
+          + '`astro_features.mjs`, ou la page n\'émet pas de talon.'
+        : `${readdirSync(CLIENT).length} entrée(s) balayée(s) à la racine de dist/`);
+    // ⭐ ET LE SITEMAP, parce que c'est lui qu'un moteur lit.
+    const sm = join(CLIENT, 'sitemap.xml');
+    if (existsSync(sm)) {
+      const n = (lire(sm).match(/analytics/g) || []).length;
+      dit(n === 0, 'le sitemap n\'annonce aucune adresse d\'Analytics',
+        n ? `🔴 ${n} mention(s)` : 'aucune mention');
+    } else {
+      indecidable('le sitemap n\'annonce aucune adresse', 'sitemap.xml absent');
+    }
+  }
+  console.log(`\n${ko === 0 ? '✅' : '❌'} ${ko} écart(s)`
+    + (indecidables ? ` · ⏸️ ${indecidables} indécidable(s)` : ''));
+  process.exit(ko === 0 ? 0 : 1);
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 1. AUCUN SUJET NE DOIT AVOIR ÉTÉ ÉCRIT DANS `dist/`

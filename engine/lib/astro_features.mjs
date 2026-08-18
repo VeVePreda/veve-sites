@@ -143,8 +143,40 @@ const ZONES = [
   //   QUE parce qu'elles émettent un TALON (meta refresh + noindex) — mesuré
   //   ci-dessus. Si l'une devenait une vraie page, l'intégration refuserait d'y
   //   toucher et le dirait tout haut, par conception.
+  // ═════════════════════════════════════════════════════════════════════════
+  // 📊🔴 LOT 157-B — ANALYTICS ENTIER REJOINT LA ZONE, PORTE COMPRISE
+  // ═════════════════════════════════════════════════════════════════════════
+  // ⭐⭐⭐ ET C'EST LA TROISIÈME FOIS QUE CE TABLEAU EST EN RETARD D'UN LOT.
+  // Le 104 avait ajouté `market`, `favoris`, `dashboard` sans venir ici ; le
+  // 157 a ajouté quatre sujets d'Analytics, même oubli, même symptôme. Mesuré
+  // en production le 18/08 : `vevewiki.com/analytics/market/` rendait **200**,
+  // un talon vers `/connexion/` qui est un **404** sur ce site — et
+  // `vevewiki.com/analytics/` portait **quatre liens** vers ces fantômes.
+  // ⇒ Le § 1 de `test:cache` a bien rougi sur `main`. ⭐ *Une phrase se relit ;
+  //   un banc se déclenche.* Il s'est déclenché.
+  //
+  // ⛔⛔ LES QUATRE SUJETS **ET** LA PORTE, PAS SEULEMENT LES SUJETS. Éteindre
+  // les quatre sans la porte aurait laissé `/analytics/` vivante avec quatre
+  // liens vers des 404 — on aurait remplacé quatre pages fantômes par quatre
+  // liens morts, ce qui est PIRE : un fantôme en `noindex` n'est jamais visité,
+  // un lien de page d'accueil l'est.
+  // 🎯 Arbitrage Preda du 18/08 : « **le wiki n'a plus de page Analytics** ».
+  //
+  // ⚠️ POUR QUE CETTE LIGNE SERVE, `src/pages/analytics/index.astro` DOIT ÉMETTRE
+  //   UN TALON quand `comptesActifs()` est faux — cette passe n'efface QUE des
+  //   talons, et refuse (en le disant) de toucher à une vraie page. Les deux
+  //   moitiés se tiennent ; retirer l'une laisse soit une page morte, soit un
+  //   préfixe qui ne garde rien.
+  // ⭐ Les préfixes à DEUX segments marchent : la boucle fait
+  //   `join(racine, prefixe.replace(/^\/|\/$/g, ''))`, donc `analytics/market`.
+  //   ⚠️ `test:cache` § 2, lui, ne savait lire qu'UN segment — son motif a dû
+  //   être élargi dans le même lot, sinon il aurait déclaré ces adresses « non
+  //   éteintes » alors qu'elles le sont.
   { nom: 'comptes', actif: comptesActifs,
-    prefixes: ['/inscription/', '/compte/', '/connexion/', '/favoris/', '/dashboard/'] },
+    prefixes: ['/inscription/', '/compte/', '/connexion/', '/favoris/', '/dashboard/',
+               '/analytics/',
+               '/analytics/market/', '/analytics/catalogue/',
+               '/analytics/collections/', '/analytics/chain/'] },
 ];
 
 const estTalon = (html) =>

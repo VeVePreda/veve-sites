@@ -4,12 +4,23 @@
 // — invisible au build, puisque c'est un lien et pas une route. Depuis le lot
 // 38 `test:routes` refuse une entrée `pret: true` sans page : on émet donc
 // TOUTES les langues actives, toujours.
+//
+// 🔴 LOT 157-B — LA VARIANTE PAR LANGUE S'ÉTEINT AUSSI, ET IL FAUT LE DIRE ICI.
+// Tout est expliqué dans `src/pages/analytics/index.astro` ; ce fichier ne le
+// redit pas. ⛔ Mais l'oublier ICI laisserait `/fr/analytics/` vivante sur un
+// site sans espace membre — et c'est EXACTEMENT la panne du lot 139 : « le
+// talon racine partait, ses trois traductions restaient ». La passe
+// d'extinction balaie bien les préfixes de langue ; encore faut-il qu'il y ait
+// un talon à retirer.
 import Analytics from '../../../components/pages/Analytics.astro';
 import { locales } from '../../../../engine/lib/i18n.mjs';
+import { comptesActifs } from '../../../../engine/lib/features.mjs';
 export function getStaticPaths() {
   const { active, def } = locales();
   return active.filter((l) => l !== def).map((l) => ({ params: { locale: l } }));
 }
 const lang = Astro.params.locale;
+
+if (!comptesActifs()) return Astro.redirect('/', 301);
 ---
 <Analytics lang={lang} />

@@ -1,8 +1,57 @@
 ---
+// ⚠️ VeVePreda/veve-sites — src/pages/analytics/index.astro
 // Route racine (langue par défaut). ⭐ Mince par construction : toute la page
 // vit dans le composant, donc les deux routes ne peuvent pas diverger.
+//
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 LOT 157-B — CETTE PAGE N'EXISTE PLUS SUR UN SITE SANS ESPACE MEMBRE
+// ═══════════════════════════════════════════════════════════════════════════
+// CE QUE LE LOT 157 A CASSÉ, ET COMMENT ON L'A APPRIS. Le 157 a transformé
+// `/analytics/` en PORTE vers quatre sujets réservés. Sur **vevewiki**, qui
+// déclare `access.tiers: [visitor]`, ces quatre sujets n'existeront jamais —
+// mais la porte, elle, a été déployée telle quelle. Mesuré en production le
+// 18/08 :
+//   · `vevewiki.com/analytics/` → **200**, avec **4 liens** vers les sujets ;
+//   · `vevewiki.com/analytics/market/` → **200**, un TALON de redirection vers
+//     `/connexion/`… qui rend **404** sur ce site.
+// ⇒ **quatre pages fantômes et quatre liens morts**, `noindex`, donc invisibles
+//   à l'index et jamais visitées. C'est **mot pour mot la panne du lot 104**
+//   sur `/favoris/` et `/dashboard/`, que `test:cache` § 2 existe pour attraper.
+//
+// ⭐⭐⭐ ET RIEN NE L'A ARRÊTÉ AU BUILD. `astro_features.mjs` a bien compté les
+// talons survivants — mais il **AVERTIT sans jeter** (« une intégration de
+// build qui jette est une intégration qu'on finit par retirer »). Le
+// `🔴 4 TALON(S) SURVIVENT` est donc parti dans le journal de build de
+// vevewiki, et personne ne l'a lu. *Un avertissement que personne ne lit est
+// un silence qui coûte cher.*
+//
+// 🎯 ARBITRAGE PREDA DU 18/08 : « **le wiki n'a plus de page Analytics** ».
+// Avant le 157 elle y montrait 3 figures réelles du catalogue ; il a préféré
+// la retirer plutôt que de la faire vivre à deux visages. ⛔ Ne pas la
+// ressusciter sans lui redemander.
+//
+// ⭐ `comptesActifs()` ET PAS UNE LISTE DE SITES. Il rend `tiers.length > 1` :
+// vrai sur veveprice (5 paliers), faux sur vevewiki (1). C'est la MÊME source
+// que la zone « comptes » de `astro_features.mjs`, donc les deux ne peuvent pas
+// se contredire. ⛔ Un `if (site === 'vevewiki')` aurait été une seconde
+// définition de « ce site vend-il un abonnement », et deux définitions
+// divergent toujours.
+//
+// ⚠️ EN STATIC, CE `redirect` PRODUIT UN TALON (meta refresh + noindex), pas
+// une vraie redirection — il n'y a pas de serveur. C'est exactement ce qu'il
+// faut : `astro_features.mjs` n'efface QUE des talons, et refuse de toucher à
+// une vraie page. Les deux moitiés du dispositif se tiennent :
+//   · ici on émet un talon,
+//   · là-bas `'/analytics/'` figure dans les préfixes de la zone « comptes »,
+//     et le talon est retiré de `dist/`.
+// ⛔ Retirer l'une des deux laisse soit une page morte, soit un préfixe qui ne
+//    garde rien.
 import Analytics from '../../components/pages/Analytics.astro';
 import { locales } from '../../../engine/lib/i18n.mjs';
+import { comptesActifs } from '../../../engine/lib/features.mjs';
+
 const lang = locales().def;
+
+if (!comptesActifs()) return Astro.redirect('/', 301);
 ---
 <Analytics lang={lang} />

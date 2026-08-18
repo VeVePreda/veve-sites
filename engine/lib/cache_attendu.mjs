@@ -154,6 +154,32 @@ export const PRIVEES = [
   { chemin: '/es/favoris/', attendu: 'no-store', quoi: 'les favoris en espagnol (préfixe de langue)' },
   { chemin: '/de/dashboard/', attendu: 'no-store', quoi: 'le tableau de bord en allemand (préfixe de langue)' },
 
+  // ═════════════════════════════════════════════════════════════════════════
+  // 📊 LOT 157 — LES SUJETS D'ANALYTICS, ET LE BANC LES A RÉCLAMÉS TOUT SEUL
+  // ═════════════════════════════════════════════════════════════════════════
+  // ⭐⭐⭐ LE CIRCUIT FERMÉ A REFONCTIONNÉ, EXACTEMENT COMME LE 11/08. Le lot 157
+  // a ajouté huit routes à `ROUTES_COMPTE` et ne les a pas déclarées ici : le § 1
+  // a rougi sur `main`, en nommant les huit. ⛔ **Aucun des 41 bancs de
+  // `npm test` ne pouvait le voir** — `test:cache` est HORS de la chaîne (il
+  // touche le réseau), et c'est la CI qui le lance à part.
+  // ⭐ *Un audit ne voit que ce qu'il ouvre ; un circuit fermé ouvre ce qu'on a
+  //   oublié de lui citer.* La phrase était déjà écrite au-dessus. Elle vient de
+  //   resservir.
+  //
+  // 🔬 MESURÉ EN PRODUCTION LE 18/08 (après le déploiement du 157) : **302 +
+  //   `private, no-store`**, `cf-cache-status: DYNAMIC` / `BYPASS`. Le
+  //   comportement était donc DÉJÀ correct — ce qui manquait n'était pas la
+  //   garde, c'était sa DÉCLARATION. ⛔ Ne pas en conclure que le banc criait
+  //   pour rien : sans déclaration, la prochaine cache rule n'aura personne
+  //   pour lui dire que ces adresses existent.
+  //
+  // ⛔ ET `/analytics/` N'EST PAS DANS CETTE LISTE, VOLONTAIREMENT : elle est
+  //   PUBLIQUE (`public, max-age=0, must-revalidate`, mesuré le même jour). La
+  //   famille qui les couvre pointe donc vers `/analytics/market/` — voir le
+  //   commentaire de `FAMILLES_COMPTE`.
+  { chemin: '/analytics/market/', attendu: 'no-store', quoi: 'le sujet Marché, réservé aux membres' },
+  { chemin: '/fr/analytics/chain/', attendu: 'no-store', quoi: 'le sujet Chaîne en français (préfixe de langue + deux segments)' },
+
   // — les routes d'API —
   { chemin: '/api/sante', attendu: 'no-store', quoi: 'la sonde' },
   // 🔴 MESURÉ LE 11/08 ET C'EST UN TROU, ÉCRIT COMME TEL : `/api/deconnexion`
@@ -197,6 +223,33 @@ export const FAMILLES_COMPTE = [
   { source: 'pages/[locale]/market/', couvertPar: '/fr/market/' },
   { source: 'pages/[locale]/favoris/', couvertPar: '/es/favoris/' },
   { source: 'pages/[locale]/dashboard/', couvertPar: '/de/dashboard/' },
+  // ═════════════════════════════════════════════════════════════════════════
+  // 📊 LOT 157 — LES QUATRE SUJETS D'ANALYTICS, ET LE PIÈGE EST DANS L'ADRESSE
+  //             QUI LES RÉCLAME
+  // ═════════════════════════════════════════════════════════════════════════
+  // ⛔⛔ `couvertPar` EST `/analytics/market/` ET **SURTOUT PAS** `/analytics/`.
+  // La page `/analytics/` est PUBLIQUE, pré-générée, et mise en cache — mesuré
+  // le 18/08 : `public, max-age=0, must-revalidate`. La citer ici aurait exigé
+  // d'elle `no-store`, donc fait rougir le banc sur une page parfaitement saine
+  // — ou, pire, poussé quelqu'un à « réparer » la page pour satisfaire le banc,
+  // et à retirer du cache la seule page publique d'Analytics.
+  // ⭐⭐ C'est le MÊME piège que la regex `location` de `nginx.server.conf` : la
+  // famille des sujets commence par `/analytics/` **plus un segment**, jamais
+  // par `/analytics/` seul. Deux fichiers, deux syntaxes, un seul piège.
+  //
+  // ⭐ `/fr/analytics/chain/` pour la variante localisée, et le choix n'est pas
+  // décoratif : c'est la SEULE route de compte du dépôt à porter **deux
+  // segments** APRÈS le préfixe de langue. Une exclusion de cache écrite « le
+  // chemin commence par /analytics/ » attraperait la page publique ; une écrite
+  // « /fr/… » sans profondeur raterait celle-ci. Cette adresse est la seule qui
+  // fasse échouer les deux erreurs.
+  // 🔬 MESURÉ EN PRODUCTION LE 18/08, PAS SUPPOSÉ — c'est la leçon du 11/08 juste
+  //   en dessous, et elle vaut ici mot pour mot : `/analytics/market/`,
+  //   `/analytics/chain/`, `/fr/analytics/chain/`, `/es/analytics/market/` et
+  //   `/de/analytics/catalogue/` rendent TOUTES **302 + `private, no-store`**.
+  //   Elles ne sont pas théoriques.
+  { source: 'pages/analytics/', couvertPar: '/analytics/market/' },
+  { source: 'pages/[locale]/analytics/', couvertPar: '/fr/analytics/chain/' },
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════
