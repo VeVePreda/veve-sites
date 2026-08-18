@@ -1209,10 +1209,13 @@ dl.fiche-tbl + dl.fiche-tbl{border-top:1px solid var(--rule);padding-top:2px}
 .tuile{position:relative;display:flex;flex-direction:column;background:var(--surface); border:1px solid var(--rule);border-radius:var(--r-lg);overflow:hidden;color:var(--text); transition:transform var(--d-base) var(--e-out),border-color var(--d-base)}
 .tuile:hover{transform:translateY(-3px);border-color:var(--sect-a);text-decoration:none}
 .tuile__hd{position:absolute;top:7px;left:7px;right:7px;z-index:4;display:flex; align-items:flex-start;justify-content:space-between;gap:6px;pointer-events:none}
-.tuile__rar{display:inline-flex;align-items:center;gap:5px;padding:3px 7px;border-radius:var(--r-full); background:#000000A6;backdrop-filter:blur(6px);font-family:var(--tech);font-size:9px; letter-spacing:.08em;text-transform:uppercase;color:var(--text)}
-.tuile__off{display:inline-flex;align-items:center;gap:4px;padding:3px 7px;border-radius:var(--r-full); background:#000000A6;backdrop-filter:blur(6px);font-family:var(--tech);font-size:9.5px;color:var(--text-2)}
+.tuile__rar{display:inline-flex;align-items:center;gap:5px;padding:3px 7px;border-radius:var(--r-full); background:#000000A6;backdrop-filter:blur(6px);font-family:var(--tech);font-size:9px; letter-spacing:.08em;text-transform:uppercase;color:var(--text);min-width:0;overflow:hidden}
+.tuile__off{display:inline-flex;align-items:center;gap:4px;padding:3px 7px;border-radius:var(--r-full); background:#000000A6;backdrop-filter:blur(6px);font-family:var(--tech);font-size:9.5px;color:var(--text-2);flex:0 0 auto;white-space:nowrap}   /* 155-C ③ : « N Offres » ne se casse plus en deux */
 .tuile__b{padding:9px 11px 11px;display:grid;gap:6px}
-.tuile__n{font-family:var(--geo);font-weight:600;font-size:var(--t-sm);line-height:1.28; display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.56em}
+/* 155-C ③ : `height` et NON `min-height` — un plancher n'est pas une égalité. Le
+   raisonnement complet est dans Market.astro, au-dessus du pilote. ⛔ CE FICHIER EST
+   SERVI COMMENTAIRES COMPRIS (mesuré le 18/08) : on y met le repère, pas la preuve. */
+.tuile__n{font-family:var(--geo);font-weight:600;font-size:var(--t-sm);line-height:1.28; display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;height:2.56em}
 .tuile__s{font-family:var(--tech);font-size:9.5px;color:var(--muted);overflow:hidden; text-overflow:ellipsis;white-space:nowrap}
 .tuile__p{display:flex;align-items:center;justify-content:space-between;gap:8px; padding-top:8px;border-top:1px solid var(--rule)}
 .dissout{position:relative}

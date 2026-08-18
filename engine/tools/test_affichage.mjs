@@ -102,14 +102,28 @@ const decommenter = (l) => l
   .replace(/^\s*(\{?\/\*|\/\/|\*)\s.*$/, ' ')
   .replace(/\/\/.*$/, ' ');
 
+// 🔴🔴🔴 LOT 155-C ③ — LE DÉCOMMENTAGE SE FAIT SUR LE FICHIER, PAS SUR LA LIGNE.
+// `decommenter()` est appliqué ligne à ligne : ses motifs `[\s\S]*?` ne peuvent
+// donc JAMAIS traverser un bloc `{/* … */}` de plusieurs lignes, et une ligne
+// INTERNE d'un tel bloc — qui ne commence ni par `//`, ni par `/*`, ni par `*` —
+// lui apparaît comme du code.
+// ⇒ Ce contrôle a rendu ROUGE un gabarit correct le 18/08, sur la phrase
+//   « `i.ed` et non `i.edition_type` » d'un commentaire qui EXPLIQUAIT
+//   précisément qu'on ne lit plus ce champ. → `regle-critere-juge-la-valeur-cherche-la-chaine`
+// ⭐ On masque les blocs AVANT de découper, en préservant les sauts de ligne :
+//   le numéro de ligne du rapport reste juste, et c'est lui qui rend le message
+//   utilisable. ⛔ Un `replace(/\n/g,'')` casserait la numérotation.
+const masquerBlocs = (t) => t.replace(/\{?\/\*[\s\S]*?\*\/\}?/g,
+  (m) => m.replace(/[^\n]/g, ' '));
+
 const nus = [];
 for (const f of gabarits) {
-  lire(f).split('\n').forEach((l, n) => {
+  masquerBlocs(lire(f)).split('\n').forEach((l, n) => {
     const code = decommenter(l);
     // On cherche une LECTURE du champ qui ne passe pas par la fonction.
     if (!/\.edition_type\b/.test(code)) return;
     if (/mentionEdition\s*\(/.test(code)) return;
-    nus.push(`${f}:${n + 1}  ${l.trim().slice(0, 84)}`);
+    nus.push(`${f}:${n + 1}  ${(lire(f).split('\n')[n] || l).trim().slice(0, 84)}`);
   });
 }
 verifie('aucun gabarit n\'écrit `edition_type` sans passer par mentionEdition()',

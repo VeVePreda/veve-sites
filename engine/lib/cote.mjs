@@ -57,6 +57,9 @@
 import { mkdirSync, existsSync, writeFileSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { join , dirname } from 'node:path';
 import { porte } from './access.mjs';
+// 🔴 LOT 155-C ③ — LA MENTION D'ÉDITION EST CALCULÉE ICI, AU BUILD.
+// ⛔ `vitrine.mjs` n'importe RIEN (vérifié) : aucun cycle possible.
+import { mentionEdition } from './vitrine.mjs';
 
 const ROOT = process.env.PROJECT_ROOT || process.cwd();
 
@@ -507,15 +510,41 @@ function resumerPourLeTableauDeBord(ds) {
 // `undefined` — et une colonne vide n'a l'air d'une panne pour personne.
 // ⚠️ Un champ qui vient de la COTE (floor, listings, change7d, courbe…) n'a
 // rien à faire ici : il est réinjecté au rendu par `lireCotes()`.
+// 🔴🔴🔴 LOT 155-C ③ — `ed` EST UN CHAMP DÉRIVÉ, ET C'EST MESURÉ.
+// La page veut afficher FA/FE/AP. La source est `edition_type`, qui n'était
+// PAS projeté : la colonne serait sortie VIDE sur les 8 840, sur un build vert
+// — `regle-seconde-fabrique-ne-montre-que-sa-source`, quatrième fois.
+// ⭐⭐⭐ MAIS ON NE PROJETTE PAS `edition_type` : on projette son VERDICT.
+// Mesuré le 18/08 sur `catalogue.csv.gz` (18 839 fiches cotées) :
+//     `edition_type` brut ........ 362,8 Ko  (+10,68 % de la projection)
+//     la mention pré-calculée .....  19,7 Ko  (+0,58 %)   ⇒ 18,4× moins cher
+// Parce que 90,2 % des valeurs sont des NUMÉROS de fascicule (`1`, `2`, `3`…)
+// que `mentionEdition()` rejette — les transporter pour les jeter au rendu
+// serait `regle-donnee-collectee-puis-jetee` à l'envers.
+// ⚠️ SEULES 9,8 % DES FICHES EN PORTENT UNE (FE 978 · FA 774 · AP 106) : la
+// clé est absente sur les neuf dixièmes, et `maigrir()` n'écrit pas les vides.
 export const CHAMPS_MARCHE = ['uuid', 'name', 'series', 'type', 'rarity',
-                              'tirage', 'path', 'image', 'releaseDate'];
+                              'tirage', 'path', 'image', 'releaseDate', 'ed'];
 
 /** Ne garde que les champs de `CHAMPS_MARCHE`. ⛔ Une clé absente de la fiche
  *  n'est PAS écrite : `{image: undefined}` deviendrait `"image":null` dans le
  *  JSON, soit 14 octets par ligne pour dire « rien » — 124 Ko sur 8 840. */
 export function maigrir(i) {
   const o = {};
-  for (const k of CHAMPS_MARCHE) if (i[k] !== undefined && i[k] !== null) o[k] = i[k];
+  for (const k of CHAMPS_MARCHE) {
+    // ⭐ `ed` n'est pas RECOPIÉ, il est CALCULÉ — il n'existe sur aucune fiche.
+    //   Le laisser passer dans la boucle produirait `undefined`, donc rien,
+    //   donc une colonne vide : exactement la panne que ce champ répare.
+    if (k === 'ed') continue;
+    if (i[k] !== undefined && i[k] !== null) o[k] = i[k];
+  }
+  // ⛔ `mentionEdition()` RESTE LE SEUL JUGE, ici comme dans les gabarits.
+  //   Recopier la liste FA/FE/AP dans ce fichier ferait une deuxième vérité,
+  //   et le jour où Preda ajoute `CE` elle divergerait en silence.
+  //   ⭐ Il rend `''` pour tout ce qu'il ne reconnaît pas ⇒ le `if` suffit à
+  //   n'écrire la clé que sur les ~9,8 % de fiches qui en portent une.
+  const ed = mentionEdition(i.edition_type);
+  if (ed) o.ed = ed;
   return o;
 }
 

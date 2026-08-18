@@ -180,6 +180,14 @@ const COLONNES = [
   { c: 'rar',   l: t(lang, 'item.rarity') },
   { c: 'sup',   l: t(lang, 'item.supply') },
   { c: 'lst',   l: t(lang, 'item.listings') },
+  // 🔴 LOT 155-C ③ — LES EXTRÊMES. ⛔ AUCUNE COLLECTE : `atl`/`ath` sont dans
+  // `CHAMPS_COTE`, donc déjà réinjectés par `lireCotes()` juste au-dessus
+  // (`{...i, ...cotes[i.uuid]}`). Ils n'ont jamais manqué — ils n'étaient pas
+  // affichés. ⚠️ Ce sont des MONTANTS : ils ne peuvent voyager NI par
+  // `ILE_TUILES` (lot 127 : « cette île ne porte aucun montant ») NI par un
+  // index public (`rayon_index.mjs`, INTERDITS). Une cellule, et un clone.
+  { c: 'atl',   l: t(lang, 'item.atl') },
+  { c: 'ath',   l: t(lang, 'item.ath') },
   { c: 'd24',   l: t(lang, 'movers.24h') },
   { c: 'c7',    l: t(lang, 'movers.7d') },
   { c: 'mcp',   l: t(lang, 'movers.perMcp') },
@@ -630,6 +638,8 @@ const ILE_TUILES = JSON.stringify({
         <th scope="col" class="n c-4" data-col="sup">{t(lang, 'item.supply')}</th>
         <th scope="col" class="n c-4" data-col="lst">{t(lang, 'item.listings')}</th>
         <th scope="col" class="n">{t(lang, 'movers.floor')}</th>
+        <th scope="col" class="n c-5" data-col="atl">{t(lang, 'item.atl')}</th>
+        <th scope="col" class="n c-5" data-col="ath">{t(lang, 'item.ath')}</th>
         <th scope="col" class="n c-5" data-col="d24">{t(lang, 'movers.24h')}</th>
         <th scope="col" class="c-2 col-courbe" data-col="c7">{t(lang, 'movers.7d')}</th>
         <th scope="col" class="n c-5" data-col="mcp">{t(lang, 'movers.perMcp')}</th>
@@ -665,7 +675,18 @@ const ILE_TUILES = JSON.stringify({
               : <span class="vign__v forme" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#s-r-ULTRA_RARE"/></svg></span>}
           </td>
           <td><a class="tbl-obj" href={localize(lang, i.path)}>
-            <span><span class="tbl-obj__n">{i.name}</span><span class="tbl-obj__s">{i.series}</span></span>
+            {/* 🔴 LOT 155-C ③ — LA MENTION D'ÉDITION REJOINT LE SOUS-TITRE.
+                ⭐ PAS DE CLASSE NEUVE, ET C'EST DÉLIBÉRÉ : `Rayon.astro` fait
+                déjà exactement ça (l. 100, `sous: mentionEdition(...)`). Un
+                `.tbl-obj__e` de plus, c'est une règle CSS servie sur toutes les
+                pages du site pour 9,8 % des lignes d'UNE page.
+                ⛔ `i.ed` et non `i.edition_type` : le gabarit ne juge rien, la
+                mention est calculée au build par `mentionEdition()` dans
+                `maigrir()` — un seul juge, comme partout ailleurs.
+                ⭐⭐ ET LA TUILE L'A GRATUITEMENT : `batirTuiles()` recopie déjà
+                le texte de `.tbl-obj__s`. Zéro ligne de pilote en plus. */}
+            <span><span class="tbl-obj__n">{i.name}</span><span class="tbl-obj__s"
+              >{i.ed ? `${i.ed} · ` : ''}{i.series}</span></span>
           </a></td>
 
           {/* RARETÉ — ligne 1 : le symbole et le nom. ligne 2 : la valeur MCP.
@@ -698,6 +719,23 @@ const ILE_TUILES = JSON.stringify({
               {i.listings <= 1 && <span class="alerte" title={t(lang, 'item.outlier')}>!</span>}</span>
             <span class="m2__b muted" data-attente><Fragment set:html={omiM()} /> —</span>
           </span></td>
+
+          {/* 🔴🔴 LOT 155-C ③ — PLUS-BAS / PLUS-HAUT HISTORIQUES.
+              ⭐ `data-ext` et pas `data-col` SEUL : les deux marques ont deux
+              rôles et il ne faut pas les confondre. `data-col` dit « la barre
+              Colonnes peut me masquer » ; `data-ext` dit « `batirTuiles()` sait
+              où me trouver ». Le plancher porte déjà `data-prix` pour la même
+              raison, et son commentaire explique pourquoi viser « le 6ᵉ <td> »
+              casserait au premier ajout de colonne — ce lot AJOUTE deux
+              colonnes, il vient de le prouver.
+              ⚠️ `money()` rend un tiret NU pour une absence. Pas de
+              `data-attente` ici : une pièce sans historique de prix n'attend
+              rien, elle n'a pas d'extrêmes — et un cadenas mentirait deux fois
+              (cf. `Extremes.astro`, la décision de Preda du 11/08). */}
+          <td class="n c-5" data-col="atl" data-ext="atl">
+            <span class="num"><Fragment set:html={gemsU} /> {money(i.atl)}</span></td>
+          <td class="n c-5" data-col="ath" data-ext="ath">
+            <span class="num"><Fragment set:html={gemsU} /> {money(i.ath)}</span></td>
 
           {/* VARIATION 24 H — absente des DEUX côtés : le moteur ne conserve
               que 7 jours et 30 jours. Ce n'est pas un oubli de collecte, c'est
@@ -838,6 +876,59 @@ const ILE_TUILES = JSON.stringify({
       l'attribut, et non une classe, que le thème respecte partout ailleurs. */}
   <p class="respire" id="vide" hidden={SEL.retenues !== 0}>{t(lang, 'movers.empty')}</p>
 
+  {/* ═══════════════════════════════════════════════════════════════════════
+      🔴🔴🔴 LOT 155-C ③ — CE QUE LE PILOTE FAIT DE NEUF, ET POURQUOI
+      ═══════════════════════════════════════════════════════════════════════
+      ⛔ CE BLOC EST UN COMMENTAIRE **ASTRO**, PAS UN COMMENTAIRE JS, ET C'EST
+      MESURÉ : le `<script>` ci-dessous est `is:inline` — il est servi À
+      L'OCTET PRÈS, commentaires compris, sur une page `private, no-store` qui
+      n'est JAMAIS au bord. La première version de ce lot expliquait tout
+      DEDANS : +4 879 o par visite, soit +4,4 % d'une page que le lot 155-C ①
+      venait de ramener à 109 799 o. → `regle-commentaire-servi-ou-retire`
+
+      ── ① LA STRUCTURE DE LA TUILE EST REMISE SUR SES CLASSES ──────────────
+      Mesuré sur la capture de Preda du 18/08 : les tuiles n'ont pas la même
+      hauteur. Deux causes, toutes deux dans ce pilote :
+        · la SÉRIE était posée dans `.tuile__hd`, le bandeau en overlay, en
+          `nowrap` — elle y mangeait la largeur de `.tuile__off`, et
+          « 1 Offres » se cassait sur deux lignes (3 tuiles sur 7) ;
+        · la PASTILLE DE RARETÉ était ajoutée DANS `.tuile__n`, en
+          `inline-flex`. Le titre est plafonné à 2 lignes, la pastille ne l'est
+          pas : un nom qui remplit les deux lignes la poussait sur une
+          TROISIÈME. D'où 1, 2 ou 3 lignes de titre dans la même grille.
+      ⭐⭐⭐ AUCUNE CLASSE NEUVE N'A ÉTÉ ÉCRITE. `.tuile__rar` (fond noir
+      flouté, en haut à gauche) et `.tuile__s` (sous le titre, en `muted`)
+      SONT DÉJÀ dans le thème, portées par la maquette, et personne ne les
+      utilisait — le pilote détournait `.tuile__s` en bandeau. On leur rend
+      leur place, et `theme.css` fige la hauteur du titre (`height`, plus
+      `min-height`) pour que rien d'ajouté là ne puisse plus faire grandir la
+      grille. ⛔ Il faut les DEUX : sortir la pastille sans figer laisserait
+      revenir l'écart 1 ligne / 2 lignes, qui est la moitié du défaut.
+
+      ── ② LES EXTRÊMES SONT CLONÉS, JAMAIS TRANSPORTÉS ─────────────────────
+      ⛔⛔ ATL et ATH NE PASSENT PAS PAR `ILE_TUILES` : l'interdit du lot 127
+      est écrit en toutes lettres vingt lignes plus haut — « cette île ne porte
+      AUCUN montant, ni floor, ni ATH, ni ATL ». Le prix est cloné depuis sa
+      cellule pour cette raison exacte ; ATL et ATH suivent le MÊME chemin.
+      Une seule écriture du montant (le tableau) et un clone ⇒ aucune
+      divergence possible entre les deux vues, et zéro octet de plus dans le
+      JSON servi. `socle__ext` est la classe que la maquette leur donne (`.b` à
+      gauche, `.h` à droite, libellés en `<i>`), déjà stylée, et déjà posée par
+      `Extremes.astro` sur les cartes et les rayons.
+      ⭐ Le bandeau porte `data-col` : sans lui, décocher « Plus-bas »
+      masquerait la colonne du tableau et laisserait le bandeau de la tuile —
+      un interrupteur qui n'agit que sur la moitié de ce qu'on regarde ment.
+      Et `colonnes()` balaie donc les DEUX vues, puis se rappelle à la fin de
+      `batirTuiles()` : les tuiles naissent APRÈS lui, la panne ne se verrait
+      qu'une fois, à la bascule.
+
+      ── ③ L'AVERTISSEMENT SUIT LE PRIX ────────────────────────────────────
+      Toujours la capture du 18/08 : « Faces of The ADDICTION » affiche
+      42 420 420 420 420 gems sur UNE offre, sans le « ! » que le tableau pose
+      à côté. Le clone visait `.num` ; `.alerte` est son FRÈRE, il restait dans
+      le tableau. ⭐⭐ Un prix manifestement faux sans sa marque, sur la vue
+      par DÉFAUT d'un site de cotes, est la seule faute qu'on ne rattrape pas :
+      le visiteur ne doute pas du chiffre, il doute du site. */}
   <script is:inline>
     // ═══════════════════════════════════════════════════════════════════════
     // LE PILOTE — CE QU'IL FAIT ENCORE, ET SURTOUT CE QU'IL NE FAIT PLUS
@@ -913,17 +1004,22 @@ const ILE_TUILES = JSON.stringify({
             if (at.name.indexOf('data-') === 0) a.setAttribute(at.name, at.value);
           }
 
+          // 155-C ③ ① — voir le bloc Astro au-dessus du script.
           var hd = document.createElement('span'); hd.className = 'tuile__hd';
-          var se = document.createElement('span'); se.className = 'tuile__s';
-          var srcSe = l.querySelector('.tbl-obj__s');
-          se.textContent = srcSe ? srcSe.textContent : '';
           var of = document.createElement('span'); of.className = 'tuile__off';
           // ⚠️ `|| '0'` et pas `|| 0` : `data-lst` vaut '' quand le nombre
           // d'offres est INCONNU. Le gabarit d'origine écrivait `?? 0`, donc
           // « 0 listings ». On garde le comportement à l'identique — le
           // corriger serait un autre lot, avec sa propre mesure.
           of.textContent = (a.getAttribute('data-lst') || '0') + ' ' + (ile.lst || '');
-          hd.appendChild(se); hd.appendChild(of);
+          // la rareté monte dans le bandeau — CLONÉE, la table reste sur la ligne
+          var srcRar = l.querySelector('[data-col="rar"] .m2__a .rar');
+          if (srcRar) {
+            var pr = document.createElement('span'); pr.className = 'tuile__rar';
+            pr.appendChild(srcRar.cloneNode(true));
+            hd.appendChild(pr);
+          }
+          hd.appendChild(of);
 
           var socle = document.createElement('div'); socle.className = 'socle';
           var url = ile.img[k];
@@ -957,26 +1053,40 @@ const ILE_TUILES = JSON.stringify({
             socle.appendChild(voile2); socle.appendChild(cage);
           }
 
+          // 155-C ③ ② — ⛔ JAMAIS par ILE_TUILES (lot 127) : on CLONE la cellule.
+          var extB = l.querySelector('[data-ext="atl"] .num');
+          var extH = l.querySelector('[data-ext="ath"] .num');
+          if (extB || extH) {
+            var ext = document.createElement('span');
+            ext.className = 'socle__ext'; ext.setAttribute('aria-hidden', 'true');
+            [['b', 'ATL', extB, 'atl'], ['h', 'ATH', extH, 'ath']].forEach(function (d) {
+              if (!d[2]) return;
+              var c = document.createElement('span');
+              c.className = d[0];
+              c.setAttribute('data-col', d[3]);
+              var lib = document.createElement('i'); lib.textContent = d[1];
+              var val = document.createElement('b'); val.appendChild(d[2].cloneNode(true));
+              c.appendChild(lib); c.appendChild(val);
+              ext.appendChild(c);
+            });
+            socle.appendChild(ext);
+          }
+
           var bas = document.createElement('span'); bas.className = 'tuile__b';
           var titre = document.createElement('span'); titre.className = 'tuile__n';
           var srcN = l.querySelector('.tbl-obj__n');
+          // ⛔ le titre est SEUL dans son bloc : c'est ce qui fige la hauteur
           titre.textContent = srcN ? srcN.textContent : '';
-          var srcR = l.querySelector('.m2__a .rar');
-          if (srcR) {
-            // ⭐ La classe de couleur se LIT sur la ligne (`rar--secret`…), elle
-            // ne se re-déduit pas d'une table `rareté → classe` recopiée ici.
-            var cl = (srcR.className.match(/rar--[a-z]+/) || ['rar--common'])[0];
-            var pastille = document.createElement('span');
-            pastille.className = cl;
-            pastille.setAttribute('style', 'display:inline-flex;margin-left:5px');
-            var f = srcR.querySelector('.forme');
-            if (f) pastille.appendChild(f.cloneNode(true));
-            titre.appendChild(pastille);
-          }
+          var se = document.createElement('span'); se.className = 'tuile__s';
+          var srcSe = l.querySelector('.tbl-obj__s');
+          se.textContent = srcSe ? srcSe.textContent : '';
 
           var prix = document.createElement('span'); prix.className = 'tuile__p';
           var srcP = l.querySelector('[data-prix] .num');
           if (srcP) prix.appendChild(srcP.cloneNode(true));
+          // 155-C ③ ③ — `.alerte` est le FRÈRE de `.num`, il ne suivait pas
+          var srcA = l.querySelector('[data-prix] .alerte');
+          if (srcA) prix.appendChild(srcA.cloneNode(true));
           // ── LA VARIATION. ⛔ Le POURCENTAGE vient de l'île, pas de
           // `data-ch` : `data-ch` est arrondi à 2 décimales pour le TRI, et
           // l'afficher avec une décimale l'arrondirait une seconde fois.
@@ -991,11 +1101,12 @@ const ILE_TUILES = JSON.stringify({
           badge.appendChild(document.createTextNode(ile.pct[k] || '—'));
           prix.appendChild(badge);
 
-          bas.appendChild(titre); bas.appendChild(prix);
+          bas.appendChild(titre); bas.appendChild(se); bas.appendChild(prix);
           a.appendChild(hd); a.appendChild(socle); a.appendChild(bas);
           frag.appendChild(a);
         }
         grille.appendChild(frag);
+        colonnes();   // ⛔ les tuiles naissent APRÈS colonnes() — sinon le bandeau revient
         // ⛔ AFFECTATION, PAS DÉCLARATION. `var T = …` ici créerait une seconde
         // variable et `appliquer()` continuerait de balayer un tableau vide :
         // la grille serait bâtie ET jamais filtrée.
@@ -1042,8 +1153,14 @@ const ILE_TUILES = JSON.stringify({
       function colonnes() {
         var actives = [].slice.call(f.querySelectorAll('input[name="f-col"]:checked'))
           .map(function (c) { return c.value; });
-        [].slice.call(document.querySelectorAll('#vue-tbl [data-col]')).forEach(function (c) {
-          c.hidden = actives.indexOf(c.dataset.col) === -1;
+        // les DEUX vues : le bandeau ATL/ATH des tuiles porte `data-col`
+        [].slice.call(document.querySelectorAll('#vue-tbl [data-col], #vue-tui [data-col]'))
+          .forEach(function (c) {
+            c.hidden = actives.indexOf(c.dataset.col) === -1;
+          });
+        // ⛔ bandeau aux deux moitiés masquées = cadre vide sur la couverture
+        [].slice.call(document.querySelectorAll('#vue-tui .socle__ext')).forEach(function (e) {
+          e.hidden = ![].slice.call(e.children).some(function (c) { return !c.hidden; });
         });
         if (cx) cx.value = '1';
       }

@@ -751,7 +751,20 @@ console.log('\n9. la projection porte-t-elle tout ce que la page LIT ?');
     const dossierCote2 = join(ROOT, '.reserve', 'cote');
     let clesCote = null;
     if (existsSync(dossierCote2)) {
-      const un = readdirSync(dossierCote2).find((f) => f.endsWith('.json'));
+      // 🔴🔴 LOT 155-C ③ — LE DOSSIER NE CONTIENT PAS QUE DES COTES.
+      // `_projection.json` est le JOURNAL de projection, déposé au même
+      // endroit. Un build HORS LIGNE ne dépose aucune cote (la liste blanche
+      // refuse les uuid `sample-…`) : ce `find` tombait alors sur le journal et
+      // lisait SES clés — `maj, projetes, ecrits, refuses, champs, valeurs`.
+      // Le contrôle réclamait ensuite `courbe` et `listings` à un CODE
+      // CORRECT, et le message envoyait grossir `CHAMPS_MARCHE`.
+      // ⭐⭐⭐ Le banc n'était donc pas branché sur ce qu'il croyait lire.
+      // ⚠️ Invisible en CI : le Dockerfile bâtit EN LIGNE avant de le jouer, et
+      // la réserve porte alors de vraies cotes. Le défaut n'apparaît que dans
+      // le seul corpus où l'on peut éprouver sans déployer — celui-là même.
+      // ⛔ On ne recopie pas le nom : `JOURNAL` est exporté par `cote.mjs`.
+      const { JOURNAL } = await import('../lib/cote.mjs');
+      const un = readdirSync(dossierCote2).find((f) => f.endsWith('.json') && f !== JOURNAL);
       if (un) { try { clesCote = Object.keys(JSON.parse(readFileSync(join(dossierCote2, un), 'utf8'))); } catch (e) { clesCote = null; } }
     }
     if (!clesCote) {

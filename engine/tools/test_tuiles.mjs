@@ -550,4 +550,143 @@ if (t0 && l0) {
       : 'les deux vues filtrent sur la même matière');
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 LOT 155-C ③ — CE QUE LA TUILE DOIT PORTER, ET OÙ
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐⭐⭐ ON MESURE LA **CAUSE**, PAS L'EFFET. Preda a rapporté « les tuiles
+// n'ont pas la même hauteur » — une propriété de MISE EN PAGE, que linkedom ne
+// calcule pas et ne calculera jamais. Un banc qui prétendrait mesurer une
+// hauteur ici serait vert par construction : il n'aurait rien regardé.
+// → `regle-linkedom-ne-construit-pas-larbre`
+// ⇒ Ce qui se mesure, c'est la cause exacte relevée le 18/08 : la pastille de
+//   rareté vivait DANS `.tuile__n`, un bloc plafonné à deux lignes qu'elle
+//   débordait, et la série vivait dans le bandeau en overlay où elle écrasait
+//   le compteur d'offres. Deux questions de STRUCTURE, décidables ici.
+console.log('\n5. la tuile porte-t-elle ses morceaux là où ils tiennent ?');
+{
+  const t = document.querySelector('#vue-tui .tuile');
+  if (!t) {
+    indecis('la structure de la tuile', 'aucune tuile bâtie — le §3 a déjà rougi là-dessus');
+  } else {
+    const titre = t.querySelector('.tuile__n');
+    const hd = t.querySelector('.tuile__hd');
+    const bas = t.querySelector('.tuile__b');
+
+    // ⛔ LA PANNE DU 18/08, NOMMÉE. Une pastille `inline-flex` dans un bloc
+    //    `-webkit-line-clamp:2` passe à la 3ᵉ ligne dès que le titre remplit
+    //    les deux premières — et la tuile grandit avec elle.
+    verifie('⛔ le bloc du titre ne contient QUE du texte (aucune pastille à déborder)',
+      !!titre && titre.children.length === 0,
+      !titre ? '🔴 pas de .tuile__n'
+        : titre.children.length === 0 ? `« ${(titre.textContent || '').trim().slice(0, 40)} », 0 enfant`
+        : `🔴 ${titre.children.length} enfant(s) : ${[...titre.children].map((c) => c.className || c.tagName).join(', ')}`
+          + ' — un titre de deux lignes les pousse à la troisième, et la grille perd son alignement');
+
+    verifie('la rareté est montée dans le bandeau (.tuile__rar), la place de la maquette',
+      !!hd && !!hd.querySelector('.tuile__rar .rar'),
+      hd && hd.querySelector('.tuile__rar .rar') ? 'forme + libellé, clonés de la ligne'
+        : '🔴 absente du bandeau — elle est restée dans le titre, ou elle a disparu');
+
+    // ⭐ La série a QUITTÉ le bandeau : en `nowrap`, elle y prenait la largeur
+    //   du compteur d'offres, qui se cassait alors sur deux lignes.
+    verifie('…et la série est descendue SOUS le titre, pas dans le bandeau',
+      !!bas && !!bas.querySelector('.tuile__s') && !(hd && hd.querySelector('.tuile__s')),
+      bas && bas.querySelector('.tuile__s') && !hd.querySelector('.tuile__s')
+        ? `« ${(bas.querySelector('.tuile__s').textContent || '').trim().slice(0, 40)} »`
+        : '🔴 .tuile__s est encore dans .tuile__hd — « N Offres » se cassera en deux');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴 LES MONTANTS DE LA TUILE VIENNENT DE LA LIGNE, ET DE NULLE PART AILLEURS
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐⭐⭐ L'ANCRE EST INDÉPENDANTE, ET C'EST TOUT L'INTÉRÊT : on ne compare pas
+// la tuile à elle-même, on la compare à LA CELLULE DU TABLEAU. Un banc qui
+// vérifierait seulement « le bandeau existe » resterait vert le jour où
+// quelqu'un le remplirait depuis `ILE_TUILES` — c'est-à-dire le jour où le lot
+// 127 serait défait. → `regle-controle-qui-interroge-sa-propre-source`
+console.log('\n6. les montants de la tuile sont-ils CLONÉS de la ligne ?');
+{
+  const t = document.querySelector('#vue-tui .tuile');
+  const l = lignesDom[0];
+  if (!t || !l) {
+    indecis('les montants clonés', 'ni tuile ni ligne à comparer');
+  } else {
+    // ⛔ CONTRE-ÉPREUVE D'ABORD : sans cellule ATL/ATH dans le tableau, ce
+    //    contrôle n'a pas de sujet. Le dire, plutôt que rendre un vert vide —
+    //    c'est le corpus qui décide, jamais ce que la page a rendu.
+    const cAtl = l.querySelector('[data-ext="atl"] .num');
+    const cAth = l.querySelector('[data-ext="ath"] .num');
+    if (!cAtl && !cAth) {
+      indecis('le bandeau ATL/ATH de la tuile',
+        'la ligne ne porte aucune cellule [data-ext] — colonnes retirées du gabarit ?');
+    } else {
+      const ext = t.querySelector('.socle__ext');
+      verifie('⛔ la tuile porte le bandeau des extrêmes, sur le SOCLE',
+        !!ext && !!t.querySelector('.socle .socle__ext'),
+        ext ? 'socle__ext posé sur la couverture'
+          : '🔴 absent — ATL/ATH ne se voient qu\'en vue Tableau');
+      if (ext) {
+        const lu = (sel) => {
+          const e = ext.querySelector(sel);
+          return e ? (e.textContent || '').replace(/\s+/g, ' ').trim() : null;
+        };
+        const cell = (e) => (e ? (e.textContent || '').replace(/\s+/g, ' ').trim() : null);
+        for (const [sel, src, nom] of [['.b', cAtl, 'ATL'], ['.h', cAth, 'ATH']]) {
+          if (!src) continue;
+          const attendu = cell(src);
+          const vu = lu(sel);
+          // 🔴🔴🔴 LE TERME À ZÉRO DOIT ÊTRE ATTEIGNABLE, ET ICI IL NE L'EST
+          // PAS TOUJOURS. Première version : `vu.indexOf(attendu) !== -1`,
+          // rendu VERT hors ligne — en comparant « — » à « — ». Un clone
+          // branché sur la mauvaise cellule aurait passé ce contrôle sans
+          // broncher, parce que TOUTES les cellules disent « — ».
+          // ⚠️ Et le corpus hors réseau ne peut PAS porter de montant : ses
+          // uuid sont des `sample-…`, que la liste blanche de `lireCotes()`
+          // refuse tous. Ce n'est donc pas un manque à combler, c'est une
+          // propriété du corpus — elle se DIT, elle ne se contourne pas.
+          // ⇒ Trois verdicts. En ligne (Dockerfile, production) les montants
+          //   existent et l'écart y est un vrai écart.
+          // → `regle-terme-a-zero-doit-etre-atteignable`
+          if (!attendu || !/[0-9]/.test(attendu)) {
+            indecis(`le ${nom} cloné de la tuile`,
+              `la cellule ne porte aucun chiffre (« ${attendu || '(vide)'} ») — sans cote `
+              + 'réelle, ce contrôle comparerait deux tirets et serait vert quoi qu\'il arrive');
+            continue;
+          }
+          verifie(`…et son ${nom} vaut EXACTEMENT celui de la cellule`,
+            !!vu && vu.indexOf(attendu) !== -1,
+            vu && vu.indexOf(attendu) !== -1 ? `« ${attendu} »`
+              : `🔴 tuile « ${vu} » ≠ ligne « ${attendu} » — le montant a une seconde source`);
+        }
+        verifie('⛔ le bandeau porte `data-col` sur ses deux moitiés',
+          [...ext.children].every((c) => c.hasAttribute('data-col')) && ext.children.length > 0,
+          ext.children.length
+            ? [...ext.children].map((c) => c.getAttribute('data-col')).join(' · ')
+            : '🔴 bandeau vide — `.every()` sur du vide est VRAI, on compte donc les enfants');
+      }
+    }
+
+    // 🔴🔴 L'AVERTISSEMENT DE PRIX ABERRANT. Mesuré en production le 18/08 :
+    //   « Faces of The ADDICTION », 42 420 420 420 420 gems sur UNE offre,
+    //   affiché NU en vue Tuiles — le tableau posait son « ! », le clone ne
+    //   visait que `.num`, et `.alerte` est son frère.
+    // ⚠️ Conditionné au CORPUS : si aucune ligne servie n'a de prix aberrant,
+    //   ce contrôle est SANS OBJET, et il le dit.
+    const ligneAlerte = lignesDom.find((x) => x.querySelector('[data-prix] .alerte'));
+    if (!ligneAlerte) {
+      console.log('  ⏸️  sans objet — aucune des lignes servies ne porte d\'alerte de prix');
+    } else {
+      const k = lignesDom.indexOf(ligneAlerte);
+      const tuile = document.querySelectorAll('#vue-tui .tuile')[k];
+      verifie('⛔ l\'alerte « prix aberrant » suit le prix jusqu\'à la tuile',
+        !!tuile && !!tuile.querySelector('.tuile__p .alerte'),
+        tuile && tuile.querySelector('.tuile__p .alerte')
+          ? `ligne ${k} : le « ! » est cloné avec le montant`
+          : `🔴 ligne ${k} porte l'alerte, sa tuile NON — un prix manifestement faux `
+            + 's\'affiche sans sa marque sur la vue par défaut');
+    }
+  }
+}
+
 fin();
