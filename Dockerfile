@@ -133,6 +133,23 @@ RUN WAREHOUSE_OFFLINE=1 npm run test:acces
 RUN WAREHOUSE_OFFLINE=1 npm run test:session
 RUN WAREHOUSE_OFFLINE=1 npm run test:demo
 # ═══════════════════════════════════════════════════════════════════════════
+# 🔴🔴 LOT 154-B — `test:prefs` EST ICI, ET LA RAISON EST UNE PERTE DE DONNEES
+# ═══════════════════════════════════════════════════════════════════════════
+# Ce banc garde une chose qu'aucun autre ne regarde : DEUX MAGASINS PARTAGENT
+# LE FICHIER DE BASE MONTE SUR `/data` (`favoris.mjs` depuis le lot 140-3,
+# `prefs.mjs` depuis celui-ci). Si le second abime la table du premier, les
+# favoris des membres disparaissent — sans erreur, sans run rouge, sans plainte.
+# ⭐⭐⭐ C'est exactement la classe de defaut que le `Dockerfile` doit EMPECHER
+#   et pas seulement CONSTATER : « la CI constate, elle n'empeche pas ». Un banc
+#   qui garde des donnees d'utilisateur n'a rien a faire uniquement dans
+#   `tests.yml`, ou son rouge arrive pendant que Coolify met le site en ligne.
+# ⭐ AVANT LE BUILD, comme ses voisins : il n'importe pas `dataset()` et ne lit
+#   pas `dist/`. Il ouvre une base SQLite dans `os.tmpdir()` et l'efface.
+# ⛔ IL N'ECRIT PAS DANS `/data` — la base d'essai vit dans un dossier temporaire
+#   pose par `mkdtempSync`, via `DB_PATH`. Un banc qui toucherait le volume de
+#   production serait pire que le defaut qu'il surveille.
+RUN WAREHOUSE_OFFLINE=1 npm run test:prefs
+# ═══════════════════════════════════════════════════════════════════════════
 # 🔴🔴🔴 `test:projection` — LOT 117. IL IMPORTE `dataset()` : IL EST **ICI**.
 # ═══════════════════════════════════════════════════════════════════════════
 # Il ferme le CIRCUIT que les controles precedents n'ouvraient qu'a une

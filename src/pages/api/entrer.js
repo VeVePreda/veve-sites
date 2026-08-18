@@ -31,6 +31,13 @@
 // manifeste. `true` ici est le defaut SUR : sans adaptateur, un build static
 // ne peut pas rendre cette route a la demande.
 import { retourSur, COOKIE_RETOUR, RETOUR_DEFAUT } from '../../../engine/lib/retour.mjs';
+// 🌍 LOT 154-B — la langue du COMPTE reprend la main sur le cookie du NAVIGATEUR.
+// ⭐ Ces trois imports ne servent qu'au bloc de la fin du `GET` ; ils sont ici
+//   parce qu'Astro n'a pas d'import paresseux analysable, et le coût est nul :
+//   `prefs.mjs` n'ouvre sa base qu'au premier appel (ouverture paresseuse).
+import { compteDeLaSession } from '../../../engine/lib/compte.mjs';
+import { lirePref } from '../../../engine/lib/prefs.mjs';
+import { COOKIE_LANGUE, languesInterface } from '../../../engine/lib/i18n.mjs';
 
 export const prerender = true;
 
@@ -142,6 +149,56 @@ export async function GET({ url, cookies, redirect }) {
   const DUREE = 30 * 24 * 3600;
   cookies.set('vp_session', sid, { ...ATTRIBUTS, maxAge: DUREE });
   cookies.set('vp_membre', '1', { ...ATTRIBUTS_MEMBRE, maxAge: DUREE });
+
+  // ═════════════════════════════════════════════════════════════════════════
+  // 🌍 LOT 154-B — LA LANGUE DU COMPTE REPREND LA MAIN, ET C'EST ICI, PAS AILLEURS
+  // ═════════════════════════════════════════════════════════════════════════
+  // LE DÉFAUT SIGNALÉ PAR PREDA (10/08) : « je règle sur français, la
+  // navigation me remet en anglais ». Le lot 123 avait posé le cookie ; il
+  // restait qu'un cookie appartient à UN navigateur. Changer de téléphone, ou
+  // vider ses cookies, et la préférence disparaît sans que rien ne le dise.
+  //
+  // ⭐⭐⭐ POURQUOI CE BLOC EST DANS `/api/entrer` ET NULLE PART AILLEURS.
+  // Résoudre le compte demande `${SESSION_API}/api/session?sid=…` — un endpoint
+  // DIFFÉRENT de celui du middleware, avec le secret de service et un délai de
+  // 4 s. Le placer dans le middleware ajouterait cet aller-retour à CHAQUE page
+  // rendue à la demande, dont `/market/` qui est `no-store` et donc repayée à
+  // chaque visite — pour choisir un dictionnaire.
+  // ⛔ Et ça ne suffirait même pas : les ~3 000 pages publiques sont
+  //   pré-générées, le middleware sort avant elles, il n'y a aucun serveur à
+  //   qui demander. Elles ne lisent QUE le cookie (`src/socle/55-langue.js`).
+  // ⇒ La base est la VÉRITÉ, le cookie est le PORTEUR. La connexion est le seul
+  //   moment où l'aller-retour est DÉJÀ payé, et c'est aussi exactement le
+  //   moment où « je change d'appareil » se pose.
+  //
+  // 🔴 CE BLOC NE PEUT PAS FAIRE ÉCHOUER LA CONNEXION, ET C'EST DÉLIBÉRÉ.
+  // Une préférence d'affichage n'est pas un droit d'accès. Si veveid est muet,
+  // si `/data` n'est pas monté, si la base est illisible — on se connecte quand
+  // même, avec la langue du navigateur. ⛔ Le `catch` qui « échoue fermé » est
+  // la bonne règle pour une SESSION (middleware l. 48) ; l'appliquer à un choix
+  // de dictionnaire refuserait l'entrée pour une raison décorative.
+  try {
+    const compte = await compteDeLaSession(sid);
+    if (compte) {
+      const voulue = lirePref(compte, 'langue');
+      // ⛔ ON REVALIDE CONTRE LE MANIFESTE. La valeur vient de notre base, donc
+      //   d'une écriture passée — mais `languesInterface()` peut avoir CHANGÉ
+      //   depuis (une langue retirée du site). Poser un code que le site ne
+      //   sert plus composerait un chemin de dictionnaire absent dans `dict()`,
+      //   et l'interface retomberait en anglais sans que rien ne l'explique.
+      //   ⭐ Le magasin ne juge pas ses valeurs — `prefs.mjs` borne la forme,
+      //   c'est ici qu'on borne le SENS. Un seul juge, celui qui sait.
+      if (voulue && languesInterface().includes(voulue)) {
+        // ⭐ MÊMES ATTRIBUTS QUE `/compte/` (l. 71) — `httpOnly: false`, parce
+        //   que `55-langue.js` doit pouvoir le lire depuis le navigateur sur
+        //   les 3 000 pages pré-générées. Un cookie `HttpOnly` ici rendrait la
+        //   préférence invisible là où elle sert le plus.
+        cookies.set(COOKIE_LANGUE, voulue, {
+          path: '/', maxAge: 60 * 60 * 24 * 365, sameSite: 'lax', secure: true, httpOnly: false,
+        });
+      }
+    }
+  } catch { /* ⭐ silence VOLONTAIRE — voir le paragraphe ci-dessus */ }
 
   // ⭐ ON NETTOIE L'URL PAR UNE REDIRECTION. Sans elle, `?code=…` resterait
   // dans la barre d'adresse, dans l'historique, et partirait dans le `Referer`

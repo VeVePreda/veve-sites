@@ -37,7 +37,10 @@ import { comptesActifs } from '../../../engine/lib/features.mjs';
 // depuis le 140-3. Deux copies d'un même prédicat sont deux copies qui
 // divergeront le jour où un troisième nom de variable apparaît — c'est la
 // panne P30 du lot 139, et le commentaire de `compte.mjs` le dit déjà.
-import { avoirsDeLaSession, secretDeService } from '../../../engine/lib/compte.mjs';
+import { avoirsDeLaSession, secretDeService, compteDeLaSession } from '../../../engine/lib/compte.mjs';
+// 🌍 LOT 154-B — le magasin des préférences de compte. ⭐ Ouverture paresseuse :
+// l'importer ne touche pas `/data`, seul le premier `poserPref()` l'ouvre.
+import { poserPref } from '../../../engine/lib/prefs.mjs';
 
 // ⭐ CES PAGES SONT RENDUES À LA DEMANDE : elles peuvent donc lire l'en-tête
 // `Accept-Language`, ce qu'une page pré-générée ne peut pas faire. Autant s'en
@@ -92,6 +95,38 @@ const palier = palierVisiteur(Astro.locals);
 const session = sessionDe(Astro.locals);
 const connecte = session === 'reelle';
 const enDemo = session === 'demo';
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🌍 LOT 154-B — LA LANGUE CHOISIE ICI SUIT LE COMPTE, PLUS SEULEMENT LE NAVIGATEUR
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐ Le cookie est posé plus haut (l. 71) et RESTE : c'est lui que lisent les
+// ~3 000 pages pré-générées via `55-langue.js`. Ce bloc n'en change rien — il
+// ajoute la seconde moitié : ranger le choix sous le COMPTE, pour que
+// `/api/entrer` le repose au prochain appareil.
+//
+// ⭐⭐ IL NE TOURNE QUE SUR UN CHANGEMENT (`_ch.aPoser`), ET C'EST TOUT LE
+// DIMENSIONNEMENT DE CE LOT. Résoudre le compte coûte un aller-retour de 4 s
+// vers veveid : le faire à chaque affichage de `/compte/` serait une taxe
+// permanente pour une écriture qui n'arrive qu'au clic sur le sélecteur.
+// `aPoser` vaut vrai quand `?lang=` diffère du cookie — c'est-à-dire au clic,
+// et à rien d'autre.
+//
+// 🔴 ET IL NE PEUT PAS FAIRE ÉCHOUER LA PAGE. Même règle que `/api/entrer` :
+// une préférence d'affichage n'est pas un droit. Si veveid est muet ou si
+// `/data` n'est pas monté, la langue reste posée dans le cookie et le membre ne
+// voit aucune différence AUJOURD'HUI — il la reperdra en changeant d'appareil,
+// ce qui est exactement l'état d'avant ce lot. ⛔ Une page de compte en 500
+// pour un dictionnaire serait une régression bien pire que le défaut corrigé.
+if (_ch.aPoser && connecte) {
+  try {
+    const _sid = Astro.cookies.get('vp_session')?.value || null;
+    const _compte = await compteDeLaSession(_sid);
+    // ⛔ `lang` est DÉJÀ validé — il sort de `choisirLangue()`, qui n'a retenu
+    //    que ce qui est dans `languesInterface()`. On ne revalide pas : deux
+    //    juges pour une même question finissent par diverger.
+    if (_compte) poserPref(_compte, 'langue', lang);
+  } catch { /* ⭐ silence VOLONTAIRE — voir le paragraphe ci-dessus */ }
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 🔴 IL N'Y A PAS DE PAGE COMPTE PUBLIQUE — arbitrage Preda du 06/08/2026.
