@@ -732,7 +732,10 @@ h3{font-size:var(--t-lg)}
 .carte:hover .socle::after{opacity:.7;width:54%}
 .carte:hover .socle__fond{filter:blur(24px) saturate(1.6) brightness(.58)}
 .cartouche{background:var(--carte);color:var(--carte-ink);padding:10px 12px 11px; display:flex;flex-direction:column;gap:6px;margin-top:auto}
-.cartouche__n{font-family:var(--geo);font-size:var(--t-sm);font-weight:600;line-height:1.3;letter-spacing:-.015em; display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+/* 158-A : hauteur FIXE (pas min-height) + etiq sur 1 ligne = grille regulière.
+   Le pourquoi et les mesures vivent dans CarteSet.astro — ce fichier est SERVI. */
+.cartouche__n{font-family:var(--geo);font-size:var(--t-sm);font-weight:600;line-height:1.3;letter-spacing:-.015em; display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;height:2.6em}
+.cartouche .etiq{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .cartouche__l{display:flex;align-items:center;justify-content:space-between;gap:8px; padding-top:7px;border-top:1px solid var(--carte-rule)}
 .cartouche__s{font-family:var(--tech);font-size:10px;color:var(--carte-ink-2);overflow:hidden; text-overflow:ellipsis;white-space:nowrap}
 .prix{font-family:var(--tech);font-size:var(--t-md);font-weight:700;font-variant-numeric:tabular-nums; line-height:1;letter-spacing:-.02em;display:inline-flex;align-items:center;gap:5px}

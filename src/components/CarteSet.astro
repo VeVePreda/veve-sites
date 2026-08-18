@@ -118,7 +118,69 @@ const vignettes = pileSet(col, pile);
       set est le seul contenu accessible de ce lien. */}
   <span class="cartouche">
     <span class="cartouche__n" title={nom.tronque ? nom.complet : undefined}>{nom.vu}</span>
-    {col.brand && <span class="etiq">{col.brand}</span>}
+    {/* ═══════════════════════════════════════════════════════════════════════
+        🔴🔴 LOT 158-A — LA GRILLE DEVIENT RÉGULIÈRE, ET LE POURQUOI VIT ICI
+        ═══════════════════════════════════════════════════════════════════════
+        ⭐⭐ CE COMMENTAIRE EST DANS UN `.astro`, PAS DANS LE THÈME, ET C'EST
+        UNE DÉCISION MESURÉE. `themes/vitrine/theme.css` est servi **BRUT,
+        commentaires compris** : mesuré le 18/08 sur la production —
+        `/theme-395d441673ed.css` pèse 214 101 o et porte 192 blocs de
+        commentaire CSS.
+        ⚠️ ET CE COMMENTAIRE-CI A CASSÉ LE BUILD À SA PREMIÈRE ÉCRITURE : il
+        citait un ouvrant-fermant de commentaire CSS en toutes lettres, et le
+        fermant a **terminé ce bloc JSX** deux paragraphes trop tôt. Astro a
+        rendu une erreur de syntaxe vingt lignes plus bas, très loin de la cause.
+        ⛔ Ne jamais écrire ces deux caractères dans un commentaire Astro.
+        ⭐⭐ ET LA CORRECTION A ÉTÉ FAUSSE UNE SECONDE FOIS, D'UNE AUTRE FAÇON :
+        elle CITAIT le message d'erreur d'Astro, qui contient une accolade
+        fermante nue. Le build est alors passé au VERT — et c'est `test:gabarits`
+        qui l'a arrêtée, en comptant les accolades du corps (22 ouvertes, 23
+        fermées). *Deux fautes de suite dans un commentaire, deux instruments
+        différents pour les voir, et aucune des deux dans le code livré.*
+        La première version de ce lot expliquait tout dans le CSS : **+2 180 o
+        bruts / +988 o gzip, servis sur chaque page**, pour deux règles utiles
+        d'environ 150 o. Un `.astro` est compilé : ce texte ne part jamais au
+        navigateur. *Le commentaire vit là où il ne se paie pas.*
+
+        ── LE DÉFAUT (Preda, 18/08, défaut ②) : « cartes de set inégales » ──
+        Deux causes, et il fallait les deux :
+        ① `.cartouche__n` portait `-webkit-line-clamp:2` **sans hauteur**. Le
+           clamp borne les lignes AFFICHÉES, il ne RÉSERVE pas leur place : un
+           nom d'une ligne fait une carte plus courte que son voisin à deux.
+           ⭐ La preuve était dans le thème : `.tuile__n` porte déjà
+           `height:2.56em`. Il savait le faire à un endroit, pas à l'autre.
+           ⛔ `min-height` n'aurait rien réglé — il laisse grandir.
+        ② `.etiq` n'avait **aucune** limite. 📐 Mesuré au catalogue : 1 394
+           marques distinctes, longueur moyenne 20,8 caractères, max 85, et
+           **38 % dépassent 22 caractères**. La cartouche offre ~192 px utiles
+           (col-carte 216 px − 24 px de padding), soit ~24 caractères à 11 px
+           en capitales avec `letter-spacing:.1em`. ⇒ la même grille mélangeait
+           des étiquettes de 1, 2 et 3 lignes.
+
+        ── CE QUE LE SÉLECTEUR NE FAIT PAS ──
+        ⛔ Le thème vise `.cartouche .etiq`, **jamais `.etiq` seule** : cette
+        classe est employée 103 fois dans le dépôt (titres de section, notes,
+        murs de filtres) où le texte DOIT pouvoir passer à la ligne. Seule
+        l'étiquette d'une carte de grille a besoin d'une hauteur stable. C'est
+        le piège de la coupe par famille — un correctif global avait coûté 764
+        titres.
+        ⭐ UNE ligne et pas deux : la cartouche porte DEUX `.etiq` (la marque et
+        le compteur d'items). À deux lignes chacune, la carte reprendrait
+        quatre lignes de variation et on n'aurait rien réglé.
+
+        ── LE `title`, ET POURQUOI IL EST INCONDITIONNEL ──
+        Le `title` du nom, juste au-dessus, est conditionné (`nom.tronque`) :
+        cette coupe-là est faite en JS, donc le serveur SAIT s'il a coupé. Ici
+        c'est le CSS qui coupe, à une largeur que le serveur ne connaît pas.
+        ⭐⭐ *Un `title` conditionné à une troncature que le serveur ne peut pas
+        mesurer serait absent exactement quand il sert.* Coût : un attribut par
+        carte, sur 60 cartes — contre une information perdue sur 38 % d'entre
+        elles.
+        ⛔ Demande `ag` (« série à 13 caractères ») : arbitrage Preda du 18/08.
+        Couper à 13 rendait **786 séries sur 2 003 indiscernables (39,2 %)** —
+        « Marvel Mighty… » désignait 15 séries différentes. On plafonne les
+        LIGNES, pas les caractères. */}
+    {col.brand && <span class="etiq" title={col.brand}>{col.brand}</span>}
     <span class="etiq etiq--bleu"><b>{col.items.length}</b> {t(lang, 'collections.items')}</span>
   </span>
 </a>
