@@ -1,0 +1,57 @@
+---
+// ⚠️ VeVePreda/veve-sites — src/pages/analytics/collections/index.astro  (FICHIER NEUF — lot 157)
+// ═══════════════════════════════════════════════════════════════════════════
+// LES COLLECTIONS — RENDUE À LA DEMANDE, RÉSERVÉE AUX MEMBRES
+// ═══════════════════════════════════════════════════════════════════════════
+// Demande Preda du 18/08/2026 : découper Analytics par sujet, « réservées aux
+// membres ». Tout le contenu vit dans `AnalyticsSujet.astro` — cette route ne
+// fait que deux choses : LIRE LA LANGUE et TENIR LA PORTE. Les deux ne peuvent
+// se faire QUE sur une route (`Astro.locals`, `Astro.cookies`), jamais dans un
+// composant : c'est la panne du lot 131, et le lot 154-A l'a réécrite.
+//
+// ⛔⛔ `prerender = true` EN LITTÉRAL, ET C'EST VOULU — même dispositif que les
+// vingt-trois autres routes de compte. Un `false` littéral fait échouer le
+// build en mode static (NoAdapterInstalled) et casserait vevewiki ; une
+// EXPRESSION n'est pas évaluée par Astro, qui retombe silencieusement sur
+// `true` — la panne du lot 24, quatre fois payée. C'est
+// `engine/lib/astro_routes_compte.mjs` qui bascule cette route à la demande.
+// 🔴 L'OUBLIER LÀ-BAS NE CASSE RIEN ICI, ET C'EST LE PIÈGE : la page resterait
+// pré-générée, la redirection ci-dessous serait évaluée UNE fois au build (au
+// niveau visiteur, donc toujours vraie) et figée dans un fichier — une page
+// qui redirige tout le monde, membres compris, sur un build parfaitement vert.
+export const prerender = true;
+
+import AnalyticsSujet from '../../../components/pages/AnalyticsSujet.astro';
+import { locales, COOKIE_LANGUE, languesInterface } from '../../../../engine/lib/i18n.mjs';
+import { connecte } from '../../../../engine/lib/access.mjs';
+
+// 🌍 LOT 123 — CETTE PAGE AUSSI LIT LA PRÉFÉRENCE DE LANGUE. Elle est rendue à
+// la demande et réservée : elle peut donc servir des libellés traduits sans URL
+// supplémentaire et sans risque de cache partagé.
+const { def } = locales();
+const _l = Astro.cookies.get(COOKIE_LANGUE)?.value;
+const lang = (_l && languesInterface().includes(_l)) ? _l : def;
+
+// ═══ LE MUR ═══════════════════════════════════════════════════════════════
+// ⭐ `connecte()` SEUL, PAS `franchit()`, et la différence est le produit.
+// Preda a dit « réservées aux membres », pas « réservées aux abonnés ». Le
+// palier fin reste DANS la page : les figures pro gardent `gate="modules"` et
+// chaque module du grand livre garde la sienne dans `/api/analytics/[module]`.
+// ⛔ Exiger un palier ICI ajouterait un mur que personne n'a demandé, et il
+// masquerait ce qu'on essaie justement de vendre.
+if (!connecte(Astro.locals)) {
+  // ⭐ 302 et pas 401 : ce n'est pas une erreur, c'est une porte. Et l'adresse
+  // de retour voyage, sinon on renvoie à l'accueil quelqu'un qui allait
+  // justement se connecter pour lire ce sujet.
+  return Astro.redirect('/connexion/?suite=%2Fanalytics%2Fcollections%2F', 302);
+}
+
+// ⚠️ OBLIGATOIRE, ET PAS DÉCORATIF. Cloudflare est devant ce site : sans cet
+// en-tête, un cache intermédiaire peut servir la page d'un membre à un
+// visiteur. ⛔ Et c'est d'autant plus vrai ici que le contenu réservé est écrit
+// dans la RÉPONSE (la page n'est plus pré-générée) : `no-store` est ce qui
+// remplace la garantie qu'offrait `dist/`.
+Astro.response.headers.set('cache-control', 'private, no-store');
+Astro.response.headers.set('vary', 'cookie');
+---
+<AnalyticsSujet lang={lang} sujet="collections" />

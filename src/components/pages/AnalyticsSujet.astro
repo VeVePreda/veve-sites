@@ -1,0 +1,421 @@
+---
+// ⚠️ VeVePreda/veve-sites — src/components/pages/AnalyticsSujet.astro  (FICHIER NEUF — lot 157)
+// ═══════════════════════════════════════════════════════════════════════════
+// LES QUATRE SUJETS D'ANALYTICS — UN SEUL COMPOSANT, QUATRE ROUTES MINCES
+// ═══════════════════════════════════════════════════════════════════════════
+// Demande Preda du 18/08/2026 : « découper Analytics PAR SUJET DE DONNÉE —
+// Marché, Catalogue, Chaîne & wallets, Collections — et les réserver aux
+// membres ».
+//
+// ⭐⭐ UN COMPOSANT, PAS QUATRE, ET C'EST LA MÊME DÉCISION QU'AU LOT 39.
+// `Analytics.astro` porte en tête : « toute la page vit dans le composant,
+// donc les deux routes ne peuvent pas diverger ». Quatre composants auraient
+// produit quatre bandeaux réservés, quatre pieds de page, quatre façons
+// d'annoncer un cadenas — qui divergent toujours. Ici le SUJET est une
+// DONNÉE (`SUJETS` ci-dessous), pas du code recopié.
+//
+// ⛔⛔ CES QUATRE PAGES NE SONT PAS PRÉ-GÉNÉRÉES, ET C'EST UN ARBITRAGE DE
+// PREDA DU 18/08, PAS UNE COMMODITÉ. Deux implémentations donnaient le même
+// rendu à un membre : ① page publique + chiffres sous cadenas (4 adresses
+// référençables de plus), ② `prerender = false` (zéro page, invisible à
+// Google). Le coût de ② lui a été chiffré — 717 mots visibles, 3 figures SVG
+// et un tableau de 8 lignes réelles sortent de l'index — et il l'a assumé :
+// « porte nue quand même ». ⭐ C'est écrit ici pour que personne ne « répare »
+// dans six semaines une invisibilité qui est voulue.
+//
+// 🔴 CE QUE ÇA CHANGE POUR LA FUITE, ET IL FAUT LE DIRE DANS CE SENS-LÀ :
+// rendue à la demande, cette page lit la VRAIE session. `franchit()` n'y vaut
+// donc plus `visitor` pour tout le monde comme au build — un abonné voit
+// vraiment ses figures. ⛔ Mais la règle du 21/07 ne bouge pas d'un pouce :
+// rien de réservé n'atteint jamais `dist/`, puisque `dist/` n'a aucune de ces
+// pages. `test:fuite` balaie `dist/` — il ne peut RIEN dire d'utile sur ces
+// quatre pages, et c'est le banc neuf `test:analytics` qui les DEMANDE.
+//
+// ⭐ LA DISTINCTION DÉMO/PRO SURVIT, ET ON NE LA DÉFAIT PAS EN PASSANT.
+// Preda a demandé un DÉCOUPAGE, pas une ouverture des droits. Les trois
+// figures publiques restent visibles à tout membre ; les cinq autres restent
+// derrière `gate="modules"`, exactement comme sur l'ancienne page unique.
+// ⛔ Les ouvrir « puisque la page est déjà réservée » supprimerait un mur que
+// personne n'a demandé de supprimer — un arbitrage ne se défait pas par
+// effet de bord.
+import Base from '../../layouts/Base.astro';
+import Gate from '../Gate.astro';
+import Figures from '../Figures.astro';
+import { registreFigures, figureHTML, contexteFigure } from '../../../engine/lib/figures.mjs';
+import { franchit } from '../../../engine/lib/access.mjs';
+// ⛔ ON N'IMPORTE PAS `dataset.mjs` NI `cote.mjs` ICI. Le premier coute 10 s a
+// la demande (lot 125) ; le second l'importe. `lireExtremes()` ne lit qu'un
+// fichier de `.reserve/`, depose au build — c'est tout ce dont cette page a
+// besoin, et c'est ce qui la rend servable en quelques millisecondes.
+import { lireExtremes } from '../../../engine/lib/extremes.mjs';
+import { t, localize, numberLocale } from '../../../engine/lib/i18n.mjs';
+
+const { lang, sujet } = Astro.props;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LES QUATRE SUJETS — LA SEULE SOURCE QUI DIT CE QUI VA OÙ
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐ `figures` liste des IDENTIFIANTS de figures, `led` des modules du grand
+// livre servis par `/api/analytics/<cible>`. Un sujet qui n'a ni l'un ni
+// l'autre ne se rend pas — c'est impossible ici, et le banc le vérifie.
+//
+// ⚠️ CE QUI A DÉCIDÉ CETTE RÉPARTITION, MESURÉ LE 18/08 : les huit figures
+// publiques parlent TOUTES du catalogue ou des licences. Aucune ne parle du
+// marché, aucune ne parle de la chaîne. Le Marché n'a donc qu'un tableau
+// (l'amplitude) et la Chaîne n'a RIEN de public — que du réservé.
+// ⭐ Preda a tranché de garder quatre sujets malgré ça : « la chaîne assume
+// son cadenas ». Une page qui annonce ce qu'elle garde vend mieux qu'une page
+// qui n'existe pas. ⛔ Ne pas « rééquilibrer » en déplaçant une figure de
+// tirage vers la Chaîne : un tirage n'est pas de la chaîne, et un classement
+// forcé se paie en confiance.
+// 🔴🔴🔴 CHAQUE SUJET PORTE SES DEUX CLÉS EN ENTIER — `cle` ET `desc` — ET
+// SURTOUT PAS UN « la clé du sujet, suffixée .d » FABRIQUÉ À L'AFFICHAGE. Mesuré le 18/08 :
+// l'extracteur de `test:cles` prend cette forme pour une clé LITTÉRALE, la
+// retient comme témoin de son auto-contrôle, et son détecteur ne la retrouve
+// pas — le banc se déclare alors aveugle, POUR TOUT LE DÉPÔT. C'est lui qui
+// garde les 12 945 pages contre une clé de traduction rendue en clair.
+// ⛔ On corrige le gabarit, jamais le banc.
+const SUJETS = {
+  market: {
+    cle: 'analytics.market',
+    desc: 'analytics.market.d',
+    // ⭐ `amplitude: true` DIT « ce sujet affiche le classement », pas « il le
+    // calcule » : il est déposé au build dans `.reserve/extremes.json` et
+    // simplement relu ici. Voir `engine/lib/extremes.mjs`.
+    amplitude: true,
+    figures: [],
+    led: [{ id: 'pulse', cible: 'pulse' }],
+  },
+  catalogue: {
+    cle: 'analytics.catalog',
+    desc: 'analytics.catalog.d',
+    amplitude: false,
+    figures: ['catalogue-raretes', 'tirages-catalogue', 'comics-par-annee',
+              'catalogue-types-objets', 'premier-drop-tirages'],
+    led: [],
+  },
+  collections: {
+    cle: 'analytics.collections',
+    desc: 'analytics.collections.d',
+    amplitude: false,
+    figures: ['licences-par-annee', 'licences-pionnieres', 'licences-poids-catalogue'],
+    led: [{ id: 'corner', cible: 'corner_top' }],
+  },
+  chain: {
+    cle: 'analytics.chain',
+    desc: 'analytics.chain.d',
+    amplitude: false,
+    figures: [],
+    led: [{ id: 'size', cible: 'wallet_size' }, { id: 'whales', cible: 'whales' }],
+  },
+};
+
+// ⛔ UNE CLÉ INCONNUE LÈVE, ELLE NE RETOMBE PAS SUR UN DÉFAUT. Un sujet vide
+// rendrait une page d'apparence normale et vide de tout — le mode de panne le
+// plus coûteux de ce projet (« un tableau vide ne se signale pas »).
+const S = SUJETS[sujet];
+if (!S) throw new Error(`[analytics] sujet inconnu : « ${sujet} » (connus : ${Object.keys(SUJETS).join(', ')})`);
+
+const nf = numberLocale[lang] || 'en-GB';
+const ctx = contexteFigure(lang);
+const reg = registreFigures();
+
+// 🔴🔴🔴 ⛔ PAS DE `dataset()` ICI, ET C'EST LA CONTRAINTE STRUCTURANTE DE CE
+// COMPOSANT. Il est importé par quatre routes de `ROUTES_COMPTE`, donc rendues
+// À LA DEMANDE : `dataset()` y retélécharge 2,37 millions de lignes de prix —
+// **10 328 ms mesurées au lot 125** sur `/market/`, à la première requête après
+// chaque redémarrage du conteneur, pour huit lignes de classement.
+// ⭐⭐⭐ La première écriture de ce fichier le faisait. `test:marche` §3 l'a
+// attrapé — il balaie les composants IMPORTÉS par les routes, pas seulement les
+// routes, précisément parce que la panne du lot 125 était deux niveaux plus bas
+// que la page. ⛔ Ne pas réintroduire `await dataset()` ici « juste pour un
+// champ » : c'est la phrase exacte que le banc existe pour rendre impossible.
+const ex = lireExtremes();
+
+// Les trois figures restées publiques depuis le lot 39 — la liste vit ici et
+// dans `Analytics.astro`, et elle n'a qu'un seul sens : « visible sans
+// abonnement ». ⚠️ Elle est RECOPIÉE d'un fichier à l'autre : c'est assumé,
+// parce que l'importer créerait une dépendance de la porte nue vers les
+// sujets, donc du public vers le réservé. `test:analytics` compare les deux.
+const FIG_DEMO = new Set(['catalogue-raretes', 'tirages-catalogue', 'comics-par-annee']);
+
+// ⭐ LE PALIER OBSERVÉ, ET ICI IL EST RÉEL. Cette page est rendue à la
+// demande : `Astro.locals` porte la session, donc `franchit()` répond pour la
+// personne qui lit — pas pour le build.
+const ouvertModules = franchit('modules', Astro.locals);
+
+const figures = S.figures.map((id) => reg.get(id)).filter(Boolean);
+const figuresLibres = figures.filter((f) => FIG_DEMO.has(f.id));
+const figuresReservees = figures.filter((f) => !FIG_DEMO.has(f.id));
+
+// ═══ L'AMPLITUDE — LUE, PLUS CALCULÉE ══════════════════════════════════════
+// ⭐ Tout le tri, le filtre et la coupe à huit se font AU BUILD, dans
+// `deposerExtremes()`. Ici il ne reste qu'une lecture de fichier.
+// 🔴 LOT 101 — LES DEUX COLONNES DE PRIX DISPARAISSENT QUAND LA COTE EST
+// FERMÉE, LE CLASSEMENT NON. `amplitude` est un RAPPORT, calculé dans
+// `dataset.mjs` avant la projection : pas d'unité, aucun montant. C'est LUI
+// qui portait déjà l'information — le classement se fait dessus, pas sur les
+// bornes. ⛔ Le fichier de réserve ne contient donc NI `ath` NI `atl`, et une
+// page qui inventerait un montant est la seule faute qu'un site de cotes ne
+// rattrape jamais.
+// ⚠️ LES DEUX COLONNES DE PRIX NE SONT PLUS AFFICHÉES DU TOUT, MÊME COTE
+// OUVERTE — c'est un retrait assumé de ce lot. Les faire vivre aurait obligé
+// `.reserve/extremes.json` à porter des montants, donc à devenir un porteur de
+// cote de plus, sur une page qui n'en avait pas besoin : le rapport suffit à
+// classer, et c'est ce que le lecteur regarde.
+const extremes = S.amplitude ? (ex.lignes || []) : [];
+const eligibles = S.amplitude ? (ex.eligibles || 0) : 0;
+const ecartes = S.amplitude ? (ex.ecartes || 0) : 0;
+
+const titre = t(lang, S.cle);
+// ⚠️ `path` sert au fil d'Ariane et au lien canonique. Il DOIT porter la barre
+// finale : `test:nginx` dérive l'URL du chemin de fichier, et une forme sans
+// barre n'est servie par aucune règle.
+const chemin = `/analytics/${sujet}/`;
+---
+{/* ⛔ `noindex` EST OBLIGATOIRE ET IL N'EST PAS LA PORTE. La porte est le
+    `connecte()` de la route ; ceci évite seulement qu'un lien partagé fasse
+    indexer une redirection. Les confondre est la faute du lot 118 : masquer
+    un affichage n'a jamais fermé un accès. */}
+<Base sect="analytics" lang={lang} path={chemin} noindex={true}
+      title={titre} description={t(lang, S.desc)} updatedAt={ex.updatedAt}
+      crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') },
+               { name: t(lang, 'analytics.title'), url: localize(lang, '/analytics/') },
+               { name: titre }]}>
+  <Figures />
+
+  <p class="etiq etiq--bleu">// {t(lang, 'analytics.title')}</p>
+  <h1 class="mono-t">{titre}</h1>
+  <p class="respire" style="max-width:56ch">{t(lang, S.desc)}</p>
+  <p style="margin-top:var(--s4)">
+    <a class="puce" href={localize(lang, '/analytics/')}>← {t(lang, 'analytics.title')}</a>
+  </p>
+
+  {/* ═══ L'AMPLITUDE (Marché seulement) ═══ */}
+  {S.amplitude && (
+    <>
+      <div class="sect-t"><h2>{t(lang, 'analytics.amplitude')}</h2>
+        <span class="etiq">{extremes.length} / {eligibles.toLocaleString(nf)}</span></div>
+      <p class="etiq">{t(lang, 'analytics.amplitudeWhat')}</p>
+      <div class="tbl-hote"><table>
+        <thead><tr>
+          <th class="rang">#</th><th>{t(lang, 'movers.item')}</th>
+          <th class="n">×</th>
+        </tr></thead>
+        <tbody>{extremes.map((i, k) => (
+          <tr>
+            <td class="rang">{String(k + 1).padStart(2, '0')}</td>
+            <td><a href={localize(lang, i.path)}>{i.name}</a></td>
+            <td class="n"><span class="num">{i.x.toFixed(1)}</span></td>
+          </tr>
+        ))}</tbody>
+      </table></div>
+      {/* ⚠️ ON DIT CE QU'ON A ÉCARTÉ. Un tableau qui tait son filtre laisse
+          croire que le catalogue est propre. */}
+      {ecartes > 0 && (
+        <p class="etiq" style="margin-top:10px">{t(lang, 'analytics.excluded', { n: ecartes })}</p>
+      )}
+    </>
+  )}
+
+  {/* ═══ LES FIGURES LIBRES ═══ */}
+  {figuresLibres.length > 0 && (
+    <>
+      <div class="sect-t"><h2>{t(lang, 'analytics.figures')}</h2>
+        <span class="etiq">{figuresLibres.length} / {figures.length}</span></div>
+      {figuresLibres.map((f) => (<Fragment set:html={figureHTML(f, ctx)} />))}
+    </>
+  )}
+
+  {/* ═══ LES FIGURES RÉSERVÉES ═══
+      ⭐⭐ `<Gate>` d'abord, le contenu ensuite. Sur une page rendue à la
+      demande, `franchit()` répond pour la vraie session — le contenu réservé
+      n'est écrit dans la réponse que si la porte est franchie, et la réponse
+      porte `no-store`. */}
+  {figuresReservees.length > 0 && (
+    <>
+      <div class="sect-t sect-t--gd"><h2 class="mono-t">{t(lang, 'analytics.full')}</h2>
+        <span class="etiq" style="color:var(--lock)">{figuresReservees.length}</span></div>
+      {ouvertModules
+        ? figuresReservees.map((f) => (<Fragment set:html={figureHTML(f, ctx)} />))
+        : <Gate lang={lang} gate="modules" total={figures.length} shown={figuresLibres.length} />}
+    </>
+  )}
+
+  {/* ═══ LES MODULES DU GRAND LIVRE ═══
+      ⭐⭐ AUCUN CHIFFRE N'EST ÉCRIT ICI, ET ON GARDE CE DISPOSITIF INTACT
+      MÊME SI LA PAGE EST DEVENUE PRIVÉE. Le contenu arrive par
+      `/api/analytics/<cible>`, qui relit la session et applique SA porte —
+      `whales` exige `wallet_watch`, les autres `modules`. Le rendre au serveur
+      ici ferait une SECONDE définition du droit de ces modules, et deux
+      définitions finissent toujours par diverger. ⛔ Une seule porte par
+      module, et elle est dans `[module].js`. */}
+  {S.led.length > 0 && (
+    <>
+      <div class="sect-t sect-t--gd"><h2 class="mono-t">{t(lang, 'led.title')}</h2>
+        <span class="etiq" id="led-maj"></span></div>
+      <p class="respire" style="max-width:60ch">{t(lang, 'led.lead')}</p>
+
+      <div class="modules" style="margin-top:var(--s4)">
+        {S.led.map((m) => (
+          <div class="module" id={`led-mod-${m.id}`}>
+            <span class="module__c">
+              <span class="module__n">{t(lang, `led.${m.id}`)}</span>
+              <span class="module__d">{t(lang, `led.${m.id}.d`)}</span>
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {/* ⭐ Un conteneur PAR module, vide, avec son état de repli écrit en
+          dur. Sans JavaScript, le lecteur voit « réservé aux abonnés » — pas
+          une zone blanche qui a l'air cassée. */}
+      {S.led.map((m) => (
+        <section class="panneau" style="margin-top:var(--s4)" data-led={m.id} data-cible={m.cible}>
+          <p class="etiq">// {t(lang, `led.${m.id}`)}</p>
+          <div class="led__hote"><p class="muted">{t(lang, 'led.locked')}</p></div>
+        </section>
+      ))}
+    </>
+  )}
+</Base>
+
+{/* ⚠️ `is:inline` : ce script lit une API privée et ne doit pas être groupé
+    avec le JS public, qui est mis en cache partagé. C'est la raison du lot 44
+    et elle n'a pas changé.
+    ⭐ IL NE CONNAÎT PLUS LA LISTE DES MODULES — il lit `data-cible` sur les
+    sections présentes. Une table `CIBLES` recopiée ici aurait été une TROISIÈME
+    liste des modules (après `SUJETS` et `MODULES` de l'API) : le jour où un
+    sujet en gagne un, deux endroits sur trois le sauraient.
+
+    🔴🔴 ET IL N'EST ÉMIS QUE SI LE SUJET A DES MODULES — MESURÉ, PAS SUPPOSÉ.
+    Première écriture : le script était hors de toute condition, donc servi sur
+    les QUATRE sujets. Sur `/analytics/catalogue/`, qui n'a aucun module du
+    grand livre, il ne faisait rien du tout : son `querySelectorAll` ne
+    trouvait aucune section et il sortait. ⭐ « Il ne fait rien » n'est pas
+    « il ne coûte rien » — mesuré le 18/08 : **5 095 o bruts, 1 785 o gzip**,
+    sur des pages servies en `no-store`. Elles ne sont mises en cache NULLE
+    PART : ce poids est repayé À CHAQUE VISITE, comme sur `/market/`, et aucun
+    cliquet de poids ne surveille ces quatre pages-là.
+    ⛔ Un script sans effet reste dans le HTML, et le HTML est ce qu'on sert. */}
+{S.led.length > 0 && (
+<script is:inline define:vars={{
+  L: {
+    locked: t(lang, 'led.locked'), loading: t(lang, 'led.loading'),
+    error: t(lang, 'led.error'), asOf: t(lang, 'led.asOf'),
+    months: t(lang, 'led.months'), years: t(lang, 'led.years'),
+    wallets: t(lang, 'led.wallets'), share: t(lang, 'led.share'),
+    rank: t(lang, 'led.rank'), wallet: t(lang, 'led.wallet'),
+    holdings: t(lang, 'led.holdings'), gini: t(lang, 'led.gini'),
+    holders: t(lang, 'led.holders'), item: t(lang, 'led.item'), on: t(lang, 'led.on'),
+  },
+}}>
+(function () {
+  var ech = function (s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  };
+  // ⛔ TOUT PASSE PAR `ech()`. Ces valeurs viennent d'un CSV produit par un
+  // tiers (l'entrepôt) : c'est une donnée d'entrée comme une autre.
+  var num = function (v) {
+    var n = Number(v);
+    return isFinite(n) ? n.toLocaleString() : ech(v);
+  };
+  var tab = function (entetes, lignes) {
+    return '<div class="tbl-hote"><table><thead><tr>'
+      + entetes.map(function (h) { return '<th scope="col">' + ech(h) + '</th>'; }).join('')
+      + '</tr></thead><tbody>'
+      + lignes.map(function (l) {
+        return '<tr>' + l.map(function (c) { return '<td>' + c + '</td>'; }).join('') + '</tr>';
+      }).join('') + '</tbody></table></div>';
+  };
+
+  var rendus = {
+    pulse: function (d) {
+      var m = (d.mois || []).slice(-12);
+      var a = d.annees || [];
+      // ⚠️ « Par semaine » n'existe pas dans la source : `pulse.csv` est un
+      // pulse MENSUEL. On affiche mois et années, on n'invente pas de semaines.
+      return '<p class="etiq">' + m.length + ' ' + ech(L.months) + ' · '
+        + a.length + ' ' + ech(L.years) + '</p>'
+        + tab(['', 'actifs', 'trades', 'acheteurs', 'vendeurs', 'burns', 'listings'],
+          a.concat(m).map(function (r) {
+            return ['<b>' + ech(r.month) + '</b>', num(r.actifs), num(r.trades),
+              num(r.acheteurs), num(r.vendeurs), num(r.burns), num(r.listings)];
+          }));
+    },
+    size: function (d) {
+      var out = '';
+      Object.keys(d).forEach(function (dim) {
+        out += '<p class="etiq" style="margin-top:12px">' + ech(dim) + '</p>'
+          + tab(['', L.wallets, L.share], d[dim].map(function (r) {
+            return ['<b>' + ech(r.bucket) + '</b>', num(r.wallets), ech(r.pct_wallets) + ' %'];
+          }));
+      });
+      return out;
+    },
+    whales: function (d) {
+      var out = '';
+      Object.keys(d).forEach(function (bloc) {
+        // ⚠️ 20 lignes affichées sur les 100 servies : une liste de cent
+        // adresses ne se lit pas, et la couper ici ne cache rien.
+        out += '<p class="etiq" style="margin-top:12px">' + ech(bloc) + '</p>'
+          + tab([L.rank, L.wallet, L.holdings, 'store', 'floor'],
+            d[bloc].slice(0, 20).map(function (r) {
+              return [num(r.rank), '<code>' + ech(String(r.wallet).slice(0, 10)) + '…</code>',
+                num(r.holdings), num(r.value_store), num(r.value_floor)];
+            }));
+      });
+      return out;
+    },
+    corner: function (d) {
+      // ⭐ On affiche le DÉNOMINATEUR. Un « top 20 » sans lui laisse croire que
+      // le catalogue fait vingt pièces.
+      return '<p class="etiq">' + ech(L.on) + ' ' + num(d.total) + '</p>'
+        + tab([L.item, L.gini, L.holders, 'top1 %', 'top10 %'],
+          (d.lignes || []).map(function (r) {
+            return ['<b>' + ech(r.name) + '</b>', ech(r.gini), num(r.holders),
+              ech(r.top1_pct) + ' %', ech(r.top10_pct) + ' %'];
+          }));
+    },
+  };
+
+  var sections = document.querySelectorAll('[data-led][data-cible]');
+  if (!sections.length) return;
+
+  Array.prototype.forEach.call(sections, function (sec) {
+    var cle = sec.getAttribute('data-led');
+    var cible = sec.getAttribute('data-cible');
+    var hote = sec.querySelector('.led__hote');
+    if (!hote || !rendus[cle]) return;
+    hote.innerHTML = '<p class="muted">' + ech(L.loading) + '</p>';
+    fetch('/api/analytics/' + encodeURIComponent(cible), { headers: { accept: 'application/json' } })
+      .then(function (r) {
+        // ⭐ 401 et 403 ne sont PAS des erreurs : ce sont les réponses normales
+        // d'un mur qui fonctionne. Les traiter comme une panne ferait croire
+        // que le site est cassé alors qu'il fait exactement son travail.
+        if (r.status === 401 || r.status === 403) return { verrou: true };
+        if (!r.ok) throw new Error(String(r.status));
+        return r.json();
+      })
+      .then(function (d) {
+        if (d && d.verrou) { hote.innerHTML = '<p class="muted">🔒 ' + ech(L.locked) + '</p>'; return; }
+        hote.innerHTML = rendus[cle](d);
+      })
+      .catch(function () { hote.innerHTML = '<p class="muted">' + ech(L.error) + '</p>'; });
+  });
+
+  // La date du relevé : un chiffre sans date n'est pas vérifiable.
+  fetch('/api/analytics/meta', { headers: { accept: 'application/json' } })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (d) {
+      if (d && d.run_date) {
+        var e = document.getElementById('led-maj');
+        if (e) e.textContent = L.asOf + ' ' + d.run_date;
+      }
+    })
+    .catch(function () {});
+})();
+</script>
+)}

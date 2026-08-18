@@ -4,6 +4,10 @@ import fonctionnalitesEteintes from './engine/lib/astro_features.mjs';
 import routesCompte from './engine/lib/astro_routes_compte.mjs';
 import reserveAnalytics from './engine/lib/astro_reserve_analytics.mjs';
 import temoinBuild from './engine/lib/astro_temoin_build.mjs';
+// 📊 LOT 157 — depose le classement d'amplitude dans `.reserve/` AU BUILD, pour
+// que `/analytics/market/` (rendue a la demande) n'ait pas a rappeler
+// `dataset()` : 10 328 ms mesurees au lot 125.
+import extremes from './engine/lib/astro_extremes.mjs';
 import { satteri } from '@astrojs/markdown-satteri';
 import figuresMarkdown from './engine/lib/figures_markdown.mjs';
 import { siteUrl } from './engine/lib/manifest.mjs';
@@ -77,7 +81,7 @@ export default defineConfig({
   // 🔴 LOT 128 — `temoinBuild(mode)` EN DERNIER, ET L'ORDRE EST LE DISPOSITIF.
   // Il enregistre ce que le build a deposé ; il doit donc passer APRES ceux qui
   // déposent. Astro appelle `astro:build:done` dans l'ordre des intégrations.
-  integrations: [fonctionnalitesEteintes(), routesCompte(mode), reserveAnalytics(mode), temoinBuild(mode)],
+  integrations: [fonctionnalitesEteintes(), routesCompte(mode), reserveAnalytics(mode), temoinBuild(mode), extremes()],
   // `![legende](figure:mon-id)` dans un article .md du depot -> figure de
   // donnees tracee AU BUILD, exactement comme pour un corps venu du Sheet.
   // Une seule syntaxe pour les deux pipelines.

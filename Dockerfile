@@ -487,6 +487,26 @@ RUN WAREHOUSE_OFFLINE=1 npm run test:plages
 #   ne recalcule RIEN : il parle a un serveur deja demarre, il ne peut donc pas
 #   vider la reserve comme l'ont fait `test:fuite` (lot 101) et `test:rayon`
 #   (lot 113).
+# 📊🔴🔴 `test:analytics` — LOT 157. IL EST DANS LE DOCKERFILE PARCE QUE LA CI
+# ═══════════════════════════════════════════════════════════════════════════
+# CONSTATE ET N'EMPECHE PAS. `npm test` le chaine aussi, mais c'est CE fichier
+# que le deploiement respecte : un banc absent d'ici ne bloque aucune mise en
+# ligne.
+# ⛔ IL VA APRES `npm run build` : il lit `dist/`. Avant, il se declarerait
+#   INDECIDABLE — ce qu'il DIT, au lieu de passer au vert.
+# ⭐⭐ CE QU'IL GARDE : les quatre pages de sujet sont `prerender = false` par
+#   arbitrage de Preda. Oubliees dans `ROUTES_COMPTE`, elles seraient
+#   PRE-GENEREES — quatre fichiers dans `dist/`, servis en clair par nginx,
+#   avec le contenu que `franchit()` aurait laisse passer au build, et quatre
+#   entrees de plus au sitemap. Le build resterait VERT.
+#   *Un oubli qui rend muet se decouvre par une plainte ; un oubli qui rend
+#   public ne se decouvre par rien.*
+# ⚠️ IL NE LIT PAS `RENDERING`, ET C'EST DELIBERE : cette variable n'est PAS un
+#   `ENV` de ce fichier — elle n'est exportee que dans le `RUN` du build. Un
+#   banc qui s'y fierait se declarerait « sans objet » a chaque build, sur les
+#   deux sites, en sortant 0. Il se cale sur `dist/server/entry.mjs`, que le
+#   build PRODUIT.
+RUN WAREHOUSE_OFFLINE=1 npm run test:analytics
 RUN WAREHOUSE_OFFLINE=1 npm run test:pages
 # 🐌🔴 `test:tuiles` — LOT 127. LE POIDS DE `/market/`, ET LE PREMIER BANC QUI
 # ═══════════════════════════════════════════════════════════════════════════

@@ -1,0 +1,40 @@
+---
+// ⚠️ VeVePreda/veve-sites — src/pages/[locale]/analytics/catalogue/index.astro  (NEUF — lot 157)
+// 🔴 LOT 157 — la variante par langue. Même mur, mêmes raisons : tout est dit
+// dans `src/pages/analytics/catalogue/index.astro`, et ce fichier ne le redit pas.
+//
+// ⭐⭐ POURQUOI ELLE EXISTE ALORS QU'ELLE NE GÉNÈRE RIEN. `active: [en]` :
+// cette route rend ZÉRO page aujourd'hui. Elle est là pour le jour où une
+// langue redevient active — sans elle, `/fr/analytics/` (que
+// `[locale]/analytics/index.astro` émet déjà) porterait quatre liens vers des
+// 404. ⛔ C'est EXACTEMENT la panne du lot 128 : huit liens morts émis par le
+// menu, trente-quatre bancs verts, et Preda qui les découvre en naviguant.
+//
+// ⛔⛔ `getStaticPaths()` EST OBLIGATOIRE ET IL REND UNE LISTE VIDE EN STATIC.
+// Astro : « GetStaticPathsRequired » sur toute route dynamique pré-générée.
+// ⭐ Et la réponse honnête EST « aucun » : en mode static il n'y a pas de
+// serveur, donc pas de session — une page réservée n'y a pas de sens.
+// ⛔ NE PAS y remettre les langues « pour que ça marche aussi en static » : ça
+// écrirait dans `dist/` un fichier par langue répondant 200 à tout le monde,
+// c'est-à-dire exactement la porte qu'on vient de poser.
+export const prerender = true;
+
+import AnalyticsSujet from '../../../../components/pages/AnalyticsSujet.astro';
+import { connecte } from '../../../../../engine/lib/access.mjs';
+
+export function getStaticPaths() {
+  // ⭐ En mode server cette fonction n'est pas appelée ; en static elle rend
+  // vide. Une seule forme, deux modes, aucune branche à maintenir.
+  return [];
+}
+
+const lang = Astro.params.locale;
+
+if (!connecte(Astro.locals)) {
+  return Astro.redirect(`/connexion/?suite=%2F${encodeURIComponent(lang)}%2Fanalytics%2Fcatalogue%2F`, 302);
+}
+
+Astro.response.headers.set('cache-control', 'private, no-store');
+Astro.response.headers.set('vary', 'cookie');
+---
+<AnalyticsSujet lang={lang} sujet="catalogue" />

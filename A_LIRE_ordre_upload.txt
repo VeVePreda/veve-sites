@@ -1,0 +1,75 @@
+LOT 157 — ANALYTICS DÉCOUPÉ PAR SUJET DE DONNÉE
+Dépôt : VeVePreda/veve-sites          18/08/2026
+═══════════════════════════════════════════════════════════════════════════
+
+⚠️ CE DÉPÔT DÉCLENCHE UN BUILD COOLIFY (~10 min).
+   AVANT DE DÉPOSER : ouvre Coolify et regarde s'il y a un déploiement EN
+   COURS. Coolify ne met pas en file, il lance en PARALLÈLE — deux builds
+   ensemble, c'est +73 % de durée et l'un des deux tué sans message.
+
+═══════════════════════════════════════════════════════════════════════════
+COMMENT DÉPOSER
+═══════════════════════════════════════════════════════════════════════════
+
+La racine du zip EST la racine du dépôt. Tu peux donc glisser tout le
+contenu d'un coup : `Dockerfile`, `astro.config.mjs`, `engine/`, `nginx.
+server.conf`, `package.json`, `src/` se posent chacun à sa place.
+
+24 fichiers : 12 neufs, 12 modifiés. Aucun fichier n'est supprimé.
+
+Si GitHub affiche « commit failed » ou une erreur 503 : NE RECOMMENCE PAS
+tout de suite. Recharge la page du dépôt d'abord — le commit est
+probablement passé quand même.
+
+═══════════════════════════════════════════════════════════════════════════
+CE QUE ÇA CHANGE, EN CLAIR
+═══════════════════════════════════════════════════════════════════════════
+
+/analytics/ devient une PORTE : un titre, une phrase, quatre cartes vers les
+quatre sujets, et le catalogue des cinq modules. Elle reste publique.
+Elle passe de 45 046 o à ~24 700 o (12 204 → 7 397 o compressés).
+
+Les quatre sujets sont des pages NEUVES, réservées aux membres :
+
+  /analytics/market/        le classement d'amplitude + le pulse mensuel
+  /analytics/catalogue/     5 figures (raretés, tirages, comics, types…)
+  /analytics/collections/   3 figures de licences + la concentration
+  /analytics/chain/         taille des wallets + les plus gros détenteurs
+
+Un visiteur non connecté qui tape une de ces adresses est renvoyé vers
+/connexion/, et il revient sur la page qu'il voulait après s'être connecté.
+
+Elles n'existent PAS pour Google : zéro page produite, rien dans le sitemap.
+C'est ce que tu as choisi ce matin, en connaissant le coût.
+
+═══════════════════════════════════════════════════════════════════════════
+APRÈS LE DÉPLOIEMENT — 4 VÉRIFICATIONS
+═══════════════════════════════════════════════════════════════════════════
+
+1. Ouvre https://veveprice.com/analytics/ : tu dois voir quatre cartes et
+   PLUS AUCUN tableau ni graphique.
+
+2. Clique sur une carte sans être connecté : tu dois arriver sur la page de
+   connexion.
+
+3. Connecte-toi, puis reclique : tu dois voir la page du sujet.
+   🙋 C'EST LA SEULE CHOSE QUE JE N'AI PAS PU VÉRIFIER MOI-MÊME — je n'ai
+   aucune session. UNE CAPTURE D'ÉCRAN DES QUATRE PAGES CONNECTÉES est ce
+   qui me servira le plus.
+
+4. Sur /analytics/market/, le tableau « Extreme amplitude » affiche des
+   valeurs ABSURDES (×143 061 516). ⚠️ Ce n'est pas nouveau et ce n'est pas
+   ce lot : la page actuelle affiche exactement les mêmes huit lignes, je
+   l'ai vérifié avant d'écrire quoi que ce soit. Le défaut est dans le calcul
+   en amont. Dis-moi si tu veux qu'on s'en occupe — c'est un autre lot.
+
+═══════════════════════════════════════════════════════════════════════════
+CE QUI A ÉTÉ ÉPROUVÉ ICI
+═══════════════════════════════════════════════════════════════════════════
+
+· build réel (8 841 cotes, 12 945 pages), en I18N_MARQUAGE=1 : vert
+· les 41 bancs : verts, test:analytics compris
+· le banc neuf jugé en lui injectant 7 fautes : il rougit sur les 7
+· les 4 pages demandées à un vrai serveur : 302 pour un anonyme, 200 pour
+  un membre, aucune erreur de rendu
+· temps de réponse : 1,7 ms (et non 10 s — voir le point dataset() du suivi)

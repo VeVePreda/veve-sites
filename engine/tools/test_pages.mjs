@@ -66,6 +66,18 @@ const ROUTES = [
   //   DEMANDE). ⛔ Une route qui n'est demandée par aucun banc n'est vérifiée
   //   qu'en production, par le premier visiteur — c'est le 503 du lot 123.
   { p: '/dashboard/', quoi: 'le tableau de bord' },
+  // 📊 LOT 157 — LA TROISIÈME PLACE DES QUATRE SUJETS D'ANALYTICS. Les deux
+  //   autres : `astro_routes_compte.mjs` (Node les REND) et
+  //   `nginx.server.conf` (nginx les DEMANDE).
+  // ⛔ Un 404 ici voudrait dire que la route n'a pas été basculée à la demande
+  //   — donc qu'elle a été PRÉ-GÉNÉRÉE, donc que son contenu réservé est dans
+  //   `dist/`. Sur ces quatre pages-là, le 404 est le symptôme d'une FUITE,
+  //   pas d'une absence. ⭐ C'est le seul endroit du banc où cette nuance
+  //   existe, et elle vaut d'être lue avant de « réparer » un rouge.
+  { p: '/analytics/market/', quoi: 'le sujet Marché' },
+  { p: '/analytics/catalogue/', quoi: 'le sujet Catalogue' },
+  { p: '/analytics/collections/', quoi: 'le sujet Collections' },
+  { p: '/analytics/chain/', quoi: 'le sujet Chaîne & wallets' },
   // ⭐ Avec un paramètre de langue : c'est le chemin qui a explosé le 10/08,
   //   et il ne s'emprunte que si quelqu'un le demande.
   { p: '/connexion/?lang=fr', quoi: 'la connexion en français' },

@@ -147,6 +147,43 @@ const ROUTES_COMPTE = [
   'pages/api/favoris.js',
   'pages/dashboard/index.astro',
   'pages/[locale]/dashboard/index.astro',
+  // ═════════════════════════════════════════════════════════════════════════
+  // 📊 LOT 157 (18/08/2026) — LES QUATRE SUJETS D'ANALYTICS
+  // ═════════════════════════════════════════════════════════════════════════
+  // Arbitrage Preda du 18/08 : les quatre pages de sujet sont « réservées aux
+  // membres », et il a choisi de cacher jusqu'à leur EXISTENCE — donc
+  // `prerender = false`, zéro page dans `dist/`, rien dans le sitemap.
+  //
+  // ⛔⛔ CELLES-CI SONT DE LA FAMILLE DANGEREUSE DE `/market/`, PAS DE CELLE
+  // QUI DEVIENT MUETTE. Oubliées ici, elles ne cesseraient pas de marcher :
+  // elles seraient PRÉ-GÉNÉRÉES, donc évaluées au palier `visitor` au build,
+  // donc figées en quatre fichiers servis en clair par nginx à qui connaît
+  // l'adresse — avec, dedans, tout ce que `franchit('modules')` aurait laissé
+  // passer. Le build resterait vert et les pages auraient l'air correctes.
+  // ⭐ Un oubli qui rend muet se découvre par une plainte ; un oubli qui rend
+  // public ne se découvre par rien.
+  //
+  // 🔴 ET IL Y A UN SECOND EFFET, MOINS VISIBLE : pré-générées, elles
+  // entreraient dans le SITEMAP. Preda a demandé l'inverse, et personne ne
+  // relit un sitemap de 11 963 lignes.
+  //
+  // ⚠️ LES DEUX AUTRES ENDROITS, ET ILS SONT OBLIGATOIRES : la regex
+  // `location` de `nginx.server.conf` (sinon 404 sur un build vert, la panne
+  // du lot 119) et `engine/tools/test_pages.mjs` (sinon personne ne les
+  // demande avant le premier visiteur, la panne du lot 123).
+  'pages/analytics/market/index.astro',
+  'pages/analytics/catalogue/index.astro',
+  'pages/analytics/collections/index.astro',
+  'pages/analytics/chain/index.astro',
+  // ⭐ Les variantes par langue rendent ZÉRO page (`active: [en]`), et elles
+  // doivent quand même être ici : le jour où une langue redevient active,
+  // `[locale]/analytics/index.astro` émettrait `/fr/analytics/` avec quatre
+  // liens vers des pages pré-générées et publiques. C'est la panne du lot 128,
+  // par l'autre bout.
+  'pages/[locale]/analytics/market/index.astro',
+  'pages/[locale]/analytics/catalogue/index.astro',
+  'pages/[locale]/analytics/collections/index.astro',
+  'pages/[locale]/analytics/chain/index.astro',
 ];
 
 const normalise = (p) => String(p || '').replace(/\\/g, '/');
