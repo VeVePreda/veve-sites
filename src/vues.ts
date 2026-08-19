@@ -6,6 +6,8 @@ import type { Avoir, Compte } from './avoirs.ts';
 import { CHAMP_PIEGE, sceau } from './robots.ts';
 import { DELAI_GRACE_JOURS } from './avoirs.ts';
 import type { Forme, LigneSite, Activite, Trouvaille } from './admin.ts';
+// 🔴 LOT 163-B① — l'écran des portes : voir `blocPortes` plus bas.
+import { tableauPortes, JOURS_MAX } from './portes.ts';
 
 /**
  * LES VUES DU SERVICE D'IDENTITÉ — téléphone d'abord, comme les jeux.
@@ -618,15 +620,66 @@ const blocRecherche = (t?: Trouvaille) => {
  *    OPAQUE (`c.ref`, l'uuid interne) : ni e-mail, ni portefeuille, rien à
  *    apprendre, et sans valeur hors d'une session d'exploitation.
  */
+/**
+ * ═══════════════════════════════════════════════════════════════════════
+ * 🔴🔴 LOT 163-B① — L'ÉCRAN DES PORTES.
+ * ═══════════════════════════════════════════════════════════════════════
+ * ⭐ LES SEPT PORTES SONT TOUJOURS TOUTES LISTÉES, surchargées ou non. Ne
+ *   montrer que les surcharges cacherait précisément ce qu'on vient faire :
+ *   *un contrôle qui ne regarde que ce qui existe ne voit jamais ce qui
+ *   manque.* Une porte sans surcharge dit « manifeste », et c'est une
+ *   information, pas un vide.
+ * ⛔ LA DURÉE EST `required` ET PLAFONNÉE À `JOURS_MAX`. C'est la seule chose
+ *   qui rend cet écran acceptable : il fait ce qu'`access.mjs` interdit —
+ *   ouvrir sans redéployer — et il ne s'en tire que parce que ça se referme
+ *   tout seul. ⚠️ La borne qui COMPTE est dans `portes.ts`, pas ici.
+ * ⚠️ UNE PORTE EXPIRÉE SE MONTRE, elle ne disparaît pas : « rien » et
+ *   « ouvert jusqu'à avant-hier » sont deux états, et le second se relit avec
+ *   profit quand on cherche pourquoi quelqu'un a vu quelque chose.
+ */
+const blocPortes = (site: string, lignes: ReturnType<typeof tableauPortes>): string => `
+  <h2>Portes du site « ${echapper(site)} »</h2>
+  <div class="carte doux" style="margin-bottom:10px">Une surcharge <b>remplace le
+  palier du manifeste</b> pour tout le monde, et elle <b>se referme seule</b> à sa
+  date de fin (${JOURS_MAX} jours au plus). Sans surcharge, c’est le manifeste qui
+  décide. ⚠️ <b>wallet_watch</b> ouvre le classement nominatif des plus gros
+  portefeuilles, avec leurs adresses.</div>
+  ${lignes.map((l) => `<div class="carte">
+    <div class="rang"><b style="flex:1">${echapper(l.porte)}</b>
+      <span class="doux">${l.active
+        ? `surchargée : <b>${echapper(l.tier ?? '')}</b> jusqu’au ${echapper((l.jusqu_a ?? '').slice(0, 10))}`
+        : l.expiree
+          ? `expirée le ${echapper((l.jusqu_a ?? '').slice(0, 10))} — le manifeste a repris la main`
+          : 'manifeste'}</span></div>
+    <form method="post" action="/admin/porte" class="rang" style="margin-top:10px;gap:8px">
+      <input type="hidden" name="porte" value="${echapper(l.porte)}">
+      <select name="tier" aria-label="palier exigé">
+        ${['member', 'crevette', 'langouste', 'whale']
+          .map((x) => `<option value="${x}">${x}</option>`).join('')}
+      </select>
+      <input name="jours" type="number" min="1" max="${JOURS_MAX}" value="7" required
+             style="width:80px" aria-label="jours">
+      <button class="principal">Poser</button>
+    </form>
+    ${l.active || l.expiree ? `<form method="post" action="/admin/porte" style="margin-top:8px">
+      <input type="hidden" name="porte" value="${echapper(l.porte)}">
+      <input type="hidden" name="jours" value="0">
+      <button>Retirer la surcharge</button>
+    </form>` : ''}
+  </div>`).join('')}`;
+
 export function pageAdmin(
   f: Forme, sites: LigneSite[], a: Activite, t?: Trouvaille, message?: string,
+  portes?: { site: string; lignes: ReturnType<typeof tableauPortes> },
 ): string {
   return page('Exploitation', `${entete('Exploitation', 'veve-id')}
-  <div class="carte doux" style="margin-top:0">Cette page <b>regarde</b>, et depuis
-  le lot 122 elle peut <b>accorder un abonnement</b> — le seul geste qui écrit.
-  Elle n’affiche toujours aucune adresse en clair.</div>
+  <div class="carte doux" style="margin-top:0">Cette page <b>regarde</b>, et elle a
+  <b>trois gestes qui écrivent</b> : accorder un abonnement (lot 122), poser un
+  palier sur un compte et surcharger une porte (lot 163). Les trois portent une
+  <b>date de fin</b>. Elle n’affiche toujours aucune adresse en clair.</div>
   ${!message ? '' : `<div class="carte"><b>${echapper(message)}</b></div>`}
   ${blocRecherche(t)}
+  ${portes ? blocPortes(portes.site, portes.lignes) : ''}
   ${blocForme(f)}
   ${blocSites(sites)}
   ${blocActivite(a)}

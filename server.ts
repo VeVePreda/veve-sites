@@ -29,6 +29,8 @@ import {
   // 🔴 LOT 163-A — le second geste qui écrit : voir POST /admin/palier.
   accorderPalier,
 } from './src/avoirs.ts';
+// 🔴 LOT 163-B① — les surcharges de portes : voir GET /api/portes et POST /admin/porte.
+import { lireSurcharges, poserSurcharge, tableauPortes, JOURS_MAX } from './src/portes.ts';
 import { demander, consommer, purgerLiens, DUREE_MIN } from './src/lien_magique.ts';
 import {
   creerCode, echanger, etatDeLaSession, revoquer, revoquerTout, purgerSessions,
@@ -337,6 +339,32 @@ export const serveur = createServer(async (req, res) => {
       if (m === 'POST' && p === '/api/deconnexion') {
         const b = await jsonDe(req);
         return json(res, { ok: revoquer(String(b.sid ?? '')) });
+      }
+
+      /**
+       * ═══════════════════════════════════════════════════════════════════
+       * 🔴🔴 LOT 163-B① — LES SURCHARGES DE PORTES, LUES PAR veve-sites.
+       * ═══════════════════════════════════════════════════════════════════
+       * ⭐⭐ ELLE EST DANS LE BLOC `/api/`, DONC DÉJÀ DERRIÈRE `x-service`, et
+       *   ce n'est pas une précaution de trop : la réponse dit quelles portes
+       *   sont ouvertes en ce moment et jusqu'à quand. C'est la carte des
+       *   serrures. Elle n'identifie personne, mais elle n'a rien à faire en
+       *   public. ⭐ veve-sites porte déjà ce secret (`VEVEID_SERVICE` ou
+       *   `ID_SERVICE`) : la configuration ne change pas.
+       *
+       * ⛔ ELLE NE REND QUE CE QUI EST ENCORE VALIDE. Le filtre d'expiration
+       *   vit dans `lireSurcharges()`, pas ici et pas chez l'appelant : trois
+       *   lectures de la même loi finissent par diverger le jour où une seule
+       *   apprend une règle (panne du lot 140-1).
+       *
+       * ⚠️ `site` EST EXPLICITE. `normaliserSite()` retombe sur le site par
+       *   défaut pour un inconnu — c'est son contrat, et il est correct ici :
+       *   un site non déclaré ne doit pas pouvoir se fabriquer ses propres
+       *   serrures en tapant un nom.
+       */
+      if (m === 'GET' && p === '/api/portes') {
+        const site = url.searchParams.get('site') ?? '';
+        return json(res, { portes: lireSurcharges(site) });
       }
 
       /**
@@ -738,8 +766,51 @@ export const serveur = createServer(async (req, res) => {
             return html(res, pageAdmin(forme(), parSite(), activite(), undefined, message));
           }
 
-          if (m === 'GET' && p === '/admin')
-            return html(res, pageAdmin(forme(), parSite(), activite()));
+          /**
+           * ═══════════════════════════════════════════════════════════════
+           * 🔴🔴🔴 LOT 163-B① — SURCHARGER UNE PORTE. LE TROISIÈME GESTE.
+           * ═══════════════════════════════════════════════════════════════
+           * ⛔ C'EST LE GESTE LE PLUS LARGE DE CETTE PAGE, ET DE LOIN. Les
+           *   deux autres touchent UN compte ; celui-ci change ce que voit
+           *   TOUT LE MONDE sur un site public. `wallet_watch` ouvert, c'est
+           *   le classement nominatif des 100 plus gros portefeuilles avec
+           *   leurs adresses, servi à n'importe quel inscrit gratuit.
+           * ⇒ SA BORNE EST PLUS COURTE QUE CELLE D'UN ABONNEMENT :
+           *   `JOURS_MAX` = 30, contre 400. Deux gestes, deux rayons, deux
+           *   bornes — les aligner « par cohérence » serait aligner sur le
+           *   plus permissif.
+           * ⚠️ MÊME PIÈGE QU'AU 163-A, ET IL A DÉJÀ MORDU UNE FOIS : `0` est
+           *   ici une valeur SIGNIFIANTE (retirer), donc `Number('')` — qui
+           *   vaut 0 — retirerait une surcharge sur un champ laissé vide, en
+           *   rendant 200 et un message de succès. On valide la CHAÎNE avant
+           *   de la convertir. ⭐ Le banc du 163-A a trouvé exactement ça
+           *   dans ma première écriture : le commentaire disait la règle, le
+           *   code ne la faisait pas.
+           */
+          if (m === 'POST' && p === '/admin/porte') {
+            const b = await corpsDe(req);
+            const brutJours = String(b.get('jours') ?? '').trim();
+            const jours = /^[0-9]{1,3}$/.test(brutJours) ? Number(brutJours) : -1;
+            const site = SITE_DEFAUT();
+            let message: string;
+            if (!Number.isInteger(jours) || jours < 0 || jours > JOURS_MAX) {
+              message = `Durée refusée : un entier de 0 à ${JOURS_MAX} jours (0 retire la surcharge).`;
+            } else {
+              message = poserSurcharge(site, String(b.get('porte') ?? ''), String(b.get('tier') ?? ''), jours);
+            }
+            // ⛔ La trace dit la PORTE et la DURÉE. Il n'y a ici aucune
+            //   identité à taire — mais on garde la même forme que les deux
+            //   gestes au-dessus, pour qu'une ligne de journal se lise pareil.
+            console.log(`[admin] porte ${b.get('porte')} (${jours === 0 ? 'retrait' : `${b.get('tier')}, ${jours} j`}) : ${message}`);
+            return html(res, pageAdmin(forme(), parSite(), activite(), undefined, message,
+              { site, lignes: tableauPortes(site) }));
+          }
+
+          if (m === 'GET' && p === '/admin') {
+            const site = SITE_DEFAUT();
+            return html(res, pageAdmin(forme(), parSite(), activite(), undefined, undefined,
+              { site, lignes: tableauPortes(site) }));
+          }
         }
       }
       // ⇩ aucune des conditions n'a rendu : on retombe dans le flux normal.
