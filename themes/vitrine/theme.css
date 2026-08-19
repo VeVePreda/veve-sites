@@ -908,8 +908,16 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 .module__i svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8}
 .module__n{font-family:var(--geo);font-weight:600;font-size:var(--t-sm);color:var(--text)}
 .module__d{font-size:var(--t-xs);color:var(--muted);line-height:1.5;margin-top:3px}
-.module__c{margin-left:auto;color:var(--lock);flex:0 0 auto}
-.module__c svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2}
+/* 🔴 LOT 165 — `.module__c` = LE CONTENU, `.module__x` = le chevron.
+   Cinq emetteurs sur six s'en servaient comme conteneur ; la regle du chevron
+   (`flex:0 0 auto`) les empechait de retrecir et cassait `/analytics/` en
+   production. ⛔ Ne pas rendre `.module__c` au chevron. ⛔ Ne pas retirer
+   `min-width:0` : sans lui le debordement revient sur un mot long.
+   📄 Le detail mesure vit dans `src/components/pages/Analytics.astro`. */
+.module__c{display:flex;flex-direction:column;align-items:flex-start;min-width:0;flex:1 1 auto}
+.module__c > .etiq{margin-top:6px}
+.module__x{margin-left:auto;color:var(--lock);flex:0 0 auto}
+.module__x svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2}
 /* 🔴 LOT 104 — LE TABLEAU DE BORD DE L'ACCUEIL (bloc membre).
    ⭐ Il occupe la place du `hero`, donc il en reprend le rythme vertical — pas
    son decor. Le hero a un champ noir, un panneau os et une piece qui deborde ;
@@ -935,7 +943,7 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 .module--attente .module__i{background:color-mix(in srgb,var(--lock) 10%,transparent)}
 .module--ouvert{border-style:solid;border-color:var(--rule);background:var(--surface)}
 .module--ouvert .module__i{background:var(--sect-1v);color:var(--sect-a)}
-.module--ouvert .module__c{color:var(--sect-a)}
+.module--ouvert .module__x{color:var(--sect-a)}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:var(--tap); padding:0 20px;border-radius:var(--r-full);font-family:var(--geo);font-size:var(--t-sm);font-weight:600; cursor:pointer;border:1px solid transparent;letter-spacing:-.01em;position:relative; transition:transform var(--d-fast) var(--e-rebond),background var(--d-base),color var(--d-base), border-color var(--d-base),box-shadow var(--d-base)}
 .btn:hover{text-decoration:none;transform:translateY(-1px)}
 .btn:active{transform:none}

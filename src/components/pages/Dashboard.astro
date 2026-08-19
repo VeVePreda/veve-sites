@@ -237,7 +237,15 @@ const cadenas = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stro
                 <span class="module__d">{t(lang, `mod.${x.cle}.d`)}</span>
                 <span class="etiq" style="color:var(--lock)">{t(lang, 'dash.locked', { tier: nomPalier(x.tier) })}</span>
               </span>
-              <span class="module__c" style="margin-left:auto;flex:0 0 auto;color:var(--lock)">
+              {/* 🔴 LOT 165 — LE CHEVRON A SA PROPRE CLASSE, ET LE STYLE EN
+                  LIGNE DISPARAIT AVEC ELLE. Cette ligne rehaussait a la main
+                  `margin-left:auto;flex:0 0 auto` — les proprietes que
+                  `.module__c` appliquait DEJA, ici comme partout ailleurs, ou
+                  elles cassaient la mise en page. C'est ce style en ligne qui
+                  a permis de trancher : son auteur decrivait le role du
+                  chevron, pas celui du conteneur. ⛔ Ne pas remettre
+                  `.module__c` ici. */}
+              <span class="module__x">
                 <Fragment set:html={cadenas} />
               </span>
             </div>

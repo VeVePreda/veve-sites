@@ -360,7 +360,15 @@ console.log('\n6. les libellés des sujets sont-ils traduits partout ?');
 const I18N = join(RACINE, 'engine', 'i18n');
 const CLES = ['analytics.market', 'analytics.catalog', 'analytics.collections', 'analytics.chain']
   .flatMap((c) => [c, `${c}.d`])
-  .concat(['analytics.subjects', 'analytics.membersOnly', 'analytics.lead']);
+  .concat(['analytics.subjects', 'analytics.membersOnly', 'analytics.lead'])
+  // ⭐ LOT 165 — les cinq clés des compteurs de carte. Elles entrent ICI plutôt
+  // que dans un banc neuf : ce § vérifie déjà « toute clé de cette page vit
+  // dans les cinq dictionnaires », et c'est exactement la question posée.
+  // 🔴 UNE CLÉ PAR NOMBRE GRAMMATICAL — `.fig` / `.figs`. Un gabarit qui
+  // ajouterait un `s` coderait la règle du français dans une page servie en
+  // cinq langues, et l'allemand la démentirait tout seul (Grafik/Grafiken).
+  .concat(['analytics.n.rank', 'analytics.n.fig', 'analytics.n.figs',
+           'analytics.n.mod', 'analytics.n.mods']);
 
 if (!existsSync(I18N)) {
   dit(false, 'le dossier des dictionnaires existe', `${I18N} absent`);
@@ -382,6 +390,142 @@ if (!existsSync(I18N)) {
         manquantes.length ? `manque : ${manquantes.join(', ')}`
         : vides.length ? `vide(s) : ${vides.join(', ')}` : '');
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 4 bis. LES COMPTEURS DE CARTE DISENT-ILS LE VRAI ? (lot 165)
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐ POURQUOI CE § EXISTE. Les quatre cartes de la porte annoncent désormais ce
+// qu'on trouve derrière (« 5 figures », « 2 modules »…). Ces chiffres vivent
+// dans une TROISIÈME liste, `CONTENU`, séparée de `SUJETS` d'
+// `AnalyticsSujet.astro` pour la même raison que la deuxième : une page
+// publique et pré-générée ne doit pas importer le module qui parle de contenu
+// réservé. ⛔ Le prix de cette séparation, c'est qu'elle peut mentir — une
+// figure ajoutée au sujet et pas au compteur, et la porte promet faux.
+// 🔴 UNE PROMESSE FAUSSE EST PIRE QU'UNE ABSENCE DE PROMESSE : « 5 figures »
+//    sur une page qui en porte 3 se lit comme une panne du site, pas comme une
+//    note périmée.
+console.log('\n4 bis. les compteurs annoncés par la porte sont-ils ceux des sujets ?');
+
+// ⚠️ ON RELIT LA SOURCE, ON NE L'IMPORTE PAS : `AnalyticsSujet.astro` est un
+// composant Astro, il ne s'importe pas depuis Node. C'est la même contrainte
+// que le § 4, et le même remède.
+const blocContenu = srcPorte.match(/const\s+CONTENU\s*=\s*\{([\s\S]*?)\n\};/);
+const blocSujets  = srcSujet.match(/const\s+SUJETS\s*=\s*\{([\s\S]*?)\n\};/);
+
+if (!blocContenu || !blocSujets) {
+  // ⛔ MÊME DISCIPLINE QU'AU § 4 : une accroche perdue ne conclut pas.
+  dit(false, 'les deux blocs ont pu être lus',
+      `CONTENU: ${blocContenu ? 'lu' : 'ILLISIBLE'} · SUJETS: ${blocSujets ? 'lu' : 'ILLISIBLE'}`
+      + ' — le banc a perdu son point d\'accroche, il ne conclut pas');
+} else {
+  // CONTENU : `  market: { fig: 0, mod: 1, rang: true },`
+  const annonce = {};
+  for (const m of blocContenu[1].matchAll(/^ {2}([a-z_]+):\s*\{([^}]*)\}/gm)) {
+    const corps = m[2];
+    annonce[m[1]] = {
+      fig: Number(corps.match(/fig:\s*(\d+)/)?.[1] ?? -1),
+      mod: Number(corps.match(/mod:\s*(\d+)/)?.[1] ?? -1),
+      rang: /rang:\s*true/.test(corps),
+    };
+  }
+  // SUJETS : on découpe sujet par sujet, puis on compte dans CHAQUE tranche.
+  // 🔴 ON NE COMPTE PAS SUR TOUT LE BLOC : un `figures: [...]` global attraperait
+  //    les cinq listes d'un coup et rendrait un total qui ne concerne personne.
+  const reel = {};
+  const tranches = [...blocSujets[1].matchAll(/^ {2}([a-z_]+):\s*\{([\s\S]*?)\n {2}\},/gm)];
+  for (const tr of tranches) {
+    const corps = tr[2];
+    const figs = corps.match(/figures:\s*\[([\s\S]*?)\]/)?.[1] ?? '';
+    const leds = corps.match(/led:\s*\[([\s\S]*?)\]/)?.[1] ?? '';
+    reel[tr[1]] = {
+      fig: (figs.match(/'[^']+'/g) || []).length,
+      mod: (leds.match(/\bid:/g) || []).length,
+      rang: /amplitude:\s*true/.test(corps),
+    };
+  }
+
+  dit(Object.keys(annonce).length >= 4 && Object.keys(reel).length >= 4,
+      'les deux blocs ont rendu leurs quatre sujets',
+      `annoncés: ${Object.keys(annonce).length} · lus: ${Object.keys(reel).length}`);
+
+  // ⭐ LE TOTAL NE PEUT PAS ÊTRE NUL. Deux expressions régulières qui ne
+  //    trouvent rien rendent partout 0 = 0, et le banc passerait au vert en
+  //    n'ayant rien mesuré. C'est le faux vert que le § 4 décrit déjà.
+  const totalReel = Object.values(reel).reduce((a, x) => a + x.fig + x.mod, 0);
+  dit(totalReel > 0, 'le banc a bien compté quelque chose dans les sujets',
+      `${totalReel} figure(s)+module(s) lus — 0 voudrait dire que le compteur est aveugle`);
+
+  for (const s of SUJETS) {
+    const a = annonce[s]; const r = reel[s];
+    if (!a || !r) { dit(false, `${s} : présent des deux côtés`, `annoncé: ${!!a} · lu: ${!!r}`); continue; }
+    dit(a.fig === r.fig && a.mod === r.mod && a.rang === r.rang,
+        `${s} : la porte annonce ce que le sujet contient`,
+        `annoncé fig ${a.fig}/mod ${a.mod}/rang ${a.rang} — réel fig ${r.fig}/mod ${r.mod}/rang ${r.rang}`);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 7. `.module__c` A-T-ELLE ENCORE DEUX RÔLES ? (lot 165)
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 CE § GARDE UN DÉFAUT QUI A ATTEINT LA PRODUCTION. `.module__c` était
+// écrite dans `themes/vitrine/theme.css` pour le CHEVRON de droite
+// (`margin-left:auto`, `flex:0 0 auto`) et utilisée par CINQ émetteurs sur six
+// comme CONTENEUR de texte. Résultat vu par Preda le 19/08 : sur `/analytics/`
+// les quatre cartes rendaient leur contenu sur une seule ligne qui débordait
+// de sa case et recouvrait les voisines.
+// ⭐ CE QU'IL SURVEILLE N'EST PAS « la mise en page est jolie » — indécidable
+//    hors d'un navigateur — mais les DEUX PROPRIÉTÉS MÉCANIQUES sans lesquelles
+//    le débordement revient : le conteneur doit s'empiler (`column`) et
+//    pouvoir rétrécir (`min-width:0`).
+console.log('\n7. `.module__c` a-t-elle un seul rôle ?');
+
+const FEUILLE = join(RACINE, 'themes', 'vitrine', 'theme.css');
+if (!existsSync(FEUILLE)) {
+  indecidable('la feuille vitrine est lisible', `${FEUILLE} absent — ce site n'a pas ce thème`);
+} else {
+  const css = lire(FEUILLE);
+  // ⛔ ON VISE LA RÈGLE, PAS LE NOM. Un `grep '.module__c'` trouve aussi le
+  //    commentaire qui la décrit — et un commentaire ne met rien en colonne.
+  const regle = css.match(/^\.module__c\{([^}]*)\}/m)?.[1] ?? null;
+  dit(regle !== null, 'la règle `.module__c` a été trouvée dans la feuille',
+      regle === null ? 'accroche perdue — le banc ne conclut pas' : '');
+  if (regle !== null) {
+    dit(/flex-direction:\s*column/.test(regle), '`.module__c` empile ses enfants',
+        `lu : ${regle}`);
+    dit(/min-width:\s*0/.test(regle), '`.module__c` peut rétrécir sous son contenu',
+        'sans `min-width:0` un enfant flex refuse de passer sous sa largeur minimale — le débordement revient');
+    dit(!/margin-left:\s*auto/.test(regle), '`.module__c` n\'a pas repris le rôle du chevron',
+        `lu : ${regle}`);
+  }
+  const regleX = css.match(/^\.module__x\{([^}]*)\}/m)?.[1] ?? null;
+  dit(regleX !== null && /margin-left:\s*auto/.test(regleX), '`.module__x` porte le rôle du chevron',
+      regleX === null ? '`.module__x` absente de la feuille' : `lu : ${regleX}`);
+
+  // ⭐⭐ UNE RÈGLE SANS ÉMETTEUR NE LÈVE RIEN ET NE SE VOIT PAS — c'est la
+  //    « règle sans émetteur » que ce dépôt traque depuis le lot 134. Si plus
+  //    personne n'écrit `.module__x`, la règle doit partir avec lui.
+  const composants = join(SRC, 'components');
+  const tousFichiers = (d) => readdirSync(d, { withFileTypes: true })
+    .flatMap((e) => (e.isDirectory() ? tousFichiers(join(d, e.name)) : [join(d, e.name)]));
+  const astros = existsSync(composants) ? tousFichiers(composants).filter((f) => f.endsWith('.astro')) : [];
+  const emetteursX = astros.filter((f) => /class="module__x"/.test(lire(f)));
+  dit(emetteursX.length > 0, '`.module__x` a au moins un émetteur',
+      emetteursX.length ? emetteursX.map((f) => f.split(/[\\/]/).pop()).join(', ')
+                        : 'aucun — la règle du chevron ne peut plus rien habiller');
+
+  // 🔴 LE DÉFAUT D'ORIGINE, DANS SA FORME EXACTE : un émetteur qui REPOSE à la
+  //    main les propriétés du chevron sur `.module__c`. C'est le style en ligne
+  //    de `Dashboard.astro` l. 240 qui a permis de trancher — s'il revient,
+  //    c'est que quelqu'un a de nouveau confondu les deux rôles.
+  const recidive = astros.filter((f) => {
+    const src = lire(f);
+    return [...src.matchAll(/class="module__c"[^>]*style="([^"]*)"/g)]
+      .some((m) => /margin-left:\s*auto|flex:\s*0 0 auto/.test(m[1]));
+  });
+  dit(recidive.length === 0, 'aucun émetteur ne repose le rôle du chevron sur `.module__c`',
+      recidive.length ? recidive.map((f) => f.split(/[\\/]/).pop()).join(', ')
+                      : `${astros.length} composant(s) relus`);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

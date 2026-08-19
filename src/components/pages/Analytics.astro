@@ -78,6 +78,57 @@ const CLE = { market: 'analytics.market', catalogue: 'analytics.catalog',
               collections: 'analytics.collections', chain: 'analytics.chain' };
 const DESC = { market: 'analytics.market.d', catalogue: 'analytics.catalog.d',
                collections: 'analytics.collections.d', chain: 'analytics.chain.d' };
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 LOT 165 — CE QUE `.module__c` A COUTE, ECRIT ICI PARCE QU'UN
+// COMMENTAIRE DE `theme.css` EST SERVI ET PAS CELUI-CI.
+// ═══════════════════════════════════════════════════════════════════════════
+// LE DEFAUT, VU PAR PREDA EN PRODUCTION LE 19/08 : les quatre cartes ci-dessous
+// rendaient tout leur contenu sur UNE SEULE LIGNE, qui debordait de sa case de
+// 232 px et recouvrait les cartes voisines. Illisible.
+// ⭐⭐⭐ LA CAUSE N'ETAIT PAS DANS CE FICHIER, ET C'EST LA LECON. Le commentaire
+// juste en dessous dit « on reutilise `.modules` / `.module`, la grille qui
+// existe deja » — il avait raison sur la grille et tort sur la sous-classe :
+// `.module__c` etait ecrite pour LE CHEVRON DE DROITE (`margin-left:auto`,
+// `flex:0 0 auto`, un `svg` de 14 px), pas pour le conteneur du texte.
+//   · `flex:0 0 auto` ⇒ le bloc ne retrecit jamais et deborde ;
+//   · aucun `display` de bloc ⇒ les trois `<span>` restent EN LIGNE.
+// ⭐ CINQ EMETTEURS SUR SIX s'en servaient comme conteneur (ici x2,
+// `AnalyticsSujet.astro`, `Dashboard.astro` x2) ; un seul voulait le chevron —
+// et celui-la REECRIVAIT `margin-left:auto;flex:0 0 auto` en style en ligne.
+// C'est ce style en ligne qui a tranche : `.module__c` prend le role des cinq,
+// le chevron demenage dans `.module__x`.
+// ⛔ NE PAS « REPARER » CE FICHIER EN CHANGEANT SA STRUCTURE : le defaut vivait
+//   dans la feuille, et le corriger ici l'aurait laisse sur trois autres pages.
+//
+// ═══════════════════════════════════════════════════════════════════════════
+// CE QUE CHAQUE SUJET CONTIENT — LA TROISIEME LISTE, ET ELLE EST GARDEE
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐⭐ POURQUOI ELLE EXISTE. Les quatre cartes portaient la MEME etiquette
+// « RESERVE AUX MEMBRES ». Repetee quatre fois, elle ne distingue rien et ne
+// dit pas s'il y a de la matiere derriere la porte — le reproche exact qu'on
+// peut faire a une porte nue. Ces chiffres-la, eux, ne sont pas reserves : ils
+// disent COMBIEN, jamais QUOI.
+// ⛔ ELLE NE S'IMPORTE PAS DEPUIS `AnalyticsSujet.astro`, pour la meme raison
+//   que `SUJETS` ci-dessus : la dependance irait de la page PUBLIQUE vers le
+//   module qui parle de contenu reserve.
+// 🔬 LE PRIX DE LA SEPARATION EST PAYE PAR UN BANC : `test:analytics` § 4 bis
+//   relit `figures` et `led` dans `AnalyticsSujet.astro` et rougit si un
+//   compteur d'ici ne correspond plus. ⛔ Corriger le chiffre, jamais le banc.
+const CONTENU = {
+  market:      { fig: 0, mod: 1, rang: true  },
+  catalogue:   { fig: 5, mod: 0, rang: false },
+  collections: { fig: 3, mod: 1, rang: false },
+  chain:       { fig: 0, mod: 2, rang: false },
+};
+
+// ⭐ UNE CLE PAR NOMBRE GRAMMATICAL, ET PAS UN `n > 1 ? 's' : ''`. Le suffixe
+// code la regle du FRANCAIS dans un gabarit servi en cinq langues.
+const unites = (c) => [
+  c.rang ? t(lang, 'analytics.n.rank') : null,
+  c.fig ? t(lang, c.fig > 1 ? 'analytics.n.figs' : 'analytics.n.fig', { n: c.fig }) : null,
+  c.mod ? t(lang, c.mod > 1 ? 'analytics.n.mods' : 'analytics.n.mod', { n: c.mod }) : null,
+].filter(Boolean).join(' · ');
 ---
 <Base sect="analytics" lang={lang} path="/analytics/" title={t(lang, 'analytics.title')} updatedAt={ds.updatedAt}
       description={t(lang, 'desc.analytics')}
@@ -96,7 +147,28 @@ const DESC = { market: 'analytics.market.d', catalogue: 'analytics.catalog.d',
       VIVANTES dans les cinq dictionnaires (`/offre/` s'en sert) — ⛔ ne pas
       les supprimer « puisqu'elles ne servent plus » : c'est la panne du
       lot 34, et `test:cles` ne le dirait qu'après un build. */}
-  <div class="panneau" style="margin-top:var(--s5)">
+  {/* ═══ CE BANDEAU EST FAUX POUR UN MEMBRE, ET C'EST TOUT CE QU'ON CORRIGE ═══
+      🔴 LE DEFAUT, SIGNALE PAR PREDA LE 19/08 : connecte, il lisait encore
+      « RESERVE AUX MEMBRES » et « Connectez-vous pour lire les chiffres ».
+      ⭐⭐⭐ `data-anonyme` ET RIEN D'AUTRE — AUCUNE REGLE CSS N'EST AJOUTEE.
+      `html[data-membre] [data-anonyme] { display:none }` existe depuis le lot
+      100 dans `Base.astro`, et c'est le `<head>` qui pose `<html data-membre>`
+      sur le cookie d'affichage. Le style est donc applique AVANT la premiere
+      peinture : pas de scintillement, pas de script, pas d'appel reseau, et
+      le HTML servi a Google ne bouge pas d'un octet.
+      ⛔ ON RETIRE UNE AFFIRMATION FAUSSE, ON N'EN POSE PAS UNE AUTRE. Le cookie
+      dit « connecte », JAMAIS « a quel palier » — il n'existe aucun cookie de
+      palier dans ce depot (mesure du 19/08 : cinq cookies, aucun ne porte de
+      palier). Afficher ici un etat de palier demanderait un appel reseau sur
+      une page pre-generee.
+      🔬 ⛔ ET LE NOM DU COOKIE NE S'ECRIT PAS DANS CE FICHIER. `test:session`
+      § 2 bis rougit des qu'il le voit cotoyer un `franchit(` ou un `porte(` —
+      ce fichier en contient. Le banc est volontairement grossier : il ne
+      distingue pas un commentaire d'une decision, parce qu'un cookie
+      falsifiable qui approche un droit devrait etre SIGNE, et qu'un faux
+      negatif ici serait une faille. ⭐ Il m'a repris pendant ce lot meme.
+      📄 Le nom vit dans `Base.astro`, avec le script qui le lit. */}
+  <div class="panneau" data-anonyme style="margin-top:var(--s5)">
     <p class="num-s">// {t(lang, 'analytics.membersOnly')}</p>
     <p style="margin:8px 0 0">{t(lang, 'analytics.lead')}</p>
     {acces().tiers.length > 1 && (
@@ -124,7 +196,12 @@ const DESC = { market: 'analytics.market.d', catalogue: 'analytics.catalog.d',
               production. */}
           <span class="module__n"><a href={localize(lang, `/analytics/${s}/`)}>{t(lang, CLE[s])}</a></span>
           <span class="module__d">{t(lang, DESC[s])}</span>
-          <span class="etiq" style="color:var(--lock)">{t(lang, 'analytics.membersOnly')}</span>
+          {/* ⭐ CE QU'IL Y A DERRIERE LA PORTE, PAS QUATRE FOIS « RESERVE ».
+              Le cadenas reste dit par la bordure `--lock` de `.module` et par
+              le bandeau ci-dessus ; le repeter en toutes lettres sur chaque
+              carte occupait la seule ligne qui pouvait porter une information
+              qui distingue les sujets. */}
+          <span class="etiq" style="color:var(--lock)">{unites(CONTENU[s])}</span>
         </span>
       </div>
     ))}
@@ -134,8 +211,18 @@ const DESC = { market: 'analytics.market.d', catalogue: 'analytics.catalog.d',
       ⭐ Le catalogue vient APRÈS les sujets depuis ce lot : les sujets disent
       OÙ aller, le catalogue dit CE QU'ON Y TROUVE. L'ordre inverse faisait
       lire cinq cadenas avant la première adresse utile. */}
+  {/* ⚠️ LE COMPTEUR EST MASQUE AU MEMBRE, IL N'EST PAS CORRIGE. Cette page est
+      pre-generee au palier `visitor` : le numerateur y vaut TOUJOURS 0, et un
+      membre y lisait donc « 0/5 » quel que soit son palier reel. Le rendre
+      juste exigerait de connaitre le palier cote navigateur — ce qu'aucun
+      cookie ne porte. ⭐ On applique la regle de `Dashboard.astro` l. 224 :
+      « une tuile sans son chiffre reste utile, alors qu'une tuile qui affiche
+      0 affirme quelque chose de faux ». 🔑 Le vrai compte existe et il est
+      juste : c'est celui du tableau de bord, rendu a la demande.
+      ⛔ Ne pas remplacer par un appel a `/api/…` : `/analytics/` est servie
+      par le cache, elle ne touche pas le serveur pour un membre. */}
   <div class="sect-t sect-t--gd"><h2 class="mono-t">{t(lang, 'analytics.tools')}</h2>
-    <span class="etiq">{MODULES.filter((mo) => ouvert[mo]).length}/{MODULES.length}</span></div>
+    <span class="etiq" data-anonyme>{MODULES.filter((mo) => ouvert[mo]).length}/{MODULES.length}</span></div>
   <div class="modules">
     {MODULES.map((mo) => (
       <div class={ouvert[mo] ? 'module module--ouvert' : 'module'}>
