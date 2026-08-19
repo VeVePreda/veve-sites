@@ -109,6 +109,17 @@ const SOURCES = {
     prev: base('analytics-derived-prev', 'corner_full.csv.gz'),
     sample: 'corner_full.csv',
   },
+  // ⭐ LOT 166 — LES AGRÉGATS DE PROFIL, COMPTÉS EN AMONT ET NON ICI.
+  // 708 492 wallets se comptent dans `ledger_derived.py` (jetonveve) en 0,1 s,
+  // et arrivent ici en 249 lignes. 🔴 C'est un CHIFFRE qui a décidé ça, pas un
+  // goût : agréger la table complète côté site coûtait **480 Mo de RSS** sur un
+  // VPS de 7,8 Go dont le build meurt déjà en silence à l'étape 31/55.
+  // ⛔ Ne jamais « simplifier » en relisant `profiles_full.csv.gz` (24 Mo gzip).
+  profilsAgregats: {
+    url: base('analytics-derived', 'profils_agregats.csv'),
+    prev: base('analytics-derived-prev', 'profils_agregats.csv'),
+    sample: 'profils_agregats.csv',
+  },
   metaLedger: {
     url: base('analytics-derived', 'meta_ledger.csv'),
     prev: base('analytics-derived-prev', 'meta_ledger.csv'),
@@ -388,4 +399,5 @@ export const getPulse = () => load('pulse');
 export const getWalletSize = () => load('walletSize');
 export const getWhales = () => load('whales');
 export const getCorner = () => load('corner');
+export const getProfilsAgregats = () => load('profilsAgregats');
 export const getMetaLedger = () => load('metaLedger');

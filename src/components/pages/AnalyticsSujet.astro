@@ -106,9 +106,37 @@ const SUJETS = {
     desc: 'analytics.chain.d',
     amplitude: false,
     figures: [],
-    led: [{ id: 'size', cible: 'wallet_size' }, { id: 'whales', cible: 'whales' }],
+    led: [{ id: 'size', cible: 'wallet_size' }, { id: 'whales', cible: 'whales' }, { id: 'profils', cible: 'profils' }],
   },
 };
+
+// ═══ LE MODULE `profils` (lot 166) — CE QUI EST ÉCRIT ICI N'EST PAS SERVI ═══
+// ⭐⭐ CE COMMENTAIRE VIT DANS LE FRONTMATTER, ET C'EST DÉLIBÉRÉ. Le rendu du
+// module habite un `<script is:inline>` : `is:inline` veut dire « non traité par
+// le bundler », donc **les commentaires y sont servis au navigateur, tels
+// quels**. Mesuré le 19/08 sur `theme.css` : 45 % du poids servi était du
+// commentaire (89 361 o sur 197 136). Ces quatre pages sont en `no-store` : ce
+// poids serait repayé À CHAQUE VISITE. Première écriture de ce lot : 772 o de
+// commentaire pour 970 o de code — 44 %. Le frontmatter, lui, ne sort jamais.
+//
+// 🔴 LES DEUX AXES SONT LUS DANS LA DONNÉE, JAMAIS RECOPIÉS NI TRIÉS.
+// `/api/analytics/profils` envoie `lignes`, `colonnes` et une matrice
+// `cellules[i][j]` alignée sur elles. L'ordre est SÉMANTIQUE : les profils vont
+// de `Diamond-Hands` à `n/a`, les tranches de « 1 » à « 100k+ ». Un
+// `.sort()` placerait « 10001-50k » entre « 1 » et « 1001-5k » et « 100k+ » en
+// troisième : une grille illisible sans qu'aucun chiffre ne soit faux.
+// ⛔ Ne pas non plus écrire la liste des profils en dur dans le script : ce
+// serait une SECONDE définition de l'ordre, et deux finissent par diverger.
+//
+// ⚠️ `n/a` PÈSE 48 % DES WALLETS (341 136 sur 708 492) — il s'affiche tel quel.
+// Le profil dominant est « pas de profil ». Le masquer ou recalculer les parts
+// sans lui ferait paraître Diamond-Hands majoritaire : c'est la seule faute
+// qu'un site de données ne rattrape jamais. ⛔ Ne pas « nettoyer » ce libellé.
+//
+// 🔴 Le module sort à `modules`, donc palier `member` — pas plus haut :
+// `paliDe()` ne rend que `member|crevette`, un module posé au-dessus serait
+// vendu sans acheteur possible. Il ne porte AUCUNE adresse, ce qui le sépare de
+// `whales` (seul module à exiger `wallet_watch`).
 
 // ⛔ UNE CLÉ INCONNUE LÈVE, ELLE NE RETOMBE PAS SUR UN DÉFAUT. Un sujet vide
 // rendrait une page d'apparence normale et vide de tout — le mode de panne le
@@ -308,6 +336,8 @@ const chemin = `/analytics/${sujet}/`;
     rank: t(lang, 'led.rank'), wallet: t(lang, 'led.wallet'),
     holdings: t(lang, 'led.holdings'), gini: t(lang, 'led.gini'),
     holders: t(lang, 'led.holders'), item: t(lang, 'led.item'), on: t(lang, 'led.on'),
+    pScore: t(lang, 'led.profils.score'), pAct: t(lang, 'led.profils.activite'),
+    pTaille: t(lang, 'led.profils.taille'),
   },
 }}>
 (function () {
@@ -366,6 +396,28 @@ const chemin = `/analytics/${sujet}/`;
               return [num(r.rank), '<code>' + ech(String(r.wallet).slice(0, 10)) + '…</code>',
                 num(r.holdings), num(r.value_store), num(r.value_floor)];
             }));
+      });
+      return out;
+    },
+    // ⛔ Axes LUS, jamais triés ni recopiés — voir le frontmatter.
+    profils: function (d) {
+      var TITRES = {
+        profil_activite: L.pScore + ' × ' + L.pAct,
+        profil_taille: L.pScore + ' × ' + L.pTaille,
+        activite_taille: L.pAct + ' × ' + L.pTaille,
+      };
+      var out = '<p class="etiq">' + num(d.total) + ' ' + ech(L.wallets) + '</p>'
+        + tab([L.pScore, L.wallets, L.share], (d.score || []).map(function (r) {
+          return ['<b>' + ech(r.nom) + '</b>', num(r.wallets),
+            (r.pct == null ? '—' : ech(r.pct) + ' %')];
+        }));
+      (d.grilles || []).forEach(function (g) {
+        var cols = g.colonnes || [];
+        out += '<p class="etiq" style="margin-top:12px">' + ech(TITRES[g.id] || g.id) + '</p>'
+          + tab([''].concat(cols), (g.lignes || []).map(function (nomLigne, i) {
+            return ['<b>' + ech(nomLigne) + '</b>'].concat(
+              cols.map(function (_, j) { return num((g.cellules[i] || [])[j]); }));
+          }));
       });
       return out;
     },

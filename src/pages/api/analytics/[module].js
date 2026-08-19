@@ -48,6 +48,13 @@ const MODULES = {
   wallet_size: { fichier: 'wallet_size.json', gate: 'modules' },
   whales:      { fichier: 'whales.json',      gate: 'wallet_watch' },
   corner_top:  { fichier: 'corner_top.json',  gate: 'modules' },
+  // 🔴 `modules`, PAS un palier au-dessus — et ce n'est pas de la prudence.
+  // `paliDe()` ne rend aujourd'hui que `member` ou `crevette` : `langouste` et
+  // `whale` sont INATTEIGNABLES. Un module posé là serait vendu sans acheteur
+  // possible. ⛔ Tant que les paliers hauts ne sont pas atteignables, tout
+  // module neuf sort à `member`. ⚠️ Ces agrégats ne portent AUCUNE adresse —
+  // c'est ce qui les sépare de `whales`, seul module à exiger `wallet_watch`.
+  profils:     { fichier: 'profils.json',     gate: 'modules' },
   meta:        { fichier: 'meta.json',        gate: 'modules' },
 };
 

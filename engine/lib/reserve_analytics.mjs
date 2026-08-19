@@ -19,7 +19,7 @@
 
 import { mkdirSync, writeFileSync, rmSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { getPulse, getWalletSize, getWhales, getCorner, getMetaLedger }
+import { getPulse, getWalletSize, getWhales, getCorner, getProfilsAgregats, getMetaLedger }
   from '../data/warehouse.mjs';
 
 const ROOT = process.env.PROJECT_ROOT || process.cwd();
@@ -49,8 +49,8 @@ export function ecrire() {
     return { ecrits: 0, off: true };
   }
   return Promise.all([
-    getPulse(), getWalletSize(), getWhales(), getCorner(), getMetaLedger(),
-  ]).then(([pulse, taille, whales, corner, meta]) => {
+    getPulse(), getWalletSize(), getWhales(), getCorner(), getProfilsAgregats(), getMetaLedger(),
+  ]).then(([pulse, taille, whales, corner, profils, meta]) => {
     if (existsSync(ANALYTICS_DIR)) rmSync(ANALYTICS_DIR, { recursive: true, force: true });
     mkdirSync(join(ANALYTICS_DIR, 'corner'), { recursive: true });
 
@@ -106,7 +106,79 @@ export function ecrire() {
       fiches++;
     }
 
-    // ── 5. LE MÉTA — il DATE la donnée ─────────────────────────────────────
+    // ── 5. LES PROFILS DE COLLECTIONNEURS — une grille, pas une liste ──────
+    // La source arrive en FORME LONGUE : `bloc,ligne,colonne,wallets`, 249
+    // lignes. On la replie ici en un total, un classement et trois grilles.
+    //
+    // 🔴🔴 L'ORDRE DES LIBELLÉS EST PORTÉ PAR LA SOURCE, ET IL EST SÉMANTIQUE.
+    // Les profils vont de `Diamond-Hands` à `n/a`, les tranches de `1` à
+    // `100k+`. Un `Object.keys().sort()` mettrait « 10001-50k » entre « 1 » et
+    // « 1001-5k », et « 100k+ » en troisième position — une grille de taille de
+    // portefeuille rendue illisible sans qu'aucun chiffre ne soit faux.
+    // ⇒ on retient l'ORDRE D'APPARITION, jamais un tri.
+    const ordonner = (arr, v) => { if (v !== '' && !arr.includes(v)) arr.push(v); return arr; };
+    const parBloc = {};
+    for (const r of profils) (parBloc[String(r.bloc || '')] ||= []).push(r);
+
+    // ⛔ ON JETTE PLUTÔT QUE DE POSER UNE GRILLE VIDE. « Un tableau vide ne se
+    // signale pas » est le mode de panne le plus coûteux de ce projet : une
+    // page d'apparence normale, entièrement creuse. Ici la source est produite
+    // par un autre dépôt (jetonveve) : si son format bouge, on veut un build
+    // ROUGE, pas trois grilles blanches derrière le mur où personne ne regarde.
+    const BLOCS = ['total', 'score', 'profil_activite', 'profil_taille', 'activite_taille'];
+    const manquants = BLOCS.filter((b) => !(parBloc[b] || []).length);
+    if (manquants.length) {
+      throw new Error(`[reserve-analytics] profils_agregats : bloc(s) absent(s) « ${manquants.join(', ')} » `
+        + `— ${profils.length} ligne(s) lues, blocs vus : ${Object.keys(parBloc).join(', ') || '(aucun)'}. `
+        + `La source vient de fanablefrance/jetonveve (ledger_derived.py).`);
+    }
+
+    const totalProfils = nombre(parBloc.total[0].wallets) || 0;
+    // ⭐ La part se calcule ICI, une fois, sur un dénominateur NOMMÉ — pas au
+    // client sur une somme de colonne. Sommer la colonne donnerait le même
+    // nombre aujourd'hui et un nombre faux le jour où un wallet tombe dans deux
+    // profils. Le `total` de la source est la seule autorité.
+    const score = parBloc.score.map((r) => ({
+      nom: String(r.ligne || ''),
+      wallets: nombre(r.wallets) || 0,
+      pct: totalProfils ? Math.round((nombre(r.wallets) || 0) / totalProfils * 1000) / 10 : null,
+    }));
+
+    const grille = (nom) => {
+      const lignes = []; const colonnes = [];
+      const cases = new Map();
+      for (const r of parBloc[nom]) {
+        ordonner(lignes, String(r.ligne || ''));
+        ordonner(colonnes, String(r.colonne || ''));
+        cases.set(`${r.ligne} ${r.colonne}`, nombre(r.wallets) || 0);
+      }
+      return {
+        lignes,
+        colonnes,
+        // ⭐ Une matrice indexée par POSITION, mais livrée avec ses deux axes
+        // NOMMÉS juste au-dessus. Le client ne devine aucun ordre : il lit
+        // `lignes[i]` et `colonnes[j]`. C'est ce qui rend la position sûre ici,
+        // alors qu'elle ne l'est pas pour un tri (voir `TRI_CORNER`).
+        cellules: lignes.map((l) => colonnes.map((c) => cases.get(`${l} ${c}`) ?? 0)),
+      };
+    };
+
+    // ⚠️ `n/a` PÈSE 341 136 WALLETS SUR 708 492 — 48 %. Le profil dominant est
+    // « pas de profil », et il se montre TEL QUEL. Le masquer, le fondre dans
+    // « autres » ou recalculer les parts sans lui donnerait une page où
+    // Diamond-Hands paraîtrait majoritaire : ce serait la seule faute qu'un
+    // site de données ne rattrape jamais. ⛔ Ne pas « nettoyer » ce libellé.
+    pose('profils', {
+      total: totalProfils,
+      score,
+      grilles: [
+        { id: 'profil_activite', ...grille('profil_activite') },
+        { id: 'profil_taille', ...grille('profil_taille') },
+        { id: 'activite_taille', ...grille('activite_taille') },
+      ],
+    });
+
+    // ── 6. LE MÉTA — il DATE la donnée ─────────────────────────────────────
     // ⭐ Sans lui, un abonné ne peut pas savoir si ce qu'il lit date d'hier ou
     // du mois dernier. Un chiffre sans date n'est pas vérifiable, et ce site
     // ne publie que du vérifiable.
@@ -114,7 +186,8 @@ export function ecrire() {
 
     console.log(`[reserve-analytics] ${mois.length} mois, ${annees.length} année(s), `
       + `${Object.keys(blocs).length} bloc(s) whale, ${classables.length} item(s) classables, `
+      + `${score.length} profil(s) sur ${totalProfils} wallet(s), `
       + `${fiches} fiche(s) de cornérisation — HORS de dist/`);
-    return { ecrits: fiches + 5, off: false };
+    return { ecrits: fiches + 6, off: false };
   });
 }
