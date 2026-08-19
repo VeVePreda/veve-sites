@@ -219,9 +219,100 @@ if (!existsSync(MARCHE_FICHIER)) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 4. AUTO-CONTRÔLE — le banc a-t-il vraiment regardé quelque chose ?
+// 4. LOT 160-A, POINT `y` — LA COULEUR ET L'OSSATURE DE LA PAGE
 // ═══════════════════════════════════════════════════════════════════════════
-console.log('\n4. auto-contrôle');
+// 🔴🔴🔴 CE QUE CE BANC DOIT SAVOIR REFUSER, ET C'EST TOUT SON INTÉRÊT :
+//   `sect="general"` était une valeur PARFAITEMENT LÉGALE (elle est dans
+//   `SECTIONS_COULEUR`) qui ne matchait AUCUNE règle du thème. Ni le build, ni
+//   `test:gabarits`, ni `test:feuille` ne pouvaient la voir : rien n'était
+//   cassé, la page prenait simplement les variables héritées de `:root`.
+//   ⇒ La seule mesure qui distingue est de confronter TROIS fichiers : ce que
+//   le gabarit ÉMET, ce que `Base.astro` ACCEPTE, et ce que le thème PEINT.
+//   Un banc qui n'en lirait qu'un serait vert dans les deux mondes.
+//
+// ⛔⛔ ET IL NE LIT PAS LES COMMENTAIRES. Le gabarit EXPLIQUE ce lot-ci : il
+//   cite `sect="general"` et `[data-sect="tableau"]` en toutes lettres dans son
+//   en-tête. Un grep naïf trouverait donc la bonne réponse dans la prose et se
+//   déclarerait vert sur un gabarit qui aurait gardé l'ancienne valeur.
+//   C'est la règle « un critère qui juge la valeur cherche la chaîne » —
+//   elle mord sur les commentaires, et elle a déjà coûté cinq fois.
+console.log('\n4. le tableau de bord porte-t-il SA couleur et l\'ossature du site ?');
+
+// ⭐ ON DÉCOUPE LES TROIS FORMES DE COMMENTAIRE D'UN `.astro`, pas seulement
+//    les `//` du frontmatter : le corps du gabarit emploie `{/* … */}`, qui est
+//    précisément là où cette explication-ci est écrite.
+const nu = src
+  .replace(/\{\/\*[\s\S]*?\*\/\}/g, ' ')
+  .replace(/\/\*[\s\S]*?\*\//g, ' ')
+  .replace(/^\s*\/\/.*$/gm, ' ');
+
+// ⭐ AUTO-CONTRÔLE AVANT TOUT : si le découpage avalait le gabarit entier,
+//   chaque « absence » ci-dessous serait vraie pour rien. La borne est haute
+//   exprès — le corps utile de ce fichier fait plusieurs milliers d'octets.
+verifie('le découpage laisse un gabarit à lire — sinon les absences ne prouvent rien',
+  nu.length > 2000 && /<Base\b/.test(nu), `${nu.length} o hors commentaires`);
+lus++;
+
+const sectEmise = (nu.match(/<Base[^>]*?\bsect="([a-z]+)"/) || [])[1] || null;
+verifie('le gabarit émet `sect="tableau"`', sectEmise === 'tableau',
+  sectEmise === null ? '🔴 aucun `sect=` sur <Base> — la page prendrait la valeur par défaut'
+    : sectEmise === 'general'
+      ? '🔴 `general` : légale, mais AUCUNE règle du thème ne porte ce nom — couleur prise par hasard'
+      : `émis : « ${sectEmise} »`);
+lus++;
+
+// 🔑 LA VALEUR ÉMISE DOIT ÊTRE ACCEPTÉE PAR LA LISTE FERMÉE DE `Base.astro`.
+//   Sans ce contrôle, une faute de frappe (`tablo`) retomberait SILENCIEUSEMENT
+//   sur `general` — c'est ce que fait `sectCouleur`, et c'est voulu là-bas.
+const baseSrc = readFileSync(join(R, 'src', 'layouts', 'Base.astro'), 'utf8');
+const listeBase = (baseSrc.match(/const SECTIONS_COULEUR = \[([\s\S]*?)\]/) || [])[1] || '';
+const acceptees = [...listeBase.matchAll(/'([a-z]+)'/g)].map((m) => m[1]);
+verifie('`Base.astro` accepte cette valeur (liste fermée `SECTIONS_COULEUR`)',
+  sectEmise !== null && acceptees.includes(sectEmise),
+  acceptees.length ? `${acceptees.length} valeur(s) acceptées : ${acceptees.join(', ')}`
+    : '🔴 liste illisible — le découpage a raté');
+lus += acceptees.length;
+
+// 🔑 ET LE THÈME DOIT LA PEINDRE. C'est l'avertissement écrit dans `Base.astro`
+//   l. 57 : « ajouter une valeur ici ne suffit pas ». Une section acceptée mais
+//   non peinte est exactement le défaut que ce lot corrige — le refaire sous un
+//   autre nom serait la même panne déguisée.
+const THEME = join(R, 'themes', 'vitrine', 'theme.css');
+if (!existsSync(THEME)) {
+  indecis('la palette du thème', `${THEME} absent`);
+} else {
+  const css = readFileSync(THEME, 'utf8').replace(/\/\*[\s\S]*?\*\//g, ' ');
+  const peintes = new Set([...css.matchAll(/\[data-sect="([a-z]+)"\]/g)].map((m) => m[1]));
+  verifie('le thème porte bien une palette à ce nom',
+    sectEmise !== null && peintes.has(sectEmise),
+    peintes.size
+      ? `${peintes.size} palette(s) peinte(s) : ${[...peintes].sort().join(', ')}`
+      : '🔴 aucune palette lue — le découpage a raté');
+  // ⭐ ET LA MESURE QUI A DÉCIDÉ DU LOT, LAISSÉE VISIBLE : `general` n'est PAS
+  //   peinte, et elle reste acceptée. Ce n'est pas une assertion — c'est le
+  //   chiffre qui explique pourquoi ce banc existe.
+  console.log(`  ℹ️    acceptées mais NON peintes : ${acceptees.filter((x) => !peintes.has(x)).join(', ') || 'aucune'}`);
+  lus += peintes.size;
+}
+
+// ⭐ L'OSSATURE — les trois lignes que 8 gabarits sur 11 portent déjà.
+verifie('la page ouvre par l\'étiquette de section du réseau (`etiq etiq--bleu">// `)',
+  /class="etiq etiq--bleu">\/\/ /.test(nu),
+  '⇒ « présentation comme les autres pages » — Analytics, Market, Offre, Collections… l\'ont');
+verifie('le `<h1 class="mono-t">` n\'est plus enfermé dans un titre de SECTION',
+  /<h1 class="mono-t">/.test(nu) && !/sect-t--gd"><h1/.test(nu),
+  '`sect-t sect-t--gd` est le titre de second rang : l\'employer au premier était l\'écart mesuré');
+// ⛔ LE PALIER NE DOIT PAS DISPARAÎTRE AVEC LE DÉCOR. Le lot 131 l'a posé sur
+//   cette page parce que c'est la première chose qu'un membre vient vérifier ;
+//   une refonte visuelle qui l'emporterait serait une régression silencieuse.
+verifie('le palier du membre est toujours affiché', /nomPalier\(palier\)/.test(nu),
+  'lot 131 — « il n\'était écrit NULLE PART dans le parcours »');
+lus += 3;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 5. AUTO-CONTRÔLE — le banc a-t-il vraiment regardé quelque chose ?
+// ═══════════════════════════════════════════════════════════════════════════
+console.log('\n5. auto-contrôle');
 if (lus < 6) {
   console.log(`  🔴 ce banc n'a inspecté que ${lus} élément(s) : il ne prouve rien.`);
   process.exit(2);

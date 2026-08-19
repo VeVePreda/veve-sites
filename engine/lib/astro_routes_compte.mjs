@@ -103,6 +103,14 @@ const ROUTES_COMPTE = [
   //   ^~ /api/`, générique) et `cache_attendu.mjs` la couvre déjà par la
   //   famille `pages/api/` : c'est le SEUL des quatre endroits à toucher.
   'pages/api/portes.js',
+  // 📧 LOT 160-A — LES RÉGLAGES D'EMAILS (point `ae`). Même exigence, même
+  //   raison : pré-générée, elle deviendrait un fichier figé qui ne peut ni
+  //   lire la session ni écrire dans `/data` — et le formulaire de `/compte/`
+  //   rendrait une redirection de succès sans rien enregistrer. ⭐ nginx la
+  //   route déjà (`location ^~ /api/`, générique) et `cache_attendu.mjs` la
+  //   couvre par la famille `pages/api/` (l. 217) : c'est ICI le SEUL des
+  //   quatre endroits à toucher, et c'est la cinquième fois qu'on l'écrit.
+  'pages/api/reglages.js',
   // ═════════════════════════════════════════════════════════════════════════
   // 🔴🔴 LOT 104 — LE MARCHE ET LE TABLEAU DE BORD
   // ═════════════════════════════════════════════════════════════════════════

@@ -191,17 +191,57 @@ const cadenas = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stro
   + 'stroke-linecap="round" aria-hidden="true"><rect x="4.5" y="10.5" width="15" height="10" rx="2"/>'
   + '<path d="M8 10.5V7.8a4 4 0 0 1 8 0v2.7"/></svg>';
 ---
-<Base sect="general" lang={lang} path="/dashboard/" noindex={true}
+{/* ═══════════════════════════════════════════════════════════════════════════
+    🎨 LOT 160-A, POINT `y` — « présentation comme les autres pages, COULEUR UNIQUE »
+    ═══════════════════════════════════════════════════════════════════════════
+    🔴🔴 `sect="general"` ÉTAIT UNE COULEUR PRISE PAR HASARD, PAS PAR DÉCISION.
+    Mesuré le 19/08 sur `themes/vitrine/theme.css` :
+      · `[data-sect="general"]` → ZÉRO règle. La page tombait donc sur les
+        variables héritées de `:root` ;
+      · `[data-sect="tableau"]` → EXISTE (cyan, deux blocs nuit + jour) et
+        n'avait AUCUN émetteur dans tout `src/`.
+    Et la palette porte le nom de cette page-ci : `Base.astro` l. 49 dit, en
+    toutes lettres depuis le lot 68, « tableau  cyan — le tableau de bord
+    (l'accueil connecté) ». Une palette écrite POUR une page, que cette page
+    n'activait pas.
+    ⭐⭐⭐ ET AUCUN BUILD, AUCUN BANC NE POUVAIT LE VOIR : `general` EST dans
+    `SECTIONS_COULEUR` (`Base.astro` l. 63). La valeur est donc légale, la liste
+    fermée ne la remplace pas, et le thème reste muet. C'est la panne du 03/08
+    RETOURNÉE — là le thème était complet et le gabarit muet ; ici le gabarit
+    parlait, et il nommait une section que le thème ne peint pas.
+    ⇒ *Une valeur légale qui ne matche rien est plus silencieuse qu'une faute.*
+    ⚠️ `Favoris.astro` et `compte/index.astro` émettent le MÊME `general`. Ce
+    lot NE LES TOUCHE PAS : ni l'une ni l'autre n'a de palette écrite à son nom,
+    donc `general` est leur vraie section, et changer trois pages pour un point
+    qui n'en désigne qu'une ferait porter à `y` un risque qui n'est pas le sien.
+    ⛔ Ne pas « généraliser » sans une demande. */}
+<Base sect="tableau" lang={lang} path="/dashboard/" noindex={true}
       title={t(lang, 'dash.title')} description={t(lang, 'dash.lead')}
       crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') },
                { name: t(lang, 'dash.title') }]}>
 
-  <div class="sect-t sect-t--gd"><h1 class="mono-t">{t(lang, 'dash.title')}</h1>
-    {/* ⭐ LE PALIER EST DIT, ET IL EST DIT ICI. C'est la première chose qu'un
-        membre vient vérifier, et jusqu'à ce lot il n'était écrit NULLE PART
-        dans le parcours : il fallait ouvrir /compte/ pour le savoir. */}
-    <span class="etiq etiq--bleu">{nomPalier(palier)}</span></div>
-  <p class="respire">{t(lang, 'dash.lead')}</p>
+  {/* 🔴 L'OSSATURE DU RÉSEAU, ET ELLE N'ÉTAIT PAS LÀ. Compté le 19/08 sur les
+      gabarits : 8 pages sur 11 ouvrent par ces trois lignes exactement —
+      `Analytics`, `AnalyticsSujet`, `BlogIndexVitrine`, `Collections`,
+      `Market`, `Offre`, `Orientation`, `compte/index`. Le tableau de bord
+      enfermait son `h1` dans un `<div class="sect-t sect-t--gd">`, qui est le
+      titre de SECTION du site — un objet de second rang employé au premier.
+      ⭐ C'est mot pour mot ce que demande `y` : « présentation comme les
+      autres pages ».
+      ⛔ AUCUNE CLASSE NEUVE, et c'était la condition : `etiq`, `etiq--bleu`,
+      `mono-t`, `respire` sont déjà émises et déjà peintes.
+      ⭐⭐ LE PALIER NE DISPARAÎT PAS — il change de porteur. Il était le seul
+      objet du site à vivre dans un `sect-t--gd`, et le lot 131 avait raison de
+      le poser là (« c'est la première chose qu'un membre vient vérifier »). La
+      ligne d'étiquette le porte aussi bien, et le patron existe déjà :
+      `BlogIndexVitrine` l. 84 écrit `// TITRE — {posts.length}`. On ne fabrique
+      donc rien, on emploie la forme du site.
+      ⚠️ `.etiq` porte DÉJÀ `text-transform:uppercase` — ⛔ ne pas ajouter de
+      `.toUpperCase()` : il mettrait la CLÉ en capitales et la traduction serait
+      perdue (la faute du lot 129, payée une fois, sur cette même ossature). */}
+  <p class="etiq etiq--bleu">// {t(lang, 'dash.title')} — {nomPalier(palier)}</p>
+  <h1 class="mono-t">{t(lang, 'dash.title')}</h1>
+  <p class="respire" style="max-width:52ch">{t(lang, 'dash.lead')}</p>
 
   {/* ═══ LES MODULES ═════════════════════════════════════════════════════════
       ⭐ Chaque tuile porte TROIS choses et pas une de plus : ce que c'est, un

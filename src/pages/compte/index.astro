@@ -40,7 +40,12 @@ import { comptesActifs } from '../../../engine/lib/features.mjs';
 import { avoirsDeLaSession, secretDeService, compteDeLaSession } from '../../../engine/lib/compte.mjs';
 // 🌍 LOT 154-B — le magasin des préférences de compte. ⭐ Ouverture paresseuse :
 // l'importer ne touche pas `/data`, seul le premier `poserPref()` l'ouvre.
-import { poserPref } from '../../../engine/lib/prefs.mjs';
+// 🔴 LOT 160-A, point `ae` — `lirePref` REJOINT `poserPref` ICI, ET NULLE PART
+//   AILLEURS. Le magasin ne connaît pas la clé `mail_news` : il range des
+//   couples (clé, valeur) et rien d'autre (`prefs.mjs`, l. 16). C'est cet
+//   appelant-ci qui borne le SENS — même partage que la langue au 154-B et que
+//   `/api/portes` au 164.
+import { poserPref, lirePref } from '../../../engine/lib/prefs.mjs';
 // 🔴 LOT 164 — LE RÉGLAGE DES PORTES. ⛔ `porte()` est importée pour LIRE le
 //   palier effectif (surcharge comprise) : c'est elle le point unique, et
 //   recalculer « manifeste ou surcharge » ici en ferait une seconde loi.
@@ -295,6 +300,52 @@ const collection = (aLaDemande && connecte && dossier?.verifie)
   ? await avoirsDeLaSession(sid)
   : null;
 const echec = Astro.url.searchParams.get('e');
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 📧 LOT 160-A, POINT `ae` — LES RÉGLAGES D'EMAILS
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 CE RÉGLAGE N'A AUCUN LECTEUR AUJOURD'HUI, ET LA PAGE LE DIT.
+//   Mesuré le 19/08 : le mot `newsletter` n'apparaît nulle part dans `src/` ni
+//   `engine/` de ce dépôt (sauf en commentaire de `prefs.mjs`), `src/pages/api/`
+//   porte douze routes et AUCUNE n'envoie de courriel, et aucun envoyeur
+//   n'existe dans `scrapeur-veve`, `jetonveve` ni `veveid`.
+//   ⛔ Et le verrou est STRUCTUREL, pas un oubli : cette préférence vit dans
+//   `/data/veve-favoris.db`, un fichier monté sur le conteneur veveprice. Un
+//   envoi parti de GitHub Actions ou de veveid NE PEUT PAS LE LIRE.
+//   ⇒ Poser la case sans le dire aurait fabriqué un réglage qui a l'air de
+//   marcher et ne fait rien — c'est-à-dire `langouste`/`whale` une deuxième
+//   fois. ⭐ Arbitré par Preda le 19/08 : on l'écrit, ET ON LE DIT
+//   (`account.mail.none` sous le bouton). Le jour où l'envoi existe, il n'y a
+//   qu'une phrase à retirer et rien à recâbler.
+//
+// ⭐⭐ ZÉRO APPEL RÉSEAU AJOUTÉ, ET C'EST CE QUI A DÉCIDÉ DE L'ENDROIT.
+//   `compteDeLaSession()` interroge `${SESSION_API}/api/session?sid=` et rend
+//   `j.compte` — c'est-à-dire EXACTEMENT la requête que cette page a déjà faite
+//   l. 220, dont `dossier` porte la réponse entière. Rappeler la fonction ici
+//   aurait payé une seconde fois, à 4 s de délai, la même question. Même
+//   raisonnement que `estAdmin`, qui lit `dossier?.email` au lieu de redemander.
+//
+// 🔴 ET IL NE PEUT PAS FAIRE ÉCHOUER LA PAGE. `lirePref()` LÈVE quand la base
+//   est illisible — délibérément, pour que « rien de rangé » ne se confonde
+//   jamais avec « je n'ai pas su lire ». Mais l'appelant est ici un GABARIT :
+//   une exception dans un frontmatter rendu à la demande, c'est une 500 servie
+//   à un membre parfaitement connecté, pour une case à cocher. ⇒ on retombe sur
+//   le DÉFAUT DU SITE, qui est « recevoir », et on n'affirme rien de plus.
+//   ⛔ Ce n'est pas un aplatissement du genre interdit : ici les deux états
+//   mènent au même affichage sans qu'aucune donnée ne soit écrasée — rien
+//   n'écrit par-dessus, contrairement au cas des favoris.
+const _compteMail = String(dossier?.compte ?? '');
+const mailIci = aLaDemande && connecte && _compteMail !== '';
+// ⭐ ABSENT ≠ VIDE. Une clé jamais posée retombe sur le défaut du site
+//   (« recevoir ») ; seule la valeur `'0'` refuse. C'est la distinction que
+//   `retirerPref()` porte en toutes lettres, et elle compte ici : un membre qui
+//   n'a jamais ouvert ce réglage ne doit pas être désabonné par son silence.
+let mailNews = true;
+if (mailIci) {
+  try { mailNews = lirePref(_compteMail, 'mail_news') !== '0'; }
+  catch { mailNews = true; }
+}
+const _m = Astro.url.searchParams.get('m');
 ---
       {/* ⛔ UNE SEULE LANGUE DÉCLARÉE, ET C'EST LE CORRECTIF DU 404.
           `/compte/` et `/connexion/` sont rendues À LA DEMANDE et lisent
@@ -614,6 +665,58 @@ const echec = Astro.url.searchParams.get('e');
   )}
 
   {/* ═══════════════════════════════════════════════════════════════════════
+      📧 LOT 160-A, POINT `ae` — LES RÉGLAGES D'EMAILS
+      ═══════════════════════════════════════════════════════════════════════
+      ⭐ IL A LA FORME DES QUATRE BLOCS AU-DESSUS : titre de section
+      `sect-t sect-t--gd` + `<section class="panneau champ">`. Un cinquième bloc
+      qui inventerait sa propre forme referait, sur cette page-ci, le défaut que
+      `y` corrige sur le tableau de bord.
+      ⛔ AUCUNE CLASSE NEUVE. `champ`, `panneau`, `etiq`, `muted`, `respire`,
+      `btn` sont déjà émises et déjà peintes.
+      ⭐⭐ LA CASE EST FORMULÉE À L'ENDROIT — « recevoir », cochée par défaut —
+      alors que la demande dit « ne pas recevoir la newsletter ». Une case dont
+      cocher SIGNIFIE REFUSER se lit deux fois avant d'être comprise, et elle se
+      trompe une fois sur deux. Le sens du réglage, lui, ne change pas : c'est
+      l'absence de clé qui vaut « recevoir ».
+      ⛔ PAS DE JAVASCRIPT, ET PAS D'ENREGISTREMENT AU CLIC. Le site entier
+      fonctionne sans script ; une case qui s'enregistrerait toute seule
+      demanderait un pilote, un état d'attente et un message d'échec — trois
+      objets pour un réglage qu'on change deux fois dans sa vie. Un bouton
+      « enregistrer » dit ce qui se passe et quand.
+      ⚠️ `name="news"` N'EST ÉMIS PAR LE NAVIGATEUR QUE SI LA CASE EST COCHÉE —
+      c'est la règle HTML, pas un choix : décocher n'envoie RIEN. La route ne
+      peut donc pas distinguer « décoché » de « champ absent », et elle n'a pas
+      à le faire : le champ caché `poste=1` prouve que le formulaire vient bien
+      d'ici, et l'absence de `news` vaut alors refus. ⛔ Sans ce témoin, une
+      requête vide désabonnerait. */}
+  {mailIci && (
+    <>
+      <div class="sect-t sect-t--gd"><h2>{t(lang, 'account.mail')}</h2></div>
+      <section class="panneau champ" style="margin-bottom:var(--s5)">
+        <p class="muted respire" style="margin:0 0 var(--s4)">{t(lang, 'account.mail.d')}</p>
+        {_m === 'ok' && <p class="etiq" style="margin:0 0 var(--s3)">✓ {t(lang, 'account.mail.saved')}</p>}
+        {/* ⭐ L'ÉCHEC SE DIT, ET IL DIT QUOI FAIRE. Un réglage qu'on croit posé
+            et qui ne l'est pas envoie chercher le défaut ailleurs pendant une
+            heure — c'est la leçon de `/api/portes` (`?p=ecriture`). */}
+        {_m === 'err' && <p class="etiq" style="margin:0 0 var(--s3)">⚠️ {t(lang, 'account.mail.err')}</p>}
+        <form method="POST" action="/api/reglages" style="margin:0">
+          <input type="hidden" name="poste" value="1" />
+          <label class="respire" style="display:flex;gap:8px;align-items:flex-start;margin:0 0 var(--s4)">
+            <input type="checkbox" name="news" value="1" checked={mailNews} style="margin-top:3px" />
+            <span>{t(lang, 'account.mail.news')}</span>
+          </label>
+          <button class="btn btn--sm" type="submit">{t(lang, 'account.mail.save')}</button>
+        </form>
+        {/* 🔴🔴 LA PHRASE QUI EMPÊCHE CE RÉGLAGE D'ÊTRE UN MENSONGE. Arbitrée
+            avec Preda le 19/08. ⛔ Elle ne se retire que le jour où un envoi
+            existe ET sait lire cette préférence — pas le jour où l'envoi
+            existe. */}
+        <p class="muted" style="font-size:13px;margin:var(--s3) 0 0">{t(lang, 'account.mail.none')}</p>
+      </section>
+    </>
+  )}
+
+  {/* ═══════════════════════════════════════════════════════════════════════
       🔴🔴🔴 LOT 164 — LES PORTES. Bloc d'EXPLOITATION, un seul compte le voit.
       ═══════════════════════════════════════════════════════════════════════
       ⭐⭐ REPLIÉ ET EN BAS, comme la suppression, et pour la même raison : un
@@ -707,9 +810,27 @@ const echec = Astro.url.searchParams.get('e');
       lire. MightysArena demandait de recopier l'adresse du portefeuille, pour
       la même raison — et c'est `veveid` qui juge la réponse, jamais ce site :
       un contrôle fait par celui qui détient déjà la réponse ne prouve rien. */}
+  {/* 🗑️ LOT 160-A, POINT `ad` — « présentation de Suppression de mon compte ».
+      ⭐⭐ LE MÉCANISME NE BOUGE PAS D'UNE LIGNE, ET C'EST LE POINT. Le
+      `<details>` replié, la recopie de l'adresse en `type="email"`, le POST vers
+      `/api/supprimer` : tout cela existe, est en production et a ses raisons
+      écrites ci-dessus. La demande est VISUELLE, le correctif l'est aussi.
+      🔑 L'ÉCART MESURÉ, ET IL EST UNIQUE : les quatre blocs de membre de cette
+      page (compte · portefeuille · collection · emails) ouvrent tous par
+      `<div class="sect-t sect-t--gd"><h2>…</h2></div>`. Celui-ci ouvrait par un
+      `<summary class="etiq">` nu — donc sans titre de section, sans `<h2>`, et
+      absent du plan de titres de la page.
+      ⚠️ Le `<summary>` NE PEUT PAS porter ce titre à sa place : c'est une
+      commande, pas un en-tête, et un lecteur d'écran l'annonce comme un bouton.
+      ⇒ le titre nomme la SECTION (`account.del`), le résumé nomme le GESTE
+      d'ouverture (`account.del.open`). Deux rôles, deux libellés.
+      ⭐ `margin-bottom` remplace `margin-top` : l'espacement vient désormais du
+      bloc, comme chez ses quatre voisins, et non de lui seul. */}
   {connecte && (
-  <details style="margin-top:var(--s5)">
-    <summary class="etiq" style="cursor:pointer;padding:var(--s3) 0">{t(lang, 'account.del')}</summary>
+  <>
+  <div class="sect-t sect-t--gd"><h2>{t(lang, 'account.del')}</h2></div>
+  <details style="margin-bottom:var(--s5)">
+    <summary class="etiq" style="cursor:pointer;padding:var(--s3) 0">{t(lang, 'account.del.open')}</summary>
     <section class="panneau champ" style="margin-top:var(--s3)">
       <p class="respire" style="margin:0 0 var(--s4)">{t(lang, 'account.del.d')}</p>
       <form method="POST" action="/api/supprimer" style="margin:0">
@@ -727,6 +848,7 @@ const echec = Astro.url.searchParams.get('e');
       <p class="muted" style="font-size:13px;margin:var(--s3) 0 0">{t(lang, 'account.del.after')}</p>
     </section>
   </details>
+  </>
   )}
 
   {/* ⛔ LOT 112 — « Paliers de ce site : visitor · member · crevette … »

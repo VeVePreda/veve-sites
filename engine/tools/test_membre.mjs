@@ -1014,6 +1014,105 @@ console.log('\n10. rien n\'est-il servi AVANT `<html>`, et le `<head>` tient-il 
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// 11. LOT 160-A — `/compte/` : LE BLOC EMAILS (`ae`) ET LA PRÉSENTATION DE LA
+//     SUPPRESSION (`ad`)
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 LE POINT LE PLUS IMPORTANT DE CETTE SECTION N'EST PAS QUE LA CASE
+//   EXISTE : c'est que la page DISE qu'aucune newsletter n'est envoyée à ce
+//   jour. Mesuré le 19/08 — aucun envoyeur de courriel dans les quatre dépôts,
+//   et la préférence vit dans un SQLite monté sur le conteneur veveprice, qu'un
+//   envoi parti d'ailleurs ne pourrait pas lire. Sans cette phrase, le réglage
+//   a l'air de marcher et ne fait rien : c'est `langouste`/`whale` une seconde
+//   fois, et le projet a déjà payé celui-là.
+//   ⇒ Le jour où cette phrase se retire, c'est que l'envoi la LIT. Ce banc est
+//   ce qui empêche de la retirer par distraction.
+console.log('\n11. `/compte/` — le bloc Emails et la présentation de la suppression');
+
+const COMPTE = join(ROOT, 'src', 'pages', 'compte', 'index.astro');
+const compteBrut = lire(COMPTE);
+// ⛔ ON DÉCOUPE AUSSI LES `{/* … */}` DU CORPS, pas seulement les `//` du
+//   frontmatter : c'est là qu'est écrite l'explication de ce lot-ci, et elle
+//   cite les noms de clés qu'on cherche. Un critère qui juge la valeur cherche
+//   la chaîne — et il mord sur les commentaires.
+const compteNu = sansCommentaires(compteBrut).replace(/\{\/\*[\s\S]*?\*\/\}/g, ' ');
+
+verifie('le gabarit de `/compte/` se lit', compteNu.length > 3000,
+  `${compteNu.length} o hors commentaires`);
+
+// ⭐ `ae` — LA ROUTE, LE TÉMOIN, LA CLÉ, ET LA PHRASE.
+verifie('le formulaire poste vers `/api/reglages`',
+  /action="\/api\/reglages"/.test(compteNu), 'point `ae`');
+verifie('⛔ il porte le témoin `poste=1` — sans lui, un POST vide désabonnerait',
+  /name="poste"[^>]*value="1"/.test(compteNu),
+  'une case non cochée n\'est PAS envoyée : « absent » et « décoché » sont indiscernables sans témoin');
+verifie('🔴 la page DIT qu\'aucune newsletter n\'est envoyée (`account.mail.none`)',
+  /account\.mail\.none/.test(compteNu),
+  '⇒ ne se retire que le jour où un envoi LIT cette préférence');
+verifie('la préférence est lue sous le compte, sans appel réseau ajouté',
+  /lirePref\(/.test(compteNu) && /dossier\?\.compte/.test(compteNu),
+  '`dossier` porte déjà la réponse de `/api/session` (l. ~220)');
+
+// ⭐ `ad` — LA PRÉSENTATION, ET RIEN D'AUTRE. Le mécanisme ne doit PAS bouger :
+//   on vérifie donc qu'il est toujours là autant que le titre qui manquait.
+verifie('`ad` — la suppression a maintenant un titre de section, comme ses voisins',
+  /<div class="sect-t sect-t--gd"><h2>\{t\(lang, 'account\.del'\)\}<\/h2><\/div>/.test(compteNu),
+  'les 4 autres blocs de membre en ont un depuis toujours');
+verifie('⛔ et le mécanisme de suppression n\'a pas bougé (recopie + POST)',
+  /action="\/api\/supprimer"/.test(compteNu) && /name="confirmation"/.test(compteNu)
+    && /type="email"/.test(compteNu),
+  'la demande était VISUELLE — un correctif visuel ne touche pas au geste destructeur');
+
+// 🔑 LA ROUTE DOIT ÊTRE RENDUE À LA DEMANDE. Pré-générée, elle deviendrait un
+//   fichier figé : le formulaire rendrait une redirection de succès et rien ne
+//   serait enregistré. C'est la panne du lot 24, et elle est SILENCIEUSE.
+const routesTxt11 = lire(join(ROOT, 'engine', 'lib', 'astro_routes_compte.mjs'));
+verifie('`pages/api/reglages.js` est inscrite dans `ROUTES_COMPTE`',
+  /'pages\/api\/reglages\.js'/.test(sansCommentaires(routesTxt11)),
+  'sans elle : fichier figé, aucune session lisible, aucune écriture dans /data');
+
+const REG = join(ROOT, 'src', 'pages', 'api', 'reglages.js');
+if (!existsSync(REG)) {
+  verifie('la route `/api/reglages` existe', false, `🔴 ${REG} absent`);
+} else {
+  const regNu = sansCommentaires(lire(REG));
+  verifie('la route refuse un POST sans le témoin de formulaire',
+    /f\.get\('poste'\)/.test(regNu) && /m=err/.test(regNu),
+    '⇒ un rejeu ou une page tierce ne peut pas désabonner');
+  verifie('elle résout le compte par le `sid`, jamais par un identifiant reçu',
+    /compteDeLaSession\(sid\)/.test(regNu) && !/f\.get\('compte'\)/.test(regNu),
+    'ce site ne détient pas l\'identité, il a un cookie');
+  // ⭐⭐ ABSENT ≠ VIDE : accepter la newsletter RETIRE la clé au lieu d'écrire
+  //   `'1'`. Écrire le défaut du jour sous chaque compte le figerait.
+  verifie('accepter la newsletter RETIRE la clé (le défaut du site reprend la main)',
+    /retirerPref\(compte, 'mail_news'\)/.test(regNu),
+    'une clé absente retombe sur le défaut ; une clé posée fige celui d\'aujourd\'hui');
+  verifie('un GET sur cette route rend 405, pas 404',
+    /status: 405/.test(regNu), 'même forme que supprimer.js, portes.js, inscription.js');
+}
+
+// 🌍 LES CINQ DICTIONNAIRES, ET C'EST LA SEULE FAÇON DE NE PAS EN OUBLIER UN.
+//   ⚠️ `test:cles` compare les cinq entre eux : si j'oublie une clé PARTOUT, il
+//   reste vert. C'est donc ici qu'on nomme les clés attendues.
+const CLES_160A = ['account.del.open', 'account.mail', 'account.mail.d', 'account.mail.news',
+  'account.mail.save', 'account.mail.saved', 'account.mail.err', 'account.mail.none'];
+for (const lg of ['en', 'fr', 'es', 'de', 'it']) {
+  const p = join(ROOT, 'engine', 'i18n', `${lg}.json`);
+  if (!existsSync(p)) { indecis(`dictionnaire ${lg}`, `${p} absent`); continue; }
+  const d = JSON.parse(readFileSync(p, 'utf8'));
+  const manquantes = CLES_160A.filter((k) => !d[k]);
+  verifie(`les ${CLES_160A.length} clés du lot 160-A sont dans « ${lg} »`,
+    manquantes.length === 0,
+    manquantes.length ? `🔴 ${manquantes.join(', ')}` : 'complet');
+  // 🐛 LA PROMESSE DU SUJET CHAIN — corrigée au même lot. `test:promesses`
+  //   compte les unités d'un sujet, il ne relit pas la phrase : depuis que
+  //   166-B a posé un 3ᵉ module, la description n'en décrivait que 2.
+  verifie(`« ${lg} » — \`analytics.chain.d\` ne décrit plus 2 modules sur 3`,
+    typeof d['analytics.chain.d'] === 'string'
+      && !/what they hold\.$|ce qu’ils détiennent\.$|lo que poseen\.$|was sie halten\.$|ciò che detengono\.$/.test(d['analytics.chain.d']),
+    d['analytics.chain.d'] ? `« ${String(d['analytics.chain.d']).slice(0, 58)}… »` : '🔴 clé absente');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 console.log(
   ko === 0 && indecidable === 0 ? '\n✅ membre : tout est conforme'
   : ko === 0 ? `\n⚠️  membre : conforme, mais ${indecidable} point(s) INDÉCIDABLE(S)`
