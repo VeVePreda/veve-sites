@@ -97,6 +97,12 @@ const ROUTES_COMPTE = [
   // quatrième fois qu'on l'écrit.
   'pages/api/veveid.js',
   'pages/api/supprimer.js',
+  // 🔴 LOT 164 — LE RÉGLAGE DES PORTES. Elle DOIT être rendue à la demande :
+  //   pré-générée, elle deviendrait un fichier statique qui ne peut ni lire
+  //   la session ni écrire dans `/data`. ⭐ nginx la route déjà (`location
+  //   ^~ /api/`, générique) et `cache_attendu.mjs` la couvre déjà par la
+  //   famille `pages/api/` : c'est le SEUL des quatre endroits à toucher.
+  'pages/api/portes.js',
   // ═════════════════════════════════════════════════════════════════════════
   // 🔴🔴 LOT 104 — LE MARCHE ET LE TABLEAU DE BORD
   // ═════════════════════════════════════════════════════════════════════════

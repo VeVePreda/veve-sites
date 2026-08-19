@@ -20,6 +20,9 @@
 // comportement — c'est verifie par engine/tools/test_access.mjs.
 
 import { manifest } from './manifest.mjs';
+// 🔴 LOT 164 — la surcharge d'exploitation. ⛔ Ce module n'importe PAS
+//   celui-ci en retour : ce serait un cycle. Voir son en-tête.
+import { lireSurcharges } from './portes_surcharge.mjs';
 
 // Ordre croissant de privilege. Un palier absent de `tiers` desactive les
 // portes qui l'exigent (le contenu redevient entierement public).
@@ -70,7 +73,11 @@ const DEFAUTS_PORTES = {
 
 // Ce que le moteur sait faire. Une porte inconnue est une faute de frappe,
 // pas une fonctionnalite a venir : on prefere l'erreur bruyante.
-const PORTES_CONNUES = new Set(['price_history', 'extremes', 'modules', 'alerts', 'wallet_watch', 'cote', 'movers']);
+// 🔴 LOT 164 — EXPORTÉE. L'écran de réglage des portes (`/compte/`) doit
+//   lister exactement ce que ce moteur sait faire. Une seconde liste
+//   là-bas aurait divergé au premier ajout de porte — c'est la panne du
+//   lot 127 (`data-ch` à `300` d'un côté, `300.00` de l'autre).
+export const PORTES_CONNUES = new Set(['price_history', 'extremes', 'modules', 'alerts', 'wallet_watch', 'cote', 'movers']);
 
 let _cache = null;
 
@@ -235,6 +242,37 @@ export function porte(nom) {
   if (!p) {
     throw new Error(`[acces] porte inconnue : « ${nom} » (connues : ${[...PORTES_CONNUES].join(', ')})`);
   }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // 🔴🔴🔴 LOT 164 — LA SURCHARGE D'EXPLOITATION S'APPLIQUE ICI, ET NULLE
+  //    PART AILLEURS.
+  // ═══════════════════════════════════════════════════════════════════════
+  // ⭐⭐⭐ POURQUOI DANS `porte()` ET PAS DANS `franchit()`. Mesuré le 19/08 :
+  //   `franchit()` est bien le point de DÉCISION, mais l'AFFICHAGE lit
+  //   `porte(nom).tier` séparément — `Analytics.astro` l. 145 (le nom du grade
+  //   sur le cadenas), `Offre.astro` l. 136, et `catalogueModules()` que lit
+  //   le tableau de bord. Brancher sur `franchit()` seul aurait ouvert le
+  //   contenu en continuant d'afficher « crevette » à côté. ⇒ un seul point,
+  //   et les deux en descendent.
+  //
+  // ⛔ ON NE MUTE PAS L'OBJET MÉMOÏSÉ. `acces()` garde `_cache` pour toute la
+  //   durée du processus : écrire `p.tier = …` rendrait la surcharge
+  //   PERMANENTE jusqu'au redémarrage, c'est-à-dire exactement le contraire de
+  //   la date de fin qui rend ce mécanisme acceptable. On rend une COPIE, et
+  //   seulement quand il y a quelque chose à surcharger.
+  //
+  // ⛔ UN PALIER INCONNU EST IGNORÉ — la surcharge ne peut pas inventer un
+  //   grade. Le magasin ne connaît pas les paliers (il n'importe pas ce
+  //   fichier : ce serait un cycle) ; c'est donc ici qu'on borne le SENS,
+  //   comme `prefs.mjs` le fait déjà pour la langue.
+  //
+  // ⚠️ AU BUILD, `lireSurcharges()` REND `{}` : la base vit dans `/data`, qui
+  //   n'existe pas dans le conteneur de build (mesuré au lot 154-B). Les
+  //   ~3 000 pages pré-générées figent donc toujours le palier DU MANIFESTE —
+  //   ce n'est pas une précaution, c'est une conséquence.
+  const sur = lireSurcharges();
+  const t = sur[nom];
+  if (t && t !== p.tier && PALIERS.includes(t)) return { ...p, tier: t, surcharge: true };
   return p;
 }
 

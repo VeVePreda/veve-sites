@@ -41,6 +41,11 @@ import { avoirsDeLaSession, secretDeService, compteDeLaSession } from '../../../
 // 🌍 LOT 154-B — le magasin des préférences de compte. ⭐ Ouverture paresseuse :
 // l'importer ne touche pas `/data`, seul le premier `poserPref()` l'ouvre.
 import { poserPref } from '../../../engine/lib/prefs.mjs';
+// 🔴 LOT 164 — LE RÉGLAGE DES PORTES. ⛔ `porte()` est importée pour LIRE le
+//   palier effectif (surcharge comprise) : c'est elle le point unique, et
+//   recalculer « manifeste ou surcharge » ici en ferait une seconde loi.
+import { PORTES_CONNUES, porte as porteDe } from '../../../engine/lib/access.mjs';
+import { etatBrut as portesBrutes, JOURS_MAX } from '../../../engine/lib/portes_surcharge.mjs';
 
 // ⭐ CES PAGES SONT RENDUES À LA DEMANDE : elles peuvent donc lire l'en-tête
 // `Accept-Language`, ce qu'une page pré-générée ne peut pas faire. Autant s'en
@@ -225,6 +230,49 @@ if (aLaDemande && connecte && sid && idApi) {
     dossier = null;
   }
 }
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 LOT 164 — LE BLOC D'EXPLOITATION : RÉGLER LES PORTES
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐⭐ AUCUN APPEL RÉSEAU AJOUTÉ, ET C'EST CE QUI A DÉCIDÉ DE L'ENDROIT.
+//   Cette page interroge DÉJÀ `${idApi}/api/session?sid=` vingt lignes plus
+//   haut, et `dossier` porte déjà l'adresse (`email`, rendue par veveid). Une
+//   page `/admin/` séparée aurait refait cet appel, et aurait coûté en plus :
+//   une route à déclarer, un secret à poser, un secret dans une URL.
+//
+// ⛔ VIDE = PERSONNE. `ADMIN_COMPTES` absente ne doit pas ouvrir le bloc à
+//   tous — c'est la faute de la liste blanche vide, et elle est silencieuse.
+//   ⚠️ Ce test-ci ne fait qu'AFFICHER : le vrai garde est dans
+//   `/api/portes`, qui refait la même vérification. Un contrôle d'affichage
+//   n'est pas un contrôle d'accès, et les deux doivent exister.
+//
+// ⭐ CE BLOC N'EST PAS TRADUIT, ET C'EST DÉLIBÉRÉ. C'est un outil
+//   d'exploitation, vu par une personne. Poser quinze clés dans les CINQ
+//   dictionnaires pour un écran qu'un seul compte peut voir coûterait plus
+//   cher que ce qu'il rapporte, et chaque clé voyage dans les cinq fichiers.
+const _admins = String(process.env.ADMIN_COMPTES || '')
+  .split(',').map((x) => x.trim().toLowerCase()).filter(Boolean);
+const estAdmin = aLaDemande && connecte && _admins.length > 0
+  && _admins.includes(String(dossier?.email ?? '').trim().toLowerCase());
+
+// ⚠️ ON NE LIT LA BASE QUE SI ON AFFICHE. `portesBrutes()` ne lève jamais,
+//   mais l'appeler pour tout le monde ouvrirait un descripteur sur la base à
+//   chaque affichage de `/compte/`, pour une ligne que personne ne verra.
+const _brut = estAdmin ? portesBrutes() : [];
+const _parPorte = new Map(_brut.map((x) => [x.porte, x]));
+const lesPortes = estAdmin ? [...PORTES_CONNUES].map((nom) => {
+  const p = porteDe(nom);              // ⭐ le palier EFFECTIF, surcharge comprise
+  const l = _parPorte.get(nom) ?? null;
+  return {
+    nom, tier: p.tier, surchargee: Boolean(p.surcharge),
+    // ⚠️ « rien » et « ouvert jusqu'à avant-hier » sont deux états différents.
+    //   Le second se relit avec profit le jour où on cherche pourquoi
+    //   quelqu'un a vu quelque chose.
+    expiree: Boolean(l && !l.active),
+    jusqu_a: l ? new Date(l.jusqu_a).toISOString().slice(0, 16).replace('T', ' ') : null,
+  };
+}) : [];
+const _p = Astro.url.searchParams.get('p');
+
 // ⭐ Les codes d'erreur des routes de service reviennent ICI : la personne doit
 // retrouver son compte, jamais un cul-de-sac. Un seul endroit les traduit.
 // ═══════════════════════════════════════════════════════════════════════════
@@ -563,6 +611,87 @@ const echec = Astro.url.searchParams.get('e');
         )}
       </section>
     </>
+  )}
+
+  {/* ═══════════════════════════════════════════════════════════════════════
+      🔴🔴🔴 LOT 164 — LES PORTES. Bloc d'EXPLOITATION, un seul compte le voit.
+      ═══════════════════════════════════════════════════════════════════════
+      ⭐⭐ REPLIÉ ET EN BAS, comme la suppression, et pour la même raison : un
+      geste qui change ce que voit TOUT LE MONDE ne doit pas être à portée de
+      pouce. ⛔ Mais pas caché — un réglage qu'on doit chercher n'en est pas un.
+      ⚠️ NON TRADUIT : voir le frontmatter. Outil d'exploitation, une personne.
+      ⛔ CE BLOC N'EST PAS LE GARDE. `estAdmin` décide de l'AFFICHAGE ;
+      `/api/portes` refait la vérification côté serveur. Un contrôle
+      d'affichage n'est pas un contrôle d'accès — cacher un formulaire
+      n'empêche personne de le poster. */}
+  {estAdmin && (
+  <details style="margin-top:var(--s5)">
+    <summary class="etiq" style="cursor:pointer;padding:var(--s3) 0">Exploitation — les portes</summary>
+    <section class="panneau champ" style="margin-top:var(--s3)">
+      <p class="respire" style="margin:0 0 var(--s3)">
+        Une surcharge <b>remplace le palier du manifeste pour tout le monde</b>,
+        et elle <b>se referme seule</b> à sa date de fin ({JOURS_MAX} jours au plus).
+        Sans surcharge, c’est le manifeste qui décide.
+      </p>
+      {/* 🔴🔴 L'AVERTISSEMENT EST ÉCRIT, PAS SOUS-ENTENDU. Dans six mois,
+          personne ne se souviendra que cette porte-là porte des adresses de
+          portefeuille. Un danger qu'il faut connaître pour l'éviter n'est pas
+          un garde-fou. */}
+      <p class="muted" style="font-size:13px;margin:0 0 var(--s4)">
+        ⚠️ <b>wallet_watch</b> ouvre le classement nominatif des cent plus gros
+        portefeuilles, <b>avec leurs adresses</b>. Ce site est public : l’ouvrir
+        aux membres, c’est l’ouvrir à tout inscrit gratuit.
+      </p>
+      {_p === 'ok' && <p class="etiq" style="margin:0 0 var(--s3)">Réglage enregistré.</p>}
+      {_p === 'duree' && <p class="etiq" style="margin:0 0 var(--s3)">Durée refusée : un entier de 0 à {JOURS_MAX} (0 retire).</p>}
+      {_p === 'porte' && <p class="etiq" style="margin:0 0 var(--s3)">Porte inconnue.</p>}
+      {_p === 'palier' && <p class="etiq" style="margin:0 0 var(--s3)">Palier inconnu.</p>}
+      {_p === 'ecriture' && <p class="etiq" style="margin:0 0 var(--s3)">L’écriture a échoué — la base est-elle montée ?</p>}
+      {_p === 'forme' && <p class="etiq" style="margin:0 0 var(--s3)">Formulaire illisible.</p>}
+
+      {/* ⭐ LES SEPT PORTES SONT TOUJOURS TOUTES LISTÉES, surchargées ou non.
+          N'afficher que les surcharges cacherait précisément ce qu'on vient
+          poser : *un contrôle qui ne regarde que ce qui existe ne voit jamais
+          ce qui manque.* */}
+      {lesPortes.map((x) => (
+        <div class="panneau" style="margin-bottom:var(--s3);padding:var(--s3)">
+          <div style="display:flex;gap:var(--s3);align-items:baseline;flex-wrap:wrap">
+            <b style="flex:1 1 auto;min-width:0">{x.nom}</b>
+            <span class="etiq">{x.tier}</span>
+            <span class="muted" style="font-size:13px">
+              {x.surchargee ? `surchargée jusqu’au ${x.jusqu_a}`
+                : x.expiree ? `expirée le ${x.jusqu_a} — le manifeste a repris la main`
+                : 'manifeste'}
+            </span>
+          </div>
+          {/* ⛔ POST, JAMAIS GET. Un geste qui écrit derrière un GET s'exécute
+              depuis n'importe quel site par une balise `<img src="…">`. */}
+          <form method="POST" action="/api/portes"
+                style="margin:var(--s3) 0 0;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <input type="hidden" name="porte" value={x.nom} />
+            <select class="champ" name="tier" aria-label={`palier exigé pour ${x.nom}`} style="max-width:150px">
+              <option value="member">member</option>
+              <option value="crevette">crevette</option>
+              <option value="langouste">langouste</option>
+              <option value="whale">whale</option>
+            </select>
+            {/* ⛔ `required` ET `max` : du confort. La borne qui COMPTE est
+                dans `/api/portes`, et elle y est. */}
+            <input class="champ" name="jours" type="number" min="1" max={JOURS_MAX} value="7"
+                   required aria-label={`jours pour ${x.nom}`} style="width:90px" />
+            <button class="btn btn--sm" type="submit">Poser</button>
+          </form>
+          {(x.surchargee || x.expiree) && (
+            <form method="POST" action="/api/portes" style="margin:8px 0 0">
+              <input type="hidden" name="porte" value={x.nom} />
+              <input type="hidden" name="jours" value="0" />
+              <button class="btn btn--fantome btn--sm" type="submit">Retirer la surcharge</button>
+            </form>
+          )}
+        </div>
+      ))}
+    </section>
+  </details>
   )}
 
   {/* ═══════════════════════════════════════════════════════════════════════
