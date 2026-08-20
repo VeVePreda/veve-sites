@@ -82,6 +82,19 @@ verifie('le gabarit du tableau de bord existe', existsSync(GAB), GAB);
 if (!existsSync(GAB)) { console.log('\n❌ 1 echec(s)'); process.exit(1); }
 const src = readFileSync(GAB, 'utf8');
 
+// ⛔⛔ LE GABARIT SANS SA PROSE — CALCULÉ UNE SEULE FOIS, LU PAR §1 bis ET §4.
+//   Ce fichier EXPLIQUE ses propres arbitrages : il cite `offer.url`, `caisse`,
+//   `sect="general"` et `tb-nfav` en toutes lettres dans ses commentaires. Un
+//   grep naïf trouverait donc la bonne réponse DANS LA PROSE et se déclarerait
+//   vert sur un gabarit qui aurait perdu le code. C'est la règle « un critère
+//   qui juge la valeur cherche la chaîne » — elle mord sur les commentaires, et
+//   elle a déjà coûté cinq fois sur ce dépôt.
+//   ⭐ Les TROIS formes d'un `.astro` : `{/* … */}` du corps, `/* … */`, `//`.
+const nu = src
+  .replace(/\{\/\*[\s\S]*?\*\/\}/g, ' ')
+  .replace(/\/\*[\s\S]*?\*\//g, ' ')
+  .replace(/^\s*\/\/.*$/gm, ' ');
+
 // ⛔ ON LIT LE CORPS DES DEUX TABLES, PAS LE FICHIER ENTIER. « Un contrôle lit
 //    aussi les commentaires » : ce gabarit CITE `favoris`, `extremes` et
 //    `market` dans ses explications, et un grep naïf les compterait comme des
@@ -139,6 +152,127 @@ verifie('aucune tuile ne pointe vers un module « bientôt »',
   promises.length === 0,
   promises.length ? `🔴 ${promises.join(', ')} — un bloc vide sur la page d'arrivée est une déception à chaque connexion`
     : 'aucune promesse posée sur le tableau de bord');
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 1 bis. LOT 168 — LES TUILES FERMÉES SE MASQUENT, ET **PAS EN DUR**
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 CE QUE CE CONTRÔLE EMPÊCHE, ET CE N'EST PAS « LES TUILES SONT MASQUÉES ».
+//   Arbitrage de Preda du 20/08 : un module livré mais fermé au palier du membre
+//   ne s'affiche plus. La raison MESURÉE est que `offer.url` est vide — il n'y a
+//   pas de caisse, donc un cadenas ne dit pas « pas encore à vous », il dit
+//   « fermé, et vous n'y pouvez rien ». ⭐⭐⭐ Mais cette raison est TEMPORAIRE :
+//   le jour où un prestataire de paiement est branché, masquer les deux seuls
+//   modules payants du site devient exactement l'erreur commerciale que
+//   `Dashboard.astro` décrivait dans son en-tête — **sans qu'une ligne ait
+//   changé.** C'est le piège jumeau de celui que `test_promesses.mjs` referme
+//   pour les modules « bientôt ».
+//   ⇒ Ce banc ne juge donc pas l'ÉTAT (« combien de tuiles »), il juge le
+//     BRANCHEMENT : la décision doit lire `offer.url`, et rien d'autre.
+//
+// 🔬 SON TERME À ZÉRO EST ATTEIGNABLE, et c'est la seule façon de savoir qu'il
+//   mesure quelque chose : retirer le `|| caisse` du gabarit fait sortir ce
+//   banc en `exit 1`, et remplacer `caisse` par `false` aussi.
+//
+// ⛔ IL NE DEMANDE PAS LA PAGE À UN SERVEUR — voir l'en-tête. Il confronte
+//   DEUX sources : ce que le gabarit ÉCRIT, et ce que le manifeste PORTE.
+console.log('\n1 bis. le masquage des tuiles fermées est-il branché sur la CAISSE ?');
+
+const { manifest } = await import('../lib/manifest.mjs');
+const { PALIERS } = await import('../lib/access.mjs');
+
+// ⭐ ① LA CONDITION EST LUE AU MANIFESTE, PAS ÉCRITE À LA MAIN.
+//   `/offre/` et `/compte/` testent déjà ce même `offer.url` pour choisir entre
+//   un appel à l'action et la phrase d'attente. Une seconde vérité ici
+//   divergerait au premier branchement d'un paiement, et personne n'aurait à
+//   s'en souvenir.
+const branche = /const\s+caisse\s*=\s*Boolean\(\s*manifest\(\)\.offer\?\.url\s*\)/.test(nu);
+verifie('la caisse est LUE au manifeste (`Boolean(manifest().offer?.url)`)',
+  branche,
+  branche ? '⇒ la même condition que /offre/ et /compte/ — une seule vérité'
+    : '🔴 absente, ou écrite en dur (`const caisse = false`) : la décision du 20/08 serait gravée.\n'
+      + '       ⇒ le jour du paiement, les deux seuls modules payants resteraient invisibles.');
+lus++;
+
+// ⭐ ② ET ELLE DOIT ÊTRE LE SEUL MOTIF DE MASQUAGE.
+const filtre = /\.filter\(\(x\)\s*=>\s*x\.ouvert\s*\|\|\s*caisse\)/.test(nu);
+verifie('les tuiles fermées ne sont masquées QUE faute de caisse (`x.ouvert || caisse`)',
+  filtre,
+  filtre ? '⇒ le jour où `offer.url` se remplit, les tuiles reviennent seules'
+    : '🔴 filtre absent ou réécrit. Un `.filter((x) => x.ouvert)` nu masque POUR TOUJOURS.');
+lus++;
+
+// ⭐ ③ LA CONTRE-ÉPREUVE SUR L'ÉTAT RÉEL — et surtout : **CE QUI EST MASQUÉ SE
+//   NOMME**. Le danger de ce lot est qu'un module livré et fermé devienne
+//   invisible À L'ÉCRAN *ET* AU BANC. §1 continue de l'exiger dans l'une des
+//   deux tables du gabarit ; ces lignes-ci l'impriment, pour qu'un module qui
+//   disparaît de la page laisse quand même une trace dans le journal du build.
+//
+// 🔴🔴 LE PLANCHER SE LIT DANS LE GABARIT, ⛔ PAS DANS `PALIERS[0]`.
+//   `PALIERS[0]` vaut `visitor`, et un visiteur n'atteint JAMAIS cette page :
+//   `/dashboard/index.astro` redirige en 302 sur `/connexion/` avant de la
+//   rendre. Mesurer sur `visitor` ferait dire à ce banc « zéro tuile » pour un
+//   cas qui n'existe pas — *une mesure juste sur une condition absente est une
+//   fausse alerte, et une fausse alerte finit par se taire.* Le plancher réel
+//   est le DÉFAUT que le composant se donne quand la route ne lui passe rien.
+const defaut = (nu.match(/palier\s*=\s*'([a-z]+)'/) || [])[1] || null;
+verifie('le gabarit déclare le palier plancher qu\'il sert par défaut',
+  defaut !== null && PALIERS.includes(defaut),
+  defaut ? `plancher lu dans le gabarit : « ${defaut} »`
+    : '🔴 introuvable — sans lui, ce banc mesurerait sur `visitor`, qui est redirigé en 302');
+lus++;
+
+const caisseReelle = Boolean(manifest().offer?.url);
+const rangDe = (c) => PALIERS.indexOf(c);
+const declarees = clesDest
+  .map((c) => MODULES.find((m) => m.cle === c))
+  .filter((m) => m && !m.bientot)
+  .map((m) => ({ cle: m.cle, tier: m.tier }));
+const renduesA = (pal) => declarees.filter((x) => rangDe(pal) >= rangDe(x.tier) || caisseReelle);
+const masqueesA = (pal) => declarees.filter((x) => !(rangDe(pal) >= rangDe(x.tier) || caisseReelle));
+lus += declarees.length;
+
+console.log(`  ℹ️    caisse : ${caisseReelle ? 'OUVERTE (offer.url renseignée)' : 'ABSENTE (offer.url vide)'}`);
+// ⭐ LA TABLE COMPLÈTE, PAS UN SEUL CHIFFRE. Elle répond à la question
+//   « que rendrait cette mesure si j'avais tout raté ? » : sans le filtre, la
+//   colonne « rendues » vaudrait 4 partout, et cette table serait plate.
+for (const pal of PALIERS) {
+  const r = renduesA(pal).length;
+  const m = masqueesA(pal).map((x) => `${x.cle}→${x.tier}`);
+  console.log(`  ℹ️      ${pal.padEnd(10)} ${r}/${declarees.length} rendue(s)`
+    + (m.length ? `   masquée(s) : ${m.join(', ')}` : ''));
+}
+if (!caisseReelle && masqueesA(defaut || PALIERS[0]).length) {
+  console.log('        ⇒ elles REVIENDRONT SEULES le jour où `offer.url` sera renseignée.');
+}
+
+// ⛔ LE MASQUAGE NE MORD JAMAIS SUR UNE TUILE OUVERTE : ce serait une page
+//   d'arrivée qui cache ce que le membre a déjà payé.
+const mordSurOuvert = PALIERS.some((pal) =>
+  masqueesA(pal).some((x) => rangDe(pal) >= rangDe(x.tier)));
+verifie('aucune tuile OUVERTE n\'est masquée, à aucun palier',
+  !mordSurOuvert,
+  `${PALIERS.length} palier(s) balayés — seuls les modules fermés disparaissent`);
+
+// ⛔ ET LA SECTION « MES MODULES » NE DISPARAÎT PAS ENTIÈREMENT. Le gabarit ne
+//   rend le bloc que si `tuiles.length > 0` : un filtre qui viderait la liste
+//   ferait arriver un membre sur une page SANS modules — la déception que tout
+//   ce fichier cherche à éviter, obtenue en corrigeant son contraire.
+if (defaut) {
+  const r = renduesA(defaut).length;
+  verifie(`il reste au moins une tuile au palier plancher « ${defaut} »`, r > 0,
+    r > 0 ? `${r} tuile(s) rendue(s) — le bloc « Mes modules » est affiché`
+      : '🔴 zéro : le bloc entier disparaît de la page d\'arrivée d\'un membre');
+}
+
+// ⭐ ④ ET SI LA CAISSE EST OUVERTE, LE FILTRE DOIT ÊTRE NEUTRE. C'est la mesure
+//   qui distingue : le jour du paiement, ce contrôle doit passer de « 2
+//   masquées » à « 0 masquée » tout seul. S'il rendait la même chose dans les
+//   deux mondes, ce ne serait pas une mesure.
+if (caisseReelle) {
+  verifie('caisse ouverte ⇒ AUCUN module livré n\'est masqué',
+    PALIERS.every((pal) => masqueesA(pal).length === 0),
+    'le cadenas redevient un argument de vente : « il y a quelque chose ici, et ce n\'est pas encore à vous »');
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 2. LE GABARIT N'APPELLE PAS `dataset()` — la règle des 10 328 ms
@@ -241,10 +375,10 @@ console.log('\n4. le tableau de bord porte-t-il SA couleur et l\'ossature du sit
 // ⭐ ON DÉCOUPE LES TROIS FORMES DE COMMENTAIRE D'UN `.astro`, pas seulement
 //    les `//` du frontmatter : le corps du gabarit emploie `{/* … */}`, qui est
 //    précisément là où cette explication-ci est écrite.
-const nu = src
-  .replace(/\{\/\*[\s\S]*?\*\/\}/g, ' ')
-  .replace(/\/\*[\s\S]*?\*\//g, ' ')
-  .replace(/^\s*\/\/.*$/gm, ' ');
+// ⚠️ `nu` EST CALCULÉ EN HAUT (juste après la lecture du gabarit) : §1 bis en a
+//   besoin AVANT cette section, et deux découpages du même fichier finiraient
+//   par diverger — l'un apprendrait une forme de commentaire que l'autre
+//   ignorerait, et le plus vieux serait vert pour rien.
 
 // ⭐ AUTO-CONTRÔLE AVANT TOUT : si le découpage avalait le gabarit entier,
 //   chaque « absence » ci-dessous serait vraie pour rien. La borne est haute

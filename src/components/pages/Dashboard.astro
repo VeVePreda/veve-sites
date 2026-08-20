@@ -45,10 +45,24 @@
 //    d'un membre est une déception à chaque connexion, et il coûte exactement
 //    le même clic qu'un bloc utile. `/offre/` annonce la feuille de route —
 //    c'est son métier, arbitré le 07/08 ; celle-ci montre ce qui s'ouvre.
-//    ⭐ La nuance qui reste : un module LIVRÉ mais fermé à mon palier se montre,
-//    avec son cadenas et le nom du grade qui l'ouvre. « Il n'y a rien ici » et
-//    « il y a quelque chose ici, et ce n'est pas encore à vous » sont deux
-//    phrases différentes, et une seule vend.
+//    ⭐ LA NUANCE QUI RESTE, ET ELLE EST DÉSORMAIS CONDITIONNELLE (lot 168).
+//    Un module LIVRÉ mais fermé à mon palier se montre — avec son cadenas et le
+//    nom du grade qui l'ouvre — LE JOUR OÙ CE GRADE S'ACHÈTE. « Il n'y a rien
+//    ici » et « il y a quelque chose ici, et ce n'est pas encore à vous » sont
+//    deux phrases différentes, et une seule vend : mais elle ne vend QUE s'il y
+//    a une caisse.
+//    🔴🔴 MESURÉ LE 20/08, ET C'EST CE QUI RETOURNE L'ARGUMENT : `offer.url` est
+//    VIDE. `/offre/` et `/compte/` remplacent déjà le bouton par « les
+//    abonnements ouvrent bientôt », et `langouste`/`whale` sont inatteignables.
+//    Sans caisse, ce cadenas ne dit plus « pas encore à vous » : il dit
+//    « fermé, et vous n'y pouvez rien ». Il ne vend pas, il frustre.
+//    ⇒ Arbitrage de Preda, 20/08 : on masque.
+//    ⛔⛔ MAIS PAS EN DUR — la décision est branchée sur `caisse` (`offer.url`),
+//    la MÊME condition que les deux autres pages testent. Le jour du paiement,
+//    les tuiles reviennent SEULES et l'argument ci-dessus redevient vrai sans
+//    qu'une ligne ait à changer. *Un commentaire décrit l'intention de son
+//    auteur au moment où il l'écrit, jamais l'état du monde aujourd'hui : quand
+//    sa prémisse est temporaire, on branche la décision sur la condition.*
 //
 // ⚠️ AUCUNE CLASSE NOUVELLE. `.modules`, `.module`, `.module--ouvert`,
 //    `.module__n/__d/__c`, `.stats`, `.stat`, `.rayon*` existent déjà et sont
@@ -140,6 +154,17 @@ const profondeur = sansBorne ? null : profAccordee;
 // ═══════════════════════════════════════════════════════════════════════════
 // LES TUILES
 // ═══════════════════════════════════════════════════════════════════════════
+// ⭐⭐⭐ LA CAISSE — UNE SEULE CONDITION, CELLE QUE TOUT LE SITE TESTE DÉJÀ.
+// `/offre/` et `/compte/` lisent ce même `offer.url` pour choisir entre un appel
+// à l'action et la phrase d'attente. Une SECONDE vérité écrite ici divergerait
+// au premier branchement d'un prestataire de paiement — et personne n'aurait à
+// s'en souvenir, ce qui est exactement la manière dont une décision juste
+// devient une erreur commerciale silencieuse. C'est le piège jumeau que
+// `test_promesses.mjs` referme déjà pour les modules « bientôt ».
+// ⚠️ `Boolean()`, PAS la valeur : `offer` absent, `url` absente, `null` et `""`
+// sont le même état — « il n'y a pas où payer ».
+const caisse = Boolean(manifest().offer?.url);
+
 // ⚠️ `cle` DOIT exister dans `catalogueModules()` : `test:tableau` le vérifie,
 // et une clé inventée ici rendrait un libellé `mod.xxx` en toutes lettres sur
 // la page d'arrivée de chaque membre — un `t()` sur une clé absente rend la clé
@@ -204,7 +229,19 @@ const tuiles = DESTINATIONS
     if (!mo) return null;                       // module absent ou pas encore livré
     return { ...d, tier: mo.tier, ouvert: monRang >= rang(mo.tier) };
   })
-  .filter(Boolean);
+  .filter(Boolean)
+  // ⭐⭐ ET LE FILTRE DE LA CAISSE (lot 168) — APRÈS `filter(Boolean)`, parce
+  //   qu'il juge une tuile déjà résolue : on masque un module LIVRÉ mais fermé
+  //   TANT QU'AUCUNE CAISSE ne permet de l'ouvrir.
+  //   ⛔ `test:tableau` §1 bis refuse le build si ce `|| caisse` disparaît :
+  //   masquer en dur, ce serait graver l'état d'aujourd'hui pour demain.
+  //   ⭐ Le compteur `x/y` compte dès lors les tuiles RENDUES et non le
+  //   catalogue : il dit « 2/2 » à un membre gratuit au lieu de « 2/4 », ce qui
+  //   est enfin honnête — un dénominateur qu'on ne peut pas atteindre n'informe
+  //   personne, il mesure une frustration.
+  //   ⭐ Et par ricochet il n'y a plus, à l'écran, de tuile fermée peinte en
+  //   `--lock-1v` (cyan) plus voyante que les tuiles ouvertes en `--surface`.
+  .filter((x) => x.ouvert || caisse);
 
 // ❤️ LOT 160-B — LE PILOTE N'EST DEMANDÉ QUE SI SON HÔTE EXISTE.
 // ⭐ On interroge les TUILES RETENUES, pas `DESTINATIONS` : une tuile dont le
