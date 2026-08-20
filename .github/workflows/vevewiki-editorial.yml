@@ -282,7 +282,25 @@ jobs:
           set -u
           echo "Le build doit être postérieur à : $(date -u -d "@${DEPART}" +%FT%TZ)"
           ok=0
-          for i in $(seq 1 20); do
+          # 🔴🔴🔴 LOT 168 — 20 TENTATIVES ETAIENT SOUS LA DUREE REELLE DU BUILD.
+          # Mesure du 20/08/2026, sept jours de suite, job `veveprice` :
+          #   14/08 ✅ reussi a la 11e · 15/08 🔴 jamais · 16/08 ✅ a la 20/20
+          #   17/08 🔴 jamais · 18/08 🔴 jamais · 19/08 ✅ a la 20/20 · 20/08 🔴 jamais
+          # ⇒ **4 rouges sur 7, et les DEUX verts sont passes au dernier essai
+          #   possible.** Le 20/08, le deploiement avait REUSSI (build servi a
+          #   10:16:18Z, push a 10:08:02Z) : ce banc criait sur un site en bon
+          #   etat. ⭐ `vevewiki` reussit toujours entre la 4e et la 6e — son
+          #   build est leger ; veveprice, c'est 623 s, et Coolify en lance DEUX
+          #   en parallele sur un VPS a 2 coeurs (+73 % mesures).
+          # ⭐⭐⭐ LE VRAI COUT N'EST PAS LE ROUGE, C'EST LE BRUIT : le filet
+          #   Discord tirait quatre fois par semaine sur une fausse alerte, et
+          #   c'est LUI qui doit couvrir le vrai defaut (« conteneur tue a
+          #   l'etape 31/55 », deux fois en trois jours). *Une alerte qui se
+          #   trompe quatre fois sur sept finit par ne plus etre lue.*
+          # ⛔ On ne desarme pas le controle, on lui donne la duree du sujet :
+          #   40 x 45 s = 30 min. Il reste borne, et il reste rouge le jour ou
+          #   le deploiement echoue vraiment.
+          for i in $(seq 1 40); do
             sleep 45
             html=$(curl -sS "https://${{ matrix.domaine }}${{ matrix.sonde }}?cb=$(date +%s)" || true)
             bt=$(printf '%s' "$html" \

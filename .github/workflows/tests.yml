@@ -259,8 +259,15 @@ jobs:
           #   dossier affirmait « plancher = 41 » et avait tort) :
           #      node -e "console.log(require('./package.json').scripts.test.split(' && ').length)"
           #      → 44
-          [ "$n" -ge 44 ] || {
-            echo "ERREUR: la chaine est tombee a $n bancs (plancher 44)."
+          # 🔴 LOT 168 — QUATRIEME RETARD CONSTATE APRES COUP. Mesure du
+          #   20/08/2026 : `package.json` chaine **45** bancs, ce plancher en
+          #   reclamait **44** ⇒ une suppression passait deja en silence.
+          #   ⭐⭐⭐ Un plancher qu'on oublie de relever ne se plaint pas : il se
+          #   desarme tout seul par le simple passage du temps, en continuant
+          #   d'AFFICHER qu'il garde quelque chose. Le relever fait partie du
+          #   lot qui ajoute un banc — jamais du lot suivant.
+          [ "$n" -ge 45 ] || {
+            echo "ERREUR: la chaine est tombee a $n bancs (plancher 45)."
             echo "Un banc retire de \`npm test\` disparait SANS RIEN CASSER :"
             echo "ce plancher est la seule chose qui s'en plaigne."
             exit 1
