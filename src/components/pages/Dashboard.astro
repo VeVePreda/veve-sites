@@ -57,18 +57,25 @@
 //    fois : une classe émise sans règle rend un élément nu, une règle sans
 //    émetteur est une intention en attente.
 import Base from '../../layouts/Base.astro';
-// 🔴 LOT 154-A — L'IMPORT DU PILOTE DES FAVORIS EST PARTI AVEC SES DEUX OBJETS.
-//   Il vivait ici pour remplir `#tb-fav` et `#tb-nfav` ; les deux ont quitté
-//   cette page. ⛔ Le laisser aurait émis 1 `<script defer>` de plus dans le
-//   `<body>` de chaque membre pour piloter un hôte qui n'existe plus — le
-//   pilote s'en serait tiré sans bruit (il filtre sur l'existence de l'hôte),
-//   et c'est exactement ce qui rend ce genre d'oubli invisible pendant six mois.
-//   ⭐ `src/socle/modules/favoris.js` reste : `/favoris/` s'en sert toujours.
+// ❤️ LOT 160-B, POINT `aa` — LE PILOTE DES FAVORIS REVIENT, ET IL REVIENT SEUL.
+//   Le 154-A l'avait retiré d'ici AVEC ses deux objets : « le laisser aurait
+//   émis 1 `<script defer>` de plus dans le `<body>` de chaque membre pour
+//   piloter un hôte qui n'existe plus ». La règle n'a pas changé — c'est
+//   l'hôte qui revient. ⭐ Et elle continue de s'appliquer DANS L'AUTRE SENS :
+//   l'émission est conditionnée à la présence de la tuile (`pilote` plus bas).
+//   ⚠️ MESURÉ, PAS SUPPOSÉ : quand la porte des prix est inactive, `avecPrix`
+//   est faux, `catalogueModules()` n'est jamais appelé, `tuiles` est VIDE — et
+//   il n'y a donc aucun `#tb-nfav` à remplir. C'est le cas de vevewiki, où ce
+//   composant n'est même jamais rendu : la route y sort en talon de
+//   redirection, effacé ensuite par `astro_features.mjs`.
+//   ⛔ UN SCRIPT SERVI SANS SON HÔTE NE FAIT PAS D'ERREUR — il ne fait RIEN,
+//   et c'est ce qui rend ce genre d'oubli invisible pendant six mois.
 import { t, localize, numberLocale, pick } from '../../../engine/lib/i18n.mjs';
 import { manifest } from '../../../engine/lib/manifest.mjs';
 import { catalogueModules, porte, plages, PALIERS, profondeur as profondeurAccordee } from '../../../engine/lib/access.mjs';
 import { priceEnabled } from '../../../engine/lib/features.mjs';
 import { lireMarche } from '../../../engine/lib/cote.mjs';
+import { moduleJs } from '../../../engine/lib/socle_js.mjs';
 
 const { lang, palier = 'member' } = Astro.props;
 const nf = numberLocale[lang] || 'en-GB';
@@ -138,6 +145,31 @@ const profondeur = sansBorne ? null : profAccordee;
 // la page d'arrivée de chaque membre — un `t()` sur une clé absente rend la clé
 // elle-même, en silence (payé au lot 126 avec `nav.account`).
 const DESTINATIONS = [
+  // ❤️ LOT 160-B, POINT `aa` — « UN MODULE D'ACCÈS RAPIDE VERS LES FAVORIS »
+  // ═════════════════════════════════════════════════════════════════════════
+  // ⭐⭐ EN TÊTE, ET C'EST LA MOITIÉ DE LA DEMANDE. Preda a demandé un accès
+  // RAPIDE ; un accès rapide en quatrième position n'en est plus un. C'est
+  // aussi la seule tuile dont le contenu appartient à la personne qui lit la
+  // page — sur une page d'arrivée personnelle, ce qui est à moi passe avant
+  // ce qui est à tout le monde. ⚠️ Une ligne à déplacer si l'ordre déplaît :
+  // le reste du lot n'en dépend pas.
+  //
+  // 🔑 `compteur:` ET PAS `chiffre:`, ET LES DEUX NE SE RESSEMBLENT QUE DE
+  // LOIN. Les trois autres tuiles lisent la projection déposée AU BUILD : leur
+  // chiffre est le même pour tous les membres, il peut donc être rendu au
+  // serveur. Le nombre de favoris appartient à UN compte, il vit dans SQLite,
+  // et cette page ne sait pas qui elle sert : `/dashboard/index.astro` ne lui
+  // passe que `palier`. ⛔ Le lui faire résoudre coûterait un appel réseau
+  // vers veveid DANS LE CHEMIN DE RENDU — et une panne de veveid ferait alors
+  // tomber le tableau de bord entier pour un compteur.
+  // ⇒ L'hôte est rendu VIDE et `hidden`, et `src/socle/modules/favoris.js` le
+  //   remplit depuis `window.vpFav` — l'accès unique du socle, celui que le
+  //   bouton ★ emploie déjà. ⭐ Aucun `fetch` de plus dans ce dépôt : c'est
+  //   `40-favoris.js` qui parle au réseau, ici comme sur une fiche.
+  // ⚠️ Et s'il ne peut pas savoir (503, socle absent), le span RESTE `hidden` :
+  //   une tuile sans son chiffre reste utile, une tuile qui affiche « 0 » à
+  //   quelqu'un qui en a trente affirme quelque chose de faux.
+  { cle: 'favoris',       href: '/favoris/',       compteur: 'tb-nfav' },
   { cle: 'market',        href: '/market/',        chiffre: () => nb(charge && charge.marcheTotal) },
   { cle: 'price_history', href: '/collectibles/',  chiffre: () => (profondeur === null && sansBorne
                                                      ? t(lang, 'dash.depth.max')
@@ -154,14 +186,14 @@ const SANS_TUILE = {
   extremes:  'vit DANS /analytics/, que la tuile `modules` ouvre déjà',
   metadata:  'c\'est la fiche elle-même — la tuile serait un lien vers 3 000 pages sans en désigner une',
   dashboard: 'c\'est CETTE page : une tuile qui pointe sur elle-même est du bruit',
-  // 🔴 LOT 154-A — RETIRÉE À LA DEMANDE DE PREDA (14/08), ET ELLE REVIENDRA.
-  //   Les favoris occupaient DEUX objets sur cette page — une tuile et une
-  //   section entière — pour une liste que `/favoris/` montre en entier. Ils
-  //   reviennent au lot 154-C sous la forme que Preda a demandée : un module
-  //   d'accès rapide qu'on AJOUTE, SUPPRIME et AGENCE soi-même. ⛔ Les laisser
-  //   en dur aurait figé dans le gabarit la seule chose que le 154-C rend
-  //   configurable — et une tuile en double avec le module qu'elle préfigure.
-  favoris:   'retirée au lot 154-A : elle revient en module d\'accès rapide configurable (lot 154-C), et une tuile en dur ferait doublon avec lui',
+  // ❤️ LOT 160-B — `favoris` A QUITTÉ CETTE TABLE POUR `DESTINATIONS`.
+  //   Le 154-A avait retiré les DEUX objets Favoris du tableau de bord (une
+  //   tuile ET une section entière montrant la même liste, à un `slice(0, 8)`
+  //   près) et écrit ici qu'ils reviendraient « en module d'accès rapide ».
+  //   C'est ce point `aa`, et c'est UN objet, pas deux : la liste reste chez
+  //   `/favoris/`, dont c'est le métier.
+  //   ⛔ NE PAS REMETTRE LA SECTION-LISTE en croyant compléter le module :
+  //   c'est exactement le doublon que Preda a fait retirer.
 };
 
 const MODULES = avecPrix ? catalogueModules() : [];
@@ -173,6 +205,13 @@ const tuiles = DESTINATIONS
     return { ...d, tier: mo.tier, ouvert: monRang >= rang(mo.tier) };
   })
   .filter(Boolean);
+
+// ❤️ LOT 160-B — LE PILOTE N'EST DEMANDÉ QUE SI SON HÔTE EXISTE.
+// ⭐ On interroge les TUILES RETENUES, pas `DESTINATIONS` : une tuile dont le
+// module serait passé `bientot: true` au manifeste disparaît de `tuiles` — et
+// le `<script>` doit disparaître avec elle, sans qu'une seconde condition ait
+// à l'apprendre. *Une seule liste décide, et c'est celle qui est rendue.*
+const pilote = tuiles.some((x) => x.compteur) ? moduleJs('favoris') : null;
 
 // ⭐⭐ LE NOM LISIBLE D'UN PALIER VIENT DU MANIFESTE, exactement comme sur
 // `/offre/` (`nomPlan()`), et surtout PAS d'une clé i18n `tier.*` que j'aurais
@@ -307,17 +346,16 @@ const cadenas = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stro
     </>
   )}
 
-  {/* ═══ MES FAVORIS — RETIRÉE AU LOT 154-A ══════════════════════════════════
-      Preda, 14/08 : retirer les DEUX objets Favoris du tableau de bord. La
-      tuile et cette section-ci montraient la même liste à deux endroits, à un
-      `slice(0, 8)` près, sur une page qui porte déjà un lien vers `/favoris/`.
-      ⭐ Ce qui revient au lot 154-C n'est pas ce bloc : c'est UN module
-      d'accès rapide, ajoutable et déplaçable par le membre — donc rangé dans
-      le magasin de préférences du 154-B, pas écrit ici en dur.
-      ⛔ Les hôtes `#tb-fav`, `#tb-vide` et `#tb-nfav` sont partis AVEC leur
-      pilote (import retiré en tête de fichier) et AVEC sa vue dans
-      `src/socle/modules/favoris.js`. Laisser l'un des trois aurait produit le
-      silence habituel : un pilote qui ne trouve pas son hôte ne dit rien. */}
+  {/* ═══ MES FAVORIS — LE MODULE EST REVENU CI-DESSUS ════════════════════════
+      ❤️ LOT 160-B, POINT `aa`. Ce qui revient est UNE tuile dans « Mes
+      modules », pas cette section-ci : le 154-A avait retiré DEUX objets qui
+      montraient la même liste, à un `slice(0, 8)` près, sur une page qui porte
+      déjà un lien vers `/favoris/`. ⛔ Remettre la liste ici referait le
+      doublon que Preda a fait retirer.
+      ⭐ Un seul des trois hôtes du 154-A revient — `#tb-nfav`, le compteur.
+      `#tb-fav` (la liste) et `#tb-vide` (son état vide) restent partis, et
+      leur vue reste absente du pilote : *un hôte sans pilote et un pilote sans
+      hôte se taisent tous les deux, et c'est ce qui rend l'oubli invisible.* */}
   {/* ═══ LE CATALOGUE ════════════════════════════════════════════════════════
       ⛔ CE N'EST PAS UNE RANGÉE DE MODULES, ET LE TITRE LE DIT. Les rayons sont
       PUBLICS : les mettre parmi les tuiles laisserait croire qu'un compte les
@@ -376,4 +414,14 @@ const cadenas = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stro
       retirées des CINQ dictionnaires. Une clé posée que personne ne lit ne
       fait pas de bruit non plus — et elle voyage dans les cinq fichiers. */}
 </Base>
+
+{/* ❤️ LOT 160-B — LE PILOTE DU COMPTEUR, ET IL N'EST ÉMIS QUE S'IL A UN HÔTE.
+    ⚠️ `defer`, et APRÈS `</Base>` comme sur `/favoris/` : il s'exécute une fois
+    le document analysé, donc `#tb-nfav` existe ; et il vient après le socle du
+    `<head>`, donc `window.vpFav` est déjà posé par `40-favoris.js`. Les deux
+    garanties viennent de l'ordre du document, pas d'un hasard de placement.
+    ⛔ NE PAS le déplacer dans le `<head>` ni le rendre inconditionnel : sans
+    la porte des prix, `tuiles` est vide et il n'y a aucun hôte — le script
+    serait servi pour ne rien piloter, sans une erreur pour le dire. */}
+{pilote && <script defer src={pilote.href}></script>}
 

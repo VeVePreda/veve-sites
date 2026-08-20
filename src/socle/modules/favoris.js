@@ -1,4 +1,4 @@
-// ⚠️ VeVePreda/veve-sites — src/socle/modules/favoris.js  (lot 140-3, REFONDU au 154-A)
+// ⚠️ VeVePreda/veve-sites — src/socle/modules/favoris.js  (lot 140-3 · 154-A · 160-B)
 // ═══════════════════════════════════════════════════════════════════════════
 // LE PILOTE DE `/favoris/` — IL NE BÂTIT PLUS LA LISTE, IL LA CORRIGE
 // ═══════════════════════════════════════════════════════════════════════════
@@ -14,6 +14,17 @@
 //    (demande de Preda, 14/08). Elle n'a pas été « désactivée » : une branche
 //    morte que le filtre d'existence écarte en silence est une branche que
 //    personne ne corrige.
+//
+// ❤️ LOT 160-B, POINT `aa` — UNE SEULE DES TROIS VUES REVIENT.
+// Ce fichier porte maintenant DEUX vues, et chacune sert sur SA page :
+//   ① `#tb-nfav` — le compteur de la tuile du tableau de bord (ci-dessous) ;
+//   ② `#fav-l`   — la liste de `/favoris/` (plus bas).
+// ⭐ Ce n'est pas la branche morte que le 154-A dénonçait : celle-là n'avait
+// plus d'hôte NULLE PART. Chacune de ces deux-ci a un émetteur, et un banc
+// (`test:tableau` §4) vérifie que l'émetteur et le lecteur se nomment pareil.
+// ⛔ `#tb-fav` et `#tb-vide` (la LISTE sur le tableau de bord, et son état
+//    vide) ne reviennent pas : c'est le doublon avec `/favoris/` que Preda a
+//    fait retirer, et une vue sans hôte se tairait exactement comme avant.
 //
 // ⭐⭐ IL RESTE UN TRAVAIL, ET IL N'EXISTAIT PAS AVANT. Sur une page rendue au
 // serveur, décocher un cœur ne fait plus rien disparaître : la tuile reste là
@@ -31,6 +42,50 @@
 //    juger sur l'intention, et faire disparaître une tuile qu'un 409 « plafond »
 //    ou un 503 vient de refuser d'ôter.
 
+// ═══════════════════════════════════════════════════════════════════════════
+// ① LE COMPTEUR DE LA TUILE — tableau de bord (lot 160-B)
+// ═══════════════════════════════════════════════════════════════════════════
+(function () {
+  // ⭐ LE FILTRE D'EXISTENCE D'ABORD. Ce fichier est aussi servi par
+  //    `/favoris/`, qui n'a pas de compteur : sortir tout de suite y évite un
+  //    aller-retour réseau inutile.
+  var n = document.getElementById('tb-nfav');
+  if (!n) return;
+
+  // ⛔⛔ AUCUN `fetch` ICI, ET C'EST LA RÈGLE DU 140-1 APPLIQUÉE, PAS UNE
+  //    PRÉFÉRENCE DE STYLE. `40-favoris.js` est l'accès UNIQUE aux favoris —
+  //    lui seul sait que 401 vaut « personne » et que 503 vaut « je ne sais
+  //    pas ». Un second appel écrit ici traiterait forcément l'un des deux
+  //    autrement le jour où l'un des deux fichiers apprendrait une règle de
+  //    plus. ⭐ Il est dans le SOCLE (`<head>`), donc déjà exécuté quand ce
+  //    module-ci démarre : l'ordre du document le garantit.
+  if (!window.vpFav) return;
+
+  window.vpFav.liste().then(function (r) {
+    // ⚠️ `connecte: false` SUR CETTE PAGE VEUT DIRE QUELQUE CHOSE. Le serveur
+    //    a renvoyé vers `/connexion/` quiconque n'était pas connecté : si on
+    //    en est là, la session est tombée entre le rendu et ce script. On
+    //    n'écrit alors PAS « 0 » — ce serait annoncer une liste vide à
+    //    quelqu'un dont on n'a simplement plus le droit de lire la sienne.
+    if (!r.connecte) return;
+
+    // ⭐ ZÉRO S'AFFICHE, ET C'EST DÉLIBÉRÉ. Ici zéro est une VRAIE mesure
+    //   (« rien de mis de côté »), pas un inconnu — et sous un libellé qui dit
+    //   « Favoris », il se lit sans ambiguïté. C'est la distinction que tout
+    //   ce gabarit tient : `null` (pas su) ≠ 0 (su, et ça fait zéro).
+    n.textContent = String(Object.keys(r.favoris).length);
+    n.hidden = false;
+  }).catch(function () {
+    // ⛔ 503 : ON NE SAIT PAS, DONC ON N'ÉCRIT RIEN. Le span reste `hidden` et
+    //    la tuile reste utile sans son chiffre. Rendre « 0 » ici ferait de la
+    //    panne de veveid un chiffre faux, et un chiffre faux est la seule
+    //    faute que ce projet ne rattrape pas.
+  });
+})();
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ② LA LISTE DE `/favoris/` — le cœur éteint retire sa tuile (lot 154-A)
+// ═══════════════════════════════════════════════════════════════════════════
 (function () {
   var hote = document.getElementById('fav-l');
   if (!hote) return;

@@ -309,6 +309,78 @@ verifie('le palier du membre est toujours affiché', /nomPalier\(palier\)/.test(
   'lot 131 — « il n\'était écrit NULLE PART dans le parcours »');
 lus += 3;
 
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 4 bis. LE MODULE D'ACCÈS RAPIDE AUX FAVORIS — le circuit, pas la ligne
+// ═══════════════════════════════════════════════════════════════════════════
+// ❤️ LOT 160-B, POINT `aa`. Ce module tient en QUATRE pièces qui doivent se
+// nommer pareil, et trois d'entre elles se taisent quand elles se perdent :
+//   ① `DESTINATIONS` déclare la tuile et l'id de son compteur ;
+//   ② le gabarit rend l'hôte `<span id={…} hidden>` ;
+//   ③ le gabarit émet le pilote (`moduleJs('favoris')` + `<script defer>`) ;
+//   ④ le pilote cherche CET id-là et le remplit.
+// ⛔ Casser ①→④ ne produit AUCUNE erreur : un `getElementById` qui rend `null`
+//    sort en silence, un `<span hidden>` que personne ne remplit reste caché,
+//    et la tuile s'affiche parfaitement — sans son chiffre. C'est le silence
+//    que le 154-A décrivait déjà (« un pilote qui ne trouve pas son hôte ne
+//    dit rien »), et il n'y avait alors rien pour le mesurer.
+// ⭐ On lit `nu` (le gabarit SANS ses commentaires) : cette explication-ci
+//    cite `tb-nfav` et `moduleJs('favoris')` en toutes lettres, et un grep
+//    naïf serait vert sur un gabarit qui les aurait perdus.
+console.log('\n4 bis. le module d\'accès rapide aux favoris tient-il de bout en bout ?');
+
+const idCompteur = (corpsDest.match(/cle:\s*'favoris'[^}]*?compteur:\s*'([a-z0-9-]+)'/) || [])[1] || null;
+verifie('la tuile `favoris` déclare l\'id de son compteur (`compteur:`)',
+  idCompteur !== null,
+  idCompteur ? `id déclaré : « ${idCompteur} »`
+    : '🔴 aucune tuile `favoris` avec un `compteur:` — le point `aa` demande un module d\'ACCÈS RAPIDE,\n'
+      + '       et son chiffre ne peut pas venir du build : il appartient à un compte.');
+lus++;
+
+// ⭐ L'HÔTE. On exige la forme `id={x.compteur}` et non l'id écrit en dur :
+//   un id littéral dans le gabarit serait une SECONDE source pour le même nom,
+//   et les deux divergeraient au premier renommage.
+verifie('le gabarit rend l\'hôte du compteur, `hidden`, depuis la table',
+  /id=\{x\.compteur\}/.test(nu) && /hidden><\/span>/.test(nu),
+  '⇒ vide et caché au rendu : un « 0 » rendu au serveur mentirait à qui en a trente');
+verifie('le gabarit demande le pilote et l\'émet',
+  /moduleJs\(\s*'favoris'\s*\)/.test(nu) && /<script defer src=\{pilote\.href\}><\/script>/.test(nu),
+  '⇒ sans le `<script>`, la tuile s\'affiche et le chiffre n\'arrive jamais');
+// ⛔ ET IL NE DOIT PAS ÊTRE ÉMIS INCONDITIONNELLEMENT. Sans la porte des prix,
+//   `avecPrix` est faux, `catalogueModules()` n'est pas appelé et `tuiles` est
+//   VIDE : il n'y a alors aucun hôte à remplir. Un script servi sans hôte ne
+//   fait pas d'erreur — il ne fait rien, et c'est le silence habituel.
+verifie('le pilote n\'est demandé que si une tuile porte un compteur',
+  /tuiles\.some\(\(x\) => x\.compteur\)/.test(nu),
+  '⇒ sans la porte des prix, `tuiles` est vide : aucun hôte à piloter');
+lus += 3;
+
+const PILOTE = join(R, 'src', 'socle', 'modules', 'favoris.js');
+if (!existsSync(PILOTE)) {
+  verifie('le pilote `src/socle/modules/favoris.js` existe', false, '🔴 absent');
+} else {
+  const pilote = readFileSync(PILOTE, 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .replace(/^\s*\/\/.*$/gm, ' ');
+  // 🔑 LE CONTRAT, ET C'EST LA SEULE LIGNE QUI COMPTE VRAIMENT ICI : le pilote
+  //   doit chercher L'ID QUE LA TABLE DÉCLARE. Deux noms qui se ressemblent
+  //   (`tb-nfav` / `tb-fav`) donnent un tableau de bord parfaitement vert et
+  //   un compteur définitivement vide.
+  verifie(`le pilote cherche l'id déclaré (« ${idCompteur || '?'} »)`,
+    idCompteur !== null && new RegExp(`getElementById\\('${idCompteur}'\\)`).test(pilote),
+    idCompteur === null ? '🔴 id indécidable : la table ne le déclare pas'
+      : '⇒ un `getElementById` qui rend `null` sort en silence');
+  // ⛔ ET L'ACCÈS RESTE UNIQUE. La leçon du 140-1 : trois lectures justes de la
+  //   même liste divergent le jour où UNE apprend une règle de plus. Ici, la
+  //   règle qui divergerait est « 401 = personne » contre « 503 = je ne sais
+  //   pas » — et s'aplatir dessus fait afficher « aucun favori » à quelqu'un
+  //   qui en a trente.
+  verifie('le pilote passe par l\'accès unique (`window.vpFav`), sans `fetch` à lui',
+    /window\.vpFav\b/.test(pilote) && !/\bfetch\s*\(/.test(pilote),
+    '⇒ `40-favoris.js` est le seul à parler à `/api/favoris`, ici comme sur une fiche');
+  lus += 2;
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // 5. AUTO-CONTRÔLE — le banc a-t-il vraiment regardé quelque chose ?
 // ═══════════════════════════════════════════════════════════════════════════
