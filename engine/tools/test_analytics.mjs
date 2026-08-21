@@ -31,7 +31,7 @@
 //    déjà écrit sur le disque après `npm run build`. Un serveur de plus, c'est
 //    trente secondes et un port à disputer pour zéro question supplémentaire.
 
-import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync, statSync, rmSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 // ⭐ LA MÊME SOURCE QUE LA ZONE « comptes » DE `astro_features.mjs` — `tiers.length > 1`.
@@ -526,6 +526,89 @@ if (!existsSync(FEUILLE)) {
   dit(recidive.length === 0, 'aucun émetteur ne repose le rôle du chevron sur `.module__c`',
       recidive.length ? recidive.map((f) => f.split(/[\\/]/).pop()).join(', ')
                       : `${astros.length} composant(s) relus`);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 8. LE PLAFOND D'AMPLITUDE (lot 171) — il doit MORDRE, et il doit le DIRE
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴 CE QUE LA MESURE DU 21/08 A DIT, ET QUI RENVERSE LA CAUSE SUPPOSEE :
+//   `extremes.mjs` affirmait « un `atl` residuel proche de zero fait exploser
+//   le rapport ». Sur le catalogue REEL (18 748 items avec un `atl`), **il
+//   n'existe pas un seul `atl` inferieur a 1**. La vraie cause est l'`ath` :
+//   42 items portent un plus-haut au-dessus de 100 MILLIONS de gems
+//   (999 999 999 999, 888 888 888 888…) — des annonces farceuses.
+//   ⭐⭐⭐ *J'ai verifie le facteur que personne ne contestait.*
+//
+// ⛔ ET AUCUN FILTRE STATISTIQUE NE MARCHE, MESURE AUSSI : `ath > 10 x p95`
+//   ecarte 32 % du catalogue SANS nettoyer la tete, parce que l'annonce
+//   farceuse est restee en ligne assez longtemps pour entrer dans le p95 de
+//   l'item lui-meme. ⭐⭐ *Quand la donnee farceuse pollue aussi les
+//   statistiques de l'item, aucune statistique de l'item ne la reconnait.*
+//
+// ⇒ On plafonne l'amplitude, ET LA PAGE LE DIT. Les deux moities vont
+//   ensemble : un plafond muet masquerait le defaut, ce que le lot 157
+//   refusait a juste titre.
+{
+  // 🔴🔴🔴 ON DETOURNE LE FICHIER DE SORTIE **AVANT** L'IMPORT.
+  //   `EXTREMES_FICHIER` est un `const` evalue a l'import ; et
+  //   `deposerExtremes()` ECRIT. Sans cette ligne, ce banc remplacerait le
+  //   vrai `.reserve/extremes.json` du build par cinq items fabriques —
+  //   `/analytics/market/` servirait « i143061516 ×999 » a tous les membres.
+  //   ⭐⭐⭐ C'est exactement la panne du lot 104 (un banc qui DETRUISAIT la
+  //   reserve du build, 1 201 fichiers -> 0), et elle ne leve aucune erreur.
+  process.env.RESERVE_EXTREMES = join(RACINE, '.reserve', '_banc_extremes.json');
+  const ex = await import(new URL('../lib/extremes.mjs', import.meta.url));
+  dit(ex.EXTREMES_FICHIER.includes('_banc_extremes'),
+      '§8 le banc ecrit dans SON fichier, pas dans la reserve du build',
+      ex.EXTREMES_FICHIER);
+  const faux = (x) => ({ name: `i${x}`, path: `/i${x}/`, amplitude: x });
+  const ds = { items: [faux(5), faux(50), faux(999), faux(1001), faux(143061516)] };
+
+  const avec = ex.deposerExtremes(ds, true, 1000);
+  dit(avec.lignes.length === 3, '§8 le plafond ecarte ce qui le depasse',
+      `${avec.lignes.length} ligne(s) gardee(s) sur 5 — attendu 3`);
+  dit(avec.ecartesPlafond === 2, '§8 il COMPTE ce qu\'il ecarte',
+      `${avec.ecartesPlafond} — sans ce compte, la page ne peut pas le dire`);
+  dit(avec.plafond === 1000, '§8 le seuil voyage avec le resultat',
+      '« 1 142 ecartees » ne se verifie pas sans son seuil');
+  dit(!avec.lignes.some((l) => l.x > 1000), '§8 aucune ligne au-dessus du seuil ne survit');
+  dit(avec.lignes[0].x === 999, '§8 la tete du classement est la plus forte amplitude CREDIBLE',
+      `x${avec.lignes[0].x}`);
+
+  // ⭐ LA BORNE EST INCLUSIVE, ET C'EST ECRIT : « au-dela de x1000 », pas
+  //   « a partir de ». Un banc qui ne fixe pas le bord laisse le lot suivant
+  //   le deplacer d'un cran sans que rien ne bouge.
+  const bord = ex.deposerExtremes({ items: [faux(1000)] }, true, 1000);
+  dit(bord.lignes.length === 1, '§8 la borne est INCLUSIVE : x1000 passe');
+
+  // ⛔ `0` = pas de plafond. `|| defaut` l'aurait refuse en silence.
+  const sans = ex.deposerExtremes(ds, true, 0);
+  dit(sans.lignes.length === 5 && sans.ecartesPlafond === 0,
+      '§8 `amplitude_max: 0` desactive vraiment le plafond',
+      `${sans.lignes.length} ligne(s) — le comportement d'avant le lot 171 reste atteignable`);
+  dit(sans.plafond === null, '§8 un plafond desactive ne s\'annonce pas comme actif');
+
+  // ⭐⭐ LA PAGE DOIT DIRE LES DEUX MOTIFS SEPAREMENT. Une seule phrase pour
+  //   « plus-bas au-dessus du plus-haut » ET « plus-haut invraisemblable »
+  //   mentirait sur l'un des deux, et on ne saurait pas lequel a bouge.
+  const page = readFileSync(join(RACINE, 'src/components/pages/AnalyticsSujet.astro'), 'utf8');
+  dit(/analytics\.excludedCap/.test(page), '§8 la page annonce le plafond',
+      'un filtre tu laisse croire que le catalogue est propre');
+  dit(/ecartesPlafond/.test(page) && /ecartesPaire/.test(page),
+      '§8 elle distingue les deux motifs d\'exclusion');
+
+  // 🔴 LES CINQ DICTIONNAIRES, PAS UN DE MOINS. Une cle absente d'un seul
+  //   rend la phrase muette dans cette langue-la, sans erreur.
+  const manquants = ['fr', 'en', 'es', 'de', 'it'].filter((lg) => {
+    const d = JSON.parse(readFileSync(join(RACINE, `engine/i18n/${lg}.json`), 'utf8'));
+    const v = d['analytics.excludedCap'];
+    return !v || !v.includes('{n}') || !v.includes('{p}');
+  });
+  dit(manquants.length === 0, '§8 `analytics.excludedCap` existe dans les 5 langues, avec {n} et {p}',
+      manquants.length ? `manque ou incomplet : ${manquants.join(', ')}` : '5/5');
+
+  // ⭐ On ne laisse pas de trace.
+  try { rmSync(ex.EXTREMES_FICHIER, { force: true }); } catch { /* rien */ }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

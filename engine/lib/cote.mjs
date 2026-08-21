@@ -181,6 +181,30 @@ const estActive = coteFermee;
 /** La valeur d'un point de courbe, normalisée 0..1000 sur SA PROPRE série.
  *  ⚠️ Entier : un flottant à 12 décimales rendrait le prix reconstructible par
  *  qui connaîtrait deux points réels — la normalisation serait décorative. */
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔢 LE TROISIEME NOMBRE : LE COMPTE D'OFFRES — LOT 171 (21/08/2026)
+// ═══════════════════════════════════════════════════════════════════════════
+// Demande de Preda, point `v` : « le tableau Floor Price contient les listings »
+// — le TABLEAU les avait deja, **la COURBE, elle, manquait**.
+//
+// ⭐⭐⭐ ET IL SORT EN CLAIR, PAS NORMALISE. C'EST DELIBERE ET C'EST SUR.
+// `listings` est un COMPTE D'OFFRES, pas un montant. Ce fichier l'ecrit deja
+// noir sur blanc plus haut (« `listings` : un COMPTE d'offres, [...] sans
+// montant ») et le publie deja tel quel : `cote.listings = item.listings`.
+// Un nombre d'annonces ne permet de reconstituer aucun prix, meme croise a la
+// courbe : savoir qu'il y avait 6 offres un mardi ne dit pas a combien.
+// ⛔ C'est le `floor`, et lui seul, qui reste normalise 0..1000.
+//
+// ⚠️ LE TUPLE PASSE DE 2 A 3 ELEMENTS, ET C'EST RETROCOMPATIBLE PAR
+//   CONSTRUCTION : `courbeSVG` filtre sur `p[0]` et `p[1]` et ignore la suite.
+//   Un ancien fichier de reserve a deux elements continue de tracer la courbe
+//   de prix, simplement sans la seconde ligne. ⛔ Ne JAMAIS reordonner ces
+//   trois positions : il n'y a pas de nom pour les proteger.
+
+/** La valeur d'un point de courbe, normalisée 0..1000 sur SA PROPRE série.
+ *  ⚠️ Entier : un flottant à 12 décimales rendrait le prix reconstructible par
+ *  qui connaîtrait deux points réels — la normalisation serait décorative.
+ *  @returns {[number, number, number][]} [ts_secondes, prix_0_1000, offres] */
 function normaliser(points) {
   const ys = points.map((p) => Number(p.floor)).filter(Number.isFinite);
   if (ys.length < 2) return [];
@@ -191,6 +215,11 @@ function normaliser(points) {
     .map((p) => [
       Math.round(new Date(p.ts).getTime() / 1000),
       Math.round(((Number(p.floor) - y0) / span) * 1000),
+      // ⭐ `|| 0` et non `?? 0` : un `listings` absent, vide ou illisible vaut
+      //   « on ne sait pas », et la seule reponse honnete a « combien
+      //   d'offres » quand on ne sait pas est de ne rien tracer. Une ligne a
+      //   zero, elle, AFFIRME qu'il n'y en avait aucune.
+      Math.max(0, Math.round(Number(p.listings) || 0)),
     ]);
 }
 

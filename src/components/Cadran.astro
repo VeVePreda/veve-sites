@@ -110,6 +110,13 @@ const pilote = moduleJs('cadran');
        data-nf={nf} data-df={df}
        data-l-haut={t(lang, 'item.high')} data-l-bas={t(lang, 'item.low')}
        data-l-pts={t(lang, 'home.points')} data-l-refus={t(lang, 'hist.denied')}
+       {/* 🔢 Le mot « Offres » de la seconde courbe (lot 171). ⛔ Il passe par
+           un `data-` comme les cinq autres : `cadran.js` est du JS de socle,
+           il n'a AUCUN acces aux dictionnaires. Un libelle ecrit en dur dans
+           le module aurait rendu le graphique francais sur les cinq langues,
+           sans qu'aucun banc ne le voie — `test:cles_i18n` ne regarde pas le
+           JS de socle. */}
+       data-l-offres={t(lang, 'item.listings')}
        data-paliers={PALIERS.join(',')}>
 
     {/* ⚠️ CE COMMENTAIRE DISAIT « l'état verrouillé est ce que le HTML

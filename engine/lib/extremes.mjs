@@ -39,6 +39,59 @@ export const EXTREMES_FICHIER = process.env.RESERVE_EXTREMES
 // huit. On coupe à la SOURCE — c'est la leçon de poids du lot 155-B.
 const COMBIEN = 8;
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 LE PLAFOND D'AMPLITUDE — LOT 171 (21/08/2026), ARBITRAGE DE PREDA
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// ⛔⛔ LE LOT 157 REFUSAIT CE PLAFOND, ET SON ARGUMENT ETAIT BON :
+//   « un garde-fou ABSOLU sur une grandeur CONTINUE choisit sa frontiere au
+//     hasard : il masquerait le symptome, ferait disparaitre le defaut des
+//     conversations, et couperait un jour une amplitude legitime. »
+// Ce qui a change : le defaut a ete MESURE, il est ECRIT ici, la page DIT
+// combien de lignes elle ecarte, et Preda a tranche (« ecarter ces items du
+// classement »). Un symptome qu'on nomme et qu'on compte n'est plus masque.
+//
+// 📏 CE QUE LA MESURE A DIT — 21/08, sur le catalogue REEL (18 748 items avec
+//    un `atl`, 15 517 paires classables) :
+//
+//   ⛔ LA CAUSE SUPPOSEE EST FAUSSE. Ce fichier affirmait « un `atl` residuel
+//      proche de zero fait exploser le rapport ». **Il n'existe PAS UN SEUL
+//      item dont l'`atl` soit inferieur a 1.** Zero sous 0,5 ; zero sous 1.
+//      Le plus bas plus-bas du catalogue vaut 1 gem.
+//      ⭐⭐⭐ *J'ai verifie le facteur que personne ne contestait.*
+//
+//   🔑 LA VRAIE CAUSE EST L'`ath`, ET CE SONT DES ANNONCES FARCEUSES :
+//        Daredevil #4 (1964) .... store    699 · ath 999 999 999 999
+//        The Golden MYO ......... store      0 · ath 111 111 111 111
+//        LISA - Salute .......... store      0 · ath  88 888 888 888
+//        Phoenix #5 (2024) ...... store    698 · ath     100 000 000
+//      Des suites de 9 et de 8 tapees a la main. 42 items portent un `ath`
+//      au-dessus de 100 millions de gems, 25 au-dessus du milliard.
+//
+//   ⛔ ET AUCUN FILTRE « PROPRE » NE MARCHE, MESURE AUSSI :
+//      · `ath > 10 x p95` de l'item : ecarte **32 %** du catalogue et laisse
+//        la tete intacte — parce que l'annonce farceuse est restee en ligne
+//        assez longtemps pour ENTRER dans le p95 de l'item lui-meme.
+//      · `ath > 500 x mediane` : 9,9 % ecartes, tete a x1 000 004. Idem.
+//      · `ath > k x store_price` : la distribution est CONTINUE, aucun creux
+//        ou poser la frontiere (quantile 0,99 = x14 326).
+//      ⭐⭐ *Quand la donnee farceuse pollue aussi les statistiques de l'item,
+//        aucune statistique de l'item ne peut la reconnaitre.*
+//
+// ⇒ 🎯 ON PLAFONNE DONC L'AMPLITUDE ELLE-MEME, ET ON L'ASSUME. A x1 000 la
+//   tete du classement redevient lisible (atl 10 -> ath 10 000 sur un item a
+//   10 gems au store : c'est un mouvement de marche plausible), et 1 142 items
+//   sortent, soit **7,4 %**. Au-dessus, les nombres sont visiblement TAPES
+//   (10 000, 99 999, 1 000 000).
+//
+// ⚠️ CE QUE CE PLAFOND N'EST PAS : une reparation. La donnee reste fausse dans
+//   le catalogue, sur la fiche, et partout ailleurs. **Le chantier ATL/ATH est
+//   en amont, dans `scrapeur-veve`** — c'est la qu'il se regle. Ici on refuse
+//   seulement de CLASSER ce qu'on sait faux.
+// 🎚️ Se regle au manifeste (`public.amplitude_max`) sans toucher au code.
+//   `0` remet le comportement d'avant : aucun plafond.
+const PLAFOND_DEFAUT = 1000;
+
 /**
  * Écrit le classement d'amplitude. ⚠️ REÇOIT `ds` — il ne l'appelle pas.
  * ⛔ Un `await dataset()` ici rendrait ce module dangereux à importer depuis
@@ -63,26 +116,46 @@ const COMBIEN = 8;
 //    amont — c'est là qu'il se règle.
 // 🙋 SIGNALÉ À PREDA LE 18/08 avec ces chiffres. Tant qu'il n'a pas tranché, la
 //    page montre ce que la donnée dit.
-export function deposerExtremes(ds, coteFermee) {
+export function deposerExtremes(ds, coteFermee, plafondAmplitude) {
+  // ⛔ `?? PLAFOND_DEFAUT` et non `|| PLAFOND_DEFAUT` : un manifeste qui ecrit
+  //    `0` demande explicitement « aucun plafond », et `||` le lui refuserait
+  //    en silence.
+  const PLAFOND = Number.isFinite(Number(plafondAmplitude))
+    ? Math.max(0, Number(plafondAmplitude)) : PLAFOND_DEFAUT;
   // ⚠️ ON FILTRE LES PAIRES INCOHÉRENTES (atl > ath) PLUTÔT QUE DE LES
   // AFFICHER : le chantier ATL/ATH n'est pas clos en amont, et un plus-bas
   // au-dessus d'un plus-haut détruit la confiance qu'une page de cotes existe
   // pour construire. ⛔ On ne les CORRIGE pas — corriger à l'affichage
   // masquerait la panne au lieu de la soigner. On les écarte, et on le dit.
   const items = Array.isArray(ds?.items) ? ds.items : [];
-  const eligibles = coteFermee
-    ? items.filter((i) => i.amplitude)
-    : items.filter((i) => i.ath && i.atl && i.atl <= i.ath);
-  const ecartes = coteFermee
+  const rapport = (i) => (coteFermee ? (i.amplitude || 0) : (i.atl > 0 ? i.ath / i.atl : 0));
+  const classable = coteFermee
+    ? (i) => !!i.amplitude
+    : (i) => !!(i.ath && i.atl && i.atl <= i.ath);
+  // ⭐ LE PLAFOND EST UN SECOND FILTRE, POSE APRES LE PREMIER, et les deux
+  //   comptent SEPAREMENT : « paire incoherente » et « plus-haut invraisemblable »
+  //   sont deux pannes differentes en amont. Les additionner dans un seul
+  //   nombre rendrait la page incapable de dire laquelle empire.
+  const credible = (i) => !PLAFOND || rapport(i) <= PLAFOND;
+
+  const coherents = items.filter(classable);
+  const eligibles = coherents.filter(credible);
+  const ecartesPaire = coteFermee
     ? 0
     : items.filter((i) => i.ath && i.atl && i.atl > i.ath).length;
-  const rapport = (i) => (coteFermee ? (i.amplitude || 0) : (i.atl > 0 ? i.ath / i.atl : 0));
+  const ecartesPlafond = coherents.length - eligibles.length;
+  const ecartes = ecartesPaire + ecartesPlafond;
 
   const charge = {
     updatedAt: ds?.updatedAt ?? null,
     coteFermee: !!coteFermee,
     eligibles: eligibles.length,
     ecartes,
+    // ⭐ LE DETAIL VOYAGE AVEC LE TOTAL. Un `ecartes: 1150` sans ventilation
+    //   ne dit pas si le catalogue s'est degrade ou si le plafond a mordu.
+    ecartesPaire,
+    ecartesPlafond,
+    plafond: PLAFOND || null,
     // ⭐ TROIS CHAMPS, PAS LA FICHE ENTIÈRE. `name` et `path` pour le lien,
     //   `x` pour le classement. Rien d'autre ne sort d'ici.
     lignes: [...eligibles]
@@ -94,8 +167,16 @@ export function deposerExtremes(ds, coteFermee) {
   mkdirSync(dirname(EXTREMES_FICHIER), { recursive: true });
   writeFileSync(EXTREMES_FICHIER, JSON.stringify(charge), 'utf8');
   console.log(`[extremes] classement depose : ${charge.lignes.length} ligne(s) sur ${charge.eligibles} eligible(s)`
-    + `${charge.ecartes ? `, ${charge.ecartes} paire(s) ecartee(s)` : ''}`
+    + `${ecartesPaire ? `, ${ecartesPaire} paire(s) incoherente(s) ecartee(s)` : ''}`
+    + `${ecartesPlafond ? `, ${ecartesPlafond} au-dessus du plafond d'amplitude (x${PLAFOND})` : ''}`
     + ` — /analytics/market/ ne rappellera pas dataset()`);
+  // ⚠️ L'INSTRUMENT SE DECLARE MEME QUAND IL NE MORD PAS. Un plafond actif qui
+  // n'ecarte rien et un plafond desactive donnent le meme `0` : sans cette
+  // ligne, on ne saurait pas lequel des deux on regarde.
+  if (PLAFOND && !ecartesPlafond) {
+    console.log(`[extremes] plafond d'amplitude actif (x${PLAFOND}) mais AUCUN item ne le depasse`);
+  }
+  if (!PLAFOND) console.log('[extremes] plafond d\'amplitude DESACTIVE au manifeste (amplitude_max = 0)');
   return charge;
 }
 

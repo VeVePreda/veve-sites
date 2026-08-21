@@ -141,6 +141,17 @@ publication:
     comic: 400
   quota_spillover: true
   max_new_per_series: 12
+  # 🔢 PLAFOND DU CLASSEMENT D'AMPLITUDE — lot 171 (21/08/2026)
+  # Au-dela de ce rapport (plus-haut / plus-bas), un item sort du classement de
+  # /analytics/ — la page dit combien elle en ecarte.
+  # 🔴 MESURE DU 21/08 sur le catalogue reel : 42 items portent un `ath` au-dessus
+  #   de 100 MILLIONS de gems (999 999 999 999, 888 888 888 888…). Ce sont des
+  #   annonces farceuses, pas des prix. ⛔ Et ce n'est PAS un `atl` proche de zero :
+  #   il n'existe pas un seul `atl` inferieur a 1 dans tout le catalogue.
+  # A x1000 : 1 142 items ecartes (7,4 %), et la tete du classement redevient
+  #   lisible. ⚠️ Ce plafond MASQUE, il ne repare pas — le chantier ATL/ATH est
+  #   dans scrapeur-veve. `0` = aucun plafond (comportement d'avant le lot 171).
+  amplitude_max: 1000
 
 # --- Accès : 100 % GRATUIT. tiers=[visitor] + aucune porte => rien n'est tronqué.
 access:

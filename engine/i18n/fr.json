@@ -69,6 +69,7 @@
   "analytics.demoReal": "Les chiffres affichés sont réels et sourcés — c'est l'étendue qui est limitée, jamais l'exactitude.",
   "analytics.demoWhat": "Cette page fait tourner les vrais outils sur un périmètre public et réduit.",
   "analytics.excluded": "{n} pièce(s) écartée(s) : plus-bas supérieur au plus-haut, incohérence en amont non corrigée ici.",
+  "analytics.excludedCap": "{n} pièce(s) écartée(s) du classement : leur plus-haut dépasse ×{p} le plus-bas, ce qui n'est pas un prix de marché mais une annonce farceuse. La donnée est corrigée en amont, pas ici.",
   "analytics.figures": "Figures du catalogue",
   "analytics.full": "L'analyse complète",
   "analytics.lead": "Chaque sujet a sa propre page. Connectez-vous pour lire les chiffres.",

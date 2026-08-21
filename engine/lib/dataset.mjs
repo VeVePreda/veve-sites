@@ -9,6 +9,8 @@ import { readFileSync, existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { projeter as projeterCote, deposerMarche, CHAMPS_COTE } from './cote.mjs';
+// 🖥️ LA SONDE MEMOIRE DU BUILD (lot 171). Elle N'OBSERVE QUE — voir memoire.mjs.
+import * as memoire from './memoire.mjs';
 // 🖼️ LOT 154-A — l'index « uuid → couverture », lu par `/favoris/` à la demande
 //    et, au lot 155, par les tuiles de `/market/`. Voir l'en-tête du module :
 //    il ne copie que des champs déjà publics, et il est déposé APRÈS
@@ -332,7 +334,20 @@ async function construireDataset() {
   // ⭐ `getReleves()` est FACULTATIF (`chargerFacultatif`) : son absence rend
   // `[]` et crie, elle n'interrompt pas le build. ⛔ Ne jamais le remplacer par
   // `load('releves')` — voir le bloc de `warehouse.mjs` qui dit pourquoi.
+  // ═════════════════════════════════════════════════════════════════════════
+  //  🖥️🔴 LES JALONS MEMOIRE — LOT 171. Ils n'ont AUCUN effet sur le calcul.
+  // ═════════════════════════════════════════════════════════════════════════
+  //  Trois builds sont morts en silence en quatre jours, en plein prerender,
+  //  sur un VPS de 7,8 Go SANS SWAP. Aucune trace : ni exception, ni code de
+  //  sortie — la signature d'un conteneur tue par le noyau.
+  //  ⭐⭐⭐ Ces lignes ne reparent rien. Elles font en sorte que la PROCHAINE
+  //  mort dise elle-meme ou etait le pic. Sans elles, tout remede (plafonner
+  //  le tas ? alleger les prix ? couper le prerender ?) choisit sa cible au
+  //  hasard. ⛔ Ne pas les retirer avant que le defaut soit clos.
+  await memoire.plafond();
+  memoire.jalon('avant de lire les sources');
   const [cat, baselines, releves] = await Promise.all([getCatalogue(), getBaselines(), getReleves()]);
+  memoire.jalon(`catalogue (${cat.length}) + baselines (${baselines.length}) + releves (${releves.length}) lus`);
 
   // --- Agregation EN FLUX -------------------------------------------------
   // Par item on ne retient que : le nombre total de releves, la date du
@@ -355,6 +370,11 @@ async function construireDataset() {
   const BUCKET_MS = BORNE ? Math.max(1, Math.floor((WINDOW_DAYS / MAX_POINTS) * DAY)) : 1;
   const agg = new Map();
   await streamPrices((cols, idx) => {
+    // ⭐ UN MODULO PAR LIGNE, RIEN DE PLUS. Le cout est invisible devant le
+    //   decoupage d'une ligne CSV, et c'est le SEUL endroit ou l'on peut voir
+    //   la memoire monter PENDANT la lecture des 2,4 M de releves — un pic
+    //   entre deux jalons est un pic invisible.
+    memoire.pointDeBoucle('lecture des prix');
     const u = cols[idx.uuid];
     if (!u || !known.has(u)) return;   // on ignore ce qui n'est pas au catalogue
     const f = Number(cols[idx.floor]);
@@ -382,6 +402,8 @@ async function construireDataset() {
       if (a.buckets.size > MAX_POINTS) a.buckets.delete(Math.min(...a.buckets.keys()));
     }
   });
+
+  memoire.jalon(`prix agreges (${agg.size} items suivis)`);
 
   const bl = new Map();
   for (const b of baselines) bl.set(b.veve_uuid || b.uuid, b);
@@ -1221,6 +1243,7 @@ async function construireDataset() {
   const empreinteMarche = sceller([...movers.up, ...movers.down].map((i) => [i.path, i.change7d]));
 
   const cote = projeterCote(items);
+  memoire.jalon(`projeterCote fait (${items.length} fiches publiees)`);
 
   // ═══════════════════════════════════════════════════════════════════════
   //  🔴🔴🔴 LOT 113 — LE RAYON : TOUT LE CATALOGUE, SANS UN SEUL PRIX
@@ -1413,6 +1436,11 @@ async function construireDataset() {
   // plancher », ce qui n'a pas de sens. Sur vevewiki le fichier pèsera ce que
   // pèse son catalogue, et personne ne le lira.
   for (const l of deposerRayonIndex(_ds)) console.log(l);
+
+  // 🔑🔑 LE DERNIER JALON AVANT LE PRERENDER — c'est CELUI-LA qu'il faudra
+  // lire dans le log de la prochaine mort. Les trois builds morts se sont
+  // arretes APRES ce point, en plein `prerendering static routes`.
+  memoire.jalon('dataset pret — LE PRERENDER COMMENCE ICI');
 
   return _ds;
 }

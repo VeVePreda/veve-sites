@@ -149,6 +149,61 @@ hotes.forEach(function (hote) {
         + '" class="axe axe--d" text-anchor="middle">' + jour(v) + '</text>';
     });
     g += '<path d="' + aire + '" class="aire"/><path d="' + d + '" class="ligne" fill="none"/>';
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // 🔢 LA COURBE DES OFFRES — LOT 171 (21/08/2026), point `v` de l'audit
+    // ═══════════════════════════════════════════════════════════════════════
+    // Preda, 14/08 : « le tableau Floor Price contient les listings » — le
+    // TABLEAU les avait, **la COURBE non**.
+    //
+    // 🔴🔴🔴 ET C'EST ICI QU'ELLE VA, PAS DANS `chart.mjs`.
+    // Le premier jet de ce lot l'a ecrite dans `courbeSVG` (engine/lib/chart.mjs).
+    // Mesure faite ensuite : **`courbeSVG` n'est appelee par PERSONNE**. La
+    // courbe publique a quitte la fiche au lot 123 ; le seul graphique de
+    // floor encore rendu est CELUI-CI, dessine ici, cote navigateur, apres
+    // `/api/historique/`. Le code aurait ete mort — exactement ce que le
+    // lot 123 reprochait au calcul qu'il retirait.
+    // ⭐⭐⭐ *Un point herite d'un audit est une observation DATEE : la page a
+    // change sous lui.* Il fallait mesurer OU vit le graphique avant d'y
+    // ajouter quoi que ce soit.
+    //
+    // ⭐ LA DONNEE ETAIT DEJA LA, DE BOUT EN BOUT : `reserve.point()` ecrit
+    //   `ts,floor,listings` depuis toujours, et `/api/historique/` rend
+    //   `p:[[ts, floor, listings], …]`. On ne collecte rien, on ne transporte
+    //   rien de plus : **on cesse d'ignorer la troisieme colonne.**
+    //   (Le repli `/api/cote/` la porte aussi depuis ce meme lot, cf.
+    //   `normaliser()` dans engine/lib/cote.mjs.)
+    //
+    // ⛔ SON ECHELLE EST LA SIENNE, ET LE SOL EST ZERO. Partager l'echelle du
+    //   prix n'aurait aucun sens (des gems contre un compte), et partir du
+    //   minimum de la serie transformerait « 4 offres au creux » en
+    //   effondrement. ⚠️ Le maximum est ECRIT en haut a droite : une seconde
+    //   ligne sans echelle, sur un graphique qui en a une, invite a lire l'une
+    //   avec l'autre.
+    // ⛔ RIEN N'EST TRACE SI AUCUN POINT NE PORTE D'OFFRE. Une ligne plate a
+    //   zero AFFIRMERAIT « il n'y en a jamais eu » la ou la source dit « je ne
+    //   sais pas ». ⭐ Le silence est la seule reponse honnete a une absence.
+    var offres = pts.map(function (p) {
+      var v = Number(p[2]);
+      return (isFinite(v) && v > 0) ? v : 0;
+    });
+    var oMax = Math.max.apply(null, offres);
+    if (oMax > 0) {
+      var pyO = function (v) { return H - pad.b - (v / oMax) * (H - pad.t - pad.b); };
+      var dO = pts.map(function (p, i) {
+        return (i ? 'L' : 'M') + px(p[0]).toFixed(1) + ' ' + pyO(offres[i]).toFixed(1);
+      }).join(' ');
+      // ⭐⭐ `ligne-offres` EXISTE DEJA DANS LE THEME (theme.css l. 842) et
+      //   n'etait utilisee NULLE PART : la regle CSS attendait sa courbe
+      //   depuis un lot. On l'emploie telle quelle plutot que d'en ecrire une
+      //   seconde. ⛔ Et SANS la classe `.ligne` : celle-ci porte
+      //   `stroke-dasharray:var(--len)` et l'animation `trace`, qui se
+      //   battraient avec le pointille des offres selon l'ordre des regles.
+      g += '<path d="' + dO + '" class="ligne-offres" fill="none"/>';
+      g += '<text x="' + (W - pad.r) + '" y="' + (pad.t + 4)
+        + '" class="axe axe--d" text-anchor="end">'
+        + nb(oMax) + ' ' + (hote.getAttribute('data-l-offres') || '') + '</text>';
+    }
     g += '<circle cx="' + px(pts[iHaut][0]).toFixed(1) + '" cy="' + py(y1).toFixed(1) + '" class="pt-haut"/>';
     g += '<circle cx="' + px(pts[iBas][0]).toFixed(1) + '" cy="' + py(y0).toFixed(1) + '" class="pt-bas"/>';
     g += '<line class="cadran" x1="0" y1="' + pad.t + '" x2="0" y2="' + (H - pad.b) + '" data-curseur/>';

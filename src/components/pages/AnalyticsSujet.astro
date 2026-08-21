@@ -193,7 +193,14 @@ const figuresReservees = figures.filter((f) => !FIG_DEMO.has(f.id));
 // classer, et c'est ce que le lecteur regarde.
 const extremes = S.amplitude ? (ex.lignes || []) : [];
 const eligibles = S.amplitude ? (ex.eligibles || 0) : 0;
-const ecartes = S.amplitude ? (ex.ecartes || 0) : 0;
+// ⭐ DEUX MOTIFS, DEUX COMPTEURS, DEUX PHRASES — lot 171.
+// `ecartes` reste le TOTAL (les anciens fichiers de reserve n'ont que lui) ;
+// la ventilation dit LEQUEL des deux defauts amont a bouge.
+// ⛔ Une seule phrase pour deux causes aurait menti sur l'une des deux.
+const ecartesPaire = S.amplitude
+  ? (ex.ecartesPaire ?? ex.ecartes ?? 0) : 0;
+const ecartesPlafond = S.amplitude ? (ex.ecartesPlafond || 0) : 0;
+const plafondAmpl = ex.plafond || 0;
 
 const titre = t(lang, S.cle);
 // ⚠️ `path` sert au fil d'Ariane et au lien canonique. Il DOIT porter la barre
@@ -240,8 +247,14 @@ const chemin = `/analytics/${sujet}/`;
       </table></div>
       {/* ⚠️ ON DIT CE QU'ON A ÉCARTÉ. Un tableau qui tait son filtre laisse
           croire que le catalogue est propre. */}
-      {ecartes > 0 && (
-        <p class="etiq" style="margin-top:10px">{t(lang, 'analytics.excluded', { n: ecartes })}</p>
+      {ecartesPaire > 0 && (
+        <p class="etiq" style="margin-top:10px">{t(lang, 'analytics.excluded', { n: ecartesPaire })}</p>
+      )}
+      {/* 🔴 LE PLAFOND D'AMPLITUDE (lot 171) DIT SON CHIFFRE **ET** SON SEUIL.
+          Sans le seuil, « 1 142 ecartees » ne se verifie pas : le lecteur ne
+          peut pas savoir ce qui a ete coupe, donc pas juger si c'est trop. */}
+      {ecartesPlafond > 0 && plafondAmpl > 0 && (
+        <p class="etiq" style="margin-top:10px">{t(lang, 'analytics.excludedCap', { n: ecartesPlafond, p: plafondAmpl.toLocaleString(nf) })}</p>
       )}
     </>
   )}

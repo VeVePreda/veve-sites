@@ -32,6 +32,7 @@
 import { dataset } from './dataset.mjs';
 import { coteFermee } from './cote.mjs';
 import { deposerExtremes } from './extremes.mjs';
+import { manifest } from './manifest.mjs';
 
 export default function extremes() {
   return {
@@ -40,7 +41,10 @@ export default function extremes() {
       'astro:build:done': async ({ logger }) => {
         try {
           const ds = await dataset();
-          const r = deposerExtremes(ds, coteFermee());
+          // 🔢 Le plafond d'amplitude vient du MANIFESTE, pas du code : les
+          //   deux sites n'ont pas le meme catalogue, et le jour ou l'amont
+          //   sera propre il se desactive sans toucher a une ligne de calcul.
+          const r = deposerExtremes(ds, coteFermee(), manifest().public?.amplitude_max);
           logger.info(`classement d'amplitude déposé : ${r.lignes.length} ligne(s), hors de dist/.`);
         } catch (e) {
           // ⛔ ON NE TUE PAS LE BUILD, ET ON NE PASSE PAS EN SILENCE — même

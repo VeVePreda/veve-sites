@@ -2526,12 +2526,36 @@ body > main{ background:var(--bg); }
    les pistes.* Les deux se lisent pareil et ne font pas la même chose — c'est
    la troisième fois que ce dépôt paie cette confusion (`.stats`, `.pagin`).
    ⛔ Et `justify-items:center` n'aurait rien réglé : c'est encore le contenu. */
-.socle__fav--fiche{ position:static; opacity:1; width:auto; min-height:var(--tap-min);
-  padding:0 14px; gap:8px; grid-auto-flow:column; justify-content:center;
-  align-content:center; align-items:center; background:transparent;
+/* ❤️ LE BOUTON FAVORI DE LA FICHE — REECRIT EN FLEX AU LOT 171 (21/08/2026)
+   Demande de Preda, point `x` de l'audit du 14/08, ses mots :
+   « icone + texte du bouton Favoris centres cote a cote ».
+
+   ⛔ CE QU'IL Y AVAIT AVANT, ET POURQUOI ON NE L'A PAS RAFISTOLE.
+   La variante heritait de `.socle__fav{display:grid;place-items:center;
+   width:32px;height:32px}` et la corrigeait morceau par morceau :
+   `width:auto`, `grid-auto-flow:column`, `justify-content`, `align-content`,
+   `align-items`, plus un `min-height` qui devait battre le `height:32px`
+   herite. SIX declarations pour obtenir « deux choses cote a cote, centrees »,
+   et chacune ne vaut que si les cinq autres tiennent.
+   ⭐⭐⭐ *Un centrage obtenu par accumulation de correctifs n'est pas centre :
+   il est en equilibre.* `inline-flex` le dit en trois mots, et `place-items`
+   herite devient sans effet (justify-items ne s'applique pas en flex,
+   align-items:center est de toute facon ce qu'on veut).
+   ⭐ `height:auto` est ECRIT, pas deduit : sans lui, le `height:32px` de la
+   base continue de lutter contre `min-height`, et le resultat depend de
+   l'ordre des regles. */
+.socle__fav--fiche{ position:static; opacity:1;
+  display:inline-flex; flex-flow:row nowrap;
+  align-items:center; justify-content:center; gap:8px;
+  width:auto; height:auto; min-height:var(--tap-min);
+  padding:0 14px; background:transparent;
   backdrop-filter:none; border-color:var(--rule-2); margin-bottom:var(--s3); }
-.socle__fav--fiche::after{ content:attr(data-l); font-family:var(--geo); font-size:var(--t-sm); }
-.socle__fav--fiche svg{ width:16px; height:16px; }
+/* ⭐ `flex:0 0 auto` sur les deux enfants : sans lui, le texte peut ecraser
+   l'icone quand le libelle est long (l'allemand « Zu den Favoriten hinzufugen »
+   fait 28 caracteres contre 19 en francais). */
+.socle__fav--fiche::after{ content:attr(data-l); flex:0 0 auto;
+  font-family:var(--geo); font-size:var(--t-sm); line-height:1; }
+.socle__fav--fiche svg{ flex:0 0 auto; width:16px; height:16px; }
 
 /* 🔴 LES ILLUSTRATIONS PASSAIENT DEVANT LE FLOU (demande Preda).
    `.flottantes` est `position:fixed; z-index:0` : elle crée son propre
