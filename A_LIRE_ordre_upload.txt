@@ -1,75 +1,121 @@
-LOT 157 — ANALYTICS DÉCOUPÉ PAR SUJET DE DONNÉE
-Dépôt : VeVePreda/veve-sites          18/08/2026
-═══════════════════════════════════════════════════════════════════════════
+═══════════════════════════════════════════════════════════════════════════════
+LOT 176  —  DEPOT CIBLE : VeVePreda/veve-sites
+Le chiffre est arrive. Il ecarte une piste sur deux — et il en manque une moitie
+═══════════════════════════════════════════════════════════════════════════════
 
-⚠️ CE DÉPÔT DÉCLENCHE UN BUILD COOLIFY (~10 min).
-   AVANT DE DÉPOSER : ouvre Coolify et regarde s'il y a un déploiement EN
-   COURS. Coolify ne met pas en file, il lance en PARALLÈLE — deux builds
-   ensemble, c'est +73 % de durée et l'un des deux tué sans message.
+⛔ CE ZIP NE VA QUE DANS  VeVePreda/veve-sites .
+⚠️ Il declenche un build Coolify. Regarde qu'aucun deploiement n'est en cours.
+⭐ 3 fichiers, tous des REMPLACEMENTS, aucun dossier en point :
+  **le glisser-deposer suffit.**
 
-═══════════════════════════════════════════════════════════════════════════
-COMMENT DÉPOSER
-═══════════════════════════════════════════════════════════════════════════
 
-La racine du zip EST la racine du dépôt. Tu peux donc glisser tout le
-contenu d'un coup : `Dockerfile`, `astro.config.mjs`, `engine/`, `nginx.
-server.conf`, `package.json`, `src/` se posent chacun à sa place.
+═══════════════════════════════════════════════════════════════════════════════
+1. ✅ CE QUE TON DEPLOIEMENT VIENT DE M'APPRENDRE
+═══════════════════════════════════════════════════════════════════════════════
 
-24 fichiers : 12 neufs, 12 modifiés. Aucun fichier n'est supprimé.
+J'ai interroge `veveprice.com/api/sante`. Voici ce que le build a consomme :
 
-Si GitHub affiche « commit failed » ou une erreur 503 : NE RECOMMENCE PAS
-tout de suite. Recharge la page du dépôt d'abord — le commit est
-probablement passé quand même.
+   plafond alloue au calcul .............. 3 120 Mo
+   PIC MESURE ............................ 1 774 Mo   (57 %)
+      dont calcul (le « tas ») ........... 1 567 Mo
+      dont fichiers et tampons ...........    85 Mo
 
-═══════════════════════════════════════════════════════════════════════════
-CE QUE ÇA CHANGE, EN CLAIR
-═══════════════════════════════════════════════════════════════════════════
+   avant de lire les sources ............. 1 587 Mo
+   sources lues (19 661 items) ........... 1 576 Mo
+   prix agreges (14 008 items suivis) .... 1 691 Mo
+   fiches projetees (8 840) .............. 1 760 Mo
+   ➡️ LE PRERENDER COMMENCE ICI .......... 1 774 Mo
 
-/analytics/ devient une PORTE : un titre, une phrase, quatre cartes vers les
-quatre sujets, et le catalogue des cinq modules. Elle reste publique.
-Elle passe de 45 046 o à ~24 700 o (12 204 → 7 397 o compressés).
+🔑 **CE QUE ÇA TRANCHE, ET C'ETAIT TOUT L'OBJET DE LA SONDE :**
+   **Les fichiers compresses et les tampons sont HORS DE CAUSE.** 85 Mo sur
+   1 774 : ce n'est pas la. Un des deux chantiers possibles est ECARTE.
+   ⇒ Si la memoire est bien la cause des morts, c'est **le calcul** qui est en
+     jeu, et lui seul.
 
-Les quatre sujets sont des pages NEUVES, réservées aux membres :
+⚠️ **MAIS CE N'EST PAS LE PIC DU BUILD, ET C'EST LA MOITIE QUI MANQUE.**
+   Ce 1 774 Mo est mesure **au moment ou le prerender COMMENCE**. Or les trois
+   builds sont morts **PENDANT** le prerender, sur les 3 097 pages qui suivent.
+   Je mesurais le depart de la course, pas son sommet.
 
-  /analytics/market/        le classement d'amplitude + le pulse mensuel
-  /analytics/catalogue/     5 figures (raretés, tirages, comics, types…)
-  /analytics/collections/   3 figures de licences + la concentration
-  /analytics/chain/         taille des wallets + les plus gros détenteurs
 
-Un visiteur non connecté qui tape une de ces adresses est renvoyé vers
-/connexion/, et il revient sur la page qu'il voulait après s'être connecté.
+═══════════════════════════════════════════════════════════════════════════════
+2. CE QUE FAIT CE LOT
+═══════════════════════════════════════════════════════════════════════════════
 
-Elles n'existent PAS pour Google : zéro page produite, rien dans le sitemap.
-C'est ce que tu as choisi ce matin, en connaissant le coût.
+Il pose un dernier point de mesure **une fois les 3 097 pages faites**, a
+l'endroit qui s'execute en tout dernier dans le build.
 
-═══════════════════════════════════════════════════════════════════════════
-APRÈS LE DÉPLOIEMENT — 4 VÉRIFICATIONS
-═══════════════════════════════════════════════════════════════════════════
+Apres ce deploiement, `/api/sante` portera une ligne de plus :
 
-1. Ouvre https://veveprice.com/analytics/ : tu dois voir quatre cartes et
-   PLUS AUCUN tableau ni graphique.
+   ➡️ BUILD FINI — le prerender est passe .... ? Mo
 
-2. Clique sur une carte sans être connecté : tu dois arriver sur la page de
-   connexion.
+Et **ce chiffre-la est celui qui compte**. Deux issues, deux chantiers sans
+rapport :
+   · **s'il approche 3 120 Mo** ⇒ la marge est mince, une variation de quelques
+     pour cent suffit a tuer le build. On sait quoi alleger, et pourquoi.
+   · **s'il reste vers 1 800 - 2 000 Mo** ⇒ la memoire du calcul **n'est pas la
+     cause** des trois morts, et il faut chercher ailleurs. Ça aussi, c'est une
+     reponse — et elle nous eviterait des semaines a optimiser dans le vide.
 
-3. Connecte-toi, puis reclique : tu dois voir la page du sujet.
-   🙋 C'EST LA SEULE CHOSE QUE JE N'AI PAS PU VÉRIFIER MOI-MÊME — je n'ai
-   aucune session. UNE CAPTURE D'ÉCRAN DES QUATRE PAGES CONNECTÉES est ce
-   qui me servira le plus.
+⭐ Le rapport est desormais reecrit a chaque point de mesure, au lieu d'une
+  seule fois a la fin. Un point pose plus tard s'y ajoute tout seul, sans
+  dependre de l'ordre dans lequel les choses s'executent.
 
-4. Sur /analytics/market/, le tableau « Extreme amplitude » affiche des
-   valeurs ABSURDES (×143 061 516). ⚠️ Ce n'est pas nouveau et ce n'est pas
-   ce lot : la page actuelle affiche exactement les mêmes huit lignes, je
-   l'ai vérifié avant d'écrire quoi que ce soit. Le défaut est dans le calcul
-   en amont. Dis-moi si tu veux qu'on s'en occupe — c'est un autre lot.
 
-═══════════════════════════════════════════════════════════════════════════
-CE QUI A ÉTÉ ÉPROUVÉ ICI
-═══════════════════════════════════════════════════════════════════════════
+═══════════════════════════════════════════════════════════════════════════════
+3. ⛔ CE QUE ÇA NE FERA TOUJOURS PAS
+═══════════════════════════════════════════════════════════════════════════════
 
-· build réel (8 841 cotes, 12 945 pages), en I18N_MARQUAGE=1 : vert
-· les 41 bancs : verts, test:analytics compris
-· le banc neuf jugé en lui injectant 7 fautes : il rougit sur les 7
-· les 4 pages demandées à un vrai serveur : 302 pour un anonyme, 200 pour
-  un membre, aucune erreur de rendu
-· temps de réponse : 1,7 ms (et non 10 s — voir le point dataset() du suivi)
+**Un build qui MEURT ne produit aucune image, donc aucun fichier a lire.**
+Ce lot apprend ce que coute un build SAIN — c'est-a-dire la reference qui
+manque pour juger si la marge est mince ou large. Ce n'est pas la meme chose que
+regarder la mort en face, et je ne le fais pas passer pour tel.
+⚠️ Le journal du build reste le seul temoin d'une mort, et on ne sait toujours
+  pas pourquoi il s'arrete toujours a la meme ligne.
+
+
+═══════════════════════════════════════════════════════════════════════════════
+4. LES 3 FICHIERS
+═══════════════════════════════════════════════════════════════════════════════
+
+   engine/lib/memoire.mjs          le rapport se reecrit a chaque point
+   engine/lib/astro_extremes.mjs   le dernier point, apres les 3 097 pages
+   engine/tools/test_memoire.mjs   le banc, qui garde les deux
+
+
+═══════════════════════════════════════════════════════════════════════════════
+5. CE QUI A ETE EPROUVE — ET CE QUI NE L'A PAS ETE
+═══════════════════════════════════════════════════════════════════════════════
+
+✅ EPROUVE
+   · **47 bancs, code de sortie 0, sur les DEUX sites**, chacun apres un build
+     neuf.
+   · Un build local complet : le rapport contient bien les **six** points, dont
+     « BUILD FINI — le prerender est passe ».
+   · **4 injections de fautes, 4 rouges**, temoin vert avant et apres :
+     retirer l'ecriture a chaque point · retirer le point de fin · le remettre
+     a l'interieur du filet de securite (un classement rate emporterait alors la
+     mesure) · deplacer l'ordre des greffons pour que le point de fin ne soit
+     plus le dernier.
+
+   ⭐ Ce dernier controle merite un mot : **si quelqu'un ajoute un greffon apres
+     celui qui pose le point de fin, la mesure cesse d'etre la derniere — sans
+     rien casser, et sans que rien ne le dise.** Le banc surveille maintenant
+     cet ordre.
+
+⛔ PAS EPROUVE
+   · **Le chiffre lui-meme.** Mon bac a sable travaille sur 90 fiches, la prod
+     sur 19 661 : mes 523 Mo ne predisent rien. C'est justement ce qu'on va
+     mesurer.
+   · Rien dans ce lot ne touche au site : ni page, ni style, ni donnee.
+
+
+═══════════════════════════════════════════════════════════════════════════════
+6. EMPREINTES (sha256) — je les recontrole moi-meme apres ton depot
+═══════════════════════════════════════════════════════════════════════════════
+   fcbed989ce2735a1b1feb5efc689757c9769b929979129ae35b52df131fbe10e  engine/lib/memoire.mjs
+   f7e17eb31cbcb1dc9d78919f1c3713c5dd57131d1970ed0b95128835bff6fedc  engine/lib/astro_extremes.mjs
+   ce0165782a4ab250a82988b84eed61b68bc8fffe4c65c5c37dbad37bba8febd6  engine/tools/test_memoire.mjs
+
+🔴 RAPPEL : un « Commit failed » ou une 503 de GitHub MENT — le commit est
+   presque toujours passe. Recharge la page et regarde.

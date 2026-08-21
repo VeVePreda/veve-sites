@@ -111,6 +111,12 @@ export function jalon(nom) {
   // ⭐ Le jalon est retenu EN PLUS d'être imprimé. Les deux chemins servent :
   //   le journal quand il arrive, le fichier quand il n'arrive pas.
   etapes.push({ nom, rss: Mo(m.rss), tas: Mo(m.heapUsed), horsTas: Mo(m.external) });
+  // 🔑 LOT 176 — on écrit MAINTENANT, pas à la fin. Un build qui meurt au jalon
+  //   suivant laisse quand même celui-ci derrière lui... **dans son conteneur
+  //   de build**, qui disparaît. ⚠️ Ça ne sauve donc PAS le cas de la mort ;
+  //   ça garantit seulement que le dernier jalon ATTEINT est toujours celui que
+  //   `/api/sante` rendra, quel qu'il soit et quel que soit qui l'a posé.
+  ecrire();
 }
 
 /**
@@ -151,17 +157,29 @@ export function _reinitialiser() {
   etapes.length = 0; plafondMo = null;
 }
 
-/**
- * Écrit le rapport là où une requête pourra le lire. Appelé UNE FOIS, au
- * dernier jalon de `dataset()`.
- *
- * ⛔ N'ÉCHOUE JAMAIS. Un build qui tomberait parce que sa SONDE n'a pas pu
- *    écrire serait le comble : l'instrument casserait ce qu'il observe.
- * ⭐ Le fichier ne porte que des Mo et des noms d'étapes — aucun prix, aucun
- *    chemin, aucun secret. `/api/sante` est publique et le reste.
- */
-export function clore(nom = 'fin du dataset') {
-  jalon(nom);
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 LOT 176 — LE RAPPORT S'ÉCRIT À CHAQUE JALON, PLUS SEULEMENT À LA FIN
+// ═══════════════════════════════════════════════════════════════════════════
+// 📏 CE QUE LE LOT 175 A RENDU, LU SUR LA PROD LE 21/08 :
+//     veveprice · PIC 1 774 Mo · plafond du tas 3 120 Mo · hors-tas 85 Mo
+//       avant de lire les sources ......... rss 1587 · tas 1044
+//       sources lues ...................... rss 1576 · tas  955
+//       prix agrégés (14 008 items) ....... rss 1691 · tas 1485
+//       projeterCote (8 840 fiches) ....... rss 1760 · tas 1556
+//       LE PRERENDER COMMENCE ICI ......... rss 1774 · tas 1567
+//   ⇒ 🔑 **le HORS-TAS est écarté** (85 Mo sur 1 774) : le chantier est celui
+//     du TAS, et il est à **50 % de son plafond**.
+//   ⛔ MAIS CE N'EST PAS LE PIC DU BUILD : les trois morts sont survenues **en
+//     plein prerender**, c'est-à-dire APRÈS ce dernier jalon. On mesurait le
+//     point de départ de la course, pas son sommet.
+//
+// ⇒ Le rapport est réécrit à CHAQUE jalon. Un jalon posé plus tard — après les
+//   3 097 pages, dans le dernier plugin (`astro_extremes.mjs`) — s'y ajoute
+//   donc tout seul, sans dépendre d'un ordre d'appel.
+// ⭐ Sept écritures de quelques centaines d'octets sur un build de 4 minutes :
+//   le coût est invisible, et il supprime une classe entière de fautes
+//   (« qui appelle `clore()`, et est-il bien le dernier ? »).
+function ecrire() {
   try {
     const ou = rapport();
     mkdirSync(dirname(ou), { recursive: true });
@@ -172,8 +190,30 @@ export function clore(nom = 'fin du dataset') {
       etapes,
       ecritLe: new Date().toISOString(),
     }), 'utf8');
-    console.log(`[memoire] rapport ecrit (${ou}) — lisible par /api/sante`);
-  } catch (e) {
-    console.log(`[memoire] rapport NON ecrit (${e.message}) — le journal reste le seul canal`);
+    return ou;
+  } catch {
+    // ⛔ SILENCIEUX, ET C'EST VOULU. Écrit à chaque jalon, un message d'échec
+    //    tomberait sept fois et noierait le journal — celui-là même qu'on
+    //    essaie de désencombrer. L'absence se lit à l'autre bout :
+    //    `/api/sante` rend `memoire: null`, ce qui est une RÉPONSE.
+    return null;
   }
+}
+
+/**
+ * Le dernier jalon connu, et le rapport avec lui.
+ *
+ * ⛔ N'ÉCHOUE JAMAIS. Un build qui tomberait parce que sa SONDE n'a pas pu
+ *    écrire serait le comble : l'instrument casserait ce qu'il observe.
+ * ⭐ Le fichier ne porte que des Mo et des noms d'étapes — aucun prix, aucun
+ *    chemin, aucun secret. `/api/sante` est publique et le reste.
+ * ⚠️ Depuis le lot 176 `jalon()` écrit déjà : `clore()` ne sert plus qu'à
+ *    NOMMER la fin du dataset, et à le dire dans le journal.
+ */
+export function clore(nom = 'fin du dataset') {
+  jalon(nom);
+  const ou = ecrire();
+  console.log(ou
+    ? `[memoire] rapport ecrit (${ou}) — lisible par /api/sante`
+    : '[memoire] rapport NON ecrit — le journal reste le seul canal');
 }

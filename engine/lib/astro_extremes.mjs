@@ -33,6 +33,8 @@ import { dataset } from './dataset.mjs';
 import { coteFermee } from './cote.mjs';
 import { deposerExtremes } from './extremes.mjs';
 import { manifest } from './manifest.mjs';
+// 🖥️ La sonde mémoire — elle OBSERVE, elle ne pilote rien (voir memoire.mjs).
+import * as memoire from './memoire.mjs';
 
 export default function extremes() {
   return {
@@ -57,6 +59,38 @@ export default function extremes() {
           logger.error(`classement d'amplitude NON déposé : ${e.message}`);
           logger.error('/analytics/market/ lèvera à la première visite d\'un membre.');
         }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // 🖥️🔑 LE DERNIER JALON MÉMOIRE DU BUILD — LOT 176, ET SA PLACE EST TOUT
+        // ═══════════════════════════════════════════════════════════════════
+        // Le lot 175 a fait sortir le pic par `/api/sante`. Lu sur la prod le
+        // 21/08 : **1 774 Mo, dont 1 567 de tas, sur un plafond de 3 120** —
+        // et **85 Mo seulement de hors-tas**, ce qui ÉCARTE le chantier des
+        // tampons et du gzip. Mais ce chiffre est celui du **début** du
+        // prerender : les trois builds morts sont tombés PENDANT, sur les
+        // 3 097 pages qui suivent. On mesurait le départ de la course, pas son
+        // sommet.
+        //
+        // ⭐⭐⭐ CE HOOK EST LE DERNIER À S'EXÉCUTER DE TOUT LE BUILD :
+        // `extremes()` est la dernière intégration d'`astro.config.mjs`
+        // (l. 84) et `astro:build:done` tombe après le prerender complet.
+        // C'est le seul endroit d'où l'on puisse dire ce que les pages ont
+        // coûté.
+        // ⛔ SI QUELQU'UN AJOUTE UNE INTÉGRATION APRÈS `extremes()`, ce jalon
+        //   cesse d'être le dernier — sans rien casser et sans que rien ne le
+        //   dise. C'est écrit ici pour que ce soit lu là.
+        //
+        // ⭐ HORS DU `try` ci-dessus, et délibérément : un build qui a rendu
+        //   ses 3 097 pages puis raté son classement a quand même consommé sa
+        //   mémoire, et c'est cette mémoire-là qu'on cherche.
+        // ⚠️ ET ÇA NE SAUVE TOUJOURS PAS LE CAS DE LA MORT : un build tué
+        //   n'atteint pas ce hook, ne produit pas d'image, donc pas de
+        //   fichier. On apprend ce que coûte un build SAIN — c'est la
+        //   référence qui manque pour juger si la marge est mince.
+        // ⛔ Jamais bloquant : l'instrument ne casse pas ce qu'il observe.
+        try {
+          memoire.jalon('BUILD FINI — le prerender est passé');
+        } catch { /* une sonde ne fait pas échouer un déploiement */ }
       },
     },
   };

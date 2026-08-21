@@ -260,6 +260,50 @@ dire(/await memoire\.plafond\(\)/.test(code),
   let r = null;
   try { r = JSON.parse(readFileSync(fichier, 'utf8')); } catch { /* rien */ }
   dire(!!r, '⑦ le rapport est écrit sur disque', r ? fichier : 'illisible');
+
+  // ═════════════════════════════════════════════════════════════════════════
+  // 🔑 LOT 176 — LE RAPPORT SUIT LE DERNIER JALON, QUEL QU'IL SOIT
+  // ═════════════════════════════════════════════════════════════════════════
+  // Ce que le lot 175 a rendu sur la prod : **1 774 Mo, dont 1 567 de tas, sur
+  // un plafond de 3 120** — et 85 Mo de hors-tas, ce qui ÉCARTE ce chantier-là.
+  // ⛔ Mais c'était le début du prerender, et les trois morts sont survenues
+  //   PENDANT. ⇒ `jalon()` réécrit désormais le rapport à chaque appel, pour
+  //   qu'un jalon posé plus tard (celui d'`astro_extremes.mjs`, après les
+  //   3 097 pages) s'y ajoute sans dépendre d'un ordre d'appel.
+  {
+    m.jalon('un jalon POSTERIEUR a clore()');
+    let apres = null;
+    try { apres = JSON.parse(readFileSync(fichier, 'utf8')); } catch { /* rien */ }
+    dire(apres && apres.etapes.length === 4,
+      '⑦ un jalon posé APRÈS `clore()` entre quand même dans le rapport',
+      `${apres ? apres.etapes.length : 0} étape(s) — attendu 4`);
+    dire(apres && apres.etapes[3]
+      && apres.etapes[3].nom === 'un jalon POSTERIEUR a clore()',
+      '⑦ ...et c\'est bien LUI le dernier',
+      'sinon le pic du prerender ne sortirait jamais');
+  }
+
+  // ⭐ ET LE DERNIER JALON DU BUILD EST BIEN POSÉ PAR LE DERNIER PLUGIN.
+  {
+    const cfg = readFileSync(join(ROOT, 'astro.config.mjs'), 'utf8')
+      .split('\n').filter((l) => !l.trim().startsWith('//')).join('\n');
+    const mm = cfg.match(/integrations:\s*\[([^\]]*)\]/);
+    const dernier = mm ? mm[1].split(',').map((s) => s.trim()).filter(Boolean).pop() : '';
+    dire(/^extremes\(/.test(dernier || ''),
+      '⑦ `extremes()` est bien la DERNIÈRE intégration',
+      `dernière : ${dernier || '(illisible)'} — si ça change, le jalon de fin `
+      + 'cesse d\'être le dernier, sans que rien ne le dise');
+    const ext = readFileSync(join(ROOT, 'engine/lib/astro_extremes.mjs'), 'utf8')
+      .split('\n').filter((l) => !l.trim().startsWith('//')).join('\n');
+    dire(/memoire\.jalon\('BUILD FINI/.test(ext),
+      '⑦ ...et elle pose le jalon de fin de build');
+    // 🔴 HORS DU `try` DU CLASSEMENT : un build qui a rendu ses pages puis raté
+    //    son classement a quand même consommé sa mémoire.
+    const bloc = ext.slice(ext.indexOf("'astro:build:done'"));
+    dire(bloc.indexOf('BUILD FINI') > bloc.indexOf('classement d\'amplitude NON'),
+      '⑦ ...APRÈS le `catch`, pas dedans',
+      'sinon un classement raté emporterait la mesure');
+  }
   if (r) {
     dire(Array.isArray(r.etapes) && r.etapes.length === 3,
       '⑦ il porte TOUS les jalons, pas seulement le dernier',
