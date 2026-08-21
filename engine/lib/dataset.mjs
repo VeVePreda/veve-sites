@@ -1440,7 +1440,13 @@ async function construireDataset() {
   // 🔑🔑 LE DERNIER JALON AVANT LE PRERENDER — c'est CELUI-LA qu'il faudra
   // lire dans le log de la prochaine mort. Les trois builds morts se sont
   // arretes APRES ce point, en plein `prerendering static routes`.
-  memoire.jalon('dataset pret — LE PRERENDER COMMENCE ICI');
+  // 🔴🔴 `clore()` ET NON `jalon()` — LOT 175. Le journal de cette étape
+  //   s'arrête AVANT ce point sur le VPS (mesuré sur deux déploiements : le
+  //   log meurt juste après le téléchargement des baselines, à 21 s puis 27 s,
+  //   sur une étape qui dure 3 min 49). ⇒ Ce jalon-ci part AUSSI dans un
+  //   fichier, que `/api/sante` sert ensuite. C'est le seul canal dont on
+  //   sache qu'il arrive.
+  memoire.clore('dataset pret — LE PRERENDER COMMENCE ICI');
 
   return _ds;
 }

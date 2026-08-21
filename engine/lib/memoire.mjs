@@ -35,9 +35,56 @@
 //   · Le bac à sable ne peut PAS reproduire ce défaut : il prédit le code,
 //     jamais la machine. Cette sonde ne s'éprouve donc vraiment qu'en prod.
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 LOT 175 — LE JOURNAL DU BUILD NE SUFFIT PAS, ET C'EST MESURÉ
+// ═══════════════════════════════════════════════════════════════════════════
+// Le lot 171 a posé cette sonde. Le lot 174 a fait de la place dans le journal
+// en dédoublonnant `routes-compte` — **et ça n'a pas suffi.**
+//
+// 📏 DEUX DÉPLOIEMENTS, MESURÉS DANS LES LOGS COOLIFY TÉLÉCHARGÉS :
+//     `273d4ff` — étape #39 : **101 lignes**, dernière à **20,92 s**
+//     `469944e` — étape #36 :  **70 lignes**, dernière à **27,07 s**
+//   ...alors que les deux étapes ont duré **3 min 49**.
+//   ⇒ ni le nombre de lignes, ni les octets (11 124 vs 7 637) ne sont
+//     constants. **La coupure n'est pas un volume.**
+//   🔑 Ce qui EST constant : la dernière ligne conservée est **la même dans les
+//     deux logs** — `[entrepot] baselines: 13899 lignes depuis …`, juste avant
+//     le téléchargement de `prices.csv.gz` (32 Mo).
+//   ⛔ `Server built`, `Complete!` et les points de boucle n'apparaissent
+//     **jamais** : le journal de cette étape ne reprend pas.
+//
+// ⛔⛔ ET J'AI DÉDUIT FAUX UNE FOIS. Le lot 174 affirmait « Coolify garde ~100
+//   lignes par étape » : 70 lignes conservées sur le déploiement suivant l'ont
+//   démenti. ⭐⭐⭐ *Une régularité vue sur UN cas est une coïncidence tant
+//   qu'un second cas ne l'a pas confirmée.*
+//
+// ⇒ ON SORT DU JOURNAL. Le rapport est écrit dans un FICHIER, embarqué dans
+//   l'image (`COPY --from=build /app/.reserve ./.reserve`, Dockerfile l. 710),
+//   et servi par `/api/sante`. Il devient interrogeable **à volonté, de
+//   l'extérieur, sans log et sans personne** — une requête suffit.
+// ⚠️ CE QUE ÇA NE COUVRE PAS : un build qui MEURT ne produit aucune image,
+//   donc aucun fichier. Pour ce cas-là, seul le journal parle — et on ne sait
+//   pas encore pourquoi il s'arrête. Les deux moyens sont complémentaires,
+//   aucun ne remplace l'autre.
+
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+
+// 🔴🔴 LE CHEMIN SE RÉSOUT À L'APPEL, PAS À L'IMPORT. Une `const` lue au
+//   chargement fige `process.env` tel qu'il était à ce moment-là — et un banc
+//   qui règle la variable APRÈS avoir importé le module écrirait dans le vrai
+//   `.reserve/` du build. C'est exactement le piège qui a coûté la réserve du
+//   lot 104 (1 201 fichiers → 0), et il ne lève aucune erreur.
+export function rapport() {
+  return process.env.RESERVE_MEMOIRE
+    || join(process.env.PROJECT_ROOT || process.cwd(), '.reserve', 'memoire-build.json');
+}
+
 let precedent = null;
 let pic = 0;
 let compteur = 0;
+const etapes = [];
+let plafondMo = null;
 
 const Mo = (o) => Math.round(o / 1048576);
 
@@ -61,6 +108,9 @@ export function jalon(nom) {
     `[memoire] ${nom} — rss ${Mo(m.rss)} Mo · tas ${Mo(m.heapUsed)}/${Mo(m.heapTotal)} Mo`
     + ` · hors-tas ${Mo(m.external)} Mo · PIC ${Mo(pic)} Mo${bout}`,
   );
+  // ⭐ Le jalon est retenu EN PLUS d'être imprimé. Les deux chemins servent :
+  //   le journal quand il arrive, le fichier quand il n'arrive pas.
+  etapes.push({ nom, rss: Mo(m.rss), tas: Mo(m.heapUsed), horsTas: Mo(m.external) });
 }
 
 /**
@@ -81,6 +131,7 @@ export function plafond() {
   // ⭐ Import dynamique : `node:v8` n'est utile qu'ici, et une seule fois.
   return import('node:v8').then((v8) => {
     const s = v8.getHeapStatistics();
+    plafondMo = Mo(s.heap_size_limit);
     console.log(
       `[memoire] plafond du tas V8 : ${Mo(s.heap_size_limit)} Mo`
       + ` · NODE_OPTIONS=${process.env.NODE_OPTIONS || '(non defini)'}`
@@ -95,4 +146,34 @@ export function plafond() {
 export function picMo() { return Mo(pic); }
 
 /** Remet la sonde à zéro. Réservé aux bancs. */
-export function _reinitialiser() { precedent = null; pic = 0; compteur = 0; }
+export function _reinitialiser() {
+  precedent = null; pic = 0; compteur = 0;
+  etapes.length = 0; plafondMo = null;
+}
+
+/**
+ * Écrit le rapport là où une requête pourra le lire. Appelé UNE FOIS, au
+ * dernier jalon de `dataset()`.
+ *
+ * ⛔ N'ÉCHOUE JAMAIS. Un build qui tomberait parce que sa SONDE n'a pas pu
+ *    écrire serait le comble : l'instrument casserait ce qu'il observe.
+ * ⭐ Le fichier ne porte que des Mo et des noms d'étapes — aucun prix, aucun
+ *    chemin, aucun secret. `/api/sante` est publique et le reste.
+ */
+export function clore(nom = 'fin du dataset') {
+  jalon(nom);
+  try {
+    const ou = rapport();
+    mkdirSync(dirname(ou), { recursive: true });
+    writeFileSync(ou, JSON.stringify({
+      picMo: Mo(pic),
+      plafondMo,                // rempli par `plafond()` — `null` s'il n'a pas tourné
+      lignesLues: compteur,
+      etapes,
+      ecritLe: new Date().toISOString(),
+    }), 'utf8');
+    console.log(`[memoire] rapport ecrit (${ou}) — lisible par /api/sante`);
+  } catch (e) {
+    console.log(`[memoire] rapport NON ecrit (${e.message}) — le journal reste le seul canal`);
+  }
+}

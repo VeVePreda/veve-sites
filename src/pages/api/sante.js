@@ -132,6 +132,8 @@ const COMMIT = typeof __COMMIT__ === 'string' && __COMMIT__ ? __COMMIT__ : null;
 // d'espace membre. Ecrire ici `manifest().features.comptes`, qui « veut dire la
 // meme chose », donnerait deux definitions d'un seul etat — la panne P30 du
 // lot 139.
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { acces } from '../../../engine/lib/access.mjs';
 import { etatDuStockage } from '../../../engine/lib/favoris.mjs';
 
@@ -145,6 +147,52 @@ const favoris = () => {
     // ⛔ La sonde ne tombe JAMAIS à cause de ce §. Une sonde de santé qui
     //    échoue sur la question qu'elle pose est pire qu'absente.
     return { ouverte: false, montee: null };
+  }
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🖥️ LE PIC MÉMOIRE DU BUILD — LOT 175, ET IL EXISTE PARCE QUE LE LOG MENT
+// ═══════════════════════════════════════════════════════════════════════════
+// La sonde du lot 171 imprime six jalons pendant le build. Mesuré sur DEUX
+// déploiements du VPS : le journal de l'étape de build s'arrête toujours à la
+// même ligne — juste après le téléchargement des baselines, à 21 s puis 27 s,
+// sur une étape qui dure **3 min 49**. Les cinq jalons suivants, dont celui qui
+// porte le pic, ne sont dans aucun log.
+// ⛔ Et ce n'est PAS un plafond de volume : 101 lignes / 11 124 o d'un côté,
+//   70 lignes / 7 637 o de l'autre. La cause reste inconnue.
+//
+// ⇒ Le rapport voyage donc par un canal dont on SAIT qu'il arrive : un fichier
+//   embarqué dans l'image, servi ici. **Une requête suffit désormais à savoir
+//   ce que le build a consommé**, sans log, sans Coolify et sans personne.
+//
+// ⛔ QUE DES NOMBRES EN MÉGAOCTETS ET DES NOMS D'ÉTAPES. Pas de chemin, pas de
+//   variable d'environnement, rien qui décrive la machine autrement que par sa
+//   consommation. Cette route est publique et elle le reste.
+// ⭐ `null` EST UNE RÉPONSE, et c'est la troisième. Un build qui n'a pas écrit
+//   son rapport (mode static, ou sonde absente) rend `null` — jamais `0`, qui
+//   se lirait « le build n'a rien consommé ». INCONNU ≠ ZÉRO.
+// ⚠️ LU À CHAQUE APPEL, PAS AU DÉMARRAGE : en mode server la route est calculée
+//   à la demande, et lire au chargement du module figerait la réponse d'un
+//   conteneur qui aurait été remplacé. Le fichier fait quelques centaines
+//   d'octets et la route porte `cache-control: no-store`.
+const memoireDuBuild = () => {
+  // 🔴🔴 `import` EN TÊTE, PAS `require()`. Premier jet : `require('node:fs')`
+  //   dans la fonction. Ce fichier est un module ES — `require` n'y existe pas,
+  //   et l'erreur ne serait tombée qu'À LA REQUÊTE, attrapée par le `catch`
+  //   juste en dessous : la sonde aurait rendu `memoire: null` **pour
+  //   toujours**, sur un build parfaitement vert. ⭐⭐⭐ *Un `try/catch` autour
+  //   d'un chargement transforme une faute de syntaxe en réponse plausible.*
+  try {
+    const chemin = process.env.RESERVE_MEMOIRE
+      || join(process.env.PROJECT_ROOT || process.cwd(), '.reserve', 'memoire-build.json');
+    const r = JSON.parse(readFileSync(chemin, 'utf8'));
+    return {
+      picMo: Number.isFinite(r.picMo) ? r.picMo : null,
+      plafondMo: Number.isFinite(r.plafondMo) ? r.plafondMo : null,
+      etapes: Array.isArray(r.etapes) ? r.etapes : [],
+    };
+  } catch {
+    return null;
   }
 };
 
@@ -166,6 +214,8 @@ export const GET = ({ url }) => new Response(
     origin: url.origin,
     proto: url.protocol.replace(':', ''),
     comptes: branche(),
+    // 🖥️ Le pic mémoire du build — voir le bloc au-dessus. `null` si inconnu.
+    memoire: memoireDuBuild(),
     ...(comptesOuverts() ? { favoris: favoris() } : {}),
   }),
   { headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } },

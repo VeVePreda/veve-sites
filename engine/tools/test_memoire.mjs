@@ -26,7 +26,7 @@
 //  code, jamais la machine. Ce banc prouve que l'instrument est branché et
 //  qu'il compte juste ; il ne prouve pas que le VPS tiendra.
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
 const ROOT = process.env.PROJECT_ROOT || process.cwd();
@@ -53,7 +53,9 @@ const JALONS = [
   [/memoire\.jalon\(`catalogue \(/, 'après le catalogue + baselines + relevés'],
   [/memoire\.jalon\(`prix agreges/, 'après l\'agrégation des prix'],
   [/memoire\.jalon\(`projeterCote fait/, 'après projeterCote()'],
-  [/memoire\.jalon\('dataset pret — LE PRERENDER COMMENCE ICI'\)/, 'juste avant le prerender'],
+  // ⭐ `clore()` DEPUIS LE LOT 175 : ce jalon-ci part aussi dans le fichier que
+  //   `/api/sante` sert, parce que le journal du build ne l'atteint jamais.
+  [/memoire\.clore\('dataset pret — LE PRERENDER COMMENCE ICI'\)/, 'juste avant le prerender (et il CLÔT le rapport)'],
 ];
 for (const [re, quoi] of JALONS) {
   dire(re.test(code), `① jalon posé : ${quoi}`,
@@ -220,5 +222,101 @@ dire(/await memoire\.plafond\(\)/.test(code),
     `${dit.length - avant} ligne(s) après remise à zéro — attendu 1`);
 }
 
-console.log(echecs ? `\n❌ ${echecs} écart(s)\n` : '\n✅ la sonde mémoire est branchée, et sa sortie a la place d\'arriver\n');
+// ═══════════════════════════════════════════════════════════════════════════
+// ⑦ LE RAPPORT SORT DU JOURNAL — LOT 175
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 LE LOT 174 AVAIT DÉDUIT FAUX, ET C'EST LA LEÇON DE CE §.
+// Il affirmait « Coolify garde ~100 lignes par étape » sur la foi d'UN log
+// (101 lignes, étape coupée). Le déploiement suivant en a conservé **70**, et
+// **7 637 octets** contre 11 124. Ni les lignes ni les octets ne sont
+// constants. ⭐⭐⭐ *Une régularité vue sur UN cas est une coïncidence tant
+// qu'un second cas ne l'a pas confirmée.*
+//
+// 🔑 CE QUI EST CONSTANT, LUI : dans les DEUX logs, la dernière ligne conservée
+//   est la MÊME (`[entrepot] baselines: 13899 lignes depuis …`), et l'étape a
+//   duré **3 min 49** les deux fois. Le journal s'arrête à 21 s puis 27 s.
+//   La cause reste INCONNUE, et on cesse d'en dépendre.
+//
+// ⇒ Le rapport part dans un fichier, embarqué dans l'image
+//   (`COPY --from=build /app/.reserve ./.reserve`), servi par `/api/sante`.
+// ⚠️ Ça ne couvre PAS un build qui MEURT : pas d'image, pas de fichier. Les
+//   deux canaux sont complémentaires, aucun ne remplace l'autre — et c'est
+//   écrit ici pour que personne ne retire l'un en croyant l'autre suffisant.
+{
+  const m = await import(new URL('../lib/memoire.mjs', import.meta.url));
+  const dossier = join(ROOT, '.reserve', '_banc_memoire');
+  const fichier = join(dossier, 'rapport.json');
+  process.env.RESERVE_MEMOIRE = fichier;
+
+  m._reinitialiser();
+  const vrai = console.log;
+  console.log = () => {};
+  await m.plafond();
+  m.jalon('un');
+  m.jalon('deux');
+  m.clore('trois');
+  console.log = vrai;
+
+  let r = null;
+  try { r = JSON.parse(readFileSync(fichier, 'utf8')); } catch { /* rien */ }
+  dire(!!r, '⑦ le rapport est écrit sur disque', r ? fichier : 'illisible');
+  if (r) {
+    dire(Array.isArray(r.etapes) && r.etapes.length === 3,
+      '⑦ il porte TOUS les jalons, pas seulement le dernier',
+      `${(r.etapes || []).length} étape(s) — attendu 3`);
+    dire(r.etapes[2] && r.etapes[2].nom === 'trois',
+      '⑦ `clore()` pose bien son propre jalon avant d\'écrire',
+      'sinon le dernier point, celui qui compte, manquerait');
+    dire(Number.isFinite(r.picMo) && r.picMo > 0, '⑦ le pic y est', `${r.picMo} Mo`);
+    dire(Number.isFinite(r.plafondMo) && r.plafondMo > 0,
+      '⑦ le plafond V8 y est aussi',
+      `${r.plafondMo} Mo — un pic sans plafond ne se compare à rien`);
+    // ⛔⛔ LISTE BLANCHE, JAMAIS LISTE NOIRE — `/api/sante` est PUBLIQUE.
+    // 🔴 Premier jet : je cherchais `/app`, `/home`, `NODE_OPTIONS`,
+    //   `PROJECT_ROOT`. J'ai injecté `ou: process.cwd()` dans le rapport — et
+    //   le contrôle est resté VERT, parce que le chemin du bac à sable
+    //   (`/tmp/…`) ne contenait aucun de ces mots.
+    //   ⭐⭐⭐ *Une liste noire ne protège que de ce qu'on a déjà imaginé ; elle
+    //   s'oublie le jour où la source gagne un champ.* C'est la règle que
+    //   `dataset.mjs` applique déjà au rayon (« on n'ajoute que ce qu'on
+    //   NOMME »), et elle vaut ici pour la même raison.
+    const PERMIS = ['picMo', 'plafondMo', 'lignesLues', 'etapes', 'ecritLe'];
+    const enTrop = Object.keys(r).filter((k) => !PERMIS.includes(k));
+    dire(enTrop.length === 0,
+      '⑦ le rapport ne porte QUE les champs nommés',
+      enTrop.length ? `en trop : ${enTrop.join(', ')}` : PERMIS.join(', '));
+
+    const CHAMPS_ETAPE = ['nom', 'rss', 'tas', 'horsTas'];
+    const etapesSales = (r.etapes || []).filter(
+      (e) => Object.keys(e).some((k) => !CHAMPS_ETAPE.includes(k)));
+    dire(etapesSales.length === 0,
+      '⑦ ...et chaque étape non plus',
+      etapesSales.length ? JSON.stringify(etapesSales[0]) : CHAMPS_ETAPE.join(', '));
+
+    // ⭐ ET LES VALEURS SONT DES NOMBRES. Un champ permis qui porterait un
+    //   chemin passerait la liste blanche : on vérifie aussi la FORME.
+    const nonNombres = ['picMo', 'plafondMo', 'lignesLues']
+      .filter((k) => !Number.isFinite(r[k]));
+    dire(nonNombres.length === 0,
+      '⑦ ...et ce sont des nombres, pas des chaînes',
+      nonNombres.length ? nonNombres.join(', ') : 'picMo, plafondMo, lignesLues');
+  }
+
+  // ⭐ `/api/sante` doit VRAIMENT le lire — et lire à CHAQUE appel, pas au
+  //   chargement du module : un conteneur remplacé rendrait sinon la réponse
+  //   d'un build précédent.
+  const sante = readFileSync(join(ROOT, 'src/pages/api/sante.js'), 'utf8');
+  const sansCom = sante.split('\n').filter((l) => !l.trim().startsWith('//')).join('\n');
+  dire(/memoire: memoireDuBuild\(\)/.test(sansCom),
+    '⑦ `/api/sante` sert le rapport');
+  dire(/const memoireDuBuild = \(\) =>/.test(sansCom),
+    '⑦ ...et le lit à chaque appel (une fonction, pas une constante de module)');
+  dire(!/require\(/.test(sansCom),
+    '⑦ ...sans `require()` — ce fichier est un module ES',
+    'un `require` y lèverait À LA REQUÊTE, et le `catch` rendrait `memoire: null` pour toujours');
+
+  try { rmSync(dossier, { recursive: true, force: true }); } catch { /* rien */ }
+}
+
+console.log(echecs ? `\n❌ ${echecs} écart(s)\n` : '\n✅ la sonde mémoire est branchée, et son rapport sort du journal\n');
 process.exit(echecs ? 1 : 0);
