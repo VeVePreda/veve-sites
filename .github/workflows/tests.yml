@@ -266,8 +266,17 @@ jobs:
           #   desarme tout seul par le simple passage du temps, en continuant
           #   d'AFFICHER qu'il garde quelque chose. Le relever fait partie du
           #   lot qui ajoute un banc — jamais du lot suivant.
-          [ "$n" -ge 45 ] || {
-            echo "ERREUR: la chaine est tombee a $n bancs (plancher 45)."
+          # 🔴 LOT 171 — RELEVE DE 45 A 47 **DANS LE LOT QUI AJOUTE LES BANCS**,
+          #   et pas dans le suivant. Les quatre releves precedents (25->40->41
+          #   ->44->45) ont TOUS ete constates apres coup, avec un retard de 1 a
+          #   15 bancs : pendant tout ce temps, ce plancher affichait qu'il
+          #   gardait quelque chose et ne gardait rien.
+          #   Les deux ajouts : `test:offres` (la courbe des offres, point `v`)
+          #   et `test:memoire` (la sonde du build). MESURE, pas relu :
+          #      node -e "console.log(require('./package.json').scripts.test.split(' && ').length)"
+          #      → 47
+          [ "$n" -ge 47 ] || {
+            echo "ERREUR: la chaine est tombee a $n bancs (plancher 47)."
             echo "Un banc retire de \`npm test\` disparait SANS RIEN CASSER :"
             echo "ce plancher est la seule chose qui s'en plaigne."
             exit 1
