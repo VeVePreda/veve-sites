@@ -139,5 +139,86 @@ dire(/await memoire\.plafond\(\)/.test(code),
   dire(m.picMo() === 0, '⑤ la remise à zéro fonctionne (elle sert aux bancs)');
 }
 
-console.log(echecs ? `\n❌ ${echecs} écart(s)\n` : '\n✅ la sonde mémoire est branchée et n\'influence rien\n');
+// ═══════════════════════════════════════════════════════════════════════════
+// ⑥ LE BUDGET DE LOG — LOT 174. Sans lui, la sonde parle et personne n'entend.
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 CE QUI S'EST PASSÉ LE 21/08, SUR LE LOG COOLIFY DU COMMIT `273d4ff` :
+//   L'étape #39 (le build) s'arrête à **101 lignes**, sans même sa ligne
+//   `DONE` — alors que les étapes #32, #21 et #25 (36, 63 et 77 lignes) sont
+//   complètes. ⇒ **Coolify ne garde qu'une centaine de lignes par étape.**
+//   Sur ces 101 lignes : **62 de `veve:routes-compte`** (market/index.astro y
+//   figure 8 fois) et 10 avertissements `getStaticPaths`.
+//   ⇒ La PREMIÈRE ligne de la sonde est passée (`rss 320 Mo`). Les cinq
+//     suivantes, dont **« dataset pret — LE PRERENDER COMMENCE ICI »** qui porte
+//     le pic, tombaient au-delà de la centième.
+//
+// ⭐⭐⭐ *Un instrument dont la sortie n'atteint pas le lecteur n'est pas un
+// instrument.* Et le remède n'était pas dans l'instrument : il était chez le
+// bavard qui occupait la place.
+// ⛔ Ce contrôle appartient au banc de la SONDE, et pas à celui des routes :
+//   c'est la sonde qui paie quand le budget est mangé. Le jour où quelqu'un
+//   remettra un journal par passe, c'est ici que ça doit rougir.
+{
+  const mod = await import(new URL('../lib/astro_routes_compte.mjs', import.meta.url));
+  const plugin = mod.default('server');
+  const dit = [];
+  const logger = { info: (l) => dit.push(l) };
+
+  // Quatre passes sur les mêmes routes — c'est ce que fait Astro en vrai
+  // (mesuré : market/index.astro annoncé 8 fois sur un seul build).
+  // ⚠️ CES TROIS CHEMINS SONT LUS DANS `ROUTES_COMPTE`, PAS INVENTÉS.
+  //   Premier jet : j'avais écrit `pages/[locale]/compte/index.astro`, qui
+  //   N'Y EST PAS (la liste porte `pages/compte/index.astro`, sans locale).
+  //   Le plugin l'ignorait, le banc comptait 2 lignes au lieu de 3 et rougissait
+  //   pour une faute qui était la MIENNE. ⭐⭐ *Un banc qui fabrique sa matière
+  //   doit la fabriquer à partir de la source, jamais de mémoire.*
+  const routes = [
+    'pages/[locale]/market/index.astro',
+    'pages/compte/index.astro',
+    'pages/[locale]/favoris/index.astro',
+  ];
+  {
+    const liste = readFileSync(join(ROOT, 'engine/lib/astro_routes_compte.mjs'), 'utf8');
+    const absentes = routes.filter((r) => !liste.includes(`'${r}'`));
+    dire(absentes.length === 0,
+      '⑥ les routes de ce contrôle sont bien dans ROUTES_COMPTE',
+      absentes.length ? `inventée(s) : ${absentes.join(', ')}` : `${routes.length}/3`);
+  }
+  const vues = [];
+  mod._oublier();
+  for (let passe = 0; passe < 4; passe++) {
+    for (const c of routes) {
+      const route = { component: c };
+      plugin.hooks['astro:route:setup']({ route, logger });
+      vues.push(route.prerender);
+    }
+  }
+
+  dire(dit.length === routes.length,
+    '⑥ chaque route de compte ne se dit QU\'UNE fois',
+    `${dit.length} ligne(s) pour ${routes.length} route(s) sur 4 passes `
+    + `(avant le lot 174 : ${routes.length * 4})`);
+
+  // 🔴🔴 LE RÉGLAGE DOIT SURVIVRE AU DÉDOUBLONNAGE, ET C'EST LE VRAI RISQUE.
+  //   Si le `return` du dédoublonnage était posé AVANT `route.prerender`, les
+  //   passes 2 à 4 ne régleraient plus rien — et le journal, lui, continuerait
+  //   d'affirmer que si. ⭐⭐ *Une optimisation de journal qui emporte le
+  //   travail est indiscernable d'un journal honnête.*
+  dire(vues.length === 12 && vues.every((v) => v === false),
+    '⑥ ET le réglage `prerender` est appliqué à CHAQUE passe',
+    `${vues.filter((v) => v === false).length}/12 passes réglées`);
+
+  // ⭐ ON L'ÉPROUVE, ON NE VÉRIFIE PAS QU'ELLE EXISTE. Premier jet :
+  //   `typeof mod._oublier === 'function'` — j'ai vidé le corps de la fonction
+  //   et le contrôle est resté VERT. *Vérifier qu'une porte est là ne dit rien
+  //   de ce qu'elle ouvre.*
+  const avant = dit.length;
+  mod._oublier();
+  plugin.hooks['astro:route:setup']({ route: { component: routes[0] }, logger });
+  dire(dit.length === avant + 1,
+    '⑥ le dédoublonnage se remet VRAIMENT à zéro (réservé aux bancs)',
+    `${dit.length - avant} ligne(s) après remise à zéro — attendu 1`);
+}
+
+console.log(echecs ? `\n❌ ${echecs} écart(s)\n` : '\n✅ la sonde mémoire est branchée, et sa sortie a la place d\'arriver\n');
 process.exit(echecs ? 1 : 0);

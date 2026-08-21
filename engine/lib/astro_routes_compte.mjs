@@ -202,6 +202,42 @@ const ROUTES_COMPTE = [
 
 const normalise = (p) => String(p || '').replace(/\\/g, '/');
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 LOT 174 — CE JOURNAL MANGEAIT LE BUDGET DE LOG DU BUILD ENTIER
+// ═══════════════════════════════════════════════════════════════════════════
+// `astro:route:setup` est appelé UNE FOIS PAR ROUTE **ET PAR PASSE** de build.
+// Mesuré sur le déploiement du 21/08 (`273d4ff`, log Coolify téléchargé) :
+//
+//     étape #39 (le build)  →  **101 lignes conservées**, puis plus rien
+//       · 62 lignes de `veve:routes-compte`  (market/index.astro : **8 fois**)
+//       · 10 avertissements `getStaticPaths()`
+//       ·  5 lignes de préambule Astro
+//       ⇒ **77 lignes sur 101 avant que le build ne dise quoi que ce soit.**
+//
+// Les autres étapes du même log font 36, 63, 77 lignes — aucune n'atteint 100.
+// #39 est la seule à être coupée, et elle n'a même pas sa ligne `DONE`.
+// ⇒ **Coolify ne garde qu'une centaine de lignes par étape.**
+//
+// ⭐⭐⭐ CE QUE ÇA A COÛTÉ, LE JOUR MÊME : la sonde mémoire du lot 171 a bien
+// tourné — sa PREMIÈRE ligne est dans le log (`rss 320 Mo`) — mais les cinq
+// suivantes, dont **« dataset pret — LE PRERENDER COMMENCE ICI »** qui porte le
+// pic, tombaient au-delà de la centième ligne. **L'instrument fonctionnait et
+// son résultat n'atteignait pas le lecteur.** Trois builds morts en quatre
+// jours attendent précisément ce chiffre.
+// ⭐⭐ *Un instrument dont la sortie n'arrive pas au lecteur n'est pas un
+// instrument.* Et le remède n'est pas dans l'instrument : il est chez le
+// bavard qui occupe la place.
+//
+// ⛔ ON NE SUPPRIME PAS CE JOURNAL. Il dit quelle route est rendue à la demande
+//    — c'est la seule trace du réglage qui décide si le middleware de session
+//    s'exécute, et le lot 128 s'est payé de ne pas l'avoir. On le DÉDOUBLONNE :
+//    chaque route se dit UNE fois, à sa première passe. 62 → 19 lignes.
+// ⚠️ Le `Set` vit à la portée du module, donc pour tout le processus de build.
+//    Deux builds successifs dans le MÊME processus (jamais vu ici) verraient le
+//    second se taire. C'est assumé, et c'est écrit.
+
+const DEJA_DIT = new Set();
+
 export default function routesCompte(mode) {
   const serveur = mode === 'server';
   return {
@@ -215,7 +251,13 @@ export default function routesCompte(mode) {
         // Les pré-générer plutôt que les supprimer garde le build vert sans
         // adaptateur, et `access.tiers: [visitor]` les fait déjà disparaître
         // de la navigation de vevewiki.
+        // 🔴🔴 CETTE LIGNE EST LE TRAVAIL — elle reste AVANT le dédoublonnage.
+        //    L'inverser mettrait le réglage sous condition du journal : les
+        //    passes suivantes ne pré-rendraient plus rien, et le journal, lui,
+        //    continuerait d'affirmer que si.
         route.prerender = !serveur;
+        if (DEJA_DIT.has(c)) return;
+        DEJA_DIT.add(c);
         logger.info(`${c.split('/').slice(-2).join('/')} : `
           + (serveur ? 'à la demande (le middleware de session s\'exécute)'
                      : 'pré-générée (mode static, aucune session possible)'));
@@ -223,3 +265,7 @@ export default function routesCompte(mode) {
     },
   };
 }
+
+/** Remet le dédoublonnage à zéro. ⛔ Réservé aux bancs — le build n'appelle
+ *  jamais ça, et un appel en cours de build ferait réapparaître les 62 lignes. */
+export function _oublier() { DEJA_DIT.clear(); }

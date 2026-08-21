@@ -310,3 +310,33 @@ export const VARY_TOLERES = ['accept-encoding'];
 //   SHA. ⭐ INCONNU ≠ ZÉRO — sur ce point le banc rend INDÉCIDABLE, jamais vert.
 export const SONDE = '/api/sante';
 export const META_BUILD = 'build-time'; // <meta name="build-time"> du gabarit
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 LOT 174 — LE VERDICT DE FRAÎCHEUR, SORTI DU BANC POUR ÊTRE ÉPROUVÉ
+// ═══════════════════════════════════════════════════════════════════════════
+// Cette règle vivait en ligne dans `test_cache.mjs`, au milieu d'une boucle qui
+// interroge le réseau. Elle n'était donc éprouvable QUE si la production se
+// trouvait justement dans l'état qu'on veut juger — c'est-à-dire jamais quand
+// on en a besoin. ⭐⭐ *Une décision enfermée dans une boucle réseau ne se juge
+// que par accident.* Ici elle est PURE : trois entrées, un verdict, zéro appel.
+//
+// LES TROIS VERDICTS
+//   'conforme'    — l'écart tient dans la tolérance.
+//   'trop-recent' — l'écart dépasse, MAIS la sonde est plus récente que la page
+//                   ET le conteneur a moins que le TTL. Le bord a le DROIT de
+//                   servir une page vieille : Cloudflare ne l'a pas encore
+//                   ré-interrogée. ⇒ INDÉCIDABLE. ⛔ Pas un vert.
+//   'ecart'       — tout le reste. C'est la fuite du 11/08 (deux versions en
+//                   parallèle pendant des heures), et elle reste attrapée.
+//
+// ⛔ LA GARDE NE VAUT QUE DANS UN SENS : si c'est la PAGE qui est plus récente
+//   que la sonde, l'âge du conteneur n'explique rien, et on juge.
+export function jugerFraicheur({ tSonde, tPage, maintenant = Date.now(),
+                                 tolerance = RETARD_TOLERE_S, ttl = TTL_EDGE_S }) {
+  const ecart = Math.round(Math.abs(tSonde - tPage) / 1000);
+  const ageSonde = Math.round((maintenant - tSonde) / 1000);
+  if (ecart <= tolerance) return { verdict: 'conforme', ecart, ageSonde };
+  if (tSonde > tPage && ageSonde < ttl) return { verdict: 'trop-recent', ecart, ageSonde };
+  return { verdict: 'ecart', ecart, ageSonde };
+}

@@ -40,7 +40,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import {
   ZONES, PASSAGES, PAUSE_MS, DELAI_MS, METHODE,
-  CACHE_RULE_POSEE, TTL_EDGE_S, ECHELLE_TTL, RETARD_TOLERE_S,
+  CACHE_RULE_POSEE, TTL_EDGE_S, ECHELLE_TTL, RETARD_TOLERE_S, jugerFraicheur,
   PRIVEES, ZONE_MEMBRE, ABSENTES_HORS_MEMBRE, FAMILLES_COMPTE,
   PUBLIQUES_PAR_ZONE, VARY_TOLERES, SONDE, META_BUILD,
 } from '../lib/cache_attendu.mjs';
@@ -89,6 +89,65 @@ if (BASE_TEST) console.log(`    ⚠️  MODE CONTRE-ÉPREUVE — tout est détou
 // demande au banc d'exiger a encore un sens. Une déclaration qui s'est dégradée
 // — une route privée retirée « parce qu'elle faisait rougir », un TTL improvisé
 // — rendrait tous les autres § verts en ne prouvant plus rien.
+// ═══════════════════════════════════════════════════════════════════════════
+// 0. LE VERDICT DE FRAÎCHEUR SE JUGE LUI-MÊME (aucun appel réseau) — lot 174
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐⭐⭐ La garde « déploiement trop récent » n'est empruntée en vrai que
+// pendant les quelques minutes d'un déploiement. Elle serait donc **jamais
+// éprouvée** — et une garde jamais éprouvée est une garde dont on ne sait pas
+// si elle laisse passer la vraie panne. On FABRIQUE donc les quatre situations.
+// ⛔ Ce § tourne AVANT tout appel réseau : il reste vert même hors ligne.
+console.log('\n0. le verdict de fraîcheur (auto-contrôle, hors réseau)');
+{
+  const T = (s) => Date.parse(s);
+  const MAINTENANT = T('2026-08-21T08:00:00Z');
+  const cas = (sonde, page) => jugerFraicheur({
+    tSonde: T(sonde), tPage: T(page), maintenant: MAINTENANT,
+  }).verdict;
+
+  verifie('§0 un écart d\'une minute est conforme',
+    cas('2026-08-21T07:59:00Z', '2026-08-21T07:58:00Z') === 'conforme',
+    'le cas de tous les jours');
+
+  // 📏 LE CAS RÉEL DU 21/08 : conteneur démarré à 07:30, page en cache de 04:40.
+  verifie('§0 un déploiement de 30 min avec une page en cache : TROP RÉCENT',
+    cas('2026-08-21T07:30:00Z', '2026-08-21T04:40:00Z') === 'trop-recent',
+    'écart 10 200 s — c\'est l\'âge du déploiement précédent, pas une panne');
+
+  // 🔴 ET LA VRAIE PANNE RESTE ATTRAPÉE — c'est ce qui rend la garde acceptable.
+  verifie('§0 un conteneur de 6 h avec une page de 12 h : ÉCART',
+    cas('2026-08-21T02:00:00Z', '2026-08-20T20:00:00Z') === 'ecart',
+    'passé le TTL, une page toujours vieille EST la fuite du 11/08');
+
+  // ⛔ LA GARDE NE VAUT QUE DANS UN SENS — ET CE TERME EST UNE CEINTURE,
+  //    PAS UNE POUTRE. J'ai fait l'arithmétique après avoir vu l'injection
+  //    passer au vert :
+  //      pour que la page soit PLUS RÉCENTE que la sonde de plus de la
+  //      tolérance (7 800 s) alors que la page ne peut pas dépasser
+  //      « maintenant », il faut  sonde < maintenant − 7 800  — donc un
+  //      conteneur de plus de 7 800 s, donc PLUS VIEUX que le TTL (7 200 s).
+  //      La garde d'âge a déjà tranché : **le terme de sens est inatteignable**
+  //      tant que l'horloge de la page est saine.
+  //    ⭐⭐⭐ *Un contrôle dont deux conditions suffisent chacune ne prouve ni
+  //    l'une ni l'autre* — et c'est ce que l'injection a montré.
+  //    ⇒ On le GARDE quand même, parce qu'il attrape le seul cas où l'horloge
+  //      ne l'est pas : une page qui annonce un build **futur** (dérive
+  //      d'horloge, ou retour arrière après un déploiement plus récent). Et on
+  //      l'éprouve avec ce cas-là, le seul qui l'atteigne.
+  verifie('§0 une page au build FUTUR : ÉCART, malgré un conteneur jeune',
+    cas('2026-08-21T07:50:00Z', '2026-08-21T10:30:00Z') === 'ecart',
+    'conteneur de 600 s, page datée dans le futur — seul le terme de SENS tranche ici');
+
+  // ⭐ LA FRONTIÈRE, AU SECONDE PRÈS. Sans elle, un lot suivant peut déplacer
+  //   le seuil d'un cran sans que rien ne bouge.
+  const auTtl = jugerFraicheur({
+    tSonde: T('2026-08-21T08:00:00Z') - TTL_EDGE_S * 1000,
+    tPage: T('2026-08-20T00:00:00Z'), maintenant: MAINTENANT,
+  }).verdict;
+  verifie('§0 à l\'âge EXACT du TTL, la garde ne protège plus',
+    auTtl === 'ecart', `TTL = ${TTL_EDGE_S} s — la borne est stricte`);
+}
+
 console.log('\n1. la déclaration est-elle saine ? (aucun appel réseau)');
 
 verifie('les DEUX zones sont déclarées', ZONES.length === 2,
@@ -655,7 +714,29 @@ for (const zone of ZONES) {
     continue;
   }
 
-  const ecart = Math.round(Math.abs(tSonde - tPage) / 1000);
+  // 🔴🔴🔴 LOT 174 — UN DÉPLOIEMENT EN COURS N'EST PAS UNE FUITE DE CACHE.
+  // Ce banc tourne dans le MÊME workflow que le push qui déclenche Coolify : il
+  // frappe le bord PENDANT le déploiement. La sonde répond alors depuis le
+  // conteneur NEUF pendant que l'accueil vient encore du cache (TTL 7200 s) —
+  // l'écart mesuré vaut l'âge du déploiement PRÉCÉDENT, pas une panne.
+  // 📏 Mesuré le 21/08, run 32454054159 : « écart 10350 s » sur vevewiki.com,
+  //   conteneurs démarrés à 06:22:59. Rejoué à 08:45 : **écart 64 s et 78 s**.
+  //   Rien n'était cassé. 4ᵉ rouge de ce genre (15 sur 63 runs, 24 %).
+  // 🔑 La règle vit dans `cache_attendu.mjs` — PURE, donc éprouvée au § 0
+  //   ci-dessus, sans réseau. ⭐⭐ *Un banc en course avec son sujet ne doit pas
+  //   trancher : il doit dire qu'il est arrivé trop tôt.*
+  const f = jugerFraicheur({ tSonde, tPage });
+  const ecart = f.ecart;
+  if (f.verdict === 'trop-recent') {
+    indecis(`${zone.nom} · fraîcheur`,
+      `déploiement TROP RÉCENT pour juger le bord : le conteneur a ${f.ageSonde} s `
+      + `(TTL ${TTL_EDGE_S} s). La page servie (${m[1]}) vient encore du cache, `
+      + `ce qui est son droit — Cloudflare ne l'a pas encore ré-interrogée.\n`
+      + `       ⇒ écart ${ecart} s NON JUGÉ. Rejouer plus tard, ou purger le `
+      + `cache. ⛔ Ce n'est PAS un vert : rien n'a été prouvé.`);
+    continue;
+  }
+
   verifie(`${zone.nom} — la page servie et la sonde parlent du même build`,
     ecart <= RETARD_TOLERE_S,
     ecart <= RETARD_TOLERE_S
