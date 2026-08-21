@@ -2383,7 +2383,8 @@ body > main{ background:var(--bg); }
 /* ⛔ Aucun style d'« état vide » : le composant NE REND RIEN quand il n'a rien.
    Un cadre vide ressemble à une panne, et VeVe n'annonce qu'à quelques jours. */
 .avenir{ margin:var(--s5) 0; }
-.avenir__l{ list-style:none; margin:var(--s3) 0 0; padding:0; display:flex; flex-wrap:wrap; gap:var(--s2); }
+.avenir__l{ list-style:none; margin:var(--s4) 0 0; padding:0; display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(min(100%,320px),1fr)); gap:var(--s3); }
 /* 🔴 LOT 132 — LES CARTES « À VENIR » DEVIENNENT DES LIENS (celles qui ont une
    fiche). Preda, 10/08 : « améliore l'aspect des cartes À venir, elles devraient
    aussi mener à des fiches ».
@@ -2407,14 +2408,61 @@ body > main{ background:var(--bg); }
 .avenir__c--lien{ cursor:pointer; transition:border-color var(--d-fast), transform var(--d-base) var(--e-out); }
 .avenir__c--lien:hover{ border-color:var(--sect-a); transform:translateY(-1px); text-decoration:none; }
 .avenir__c--lien:focus-visible{ outline:var(--foc-proche) solid var(--sect-pur); outline-offset:2px; }
-.avenir__c{ display:flex; align-items:center; gap:10px; padding:9px 13px;
-  background:var(--surface-2); border:1px solid var(--rule-2); border-radius:var(--r-full);
+/* ═══════════════════════════════════════════════════════════════════════════
+   🔴 LOT 158 — LA PILULE DEVIENT UNE BANDE (demande Preda, 21/08 : « les
+   cartes dans À venir présentées d'une plus belle façon », variante D validée
+   sur maquette).
+   ⭐⭐ ET LE RAYON EN PILULE ÉTAIT UN DÉFAUT DE GRAMMAIRE, PAS DE GOÛT. La
+   règle de la maison est écrite vingt lignes sous `--r-full` : *ce qui
+   CONTIENT est carré, ce qu'on CLIQUE est rond.* Cette carte CONTIENT — et
+   elle ne se clique même pas la plupart du temps : mesuré le 21/08 sur la
+   production, **0 des 3 drops annoncés a une fiche**, donc zéro carte
+   cliquable. Un contenant dessiné en bouton promettait un clic qui n'existe
+   pas. ⇒ `--r-lg`, comme tout ce qui contient.
+   ⭐ LE VISUEL PASSE DE 34 px À 76 × 104. Une couverture de comic réduite à
+   une pastille ronde de 34 px ne montre rien : c'est le seul élément de la
+   carte qui donne envie, il était le plus petit. Le format suit celui du
+   catalogue (2:3), en plus court.
+   ⛔ LE FILET CYAN EST À GAUCHE, PAS UN APLAT. Le lot 132 avait déjà tranché
+   la question voisine et son argument tient ici : une carte qui se colore au
+   repos laisse croire que ses voisines sont désactivées. Le filet marque la
+   section, pas un état — il est posé sur les TROIS cartes, pas sur certaines.
+   ⛔ ET LA GRILLE REMPLACE LE `flex-wrap`. Une rangée de pilules se répartit
+   au petit bonheur des longueurs de titre ; `auto-fill` donne des colonnes de
+   largeur égale et une seule colonne sous 320 px. `min()` dans le `minmax`
+   évite le débordement horizontal sur un téléphone de 360 px — un `minmax`
+   nu à 320 px déborde dès que la page a du padding. */
+.avenir__c{ display:flex; gap:var(--s3); min-width:0; overflow:hidden;
+  background:var(--surface-2); border:1px solid var(--rule-2);
+  border-left:3px solid var(--sect-a); border-radius:var(--r-lg);
   font-size:var(--t-sm); color:var(--text-2); }
+/* ⭐ `align-self:stretch` sans `height` : les cartes d'une même rangée sont
+   étirées à la plus haute par la grille, et l'image suit au lieu de laisser
+   une bande morte sous elle. `min-height` fixe le plancher quand la carte est
+   seule sur sa rangée. */
+.avenir__b{ display:flex; flex-direction:column; gap:5px; min-width:0; flex:1;
+  padding:var(--s3) var(--s3) var(--s3) 0; }
+/* ⛔ Un drop sans couverture ne réserve pas la place de l'image (règle du lot
+   118), mais son texte ne doit pas coller au filet : le padding gauche revient
+   quand le bloc est le premier enfant. */
+.avenir__c > .avenir__b:first-child{ padding-left:var(--s3); }
 .avenir__j{ font-family:var(--tech); font-size:var(--t-xs); letter-spacing:var(--ls-etiq);
   text-transform:uppercase; color:var(--sect-a); }
-.avenir__n{ font-weight:600; color:var(--text); }
-.avenir__s{ color:var(--muted); font-size:var(--t-xs); }
-.avenir__r{ font-family:var(--tech); font-size:var(--t-2xs); color:var(--muted); }
+.avenir__n{ font-family:var(--geo); font-size:var(--t-md); font-weight:700;
+  line-height:1.3; color:var(--text); overflow-wrap:anywhere; }
+/* ⭐ `margin-top:auto` pousse les compteurs en bas de la carte : deux cartes
+   côte à côte alignent leurs pastilles même quand l'une a un titre sur deux
+   lignes et l'autre sur une. ⛔ `:empty` — un drop d'une seule pièce et d'une
+   seule rareté n'émet aucun compteur, et un conteneur vide laisserait un
+   `gap` de 5 px qui décale le titre sans rien afficher — et c'est `AVenir.astro`
+   qui s'en charge, en n'ÉMETTANT pas le conteneur. ⛔ Pas de `:empty` ici : il
+   n'aurait jamais mordu, Astro laisse les blancs de l'indentation à
+   l'intérieur et `:empty` refuse un nœud de texte, fût-il fait d'espaces. */
+.avenir__m{ margin-top:auto; display:flex; flex-wrap:wrap; gap:6px; padding-top:2px; }
+.avenir__s, .avenir__r{ font-family:var(--tech); font-size:var(--t-2xs);
+  letter-spacing:var(--ls-etiq); text-transform:uppercase; border-radius:var(--r-sm);
+  padding:3px 7px; background:var(--surface-3); color:var(--text-2); }
+.avenir__s{ background:var(--sect-1v); color:var(--sect-a); }
 
 /* ── L'ORIENTATION ───────────────────────────────────────────────────────── */
 .orient{ margin:var(--s6) 0; }
@@ -2538,11 +2586,14 @@ body > main{ background:var(--bg); }
    thèmes — des éléments nus depuis le lot 118. Elles disparaissent avec lui.
    Le contrat vaut dans les deux sens ; ce lot paie les deux. */
 
-.avenir__v{ display:block; width:34px; height:34px; flex:0 0 34px; object-fit:cover;
-  border-radius:var(--r-sm); background:var(--nuit); }
-/* ⭐ `flex:0 0 34px` : `.avenir__c` est un conteneur flex, et une image sans
+.avenir__v{ display:block; width:76px; flex:0 0 76px; min-height:104px;
+  align-self:stretch; object-fit:cover; }
+/* ⭐ `flex:0 0 76px` : `.avenir__c` est un conteneur flex, et une image sans
    base fixe s'y écrase ou s'y étire selon le voisinage. `width` seul ne suffit
-   pas dans un flex — c'est `flex-basis` qui décide. */
+   pas dans un flex — c'est `flex-basis` qui décide.
+   ⚠️ LOT 158 — ce commentaire disait « 34px » APRÈS que la règle soit passée à
+   76 : un commentaire qui garde l'ancien chiffre se cite plus tard comme une
+   mesure. Il se corrige dans le même geste que la règle, jamais après. */
 
 /* ═══════════════════════════════════════════════════════════════════════════
    🔴🔴 LOT 118 — LE MENU DEVIENT UN TIROIR, ET LE BOUTON SE TAIT QUAND LA

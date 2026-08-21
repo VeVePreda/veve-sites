@@ -46,10 +46,20 @@ import { nu } from './i18n.mjs';
 // un titre, pas un sous-titre. ⇒ 30. Arbitrage Preda du 11/08.
 // ⛔ Ces trois nombres ne se recopient nulle part ailleurs : `test:rayon` §④
 // les IMPORTE d'ici. Un seuil déclaré deux fois diverge au premier lot.
+// ⭐ LOT 158 — `avenir` EST UN AJOUT, PAS UNE RETOUCHE. Aucun des trois
+// budgets ci-dessus ne bouge : `test:affichage` les importe et les mesure sur
+// `dist/`, un seul chiffre déplacé ferait rougir un banc qui n'a rien à voir
+// avec ce lot. ⭐⭐ 46 n'est pas un chiffre rond : la carte « à venir » passe
+// d'une pilule d'une ligne à une bande de 104 px dont le bloc de texte fait
+// ~220 px de large, soit ~28 caractères par ligne sur deux lignes. 46 tient
+// dans deux lignes avec sa marge, 56 déborderait. ⛔ Le budget suit la BOÎTE
+// qui l'accueille — il se recalcule si la carte change de forme, il ne
+// s'hérite pas d'une autre carte.
 export const BUDGETS = {
   item: 20,   // le nom d'une pièce, sur une tuile comme sur une ligne
   serie: 13,  // le nom de série, toujours en sous-titre
   set: 30,    // le titre d'une carte de set — seul contenu de la carte
+  avenir: 46, // le titre d'un drop annoncé — deux lignes dans la bande
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -90,6 +100,7 @@ export function coupe(texte, budget) {
 export const nomItem = (s) => coupe(s, BUDGETS.item);
 export const nomSerie = (s) => coupe(s, BUDGETS.serie);
 export const nomSet = (s) => coupe(s, BUDGETS.set);
+export const nomAvenir = (s) => coupe(s, BUDGETS.avenir);
 
 // ═══════════════════════════════════════════════════════════════════════════
 // LA PILE D'UNE CARTE DE SET — DÉCLARÉE ICI PARCE QUE DEUX FABRIQUES LA LISENT
