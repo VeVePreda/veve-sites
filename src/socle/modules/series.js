@@ -97,15 +97,36 @@
     puceFaite[axe] = true;
     return true;
   }
-  // 🔴 LOT 115b — la recherche DANS la liste des marques.
+  // 🔴 LOT 115b — LA RECHERCHE DANS UNE LISTE DE PUCES.
+  //  🆕 LOT 170 — ELLE SERT MAINTENANT DEUX PANNEAUX : marque ET licence.
+  //
   // ⭐ Elle ne touche ni aux cases cochées ni à la grille : elle masque des
   //   étiquettes, rien de plus. `hidden` et pas une classe — une étiquette
   //   masquée doit sortir de l'ordre de tabulation, sinon on tabule dans
   //   quarante cases invisibles.
-  (function () {
-    var q = document.getElementById('s-bq');
-    var hote = document.getElementById('s-brands');
-    var vide = document.getElementById('s-bq-vide');
+  //
+  // 🔴 CE QUE LE LOT 170 RETIRE, ET POURQUOI ON L'ÉCRIT PLUTÔT QUE DE
+  //   L'EFFACER. Le lot 133 posait ici, en toutes lettres, une décision
+  //   contraire : « LE PANNEAU LICENCE N'A PAS DE CHAMP DE RECHERCHE, ET C'EST
+  //   UNE DÉCISION MESURÉE : 96 licences tiennent à l'écran, 1 492 marques
+  //   non. » ⭐ Sa prémisse a été REMESURÉE le 21/08 sur
+  //   `/rayon-index/sets.json` en production : **93 licences, 1 130 marques**.
+  //   Le chiffre tenait encore — ce n'est donc pas lui qui a périmé l'argument.
+  //   Ce qui l'a périmé, c'est le point `e` de la liste de Preda, écrit APRÈS,
+  //   et un détail que le lot 133 n'avait pas pesé : les puces licence sont
+  //   triées par NOMBRE DE SETS décroissant, pas alphabétiquement. Une liste
+  //   de 93 noms qu'on ne peut pas parcourir dans l'ordre ne « tient » pas à
+  //   l'œil, même si elle tient à l'écran.
+  //   ⇒ *Un argument de conception juste ne survit pas à l'usage qu'il n'avait
+  //   pas prévu, et « mesuré » ne veut pas dire « définitif ».*
+  //
+  // ⭐⭐ COÛT : ZÉRO NŒUD DE PLUS. `remplirPuces()` pose déjà `data-b` sur les
+  //   puces des DEUX axes, en casse basse. Le pilote est donc le même, appelé
+  //   une seconde fois — pas un second pilote à maintenir.
+  function chercheDansPuces(idChamp, idHote, idVide) {
+    var q = document.getElementById(idChamp);
+    var hote = document.getElementById(idHote);
+    var vide = document.getElementById(idVide);
     if (!q || !hote) return;
     // LOT 143 - la liste se relit, elle ne se capture plus au chargement :
     // les etiquettes n'existent qu'apres la premiere ouverture du panneau.
@@ -121,14 +142,11 @@
       });
       if (vide) vide.hidden = n > 0;
     });
-  })();
-  // 🆕 LOT 133 — LE PANNEAU LICENCE N'A PAS DE CHAMP DE RECHERCHE, ET C'EST
-  // UNE DÉCISION MESURÉE : 96 licences tiennent à l'écran, 1 492 marques
-  // non. ⛔ Ajouter un champ « par symétrie » aurait posé un contrôle que
-  // personne n'utilise sur une liste qu'on parcourt à l'œil — et il aurait
-  // fallu le maintenir. *Deux listes de nature différente n'ont pas droit
-  // au même habillage sous prétexte qu'elles se ressemblent.*
-  var G = document.getElementById('s-grille');
+  }
+  chercheDansPuces('s-bq', 's-brands', 's-bq-vide');
+  chercheDansPuces('s-lq', 's-lics', 's-lq-vide');
+
+var G = document.getElementById('s-grille');
   var C = [].slice.call(G.querySelectorAll('.col-carte'));
   var cpt = document.getElementById('s-cpt'), vide = document.getElementById('s-vide');
   var corpus = '';

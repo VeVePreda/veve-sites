@@ -274,7 +274,31 @@ const PAR_TRANCHE = 60;
             La construction lit LA CARTE, jamais le nom du set - c'est la meme
             source que garde() plus bas, donc les deux ne peuvent pas diverger.
             Le compteur se compte, il ne se recopie pas. */}
+        {/* 🆕 LOT 170 — POINT `e` DE LA LISTE DE PREDA : UNE ZONE DE
+            RECHERCHE DANS LE FILTRE LICENCE.
+            🔴 LE COMMENTAIRE DU LOT 133 DISAIT L'INVERSE — « 96 licences
+            tiennent à l'écran, 1 492 marques non » — et il faut écrire pourquoi
+            on le retire plutôt que de le supprimer en silence.
+            ⭐ SA PRÉMISSE A ÉTÉ REMESURÉE LE 21/08 sur `/rayon-index/sets.json`
+            en production : **93 licences** pour 1 130 marques. Le chiffre tient
+            donc encore. Ce qui a changé, c'est que Preda a demandé le champ
+            APRÈS (point `e`), et 93 puces triées par nombre de sets décroissant
+            ne se parcourent pas à l'œil quand on cherche un nom précis : elles
+            ne sont pas dans l'ordre alphabétique.
+            ⇒ *Un argument de conception juste ne survit pas à l'usage qu'il
+            n'avait pas prévu.*
+            ⭐⭐ COÛT RÉEL : ZÉRO NŒUD DE PLUS DANS LA LISTE. Les puces licence
+            portent DÉJÀ `data-b` (posé par `remplirPuces()`, même attribut que
+            les marques) — c'est le même pilote, appelé une seconde fois.
+            ⛔ MÊMES GARDES QUE `#s-bq`, et pour les mêmes raisons : `name`
+            absent et `form` absent, donc le champ ne part pas avec le
+            formulaire et le bouton `reset` ne le vide pas ; il masque des
+            étiquettes, il ne touche ni aux cases cochées ni à la grille. */}
+        <label class="sr-only" for="s-lq">{t(lang, 'sets.licenceSearch')}</label>
+        <input type="search" id="s-lq" class="champ-f" autocomplete="off"
+               placeholder={t(lang, 'sets.licenceSearch')} />
         <div class="cols-l" id="s-lics" data-puces="lic"></div>
+        <p class="etiq" id="s-lq-vide" hidden>{t(lang, 'sets.licenceNone')}</p>
       </div>
     )}
 

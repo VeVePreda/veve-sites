@@ -71,6 +71,46 @@ function estComic(kind) {
 }
 export const typeDe = (c) => (estComic(c.kind) ? 'comic' : 'collectible');
 
+// ═══════════════════════════════════════════════════════════════════════════
+//  🔴🔴 LOT 170 — POINT `b` DE LA LISTE DE PREDA : « À VENIR = LES SÉRIES,
+//  PAS LES ITEMS ». LA CAUSE EST DANS LA DONNÉE, PAS DANS LE GABARIT.
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// 🔴 MA NOTE DISAIT « chez un comic, `series` porte le numéro à 100 % ». ELLE
+// ÉTAIT FAUSSE, et la vieille mesure qui la portait mesurait sa PROPRE
+// fabrique : elle comptait les noms de SETS, que `cleSet()` construit en
+// AJOUTANT ` #<edition_type>`. Elle ne disait rien de la colonne `series`.
+//
+// ⭐ MESURE DU 21/08 SUR LA PRODUCTION, sur `/rayon-index/comics.json` — donc
+// sur `rayonDe().series`, la colonne brute du catalogue, sans transformation :
+//     comics       : 16 902 lignes · 1 264 séries · 104 séries polluées
+//                    = 154 lignes (0,91 %)  ⇒ 1 264 séries deviennent 1 180
+//     collectibles :  2 748 lignes ·   926 séries ·  94 séries de même FORME
+//
+// 🔴🔴 ET C'EST POURQUOI CE NETTOYAGE EST RÉSERVÉ AUX COMICS. Sur les 104
+// séries de comics, 44 fusionnent avec une série NUE déjà présente au
+// catalogue (« Avengers Vs X-Men Vol. 1 #8 (2012) » ET « Avengers Vs X-Men
+// Vol. 1 » coexistent) : la preuve que c'est de la pollution. Sur les
+// collectibles, ZÉRO ne fusionne — « Adam Kubert - Wolverine #107 », « DJ Big
+// Bot - Record #1 » sont des noms de série LÉGITIMES. Y appliquer la même
+// règle détruirait 94 séries sans rien réparer.
+// ⇒ *La même forme de chaîne ne veut pas dire la même chose dans deux corpus.*
+//
+// ⭐ ANCRÉ EN FIN DE CHAÎNE, et c'est ce qui protège les cas mesurés où le
+// dièse est au MILIEU : « Spidey And His Amazing Friends #1 Halloween
+// Trick-Or-Read 2025 » ne bouge pas. `#\d*` avec une étoile, parce que le
+// catalogue porte aussi « DuckTales # (2024) » et « Gargoyles Vol. 1 # (2025) »
+// — un dièse sans numéro, que `#\d+` aurait laissé passer.
+// ⛔ FILET : si la coupe rend une chaîne vide, on garde l'original. Une série
+// nommée « #1 » perdrait sinon son nom, et un groupe sans nom absorberait tout.
+const SUFFIXE_NUMERO = /\s+#\d*[A-Za-z]?\s*(?:\(\d{4}\))?\s*$/;
+export function serieNue(series) {
+  const v = String(series || '').trim();
+  if (!v) return '';
+  const nu = v.replace(SUFFIXE_NUMERO, '').trim();
+  return nu || v;
+}
+
 // Chez les comics, le nom recopie tres souvent la serie
 // (« Return of the Jedi #1: Poster Series - Alex Ross Main Cover »). Comme la
 // serie est DEJA un segment de l'adresse, la repeter donnerait
@@ -1208,7 +1248,18 @@ async function construireDataset() {
     name: c.name || '',
     rarity: c.rarity || '',
     edition_type: c.edition_type || '',
-    series: c.series || '',
+    // 🔴 LOT 170 — POINT `b`. La série entre NUE pour les comics, brute pour
+    //   les collectibles. Voir `serieNue()` en tête de fichier : la mesure, la
+    //   raison de la limiter aux comics, et ce que coûterait de l'élargir.
+    //   ⭐ ICI ET PAS DANS `aVenir` : la même colonne sert le groupement des
+    //   drops, la barre de filtres de `/comics/` et l'index de rayon. Corriger
+    //   dans `aVenir` seul aurait laissé le filtre par série montrer
+    //   « Aladdin #1 (2026) » et « Aladdin #2 (2026) » comme deux séries.
+    //   ⛔ ET SEULEMENT ICI : `items` (l. ~397) nourrit les ADRESSES des fiches
+    //   via `sansPrefixeSerie()`. Y toucher renommerait des URL en production
+    //   pour réparer 0,9 % des lignes. Le rayon, lui, ne fabrique aucune
+    //   adresse : son `path` vient de `publiesParUuid`, jamais de la série.
+    series: estComic(c.kind) ? serieNue(c.series) : (c.series || ''),
     brand: c.brand || '',
     // 🏷️ LOT 155 — LA LICENCE ENTRE DANS LA LISTE BLANCHE, ET C'ÉTAIT LA CAUSE
     //   D'UN FILTRE QU'ON CROYAIT IMPOSSIBLE. Preda demande une barre de filtres

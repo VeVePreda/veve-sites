@@ -41,7 +41,7 @@ const verifie = (titre, ok, detail = '') => {
 };
 const indecis = (titre, pourquoi) => console.log(`  ⏸️   ${titre} — INDÉCIDABLE : ${pourquoi}`);
 const fin = () => {
-  console.log('\n5. auto-contrôle');
+  console.log('\n7. auto-contrôle');
   if (lus < 5) { console.log(`  🔴 ce banc n'a inspecté que ${lus} élément(s) : il ne prouve rien.`); process.exit(2); }
   console.log(`  OK   ${lus} élément(s) inspecté(s)`);
   console.log(echecs ? `\n❌ ${echecs} echec(s)` : '\n✅ tout est vert');
@@ -693,5 +693,133 @@ for (let i = 1; i < noeuds.length; i++) {
 verifie('à licence égale, les sets restent triés par taille décroissante',
   stable, stable ? 'le tri a un second critère, il ne dépend pas de l\'ordre d\'avant' : '🔴 tri instable');
 lus += 2;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 5. 🆕 LOT 170 — POINT `e` : LA RECHERCHE DANS LE FILTRE LICENCE
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// ⭐⭐ CE QUE CE § SURVEILLE VRAIMENT, ET CE N'EST PAS « le champ est là ».
+// Le champ cherche `data-b` sur les puces. Les puces licence ne sont PAS
+// servies : `remplirPuces()` les construit à la première ouverture du panneau.
+// Le jour où ce constructeur change d'attribut, ou n'en pose plus que sur
+// l'axe « marque », le champ licence existera toujours, s'ouvrira toujours,
+// et ne trouvera PLUS JAMAIS RIEN — en répondant. C'est le profil de panne le
+// plus cher du projet : le contrôle ne casse pas, il ment.
+// ⇒ ON VÉRIFIE LA CHAÎNE ENTIÈRE : le champ servi, ses deux gardes, l'hôte
+//   qu'il interroge, et l'attribut que le constructeur pose sur CET axe-là.
+console.log('\n5. le filtre licence a-t-il une recherche, et cherche-t-elle où il faut ?');
+{
+  const conteneurLic = /id="s-lics"[^>]*data-puces="lic"/.test(sansScripts);
+  if (!conteneurLic) {
+    // ⛔ TROIS VERDICTS, ET CELUI-CI EST LE TROISIÈME. Sous deux licences le
+    //    panneau ne s'émet pas — le banc n'a rien mesuré, il le DIT.
+    indecis('la recherche du filtre licence',
+      `panneau licence non émis (${licPortees} licence(s) portée(s) par les cartes) — rien n'a été mesuré`);
+  } else {
+    const champ = sansScripts.match(/<input[^>]*id="s-lq"[^>]*>/);
+    verifie('le champ de recherche `#s-lq` est SERVI dans la page',
+      Boolean(champ), champ ? champ[0].slice(0, 90) : '🔴 point `e` non livré');
+    if (champ) {
+      // ⛔ LES DEUX GARDES DU LOT 115b, reprises telles quelles : sans `name`
+      //    le champ ne part pas avec le formulaire, et le bouton `reset` du
+      //    groupe ne le vide pas. Un `name` ici enverrait une recherche
+      //    d'affichage au filtre de la grille.
+      verifie('…sans `name` : il ne part pas avec le formulaire',
+        !/\sname=/.test(champ[0]), champ[0].slice(0, 90));
+      verifie('…sans `form` : le `reset` des cases ne l\'efface pas',
+        !/\sform=/.test(champ[0]), champ[0].slice(0, 90));
+      verifie('…en `type="search"` : la croix d\'effacement est celle du navigateur',
+        /type="search"/.test(champ[0]), champ[0].slice(0, 90));
+      lus += 4;
+    }
+    // ⭐ IL DOIT ÊTRE DANS LE PANNEAU LICENCE, pas ailleurs dans la page. Un
+    //   champ correct posé dans le mauvais panneau se lit comme un succès.
+    const panneau = sansScripts.match(/<div class="f-panneau" id="sp-licence"[\s\S]*?<\/div>\s*<\/div>/);
+    verifie('…et il est DANS `#sp-licence`, pas ailleurs dans la page',
+      Boolean(panneau) && /id="s-lq"/.test(panneau[0]),
+      panneau ? 'trouvé dans le panneau licence' : '🔴 panneau `#sp-licence` introuvable');
+    verifie('le message « aucune licence » `#s-lq-vide` est servi',
+      /id="s-lq-vide"/.test(sansScripts),
+      'sans lui, une recherche sans résultat rend une liste vide sans explication');
+    lus += 2;
+
+    // 🔴🔴 LE MAILLON QUI CASSE EN SILENCE — voir l'en-tête de ce §.
+    const pilote = readFileSync(join(R, 'src', 'socle', 'modules', 'series.js'), 'utf8');
+    verifie('le pilote branche la recherche sur l\'hôte des puces LICENCE',
+      /chercheDansPuces\(\s*'s-lq'\s*,\s*'s-lics'\s*,\s*'s-lq-vide'\s*\)/.test(pilote),
+      '🔴 le champ serait servi et ne piloterait rien');
+    verifie('…et la recherche du filtre MARQUE est toujours branchée',
+      /chercheDansPuces\(\s*'s-bq'\s*,\s*'s-brands'\s*,\s*'s-bq-vide'\s*\)/.test(pilote),
+      '⛔ le lot 170 partage le pilote du lot 115b : il ne doit pas l\'emporter');
+    // ⭐⭐⭐ L'ATTRIBUT, SUR CET AXE-LÀ. `remplirPuces()` pose `data-b` avant
+    //   de brancher l'axe : si un lot futur le pose sous condition
+    //   `axe === 'brand'`, le champ licence devient muet. La ligne est
+    //   inconditionnelle, et ce banc est ce qui l'y maintient.
+    const poseDataB = pilote.match(/l\.setAttribute\('data-b',[^\n]*\n/);
+    const avantAxe = poseDataB
+      ? !/if\s*\(\s*axe\s*===\s*'brand'\s*\)[\s\S]{0,200}setAttribute\('data-b'/.test(pilote)
+      : false;
+    verifie('`remplirPuces()` pose `data-b` sur les DEUX axes, sans condition',
+      Boolean(poseDataB) && avantAxe && /l\.setAttribute\('data-b', v\.toLowerCase\(\)\)/.test(pilote),
+      poseDataB ? poseDataB[0].trim() : '🔴 `data-b` introuvable — le champ chercherait un attribut absent');
+    lus += 3;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 6. 🆕 LOT 170 — POINT `b` : LA SÉRIE NUE, ET SEULEMENT CHEZ LES COMICS
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// ⭐ LES CAS SONT MESURÉS, PAS INVENTÉS : ils viennent du dictionnaire de
+//   séries de `/rayon-index/comics.json` et `/rayon-index/collectibles.json`
+//   servis en PRODUCTION le 21/08. Un jeu de cas inventé aurait raté les deux
+//   qui comptent — le dièse SANS numéro (« DuckTales # (2024) ») et le dièse
+//   au MILIEU (« Spidey And His Amazing Friends #1 Halloween… »).
+console.log('\n6. la série des comics entre-t-elle NUE, sans emporter les collectibles ?');
+{
+  const { serieNue } = await import('../lib/dataset.mjs');
+  const CAS = [
+    ['Avengers Vs X-Men Vol. 1 #8 (2012)', 'Avengers Vs X-Men Vol. 1', 'le cas de Preda : le numéro tombe'],
+    ['Daredevil Vol. 1 #176', 'Daredevil Vol. 1', 'sans millésime, il tombe aussi'],
+    ['DuckTales # (2024)', 'DuckTales', 'dièse SANS numéro — mesuré au catalogue'],
+    ['Gargoyles Vol. 1 # (2025)', 'Gargoyles Vol. 1', 'idem, second cas mesuré'],
+    ['Alias', 'Alias', 'une série déjà nue ne bouge pas'],
+    ['Spidey And His Amazing Friends #1 Halloween Trick-Or-Read 2025',
+      'Spidey And His Amazing Friends #1 Halloween Trick-Or-Read 2025',
+      '⛔ dièse au MILIEU : la coupe est ancrée en FIN'],
+    ['#1', '#1', '⛔ filet : la coupe ne rend jamais une série sans nom'],
+    ['', '', 'une série vide reste vide'],
+  ];
+  let ecart = null;
+  for (const [entree, attendu, pourquoi] of CAS) {
+    const rendu = serieNue(entree);
+    if (rendu !== attendu && !ecart) ecart = `« ${entree} » → « ${rendu} » (attendu « ${attendu} », ${pourquoi})`;
+  }
+  verifie(`la série nue se dérive sur les ${CAS.length} cas mesurés au catalogue`,
+    !ecart, ecart ? `🔴 ${ecart}` : CAS.map(([e]) => e.slice(0, 22)).join(' · '));
+  lus += CAS.length;
+
+  // 🔴🔴🔴 LE CONTRÔLE QUI COMPTE VRAIMENT, ET IL EST DANS L'AUTRE SENS.
+  // Sur les collectibles, « Adam Kubert - Wolverine #107 » et « DJ Big Bot -
+  // Record #1 » sont des noms de série LÉGITIMES : mesuré le 21/08, ZÉRO des
+  // 94 séries de collectibles de cette forme ne fusionne avec une série nue
+  // existante, contre 44 sur 104 chez les comics. Élargir le nettoyage aux
+  // collectibles détruirait 94 séries pour n'en réparer aucune — et le build
+  // resterait vert. ⇒ La garde `estComic()` est ce que ce contrôle tient.
+  const src2 = readFileSync(join(R, 'engine', 'lib', 'dataset.mjs'), 'utf8');
+  const ligne = src2.match(/^\s*series:\s*estComic\(c\.kind\)[^\n]*$/m);
+  verifie('⛔ `rayonDe()` ne l\'applique QU\'aux comics',
+    Boolean(ligne) && /serieNue\(c\.series\)/.test(ligne[0]) && /:\s*\(c\.series \|\| ''\)/.test(ligne[0]),
+    ligne ? ligne[0].trim() : '🔴 la garde `estComic` a disparu — les collectibles y passeraient aussi');
+  // ⭐ ET PAS SUR LES FICHES. `items` nourrit `sansPrefixeSerie()`, donc les
+  //   ADRESSES des pages. Y appliquer la même coupe renommerait des URL en
+  //   production pour réparer 0,91 % des lignes de rayon.
+  const posesItems = [...src2.matchAll(/^\s*series:\s*serieNue\(/gm)].length;
+  verifie('⛔ …et jamais sur `items`, qui fabrique les adresses des fiches',
+    posesItems === 0,
+    posesItems === 0 ? '`items.series` reste brut : aucune URL ne bouge'
+      : `🔴 ${posesItems} pose(s) sur \`items\` — des adresses changeraient en production`);
+  lus += 2;
+}
 
 fin();
