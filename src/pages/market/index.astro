@@ -57,7 +57,7 @@ if (!aLeDroit) {
   // ⭐ 302 et pas 401 : ce n'est pas une erreur, c'est une porte. Et l'adresse
   // de retour voyage, sinon on renvoie la personne à l'accueil après connexion
   // — le moyen le plus sûr de perdre quelqu'un qui allait justement s'inscrire.
-  return Astro.redirect('/acces/?suite=%2Fmarket%2F', 302);
+  return Astro.redirect('/connexion/?suite=%2Fmarket%2F', 302);
 }
 
 // ⚠️ L'EN-TÊTE DE CACHE EST OBLIGATOIRE, ET IL N'EST PAS DÉCORATIF. Sans lui,

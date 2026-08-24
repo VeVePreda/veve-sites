@@ -1,34 +1,332 @@
 ---
-// ⚠️ VeVePreda/veve-sites — src/pages/connexion/index.astro
+// ⚠️ VeVePreda/veve-sites — src/pages/connexion/index.astro  (lot 178)
 // ══════════════════════════════════════════════════════════════════════════════
-// CETTE PAGE N'EN EST PLUS UNE : ELLE MÈNE À `/acces/`  (lot 177)
+// L'ACCÈS — UNE SEULE PAGE POUR UN SEUL GESTE.
 // ══════════════════════════════════════════════════════════════════════════════
-// 🎯 Point `n` de l'audit du 14/08 : « une seule page Accès ». L'écran unique
-// vit dans `src/pages/acces/index.astro` ; les deux anciennes adresses restent
-// EN VIE et y renvoient.
-// ⭐⭐⭐ POURQUOI ON NE LES SUPPRIME PAS : elles sont dans des liens envoyés, des
-// favoris, et surtout dans le contrôle de démarrage du conteneur
-// (`docker-entrypoint.sh`) et dans la règle nginx des pages de compte. Une
-// adresse qu'on retire d'un site n'est pas une adresse qui disparaît du monde.
-// ⭐ 302 ET NON 301, DÉLIBÉRÉMENT : un 301 se garde dans le navigateur bien
-// après qu'on ait changé d'avis. Ces pages sont en `noindex`, il n'y a donc
-// AUCUN capital de référencement à consolider — le seul critère qui reste est
-// la réversibilité.
-// ⛔ ON RECOPIE LA QUERY, PAS PLUS : `?e=1`, `?envoye=1`, `?lang=fr`,
-// `?suite=…` et `?supprime=1` doivent survivre au saut, sinon on perdrait le
-// message d'erreur ou la destination de retour au passage. `Astro.url.search`
-// est la chaîne déjà encodée du site lui-même ; `/acces/` la relit avec ses
-// propres gardes (`retourSur()` n'accepte que cinq destinations).
+// 🎯 Demande de Preda (audit du 14/08, point `n`) : « une seule page Accès ».
+//
+// 🔴🔴🔴 POURQUOI L'ÉCRAN VIT ICI ET NON SUR `/acces/` — MESURÉ EN PRODUCTION LE
+// 24/08, ET C'EST LA LEÇON LA PLUS CHÈRE DU LOT 177.
+// Livré d'abord sur `/acces/`, l'écran a été **mis en cache par Cloudflare** :
+// `cf-cache-status: HIT`, `age` qui monte, alors que la réponse dit
+// `private, no-store`. Une Cache Rule qui ignore `cache-control` ne se laisse
+// pas contredire par l'origine.
+// ⭐⭐⭐ LA CAUSE N'EST PAS DANS CE DÉPÔT : la règle vit dans l'interface
+// Cloudflare (Zone → Caching → Cache Rules) et son exclusion NOMME les adresses
+// qu'elle connaît. `/acces/` était neuve — personne ne l'avait exclue.
+// 🔬 LA PREUVE, ET ELLE EST HISTORIQUE : sur le run vert du 21/08,
+// `/connexion/` et `/inscription/` RÉPONDAIENT 200 et `test:cache` disait
+// « jamais `cf-cache-status: HIT` ». Ces deux adresses-là sont donc bien
+// exclues. ⇒ on ramène l'écran sur un terrain DÉJÀ gardé, au lieu de demander
+// un geste manuel dans une interface que le dépôt ne peut pas vérifier.
+// ⛔ CE QUE ÇA NOUS APPREND : une route de compte neuve a SEPT endroits, pas
+// six. Le septième est Cloudflare, et il n'est pas dans le dépôt.
+//
+// ⚠️ L'ADRESSE S'APPELLE « connexion » ALORS QUE LA PAGE SERT AUSSI À
+// S'INSCRIRE. C'est le prix assumé de l'arbitrage : le titre, le fil d'Ariane
+// et le bouton disent « Accès » / « Recevoir mon lien ». Seul le chemin garde
+// son vieux nom — et un chemin déjà exclu du cache valait mieux qu'un beau nom
+// servi depuis le bord.
+// ⭐⭐⭐ CE N'EST PAS UNE FUSION DE CONFORT, C'EST LA FIN D'UNE INCOHÉRENCE
+// MESURÉE : `/connexion/` et `/inscription/` postaient DÉJÀ vers la même route
+// (`/api/inscription`), et cette route redirigeait DÉJÀ vers `/inscription/`
+// dans ses quatre sorties. Résultat constaté en production le 24/08 : qui se
+// connectait depuis `/connexion/` lisait sa confirmation sur la page
+// d'INSCRIPTION. Deux adresses pour un geste, dont une qui ne pouvait pas
+// afficher sa propre réponse.
+// ⛔ Sans mot de passe, « se connecter » et « s'inscrire » sont LA MÊME ACTION :
+// une adresse, un lien à usage unique. La seule différence est qu'un compte
+// existe déjà au bout, ou non — et on ne peut pas le DIRE au visiteur sans
+// transformer ce formulaire en détecteur d'inscrits (voir `signup.sent`).
+//
+// ⭐ LITTÉRAL, ET C'EST LE POINT. Astro exige que `prerender` soit
+// statiquement analysable ; une EXPRESSION n'est pas évaluée et retombe
+// silencieusement sur `true`. La valeur réelle est posée par l'intégration
+// `veve:routes-compte` (engine/lib/astro_routes_compte.mjs) selon le mode du
+// manifeste — cette page Y A ÉTÉ AJOUTÉE, sans quoi elle serait pré-générée et
+// ne lirait ni cookie ni en-tête.
 export const prerender = true;
 
+import Base from '../../layouts/Base.astro';
+import { sessionDe } from '../../../engine/lib/access.mjs';
+import { t, localize, locales, languesInterface, choisirLangue, COOKIE_LANGUE } from '../../../engine/lib/i18n.mjs';
 import { comptesActifs } from '../../../engine/lib/features.mjs';
+import { sceau, champPiegeHtml } from '../../../engine/lib/robots.mjs';
+import { retourSur, COOKIE_RETOUR, RETOUR_DUREE } from '../../../engine/lib/retour.mjs';
+import { getCatalogue } from '../../../engine/data/warehouse.mjs';
 
-// ⛔ D'ABORD l'extinction, ENSUITE la redirection. Sur vevewiki
-// (`comptesActifs()` faux) cette page doit produire le TALON que
-// `veve:fonctionnalites-eteintes` efface — un talon vers `/acces/`, qui est
-// elle aussi effacée, laisserait un lien mort dans un fichier qui ne survit pas
-// au build. C'est la même paire qu'avant ce lot, à la destination près.
+// ⭐ CETTE PAGE EST RENDUE À LA DEMANDE : elle peut lire `Accept-Language`, ce
+// qu'une page pré-générée ne peut pas faire. On ne fait confiance qu'aux
+// langues que le SITE déclare — un en-tête est une donnée d'entrée comme une
+// autre, il ne choisit pas dans un ensemble ouvert.
+const { def } = locales();
+const dispo = languesInterface();
+// 🌍 `?lang=` → cookie → `Accept-Language`. Voir `choisirLangue()`.
+const _ch = choisirLangue({
+  demande: new URL(Astro.request.url).searchParams.get('lang'),
+  cookie: Astro.cookies.get(COOKIE_LANGUE)?.value,
+  accept: Astro.request.headers.get('accept-language'),
+  dispo, def,
+});
+const lang = _ch.lang;
+// ⭐ ON N'ÉCRIT QUE SI ÇA CHANGE : un `Set-Cookie` à chaque page ferait varier
+// la réponse sans raison.
+if (_ch.aPoser) {
+  Astro.cookies.set(COOKIE_LANGUE, lang, {
+    path: '/', maxAge: 60 * 60 * 24 * 365, sameSite: 'lax', secure: true, httpOnly: false,
+  });
+}
+
+// ⛔ DÉCISION PREDA DU 03/08/2026 : vevewiki n'aura JAMAIS d'espace membre.
+// ⭐ Le `redirect` produit un TALON que l'intégration
+// `veve:fonctionnalites-eteintes` efface ensuite. Les deux moitiés vont
+// ENSEMBLE : ce `redirect` seul laisserait une page fantôme et l'audit SEO
+// rougirait en permanence. `/connexion/` y était déjà, `/acces/` y a été ajouté
+// au lot 177 — les deux restent.
 if (!comptesActifs()) return Astro.redirect('/');
 
-return Astro.redirect('/acces/' + Astro.url.search, 302);
+// 🔴 LE PALIER DIT CE QU'ON A LE DROIT DE VOIR, LA SESSION DIT QUI ON EST.
+// Corrigé le 06/08 sur `/connexion/` : sous `access.demo`, la page annonçait
+// « vous êtes connecté » à tout le monde et offrait une déconnexion qui
+// effaçait un cookie jamais posé.
+const connecte = sessionDe(Astro.locals) === 'reelle';
+
+// ⛔ Les deux variables d'environnement, pas une : ouvrir le formulaire sans
+// `SESSION_API`, c'est brûler un lien qu'on ne pourra pas terminer.
+const inscriptionOuverte = Boolean(process.env.INSCRIPTION_API && process.env.SESSION_API);
+
+const envoye = Astro.url.searchParams.get('envoye') === '1';
+const erreur = Astro.url.searchParams.get('e') || '';
+const supprime = Astro.url.searchParams.get('supprime') === '1';
+
+// 🔴 LOT 126 — `suite=` EST LU ICI, comme il l'était sur `/connexion/`.
+// ⛔ `retourSur()` N'ACCEPTE QUE CINQ DESTINATIONS. Recopier `suite=` tel quel
+// ferait de cette page un tremplin d'hameçonnage à notre nom de domaine.
+// ⭐ Dans un COOKIE, pas dans le `state` OAuth : le `state` est fabriqué et
+// vérifié par le service d'identité, il ne nous appartient pas.
+const _suite = retourSur(Astro.url.searchParams.get('suite'));
+if (_suite) {
+  Astro.cookies.set(COOKIE_RETOUR, _suite, {
+    path: '/', httpOnly: true, sameSite: 'lax',
+    // ⚠️ `secure` D'APRÈS L'ORIGINE DÉCLARÉE, jamais d'après `$scheme` :
+    //    derrière Cloudflare, nginx voit du http et poserait un cookie nu.
+    secure: Astro.url.protocol === 'https:',
+    maxAge: RETOUR_DUREE,
+  });
+}
+
+// ⭐ Les pièces qui flottent en fond viennent du catalogue réel : une page
+// d'accès qui montre de vraies pièces dit ce que le site contient. `try/catch`
+// et repli vide — un fond décoratif ne fait pas tomber une page d'entrée.
+const PLACES = [
+  ['top:8vh;left:5vw;width:5vw', 1, 29],      ['top:34vh;left:14vw;width:4.4vw', 1, 37],
+  ['top:68vh;left:6vw;width:5.4vw', 1, 31],   ['top:12vh;right:9vw;width:5vw', 1, 41],
+  ['top:58vh;right:5vw;width:4.6vw', 1, 23],  ['top:84vh;left:28vw;width:4vw', 1, 43],
+  ['top:16vh;left:-3vw;width:11vw', 2, 19],   ['top:52vh;left:1vw;width:12vw', 2, 17],
+  ['top:6vh;right:-2vw;width:10vw', 2, 23],   ['top:62vh;right:-3vw;width:12vw', 2, 13],
+  ['top:88vh;right:16vw;width:9vw', 2, 29],   ['top:2vh;left:22vw;width:8vw', 2, 31],
+  ['top:-14vh;left:8vw;width:22vw', 3, 11],   ['top:70vh;right:2vw;width:24vw', 3, 7],
+  ['top:30vh;right:-14vw;width:20vw', 3, 13], ['top:44vh;left:-12vw;width:21vw', 3, 17],
+];
+
+let pieces = [];
+try {
+  const cat = await getCatalogue();
+  const avecImage = (Array.isArray(cat) ? cat : []).filter((i) => i && i.image);
+  const pas = 997;
+  pieces = PLACES.map((_, k) => avecImage[(k * pas) % (avecImage.length || 1)])
+    .filter(Boolean)
+    .map((i, k) => ({ src: i.image, st: PLACES[k][0], p: PLACES[k][1], dur: PLACES[k][2] }));
+} catch { pieces = []; }
+
+const cguMorceaux = t(lang, 'signup.cgu').split(/(\{terms\}|\{privacy\})/);
+
+const marqueTemps = sceau();
 ---
+    {/* ⛔ UNE SEULE LANGUE DÉCLARÉE. Cette page est rendue à la demande et lit
+        `Accept-Language` : elle n'a qu'UNE adresse, sans préfixe. Sans `langs`,
+        la barre de langues et les `hreflang` proposeraient `/fr/connexion/`,
+        `/es/connexion/`, `/de/connexion/` — trois 404, exactement ceux déjà payés le
+        01/08 sur les deux pages que celle-ci remplace.
+        ⚠️ `noindex` : un formulaire de compte n'a rien à faire dans un index de
+        recherche, et il diluerait le budget d'exploration des pages qui portent
+        le référencement. */}
+<Base langs={[def]} lang={lang} path="/connexion/" noindex={true}
+      title={t(lang, 'access.title')} description={t(lang, 'signup.free')}
+      crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') }, { name: t(lang, 'access.crumb') }]}>
+
+  <div class="centre" style="position:relative;padding-bottom:var(--s7)">
+
+    {pieces.length > 0 && (
+      <span class="flottantes" aria-hidden="true">
+        {pieces.map((piece, k) => (
+          <img src={piece.src} alt="" data-p={piece.p} loading="lazy" decoding="async"
+               style={`${piece.st};--dur:${piece.dur}s;--dl:-${(k * 3.7).toFixed(1)}s`}
+               onload="this.classList.add('ok')"
+               onerror="this.remove()" />
+        ))}
+      </span>
+    )}
+
+    <div class="panneau" style="position:relative;z-index:2">
+
+      <div class="inscr__tete">
+        <span class="logo logo--xl" aria-hidden="true">VP</span>
+      {/* ⭐ Ce sont des LIENS, pas des boutons : ils marchent sans JavaScript, et
+          un lecteur d'écran les annonce comme une navigation — ce qu'ils sont.
+          `?lang=` ne crée AUCUNE URL : c'est un paramètre sur la MÊME adresse,
+          et la page est servie `private, no-store`. C'est exactement pour ça
+          que le sélecteur peut rester complet ici alors que le site est en
+          anglais. */}
+      <p class="lang-choix">
+        {dispo.map((l) => (
+          <a href={`?lang=${l}`} hreflang={l}
+             aria-current={l === lang ? 'true' : undefined}>{l.toUpperCase()}</a>
+        ))}
+      </p>
+        <h1 class="inscr__h1">{t(lang, 'access.title')}</h1>
+        <p class="etiq">{t(lang, 'signup.free')}</p>
+      </div>
+
+      {/* 🔴 LE RETOUR APRÈS UNE SUPPRESSION — lot 98, repris ici.
+          La personne vient de supprimer son compte : `veveid` a révoqué ses
+          sessions dans la seconde, elle atterrit donc ici, déconnectée. Sans ce
+          bloc, elle verrait un formulaire nu après un geste grave.
+          ⚠️ ET IL DIT OÙ ANNULER : le délai de grâce est de sept jours, mais il
+          ne s'annule PAS d'ici. C'est chez `veveid`, par courriel. */}
+      {supprime && (
+        <p class="inscr__avis">{t(lang, 'account.del.after')}</p>
+      )}
+
+      {connecte ? (
+        /* ⭐ DÉJÀ CONNECTÉ : on ne montre pas un formulaire d'accès à quelqu'un
+           qui est entré. Il n'a que deux gestes utiles ici. */
+        <div class="champ">
+          <p class="respire">{t(lang, 'login.already')}</p>
+          <p><a class="btn btn--principal btn--sm" href={localize(lang, '/compte/')}>{t(lang, 'account.title')}</a></p>
+          {/* ⚠️ La déconnexion est un POST, pas un lien. Un GET destructeur est
+              déclenchable par un simple <img src>, et les préchargeurs de liens
+              du navigateur le suivent tout seuls : on déconnecterait les gens
+              sans qu'ils aient rien cliqué. */}
+          <form method="POST" action="/api/deconnexion" style="margin-top:var(--s4)">
+            <button type="submit" class="btn btn--fantome btn--sm">{t(lang, 'login.out')}</button>
+          </form>
+        </div>
+      ) : (
+        <Fragment>
+          <p class="respire">{t(lang, 'login.lead')}</p>
+
+          {!inscriptionOuverte && (
+            /* ⭐ LE BANDEAU EST AU-DESSUS DU FORMULAIRE, PAS EN DESSOUS. Un
+               avertissement placé après le champ se lit une fois qu'on a déjà
+               tapé son adresse — c'est-à-dire trop tard pour servir. */
+            <p class="inscr__avis">
+              <b>{t(lang, 'signup.closed')}</b><br />{t(lang, 'signup.closed.d')}
+            </p>
+          )}
+
+          {envoye && (
+            /* 🔴 CE TEXTE EST LE MÊME QUE L'ADRESSE EXISTE OU NON, que le compte
+               soit neuf ou ancien, et même si l'envoi a échoué. Une page qui
+               dirait « compte créé » d'un côté et « content de vous revoir » de
+               l'autre ferait de ce formulaire un outil pour savoir qui est
+               inscrit — avec une liste d'adresses achetée, c'est une fuite à
+               l'échelle. ⭐⭐ C'EST AUSSI CE QUI REND LA FUSION POSSIBLE : la
+               réponse ne distingue pas les deux cas, donc la page n'a pas à les
+               distinguer non plus. */
+            <p class="inscr__avis">
+              <b>{t(lang, 'signup.sent')}</b><br />{t(lang, 'signup.sent.d')}
+            </p>
+          )}
+
+          {erreur && !envoye && (
+            <p class="inscr__avis">
+              {erreur === '1' ? t(lang, 'signup.err.mail') : t(lang, 'signup.err.svc')}
+            </p>
+          )}
+
+          {/* ⚠️ MÉTHODE POST, ET `action` EXPLICITE. Un formulaire sans `method`
+              part en GET : l'adresse se retrouverait dans l'URL, donc dans
+              l'historique du navigateur, dans le Referer et dans les journaux
+              du serveur. C'est la faute la plus banale et la plus chère de la
+              page.
+              ⭐ UNE SEULE ROUTE, ET C'EST TOUT L'ARGUMENT DU LOT : les deux
+              anciennes pages postaient déjà ici. */}
+          <form class="inscr__form" method="POST" action="/api/inscription">
+
+            <div class="champ">
+              <label class="etiq" for="a-mail">{t(lang, 'signup.mail')}</label>
+              <input id="a-mail" name="courriel" type="email" autocomplete="email"
+                     required placeholder={t(lang, 'signup.mail.ph')} />
+              <Fragment set:html={champPiegeHtml()} />
+              <input type="hidden" name="sceau" value={marqueTemps} />
+              <span class="champ__aide">{t(lang, 'signup.nopass')}</span>
+            </div>
+
+            {/* ⛔ NI MOT DE PASSE, NI PSEUDO — lot 90, et les deux pour la même
+                raison. Le mot de passe : un lien à usage unique ne se vole pas
+                et ne se réutilise pas ailleurs. Le pseudo : `veveid` ne le
+                stocke nulle part, le demander revenait à collecter une donnée
+                pour la jeter. */}
+
+            {/* 🔴🔴 LA CASE RESTE, ET ELLE RESTE OBLIGATOIRE. Arbitrage écrit du
+                lot 177 : la page ne peut pas savoir si le compte existe déjà
+                (c'est la protection ci-dessus), donc elle ne peut pas savoir si
+                ce geste CRÉE un compte. Elle doit donc recueillir le
+                consentement à chaque fois. ⛔ Le remplacer par un « en
+                continuant, vous acceptez… » ferait passer un consentement
+                explicite à implicite pour économiser un clic : ce n'est pas un
+                arbitrage d'affichage, et il ne se prend pas ici.
+                ⚠️ UNE CASE NON COCHÉE N'EST PAS ENVOYÉE : `required` est la
+                garde du navigateur, et `/api/inscription` ne lit pas ce champ —
+                mesuré, zéro occurrence. Le jour où il le lira, il devra traiter
+                l'ABSENCE, pas une valeur fausse. */}
+            <label class="inscr__cgu">
+              <input type="checkbox" name="cgu" required />
+              <span>
+                {cguMorceaux.map((bout) => (
+                  bout === '{terms}'
+                    ? <a href={localize(lang, '/legal/terms/')}>{t(lang, 'signup.cgu.terms')}</a>
+                    : bout === '{privacy}'
+                      ? <a href={localize(lang, '/legal/privacy/')}>{t(lang, 'signup.cgu.privacy')}</a>
+                      : bout
+                ))}
+              </span>
+            </label>
+
+            {/* ⭐⭐ « RECEVOIR MON LIEN » ET NON « CRÉER MON COMPTE » : c'est le
+                seul libellé vrai pour les deux personnes qui remplissent ce
+                formulaire. `signup.submit` promettait une création à quelqu'un
+                qui revenait. */}
+            <button type="submit" class="btn btn--principal inscr__valider">{t(lang, 'login.send')}</button>
+          </form>
+
+          {/* ⭐ LA PHRASE QUI REMPLACE LE LIEN « Déjà inscrit ? Se connecter ».
+              Ce lien était la preuve du défaut : il envoyait sur une seconde
+              page pour y refaire le même geste. */}
+          <p class="champ__aide" style="margin-top:var(--s3)">{t(lang, 'access.both')}</p>
+          <p class="muted" style="font-size:13px;margin-top:var(--s4)">{t(lang, 'login.why')}</p>
+        </Fragment>
+      )}
+    </div>
+
+    {/* ⭐ CE PANNEAU DIT AUSSI CE QUE LE COMPTE N'OUVRE PAS, et c'est délibéré :
+        la quatrième ligne est un cadenas. Une promesse qui borne elle-même sa
+        portée est la seule qu'on croit.
+        🙋 CE QUE JE N'AI PAS MESURÉ : « 1 200 fiches, contre 8 en accès libre »
+        (`signup.o1`). La sonde annonce 8 840 fiches publiées ; je ne sais pas si
+        « fiches » compte la même chose ici. ⛔ Je ne remplace pas un chiffre par
+        un autre au jugé — le libellé part dans la liste des libellés à trancher
+        avec Preda. */}
+    <div class="panneau inscr__ouvre" style="position:relative;z-index:2">
+      <p class="etiq">{t(lang, 'signup.opens')}</p>
+      <ul class="inscr__liste">
+        <li><span class="inscr__oui" aria-hidden="true">✓</span>{t(lang, 'signup.o1')}</li>
+        <li><span class="inscr__oui" aria-hidden="true">✓</span>{t(lang, 'signup.o2')}</li>
+        <li><span class="inscr__oui" aria-hidden="true">✓</span>{t(lang, 'signup.o3')}</li>
+        <li class="inscr__non"><span class="inscr__clos" aria-hidden="true">🔒</span>{t(lang, 'signup.o4')}</li>
+      </ul>
+    </div>
+
+  </div>
+</Base>

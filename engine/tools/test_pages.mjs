@@ -57,12 +57,12 @@ const verifie = (titre, ok, detail = '') => {
 const ROUTES = [
   { p: '/', quoi: 'l\'accueil' },
   { p: '/compte/', quoi: 'l\'espace compte' },
-  { p: '/acces/', quoi: "l'écran d'accès" },
-  // 🔴 LOT 177 — ON EXIGE LA REDIRECTION, PAS « pas 404 ». `code < 400`
+  { p: '/connexion/', quoi: "l'écran d'accès" },
+  // 🔴 LOT 177/178 — ON EXIGE LA REDIRECTION, PAS « pas 404 ». `code < 400`
   // acceptait un 200 : le contrôle serait resté vert si la fusion n'avait
   // jamais eu lieu. Vérifié en injectant `prerender`+page pleine : rouge.
-  { p: '/connexion/', quoi: "la connexion (mène à /acces/)", exige30x: '/acces/' },
-  { p: '/inscription/', quoi: "l'inscription (mène à /acces/)", exige30x: '/acces/' },
+  { p: '/acces/', quoi: "l'ancienne adresse d'accès (mène à /connexion/)", exige30x: '/connexion/' },
+  { p: '/inscription/', quoi: "l'inscription (mène à /connexion/)", exige30x: '/connexion/' },
   { p: '/market/', quoi: 'le marché' },
   { p: '/favoris/', quoi: 'les favoris' },
   // 🧭 LOT 126 — LA TROISIÈME PLACE DE `/dashboard/`. Les deux autres :
@@ -84,12 +84,12 @@ const ROUTES = [
   { p: '/analytics/chain/', quoi: 'le sujet Chaîne & wallets' },
   // ⭐ Avec un paramètre de langue : c'est le chemin qui a explosé le 10/08,
   //   et il ne s'emprunte que si quelqu'un le demande.
-  { p: '/acces/?lang=fr', quoi: "l'accès en français" },
-  { p: '/acces/?lang=de', quoi: "l'accès en allemand" },
+  { p: '/connexion/?lang=fr', quoi: "l'accès en français" },
+  { p: '/connexion/?lang=de', quoi: "l'accès en allemand" },
   // ⭐ LA QUERY DOIT SURVIVRE AU SAUT : sans elle, `?e=1` (le message
   // d'erreur) et `?suite=` (la destination de retour) seraient perdus par la
   // redirection, et personne ne s'en apercevrait — la page s'afficherait.
-  { p: '/connexion/?e=1&lang=fr', quoi: 'la connexion garde sa query', exige30x: '/acces/?e=1&lang=fr' },
+  { p: '/acces/?e=1&lang=fr', quoi: "l'ancienne adresse garde sa query", exige30x: '/connexion/?e=1&lang=fr' },
   { p: '/api/sante', quoi: 'la sonde de santé', exige200: true },
 ];
 

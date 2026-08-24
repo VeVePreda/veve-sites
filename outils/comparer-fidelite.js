@@ -57,7 +57,7 @@ const PAIRES = [
   ['collection', 'src/components/pages/CollectionPage.astro'],
   ['offre',      'src/components/pages/Offre.astro'],
   ['compte',     'src/pages/compte/index.astro'],
-  ['connexion',  'src/pages/acces/index.astro'],
+  ['connexion',  'src/pages/connexion/index.astro'],
 ];
 // ⭐ TOUJOURS présents : `Base.astro` habille chaque page, `Carte.astro` est
 // utilisée par toutes les grilles, `vitrine.mjs` rend les atomes (rareté,

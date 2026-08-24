@@ -262,7 +262,7 @@ const dsOffre = await dataset();
         {m.offer?.url
           ? <a class="btn btn--principal btn--sm" href={m.offer.url}>{t(lang, 'offer.cta')}</a>
           : (p.prix === 0 && comptesActifs())
-            ? <a class="btn btn--principal btn--sm" href="/acces/">{t(lang, 'signup.title')}</a>
+            ? <a class="btn btn--principal btn--sm" href="/connexion/">{t(lang, 'signup.title')}</a>
             : <span class="btn btn--verrou btn--sm" aria-disabled="true">{t(lang, 'account.soon')}</span>}
       </div>
     ))}

@@ -69,7 +69,7 @@ const BUILD_FIGE = maintenant();
 
 const PRIVEES_SERVEUR = new Set([
   '/compte/', '/market/', '/favoris/', '/dashboard/',
-  // 🔴 LOT 177 — `/acces/` est le seul des trois qui RENDE une page ; les deux
+  // 🔴 LOT 178 — `/connexion/` est le seul des trois qui RENDE une page ; les deux
   // autres répondent 302 vers elle. Le fixture doit dire la même chose que la
   // production, sinon la contre-épreuve valide un monde qui n'existe pas.
   '/acces/', '/connexion/', '/inscription/',
@@ -136,18 +136,18 @@ const serveur = createServer((req, res) => {
     }
     if (SCENARIO === 'compte-en-hit' && chemin === '/compte/') {
       return rendre(302, {
-        location: '/acces/', 'cache-control': 'private, no-store', 'cf-cache-status': 'HIT',
+        location: '/connexion/', 'cache-control': 'private, no-store', 'cf-cache-status': 'HIT',
       });
     }
     if (SCENARIO === 'market-sans-nostore' && chemin === '/market/') {
       return rendre(302, {
-        location: '/acces/', 'cache-control': 'public, max-age=0, must-revalidate',
+        location: '/connexion/', 'cache-control': 'public, max-age=0, must-revalidate',
       });
     }
-    const rend200 = chemin === '/acces/';
+    const rend200 = chemin === '/connexion/';
     return rend200
       ? rendre(200, { 'content-type': 'text/html', 'cache-control': 'private, no-store' }, page(build))
-      : rendre(302, { location: '/acces/', 'cache-control': 'private, no-store' });
+      : rendre(302, { location: '/connexion/', 'cache-control': 'private, no-store' });
   }
 
   // ── les pages publiques ─────────────────────────────────────────────────

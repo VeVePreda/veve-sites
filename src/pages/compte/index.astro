@@ -170,7 +170,7 @@ const aLaDemande = Astro.locals?.rendu === 'demande';
 // sans identité — et c'est SUR CETTE PAGE que vit le seul bouton pour en
 // sortir (`/api/demo?sortir=1`). L'oublier enfermerait la démonstration : on
 // verrait la vue d'un abonné sans plus aucun moyen de la refermer.
-if (aLaDemande && !connecte && !enDemo) return Astro.redirect('/acces/', 302);
+if (aLaDemande && !connecte && !enDemo) return Astro.redirect('/connexion/', 302);
 // 🌐🎨 Les réglages descendent ICI (demande de Preda du 06/08). Le gabarit ne
 // le décide pas : le manifeste le dit, comme pour tout le reste du moteur.
 const reglagesIci = (m.identity?.langues_dans === 'compte') || (m.identity?.theme_dans === 'compte');

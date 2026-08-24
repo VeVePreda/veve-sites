@@ -15,7 +15,7 @@ export function getStaticPaths() {
 const lang = Astro.params.locale;
 
 if (!connecte(Astro.locals)) {
-  return Astro.redirect(`/acces/?suite=%2F${encodeURIComponent(lang)}%2Fdashboard%2F`, 302);
+  return Astro.redirect(`/connexion/?suite=%2F${encodeURIComponent(lang)}%2Fdashboard%2F`, 302);
 }
 
 Astro.response.headers.set('cache-control', 'private, no-store');

@@ -1,10 +1,10 @@
 ---
 // ⚠️ VeVePreda/veve-sites — src/pages/inscription/index.astro
 // ══════════════════════════════════════════════════════════════════════════════
-// CETTE PAGE N'EN EST PLUS UNE : ELLE MÈNE À `/acces/`  (lot 177)
+// CETTE PAGE N'EN EST PLUS UNE : ELLE MÈNE À `/connexion/`  (lot 178)
 // ══════════════════════════════════════════════════════════════════════════════
 // 🎯 Point `n` de l'audit du 14/08 : « une seule page Accès ». L'écran unique
-// vit dans `src/pages/acces/index.astro` ; les deux anciennes adresses restent
+// vit dans `src/pages/connexion/index.astro` ; les deux autres adresses restent
 // EN VIE et y renvoient.
 // ⭐⭐⭐ POURQUOI ON NE LES SUPPRIME PAS : elles sont dans des liens envoyés, des
 // favoris, et surtout dans le contrôle de démarrage du conteneur
@@ -30,5 +30,5 @@ import { comptesActifs } from '../../../engine/lib/features.mjs';
 // au build. C'est la même paire qu'avant ce lot, à la destination près.
 if (!comptesActifs()) return Astro.redirect('/');
 
-return Astro.redirect('/acces/' + Astro.url.search, 302);
+return Astro.redirect('/connexion/' + Astro.url.search, 302);
 ---

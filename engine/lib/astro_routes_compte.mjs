@@ -44,9 +44,11 @@
 
 const ROUTES_COMPTE = [
   'pages/compte/index.astro',
-  // 🔴 LOT 177 — L'ÉCRAN D'ACCÈS UNIQUE. Sans cette ligne il serait
-  // pré-généré : il ne lirait ni `Accept-Language`, ni le cookie de session,
-  // et il annoncerait « vous êtes connecté » d'après le build.
+  // 🔴 LOT 177/178 — L'ANCIENNE ADRESSE D'ACCÈS, devenue une redirection 302
+  // vers `/connexion/` (qui porte l'écran). Elle reste À LA DEMANDE parce
+  // qu'une redirection pré-générée est un talon HTML — donc une page, donc
+  // quelque chose que le bord peut stocker. C'est exactement le défaut que le
+  // lot 178 vient de fermer.
   'pages/acces/index.astro',
   'pages/connexion/index.astro',
   'pages/api/sante.js',

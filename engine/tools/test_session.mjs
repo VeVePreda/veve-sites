@@ -184,7 +184,7 @@ console.log('\n3. Les routes de session sont-elles rendues à la demande ?');
 // lire `?code=`, incapable de poser un cookie. Le symptôme serait « le lien du
 // courriel ne connecte pas », et on chercherait du côté de veveid.
 const routes = lire(join(RACINE, 'engine', 'lib', 'astro_routes_compte.mjs'));
-for (const r of ['pages/acces/index.astro', 'pages/api/entrer.js', 'pages/api/inscription.js', 'pages/api/deconnexion.js'])
+for (const r of ['pages/acces/index.astro', 'pages/connexion/index.astro', 'pages/api/entrer.js', 'pages/api/inscription.js', 'pages/api/deconnexion.js'])
   dit(routes.includes(`'${r}'`), `${r} est déclarée dans ROUTES_COMPTE`,
     routes.includes(`'${r}'`) ? '' : 'elle serait PRÉ-GÉNÉRÉE en silence');
 
@@ -206,11 +206,11 @@ console.log('\n5. INSCRIPTION_API n’ouvre pas seule');
 // Avec INSCRIPTION_API sans SESSION_API : la personne s'inscrit, reçoit son
 // courriel, clique — et rien ne peut échanger le code. Un lien à usage unique
 // brûlé pour rien, c'est-à-dire une inscription perdue.
-// 🔴 LOT 177 — `src/pages/acces/index.astro` A REMPLACÉ `pages/inscription/`,
+// 🔴 LOT 177/178 — `src/pages/connexion/index.astro` PORTE L'ÉCRAN UNIQUE,
 // qui n'est plus qu'une redirection. Laisser l'ancien chemin ici aurait gardé
 // le banc VERT sur un fichier de 30 lignes qui ne porte plus le formulaire :
 // le contrôle aurait survécu à son sujet.
-for (const f of ['src/pages/api/inscription.js', 'src/pages/acces/index.astro']) {
+for (const f of ['src/pages/api/inscription.js', 'src/pages/connexion/index.astro']) {
   const s = lire(join(RACINE, f));
   dit(s.includes('SESSION_API'), `${f} exige aussi SESSION_API`,
     s.includes('SESSION_API') ? '' : 'il ouvrirait l’inscription sans pouvoir la terminer');
@@ -318,7 +318,7 @@ console.log('\n9. Le formulaire d’inscription se défend');
 // ⛔ Garder les deux anciens chemins ici aurait exigé un champ piège de deux
 // redirections de 30 lignes : le banc aurait rougi sur des fichiers qui ne
 // peuvent plus rien envoyer. C'est le contraire d'un contrôle.
-for (const f of ['src/pages/acces/index.astro']) {
+for (const f of ['src/pages/connexion/index.astro']) {
   const src = lire(join(RACINE, f));
   dit(/champPiegeHtml\(\)/.test(src) && /name="sceau"/.test(src),
     `${f} porte le champ piège et le sceau`,
@@ -354,7 +354,7 @@ const mw = lire(join(RACINE, 'src/middleware.js'));
 dit(/locals\.rendu\s*=\s*'demande'/.test(mw), 'le middleware POSE locals.rendu',
   'sans lui, la fermeture de /compte/ ne se déclenche jamais');
 dit(/locals\?\.rendu === 'demande'/.test(cpt), '/compte/ LIT locals.rendu');
-dit(/Astro\.redirect\('\/acces\/'/.test(cpt), '/compte/ redirige l’anonyme vers /acces/',
+dit(/Astro\.redirect\('\/connexion\/'/.test(cpt), '/compte/ redirige l’anonyme vers /connexion/',
   'une page de compte servie à quelqu’un sans session est une page publique');
 dit(/!connecte && !enDemo/.test(cpt), 'le jeton de démonstration garde son accès',
   'sinon la démo s’enferme : le bouton pour en sortir vit sur cette page');

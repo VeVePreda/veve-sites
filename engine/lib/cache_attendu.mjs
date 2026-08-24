@@ -131,9 +131,21 @@ export const PRIVEES = [
   // ⭐ Ces deux-là rendent 200, pas 302 — elles sont donc les plus exposées :
   //   une réponse 200 est ce qu'un cache aime mettre de côté, et elles lisent
   //   `Accept-Language`, donc elles diffèrent d'un visiteur à l'autre.
-  { chemin: '/acces/', attendu: 'no-store', quoi: "l'écran d'accès unique (lit Accept-Language)" },
-  { chemin: '/connexion/', attendu: 'no-store', quoi: 'la connexion — 302 vers /acces/ (lit Accept-Language)' },
-  { chemin: '/inscription/', attendu: 'no-store', quoi: "l'inscription — 302 vers /acces/ (lit Accept-Language)" },
+  // 🔴🔴🔴 MESURÉ EN PRODUCTION LE 24/08 — LE SEPTIÈME ENDROIT D'UNE ROUTE DE
+  //   COMPTE NEUVE EST CLOUDFLARE, ET IL N'EST PAS DANS CE DÉPÔT.
+  //   Le lot 177 a livré l'écran d'accès sur `/acces/`, une adresse NEUVE :
+  //   le bord l'a mise en cache (`HIT`, `age` qui monte) alors que la réponse
+  //   dit `private, no-store`. L'exclusion de la Cache Rule nomme les adresses
+  //   qu'elle connaît, et personne n'y avait ajouté celle-là.
+  //   ⭐ La preuve que `/connexion/` EST exclue est historique : sur le run vert
+  //   du 21/08, elle répondait 200 et ce banc disait « jamais HIT ».
+  //   ⇒ LOT 178 : l'écran est revenu sur `/connexion/`. `/acces/` reste, en 302,
+  //   et un 302 n'est jamais stocké par le bord (mesuré sur huit chemins).
+  //   ⛔ NE PAS AJOUTER UNE ADRESSE QUI REND 200 À CETTE LISTE sans l'exclure
+  //   AUSSI dans Cloudflare : le dépôt ne peut pas le faire à ta place.
+  { chemin: '/connexion/', attendu: 'no-store', quoi: "l'écran d'accès unique (lit Accept-Language)" },
+  { chemin: '/acces/', attendu: 'no-store', quoi: 'l\'ancienne adresse — 302 vers /connexion/' },
+  { chemin: '/inscription/', attendu: 'no-store', quoi: "l'inscription — 302 vers /connexion/" },
   // ═════════════════════════════════════════════════════════════════════════
   // 🔴🔴 LES VARIANTES LOCALISÉES — TROUVÉES PAR LE BANC, PAS PAR UN AUDIT
   // ═════════════════════════════════════════════════════════════════════════
@@ -201,7 +213,7 @@ export const ZONE_MEMBRE = 'veveprice.com';
 //   EXISTER. Le jour où l'une d'elles répondrait 200, ce serait qu'un espace
 //   membre s'est glissé sur un site qui n'en a pas, et le cache le diffuserait.
 //   Un banc qui ne regarde que ce qui existe ne voit jamais ce qui apparaît.
-export const ABSENTES_HORS_MEMBRE = ['/compte/', '/market/', '/connexion/', '/favoris/'];
+export const ABSENTES_HORS_MEMBRE = ['/compte/', '/market/', '/connexion/', '/favoris/', '/acces/'];
 
 // ⭐⭐ LE MOTIF QUI RATTACHE UNE ADRESSE À `ROUTES_COMPTE`.
 //   Le § 1 du banc lit `astro_routes_compte.mjs` COMME UN TEXTE et vérifie que

@@ -31,7 +31,7 @@ const MEMBRE = { path: '/', sameSite: 'lax', secure: true, httpOnly: false };
 export async function POST({ request, cookies, redirect }) {
   const sid = cookies.get('vp_session')?.value || null;
   const base = process.env.SESSION_API || '';
-  if (!sid || !base) return redirect('/acces/', 303);
+  if (!sid || !base) return redirect('/connexion/', 303);
 
   let confirmation = '';
   try {
@@ -63,7 +63,7 @@ export async function POST({ request, cookies, redirect }) {
   // faire est la panne la plus sûre de toutes : elle se voit.
   cookies.delete('vp_session', SESSION);
   cookies.delete('vp_membre', MEMBRE);
-  return redirect('/acces/?supprime=1', 303);
+  return redirect('/connexion/?supprime=1', 303);
 }
 
 export const GET = () => new Response('Méthode non autorisée — utiliser POST.',
