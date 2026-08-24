@@ -387,7 +387,28 @@ const refuseLeStockage = (r) => /no-store/i.test(cc(r));
 // ⚠️ SANS `HORODATE_COMMIT` (exécution locale, `workflow_dispatch`), on ne
 // change RIEN : il n'y a pas de déploiement en vol à attendre.
 const HORODATE_COMMIT = process.env.HORODATE_COMMIT || '';
-const ATTENTE_MAX_MS = Number(process.env.BANC_CACHE_ATTENTE_MS || 12 * 60 * 1000);
+// 🔴🔴🔴 LOT 180 — 12 MINUTES ÉTAIT UN CHIFFRE DÉDUIT D'UN SEUL DÉPLOIEMENT,
+// ET C'EST LA MÊME FAUTE QUE « Coolify garde ~100 lignes ».
+// Trois mesures, le 24/08 : commit → conteneur en ligne = **11 min**, **10 min**,
+// puis **21 min** (Coolify n'avait même pas COMMENCÉ 5 min 33 après le push :
+// il y a une file d'attente avant le build). ⇒ *une régularité vue sur un seul
+// cas est une coïncidence*, et ce banc a crié une troisième fois pour rien.
+// ⭐ 30 min couvre la mesure la plus longue avec 50 % de marge.
+const ATTENTE_MAX_MS = Number(process.env.BANC_CACHE_ATTENTE_MS || 30 * 60 * 1000);
+
+/** Les zones dont la production n'a PAS le commit testé : on ne les mesure pas. */
+const ZONES_EN_RETARD = new Set();
+
+/** ⛔ « Je n'ai pas pu regarder » n'est pas « le cache fuit ». Rend `true` quand
+ *  la zone doit être sautée, en l'écrivant comme une mesure MANQUANTE. */
+const zoneSautee = (zone, quoi) => {
+  if (!ZONES_EN_RETARD.has(zone.nom)) return false;
+  indecis(`${zone.nom} · ${quoi}`,
+    'la production ne sert pas encore le commit testé — ⛔ mesurer ici, ce serait '
+    + 'juger la version PRÉCÉDENTE. C\'est exactement ce que faisait ce banc avant '
+    + 'le lot 179.');
+  return true;
+};
 const ATTENTE_PAS_MS = Number(process.env.BANC_CACHE_PAS_MS || 30 * 1000);
 
 /** L'horodatage de build que la zone annonce, ou null si on n'a pas pu lire. */
@@ -426,16 +447,22 @@ if (HORODATE_COMMIT && !BASE_TEST) {
         verifie(`${zone.nom} sert le build du commit testé`, true,
           `build ${new Date(vu).toISOString()} · ${attendu} s d'attente, ${essai} essai(s)`);
       } else {
-        // ⛔ ÉCART, PAS « INDÉCIDABLE ». Le déploiement fait partie du dépôt :
-        //   s'il n'arrive pas, la mesure n'est pas impossible, elle est
-        //   NÉGATIVE. Trois builds sont morts en silence entre le 17 et le
-        //   21/08 ; personne ne l'a su par un banc.
-        verifie(`${zone.nom} sert le build du commit testé`, false,
+        // 🔴🔴 LOT 180 — INDÉCIDABLE, ET NON ÉCART. Le lot 179 rendait un écart
+        //   ici : une TROISIÈME alerte Discord est partie, pour un déploiement
+        //   qui était simplement plus lent que mon chiffre.
+        // ⭐⭐⭐ « LE DÉPLOIEMENT EST LENT » ET « LE CACHE FUIT » NE SONT PAS LE
+        //   MÊME ÉVÉNEMENT, et ils ne doivent pas sonner pareil. Une alerte qui
+        //   se déclenche pour autre chose que son sujet apprend à être ignorée —
+        //   et le jour où une page de compte fuit vraiment, personne ne regarde.
+        // ⛔ CE N'EST PAS UN SILENCE : la zone est SAUTÉE, chaque contrôle non
+        //   joué est compté comme non mesuré, et le banc le dit à la fin.
+        ZONES_EN_RETARD.add(zone.nom);
+        indecis(`${zone.nom} sert le build du commit testé`,
           `après ${attendu} s, la sonde annonce ` +
           `${vu === null ? 'RIEN de lisible' : new Date(vu).toISOString()} alors que le ` +
-          `commit est de ${HORODATE_COMMIT}. ⛔ LE DÉPLOIEMENT N'EST PAS ARRIVÉ — ` +
-          'tout ce qui suit porterait sur la version PRÉCÉDENTE. Regarder Coolify ' +
-          'avant de lire une seule ligne de plus.');
+          `commit est de ${HORODATE_COMMIT}. ⇒ la production n'a pas encore ce code. ` +
+          'Rien n\'est mesuré sur cette zone. ⭐ Si ça se répète à chaque fois, ' +
+          'regarder Coolify : ce n\'est plus de la lenteur.');
       }
     }
   }
@@ -451,7 +478,9 @@ if (HORODATE_COMMIT && !BASE_TEST) {
 console.log(`\n2. ${ZONE_MEMBRE} — les routes privées ne doivent JAMAIS venir du bord`);
 
 const zoneMembre = ZONES.find((z) => z.nom === ZONE_MEMBRE);
-if (!zoneMembre) {
+if (zoneMembre && zoneSautee(zoneMembre, 'les routes privées')) {
+  // rien : la zone n'a pas le code testé, on ne juge pas la version d'avant
+} else if (!zoneMembre) {
   verifie(`la zone « ${ZONE_MEMBRE} » est déclarée`, false,
     '⛔ la zone qui porte l\'espace membre a disparu de `ZONES` — plus personne ' +
     'ne garde les routes privées');
@@ -521,6 +550,7 @@ if (!zoneMembre) {
 // APPARAÎT.
 console.log('\n3. les autres zones n\'ont pas d\'espace membre');
 for (const zone of ZONES.filter((z) => z.nom !== ZONE_MEMBRE)) {
+  if (zoneSautee(zone, 'absence d\'espace membre')) continue;
   for (const chemin of ABSENTES_HORS_MEMBRE) {
     const r = await frappe(baseDe(zone) + chemin);
     await dodo(PAUSE);
@@ -548,6 +578,7 @@ for (const zone of ZONES.filter((z) => z.nom !== ZONE_MEMBRE)) {
 console.log('\n4. les pages publiques sont-elles sûres à mettre en cache ?');
 
 for (const zone of ZONES) {
+  if (zoneSautee(zone, 'pages publiques')) continue;
   const pages = PUBLIQUES_PAR_ZONE[zone.nom] || [];
   let joignable = false;
 
@@ -751,6 +782,7 @@ for (const zone of ZONES) {
 console.log('\n5. la fraîcheur de ce qui est servi (P35)');
 
 for (const zone of ZONES) {
+  if (zoneSautee(zone, 'fraîcheur')) continue;
   const s = await frappe(baseDe(zone) + SONDE);
   await dodo(PAUSE);
   if (!s.ok) { indecis(`${zone.nom} · sonde`, s.panne); continue; }
@@ -847,6 +879,24 @@ console.log('\n6. auto-contrôle');
 note(`${mesures} requête(s) émise(s) · ${zonesJoignables} groupe(s) de cibles joint(s)`);
 note(`règle déclarée ${CACHE_RULE_POSEE ? 'POSÉE' : 'NON POSÉE'} · TTL ${TTL_EDGE_S} s · ` +
   `${PRIVEES.length} route(s) privée(s) gardée(s)`);
+
+// 🔴🔴 LOT 180 — « AUCUNE ZONE MESURÉE » A DEUX CAUSES, ET UNE SEULE EST UNE
+// PANNE. Réseau muet ⇒ sortie 2, il faut le savoir. Production qui n'a pas
+// encore le commit ⇒ ce n'est pas une panne, c'est un déploiement en vol : le
+// dire fort, ne pas réveiller Discord.
+// ⛔ ET LE DIRE VRAIMENT FORT : un banc qui ne mesure rien ressemble à un banc
+// vert, et c'est la façon la plus banale de perdre une garde.
+if (zonesJoignables === 0 && ZONES_EN_RETARD.size >= ZONES.length) {
+  console.log(`\n⏸️  RIEN N'A ÉTÉ MESURÉ — les ${ZONES.length} zones servent encore`);
+  console.log('    un build antérieur au commit testé, après 30 minutes d\'attente.');
+  console.log('    ⛔ CE BANC N\'A DONC RIEN GARDÉ SUR CE RUN. Il ne dit pas « le cache');
+  console.log('       est correct », il dit « la production n\'avait pas encore ce code ».');
+  console.log('    ⭐ Le rejouer à la main (`workflow_dispatch`) mesure immédiatement :');
+  console.log('       un lancement manuel n\'attend rien, il n\'y a pas de build en vol.');
+  console.log('    🔴 Si ça arrive à CHAQUE run, ce n\'est plus de la lenteur Coolify :');
+  console.log('       c\'est un déploiement qui ne tombe pas, et ça se regarde là-bas.');
+  process.exit(0);
+}
 
 if (zonesJoignables === 0) {
   console.log('\n⏸️  INDÉCIDABLE — aucune cible n\'a répondu.');
