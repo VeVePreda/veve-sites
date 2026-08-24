@@ -301,7 +301,11 @@ dit(fausses.length === 0, 'une porte marquee provisoire est ouverte a un palier 
     if (zone) {
       const cartes = (zone.match(/class="tarif[ "]/g) || []).length;
       const verrous = (zone.match(/btn--verrou/g) || []).length;
-      const inscriptions = (zone.match(/href="\/inscription\/"/g) || []).length;
+      // 🔴 LOT 177 — L'ADRESSE A CHANGÉ : `/acces/`. ⛔ Ce motif est la raison
+      //    pour laquelle ce banc DEVAIT bouger dans le même lot que la page :
+      //    il aurait compté 0 lien sur une grille parfaitement correcte, et le
+      //    rouge aurait accusé le manifeste.
+      const inscriptions = (zone.match(/href="\/acces\/"/g) || []).length;
       console.log(`\n  · ${cartes} carte(s) rendue(s) · ${gratuits.length} gratuite(s) · ${payants.length} payante(s)`);
       console.log(`  · ${verrous} bouton(s) « bientot » · ${inscriptions} lien(s) vers l'inscription`);
       // ⭐ L'INSTRUMENT SE CONTROLE AVANT LA MESURE : si la page ne rend pas
@@ -319,7 +323,7 @@ dit(fausses.length === 0, 'une porte marquee provisoire est ouverte a un palier 
       dit(inscriptions === gratuits.length,
         'et chaque palier gratuit porte un chemin pour y entrer',
         inscriptions === gratuits.length ? `${inscriptions} lien(s) pour ${gratuits.length} palier(s) gratuit(s)`
-          : `${inscriptions} lien(s) vers /inscription/ pour ${gratuits.length} palier(s) gratuit(s) : `
+          : `${inscriptions} lien(s) vers /acces/ pour ${gratuits.length} palier(s) gratuit(s) : `
             + 'un palier ouvert sans porte est un palier ferme');
     }
   }

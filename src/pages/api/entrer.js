@@ -109,7 +109,7 @@ export async function GET({ url, cookies, redirect }) {
       { status: 503, headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' } },
     );
   }
-  if (!code) return redirect('/connexion/?e=1', 303);
+  if (!code) return redirect('/acces/?e=1', 303);
 
   let sid = null;
   try {
@@ -139,7 +139,7 @@ export async function GET({ url, cookies, redirect }) {
 
   // Un code périmé ou déjà servi n'est pas une panne : c'est un lien rouvert
   // deux fois, ou une heure plus tard. On le dit sans accuser la personne.
-  if (!sid) return redirect('/connexion/?e=2', 303);
+  if (!sid) return redirect('/acces/?e=2', 303);
 
   // ⭐ LES DEUX COOKIES ONT LA MÊME DURÉE DE VIE, ET C'EST OBLIGATOIRE. S'ils
   // divergent, le navigateur oublie l'un avant l'autre : soit un membre

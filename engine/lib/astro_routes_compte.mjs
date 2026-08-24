@@ -44,6 +44,10 @@
 
 const ROUTES_COMPTE = [
   'pages/compte/index.astro',
+  // 🔴 LOT 177 — L'ÉCRAN D'ACCÈS UNIQUE. Sans cette ligne il serait
+  // pré-généré : il ne lirait ni `Accept-Language`, ni le cookie de session,
+  // et il annoncerait « vous êtes connecté » d'après le build.
+  'pages/acces/index.astro',
   'pages/connexion/index.astro',
   'pages/api/sante.js',
   'pages/api/deconnexion.js',

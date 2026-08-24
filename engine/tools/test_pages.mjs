@@ -57,8 +57,12 @@ const verifie = (titre, ok, detail = '') => {
 const ROUTES = [
   { p: '/', quoi: 'l\'accueil' },
   { p: '/compte/', quoi: 'l\'espace compte' },
-  { p: '/connexion/', quoi: 'la connexion' },
-  { p: '/inscription/', quoi: 'l\'inscription' },
+  { p: '/acces/', quoi: "l'écran d'accès" },
+  // 🔴 LOT 177 — ON EXIGE LA REDIRECTION, PAS « pas 404 ». `code < 400`
+  // acceptait un 200 : le contrôle serait resté vert si la fusion n'avait
+  // jamais eu lieu. Vérifié en injectant `prerender`+page pleine : rouge.
+  { p: '/connexion/', quoi: "la connexion (mène à /acces/)", exige30x: '/acces/' },
+  { p: '/inscription/', quoi: "l'inscription (mène à /acces/)", exige30x: '/acces/' },
   { p: '/market/', quoi: 'le marché' },
   { p: '/favoris/', quoi: 'les favoris' },
   // 🧭 LOT 126 — LA TROISIÈME PLACE DE `/dashboard/`. Les deux autres :
@@ -80,8 +84,12 @@ const ROUTES = [
   { p: '/analytics/chain/', quoi: 'le sujet Chaîne & wallets' },
   // ⭐ Avec un paramètre de langue : c'est le chemin qui a explosé le 10/08,
   //   et il ne s'emprunte que si quelqu'un le demande.
-  { p: '/connexion/?lang=fr', quoi: 'la connexion en français' },
-  { p: '/inscription/?lang=de', quoi: 'l\'inscription en allemand' },
+  { p: '/acces/?lang=fr', quoi: "l'accès en français" },
+  { p: '/acces/?lang=de', quoi: "l'accès en allemand" },
+  // ⭐ LA QUERY DOIT SURVIVRE AU SAUT : sans elle, `?e=1` (le message
+  // d'erreur) et `?suite=` (la destination de retour) seraient perdus par la
+  // redirection, et personne ne s'en apercevrait — la page s'afficherait.
+  { p: '/connexion/?e=1&lang=fr', quoi: 'la connexion garde sa query', exige30x: '/acces/?e=1&lang=fr' },
   { p: '/api/sante', quoi: 'la sonde de santé', exige200: true },
 ];
 
@@ -127,16 +135,26 @@ verifie('le serveur démarre et écoute', pret,
 if (pret) {
   for (const r of ROUTES) {
     let code = 0;
+    let ou = '';
     try {
       const rep = await fetch(`http://127.0.0.1:${PORT}${r.p}`, { redirect: 'manual' });
       code = rep.status;
+      ou = rep.headers.get('location') || '';
     } catch (e) {
       verifie(`${r.quoi} (${r.p})`, false, `la requête a échoué : ${e.message}`);
       continue;
     }
-    const bon = r.exige200 ? code === 200 : (code < 400);
+    // 🔴🔴 LOT 177 — TROIS EXIGENCES, PAS DEUX. `code < 400` est le plancher
+    // (« la route existe ») ; `exige200` est la sonde ; `exige30x` est neuf et
+    // dit AUSSI OÙ ÇA MÈNE. ⛔ Sans le `Location`, une redirection vers
+    // n'importe quoi passerait au vert : c'est la faute que ce banc avait déjà
+    // laissée passer sur `/oauth/start`, une adresse qui n'a jamais existé.
+    const bon = r.exige30x ? (code >= 300 && code < 400 && ou === r.exige30x)
+              : r.exige200 ? code === 200
+              : (code < 400);
     verifie(`${r.quoi} (${r.p})`, bon,
-      bon ? `HTTP ${code}`
+      bon ? (r.exige30x ? `HTTP ${code} → ${ou}` : `HTTP ${code}`)
+          : r.exige30x ? `HTTP ${code}${ou ? ` → ${ou}` : ''} — attendu une redirection vers ${r.exige30x}`
           : `HTTP ${code} — ${code >= 500 ? 'LA PAGE EXPLOSE : le conteneur refusera de démarrer'
                             : code === 404 ? 'INTROUVABLE : la route n\'a pas été basculée à la demande'
                             : 'réponse refusée'}`);

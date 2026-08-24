@@ -43,7 +43,7 @@ if (!connecte(Astro.locals)) {
   // ⭐ 302 et pas 401 : ce n'est pas une erreur, c'est une porte. Et l'adresse
   // de retour voyage, sinon on renvoie à l'accueil quelqu'un qui allait
   // justement se connecter pour lire ce sujet.
-  return Astro.redirect('/connexion/?suite=%2Fanalytics%2Fcollections%2F', 302);
+  return Astro.redirect('/acces/?suite=%2Fanalytics%2Fcollections%2F', 302);
 }
 
 // ⚠️ OBLIGATOIRE, ET PAS DÉCORATIF. Cloudflare est devant ce site : sans cet

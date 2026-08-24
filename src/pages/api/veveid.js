@@ -64,7 +64,7 @@ export async function POST({ request, cookies, redirect }) {
   // ⛔ Sans session ou sans service, on ne fabrique rien et on renvoie à la
   // porte. Un message d'erreur ici n'apprendrait rien à personne : quelqu'un
   // sans session n'a aucune raison d'être sur cette route.
-  if (!sid || !base) return redirect('/connexion/', 303);
+  if (!sid || !base) return redirect('/acces/', 303);
 
   let vers = 'verifier';
   try {

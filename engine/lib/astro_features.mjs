@@ -173,7 +173,7 @@ const ZONES = [
   //   être élargi dans le même lot, sinon il aurait déclaré ces adresses « non
   //   éteintes » alors qu'elles le sont.
   { nom: 'comptes', actif: comptesActifs,
-    prefixes: ['/inscription/', '/compte/', '/connexion/', '/favoris/', '/dashboard/',
+    prefixes: ['/acces/', '/inscription/', '/compte/', '/connexion/', '/favoris/', '/dashboard/',
                '/analytics/',
                '/analytics/market/', '/analytics/catalogue/',
                '/analytics/collections/', '/analytics/chain/'] },

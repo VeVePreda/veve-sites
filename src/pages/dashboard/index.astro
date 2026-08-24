@@ -36,7 +36,7 @@ const lang = (_l && languesInterface().includes(_l)) ? _l : def;
 // ⚠️ « qui es-tu » n'est pas « à quoi as-tu droit » — les portes sont derrière
 // chacun des liens, là où elles ont un sens.
 if (!connecte(Astro.locals)) {
-  return Astro.redirect('/connexion/?suite=%2Fdashboard%2F', 302);
+  return Astro.redirect('/acces/?suite=%2Fdashboard%2F', 302);
 }
 
 Astro.response.headers.set('cache-control', 'private, no-store');

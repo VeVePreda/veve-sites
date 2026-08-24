@@ -89,7 +89,7 @@ export async function POST(context) {
     piege = String(form.get(CHAMP_PIEGE) ?? '');
     sceau = String(form.get('sceau') ?? '');
   } catch { email = ''; }
-  if (!email) return context.redirect('/inscription/?e=1', 303);
+  if (!email) return context.redirect('/acces/?e=1', 303);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // ⭐⭐ LES GARDE-FOUS ANTI-ROBOTS — voir engine/lib/robots.mjs pour le POURQUOI.
@@ -103,7 +103,7 @@ export async function POST(context) {
   const vr = verdict(piege, sceau);
   if (!vr.ok) {
     console.warn(`[inscription] écarté : ${vr.pourquoi}`);
-    return context.redirect('/inscription/?envoye=1', 303);
+    return context.redirect('/acces/?envoye=1', 303);
   }
 
   // ⚠️ LE RETOUR EST CONSTRUIT CÔTÉ SERVEUR, JAMAIS REPRIS D'UN PARAMÈTRE.
@@ -151,12 +151,12 @@ export async function POST(context) {
       // rendrait le formulaire bavard sur ce qui existe. Le journal, lui, a
       // le droit de savoir.
       console.error(`[inscription] veveid a refusé : ${r.status} ${(await r.text()).slice(0, 200)}`);
-      if (r.status === 400) return context.redirect('/inscription/?e=1', 303);
-      return context.redirect('/inscription/?e=2', 303);
+      if (r.status === 400) return context.redirect('/acces/?e=1', 303);
+      return context.redirect('/acces/?e=2', 303);
     }
   } catch (e) {
     console.error(`[inscription] veveid injoignable : ${e?.message}`);
-    return context.redirect('/inscription/?e=2', 303);
+    return context.redirect('/acces/?e=2', 303);
   }
 
   // 🔴 LA MÊME PAGE DANS TOUS LES CAS DE SUCCÈS — adresse neuve ou déjà
@@ -164,7 +164,7 @@ export async function POST(context) {
   // vous revoir » de l'autre transformerait ce formulaire en outil pour savoir
   // qui est inscrit : avec une liste d'adresses achetée, c'est une fuite à
   // l'échelle. veveid applique déjà cette règle ; on ne la défait pas ici.
-  return context.redirect('/inscription/?envoye=1', 303);
+  return context.redirect('/acces/?envoye=1', 303);
 }
 
 // ⚠️ UN GET SUR CETTE ADRESSE N'EST PAS UNE INSCRIPTION. Sans ce garde, Astro

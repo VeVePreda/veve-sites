@@ -131,8 +131,9 @@ export const PRIVEES = [
   // ⭐ Ces deux-là rendent 200, pas 302 — elles sont donc les plus exposées :
   //   une réponse 200 est ce qu'un cache aime mettre de côté, et elles lisent
   //   `Accept-Language`, donc elles diffèrent d'un visiteur à l'autre.
-  { chemin: '/connexion/', attendu: 'no-store', quoi: 'la page de connexion (lit Accept-Language)' },
-  { chemin: '/inscription/', attendu: 'no-store', quoi: "la page d'inscription (lit Accept-Language)" },
+  { chemin: '/acces/', attendu: 'no-store', quoi: "l'écran d'accès unique (lit Accept-Language)" },
+  { chemin: '/connexion/', attendu: 'no-store', quoi: 'la connexion — 302 vers /acces/ (lit Accept-Language)' },
+  { chemin: '/inscription/', attendu: 'no-store', quoi: "l'inscription — 302 vers /acces/ (lit Accept-Language)" },
   // ═════════════════════════════════════════════════════════════════════════
   // 🔴🔴 LES VARIANTES LOCALISÉES — TROUVÉES PAR LE BANC, PAS PAR UN AUDIT
   // ═════════════════════════════════════════════════════════════════════════
@@ -209,6 +210,7 @@ export const ABSENTES_HORS_MEMBRE = ['/compte/', '/market/', '/connexion/', '/fa
 //   fixe — on teste que chaque FAMILLE est réclamée par quelqu'un.
 export const FAMILLES_COMPTE = [
   { source: 'pages/compte/', couvertPar: '/compte/' },
+  { source: 'pages/acces/', couvertPar: '/acces/' },
   { source: 'pages/connexion/', couvertPar: '/connexion/' },
   { source: 'pages/inscription/', couvertPar: '/inscription/' },
   { source: 'pages/market/', couvertPar: '/market/' },

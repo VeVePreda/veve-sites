@@ -29,7 +29,7 @@ if (!priceEnabled()) return Astro.redirect('/');
 
 const aLeDroit = connecte(Astro.locals) && franchit('cote', Astro.locals);
 if (!aLeDroit) {
-  return Astro.redirect(`/connexion/?suite=%2F${encodeURIComponent(lang)}%2Fmarket%2F`, 302);
+  return Astro.redirect(`/acces/?suite=%2F${encodeURIComponent(lang)}%2Fmarket%2F`, 302);
 }
 
 Astro.response.headers.set('cache-control', 'private, no-store');

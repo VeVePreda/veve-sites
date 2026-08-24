@@ -126,11 +126,11 @@ esac
 # c'est correct, et exiger 200 ferait echouer un conteneur parfaitement sain.
 # Ce qu'on refuse, c'est l'introuvable.
 if [ "$MODE" = "server" ]; then
-  for page in /compte/ /connexion/ /inscription/; do
+  for page in /acces/ /compte/ /connexion/ /inscription/; do
     wget -q -O /dev/null "http://127.0.0.1:80$page" 2>/dev/null \
       || echec "$page est INTROUVABLE a travers nginx alors que Node la rend. Il manque sa regle dans nginx.server.conf — cf. le bloc « pages de compte ». (Node repond bien : /api/sante a deja ete verifie.)"
   done
-  echo "[demarrage] pages de compte joignables a travers nginx : /compte/ /connexion/ /inscription/"
+  echo "[demarrage] pages de compte joignables a travers nginx : /acces/ /compte/ /connexion/ /inscription/"
 fi
 
 if [ "$MODE" = "server" ]; then
