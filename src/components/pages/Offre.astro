@@ -57,16 +57,21 @@ const ouvert = (mo) => (mo.porte ? !porte(mo.porte).actif : mo.tier === 'visitor
 // Le nom LISIBLE d'un palier, dans la langue de la page. Retombe sur la clé
 // seulement si le manifeste ne declare pas ce plan — et alors c'est un vrai
 // defaut de manifeste, pas un cas normal a masquer.
+// 🔴 LOT 161 — `pick()` NE SE TRADUISAIT PAS (point `s`). Mesuré le 24/08 :
+// « Member · Shrimp · Lobster · Whale » et leurs descriptions restaient en
+// anglais dans les cinq langues. Les traductions étaient pourtant dans le
+// manifeste. ⭐ `pickT` les marque ; `marquer_i18n.mjs` les résout en relisant
+// le manifeste, par la CLÉ du plan et jamais par son index.
 const nomPlan = (cle) => {
   const p = (m.offer?.plans || []).find((x) => x.cle === cle);
-  return pick(p?.nom, lang) || cle;
+  return pickT(p?.nom, lang, `mf.offer.plans.${cle}.nom`) || cle;
 };
 // Le cadenas de fin de carte, en SVG : pas de glyphe, pas de dependance a une
 // fonte a symboles (cf. le bouton jour/nuit du lot 18).
 const cadenas = () => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" '
   + 'stroke-width="2" stroke-linecap="round"><rect x="4.5" y="10.5" width="15" height="10" rx="2"/>'
   + '<path d="M8 10.5V7.8a4 4 0 0 1 8 0v2.7"/></svg>';
-import { t, localize, pick } from '../../../engine/lib/i18n.mjs';
+import { t, localize, pick, pickT } from '../../../engine/lib/i18n.mjs';
 
 // ⭐ LA LANGUE ARRIVE EN PROP, ELLE NE SE DEVINE PLUS.
 // La version précédente faisait `locales().def` : la page n'existait donc qu'en
@@ -212,7 +217,7 @@ const dsOffre = await dataset();
             aujourd'hui qu'on evite ce piege — cf. le bouton jour/nuit. */}
         <h2 class="etiq" style="display:flex;align-items:center;gap:8px">
           <span style="color:var(--sect-a);display:inline-flex"><Fragment set:html={iconePalier(p.cle)} /></span>
-          {pick(p.nom, lang)}
+          {pickT(p.nom, lang, `mf.offer.plans.${p.cle}.nom`)}
         </h2>
         {/* ⭐⭐ LES DEUX PRIX SONT DANS LE HTML, ET LA BASCULE EN MASQUE UN.
             ⛔ Pas de calcul en JavaScript : un prix calculé par le navigateur
@@ -227,8 +232,10 @@ const dsOffre = await dataset();
         <p class="tarif__b" data-per="mois" hidden>
           <span class="tarif__p">{eurMois(p.prix)}</span>
           <span class="prix__u">{noteMois(p.prix)}</span></p>
-        {/* ⭐ `pick` : `d` est une CARTE PAR LANGUE, comme site.tagline. */}
-        <p class="respire">{pick(p.d, lang)}</p>
+        {/* ⭐ `d` est une CARTE PAR LANGUE, comme site.tagline. 🔴 LOT 161 :
+            `pick` la rendait sans sentinelle, donc figée en anglais — `pickT`
+            la marque, et `marquer_i18n.mjs` la résout depuis le manifeste. */}
+        <p class="respire">{pickT(p.d, lang, `mf.offer.plans.${p.cle}.d`)}</p>
         <p class="etiq etiq--bleu">
           {/* ⚠️ `-1` veut dire ILLIMITÉ. Afficher « -1 alerte » sur une page de
               tarifs est le genre de bug qui se voit depuis la rue. */}
@@ -294,7 +301,7 @@ const dsOffre = await dataset();
         <tr>
           <th scope="col">{t(lang, 'account.modules')}</th>
           {visibles.map((p) => (
-            <th scope="col" class:list={[p.cle === 'langouste' ? 'compa-t__phare' : '']}>{pick(p.nom, lang)}</th>
+            <th scope="col" class:list={[p.cle === 'langouste' ? 'compa-t__phare' : '']}>{pickT(p.nom, lang, `mf.offer.plans.${p.cle}.nom`)}</th>
           ))}
         </tr>
       </thead>

@@ -300,8 +300,14 @@ td.num, th.num{text-align:right;font-variant-numeric:tabular-nums;
   h1{font-size:clamp(26px,8vw,40px)}
   /* ⭐ Sur un téléphone, une pièce décorative ne décore plus : elle occupe la
      place du contenu. La ligne de partage n'est pas « image / pas image », elle
-     est « ILLUSTRATION / SUJET » — une vignette de fiche EST le contenu. */
-  .decor,.banniere,
+     est « ILLUSTRATION / SUJET » — une vignette de fiche EST le contenu.
+     🔴 LOT 161 · 24/08/2026 — il y avait ICI `  .decor,.banniere,` : un
+     sélecteur pendant, virgule finale, AUCUN bloc. Le navigateur jette la règle
+     (mesuré : lightningcss, « Unexpected end of input », ligne 305) — sans une
+     erreur, sans un log, sans un build rouge. ⭐ ET LA RÈGLE N'A PAS ÉTÉ
+     RÉPARÉE ICI : elle existe déjà, complète, plus bas
+     (`@media (max-width:640px){ .decor,.banniere{display:none!important} }`).
+     La réécrire aurait posé un DOUBLON. Le geste juste était de la RETIRER. */
 }
 
 @media (max-width:820px){
@@ -598,6 +604,24 @@ a:hover{text-decoration:underline;text-underline-offset:3px}
    ⛔ Ne pas le rendre au footer sous forme de marge « puisque c'était là
    avant » : on remettrait la bande noire, et le symptôme avec. */
 main{padding:var(--s7) 0 var(--s8);display:block;position:relative}
+/* 🔴🔴 LOT 161 — MESURÉ LE 24/08/2026 : LA RÈGLE CI-DESSUS N'A JAMAIS PEINT.
+   `Base.astro` émet `<main class="wrap">`. Une CLASSE (0,1,0) bat un ÉLÉMENT
+   (0,0,1) quel que soit l'ordre, et `.wrap{padding:0 24px}` est un RACCOURCI :
+   il remet padding-top ET padding-bottom à ZÉRO. Mesuré sur la feuille servie
+   en production, à 1280 px comme à 390 px : `padding-bottom` valait **0**.
+   ⭐ Le commentaire du 06/08 juste au-dessus décrit une INTENTION, pas un
+   résultat : la correction a changé `main` sans voir que le gabarit posait
+   `class="wrap"` sur ce même `<main>`.
+   ⭐⭐⭐ « EST-CE ÉCRIT ? » ET « EST-CE CE QUI GAGNE ? » SONT DEUX QUESTIONS.
+   Le remède monte la spécificité à (0,1,1) et RESTE UN PADDING SUR `main` —
+   l'interdit du 06/08 tient : ⛔ jamais en `margin-top` sur `.site-f`, qui
+   laisserait revoir la bande noire du `body`. `.wrap` garde gauche/droite.
+   🔬 Contrôlé par `outils/cascade-resolue.mjs`, banc `test_feuille.mjs`. */
+main.wrap{padding-top:var(--s7);padding-bottom:var(--s8)}
+/* ② MÊME SIGNATURE, SENS INVERSE : `.site-f{padding:var(--s7) 0}` (0,1,0) est
+   battu par `footer.site{padding:var(--s6) 0}` (0,1,1) de la feuille du
+   manifeste — le pied rendait 36 px au lieu des 56 écrits. */
+footer.site.site-f{padding:var(--s7) 0}
 main::before{content:"";position:absolute;inset:0 0 auto;height:240px;pointer-events:none;z-index:0; background:linear-gradient(180deg,var(--sect-1v),transparent)}
 main>*{position:relative;z-index:1}
 h1,h2,h3{font-family:var(--geo);font-weight:600;margin:0;letter-spacing:-.028em}
@@ -1194,18 +1218,12 @@ dl.fiche-tbl + dl.fiche-tbl{border-top:1px solid var(--rule);padding-top:2px}
 .faq__n{font-family:var(--tech);font-size:var(--t-xs);color:var(--muted);letter-spacing:.12em;flex:0 0 auto}
 .faq__c{padding:0 20px 19px 20px;color:var(--text-2);font-size:var(--t-sm);line-height:1.68;max-width:76ch}
 
-0%{opacity:0;transform:translate3d(0,34px,0) rotate(-3deg)}
-22%{opacity:.55}
-78%{opacity:.55}
-100%{opacity:0;transform:translate3d(-26px,-34px,0) rotate(3deg)}
-0%{opacity:0;transform:translate3d(0,72px,0) rotate(4deg)}
-18%{opacity:1}
-82%{opacity:1}
-100%{opacity:0;transform:translate3d(-58px,-72px,0) rotate(-4deg)}
-0%{opacity:0;transform:translate3d(0,150px,0) rotate(-6deg)}
-14%{opacity:.5}
-86%{opacity:.5}
-100%{opacity:0;transform:translate3d(-120px,-150px,0) rotate(6deg)}
+/* 🔴 LOT 161 · 24/08/2026 — DOUZE LIGNES RETIRÉES ICI : trois séries d'étapes
+   `0% / 22% / 78% / 100%` posées À LA RACINE de la feuille, sans leur
+   `@keyframes` autour (mesuré : lightningcss, 12 × « Invalid empty selector »).
+   Elles étaient MORTES, et sans conséquence : les vraies enveloppes
+   `@keyframes vp-trav-loin|moyen|pres` existent plus bas et portent exactement
+   les mêmes étapes. Un doublon amputé, pas une animation perdue. */
 
 .compa{width:100%;border-collapse:collapse;font-size:var(--t-sm)}
 .compa th,.compa td{padding:9px 10px;border-bottom:1px solid var(--rule);text-align:center}
@@ -1350,7 +1368,7 @@ dl.fiche-tbl + dl.fiche-tbl{border-top:1px solid var(--rule);padding-top:2px}
 @media (max-width:900px){ .h-rech span,.h-rech .kbd{display:none} .h-rech{min-width:0;width:var(--tap);height:var(--tap);justify-content:center;padding:0;border-color:transparent;background:transparent} }
 @media (max-width:820px){ .site-f__cols{grid-template-columns:1fr 1fr} }
 @media (max-width:520px){ .site-f__cols{grid-template-columns:1fr} }
-@media (max-width:640px){ main{padding-top:var(--s5)} }
+@media (max-width:640px){ main.wrap{padding-top:var(--s5)} }
 @media (max-width:640px){ .sect-t--gd h2{font-size:clamp(26px,8vw,40px)} }
 @keyframes pulse-pli{0%{transform:none}45%{transform:translateY(-3px) scale(1.14)}100%{transform:none}}
 @keyframes scintille{to{background-position:-220% 0}}
@@ -2257,51 +2275,52 @@ body > main{ background:var(--bg); }
    ⭐ Ce n'est pas un gout : c'est la seule commande de l'en-tete dont la forme
    ne survivait pas au redimensionnement. On la fige. */
 /* ═══════════════════════════════════════════════════════════════════════════
-   🔴 LOT 139 — LE BOUTON DE RECHERCHE DEVIENT CARRÉ (demande de Preda, 11/08)
+   🔴🔴🔴 LOT 161 (24/08/2026) — LE CARRÉ DU LOT 139 N'A JAMAIS PEINT
    ═══════════════════════════════════════════════════════════════════════════
-   ⚠️ CE N'ÉTAIT PAS UN DÉFAUT, ET C'EST DIT AVANT DE TOUCHER À LA RÈGLE : le
-   lot 111 avait déjà FIGÉ cette pastille à 38 px des deux côtés de 900 px, et
-   la mesure le confirme. C'est un choix de forme, pas une réparation. ⛔ On ne
-   le maquille pas en correction — *un changement de goût écrit comme un
-   correctif fait croire, dans six mois, qu'il y avait une panne à ne pas
-   rouvrir.*
+   Le lot 139 (11/08) a écrit `border-radius:var(--r-md)` sur `.h-rech--b`, à la
+   demande de Preda, avec quarante lignes pour expliquer le choix du rayon et la
+   taille qui l'accompagne. MESURÉ le 24/08 sur la feuille SERVIE en production :
 
-   ⭐⭐ ET LA MESURE A CHOISI LE RAYON, PAS MOI. L'ordre RÉEL des commandes dans
-   l'en-tête servi (lu dans `dist/`, pas dans le gabarit) est :
+       nav.main a  { border-radius: var(--r-full) }   spécificité (0,1,2)  ← GAGNE
+       .h-rech--b  { border-radius: var(--r-md)   }   spécificité (0,1,0)
 
-       [ .deplie__b  pilule 38px, --r-full ]  [ .h-rech--b ]  [ .bascule ]
+   ⇒ Le bouton est **rond** en ligne depuis le 11 août. C'est ce que Preda a vu
+   sur sa capture (« un rond gris identique au bouton de compte »), et il avait
+   raison : ce n'était pas un souvenir approximatif, c'était l'écran.
 
-   `.bascule` — la bascule jour/nuit, VOISINE IMMÉDIATE — porte déjà
-   `border-radius:var(--r-md)`. L'en-tête avait donc DÉJÀ un bouton carré, et
-   la recherche était le rond posé à côté. Passer au carré ne fait entrer
-   aucune forme étrangère : il aligne les deux boutons à icône seule.
-   ⛔ Pas `--r-doc` (0) : aucun angle vif dans cet en-tête, et le seul y serait
-   plus voyant que le bouton.
+   ⭐⭐⭐ TROISIÈME FOIS LE MÊME DÉFAUT DANS CETTE SEULE JOURNÉE — après les 88 px
+   du pied de page et les 56 px de la barre grise. La signature est toujours la
+   même : une règle écrite, commentée, défendue, et BATTUE EN SPÉCIFICITÉ par
+   une règle plus ancienne que personne ne relit. « Est-ce écrit ? » et « est-ce
+   ce qui gagne ? » sont deux questions, et le dépôt ne posait que la première.
+   🔬 Il pose la seconde depuis ce lot : `outils/cascade-resolue.mjs` la calcule,
+   `test:feuille` la surveille.
 
-   🔴 LA CONSÉQUENCE QU'IL FALLAIT VOIR AVANT, ET QUI M'A FAIT CHANGER LA
-   TAILLE AUSSI : `.h-rech--b` faisait **38 px** et `.bascule` fait
-   `--tap-min` = **36 px**. Un ROND à côté d'un CARRÉ absorbe 2 px d'écart sans
-   que l'œil le voie ; **deux carrés côte à côte ne les absorbent pas** — ils
-   se lisent comme un défaut d'alignement. ⇒ la recherche prend `--tap-min`,
-   comme sa voisine. *Changer une forme change ce que les défauts d'à côté
-   laissent voir : la géométrie n'est pas une propriété locale.*
-   ⚠️ **36 px reste sous les 44 px de cible tactile recommandés** — c'est vrai
-   de `.bascule` DEPUIS TOUJOURS, ce lot ne l'aggrave pas, il l'étend d'un
-   bouton. ⛔ Écrit comme non réglé plutôt que passé sous silence : ça se tranche
-   dans l'audit WCAG, qui n'a jamais été fait (SUIVI).
-   ⭐ Un seul chiffre à changer pour revenir en arrière : `--tap-min` → `38px`. */
+   ⭐ ARBITRAGE DE PREDA, 24/08, sur trois formes montrées côte à côte : **on
+   garde le rond**. Le carré mort part donc — il ne peint rien, il ne peut que
+   faire croire au prochain lecteur qu'il y a un carré quelque part.
+   ⛔ NE PAS « restaurer » `--r-md` en montant la spécificité : ce serait
+   ressusciter un choix explicitement abandonné. Si le carré revient un jour, il
+   reviendra sur une demande datée, pas sur la lecture de ce commentaire.
+
+   ⚠️ CE QUI RESTE DU LOT 139, ET QUI EST TOUJOURS VRAI : la TAILLE. `.h-rech--b`
+   prend `--tap-min` (36 px) comme `.bascule`, au lieu des 38 px d'avant — les
+   deux boutons de l'en-tête ont le même gabarit, et c'est ce que l'œil lit.
+   ⚠️ 36 px reste sous les 44 px de cible tactile recommandés — vrai de
+   `.bascule` depuis toujours. Écrit comme non réglé plutôt que tu : ça se
+   tranche dans l'audit WCAG, qui n'a jamais été fait (SUIVI).
+   ⭐ Un seul chiffre pour revenir en arrière : `--tap-min` → `38px`. */
 .h-rech--b{ min-width:0; width:var(--tap-min); height:var(--tap-min); padding:0;
   justify-content:center; background:var(--surface-2);
-  border:1px solid var(--rule-2); border-radius:var(--r-md); }
+  border:1px solid var(--rule-2); }
 /* ⚠️ CE BLOC RESTE, ET IL N'EST PAS REDONDANT. `.h-rech` (la base) se
    déshabille sous 900 px — `min-width:0`, fond et bordure retirés, taille
    portée à `--tap`. Sans cette reprise, le bouton changerait de nature à
    900 px : c'est exactement la panne que le lot 111 a fermée, et elle
-   reviendrait par la porte de la base. ⭐ Le rayon y est REDÉCLARÉ pour la
-   même raison : ce qui n'est pas repris ici est repris par `.h-rech`. */
+   reviendrait par la porte de la base. */
 @media (max-width:900px){
   .h-rech--b{ width:var(--tap-min); height:var(--tap-min); background:var(--surface-2);
-    border-color:var(--rule-2); border-radius:var(--r-md); }
+    border-color:var(--rule-2); }
 }
 /* La loupe reprend la taille des autres pictogrammes de l'en-tête (le globe,
    l'avatar), pour que les boutons aient le même poids visuel. */

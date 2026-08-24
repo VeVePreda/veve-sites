@@ -281,12 +281,99 @@ const { def } = locales();
 const dossier = join(RACINE, 'i18n');
 mkdirSync(dossier, { recursive: true });
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴 LOT 161 — LES CLÉS QUI NE VIVENT PAS DANS `engine/i18n/`
+// ═══════════════════════════════════════════════════════════════════════════
+// `pickT()` marque les valeurs du MANIFESTE (`mf.<chemin>`) et les titres
+// LÉGAUX (`lg.<doc>`). Elles portent leurs traductions ailleurs, et c'est
+// délibéré : l'accroche et les formules appartiennent au site, pas au moteur.
+// ⭐⭐ ON NE LES RECOPIE DONC PAS DANS `engine/i18n/` — on les RÉSOUT ici, en
+// relisant leur source. Recopier aurait fabriqué une deuxième vérité pour la
+// même phrase, et ce dépôt sait ce que ça coûte.
+// ⛔ UNE CLÉ QUI NE SE RÉSOUT PAS EST DITE, JAMAIS SAUTÉE. Un `mf.` mal écrit
+//    dans un gabarit produirait un `data-i18n` que le pilote chercherait en
+//    vain : le libellé resterait anglais, et la page s'afficherait parfaitement.
+//    C'est exactement le profil de P30.
+const manifesteBrut = await (async () => {
+  try {
+    // ⚠️ IMPORT DYNAMIQUE, PAS `require` : ce fichier est un module ES. Un
+    // `require` y lèverait à l'exécution — et le `catch` aurait rendu `null`,
+    // donc « aucune clé de manifeste résolue », en silence.
+    // ⚠️ `js-yaml` v5 est un module CJS SANS export `default` : `.default` vaut
+    // `undefined`, et `.load` se lit directement sur le namespace. Mesuré, pas
+    // supposé — la première version écrivait `.default` et le garde-fou
+    // ci-dessous a crié « manifeste ILLISIBLE ». ⭐ Il a fait exactement son
+    // travail : dire qu'il ne pouvait pas, au lieu de rendre zéro clé en silence.
+    const mod = await import('js-yaml');
+    const yaml = mod.load ? mod : mod.default;
+    return yaml.load(readFileSync(join(ROOT, 'sites', process.env.SITE || 'veveprice', 'manifest.yml'), 'utf8'));
+  } catch (e) {
+    console.warn(`[i18n] ⚠️ manifeste ILLISIBLE (${e.message}) — aucune clé « mf. » ne sera résolue.`);
+    return null;
+  }
+})();
+const legalBrut = (lang) => {
+  try { return JSON.parse(readFileSync(join(ROOT, 'engine', 'legal', `${lang}.json`), 'utf8')); } catch { return null; }
+};
+const nonResolues = new Set();
+function horsDictionnaire(cle, lang) {
+  if (cle.startsWith('mf.')) {
+    if (!manifesteBrut) return undefined;
+    let n = manifesteBrut;
+    for (const seg of cle.slice(3).split('.')) {
+      // ⭐ SUR UNE LISTE, ON CHERCHE PAR `cle`, PAS PAR INDEX. `offer.plans` est
+      // un tableau : écrire `mf.offer.plans.0.nom` marcherait aujourd'hui et
+      // désignerait un AUTRE plan le jour où Preda réordonne la grille — sans
+      // erreur, avec un libellé plausible. `mf.offer.plans.member.nom` reste
+      // juste quel que soit l'ordre. ⛔ Un index dans une clé de traduction est
+      // une adresse qui bouge toute seule.
+      n = Array.isArray(n) && !/^\d+$/.test(seg) ? n.find((x) => x && x.cle === seg) : n?.[seg];
+      if (n === undefined || n === null) return undefined;
+    }
+    // La valeur doit être une CARTE de langues ; une chaîne nue n'a rien à échanger.
+    return (n && typeof n === 'object' && !Array.isArray(n)) ? n[lang] : undefined;
+  }
+  if (cle.startsWith('lg.')) return legalBrut(lang)?.[`${cle.slice(3)}.title`];
+  return undefined;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 LOT 161 — CE FICHIER ÉCRASAIT SES PROPRES DICTIONNAIRES, EN SILENCE
+// ═══════════════════════════════════════════════════════════════════════════
+// TROUVÉ LE 24/08/2026, en le relançant par mégarde sur un `dist/` déjà marqué :
+//     « 0 page(s) marquée(s) · 0 libellé(s) · dictionnaires servis : fr 0.0 Ko »
+// Les sentinelles ayant déjà été retirées au premier passage, la seconde
+// exécution ne trouve plus rien — et RÉÉCRIT les trois dictionnaires à `{}`.
+// ⇒ Le site part en production avec des dictionnaires VIDES : chaque libellé
+// reste en anglais chez tout le monde, sans une erreur, sans un build rouge.
+// C'est P30 en pire, et déclenché par une commande relancée deux fois.
+//
+// ⭐⭐⭐ « ZÉRO PARCE QU'IL N'Y A RIEN » ET « ZÉRO PARCE QUE C'EST DÉJÀ FAIT »
+//     SE RESSEMBLENT EXACTEMENT DANS UN COMPTEUR À ZÉRO. Ce fichier écrivait
+//     sur le premier sens en ayant mesuré le second.
+// ⛔ ON NE « RÉPARE » PAS EN NE RÉÉCRIVANT PAS : un dist réellement neuf et
+//    réellement vide doit crier, pas être toléré.
+if (html.length > 0 && nTexte === 0) {
+  console.error(`\n❌ ${html.length} page(s) HTML lues et AUCUN libellé marqué.`);
+  console.error('   Soit `dist/` a déjà été marqué (la commande a été lancée deux fois),');
+  console.error('   soit le build a tourné SANS `I18N_MARQUAGE=1`.');
+  console.error('   ⛔ Les dictionnaires servis ne sont PAS réécrits : les vider ferait');
+  console.error('      partir le site avec toute son interface figée en anglais.');
+  process.exit(2);
+}
+
 const poids = [];
+let nHors = 0;
 for (const lang of languesInterface()) {
   if (lang === def) continue;
   const complet = JSON.parse(readFileSync(join(ROOT, 'engine', 'i18n', `${lang}.json`), 'utf8'));
   const partiel = {};
-  for (const k of new Set([...clesVues, ...clesAttribut])) if (complet[k] !== undefined) partiel[k] = complet[k];
+  for (const k of new Set([...clesVues, ...clesAttribut])) {
+    if (complet[k] !== undefined) { partiel[k] = complet[k]; continue; }
+    const v = horsDictionnaire(k, lang);
+    if (v !== undefined && v !== null && v !== '') { partiel[k] = v; nHors++; }
+    else if (k.startsWith('mf.') || k.startsWith('lg.')) nonResolues.add(`${k} (${lang})`);
+  }
   const texte = JSON.stringify(partiel);
   writeFileSync(join(dossier, `${lang}.json`), texte, 'utf8');
   poids.push(`${lang} ${(texte.length / 1024).toFixed(1)} Ko`);
@@ -301,3 +388,5 @@ console.log(
   + `${nOrphelins ? ` · ⚠️ ${nOrphelins} page(s) portaient un marqueur AMPUTÉ (un gabarit coupe ou transforme un t()) — balayé` : ''}`
   + `${nDeforme ? ` · 🔴 ${nDeforme} clé(s) DÉFORMÉE(S) non échangeables : ${[...clesDeformees].join(', ')} — un gabarit transforme le résultat de t()` : ''}.`);
 console.log(`[i18n] dictionnaires servis : ${poids.join(' · ') || 'aucun (une seule langue d\'interface)'}`);
+console.log(`[i18n] hors dictionnaire (manifeste + légal) : ${nHors} valeur(s) résolue(s)`
+  + `${nonResolues.size ? ` · 🔴 ${nonResolues.size} clé(s) NON RÉSOLUE(S) : ${[...nonResolues].slice(0, 8).join(', ')}` : ''}`);

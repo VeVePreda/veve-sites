@@ -269,6 +269,48 @@ export function pick(value, lang) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 LOT 161 — `pick()` NE DISAIT PAS QUI IL ÉTAIT, DONC IL NE S'ÉCHANGEAIT PAS
+// ═══════════════════════════════════════════════════════════════════════════
+// MESURÉ le 24/08/2026 sur les 158 pages servies : **8 048 libellés
+// échangeables, et 312 qui ne le sont pas** — dont la devise sous le logo, les
+// quatre liens légaux du pied de page (156 pages chacun) et **toute la page
+// `/offre/`, formules comprises**. La page qui vend était la moins traduite.
+//
+// ⭐⭐⭐ ET CE N'ÉTAIT PAS UN DÉFAUT DE TRADUCTION. `manifest.yml` porte
+// `fr/en/es/de/it` pour l'accroche comme pour les paliers ; `engine/legal/*.json`
+// porte les cinq titres. **Les traductions existaient toutes.** Ce qui manquait,
+// c'est que `pick()` rend la chaîne anglaise choisie AU BUILD, sans sentinelle :
+// le navigateur n'a rien à échanger, et rien ne le signale.
+//
+// ⭐⭐ LE COMMENTAIRE DU LOT 129, VINGT LIGNES PLUS HAUT, PORTAIT DÉJÀ LA
+// RÉPONSE : « il n'y a que deux façons de savoir quel texte est quelle clé —
+// retrouver la clé à l'envers (REFUSÉ : une pièce nommée "History" se ferait
+// traduire), ou DEMANDER À `t()` DE DIRE QUI IL EST. » On demande la même chose
+// à `pick()`. La seule différence : `pick()` ne connaît pas sa clé, puisque sa
+// valeur vient du manifeste — c'est donc l'appelant qui la donne.
+//
+// LA CONVENTION, ET ELLE EST MÉCANIQUE — ⛔ pas un nom choisi au hasard :
+//   `mf.<chemin.dans.le.manifeste>`   ex. `mf.identity.accroche`
+//   `lg.<doc>`                        ex. `lg.mentions`  (engine/legal/<lang>.json)
+// ⭐ `outils/marquer_i18n.mjs` RÉSOUT ces clés en relisant le manifeste et les
+// fichiers légaux — donc **aucun registre à tenir, aucune valeur recopiée**.
+// Une clé dont le chemin ne mène nulle part est signalée, pas ignorée.
+//
+// ⛔ NE PAS écrire `pickT(x, lang, 'accroche')` : sans le préfixe, le marqueur
+//    la chercherait dans `engine/i18n/` et ne la trouverait pas. Le préfixe
+//    n'est pas décoratif, c'est l'adresse de la valeur.
+export function pickT(value, lang, cle) {
+  const texte = pick(value, lang);
+  if (process.env.I18N_MARQUAGE !== '1') return texte;
+  if (texte === '' || texte === null || texte === undefined) return texte;
+  // ⚠️ Une valeur qui n'est PAS une carte de langues n'a rien à échanger : la
+  // marquer promettrait une traduction qui n'existe pas, et le dictionnaire
+  // servi porterait une clé morte. On la rend nue.
+  if (typeof value === 'string') return texte;
+  return `${SENT_DEB}${cle}${SENT_MIL}${texte}${SENT_FIN}`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // 🔴🔴🔴 LOT 128 — UNE ADRESSE SE PRÉFIXE AVEC UNE LANGUE QUI A UNE ADRESSE
 // ═══════════════════════════════════════════════════════════════════════════
 // MESURÉ LE 10/08/2026, serveur réel : depuis `/favoris/` avec le cookie
@@ -304,12 +346,51 @@ export function pick(value, lang) {
 // langue d'INTERFACE s'était échappée dans une URL.
 // 🔴 Elle guérit aussi le canonical : `Base.astro` construisait
 //    `<link rel=canonical href=".../fr/favoris/">` vers une page inexistante.
-export const prefixOf = (lang) => {
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 LOT 162 — LE BLOG A SA PROPRE LISTE D'ADRESSES, ET `prefixOf` NE LA
+//                  CONNAISSAIT PAS
+// ═══════════════════════════════════════════════════════════════════════════
+// MESURÉ LE 24/08/2026 SUR LA PRODUCTION, page par page :
+//   · `/fr/blog/` répond 200 et liste bien l'article français ;
+//   · CHACUN de ses liens pointe vers `/blog/…`, c'est-à-dire vers l'ANGLAIS ;
+//   · le `hreflang="fr"` de l'article français annonce l'adresse ANGLAISE ;
+//   · `/fr/rss.xml` est construit, et le `<head>` français annonce `/rss.xml` ;
+//   · le plan du site ne contient AUCUNE adresse `/fr/blog/…`.
+// Autrement dit : les pages françaises du blog existent, sont servies par
+// nginx (`location ^~ /fr/blog/`), et RIEN sur le site n'y mène. Un blog
+// français où chaque lien ramène à l'anglais est un cul-de-sac.
+//
+// LA CAUSE EST LA MÊME QU'AU LOT 128, D'UN CRAN PLUS LOIN. Le lot 128 a eu
+// raison de dire « une adresse se préfixe avec une langue QUI A UNE ADRESSE »,
+// et il a lu cette liste dans `active`. Or `active` répond à la question pour
+// les pages du SITE, et le blog — seul contenu du réseau qui diffère vraiment
+// d'une langue à l'autre — tient sa propre liste (`languages.blog`), que les
+// `getStaticPaths`, nginx et le plan du site respectent déjà.
+// ⇒ Ce n'est donc pas UNE liste ni DEUX : c'est « quelle liste, pour QUEL
+//   chemin ». Le préfixe se décide sur le CHEMIN demandé, en un seul endroit,
+//   et les ~35 appels à `localize()` du blog guérissent d'un coup.
+//
+// ⭐ `/rss.xml` en fait partie : la route `[locale]/rss.xml` est construite sur
+//    les langues du blog, exactement comme `[locale]/blog/`.
+// ⭐ LE REPLI NE CHANGE PAS : une langue qui n'a d'adresse dans AUCUNE des deux
+//    listes retombe sur la langue par défaut. On ne rend jamais un lien mort.
+// ⚠️ SANS EFFET SUR vevewiki, dont les cinq langues sont dans `active` : les
+//    deux listes y donnent le même préfixe. Vérifié par la chaîne, deux sites.
+// ⛔ NE PAS étendre ce motif à d'autres chemins « par prudence » : chaque
+//    entrée est une promesse que la page existe dans cette langue, et une
+//    promesse non tenue, ici, s'appelle un 404.
+const CHEMIN_DU_BLOG = /^\/(blog(\/|$)|rss\.xml$)/;
+
+export const prefixOf = (lang, chemin = '') => {
   const { active, def } = locales();
-  const adresse = active.includes(lang) ? lang : def;
+  const adressables = CHEMIN_DU_BLOG.test(chemin) ? languesDeclareesBlog() : active;
+  const adresse = adressables.includes(lang) ? lang : def;
   return adresse === def ? '' : `/${adresse}`;
 };
-export const localize = (lang, path) => `${prefixOf(lang)}${path.startsWith('/') ? path : '/' + path}`;
+export const localize = (lang, path) => {
+  const chemin = path.startsWith('/') ? path : '/' + path;
+  return `${prefixOf(lang, chemin)}${chemin}`;
+};
 
 // Pour getStaticPaths : la langue par defaut n'a PAS de prefixe (param undefined).
 export function localeParams() {

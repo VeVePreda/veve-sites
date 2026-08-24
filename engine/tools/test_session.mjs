@@ -347,6 +347,18 @@ dit(/DELAI_MAX_MS/.test(rb), 'le sceau EXPIRE',
 console.log('\n10. /compte/ se ferme à qui n’a pas de session');
 const cpt = lire(join(RACINE, 'src/pages/compte/index.astro'));
 const mw = lire(join(RACINE, 'src/middleware.js'));
+
+// 🔬🔴 LOT 161 — LES COMMENTAIRES SONT RETIRES AVANT TOUTE RECHERCHE DE CHAINE.
+// C'est la QUATRIEME fois dans ce depot qu'un banc trouve ce qu'il cherche dans
+// un commentaire. Je viens de l'y remettre moi-meme : en retirant `enDemo` du
+// gabarit, j'ai ecrit `enDemo` dans le commentaire qui explique le retrait — et
+// le controle « le mot a disparu » serait rouge sur sa propre note de bas de
+// page. ⭐⭐⭐ UN BANC QUI LIT DU CODE DOIT LIRE LE CODE, PAS SA DOCUMENTATION.
+// ⚠️ Les chaines de caracteres, elles, RESTENT : elles sont servies au visiteur.
+const sansCommentaires = (t) => t
+  .replace(/\/\*[\s\S]*?\*\//g, ' ')      // /* … */  (et {/* … */} d'Astro)
+  .replace(/^\s*\/\/.*$/gm, ' ');          // // … en debut de ligne
+const cptCode = sansCommentaires(cpt);
 // ⭐⭐ « QUI ÉCRIT, QUI LIT ? » — appliqué au drapeau de rendu. La page décide
 // de se fermer d'après `locals.rendu` ; si personne ne le POSE, la condition
 // est éternellement fausse et la page reste ouverte. Vert des deux côtés,
@@ -356,8 +368,18 @@ dit(/locals\.rendu\s*=\s*'demande'/.test(mw), 'le middleware POSE locals.rendu',
 dit(/locals\?\.rendu === 'demande'/.test(cpt), '/compte/ LIT locals.rendu');
 dit(/Astro\.redirect\('\/connexion\/'/.test(cpt), '/compte/ redirige l’anonyme vers /connexion/',
   'une page de compte servie à quelqu’un sans session est une page publique');
-dit(/!connecte && !enDemo/.test(cpt), 'le jeton de démonstration garde son accès',
-  'sinon la démo s’enferme : le bouton pour en sortir vit sur cette page');
+// 🗑️ LOT 161 — ce contrôle exigeait `!connecte && !enDemo` : le jeton de
+// démonstration devait garder son accès à `/compte/`, sinon la démo s'enfermait
+// (le bouton pour en sortir vivait sur cette page). Le mécanisme est retiré.
+// ⭐⭐ LE CONTRÔLE N'EST PAS SUPPRIMÉ, IL EST RETOURNÉ : on exigeait une
+// dérogation, on exige maintenant qu'il n'y en ait AUCUNE. Supprimer la ligne
+// aurait laissé `/compte/` sans banc sur sa condition de fermeture — et une
+// dérogation qui reviendrait un jour ne serait dite par personne.
+dit(/if \(aLaDemande && !connecte\) return Astro\.redirect/.test(cptCode),
+  '/compte/ se ferme SANS aucune dérogation',
+  'la condition a changé de forme, ou une exception y est revenue');
+dit(!/enDemo/.test(cptCode), '/compte/ ne porte plus aucune trace de la démonstration',
+  '`enDemo` est encore DANS LE CODE du gabarit (les commentaires sont écartés)');
 dit(/\{reglagesIci && connecte &&/.test(cpt), 'les réglages sont réservés aux membres (Preda, 06/08)');
 // 🔴 LOT 103 — CE CONTRÔLE EXIGEAIT UN ORDRE D'ATTRIBUTS, PAS UN FAIT.
 // Il testait `/<Base noindex/` : ajouter `sect="general"` devant — ce que fait

@@ -241,52 +241,21 @@ access:
   tiers: [visitor, member, crevette, langouste, whale]
 
   # ─────────────────────────────────────────────────────────────────────────
-  # 🔴 SESSION DE DÉMONSTRATION — arbitrage Preda du 01/08/2026, livré le 03/08.
+  # 🗑️ SESSION DE DÉMONSTRATION — RETIRÉE LE 24/08/2026 (LOT 161, demande `r`)
   # ─────────────────────────────────────────────────────────────────────────
-  # Tout visiteur sans session vaut ce palier. Aucune date de fin : PERSONNE NE
-  # LA REFERMERA À NOTRE PLACE. C'est assumé.
+  # Il y avait ici une ligne `demo:` et quarante lignes pour la défendre. Le
+  # mécanisme entier est parti : `engine/lib/demo_session.mjs`,
+  # `src/pages/api/demo.js`, la lecture dans `src/middleware.js`, le bloc de
+  # `/compte/`, six clés dans les cinq dictionnaires, et le banc `test:demo`.
   #
-  # ⭐ POUR L'ÉTEINDRE : commenter la ligne ci-dessous, redéployer (4 min 52).
-  # ⭐ ELLE EST ICI, ET PAS DANS UNE VARIABLE COOLIFY, EXPRÈS. Le risque énoncé
-  #    n'est pas la démo, c'est l'OUBLI. Une variable d'environnement est
-  #    invisible depuis le dépôt — rien ne peut la rappeler. Écrite ici, elle
-  #    est un marqueur : `outils/etat_reel.py` la voit, donc l'oubli ne tient
-  #    pas plus d'une session.
-  # ⛔ ELLE NE S'APPLIQUE PAS SI `SESSION_API` EST CONFIGURÉ. Ce n'est pas une
-  #    expiration déguisée : une démo qui écraserait un vrai service de session
-  #    transformerait une panne réseau en abonnements gratuits.
-  # ⛔⛔ ÉTEINTE LE 06/08/2026 SUR DÉCISION DE PREDA — ET CE N'ÉTAIT PAS
-  # QU'UNE DÉMO, C'ÉTAIT UNE FUITE. Mesuré en production le jour même, sans
-  # aucun cookie, depuis une machine quelconque :
-  #     GET /api/historique/d31aea9d-… → 200 {"ok":true,"palier":"crevette",…}
-  # La RÉSERVE — l'historique complet, celui qui s'achète — était servie à qui
-  # connaissait l'adresse. ⭐⭐⭐ UNE PORTE OUVERTE POUR SE MONTRER LE PRODUIT
-  # EST UNE PORTE OUVERTE. « Démonstration » décrit l'INTENTION, jamais l'effet.
+  # ⭐ CE QU'ELLE AURA APPRIS, ET QUI RESTE VRAI SANS ELLE : une porte ouverte
+  # « pour se montrer le produit » est une porte ouverte. Éteinte le 06/08,
+  # elle servait la réserve — l'historique complet, celui qui s'achète — à qui
+  # connaissait l'adresse, sans aucun cookie. « Démonstration » décrivait
+  # l'INTENTION, jamais l'effet.
   #
-  # ⭐ ET ELLE CACHAIT LE SITE À SON PROPRE AUTEUR : tout visiteur valant
-  # `crevette`, il n'existait plus AUCUN visiteur. `/connexion/` répondait
-  # « vous êtes déjà connecté », `/inscription/` se mettait en mode connecté, et
-  # la déconnexion effaçait un cookie qui n'avait jamais existé — donc ne
-  # déconnectait rien, par construction. Preda a cru à trois pannes ; c'était
-  # cette ligne, trois fois.
-  #
-  # ⭐⭐ CE QU'ON NE PERD PAS. Les ~8 500 pages PRÉ-GÉNÉRÉES étaient déjà
-  # construites au palier `visitor` (le middleware sort sur `isPrerendered`
-  # depuis le 03/08) : elles ne changent donc PAS. Seules les 9 routes rendues à
-  # la demande retrouvent leur vrai palier.
-  #
-  # ⭐⭐ ET PREDA GARDE SA VUE D'ABONNÉ — c'est exactement ce pour quoi le jeton
-  # NOMINATIF a été écrit (lot 42) : `DEMO_CLE` est posée dans Coolify, donc
-  #     /api/demo?cle=<DEMO_CLE>&palier=whale     ouvre, 7 jours, pour LUI
-  #     /api/demo?cle=<DEMO_CLE>&sortir=1         referme
-  # ⭐ Le collectif s'éteint, le nominatif reste : c'est la distinction que le
-  # lot 42 avait posée sans jamais pouvoir servir, puisque le collectif couvrait
-  # tout le monde par-dessus.
-  #
-  # ⛔ POUR LA RALLUMER : décommenter la ligne ci-dessous, redéployer (~5 min).
-  # ⛔ NE PAS la rallumer « le temps d'une capture d'écran » : c'est un accès
-  # public, il n'a pas de durée. Le jeton nominatif fait ça mieux, et il expire.
-  # demo: crevette
+  # ⛔ ÉCRIRE `demo:` ICI NE LA RALLUME PAS : `engine/lib/access.mjs` LÈVE une
+  # erreur nommée. Un mécanisme retiré ne devient pas un silence.
 
   gates:
     # L'historique : 3 jours pour qui ne paie pas (arbitrage Preda du 30/07).

@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { manifest, siteUrl } from '../../engine/lib/manifest.mjs';
 import { acces, connecte } from '../../engine/lib/access.mjs';
 import { jsonld, websiteLd, pageTitle, homeTitle, breadcrumbLd, couperMots } from '../../engine/lib/seo.mjs';
-import { locales, t, pick, localize, localeNames, dateLocale, numberLocale, nu, languesInterface, langueUiDansEntete } from '../../engine/lib/i18n.mjs';
+import { locales, t, pick, localize, localeNames, dateLocale, numberLocale, nu, languesInterface, langueUiDansEntete, pickT } from '../../engine/lib/i18n.mjs';
 import { degradesSpark } from '../../engine/lib/vitrine.mjs';
 import { DOCS, legalTitle } from '../../engine/lib/legal.mjs';
 import { activeSections, sectionMeta, languesDuSite, DESC_MAX } from '../../engine/lib/editorial_pages.mjs';
@@ -890,7 +890,7 @@ const menuComplet = wikiNav
         ⚠️ `.marque__t em` n'a de regle que dans `vitrine` : vevewiki reçoit
         le meme balisage et ne change pas d'apparence (verifie). */}
     <span class="marque__t" set:html={m.site.brand.replace(/^(\S+)\s+(.+)$/, '$1 <em>$2</em>')
-      + (m.identity.accroche ? `<small>${pick(m.identity.accroche, lang)}</small>` : '')}></span>
+      + (m.identity.accroche ? `<small>${pickT(m.identity.accroche, lang, 'mf.identity.accroche')}</small>` : '')}></span>
   </a>
   <nav class="nav main" aria-label={t(lang, 'a11y.nav')}>
     <span class="nav__liens">
@@ -1455,7 +1455,9 @@ const menuComplet = wikiNav
             façon. ⛔ Le repli n'INVENTE rien : sans ni l'une ni l'autre, la
             ligne ne sort pas. */}
         {(m.identity.accroche || m.site.tagline)
-          && <li>{pick(m.identity.accroche || m.site.tagline, lang)}</li>}
+          && <li>{m.identity.accroche
+                    ? pickT(m.identity.accroche, lang, 'mf.identity.accroche')
+                    : pickT(m.site.tagline, lang, 'mf.site.tagline')}</li>}
         {/* ⭐ LA FRAÎCHEUR RESTE UNE PHRASE, PAS UN LIEN. Elle répond à « ces
             chiffres datent de quand » — la question la plus fréquente sur un
             site de prix, et la seule information du pied qui change tous les

@@ -297,6 +297,39 @@ for (const lang of langues) {
     manque.length <= cles.size / 2,
     manque.length === 0 ? `${Object.keys(dicos[lang]).length} clé(s), ${(readFileSync(f).length / 1024).toFixed(1)} Ko`
       : `${cles.size - manque.length}/${cles.size} couvertes — non traduites : ${manque.slice(0, 5).join(', ')}`);
+
+  // ═════════════════════════════════════════════════════════════════════════
+  // 🔴🔴 LOT 161 — LES CLÉS `mf.` ET `lg.` NE TOLÈRENT AUCUN MANQUE
+  // ═════════════════════════════════════════════════════════════════════════
+  // Le contrôle ci-dessus accepte jusqu'à la MOITIÉ de clés non traduites, et
+  // c'est justifié : une clé de `engine/i18n/` peut n'exister qu'en anglais.
+  // ⛔ CE N'EST PAS VRAI DES NOUVELLES. `mf.<chemin>` et `lg.<doc>` sont
+  // RÉSOLUES mécaniquement par `marquer_i18n.mjs` en relisant le manifeste et
+  // `engine/legal/`. Une seule raison de manquer : le chemin ne mène nulle part
+  // — une faute de frappe dans un gabarit, ou une clé du manifeste renommée.
+  // ⭐⭐⭐ ET LE SYMPTÔME SERAIT INVISIBLE : le `data-i18n` est posé, la page
+  //     s'affiche parfaitement, et le libellé reste anglais pour toujours.
+  //     C'est P30, exactement, avec une autre porte d'entrée.
+  // ⚠️ La tolérance de 50 % au-dessus les couvrirait sans jamais les nommer :
+  //     cinq clés `mf.` mortes sur 218 marquées, c'est 2 % — donc vert.
+  const horsDict = [...cles].filter((k) => k.startsWith('mf.') || k.startsWith('lg.'));
+  const morts = horsDict.filter((k) => dicos[lang][k] === undefined);
+  verifie(`...et les ${horsDict.length} clé(s) « mf./lg. » sont TOUTES résolues (${lang})`,
+    morts.length === 0,
+    morts.length === 0 ? ''
+      : `🔴 ${morts.join(', ')} — le chemin ne mène nulle part dans le manifeste ou engine/legal/`);
+}
+
+// ⛔ ET IL DOIT Y EN AVOIR. Un gabarit qui cesserait d'appeler `pickT()` ferait
+// tomber `horsDict` à zéro — et la boucle ci-dessus resterait VERTE, puisque
+// « zéro clé morte sur zéro clé » est vrai. *Un banc muet ressemble à un succès.*
+{
+  const horsDict = [...cles].filter((k) => k.startsWith('mf.') || k.startsWith('lg.'));
+  verifie('des clés « mf./lg. » sont bien marquées dans les pages',
+    horsDict.length >= 5,
+    horsDict.length >= 5 ? `${horsDict.length} clé(s)`
+      : `seulement ${horsDict.length} — un gabarit a cessé d'appeler pickT(), et l'accroche,`
+        + ' les liens légaux ou les formules sont repassés en anglais figé');
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

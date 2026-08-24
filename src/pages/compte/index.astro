@@ -104,7 +104,10 @@ const palier = palierVisiteur(Astro.locals);
 // ⭐⭐⭐ LE PALIER DIT CE QU'ON A LE DROIT DE VOIR, LA SESSION DIT QUI ON EST.
 const session = sessionDe(Astro.locals);
 const connecte = session === 'reelle';
-const enDemo = session === 'demo';
+// 🗑️ LOT 161 — `enDemo` a disparu avec la session de démonstration (demande `r`).
+// ⛔ La ligne au-dessus reste, et elle n'est PAS un reste de la démo : elle
+// existe parce que le palier et la session répondent à deux questions
+// différentes, ce qui reste vrai sans aucun mécanisme de démonstration.
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 🌍 LOT 154-B — LA LANGUE CHOISIE ICI SUIT LE COMPTE, PLUS SEULEMENT LE NAVIGATEUR
@@ -166,11 +169,12 @@ if (_ch.aPoser && connecte) {
 // propriété du framework dont le nom et le sens changent de version en
 // version : ici, se tromper ferme la porte à tout le monde sans une erreur.
 const aLaDemande = Astro.locals?.rendu === 'demande';
-// ⭐ `enDemo` PASSE, ET IL LE DOIT. Le jeton nominatif signé donne un palier
-// sans identité — et c'est SUR CETTE PAGE que vit le seul bouton pour en
-// sortir (`/api/demo?sortir=1`). L'oublier enfermerait la démonstration : on
-// verrait la vue d'un abonné sans plus aucun moyen de la refermer.
-if (aLaDemande && !connecte && !enDemo) return Astro.redirect('/connexion/', 302);
+// 🗑️ LOT 161 — la condition portait `&& !enDemo` : le jeton de démonstration
+// devait PASSER, parce que c'est ici que vivait le seul bouton pour en sortir.
+// Le jeton n'existe plus, la dérogation non plus. ⚠️ Conséquence à connaître :
+// cette page est désormais fermée à qui n'a pas de vraie session, sans aucune
+// exception — c'est exactement ce que « supprimer tout » veut dire.
+if (aLaDemande && !connecte) return Astro.redirect('/connexion/', 302);
 // 🌐🎨 Les réglages descendent ICI (demande de Preda du 06/08). Le gabarit ne
 // le décide pas : le manifeste le dit, comme pour tout le reste du moteur.
 const reglagesIci = (m.identity?.langues_dans === 'compte') || (m.identity?.theme_dans === 'compte');
@@ -591,17 +595,6 @@ const _m = Astro.url.searchParams.get('m');
         )}
       </section>
     </>
-  )}
-
-  {enDemo && (
-    /* ⭐⭐ LE JETON NOMINATIF SE DIT. Un palier prêté qui ne s'annonce pas est
-       une capture d'écran qu'on croira être la page d'un abonné — et c'est
-       comme ça qu'on finit par livrer une promesse qu'on n'a pas tenue. */
-    <section class="panneau champ" style="margin-bottom:var(--s5)">
-      <h2 style="margin-top:0">{t(lang, 'account.demo')}</h2>
-      <p class="respire" style="margin-bottom:var(--s4)">{t(lang, 'account.demo.d')}</p>
-      <a class="btn btn--fantome btn--sm" href="/api/demo?sortir=1" rel="nofollow">{t(lang, 'account.demo.out')}</a>
-    </section>
   )}
 
   {/* 🔴 `&& connecte` — LES RÉGLAGES SONT RÉSERVÉS AUX MEMBRES (Preda, 06/08).

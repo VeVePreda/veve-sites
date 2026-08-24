@@ -116,32 +116,24 @@ export function acces() {
   if (!tiers.includes('visitor')) tiers.unshift('visitor');   // le visiteur existe toujours
   tiers = PALIERS.filter((p) => tiers.includes(p));           // ordre canonique
 
-  // --- LA SESSION DE DEMONSTRATION ---------------------------------------
-  // 🔴 ARBITRAGE ASSUME DU 01/08/2026, LIVRE LE 03/08 (lot 34). Tant qu'aucun
-  // service de session n'existe, `access.demo` fait entrer TOUT LE MONDE au
-  // palier declare. C'est une porte grande ouverte, volontairement, et sans
-  // date de fin : personne ne la refermera a notre place.
+  // --- LA SESSION DE DEMONSTRATION : RETIREE AU LOT 161 --------------------
+  // 🗑️ Demande `r` de Preda, 24/08/2026 : « supprimer tout le systeme de
+  // Demonstration et ses mentions ». Le mecanisme entier est parti
+  // (`engine/lib/demo_session.mjs`, `src/pages/api/demo.js`, la lecture dans
+  // `src/middleware.js`, le bloc de `/compte/`, six cles dans les cinq
+  // dictionnaires, le banc `test:demo`).
   //
-  // ⭐⭐ POURQUOI ICI ET PAS DANS UNE VARIABLE D'ENVIRONNEMENT. Le risque
-  // enonce n'est pas « la demo est dangereuse », c'est « rien ne me rappellera
-  // de l'eteindre ». Une variable Coolify est invisible depuis le depot : elle
-  // ne peut etre rappelee par rien. Ecrite ici, elle devient un MARQUEUR —
-  // `etat_reel.py` la lit, donc l'oubli devient impossible a maintenir.
-  // ⛔ NE PAS la deplacer dans l'environnement « pour pouvoir l'eteindre sans
-  // redeployer » : c'est precisement la propriete qu'on ne veut pas.
-  let demo = null;
+  // 🔴🔴 CE QUI RESTE ICI EST UN REFUS, PAS UN RESTE. Supprimer la branche
+  // aurait rendu `access.demo: crevette` INERTE EN SILENCE : ecrit dans un
+  // manifeste demain, il ne ferait rien et ne dirait rien. C'est mot pour mot
+  // le defaut que ce fichier denonce vingt lignes plus bas a propos des portes
+  // inventees. ⭐⭐ ON NE REMPLACE PAS UN MECANISME PAR UN SILENCE : on le
+  // remplace par une erreur qui NOMME le lot et la date.
   if (brut.demo !== undefined && brut.demo !== null && brut.demo !== false) {
-    if (!PALIERS.includes(brut.demo)) {
-      throw new Error(`[acces] access.demo : palier inconnu « ${brut.demo} » (attendus : ${PALIERS.join(', ')})`);
-    }
-    // Un palier que le site ne VEND pas ne peut pas etre offert en demo :
-    // `palierVisiteur()` le ramenerait a visitor et la demo serait un mensonge
-    // silencieux — une porte qu'on croit ouverte et qui ne l'est pas.
-    if (!tiers.includes(brut.demo)) {
-      throw new Error(`[acces] access.demo = « ${brut.demo} » mais ce palier est absent de access.tiers `
-        + `(${tiers.join(', ')}). Une demo vers un palier non declare ne s'appliquerait jamais.`);
-    }
-    demo = brut.demo;
+    throw new Error('[acces] access.demo n\'existe plus : la session de demonstration a ete '
+      + 'retiree au lot 161 (24/08/2026), a la demande de Preda. Retirer la ligne « demo: » '
+      + 'de sites/<site>/manifest.yml. Pour ouvrir un acces, passer par les portes '
+      + '(access.gates) ou par le reglage des portes de /compte/.');
   }
 
   // --- Portes -------------------------------------------------------------
@@ -222,15 +214,7 @@ export function acces() {
     .join(' · ');
   const origine = m.access ? 'manifeste (access)' : 'retro-compat (publication)';
   console.log(`[acces] paliers : ${tiers.join(' < ')} — portes : ${resume} — source : ${origine}`);
-  // ⭐ On le CRIE. Une porte ouverte qui ne se voit pas dans le journal de
-  // build est une porte qu'on decouvrira par un tiers, pas par nous.
-  if (demo) {
-    console.log(`[acces] 🔴 SESSION DE DEMONSTRATION ACTIVE — access.demo = « ${demo} ». `
-      + `Tout visiteur sans session vaudra « ${demo} » SI ET SEULEMENT SI aucun SESSION_API `
-      + `n'est configure. Retirer « demo: » de sites/<site>/manifest.yml pour refermer.`);
-  }
-
-  _cache = { tiers, portes, demo };
+  _cache = { tiers, portes };
   return _cache;
 }
 
@@ -297,12 +281,9 @@ export function porte(nom) {
 
 export const palierParDefaut = () => 'visitor';
 
-// Le palier de demonstration declare par le manifeste, ou `null`.
-// ⛔ Ce n'est PAS le palier applique : c'est le middleware qui decide s'il a le
-// droit de s'en servir (cf. src/middleware.js). Les separer est le meme
-// principe que `porte().tier` contre `palierVisiteur()` — ce que le site
-// DECLARE et ce qu'une personne PORTE sont deux choses.
-export const palierDemo = () => acces().demo;
+// 🗑️ LOT 161 — `palierDemo()` a ete retiree ici avec le reste du mecanisme.
+// ⛔ Ne pas la recreer « pour compatibilite » : une fonction qui rend toujours
+// `null` fait croire a un mecanisme eteint alors qu'il n'existe plus.
 
 // ⭐⭐⭐ QUI EST CETTE PERSONNE ? — a ne PAS confondre avec `palierVisiteur()`,
 // qui repond « qu'a-t-elle le droit de voir ? ». Les deux ont ete la MEME

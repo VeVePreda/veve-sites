@@ -199,6 +199,49 @@ try {
   rmSync(base, { recursive: true, force: true });
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴 LOT 161 — `sh -n` DIT « CA PARSE », JAMAIS « CA TOURNE SUR ALPINE »
+// ═══════════════════════════════════════════════════════════════════════════
+// Tout ce banc mesure la SYNTAXE, avec le shell du bac a sable. Or l'image est
+// une `node:22-alpine` : son `find`, son `xargs`, son `ls` et son `gzip` sont
+// des applets BUSYBOX, et busybox n'a PAS les extensions GNU. Un `find -printf`
+// parse parfaitement sous bash et rend « unrecognized: -printf » au build.
+//
+// MESURE DU 24/08/2026, busybox 1.30, ce qui MANQUE — verifie une par une :
+//     find -printf · find -delete · stat -c · xargs -P
+// ⭐ Et ce qui EXISTE, aussi verifie : `gzip -k`, `find -print0`, `xargs -0`,
+//   `ls -ln`, `awk`. Le Dockerfile s'en sert, et il teste `gzip -k` avant.
+//
+// ⛔ CE CONTROLE NE REMPLACE PAS UN VRAI BUSYBOX. Il ne sait pas si une option
+//    NEUVE existe ; il sait refuser les quatre qui nous ont deja couté un
+//    build. *Une liste noire ne protege que de ce qu'on a deja imagine* — c'est
+//    ecrit ailleurs dans ce depot, et c'est vrai ici aussi. La vraie garantie
+//    reste le deploiement.
+const GNUISMES = [
+  [/\bfind\b[^;|&]*\s-printf\b/, 'find -printf', 'utiliser `-exec ls -ln {} + | awk \'{s+=$5}\''],
+  [/\bfind\b[^;|&]*\s-delete\b/, 'find -delete', 'utiliser `-print0 | xargs -0 rm -f`'],
+  [/\bstat\s+-c\b/, 'stat -c', 'utiliser `ls -ln` et awk'],
+  [/\bxargs\b[^;|&]*\s-P\s*\d/, 'xargs -P', 'busybox n\'a pas le parallelisme — et le VPS a 2 c\u0153urs sans swap'],
+];
+for (const r of runs) {
+  for (const [motif, nom, remede] of GNUISMES) {
+    const trouve = motif.test(r.script);
+    if (trouve) verifie(`ligne ${r.ligne} · aucune extension GNU (${nom})`, false,
+      `busybox ne l'a pas : le build rendrait « unrecognized: ${nom.split(' ')[1]} ». ${remede}`);
+  }
+}
+verifie(`aucun des ${GNUISMES.length} gnuismes connus dans les ${runs.length} RUN`,
+  !runs.some((r) => GNUISMES.some(([m]) => m.test(r.script))));
+
+// ⛔ AUTO-CONTROLE : le detecteur sait-il encore detecter ? Sans lui, une regexp
+// cassee par une retouche rendrait tous les verdicts verts, sur du vide.
+{
+  const faux = { script: 'find dist -type f -printf "%s\\n" | awk "{s+=$1}"' };
+  verifie('auto-controle : le detecteur rougit sur un `find -printf` fabrique',
+    GNUISMES.some(([m]) => m.test(faux.script)),
+    'la regexp ne mord plus — tous les verdicts ci-dessus sont sur du vide');
+}
+
 console.log(`\nbilan : ${testes} RUN passes a sh -n · ${exec} en forme exec (sautes)`);
 if (echecs) {
   console.error(`\nECHEC : ${echecs} verification(s) en defaut.`);

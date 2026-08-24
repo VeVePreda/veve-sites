@@ -39,6 +39,7 @@ import { collection, parseDay, estRepli } from './editorial.mjs';
 import { renderMarkdown, stripMarkdown } from './markdown.mjs';
 import { localize } from './i18n.mjs';
 import { figureParId } from './figures.mjs';
+import { jourDuBuild } from './jour_du_build.mjs';
 
 let _cache = null;
 
@@ -46,11 +47,11 @@ let _cache = null;
 // Jour du build — même raisonnement qu'editorial.mjs : on compare des JOURS,
 // jamais des heures (le cron GitHub a 2-3 h de retard). BUILD_DATE pour rejouer.
 // -----------------------------------------------------------------------------
-function buildDay() {
-  const raw = process.env.BUILD_DATE;
-  const d = raw ? new Date(raw + 'T23:59:59Z') : new Date();
-  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 23, 59, 59);
-}
+// 🗑️ LOT 161 — `buildDay()` vivait ICI et, mot pour mot, dans l'autre fichier.
+// Elle est partie dans `engine/lib/jour_du_build.mjs`, avec sa raison d'etre.
+// ⛔ Ne pas la recopier « pour eviter un import » : c'est ce raisonnement qui
+//    en avait deja fait deux, et le lot 161 allait en ecrire une troisieme.
+const buildDay = jourDuBuild;
 
 const norm = (v) => String(v ?? '').trim();
 
@@ -197,7 +198,32 @@ async function loadAll() {
   if (_cache) return _cache;
   const md = await mdPosts();
   const sheet = [];
-  for (const l of locales().active) sheet.push(...await sheetPostsFor(l));
+  // ═════════════════════════════════════════════════════════════════════════
+  // 🔴🔴 LOT 162 — LA SOURCE SHEET SE LIT DANS LES LANGUES DÉCLARÉES DU BLOG,
+  //                ET NON DANS `active`.
+  // ═════════════════════════════════════════════════════════════════════════
+  // C'était le dernier maillon manquant du branchement au Sheet, et il ne se
+  // voyait NULLE PART :
+  //   · le manifeste de veveprice déclare `languages.active: [en]` — les
+  //     langues qui ont une ADRESSE sur le site — et `languages.blog: [en, fr]` ;
+  //   · le lot 120 a corrigé les ROUTES (elles lisent toutes `languesBlog()`)
+  //     et a laissé CE chargeur sur `active` : une correction arrêtée au bord
+  //     de son fichier ;
+  //   · mesuré sur la production le 24/08 : la ligne du Sheet portait un corps
+  //     français COMPLET (2 071 caractères, aucun repli), et l'adresse
+  //     française de cet article rendait 404. Aucun journal, aucun banc rouge —
+  //     les bancs tournaient sur un manifeste d'essai où `active` contient déjà
+  //     les deux langues, c'est-à-dire dans une condition qui n'existe sur
+  //     aucun site du réseau.
+  // ⭐ `languesDeclareesBlog()` retombe sur `active` quand le manifeste ne
+  //    déclare rien : un site sans bloc `blog` ne bouge pas d'un pouce.
+  // ⭐ Élargir la LECTURE ne publie rien tout seul : `sheetPostsFor` écarte
+  //    toujours un article dont le corps est un repli de la langue pivot, et
+  //    `languesBlog()` ne retient ensuite que les langues où un article EXISTE.
+  // ⛔ NE PAS revenir à `active` « parce que ce sont les langues du site » : le
+  //    blog est le seul contenu du réseau qui diffère vraiment d'une langue à
+  //    l'autre — c'est toute la raison d'être de la liste séparée.
+  for (const l of languesDeclareesBlog()) sheet.push(...await sheetPostsFor(l));
   const day = buildDay();
 
   // Le dépôt fait foi : un .md masque la ligne de Sheet de même (langue, slug).

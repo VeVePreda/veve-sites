@@ -338,6 +338,116 @@ if (gros.length) {
   console.log('        PREMIÈRE PEINTURE restent en ligne, et elles tiennent en 400 octets.');
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 LOT 161 — « EST-CE ÉCRIT ? » ET « EST-CE CE QUI GAGNE ? »
+// ═══════════════════════════════════════════════════════════════════════════
+// Ce banc savait dire que la feuille était SERVIE, UNE fois, ENTIÈRE et à la
+// bonne empreinte. Il ne savait pas dire si ce qu'elle contient S'APPLIQUE.
+// Le 24/08/2026, mesuré sur la production : `main{padding:… var(--s8)}`, écrit
+// le 06/08 avec douze lignes de commentaire pour le défendre, valait **0** —
+// `Base.astro` émet `<main class="wrap">` et `.wrap{padding:0 24px}` le bat en
+// spécificité. Deux semaines de règle morte, zéro alerte, zéro banc rouge.
+// ⛔ CE CONTRÔLE NE JUGE PAS LE DESIGN. Il ne dit pas « 88 px est la bonne
+//    valeur » : il dit « une valeur a été posée là exprès, et elle gagne ».
+//    Le jour où Preda voudra 60 px, la constante bouge et le banc suit.
+{
+  const { decouper, quiGagne } = await import('./_cascade.mjs');
+  const { regles, anomalies } = decouper(texteFeuilleBrut);
+
+  // ── A · la feuille se découpe-t-elle proprement ? ────────────────────────
+  // Deux signatures, trouvées le 24/08 dans la feuille SERVIE : un sélecteur
+  // pendant sans bloc (`  .decor,.banniere,` puis `}` — règle jetée par le
+  // navigateur, en silence), et douze étapes `0%/22%/78%/100%` posées à la
+  // racine sans leur `@keyframes`. Ni le build, ni un log, ni un banc.
+  dit(anomalies.length === 0,
+    `la feuille se découpe sans reste (${regles.length} règles lues)`,
+    anomalies.length === 0 ? null
+      : anomalies.slice(0, 5).map((a) => `${a.quoi} « ${a.texte} »`).join(' · ')
+        + (anomalies.length > 5 ? ` … et ${anomalies.length - 5} autre(s)` : ''));
+
+  // ── B · les espaces de page gagnent-ils vraiment ? ───────────────────────
+  // ⚠️ ON LE MESURE SUR UNE PAGE DE `dist/`, PAS SUR LE GABARIT. La question
+  // est « qu'est-ce qu'on SERT », comme pour le reste de ce banc.
+  const { parseHTML } = await import('linkedom');
+  const pageJugee = pages.find((f) => {
+    const h = readFileSync(f, 'utf8');
+    return h.length > 2048 && /<main[^>]*>/.test(h);
+  });
+  if (!pageJugee) {
+    console.error('\n❌ aucune page de dist/ ne porte de <main> — ce contrôle ne peut rien prouver.');
+    process.exit(2);
+  }
+  const { document: docJuge } = parseHTML(readFileSync(pageJugee, 'utf8'));
+
+  // 🔴🔴 CE CONTRÔLE A ÉTÉ ÉCRIT TROIS FOIS. LES DEUX PREMIÈRES ÉTAIENT FAUSSES,
+  // ET PAS DE LA MÊME FAÇON.
+  //
+  //  ① « la valeur gagnante est-elle différente de 0 ? » — MUET. Injection
+  //     faite le 24/08 : j'ai retiré `footer.site.site-f{padding:var(--s7) 0}`,
+  //     le banc est resté VERT parce que `footer.site{padding:var(--s6) 0}`
+  //     reprenait la main avec 36 px. Non nul, donc « bon ». Il validait la
+  //     panne. ⭐⭐⭐ « UNE VALEUR EST POSÉE » ET « C'EST LA VALEUR VOULUE »
+  //     SONT DEUX QUESTIONS — la même erreur qu'il traque, d'un cran plus fin.
+  //
+  //  ② les valeurs de `vitrine`, exigées de TOUS LES THÈMES — FAUX ROUGE.
+  //     `vevewiki` sert `encyclopedie`, dont le `main` vaut `0 0 20px` par
+  //     dessein. Cinq contrôles rouges sur un site parfaitement sain.
+  //     ⛔ CE FICHIER PORTE DÉJÀ CETTE LEÇON, ÉCRITE À PROPOS DE LA TAILLE DE
+  //     LA FEUILLE : « UN NOMBRE MAGIQUE NE MESURE PAS CE QU'IL PRÉTEND : il
+  //     mesure vitrine, et il appelle cassé tout ce qui n'est pas vitrine. »
+  //     Je l'ai relue après l'avoir refaite.
+  //
+  // ⇒ Les attentes sont donc INDEXÉES PAR THÈME, et un thème non décrit rend
+  //   SANS OBJET — affiché, jamais tu. La demande de Preda (`t`, 24/08) porte
+  //   sur veveprice : c'est `vitrine` qui est décrit, et c'est dit ici.
+  // ⛔ CONSÉQUENCE ASSUMÉE : le jour où Preda voudra 60 px au lieu de 88, ce
+  //    banc rougira. C'est le but. La constante change ICI, dans le même geste
+  //    que le thème — un espace de page bouge exprès, ou il ne bouge pas.
+  // ⭐ `i` = la position dans le RACCOURCI `padding` (0 haut, 2 bas). `i: null`
+  //   veut dire « cette propriété n'a pas de raccourci à surveiller ».
+  const ESPACES_PAR_THEME = {
+    vitrine: [
+      { quoi: 'main',          sel: 'main',          prop: 'padding-bottom', i: 2, largeur: 1280, attendu: 'var(--s8)' },
+      { quoi: 'main',          sel: 'main',          prop: 'padding-top',    i: 0, largeur: 1280, attendu: 'var(--s7)' },
+      { quoi: 'main (mobile)', sel: 'main',          prop: 'padding-bottom', i: 2, largeur: 390,  attendu: 'var(--s8)' },
+      { quoi: 'main (mobile)', sel: 'main',          prop: 'padding-top',    i: 0, largeur: 390,  attendu: 'var(--s5)' },
+      { quoi: 'pied de page',  sel: 'footer.site-f', prop: 'padding-top',    i: 0, largeur: 1280, attendu: 'var(--s7)' },
+      // 🔴 LOT 161 — LE BOUTON DE RECHERCHE, ET C'EST UNE DÉCISION QU'ON VERROUILLE.
+      // Le lot 139 avait écrit `border-radius:var(--r-md)` dessus, à la demande
+      // de Preda. `nav.main a{border-radius:var(--r-full)}` (0,1,2) le battait :
+      // le bouton était ROND en ligne, pendant treize jours, sans que rien le
+      // dise. Preda a tranché le 24/08 sur trois formes montrées : on GARDE le
+      // rond, et le carré mort est parti. ⛔ Cette ligne empêche les deux
+      // rechutes : qu'on ressuscite le carré, et qu'on l'écrive à nouveau sans
+      // qu'il gagne.
+      { quoi: 'bouton recherche', sel: '.h-rech--b', prop: 'border-radius', i: null, largeur: 1280, attendu: 'var(--r-full)' },
+      { quoi: 'bouton recherche (mobile)', sel: '.h-rech--b', prop: 'border-radius', i: null, largeur: 390, attendu: 'var(--r-full)' },
+    ],
+  };
+  const themeServi = dedans[0] || '?';
+  const ESPACES = ESPACES_PAR_THEME[themeServi];
+  if (!ESPACES) {
+    console.log(`  --  espaces de page : SANS OBJET pour le thème « ${themeServi} »`
+      + ` — seuls ${Object.keys(ESPACES_PAR_THEME).join(', ')} ont des valeurs décrites.`);
+    console.log('      ⚠️ Ce site n\'est donc PAS protégé contre une règle battue en spécificité.');
+  }
+  for (const e of ESPACES || []) {
+    const el = docJuge.querySelector(e.sel);
+    // ⛔ ON NE SAUTE PAS EN SILENCE. Un sélecteur absent de la page servie est
+    // soit un gabarit qui a changé, soit un banc branché sur une page qui ne
+    // porte pas l'élément — les deux méritent un rouge, pas un vide.
+    if (!el) { dit(false, `« ${e.sel} » présent dans la page servie`, `${pageJugee} n'en a pas — le gabarit a changé, ou la page jugée n'est pas la bonne`); continue; }
+    const g = quiGagne(regles, el, e.prop, e.largeur, e.i === null ? null : ['padding', e.i]);
+    const val = g ? String(g.val).trim() : null;
+    dit(val === e.attendu,
+      `${e.quoi} · ${e.prop} @${e.largeur}px = ${val ?? '(rien)'}${g ? `  \u27f5 ${g.sel}` : ''}`,
+      val === e.attendu ? null
+        : !g ? `AUCUNE règle ne le pose — on attendait ${e.attendu}`
+             : `« ${g.sel} » gagne avec ${val}, on attendait ${e.attendu} — soit la valeur`
+               + ` a changé, soit la règle voulue est BATTUE en spécificité par celle-ci`);
+  }
+}
+
 console.log(ko === 0
   ? `\n✅ une feuille de ${octets.length} o pour ${pages.length} pages, rien de recopié,`
     + ` et le JS en ligne sous son cliquet (${moyenneJs} o/page)\n`

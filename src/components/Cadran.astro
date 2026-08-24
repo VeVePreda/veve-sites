@@ -31,7 +31,7 @@
 // catalogue du 16/07, la réparation a tourné le 22/07, et le garde-fou
 // n'était posé que sur UN des deux chemins d'export). Un min/max lu sur la
 // série observée ne peut pas être incohérent avec la courbe qu'il annote.
-import { t, numberLocale, dateLocale } from '../../engine/lib/i18n.mjs';
+import { t, nu, numberLocale, dateLocale } from '../../engine/lib/i18n.mjs';
 import { porte, PALIERS, plages } from '../../engine/lib/access.mjs';
 import { manifest } from '../../engine/lib/manifest.mjs';
 import { pick } from '../../engine/lib/i18n.mjs';
@@ -97,10 +97,30 @@ const LES_PLAGES = plages();
 // libellé — « Crevette » ici, « Shrimp » là, le jour où l'une des deux bouge.
 const PLANS = manifest().offer?.plans || [];
 const nomPalier = (cle) => pick((PLANS.find((x) => x.cle === cle) || {}).nom, lang) || cle;
-// ⚠️ Le libellé du bouton vient de la CLÉ du manifeste (`3j`, `max`), mis en
-// forme ici. ⛔ Pas de `.toUpperCase()` dans le texte : la casse est une affaire
-// de STYLE, et une capitale écrite dans le texte se copie en capitale (lot 129).
-const libelle = (cle) => (cle === 'max' ? 'MAX' : cle.replace(/j$/, ' J'));
+// 🔴🔴 LOT 161 — LE LIBELLÉ ÉTAIT FABRIQUÉ ICI, DONC IL NE SE TRADUISAIT PAS.
+// `cle.replace(/j$/, ' J')` rendait « 3 J · 7 J · 30 J · 90 J · MAX » : un
+// « J » de « Jours », en français, sur un site servi en anglais — et figé, sur
+// 90 pages, dans les cinq langues. Mesuré le 24/08 (point `s` de Preda).
+//
+// ⭐⭐⭐ ET LES CLÉS EXISTAIENT DÉJÀ. `item.range.3j`, `.7j`, `.30j`, `.90j`,
+// `.max` sont dans les CINQ dictionnaires — traduites — depuis un lot
+// précédent. Le gabarit fabriquait le texte à la main à dix lignes de là.
+// ⚠️ Je les ai d'abord AJOUTÉES sans regarder si elles y étaient : cinq
+// doublons dans cinq fichiers, retirés depuis. *Mesurer avant de corriger,
+// même ce qu'on croit absent.*
+// ⭐ La casse vient de Preda (24/08) : « 3d · 7d · 30d · 90d · Max ».
+//
+// ⛔ PAS DE `vars` DANS CE `t()`. Un libellé à variable (`t(lang,'…',{n:30})`)
+//    est marqué `data-i18n-var` et le navigateur ne l'échange PAS — le
+//    mécanisme ne sait pas re-substituer. Une clé par plage, sans variable.
+// ⚠️ REPLI NOMMÉ : une plage ajoutée au manifeste sans sa clé afficherait
+//    « item.range.180j » en toutes lettres. On retombe donc sur la forme
+//    anglaise, et `test:plages` refuse qu'une plage soit sans clé.
+const libelleBrut = (cle) => (cle === 'max' ? 'Max' : cle.replace(/j$/, 'd'));
+const libelle = (cle) => {
+  const rendu = t(lang, `item.range.${cle}`);
+  return nu(rendu) === `item.range.${cle}` ? libelleBrut(cle) : rendu;
+};
 
 import { moduleJs } from '../../engine/lib/socle_js.mjs';
 const pilote = moduleJs('cadran');

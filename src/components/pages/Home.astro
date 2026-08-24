@@ -29,6 +29,7 @@ import AVenir from '../AVenir.astro';   // ⏳ LOT 113 — les drops annoncés (
 // ⭐ AJOUT SEUL (lot 45). `serie` rend les articles d'une etiquette dans leur
 // ordre de lecture ; `dureeLecture` donne les minutes, dites ou calculees.
 import { serie, dureeLecture, SEUIL_PAGE_TAG } from '../../../engine/lib/blog.mjs';
+import { choisirDuJour } from '../../../engine/lib/jour_du_build.mjs';
 
 const { lang } = Astro.props;
 const m = manifest();
@@ -77,7 +78,32 @@ const tick = [...up, ...down];
 //   UNE IMAGE (6 609 comics n'en ont pas, et une pile de trois hexagones gris
 //   a l'air cassée). ⭐ Une fonction laissée sans appelant fait croire au
 //   prochain lecteur qu'il existe deux façons de faire — et il en choisira une.
-const piece = featured.find((i) => i.image) || null;
+// ═══════════════════════════════════════════════════════════════════════════
+// 🖼️ LOT 161 — L'IMAGE DU HÉROS CHANGE CHAQUE JOUR (demande `p` de Preda)
+// ═══════════════════════════════════════════════════════════════════════════
+// Elle valait `featured.find((i) => i.image)` : TOUJOURS la même pièce, celle
+// qui sortait première du classement. Le classement bouge lentement ; l'image
+// ne bougeait donc pas.
+//
+// ⭐⭐⭐ LE CHOIX EST FAIT AU BUILD, D'APRÈS LA DATE — PAS EN JAVASCRIPT.
+// L'accueil est un fichier servi depuis le bord : un script qui changerait
+// l'image côté navigateur coûterait un pilote, un scintillement, et il
+// arriverait APRÈS la première peinture — sur l'image LCP de la page, c'est le
+// pire endroit du site pour ça. La reconstruction quotidienne tourne deux fois
+// par jour : elle suffit, à condition que le choix dépende du JOUR et pas de
+// l'HEURE. Deux builds du même jour rendent la MÊME image ; demain, une autre.
+//
+// ⚠️ LE VIVIER N'EST PAS `featured` — huit pièces, donc un cycle d'une semaine,
+// et Preda reverrait la même image chaque mardi. On puise dans les
+// `VIVIER_HERO` mieux classées QUI ONT UNE IMAGE : plus de deux mois de
+// rotation, et ce sont toujours des pièces de premier plan.
+// ⛔ Ne pas tirer au hasard : un tirage ne se rejoue pas, donc il ne se mesure
+//    pas. `choisirDuJour()` est déterministe — `test:tuiles` peut demander
+//    « et le 25/08 ? » sans attendre demain.
+const VIVIER_HERO = 60;
+const piece = choisirDuJour(
+  [...ds.items].filter((i) => i.image).sort(parScore).slice(0, VIVIER_HERO),
+);
 const coteFermee = coteEstFermee();
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -302,6 +302,74 @@ for (const [f, pourquoi] of fichiers) {
   dit(la, `${f}`, la ? 'present' : pourquoi);
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 3 bis. LE BLOG EN LANGUE NON-PIVOT : *ATTEIGNABLE*, PAS SEULEMENT PRODUIT
+// ═══════════════════════════════════════════════════════════════════════════
+// LOT 162, mesure du 24/08/2026 sur la PRODUCTION : `/fr/blog/` repondait 200
+// et listait bien l'article francais — et CHACUN de ses liens pointait vers
+// `/blog/…`, c'est-a-dire vers l'anglais. La page francaise de l'article
+// existait dans `dist/`, servie par nginx, et RIEN sur le site n'y menait. Son
+// `hreflang="fr"` annoncait meme l'adresse anglaise, et le `<head>` francais
+// annoncait le flux anglais alors que `/fr/rss.xml` etait construit.
+//
+// ⭐⭐⭐ « LA PAGE EXISTE-T-ELLE ? » ET « Y MENE-T-ON ? » SONT DEUX QUESTIONS.
+// La section 2 posait la premiere, et elle etait verte : la page etait bien
+// produite. Personne ne posait la seconde. Un cul-de-sac ne se voit ni au
+// build, ni dans un compte de pages : il se voit en suivant un lien.
+//
+// ⛔⛔ LES CHEMINS SONT ECRITS A LA MAIN ICI, JAMAIS PASSES A `localize()`.
+//    C'est le piege que ce fichier documente plus haut, a la lettre :
+//    `localize()` etait la fonction qui PORTAIT le defaut. Une attente
+//    construite avec elle aurait retreci avec elle — elle aurait demande
+//    « /blog/ existe-t-il ? », ce qui est toujours vrai — et ce banc serait
+//    reste vert sur la panne exacte qu'il est cense attraper.
+const langsBlogHorsPivot = langsBlog.filter((l) => l !== def);
+if (langsBlogHorsPivot.length) {
+  console.log(`\n3 bis. Le blog en ${langsBlogHorsPivot.join(', ')} est ATTEIGNABLE`);
+  for (const l of langsBlogHorsPivot) {
+    const index = join(DIST, l, 'blog', 'index.html');
+    if (!existsSync(index)) {
+      dit(false, `/${l}/blog/ est produite`, 'page absente de dist/');
+      continue;
+    }
+    const html = readFileSync(index, 'utf8');
+    const versLaLangue = (html.match(new RegExp(`href="/${l}/blog/[^"]+"`, 'g')) || []);
+    const versLePivot = (html.match(/href="\/blog\/[^"]*"/g) || []);
+    dit(versLaLangue.length > 0, `/${l}/blog/ mene a au moins un article en ${l}`,
+      versLaLangue.length ? `${versLaLangue.length} lien(s)` :
+        `aucun lien /${l}/blog/… : l'index est un cul-de-sac`);
+    dit(versLePivot.length === 0, `/${l}/blog/ ne renvoie pas le lecteur au pivot`,
+      versLePivot.length ? `${versLePivot.length} lien(s) vers ${[...new Set(versLePivot)].slice(0, 3).join(' ')}`
+        : 'aucun lien relatif vers /blog/…');
+
+    // Le flux RSS annonce dans le <head> doit etre CELUI DE CETTE LANGUE :
+    // `[locale]/rss.xml` est construit sur les langues du blog, comme l'index.
+    const fluxDeclare = (html.match(/type="application\/rss\+xml"[^>]*href="([^"]+)"/) || [])[1] || '';
+    if (existsSync(join(DIST, l, 'rss.xml'))) {
+      dit(fluxDeclare.includes(`/${l}/rss.xml`), `/${l}/blog/ annonce le flux ${l}`,
+        fluxDeclare || 'aucun flux declare');
+    }
+
+    // Et l'article lui-meme : son `hreflang` de CETTE langue doit porter SON
+    // adresse. Un hreflang qui annonce l'adresse d'une autre langue dit a
+    // Google que les deux pages sont la meme — la traduction disparait.
+    // ⚠️ ON CHOISIT UN ARTICLE, PAS N'IMPORTE QUEL LIEN. L'index se cite
+    //    lui-meme et cite ses etiquettes ; ni l'un ni l'autre ne porte de
+    //    `hreflang` d'article, et le banc echouait sur une page parfaitement
+    //    saine — un rouge pour une mauvaise raison coute autant qu'un vert.
+    const premier = versLaLangue
+      .map((h) => h.replace(`href="/${l}/`, '').replace(/"$/, ''))
+      .find((u) => /^blog\/[^/]+\/$/.test(u) && !u.startsWith('blog/tag/')) || '';
+    const fiche = premier ? join(DIST, l, premier, 'index.html') : '';
+    if (fiche && existsSync(fiche)) {
+      const h = readFileSync(fiche, 'utf8');
+      const alt = (h.match(new RegExp(`hreflang="${l}" href="([^"]+)"`)) || [])[1] || '';
+      dit(alt.includes(`/${l}/blog/`), `l'article ${l} declare SON adresse en hreflang="${l}"`,
+        alt || `aucun hreflang="${l}"`);
+    }
+  }
+}
+
 // --- 4. AUTO-CONTROLE ---------------------------------------------------------
 // ⭐ « Un banc se juge sur ce qu'il LAISSE PASSER. » Un test incapable
 // d'echouer ne prouve rien : lecon du 18/07, ou un audit avait declare

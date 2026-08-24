@@ -20,7 +20,7 @@
 // Chaque scenario tourne dans un PROCESSUS SEPARE : la matrice ET le jeu de
 // donnees sont memoises pour la duree d'un build, donc deux manifestes
 // differents ne peuvent pas coexister dans un meme processus.
-import { mkdtempSync, mkdirSync, writeFileSync, cpSync, readFileSync, readdirSync, statSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, cpSync, readFileSync, readdirSync, statSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -90,7 +90,6 @@ process.stdout.write('###' + JSON.stringify({
     || i.atl !== undefined || i.prixMedian !== undefined || i.history !== undefined).length,
   nan: ds.items.filter((i) => !Number.isFinite(i.points) || (i.history || []).some((h) => !Number.isFinite(h.floor))).length,
   paliers: acces().tiers,
-  demo: acces().demo,
   porte: { tier: p.tier, actif: p.actif, max: p.public_max, jours: p.public_days },
   premiers: ds.items.slice(0, 5).map((i) => i.path + '|' + i.points),
   // --- Lot 2b : le palier du VISITEUR, distinct de celui de la porte -------
@@ -163,9 +162,12 @@ const TROIS = `${ENTETE}\naccess:\n  tiers: [visitor, free, member]\n  gates:\n 
 // ne fait passer que des cas valides ne prouve rien : il prouve que le code
 // n'explose pas, pas qu'il refuse. C'est la lecon du 18/07 (« aucun lien
 // casse » sur un repertoire vide) appliquee a une configuration d'acces.
-const DEMO_OK = `${ENTETE}\naccess:\n  tiers: [visitor, member]\n  demo: member\n  gates:\n    price_history:\n      tier: member\n      public_max: 30\n      public_days: 90\n`;
-const DEMO_INCONNUE = `${ENTETE}\naccess:\n  tiers: [visitor, member]\n  demo: baleine\n`;
-const DEMO_HORS_TIERS = `${ENTETE}\naccess:\n  tiers: [visitor, member]\n  demo: whale\n`;
+// 🗑️ LOT 161 — il y avait ici TROIS manifestes d'essai pour la demo. Il en
+// reste UN, et il ne sert plus a la declarer : il sert a prouver qu'elle est
+// REFUSEE. ⭐ Un manifeste qui declare un mecanisme retire doit faire echouer
+// le build, pas etre ignore : c'est la difference entre retirer et taire.
+const DEMO_RETIREE = `${ENTETE}\naccess:\n  tiers: [visitor, member]\n  demo: member\n  gates:\n    price_history:\n      tier: member\n      public_max: 30\n      public_days: 90\n`;
+const SANS_DEMO = `${ENTETE}\naccess:\n  tiers: [visitor, member]\n  gates:\n    price_history:\n      tier: member\n      public_max: 30\n      public_days: 90\n`;
 
 try {
   // =========================================================================
@@ -390,104 +392,60 @@ try {
     gratuit.fuite === 0, `${gratuit.fuite} fiche(s) en ecart`);
 
   // =========================================================================
-  // 8. 🔴 LA SESSION DE DEMONSTRATION (lot 34, 03/08/2026)
-  //    Porte ouverte assumee. Ce qui se teste n'est donc PAS « est-elle
-  //    fermee », mais : (a) le manifeste la declare-t-il sans ambiguite,
-  //    (b) REFUSE-T-ELLE une declaration fausse, (c) s'efface-t-elle devant
-  //    un vrai service de session.
-  //    ⭐⭐ (c) EST LA SEULE QUI PROTEGE DE L'ARGENT. Une demo qui ecraserait
-  //    `SESSION_API` transformerait une panne reseau en abonnements gratuits —
-  //    le meme bug que le `catch` qui rendrait « member », ecrit ailleurs.
+  // 8. 🗑️ LA SESSION DE DEMONSTRATION A ETE RETIREE (lot 161, 24/08/2026)
+  //    Demande `r` de Preda : « supprimer tout le systeme de Demonstration et
+  //    ses mentions ». Cette section testait un mecanisme ; elle teste
+  //    desormais son ABSENCE — et ce n'est pas la meme chose qu'un test en
+  //    moins.
+  //
+  //    🔴🔴 CE QU'ON RISQUAIT EN SUPPRIMANT SIMPLEMENT LA SECTION. `demo:`
+  //    ecrit dans un manifeste serait devenu INERTE EN SILENCE : aucune erreur,
+  //    aucun log, et quelqu'un — moi dans six mois — croirait avoir rallume un
+  //    acces qui n'existe plus. ⭐⭐⭐ UN MECANISME RETIRE DOIT REFUSER, PAS SE
+  //    TAIRE. Les quatre controles ci-dessous mesurent ce refus.
   // =========================================================================
-  console.log('\n8. la session de demonstration');
+  console.log('\n8. la session de demonstration : RETIREE, et le refus est bruyant');
 
-  const demoOk = scenario('demo-ok', DEMO_OK);
-  verifie('un manifeste avec « demo: member » expose bien ce palier',
-    demoOk.ok && demoOk.demo === 'member', `demo=${demoOk.demo}`);
+  const demoRefusee = scenario('demo-retiree', DEMO_RETIREE);
+  verifie('un manifeste qui declare « demo: » fait ECHOUER le build',
+    !demoRefusee.ok && /access\.demo n'existe plus/.test(demoRefusee.err || ''),
+    demoRefusee.ok ? '🔴 le build a PASSE — « demo: » serait ignore en silence'
+                   : 'refus bruyant, et le message nomme le lot');
 
-  // ⭐ auto-controle : sans la cle, la demo doit valoir null — sinon la ligne
-  // ci-dessus serait vraie meme si `demo` etait cable en dur.
-  verifie('auto-controle : sans « demo: », le manifeste n\'ouvre rien',
-    nouveau.demo === null || nouveau.demo === undefined, `demo=${nouveau.demo}`);
+  // ⭐ AUTO-CONTROLE, ET IL N'EST PAS DECORATIF. Sans lui, la ligne au-dessus
+  // serait verte aussi si `scenario()` echouait pour n'importe quelle autre
+  // raison — un ENTETE casse, un chemin faux, un YAML invalide. Le MEME
+  // manifeste, prive de la seule ligne `demo:`, doit passer.
+  const sansDemo = scenario('sans-demo', SANS_DEMO);
+  verifie('auto-controle : le MEME manifeste sans « demo: » passe',
+    sansDemo.ok, sansDemo.ok ? null : `il echoue aussi : ${(sansDemo.err || '').slice(0, 160)}`);
 
-  const demoInconnue = scenario('demo-inconnue', DEMO_INCONNUE);
-  verifie('un palier de demo INCONNU fait ECHOUER le build',
-    !demoInconnue.ok && /access\.demo/.test(demoInconnue.err || ''),
-    demoInconnue.ok ? 'le build a passe — la faute de frappe serait silencieuse' : 'refus bruyant');
-
-  const demoHorsTiers = scenario('demo-hors-tiers', DEMO_HORS_TIERS);
-  verifie('un palier de demo ABSENT de access.tiers fait ECHOUER le build',
-    !demoHorsTiers.ok && /access\.tiers/.test(demoHorsTiers.err || ''),
-    demoHorsTiers.ok ? 'le build a passe — la demo serait un mensonge silencieux' : 'refus bruyant');
-
-  // --- (c) l'effacement devant un vrai service de session ------------------
-  // On appelle la condition du middleware DIRECTEMENT, dans deux processus,
-  // avec et sans SESSION_API. C'est la seule assertion de ce fichier qui
-  // touche au middleware, et elle vaut les autres reunies.
-  //
-  // 🔴🔴 CORRIGE LE 06/08/2026, APRES UN DEPLOIEMENT ARRETE PAR CE BANC.
-  // Il exigeait `sansApi === 'crevette'` — la valeur ECRITE DANS LE MANIFESTE
-  // DE PRODUCTION. Le jour ou Preda a eteint la demo (et il a bien fait : elle
-  // servait la reserve a n'importe qui), ce banc est tombe. Il n'avait rien
-  // trouve : il a signale que la POLITIQUE avait change, en croyant parler du
-  // MECANISME.
-  // ⭐⭐⭐ UN BANC QUI CABLE UNE DECISION DANS SON ATTENTE FAIT ECHOUER LE
-  // DEPLOIEMENT LE JOUR OU LA DECISION EST PRISE — c'est-a-dire exactement au
-  // pire moment, et en accusant l'innocent. `test:routes` porte deja la regle
-  // en tete : « son attente vient du manifeste, pas d'une liste ».
-  // ⛔ ET ON NE LE REPARE PAS EN ECRIVANT `sansApi === null` : on aurait juste
-  // cable la decision SUIVANTE, et le banc retomberait le jour ou la demo se
-  // rallume. Deux fautes de plus a chaque changement d'avis.
-  //
-  // LA FORME JUSTE, EN DEUX MOITIES :
-  //   (a) sur un manifeste QUI DECLARE une demo, le middleware la relaie —
-  //       assertion NETTE, non nulle, insensible a la politique de veveprice ;
-  //   (b) sur le manifeste REEL, le middleware rend ce que le manifeste
-  //       DECLARE, quel qu'il soit — l'attente est LUE, jamais ecrite.
-  const sondeMw = (avecApi, root) => {
+  // Les deux portes du mecanisme ne s'ouvrent plus depuis le code non plus.
+  const exporte = (fichier, nom) => {
     const r = spawnSync(process.execPath, ['-e',
-      `import(${JSON.stringify(join(RACINE, 'src', 'middleware.js'))})`
-      + `.then((m) => process.stdout.write('###' + JSON.stringify(m.palierDeDemonstration({}))))`
-      + `.catch((e) => process.stdout.write('###"ERREUR:' + e.message + '"'))`],
-      { cwd: RACINE, encoding: 'utf8',
-        env: { ...process.env, WAREHOUSE_OFFLINE: '1',
-               ...(root ? { PROJECT_ROOT: root, SITE: 'test' } : { SITE: 'veveprice' }),
-               ...(avecApi ? { SESSION_API: 'https://id.example/api' } : { SESSION_API: '' }) } });
-    const m = (r.stdout || '').split('###')[1];
-    return m ? JSON.parse(m) : `PAS DE SORTIE: ${(r.stderr || '').slice(-400)}`;
-  };
-
-  // --- (a) le MECANISME, sur un manifeste qui declare « demo: member » ------
-  const racineDemo = preparer('demo-middleware', DEMO_OK);
-  const relais = sondeMw(false, racineDemo);
-  verifie('sans SESSION_API, le middleware RELAIE la demo declaree',
-    relais === 'member',
-    `palier rendu = ${JSON.stringify(relais)} (manifeste declarant « demo: member »)`);
-  verifie('🔴 avec SESSION_API configure, la demo s\'EFFACE',
-    sondeMw(true, racineDemo) === null,
-    'null — le vrai service decide seul, meme quand le manifeste declare une demo');
-
-  // --- (b) le manifeste REEL : l'attente est LUE, pas ecrite ----------------
-  // ⭐ On demande au moteur ce que le site declare, et on exige que le
-  // middleware rende CA. Eteindre ou rallumer la demo ne casse plus rien ;
-  // seul un middleware qui cesserait de relayer ferait tomber le banc.
-  const declaree = (() => {
-    const r = spawnSync(process.execPath, ['-e',
-      `import(${JSON.stringify(join(RACINE, 'engine', 'lib', 'access.mjs'))})`
-      + `.then((m) => process.stdout.write('###' + JSON.stringify(m.palierDemo() ?? null)))`
+      `import(${JSON.stringify(join(RACINE, ...fichier))})`
+      + `.then((m) => process.stdout.write('###' + JSON.stringify(typeof m[${JSON.stringify(nom)}])))`
       + `.catch((e) => process.stdout.write('###"ERREUR:' + e.message + '"'))`],
       { cwd: RACINE, encoding: 'utf8',
         env: { ...process.env, SITE: 'veveprice', WAREHOUSE_OFFLINE: '1', SESSION_API: '' } });
     const m = (r.stdout || '').split('###')[1];
-    return m ? JSON.parse(m) : `PAS DE SORTIE: ${(r.stderr || '').slice(-400)}`;
-  })();
-  const sansApi = sondeMw(false);
-  verifie('sur le manifeste reel, le middleware rend ce que le site DECLARE',
-    sansApi === declaree,
-    `declare = ${JSON.stringify(declaree)} · rendu = ${JSON.stringify(sansApi)}`
-    + (declaree === null ? ' — veveprice a eteint sa demo le 06/08, et c\'est une DECISION, pas une panne' : ''));
-  verifie('🔴 sur le manifeste reel aussi, SESSION_API efface tout',
-    sondeMw(true) === null, 'null — le vrai service decide seul');
+    return m ? JSON.parse(m) : `PAS DE SORTIE: ${(r.stderr || '').slice(-300)}`;
+  };
+  verifie('`access.mjs` n\'exporte plus `palierDemo`',
+    exporte(['engine', 'lib', 'access.mjs'], 'palierDemo') === 'undefined',
+    `typeof = ${exporte(['engine', 'lib', 'access.mjs'], 'palierDemo')}`);
+  verifie('`middleware.js` n\'exporte plus `palierDeDemonstration`',
+    exporte(['src', 'middleware.js'], 'palierDeDemonstration') === 'undefined',
+    `typeof = ${exporte(['src', 'middleware.js'], 'palierDeDemonstration')}`);
+
+  // ⛔ ET LES DEUX FICHIERS N'EXISTENT PLUS. Un export retire dans un fichier
+  // qui reste est un mecanisme dormant : il suffit d'une ligne pour le rallumer.
+  for (const chemin of [['engine', 'lib', 'demo_session.mjs'], ['src', 'pages', 'api', 'demo.js']]) {
+    const parti = !existsSync(join(RACINE, ...chemin));
+    // ⚠️ Le detail ne se donne QUE sur l'echec : « le fichier est encore la »
+    // affiche a cote d'un OK se lit comme un aveu, et fait douter du vert.
+    verifie(`\`${chemin.join('/')}\` a bien disparu du depot`, parti, parti ? null : 'le fichier est encore la');
+  }
 
 } finally {
   console.log(`\n${echecs === 0 ? '✅ tout est vert' : `❌ ${echecs} echec(s)`}`);

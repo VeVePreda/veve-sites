@@ -86,7 +86,7 @@ RUN npm run test:nginx
 # 🔴🔴 LOT 144 (B-8) — SEPT BANCS NE GARDAIENT AUCUNE PORTE, ET C'ETAIT MESURABLE
 # ═══════════════════════════════════════════════════════════════════════════
 # Mesure du 13/08/2026 : `npm test` chainait **41** bancs, ce `Dockerfile` en
-# lancait **34**. Les sept absents : test:adresses, test:demo, test:dockerfile,
+# lancait **34**. Les sept absents : test:adresses, test:demo (retire au 161), test:dockerfile,
 # test:entrepot, test:plages, test:session, test:slugs.
 # ⭐⭐ ET C'EST LE `Dockerfile` QUI COMPTE, PAS LA CI. « Le Dockerfile est la
 # seule porte que le deploiement respecte ; la CI CONSTATE, elle n'EMPECHE
@@ -126,12 +126,12 @@ RUN WAREHOUSE_OFFLINE=1 npm run test:quotas
 #    abonne n'aurait vu un seul prix.
 RUN WAREHOUSE_OFFLINE=1 npm run test:rayon
 RUN WAREHOUSE_OFFLINE=1 npm run test:acces
-# ⭐ LOT 144 (B-8) — `test:session` et `test:demo` sont les deux controles du
-# CIRCUIT de session, et ni l'un ni l'autre n'arretait un deploiement. Ils
-# voisinent `test:acces` parce qu'ils repondent a la meme question — « qui a le
-# droit de voir quoi » — et parce qu'aucun des deux ne lit `dist/`.
+# ⭐ LOT 144 (B-8) — `test:session` controle le CIRCUIT de session, et il
+# n'arretait pas un deploiement. Il voisine `test:acces` parce qu'ils repondent
+# a la meme question — « qui a le droit de voir quoi » — et parce qu'aucun des
+# deux ne lit `dist/`.
+# 🗑️ LOT 161 — `test:demo` etait ici aussi. Il est parti avec le mecanisme.
 RUN WAREHOUSE_OFFLINE=1 npm run test:session
-RUN WAREHOUSE_OFFLINE=1 npm run test:demo
 # ═══════════════════════════════════════════════════════════════════════════
 # 🔴🔴 LOT 154-B — `test:prefs` EST ICI, ET LA RAISON EST UNE PERTE DE DONNEES
 # ═══════════════════════════════════════════════════════════════════════════
@@ -584,8 +584,11 @@ RUN WAREHOUSE_OFFLINE=1 npm run test:i18n
 # ⭐⭐ POURQUOI PRECOMPRESSER, PLUTOT QUE DE MONTER LE NIVEAU DE gzip.
 # `nginx.conf` declarait `gzip on` sans `gzip_comp_level` : nginx compressait
 # donc AU NIVEAU 1, a la volee, a chaque requete, sur chacune des ~8 500 pages.
-# Precompresser au build donne les deux a la fois : le niveau 9 (fichiers plus
-# petits) ET zero seconde de CPU par requete. `gzip_static on` sert le `.gz`
+# Precompresser au build donne les deux a la fois : la compression MAXIMALE
+# (fichiers plus petits) ET zero seconde de CPU par requete.
+# ⚠️ 🔴 « maximale » et PAS « niveau 9 » : mesure le 24/08, busybox rend le MEME
+#    fichier a `-1` et a `-9` — il ignore le niveau et compresse toujours au
+#    plus fort. Le gain vient de PRECOMPRESSER, jamais du chiffre. `gzip_static on` sert le `.gz`
 # quand il existe ; `gzip on` reste en second rideau pour le reste.
 #
 # ⚠️ On ne compresse QUE ce qui se compresse. Un .png ou un .woff2 sont deja
@@ -602,20 +605,65 @@ RUN WAREHOUSE_OFFLINE=1 npm run test:i18n
 #    parfaitement valide, simplement plus lent, et rien ne le dirait.
 # ⚠️ AUCUN COMMENTAIRE A L'INTERIEUR DE CE `RUN` : dans une continuation de
 #    ligne, un `#` est lu par le parseur Dockerfile, pas par le shell.
-# ⚠️ NI `find -printf` NI `stat -c` : ce sont des extensions GNU, et l'image est
-#    une ALPINE (busybox). Elles rendraient une erreur au build, pas un zero.
+# ⚠️ NI `find -printf`, NI `find -delete`, NI `stat -c` : ce sont des extensions
+#    GNU, et l'image est une ALPINE (busybox). Elles rendraient une erreur au
+#    build, pas un zero. (Mesure du 24/08 : busybox 1.30 refuse les trois.)
+#
+# ═══════════════════════════════════════════════════════════════════════════
+# 🔴🔴 LOT 161 — CETTE ETAPE FAISAIT DEUX FOIS LE TRAVAIL NECESSAIRE
+# ═══════════════════════════════════════════════════════════════════════════
+# MESURE DU 24/08/2026, busybox, 13 000 fichiers / 763 Mo, meme resultat a
+# l'octet pres (162 071 000 octets de `.gz` dans les deux cas) :
+#
+#   compression   `-exec sh -c 'gzip -c > .gz'`  23,3 s  ->  `xargs gzip -k`  14,8 s
+#   total AVANT   `-exec cat {} + | wc -c`        2,91 s  ->  `ls -ln | awk`   0,06 s
+#   total APRES   idem                            ~2,9 s  ->  idem            ~0,06 s
+#   ────────────────────────────────────────────────────────────────────────
+#   l'etape                                      29,1 s  ->                  14,9 s
+#
+# DEUX CAUSES, ET AUCUNE N'ETAIT LA COMPRESSION ELLE-MEME :
+#   ① `-exec sh -c '…' _ {} \;` lance DEUX processus PAR FICHIER — un `sh` puis
+#      un `gzip` — soit ~26 000 processus. `xargs` en lance UN PAR LOT de
+#      quelques milliers. ⭐ `gzip -k` (garder l'original) rend le `sh`
+#      inutile : c'est lui qui permet de passer les fichiers en vrac.
+#   ② les deux totaux RELISAIENT TOUT LE CONTENU DEPUIS LE DISQUE — 762 Mo puis
+#      162 Mo — POUR ECRIRE UNE LIGNE DE JOURNAL. `ls -ln` lit la taille dans
+#      l'inode, sans ouvrir un seul fichier. ⭐⭐ *Une mesure ne doit pas couter
+#      plus cher que ce qu'elle mesure.*
+#
+# ⛔ PAS DE `xargs -P` : busybox ne l'a pas (verifie, il n'est pas dans son
+#    usage). Et le VPS a DEUX c/urs SANS SWAP — un parallelisme y a deja fait
+#    tuer des deploiements. On ne l'echange pas contre 7 secondes.
+# ⚠️ CE CORRECTIF NE GUERIT PAS LA VARIABILITE. Le meme travail a pris 72 s,
+#    77 s, 322 s et plus de 720 s le MEME JOUR : ca, c'est la machine (deux
+#    apps Coolify qui se chevauchent), pas la forme du code. Ici on divise le
+#    travail par deux ; on ne rend pas la duree previsible.
+# ⚠️ `-9` NE SERT A RIEN SUR BUSYBOX — mesure : `-1` et `-9` rendent le MEME
+#    fichier, a l'octet. Busybox compresse toujours au maximum (12 467 o la ou
+#    GNU `-9` en fait 12 477). On le garde : inoffensif, et exact le jour ou
+#    l'image porterait le vrai `gzip`. ⛔ Mais le commentaire ci-dessus ne doit
+#    plus dire que c'est `-9` qui donne la petite taille : c'est busybox.
+# 🔴 `gzip -k` EST TESTE AVANT D'ETRE UTILISE. Il n'existe pas dans les vieux
+#    busybox : sans ce test, une image de base plus ancienne ferait echouer
+#    l'etape entiere. Le repli est l'ancienne forme, plus lente et sure.
 RUN set -e; \
     MODE=$(cat /app/.rendering); \
     if [ "$MODE" = "server" ]; then RACINE=dist/client; else RACINE=dist; fi; \
-    avant=$(find "$RACINE" -type f \( -name '*.html' -o -name '*.css' -o -name '*.js' \
-        -o -name '*.mjs' -o -name '*.xml' -o -name '*.json' -o -name '*.svg' \
-        -o -name '*.txt' \) -size +512c -exec cat {} + | wc -c); \
-    find "$RACINE" -type f \( -name '*.html' -o -name '*.css' -o -name '*.js' \
-        -o -name '*.mjs' -o -name '*.xml' -o -name '*.json' -o -name '*.svg' \
-        -o -name '*.txt' \) -size +512c \
-      -exec sh -c 'gzip -9 -c "$1" > "$1.gz"' _ {} \; ; \
+    liste() { R="$1"; shift; find "$R" -type f \( -name '*.html' -o -name '*.css' \
+        -o -name '*.js' -o -name '*.mjs' -o -name '*.xml' -o -name '*.json' \
+        -o -name '*.svg' -o -name '*.txt' \) -size +512c "$@"; }; \
+    poids() { xargs -0 ls -ln 2>/dev/null | awk '{s+=$5} END{print s+0}'; }; \
+    avant=$(liste "$RACINE" -print0 | poids); \
+    echo test > /tmp/.k && gzip -k /tmp/.k 2>/dev/null && KOK=1 || KOK=0; \
+    rm -f /tmp/.k /tmp/.k.gz; \
+    if [ "$KOK" = "1" ]; then \
+      liste "$RACINE" -print0 | xargs -0 gzip -9 -k; \
+    else \
+      echo "gzip -k absent : repli sur l'ancienne forme, plus lente"; \
+      liste "$RACINE" -exec sh -c 'gzip -9 -c "$1" > "$1.gz"' _ {} \; ; \
+    fi; \
     n=$(find "$RACINE" -name '*.gz' -type f | wc -l); \
-    apres=$(find "$RACINE" -name '*.gz' -type f -exec cat {} + | wc -c); \
+    apres=$(find "$RACINE" -name '*.gz' -type f -print0 | poids); \
     [ "$n" -gt 0 ] || { echo "ERREUR: aucune ressource precompressee"; exit 1; }; \
     echo "precompression : $n fichier(s), $avant -> $apres octets"
 

@@ -1196,5 +1196,85 @@ console.log('\n7. le pied de page : quatre colonnes, quatre titres, quatre liste
     cp ? `⛔ ${cp} cas mal jugé(s)` : '');
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 8. 🖼️ L'IMAGE DU HÉROS CHANGE CHAQUE JOUR — demande `p` de Preda
+// ═══════════════════════════════════════════════════════════════════════════
+// Elle valait `featured.find((i) => i.image)` : la première du classement,
+// toujours la même. Le classement bouge lentement ; l'image ne bougeait pas.
+//
+// ⭐⭐⭐ CE BANC NE CONSTRUIT PAS DEUX FOIS LE SITE. Il coupe la question en
+// deux morceaux qui se mesurent chacun sans build :
+//   ① le CHOISISSEUR est-il quotidien, stable et déterministe ? — on l'appelle
+//      avec `BUILD_DATE` sur plusieurs journées, dans ce processus ;
+//   ② le gabarit s'en sert-il vraiment ? — on lit son code.
+// ⛔ Un banc qui ne ferait que ① serait vert avec un `Home.astro` qui ignore le
+//    module. Un banc qui ne ferait que ② dirait « il appelle une fonction »,
+//    sans jamais savoir ce qu'elle rend. Les deux, ou rien.
+{
+  console.log('\n8. l\'image du héros change chaque jour');
+  const { choisirDuJour, numeroDuJour } = await import('../lib/jour_du_build.mjs');
+  const memo = process.env.BUILD_DATE;
+  const LISTE = ['a', 'b', 'c', 'd', 'e'];
+  const auJour = (d) => { process.env.BUILD_DATE = d; return choisirDuJour(LISTE); };
+
+  const j1 = auJour('2026-08-24');
+  const j2 = auJour('2026-08-25');
+  const j3 = auJour('2026-08-26');
+  verifie('deux jours consécutifs ne donnent pas la même image',
+    j1 !== j2 && j2 !== j3, `24→${j1} · 25→${j2} · 26→${j3}`);
+
+  // ⭐ LA STABILITÉ DANS LA JOURNÉE N'EST PAS UN DÉTAIL. La reconstruction
+  // tourne DEUX FOIS par jour : un choix qui dépendrait de l'heure changerait
+  // l'image en milieu de journée, au hasard, sans que personne l'ait demandé.
+  process.env.BUILD_DATE = '2026-08-24';
+  verifie('deux builds du MÊME jour rendent la MÊME image',
+    choisirDuJour(LISTE) === j1 && choisirDuJour(LISTE) === j1, `les deux rendent « ${j1} »`);
+
+  // ⛔ AUTO-CONTRÔLE. Sans lui, les deux lignes ci-dessus resteraient vertes si
+  // `choisirDuJour` rendait n'importe quoi de variable — un compteur, l'heure.
+  // On exige que le choix soit une FONCTION DU JOUR : même numéro de jour,
+  // même réponse, et un cycle qui reboucle sur la longueur de la liste.
+  const n = numeroDuJour();
+  process.env.BUILD_DATE = new Date((n + LISTE.length) * 86400000).toISOString().slice(0, 10);
+  verifie('auto-contrôle : après un cycle complet, l\'image revient',
+    choisirDuJour(LISTE) === j1, `${LISTE.length} jours plus tard → « ${choisirDuJour(LISTE)} », attendu « ${j1}` + '»');
+  verifie('auto-contrôle : une liste vide rend `null`, pas une erreur',
+    choisirDuJour([]) === null && choisirDuJour(undefined) === null);
+
+  // 🔴🔴 LE CONTRÔLE QUI DÉCIDE VRAIMENT — ajouté après avoir jugé ce banc.
+  // « deux jours consécutifs diffèrent » est un SYMPTÔME, pas le fait. Injection
+  // faite : j'ai remplacé le choix par `liste[Date.now() % liste.length]` —
+  // un choisisseur qui change en cours de journée, exactement ce qu'on refuse.
+  // Le banc a rougi, mais PAR CHANCE : les trois appels tombaient dans la même
+  // milliseconde, donc les trois « jours » rendaient la même valeur. Une
+  // milliseconde de plus et il passait au vert sur la panne.
+  // ⭐⭐⭐ ON MESURE L'IDENTITÉ, PAS LE SYMPTÔME : le choix DOIT être
+  //    exactement `liste[numeroDuJour() % liste.length]`. Constant, horaire,
+  //    aléatoire — les trois tombent d'un coup, et sans dépendre du hasard.
+  let identique = true;
+  for (const d of ['2026-01-01', '2026-08-24', '2026-08-25', '2026-12-31', '2027-03-15']) {
+    process.env.BUILD_DATE = d;
+    if (choisirDuJour(LISTE) !== LISTE[numeroDuJour() % LISTE.length]) identique = false;
+  }
+  verifie('le choix est UNE FONCTION DU NUMÉRO DE JOUR, sur 5 dates',
+    identique, identique ? '' : 'le choix dépend d\'autre chose que du jour (heure ? hasard ? compteur ?)');
+
+  process.env.BUILD_DATE = memo; if (memo === undefined) delete process.env.BUILD_DATE;
+
+  // ② le gabarit s'en sert — ⚠️ commentaires retirés d'abord : ce fichier en
+  // porte vingt lignes qui NOMMENT l'ancienne écriture pour expliquer pourquoi
+  // elle est partie, et une recherche naïve les trouverait.
+  const home = lire('src/components/pages/Home.astro')
+    .replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/^\s*\/\/.*$/gm, ' ');
+  const parLeJour = /piece\s*=\s*choisirDuJour\(/.test(home);
+  // ⚠️ Le détail ne se donne QUE sur l'échec : « le gabarit n'appelle pas
+  // `choisirDuJour` » affiché à côté d'un ✅ se lit comme un aveu.
+  verifie('`Home.astro` choisit la pièce du héros par le jour', parLeJour,
+    parLeJour ? '' : 'le gabarit n\'appelle pas `choisirDuJour`');
+  const ancienne = /featured\.find\(\(i\)\s*=>\s*i\.image\)/.test(home);
+  verifie('...et l\'ancienne écriture a bien disparu du code', !ancienne,
+    ancienne ? '`featured.find((i) => i.image)` est encore là — l\'image resterait figée' : '');
+}
+
 console.log(`\n${ko === 0 ? '✅ affichage : tout est conforme' : `❌ affichage : ${ko} écart(s)`}`);
 process.exit(ko === 0 ? 0 : 1);

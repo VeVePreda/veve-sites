@@ -76,13 +76,16 @@ const ROUTES_COMPTE = [
   // ⭐⭐ AJOUTÉES LE 03/08/2026 — LOT 42.
   // `/inscription/` lit `Accept-Language` comme `/compte/` et `/connexion/` :
   // elle DOIT être à la demande, sinon elle sert la langue du build à tout le
-  // monde. `/api/demo` et `/api/inscription` posent ou lisent des cookies : une
-  // route pré-générée est un fichier figé, elle ne peut poser aucun en-tête.
+  // monde. `/api/inscription` pose ou lit des cookies : une route pré-générée
+  // est un fichier figé, elle ne peut poser aucun en-tête.
+  // 🗑️ LOT 161 — `pages/api/demo.js` etait dans cette liste. La route n'existe
+  // plus. ⚠️ Laisser un chemin mort ici serait sans effet aujourd'hui, et
+  // trompeur demain : cette liste est lue comme l'inventaire des routes de
+  // compte, pas comme un historique.
   // 🔴 C'est littéralement la panne du lot 24 sur `/api/deconnexion`. Ajouter
   // une route de compte SANS l'inscrire ici la pré-génère EN SILENCE — le build
   // reste vert, et la fonction est morte.
   'pages/inscription/index.astro',
-  'pages/api/demo.js',
   'pages/api/inscription.js',
   // ⭐⭐ AJOUTÉE AU LOT 90 — LA ROUTE QUI POSE `vp_session`.
   // ⚠️ L'oublier ici la pré-générerait EN SILENCE : elle deviendrait un

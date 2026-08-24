@@ -25,6 +25,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { manifest, SITE } from './manifest.mjs';
 import { locales } from './i18n.mjs';
+import { jourDuBuild } from './jour_du_build.mjs';
 
 const ROOT = process.env.PROJECT_ROOT || process.cwd();
 const EDITORIAL_DIR = join(ROOT, 'sites', SITE, 'editorial');
@@ -34,12 +35,11 @@ const EDITORIAL_DIR = join(ROOT, 'sites', SITE, 'editorial');
 // on raisonne au JOUR, pas à l'heure (« le jour J », pas « l'heure exacte »).
 // Surchargée par BUILD_DATE (AAAA-MM-JJ) pour tester/rejouer.
 // -----------------------------------------------------------------------------
-function buildDay() {
-  const raw = process.env.BUILD_DATE;
-  const d = raw ? new Date(raw + 'T23:59:59Z') : new Date();
-  // Fin de journée UTC : un item daté « aujourd'hui » sort aujourd'hui.
-  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 23, 59, 59);
-}
+// 🗑️ LOT 161 — `buildDay()` vivait ICI et, mot pour mot, dans l'autre fichier.
+// Elle est partie dans `engine/lib/jour_du_build.mjs`, avec sa raison d'etre.
+// ⛔ Ne pas la recopier « pour eviter un import » : c'est ce raisonnement qui
+//    en avait deja fait deux, et le lot 161 allait en ecrire une troisieme.
+const buildDay = jourDuBuild;
 
 // -----------------------------------------------------------------------------
 // Gate de publication programmée, par type de page. `field` = la colonne date ;

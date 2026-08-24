@@ -20,8 +20,7 @@
 // donc intégralement public — ce qui est correct, et ce qu'il faut savoir avant
 // de croire qu'une page est protégée parce qu'elle est « derrière un palier ».
 
-import { PALIERS, palierDemo } from '../engine/lib/access.mjs';
-import { COOKIE_DEMO, lire as lireDemo } from '../engine/lib/demo_session.mjs';
+import { PALIERS } from '../engine/lib/access.mjs';
 
 const COOKIE = 'vp_session';
 
@@ -53,32 +52,21 @@ async function palierDeLaSession(sid, env) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// LA SESSION DE DÉMONSTRATION — arbitrage du 01/08/2026, livré le 03/08.
+// 🗑️ LOT 161 — LA SESSION DE DÉMONSTRATION A ÉTÉ RETIRÉE (demande `r` de Preda)
 // ═══════════════════════════════════════════════════════════════════════════
-// `access.demo` du manifeste fait entrer tout le monde au palier déclaré.
-// C'est une porte ouverte, assumée, sans date de fin.
+// Il y avait ici `palierDeDemonstration()` et, plus bas, la lecture d'un jeton
+// nominatif signé. Les deux sont partis avec `engine/lib/demo_session.mjs` et
+// `src/pages/api/demo.js`. ⭐ Mesuré avant de couper : `access.demo` était déjà
+// commenté dans le manifeste depuis le 06/08, et AUCUNE mention n'était plus
+// servie en production (5 pages sondées le 24/08, zéro occurrence).
 //
-// 🔴 LA SEULE CONDITION, ET ELLE N'EST PAS UN GARDE-FOU DÉCORATIF : la démo ne
-// s'applique QUE si `SESSION_API` n'est pas configuré du tout.
-// ⭐⭐ CE N'EST PAS « la démo expire ». C'est la DÉFINITION de la démo : elle
-// tient la place d'un service de session qui n'existe pas encore. Le jour où ce
-// service existe, il n'y a plus de place à tenir.
-// ⛔ SANS CETTE CONDITION, la démo deviendrait un CONTOURNEMENT du service de
-// session — et une panne réseau de `SESSION_API` distribuerait l'abonnement à
-// tout le monde. C'est exactement le défaut que `palierDeLaSession()` refuse
-// dix lignes plus haut en échouant fermé ; on ne va pas le réintroduire par la
-// porte d'à côté. Un `catch` qui rend « member » et une démo qui rend
-// « member » quand l'API tombe sont le MÊME bug écrit deux fois.
-export function palierDeDemonstration(env) {
-  const base = env?.SESSION_API || process.env.SESSION_API;
-  if (base) return null;              // le vrai service existe : la démo s'efface
-  try {
-    return palierDemo();              // `null` si le manifeste ne déclare rien
-  } catch {
-    // Manifeste illisible à la requête : on ne devine pas, on ferme.
-    return null;
-  }
-}
+// ⛔ CE QUI RESTE, ET QUI N'EST PAS LA DÉMO : `if (context.isPrerendered)`,
+//    quelques lignes plus bas. Son commentaire raconte la panne du 03/08 où la
+//    démo teintait 374 pages pré-générées — mais la règle qu'il protège vaut
+//    pour TOUT palier, pas seulement pour celui-là. Une page pré-générée est le
+//    même fichier pour tout le monde : lui attribuer un visiteur reste une
+//    contradiction, démo ou pas. ⭐⭐ RETIRER UN MÉCANISME NE RETIRE PAS LE
+//    GARDE-FOU QU'IL A FAIT ÉCRIRE.
 
 export async function onRequest(context, next) {
   const env = context.locals?.runtime?.env;
@@ -147,22 +135,24 @@ export async function onRequest(context, next) {
   // questions, et elle répondait juste à la mauvaise.
   //
   // ⭐⭐⭐ LE PALIER DIT CE QU'ON A LE DROIT DE VOIR. LA SESSION DIT QUI ON EST.
-  // Un jeton de démonstration donne le premier sans le second, et c'est
-  // exactement ce qu'on veut : voir la vue d'un abonné sans prétendre en être un.
+  // La distinction reste, et elle a coûté trois fausses pannes à Preda : elle
+  // ne dépendait pas du mécanisme retiré au lot 161, elle dépend du fait qu'une
+  // seule variable ne peut pas répondre à deux questions.
   //
   // ⚠️ `locals.session` reste ABSENTE sur les ~8 500 pages pré-générées (le
   // middleware sort plus haut sur `isPrerendered`). C'est correct et voulu : une
   // page pré-générée n'a pas de visiteur, elle doit donc porter l'appel à
   // l'inscription — celui de quelqu'un qui n'est pas connecté.
   //   'reelle' -> une vraie session, chez le service d'identité
-  //   'demo'   -> le jeton NOMINATIF signé (il faut la clé pour l'obtenir)
-  //   absente  -> personne. Y compris sous `access.demo`, qui est COLLECTIF :
-  //               un palier donné à tout le monde n'identifie personne.
+  //   absente  -> personne.
+  // 🗑️ LOT 161 — il y avait ici une troisième valeur, 'demo'. Elle est partie
+  // avec le mécanisme. ⚠️ `locals.session` n'a donc plus que DEUX états, et
+  // tout ce qui testait `session === 'demo'` a été retiré dans le même geste
+  // (`src/pages/compte/index.astro`) : une valeur qu'on cesse d'écrire et un
+  // test qu'on laisse vivre, c'est une branche morte qui a l'air active.
   const reelle = await palierDeLaSession(sid, env);
-  const nominative = reelle ? null : lireDemo(context.cookies.get(COOKIE_DEMO)?.value || null, env);
-  const brut = reelle || nominative || palierDeDemonstration(env);
+  const brut = reelle;
   if (reelle) context.locals.session = 'reelle';
-  else if (nominative) context.locals.session = 'demo';
 
   // ⭐ On dépose la valeur BRUTE. C'est `palierVisiteur()` d'access.mjs qui
   // décide ce qu'elle vaut : il vérifie qu'elle existe, qu'elle est déclarée

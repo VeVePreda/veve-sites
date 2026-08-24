@@ -131,7 +131,20 @@ console.log('\n6. Le blog se décide ARTICLE par article, pas section par sectio
 {
   const langsBlog = await BLOG.languesBlog();
   dit(langsBlog.includes(def), `la langue pivot est toujours dans les langues du blog`);
-  dit(langsBlog.every((l) => active.includes(l)), 'aucune langue de blog hors du manifeste');
+  // 🔴🔴 LOT 162 — CE CONTRÔLE LISAIT `active`, ET IL ÉTAIT VERT POUR UNE
+  //    MAUVAISE RAISON. Le manifeste de veveprice déclare DEUX listes :
+  //    `active: [en]` (les langues qui ont une adresse de SITE) et
+  //    `blog: [en, fr]`. Exiger que toute langue de blog soit dans `active`
+  //    revenait à interdire au blog d'avoir sa propre liste — c'est-à-dire à
+  //    interdire ce que le manifeste déclare. Le contrôle passait parce que le
+  //    chargeur du blog ne lisait la source Sheet que dans `active` : les deux
+  //    côtés portaient la MÊME erreur, donc ils étaient d'accord.
+  // ⭐ La question juste : une langue de blog vient-elle bien d'une INTENTION
+  //    ÉCRITE, ou est-elle apparue de nulle part ? On la pose donc à la liste
+  //    qui porte cette intention.
+  const declBlog = I18N.languesDeclareesBlog();
+  dit(langsBlog.every((l) => declBlog.includes(l)),
+    `aucune langue de blog hors du manifeste (déclarées : ${declBlog.join(', ')})`);
   for (const l of langsBlog) {
     const posts = await BLOG.postsFor(l);
     dit(l === def || posts.length > 0, `${l} : ${posts.length} article(s) — une langue de blog en a au moins un`);

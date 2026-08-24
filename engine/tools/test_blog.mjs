@@ -36,13 +36,20 @@ const MD = JSON.stringify(join(RACINE, 'engine', 'lib', 'markdown.mjs'));
 const base = mkdtempSync(join(tmpdir(), 'blog-'));
 let echecs = 0;
 
-const MANIFESTE = (pages) => `
+// ⭐⭐ `active` ET `blog` SONT DEUX LISTES, ET LE MANIFESTE D'ESSAI DOIT
+// POUVOIR LES SEPARER. Tant qu'elles valaient toutes deux `[en, fr]` ici, ce
+// fichier ne pouvait PAS voir le defaut du lot 162 : sur veveprice le
+// manifeste reel dit `active: [en]` et `blog: [en, fr]`, une condition
+// qu'aucun scenario ne reproduisait. Un banc qui ne tourne que dans un monde
+// ou les deux listes coincident ne mesure pas la question qu'on lui pose.
+const MANIFESTE = (pages, { active = ['en', 'fr'], blogLangs = null } = {}) => `
 site:
   domain: exemple.test
   brand: "Test"
 languages:
   default: en
-  active: [en, fr]
+  active: [${active.join(', ')}]${blogLangs ? `
+  blog: [${blogLangs.join(', ')}]` : ''}
 rendering: static
 identity:
   theme: aurora
@@ -57,11 +64,11 @@ editorial:
 `;
 
 /** Prépare une racine de projet jetable : manifeste + snapshot blog.json. */
-function racine(nom, { pages = ['glossary', 'blog'], lignes = [] }) {
+function racine(nom, { pages = ['glossary', 'blog'], lignes = [], active, blogLangs }) {
   const root = join(base, nom);
   mkdirSync(join(root, 'sites', 'test', 'editorial'), { recursive: true });
   mkdirSync(join(root, 'engine', 'i18n'), { recursive: true });
-  writeFileSync(join(root, 'sites', 'test', 'manifest.yml'), MANIFESTE(pages));
+  writeFileSync(join(root, 'sites', 'test', 'manifest.yml'), MANIFESTE(pages, { active, blogLangs }));
   writeFileSync(join(root, 'sites', 'test', 'editorial', 'blog.json'),
     JSON.stringify(lignes, null, 2));
   writeFileSync(join(root, 'engine', 'i18n', 'en.json'), '{}');
@@ -399,6 +406,91 @@ console.log('\n10. Sources : « toute information porte un lien vers sa source �
   verifier('il ne le declare QUE dans les langues qui ont un flux', Boolean(bloc),
     'la declaration doit etre conditionnee par `blogDansCetteLangue`, sinon elle '
     + 'annonce un flux inexistant dans les langues sans article');
+}
+
+// ---------------------------------------------------------------------------
+console.log('\n11. LES LANGUES DECLAREES DU BLOG SONT TOUTES LUES (lot 162)');
+// ---------------------------------------------------------------------------
+// LE DEFAUT MESURE LE 24/08/2026 SUR LA PRODUCTION : le chargeur du blog lisait
+// la source Sheet dans `languages.active` — les langues qui ont une ADRESSE sur
+// le site — alors que le blog declare sa PROPRE liste (`languages.blog`). Sur
+// veveprice, `active` ne vaut que `[en]` : la ligne du Sheet portait un corps
+// francais complet, et l'adresse francaise de l'article rendait 404. Rien ne le
+// disait : ni journal de build, ni banc rouge.
+// ⭐ Le scenario separe donc les deux listes, comme le manifeste reel le fait.
+// ⭐ Et il verifie l'autre moitie dans le meme mouvement : elargir la LECTURE
+//    ne doit pas publier un article qui n'est PAS traduit, sinon on remplace un
+//    trou par un faux — un texte anglais servi sous une adresse francaise.
+{
+  const root = racine('langues-blog', {
+    active: ['en'],
+    blogLangs: ['en', 'fr'],
+    lignes: [
+      { slug: 'traduit', translation_key: 'traduit', publish: '2026-07-01', statut: 'publie',
+        titre_en: 'Translated', titre_fr: 'Traduit',
+        body_en: '## Story\n\nIn English.', body_fr: '## Histoire\n\nEn francais.' },
+      { slug: 'anglais-seul', translation_key: 'anglais-seul', publish: '2026-07-01', statut: 'publie',
+        titre_en: 'English only', body_en: '## Only\n\nEnglish only.' },
+    ],
+  });
+  const r = dans(root, `
+    const { postsFor, languesBlog } = await import(${BLOG});
+    const en = await postsFor('en'), fr = await postsFor('fr');
+    console.log(JSON.stringify({
+      langues: await languesBlog(),
+      en: en.map((p) => p.slug),
+      fr: fr.map((p) => ({ slug: p.slug, html: p.html })),
+    }));
+  `);
+  const o = r.code === 0 ? JSON.parse(r.out.split('\n').pop()) : { langues: [], en: [], fr: [] };
+  verifier('une langue declaree au blog HORS de `active` est lue',
+    o.fr.length === 1 && o.fr[0].slug === 'traduit',
+    JSON.stringify(o).slice(0, 220) + (r.err || ''));
+  verifier('et elle sert bien SON corps, pas celui de la langue pivot',
+    String(o.fr[0] && o.fr[0].html).includes('En francais'),
+    JSON.stringify(o.fr[0] && o.fr[0].html));
+  verifier('un article non traduit ne sort PAS dans cette langue',
+    !o.fr.some((x) => x.slug === 'anglais-seul'), JSON.stringify(o.fr.map((x) => x.slug)));
+  verifier('la langue pivot n\'a rien perdu au passage',
+    o.en.length === 2, JSON.stringify(o.en));
+  verifier('`languesBlog()` annonce les deux langues',
+    Array.isArray(o.langues) && o.langues.join(',') === 'en,fr', JSON.stringify(o.langues));
+}
+
+// ---------------------------------------------------------------------------
+console.log('\n12. LE MEME INVARIANT, SUR LE SITE REEL (lot 162)');
+// ---------------------------------------------------------------------------
+// Le scenario 9 tourne sur un manifeste d'essai : il prouve le MECANISME. Ici
+// on branche la meme question sur le site que la CI construit vraiment, et on
+// la pose a la couche du DESSOUS — `collection()` d'editorial.mjs, qui applique
+// la date de sortie et le repli multilingue sans rien savoir du blog.
+// L'INVARIANT : si, pour une langue declaree au blog, le snapshot contient au
+// moins un article publiable dont le CORPS existe dans cette langue, alors le
+// blog doit publier au moins un article dans cette langue.
+// ⛔ Ce controle ne compte pas la sortie de sa propre transformation : les deux
+//    cotes de la comparaison viennent de deux couches differentes.
+// ⭐ SANS OBJET quand le site n'a pas d'onglet Blog, et il le DIT.
+{
+  const { postsFor } = await import('../lib/blog.mjs');
+  const { collection, estRepli } = await import('../lib/editorial.mjs');
+  const { languesDeclareesBlog } = await import('../lib/i18n.mjs');
+  const site = process.env.SITE || 'veveprice';
+  let mesurees = 0;
+  for (const l of languesDeclareesBlog()) {
+    const { items } = await collection('blog', l, { required: false });
+    const traduits = items.filter((r) => String(r.body ?? r.corps ?? r.contenu ?? '').trim()
+                                      && !estRepli(r, 'body'));
+    if (!traduits.length) continue;                 // rien a publier dans cette langue
+    mesurees++;
+    const publies = await postsFor(l);
+    verifier(`${site} / ${l} : ${traduits.length} article(s) du Sheet traduit(s) -> le blog en publie`,
+      publies.length > 0,
+      `le snapshot porte ${traduits.map((r) => r.slug).join(', ')} en ${l}, `
+      + `et postsFor('${l}') rend ${publies.length} article(s)`);
+  }
+  if (!mesurees) {
+    console.log(`  ⚪ SANS OBJET : aucun article du Sheet traduit a verifier sur ${site}`);
+  }
 }
 
 rmSync(base, { recursive: true, force: true });
