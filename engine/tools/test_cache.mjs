@@ -355,6 +355,93 @@ const cc = (r) => String(r.h?.['cache-control'] || '');
 const refuseLeStockage = (r) => /no-store/i.test(cc(r));
 
 // ═══════════════════════════════════════════════════════════════════════════
+// 1 bis. LA PRODUCTION SERT-ELLE LE CODE QU'ON TESTE ?   (lot 179, 24/08/2026)
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// 🔴🔴🔴 CE BANC A ROUGI DEUX FOIS EN UNE MATINÉE SUR UN BUILD QUI N'ÉTAIT PAS
+// CELUI DU COMMIT TESTÉ, ET LES DEUX FOIS L'ALERTE DISCORD EST PARTIE.
+// Mesuré sur le run `de7c596` : le banc frappait `/acces/` à **06:54:00** ; la
+// sonde de production annonçait alors un build de **06:14:36** — celui du lot
+// PRÉCÉDENT. Le nouveau conteneur n'a basculé qu'à **07:02**, et la purge
+// Cloudflare (qui, elle, ATTEND le build frais) n'a tiré qu'ensuite.
+// ⇒ Le banc ne mesurait pas le code déposé : il mesurait celui d'avant, plus le
+//   cache d'avant. **Sur un push, c'était le cas À CHAQUE FOIS.**
+//
+// ⭐⭐⭐ CE QUI REND CE DÉFAUT INVISIBLE : le § 5 comparait déjà la page servie à
+// la sonde et disait « même build » — ce qui était VRAI. Deux choses vieilles
+// qui s'accordent ne disent rien de la chose qu'on teste. *Un banc branché sur
+// un état cohérent peut être branché sur le mauvais état.*
+//
+// ⛔⛔ CE N'EST PAS UN ADOUCISSEMENT, C'EST LE CONTRAIRE. On n'ignore aucun
+// verdict : on attend que la production serve la version sous test, PUIS on
+// juge, avec les mêmes verdicts durs qu'avant. Avant ce lot, le § 2 — la seule
+// chose que ce banc garde vraiment — portait sur la version précédente.
+//
+// ⏱️ ET L'ATTENTE EST BORNÉE, SINON ELLE CACHERAIT LE PIRE : si après le délai
+// la production sert toujours un build antérieur au commit, c'est un ÉCART et
+// il est nommé — « le déploiement n'est pas arrivé ». Un déploiement qui ne
+// tombe jamais est exactement ce qui est arrivé trois fois en quatre jours.
+//
+// ⭐ MÊME MÉCANISME QUE `.github/workflows/purge-cache.yml`, qui attend déjà le
+// build frais avant de purger. Il avait raison avant nous.
+// ⚠️ SANS `HORODATE_COMMIT` (exécution locale, `workflow_dispatch`), on ne
+// change RIEN : il n'y a pas de déploiement en vol à attendre.
+const HORODATE_COMMIT = process.env.HORODATE_COMMIT || '';
+const ATTENTE_MAX_MS = Number(process.env.BANC_CACHE_ATTENTE_MS || 12 * 60 * 1000);
+const ATTENTE_PAS_MS = Number(process.env.BANC_CACHE_PAS_MS || 30 * 1000);
+
+/** L'horodatage de build que la zone annonce, ou null si on n'a pas pu lire. */
+async function buildServi(zone) {
+  const r = await frappe(`${baseDe(zone)}${SONDE}?cb=${Date.now()}`);
+  if (!r.ok) return null;
+  try {
+    const j = JSON.parse(r.corps);
+    const t = Date.parse(j?.build || '');
+    return Number.isFinite(t) ? t : null;
+  } catch { return null; }
+}
+
+if (HORODATE_COMMIT && !BASE_TEST) {
+  const tCommit = Date.parse(HORODATE_COMMIT);
+  if (!Number.isFinite(tCommit)) {
+    indecis('la production sert-elle le commit testé ?',
+      `\`HORODATE_COMMIT\` illisible (« ${HORODATE_COMMIT} ») — ⛔ on ne devine pas ` +
+      'une date, et on ne prétend pas non plus avoir attendu.');
+  } else {
+    console.log(`\n1 bis. attendre que la production serve le commit testé ` +
+      `(${HORODATE_COMMIT})`);
+    for (const zone of ZONES) {
+      const debut = Date.now();
+      let vu = null;
+      let essai = 0;
+      for (;;) {
+        essai++;
+        vu = await buildServi(zone);
+        if (vu !== null && vu >= tCommit) break;
+        if (Date.now() - debut >= ATTENTE_MAX_MS) break;
+        await dodo(ATTENTE_PAS_MS);
+      }
+      const attendu = Math.round((Date.now() - debut) / 1000);
+      if (vu !== null && vu >= tCommit) {
+        verifie(`${zone.nom} sert le build du commit testé`, true,
+          `build ${new Date(vu).toISOString()} · ${attendu} s d'attente, ${essai} essai(s)`);
+      } else {
+        // ⛔ ÉCART, PAS « INDÉCIDABLE ». Le déploiement fait partie du dépôt :
+        //   s'il n'arrive pas, la mesure n'est pas impossible, elle est
+        //   NÉGATIVE. Trois builds sont morts en silence entre le 17 et le
+        //   21/08 ; personne ne l'a su par un banc.
+        verifie(`${zone.nom} sert le build du commit testé`, false,
+          `après ${attendu} s, la sonde annonce ` +
+          `${vu === null ? 'RIEN de lisible' : new Date(vu).toISOString()} alors que le ` +
+          `commit est de ${HORODATE_COMMIT}. ⛔ LE DÉPLOIEMENT N'EST PAS ARRIVÉ — ` +
+          'tout ce qui suit porterait sur la version PRÉCÉDENTE. Regarder Coolify ' +
+          'avant de lire une seule ligne de plus.');
+      }
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // 2. LES ROUTES PRIVÉES — la moitié qui coûte cher
 // ═══════════════════════════════════════════════════════════════════════════
 //
