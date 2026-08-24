@@ -348,9 +348,28 @@
     boite.className = 'rayon__c' + (p ? '' : ' rayon__c--muet');
     if (p) boite.setAttribute('href', idx.prefixe + p);
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // 🔴 LOT 182 — LE `title` MANQUAIT ICI, ET LE CSS COUPE QUAND MEME
+    // ═══════════════════════════════════════════════════════════════════════
+    // `.rayon__n` et `.rayon__s` portent `text-overflow:ellipsis` dans le
+    // theme : une ligne peinte par ce pilote est coupee A LA LARGEUR, sans
+    // qu'aucun `title` ne permette de lire l'entier. Le rendu SERVEUR, lui, en
+    // posait un — donc les 20 premieres lignes avaient l'infobulle et toutes
+    // les suivantes, non. Le meme defaut que le lot 182 corrige au serveur,
+    // vu depuis l'autre fabrique.
+    // ⭐⭐ INCONDITIONNEL, et c'est le raisonnement deja ecrit dans
+    //   `CarteSet.astro` : c'est le CSS qui coupe, a une largeur que PERSONNE
+    //   ne connait au moment d'ecrire le nœud. *Un `title` conditionne a une
+    //   troncature qu'on ne peut pas mesurer serait absent exactement quand il
+    //   sert.* ⛔ Ne pas essayer de deviner avec `scrollWidth` : ce serait une
+    //   mesure de mise en page par ligne peinte, donc un reflow par ligne.
+    // ⛔ Cout : un attribut par ligne, dans le DOM seulement — ces nœuds ne
+    //   sont PAS dans le HTML servi, ils sont crees ici. Zero octet de page.
     var n = document.createElement('span');
     n.className = 'rayon__n';
-    n.textContent = String(ligneVal(l, 'n') || '');
+    var nv = String(ligneVal(l, 'n') || '');
+    n.textContent = nv;
+    if (nv) n.title = nv;
     boite.appendChild(n);
 
     var se = mot(l, 'se');
@@ -358,6 +377,7 @@
       var s = document.createElement('span');
       s.className = 'rayon__s';
       s.textContent = se;
+      s.title = se;
       boite.appendChild(s);
     }
     var men = mot(l, 'e');

@@ -188,8 +188,19 @@ const cadenasSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" s
               sans moyen de lire l'entier est une perte, pas une mise en forme.
               ⚠️ Le thème garde son `text-overflow:ellipsis` : la coupe au
               caractère ne connaît pas la largeur de la boîte. Les deux. */}
-          <span class="rayon__n" title={nom.tronque ? nom.complet : undefined}>{nom.vu}</span>
-          {l.serie && <span class="rayon__s" title={serie.tronque ? serie.complet : undefined}>{serie.vu}</span>}
+          {/* 🔴 LOT 182 — LE `title` DEVIENT INCONDITIONNEL, sur les DEUX.
+              Il ne l'était que si le SERVEUR avait coupé (`nom.tronque`). Or
+              `.rayon__n` et `.rayon__s` portent `text-overflow:ellipsis` : le
+              CSS coupe AUSSI, à une largeur que le serveur ne connaît pas.
+              ⭐⭐ *Un `title` conditionné à une troncature que le serveur ne
+              peut pas mesurer est absent exactement quand il sert.* Le
+              raisonnement est déjà écrit dans `CarteSet.astro`, arbitrage du
+              18/08 — ce lot ne fait que l'appliquer là où il manquait.
+              ⭐ Et il aligne le serveur sur le pilote : `rayon.js` pose
+              désormais le même attribut sur les lignes qu'il peint. Une
+              colonne, deux fabriques, UN comportement. */}
+          <span class="rayon__n" title={nom.complet || undefined}>{nom.vu}</span>
+          {l.serie && <span class="rayon__s" title={serie.complet || undefined}>{serie.vu}</span>}
           {l.sous && <span class="rayon__e">{l.sous}</span>}
           {l.rarity && <Fragment set:html={rar(l.rarity, { blanc: true })} />}
           {/* 🔴🔴 LES EXTRÊMES, ET SEULEMENT SI LA PIÈCE A UNE FICHE.

@@ -57,7 +57,41 @@ import { nu } from './i18n.mjs';
 // s'hérite pas d'une autre carte.
 export const BUDGETS = {
   item: 20,   // le nom d'une pièce, sur une tuile comme sur une ligne
-  serie: 13,  // le nom de série, toujours en sous-titre
+  // ═══════════════════════════════════════════════════════════════════════
+  // 🔴🔴🔴 LOT 182 — 13 → 30. SON POINT `ag`, ET IL AVAIT RAISON AU CHIFFRE PRÈS
+  // ═══════════════════════════════════════════════════════════════════════
+  // Preda, 14/08 : « nom de la série à 13 caractères ». Ce n'était pas une
+  // impression : **c'était la valeur littérale de cette constante.**
+  //
+  // 📐 MESURÉ SUR LA PRODUCTION (24/08), sur `/rayon-index/*.json` servi :
+  //     budget 13 : collectibles **542 séries sur 929 INDISCERNABLES (58,3 %)**
+  //                 comics       **603 sur 1 178 (51,2 %)**
+  //     ⇒ « Star Wars… » désigne **29 séries** en collectibles, **51** en comics.
+  //     budget 30 : 11,5 % et 4,6 %. C'est ce que ce lot achète.
+  // ⚠️ Et la coupe tombe BIEN PLUS BAS que 13 : `couperMots` recule au dernier
+  //     espace ⇒ « #06 Mike… » (9 caractères) pour « #06 Mike Mignola Batman -
+  //     Blue & Yellow ». Sa cause était juste, le réglage n'était pas celui
+  //     qu'on croyait.
+  //
+  // ⭐⭐⭐ CE BUDGET NE PROTÉGEAIT AUCUN POIDS, ET C'EST L'ARGUMENT DÉCISIF.
+  // Le rayon ne rend au serveur que ses ~20 premières lignes ; tout le reste
+  // est peint par `src/socle/modules/rayon.js` depuis `dic.se` du JSON —
+  // **qui porte les noms ENTIERS, déjà téléchargés**. Couper à 13 économisait
+  // ~340 octets par page et coûtait 54 % de séries indiscernables.
+  // 🔴 Pire : la MÊME colonne montrait deux choses selon la fabrique — serveur
+  // « #06 Mike… », pilote « #06 Mike Mignola Batman - Blue & Yellow ».
+  // → [[regle-seconde-fabrique-ne-montre-que-sa-source]]
+  //
+  // ⭐ POURQUOI **30** ET PAS UN NOMBRE NEUF : c'est déjà `set`, la valeur que
+  // Preda a tranchée le 18/08 pour exactement le même contenu (un nom de
+  // série sur une carte). Deux constantes égales qui décrivent la même chose,
+  // c'est une constante de moins à justifier. ⛔ 40 aurait acheté 9 points de
+  // plus, pour des caractères que `text-overflow:ellipsis` n'affiche jamais.
+  //
+  // ⛔ ET ON NE TOUCHE NI `couperMots` NI `couperMilieu` : le piège annoncé
+  // par l'audit est **la coupe par famille** — un correctif global avait coûté
+  // 764 titres. Ici on ne change QU'UN budget, dans UNE famille.
+  serie: 30,  // le nom de série, toujours en sous-titre
   set: 30,    // le titre d'une carte de set — seul contenu de la carte
   avenir: 46, // le titre d'un drop annoncé — deux lignes dans la bande
 };

@@ -956,6 +956,61 @@ verifie(`${vignettes} vignette(s) et ${lignes} ligne(s) : aucun nom au-dela de s
   tropLongs ? `⛔ ${tropLongs} nom(s) trop long(s) — ex. ${exemples.filter((e) => e.includes('>')).slice(0, 2).join(' | ')}` : '');
 verifie(`chaque vignette de piece emet ses extremes ET sa mention d'edition`, sansExtremes === 0,
   sansExtremes ? `⛔ ${sansExtremes} vignette(s) muette(s) — ex. ${exemples.filter((e) => e.includes('sans')).slice(0, 2).join(' | ')}` : '');
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴 LOT 182 — LE NOM COUPE DOIT RESTER LISIBLE, DANS LES **DEUX** FABRIQUES
+// ═══════════════════════════════════════════════════════════════════════════
+// Le defaut du lot : `.rayon__n` et `.rayon__s` portent `text-overflow:ellipsis`,
+// donc le CSS coupe A UNE LARGEUR QUE PERSONNE NE CONNAIT au moment d'ecrire le
+// nœud. Un `title` conditionne a la coupe SERVEUR etait absent exactement quand
+// il servait — et le pilote client n'en posait aucun.
+// ⭐⭐⭐ CE CONTROLE POSE LA QUESTION SUR LES DEUX FABRIQUES, et c'est tout son
+// interet : le rayon rend ~20 lignes au serveur et peint TOUT LE RESTE en
+// JavaScript. Un banc qui ne lit que le HTML declarerait la colonne saine en
+// n'ayant vu que 20 lignes sur 19 650.
+// → [[regle-seconde-fabrique-ne-montre-que-sa-source]]
+{
+  let sansTitre = 0, lus = 0; const exT = [];
+  for (const f of fichiers) {
+    const h = readFileSync(f, 'utf8');
+    const court = f.slice(RACINE_DIST.length);
+    for (const li of [...h.matchAll(/<li class="rayon__l">[\s\S]*?<\/li>/g)].map((m) => m[0])) {
+      lus++;
+      for (const cl of ['rayon__n', 'rayon__s']) {
+        // ⚠️ On cherche le `<span class="X" ...>` puis on regarde s'il porte un
+        //    `title=`. ⛔ Pas `attrapeur()` : il rend le TEXTE, pas les attributs.
+        const re = new RegExp(`<span class="${cl}"([^>]*)>`, 'g');
+        for (const m of li.matchAll(re)) {
+          if (!/\btitle="/.test(m[1])) { sansTitre++; exT.push(`${court} · ${cl} sans title`); }
+        }
+      }
+    }
+  }
+  verifie('rayon (serveur) : chaque nom et chaque serie porte son `title` entier',
+    sansTitre === 0,
+    sansTitre ? `⛔ ${sansTitre} sans title — ex. ${exT.slice(0, 2).join(' | ')}` : `${lus} ligne(s) de rayon balayee(s)`);
+
+  // Et la MEME regle dans le pilote, mesuree sur son SOURCE — ce banc ne peut
+  // pas executer du JavaScript de navigateur.
+  // ⚠️ COMMENTAIRES RETIRES D'ABORD : ce fichier explique le `title` juste
+  //    au-dessus des lignes qui le posent — sans ça, ce controle serait vert
+  //    sur sa propre documentation. Defaut paye quatre fois sur ce depot.
+  const pilote = readFileSync(join(ROOT, 'src', 'socle', 'modules', 'rayon.js'), 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, ' ').split('\n')
+    .map((l) => l.replace(/\/\/.*$/, ' ')).join('\n');
+  const posesN = /\bn\.title\s*=/.test(pilote);
+  const posesS = /\bs\.title\s*=/.test(pilote);
+  verifie('rayon (pilote) : les lignes PEINTES portent le meme `title`',
+    posesN && posesS,
+    (posesN && posesS) ? 'nom + serie' : `⛔ manquant : ${[!posesN && 'nom', !posesS && 'serie'].filter(Boolean).join(' + ')} — les lignes filtrees perdraient l'infobulle`);
+
+  // ⭐ ET LE BUDGET DE LA SERIE NE REDESCEND PAS. 13 rendait 54 % des series
+  //   INDISCERNABLES en production (« Star Wars… » = 51 series en comics).
+  //   ⛔ Ce n'est pas un reglage de gout : c'est une mesure, et elle est ici
+  //   pour que personne ne la refasse.
+  verifie('le budget de la serie reste au niveau du lot 182 (⛔ 13 = 54 % d\'homonymes)',
+    BUDGETS.serie >= 30, `serie ${BUDGETS.serie} · set ${BUDGETS.set}`);
+}
 verifie(`aucun cadenas sur une ligne sans fiche (« je n'ai pas » ≠ « je ne montre pas »)`, cadenasMenteurs === 0,
   cadenasMenteurs ? `⛔ ${cadenasMenteurs} ligne(s) — 18 212 pieces n'ont AUCUNE cote en reserve` : '');
 // ⚠️ ET LE TÉMOIN — un banc qui n'a rien ouvert est vert pour la pire des
