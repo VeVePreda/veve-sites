@@ -520,6 +520,149 @@ dit(/x-service/.test(cpt2), 'et il porte le secret de service');
 dit(/VeVe ID/.test(lire(join(RACINE, 'engine/i18n/fr.json'))),
   'la page nomme VeVe ID comme service indépendant (demande de Preda)');
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 👓 5 bis. « VOIR COMME » — L'ÉLÉVATION DE PRIVILÈGE VOLONTAIRE (lot 187)
+// ═══════════════════════════════════════════════════════════════════════════
+// Preda, 24/08/2026 : « donne moi la possibilité dans mon compte de switcher de
+// palier pour vérifier que chaque abonné a bien accès à ce qu'il doit avoir. »
+//
+// ⛔⛔ CE MÉCANISME FABRIQUE UNE ÉLÉVATION DE PRIVILÈGE — c'est sa raison
+//    d'être. Ce § ne demande donc pas « est-ce que ça marche ? » mais
+//    « est-ce que ça reste BORNÉ ? ». Quatre propriétés, et aucune n'est
+//    déductible des trois autres :
+//      ① INDIVIDUEL — la clé du magasin est la session, jamais le site ;
+//      ② SANS SECRET EN CLAIR — on range une empreinte, jamais l'identifiant ;
+//      ③ COURT — une fin obligatoire, plafonnée en MINUTES ;
+//      ④ VISIBLE — un bandeau, sinon c'est la démo du 01/08 qui recommence.
+//
+// ⭐⭐⭐ ET LE § EST ÉCRIT SUR LES SOURCES, PAS SUR `dist/`, PARCE QUE L'ÉTAT
+//    QU'IL JUGE N'EST PAS ATTEIGNABLE AUTREMENT : le bandeau n'apparaît que
+//    pour une session administrateur en observation, c'est-à-dire jamais dans
+//    un build hors ligne. Un § qui ouvrirait `dist/` pour l'y chercher serait
+//    vert par vacuité — le pire des trois états.
+console.log('\n5 bis. « voir comme » : une élévation de privilège, et ses quatre bornes');
+{
+  const MAG = 'engine/lib/palier_vu.mjs';
+  const ROUTE = 'src/pages/api/palier-vu.js';
+  const BAND = 'src/components/BandeauVu.astro';
+  const MW = 'src/middleware.js';
+  const lireSi = (f) => { try { return lire(join(RACINE, f)); } catch { return ''; } };
+  // ⚠️ COMMENTAIRES RETIRÉS D'ABORD. Ces quatre fichiers PARLENT de ce qu'ils
+  //   font, longuement — et une recherche naïve trouverait ses chaînes dans
+  //   les explications. Ce dépôt l'a payé CINQ fois, dont deux dans ce lot-ci.
+  const nu = (f) => lireSi(f)
+    .replace(/\{\/\*[\s\S]*?\*\/\}/g, ' ')
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .replace(/^\s*\/\/.*$/gm, ' ');
+
+  const mag = nu(MAG); const route = nu(ROUTE); const band = nu(BAND); const mw = nu(MW);
+
+  // ⭐ D'ABORD : Y A-T-IL QUELQUE CHOSE À MESURER ? Sans cette ligne, un lot
+  //   qui supprimerait les quatre fichiers rendrait ce § entièrement vert.
+  dit(mag.length > 200 && route.length > 200 && band.length > 100 && mw.length > 200,
+    'les quatre fichiers du mécanisme existent et ont du contenu',
+    `magasin ${mag.length} · route ${route.length} · bandeau ${band.length} o (hors commentaires)`);
+
+  // ① INDIVIDUEL — la clé est la session. ⛔ Un « voir comme » global
+  //   ouvrirait le site entier au premier visiteur venu pendant qu'un
+  //   administrateur vérifie une page. C'est LA différence avec la surcharge
+  //   de portes, qui, elle, est volontairement globale.
+  dit(/sid_h\s+TEXT\s+PRIMARY\s+KEY/i.test(mag),
+    '① la clé du magasin est la SESSION (individuel), pas le site',
+    'une clé globale ferait de la vérification une ouverture pour tout le monde');
+
+  // ② SANS SECRET EN CLAIR — l'identifiant de session EST un jeton
+  //   d'authentification. `favoris.db` part dans les sauvegardes du volume.
+  dit(/createHash\(['"]sha256['"]\)/.test(mag),
+    '② on range une EMPREINTE, jamais l’identifiant de session lui-même',
+    'un jeton d’authentification en clair dans une base est un jeton offert à qui la lit');
+
+  // ③ COURT, ET BORNÉ DEUX FOIS. Une seule garde suffirait au fonctionnement ;
+  //   deux sont exigées parce qu'un second appelant écrira un jour sans avoir
+  //   relu la route.
+  const plafond = (mag.match(/MINUTES_MAX\s*=\s*(\d+)/) || [])[1];
+  dit(Boolean(plafond) && Number(plafond) <= 120,
+    '③ la durée est plafonnée en MINUTES, et le plafond est court',
+    plafond ? `${plafond} min` : 'aucun plafond déclaré');
+  // 🔴 ON CHERCHE LA COMPARAISON, PAS LE NOM — INJECTION P6, QUI EST PASSÉE.
+  //   Première écriture : `/MINUTES_MAX/.test(route)`. J'ai retiré la borne de
+  //   la route en gardant l'import, et le contrôle est resté VERT : le nom
+  //   était toujours là, la garde ne l'était plus.
+  //   ⭐⭐⭐ *Un nom présent ne prouve pas qu'il est UTILISÉ ; un import sans
+  //   appel met la preuve au mauvais endroit* — c'est mot pour mot le piège
+  //   qui avait laissé `accorderAbonnement()` débranchée des semaines dans
+  //   veveid. On exige donc une COMPARAISON, des deux côtés.
+  const borneMag = /(minutes|m)\s*>\s*MINUTES_MAX/.test(mag);
+  const borneRoute = /minutes\s*>\s*MINUTES_MAX/.test(route);
+  dit(borneMag && borneRoute,
+    '③ ...et la borne est tenue DEUX fois : dans la route ET dans le magasin',
+    borneMag && borneRoute ? ''
+      : `comparaison absente ${borneMag ? 'de la route' : borneRoute ? 'du magasin' : 'des DEUX'}`
+        + ' — une élévation de privilège n’a pas droit à une seule garde');
+  // ⛔ AUCUN CHEMIN N'ÉCRIT SANS ÉCHÉANCE. C'est ce qui distingue ce module de
+  //   la démonstration du 01/08, qui n'avait pas de fin et n'a jamais été
+  //   éteinte. Le magasin range une échéance sur chaque ligne.
+  dit(/jusqu_a\s+INTEGER\s+NOT\s+NULL/i.test(mag),
+    '③ ...et l’échéance est OBLIGATOIRE dans le magasin (NOT NULL)',
+    'une ligne sans fin est une porte que rien ne referme');
+
+  // ④ VISIBLE — le bandeau, et son geste de sortie.
+  dit(/palierReel/.test(band) && /palier-vu/.test(band),
+    '④ le bandeau affiche l’observation ET porte son geste d’arrêt',
+    'on ne peut pas éteindre ce qu’on ne voit pas — la démo du 01/08 est restée ouverte pour ça');
+
+  // 🔴🔴 LA GARDE QUI COMPTE LE PLUS : PAS D'OBSERVATION SANS SESSION RÉELLE.
+  //   Sans elle, un visiteur sans aucune session recevrait un palier. Le banc
+  //   lit l'ORDRE des deux blocs dans le middleware : le palier vu doit être
+  //   posé APRÈS que le palier réel a été établi, et sous condition de lui.
+  const iReelle = mw.indexOf('const reelle');
+  // 🔴🔴 `lastIndexOf`, ET PAS `indexOf` — MON INSTRUMENT MESURAIT L'IMPORT.
+  //   Première écriture : `indexOf('lirePalierVu')` trouvait la ligne
+  //   `import { lirePalierVu } …` en tête de fichier, donc AVANT `const
+  //   reelle`, et le § déclarait rouge un middleware parfaitement correct.
+  //   ⭐⭐⭐ *Un banc rouge pour une mauvaise raison coûte autant qu'un banc
+  //   vert pour une mauvaise raison : il envoie corriger ce qui n'est pas
+  //   cassé.* On cherche l'APPEL, qui porte sa parenthèse ouvrante.
+  const iVu = mw.lastIndexOf('lirePalierVu(');
+  dit(iReelle >= 0 && iVu > iReelle,
+    '🔴 le palier observé se pose APRÈS le palier réel, jamais avant',
+    'une élévation se pose au-dessus d’une identité, jamais à sa place');
+  // ⚠️ On cherche la CONDITION, pas seulement l'ordre : deux blocs dans le bon
+  //   ordre mais sans garde donneraient un palier à un inconnu.
+  // 🔴🔴 ET LA PREMIÈRE ÉCRITURE DE CE CONTRÔLE ÉTAIT FAUSSE — INJECTION P5,
+  //   QUI EST PASSÉE. Elle balayait 400 caractères autour de l'appel en
+  //   cherchant la garde. Or la ligne qui pose l'état de session, dix lignes
+  //   plus haut, porte EXACTEMENT la même condition sans accolade : la fenêtre
+  //   l'attrapait, et le contrôle restait vert alors que j'avais remplacé la
+  //   vraie garde par un `if (true)`.
+  //   ⭐⭐⭐ *Trouver la bonne chaîne au mauvais endroit, c'est ne rien avoir
+  //   mesuré.* On exige donc le bloc OUVRANT (accolade comprise), et on
+  //   vérifie que l'appel se trouve DEDANS.
+  const iBloc = mw.lastIndexOf('if (reelle) {', iVu);
+  const dedans = iBloc >= 0 && iBloc < iVu && iBloc > iReelle;
+  dit(dedans,
+    '🔴 ...et seulement SI une session réelle existe',
+    dedans ? '' : 'la lecture du palier observé n’est pas enfermée dans un bloc gardé par la session'
+      + ' — sans quoi n’importe qui pourrait porter un palier observé');
+
+  // ⛔ LA ROUTE EST RÉSERVÉE AUX ADMINISTRATEURS, avec la MÊME liste que
+  //   `/api/portes` — deux définitions de « qui a le droit » finiraient par
+  //   diverger. Et vide = personne : la faute classique de la liste blanche.
+  dit(/ADMIN_COMPTES/.test(route) && /ADMINS\(\)\.length\s*===\s*0/.test(route),
+    'la route exige un administrateur, et une liste VIDE ne laisse passer personne');
+  dit(/export\s+const\s+GET\s*=/.test(route) && /export\s+async\s+function\s+POST/.test(route),
+    'elle écrit en POST, et refuse le GET',
+    'un geste qui écrit derrière un GET s’exécute depuis n’importe quel site par une balise <img>');
+
+  // 🔴 LA ROUTE EST-ELLE RENDUE À LA DEMANDE ? Oubliée dans `ROUTES_COMPTE`,
+  //   elle serait pré-générée : un fichier figé, incapable de lire la session
+  //   et d'écrire dans /data. Le formulaire rendrait une redirection de succès
+  //   sans rien enregistrer, et on chercherait le défaut dans le magasin — qui
+  //   n'aurait jamais été appelé. C'est la panne du lot 24, la sixième fois.
+  dit(lireSi('engine/lib/astro_routes_compte.mjs').includes('pages/api/palier-vu.js'),
+    '🔴 la route est déclarée dans ROUTES_COMPTE (sinon elle serait figée et muette)');
+}
+
 // ── 6. AUTO-CONTRÔLE ───────────────────────────────────────────────────────
 console.log('\n6. Auto-contrôle — ce banc a-t-il quelque chose à inspecter ?');
 // ⭐ Un verdict rendu sur zéro élément n'a rien prouvé. Si `sources` était

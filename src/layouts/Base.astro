@@ -10,6 +10,9 @@ import { activeSections, sectionMeta, languesDuSite, DESC_MAX } from '../../engi
 import { priceEnabled, searchEnabled } from '../../engine/lib/features.mjs';
 import Figures from '../components/Figures.astro';
 import CoteScript from '../components/CoteScript.astro';
+// 👓 LOT 187 — le rappel d'une observation en cours. ⚠️ Composant à part :
+// voir le commentaire posé sur son appel, plus bas dans le `<body>`.
+import BandeauVu from '../components/BandeauVu.astro';
 import { blogEnabled, blogMeta, languesBlog } from '../../engine/lib/blog.mjs';
 import { feuilleTheme } from '../../engine/lib/feuille_theme.mjs';
 import { socleJs } from '../../engine/lib/socle_js.mjs';
@@ -821,6 +824,23 @@ const menuComplet = wikiNav
     À CHAQUE PAGE avant d'atteindre le contenu. Il reste hors de l'écran tant
     qu'il n'a pas le focus : rien ne change pour qui utilise une souris. */}
 <a class="saut" href="#contenu">{t(lang, 'a11y.skip')}</a>
+{/* 👓 LOT 187 — LE BANDEAU « VOUS REGARDEZ COMME … ».
+    ⛔ SON CODE VIT DANS SON PROPRE COMPOSANT, ET C'EST `test:session` QUI L'A
+    EXIGÉ. Ce fichier porte `vp_membre`, le cookie d'AFFICHAGE, falsifiable
+    depuis la console du navigateur. Le banc refuse qu'il côtoie une décision
+    de droit — il tient une liste de quatre motifs, dont celui qui lit le
+    palier déposé par le middleware. ⚠️ Ces motifs ne sont PAS recopiés ici :
+    un banc qui cherche une chaîne la trouve dans un commentaire, et ce dépôt
+    l'a payé quatre fois. Ils vivent dans `test_session.mjs`, et là seulement.
+    Il
+    avait raison de me refuser, même si ma ligne lisait le middleware et non le
+    cookie : la garantie qu'il défend n'est pas « ce code-ci est correct », mais
+    « ce fichier-là ne mélange jamais les deux mondes ».
+    ⭐⭐⭐ *On ne desserre pas un garde-fou de sécurité parce qu'il gêne : on
+    déplace le code.* Tout le raisonnement vit dans `BandeauVu.astro`.
+    ⚠️ Il ne rend RIEN sur une page pré-générée : les champs qu'il lit sont
+    posés par le middleware, qui sort avant sur `isPrerendered`. */}
+<BandeauVu />
 {/* ⛔ Les degrades des courbes miniatures, poses UNE fois par page et
     AVANT tout le reste. `.spark path.a{fill:url(#gU)}` les reclame ; ils
     n'etaient emis nulle part, et une reference `url(#id)` vers un id

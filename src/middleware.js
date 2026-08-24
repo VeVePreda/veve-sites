@@ -21,6 +21,11 @@
 // de croire qu'une page est protégée parce qu'elle est « derrière un palier ».
 
 import { PALIERS } from '../engine/lib/access.mjs';
+// 👓 LOT 187 — « voir comme ». ⚠️ Importé ICI et pas dans `access.mjs` : ce
+// module lit la SESSION, et `access.mjs` ne doit rien savoir des sessions
+// (c'est la séparation « qui es-tu » / « à quoi as-tu droit », posée le 06/08
+// et payée par trois fausses pannes).
+import { lirePalierVu } from '../engine/lib/palier_vu.mjs';
 
 const COOKIE = 'vp_session';
 
@@ -160,6 +165,46 @@ export async function onRequest(context, next) {
   // Dupliquer ce contrôle ici en ferait la deuxième source de vérité, et deux
   // sources de vérité sur un droit d'accès finissent toujours par diverger.
   if (brut && PALIERS.includes(brut)) context.locals.palier = brut;
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 👓 LOT 187 — « VOIR COMME » : LE PALIER D'OBSERVATION SE POSE ICI, ET
+  //    SEULEMENT APRÈS QUE LE PALIER RÉEL A ÉTÉ ÉTABLI.
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Preda, 24/08 : « switcher de palier pour vérifier que chaque abonné a bien
+  // accès à ce qu'il doit avoir. »
+  //
+  // ⛔⛔ L'ORDRE DES DEUX BLOCS EST UNE PROPRIÉTÉ DE SÉCURITÉ, PAS UN STYLE.
+  //    Le palier vu s'applique PAR-DESSUS un palier réel déjà résolu, et
+  //    `if (reelle)` en est la condition. Poser le bloc avant, ou oublier
+  //    cette condition, donnerait un palier à quelqu'un qui n'a AUCUNE
+  //    session — c'est-à-dire à n'importe qui.
+  // ⭐⭐⭐ *Une élévation de privilège se pose au-dessus d'une identité, jamais
+  //    à sa place.*
+  //
+  // ⚠️ ON GARDE LE PALIER RÉEL À CÔTÉ. Sans `palierReel`, l'interface ne peut
+  //    plus distinguer « je suis whale » de « je regarde comme un whale » —
+  //    et c'est exactement la confusion « une variable, deux questions » qui a
+  //    coûté trois fausses pannes le 06/08. Le bandeau de `Base.astro` en
+  //    dépend, et un « voir comme » qu'on ne voit pas est une démonstration
+  //    qui reste allumée.
+  //
+  // ⚠️ CE BLOC NE PEUT PAS S'EXÉCUTER AU BUILD : le middleware sort plus haut
+  //    sur `isPrerendered`. Les ~8 500 pages pré-générées ne connaissent pas
+  //    ce mécanisme, ce qui est la seule façon sûre de le tenir.
+  if (reelle) {
+    const vu = lirePalierVu(sid);
+    // ⭐ `PALIERS.includes` MÊME ICI, alors que la route a déjà validé. La
+    //   base est un fichier : ce qu'on en relit n'est pas ce qu'on y a écrit,
+    //   c'est ce qui s'y trouve. Une ligne posée par une version précédente,
+    //   ou par une main, ne doit pas nommer un palier inconnu.
+    // ⛔ Et `vu.palier !== reelle` : réécrire la même valeur ferait allumer le
+    //   bandeau sur une observation qui n'en est pas une.
+    if (vu && PALIERS.includes(vu.palier) && vu.palier !== context.locals.palier) {
+      context.locals.palierReel = context.locals.palier || 'visitor';
+      context.locals.palier = vu.palier;
+      context.locals.vuJusqua = vu.jusqu_a;
+    }
+  }
 
   const reponse = await next();
 

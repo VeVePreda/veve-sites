@@ -120,6 +120,18 @@ const ROUTES_COMPTE = [
   //   couvre par la famille `pages/api/` (l. 217) : c'est ICI le SEUL des
   //   quatre endroits à toucher, et c'est la cinquième fois qu'on l'écrit.
   'pages/api/reglages.js',
+  // 👓 LOT 187 — « VOIR COMME » (demande de Preda du 24/08). Même exigence,
+  //   même raison, et c'est la SIXIÈME fois qu'on l'écrit : pré-générée, cette
+  //   route deviendrait un fichier figé, incapable de lire la session et
+  //   d'écrire dans `/data`. Le formulaire de `/compte/` rendrait une
+  //   redirection de succès sans rien enregistrer, et on chercherait le défaut
+  //   dans le magasin — qui n'aurait jamais été appelé.
+  // ⭐ ET C'EST ENCORE LE SEUL DES QUATRE ENDROITS À TOUCHER : nginx la route
+  //   déjà (`location ^~ /api/`, générique) et `cache_attendu.mjs` la couvre
+  //   par la famille `pages/api/`. ⚠️ Vrai pour toute route SOUS `/api/`, et
+  //   faux dès qu'on sort de ce préfixe — c'est la seule raison pour laquelle
+  //   ce lot ne touche ni nginx ni Cloudflare.
+  'pages/api/palier-vu.js',
   // ═════════════════════════════════════════════════════════════════════════
   // 🔴🔴 LOT 104 — LE MARCHE ET LE TABLEAU DE BORD
   // ═════════════════════════════════════════════════════════════════════════

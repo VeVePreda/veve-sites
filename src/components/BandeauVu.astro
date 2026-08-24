@@ -1,0 +1,88 @@
+---
+// ⚠️ VeVePreda/veve-sites — src/components/BandeauVu.astro (FICHIER NEUF — 187)
+// ═══════════════════════════════════════════════════════════════════════════
+// 👓 « VOUS REGARDEZ COMME … » — le rappel permanent d'une observation en cours
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Preda, 24/08/2026 : « switcher de palier pour vérifier que chaque abonné a
+// bien accès à ce qu'il doit avoir. »
+//
+// ⭐⭐⭐ CE BANDEAU N'EST PAS DÉCORATIF, ET LE PROJET A DÉJÀ PAYÉ SON ABSENCE.
+// La session de démonstration du 01/08 devait durer une journée ; elle est
+// restée ouverte jusqu'à devenir une fuite, parce que RIEN, à l'écran, ne
+// rappelait qu'elle était allumée. Un administrateur qui oublie qu'il regarde
+// en `whale` conclut « cette page est ouverte à tout le monde » et dépose un
+// lot pour refermer une porte qui n'a jamais été ouverte.
+// ⇒ *On ne peut pas éteindre ce qu'on ne voit pas.* Le bandeau est ce qui rend
+//   l'observation réversible.
+//
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 POURQUOI CE CODE N'EST PAS DANS `Base.astro`, ET C'EST `test:session`
+//    QUI L'A EXIGÉ — PAS UN GOÛT DE RANGEMENT.
+// ═══════════════════════════════════════════════════════════════════════════
+// Mon premier jet posait ce bloc directement dans `Base.astro`. Le banc a
+// rougi, et sa question était juste :
+//     « le cookie d’affichage n’approche AUCUNE décision de droit
+//       — src/layouts/Base.astro »
+// Ce cookie-là — celui qui ne sert qu'à choisir un libellé — est falsifiable
+// depuis la console du
+// navigateur. Il est acceptable tant qu'il ne décide que d'un libellé ; le
+// jour où une décision de droit le côtoie, il faudrait le
+// SIGNER. Le banc mesure donc la COHABITATION dans un fichier — il ne peut pas
+// distinguer « lit le cookie » de « lit `locals` », alors il refuse les deux.
+//
+// ⭐⭐⭐ ET IL AVAIT RAISON DE ME REFUSER, MÊME SI MON CODE ÉTAIT CORRECT.
+// `Astro.locals.palier` vient du middleware, jamais du cookie : ma ligne
+// n'introduisait aucune faille. Mais la garantie que le banc défend n'est pas
+// « ce code-ci est correct », c'est « ce fichier-là ne mélange jamais les deux
+// mondes » — une propriété qui se vérifie d'un coup d'œil, et qui survit au
+// prochain lot écrit par quelqu'un de pressé.
+// ⚠️ ET LE MÊME PIÈGE M'A REPRIS UNE SECONDE FOIS, DANS CE FICHIER-CI : ma
+// première version de ce commentaire CITAIT le nom du cookie pour expliquer le
+// refus — et le banc, qui cherche ce nom, l'a trouvé ici. *Un banc qui cherche
+// une chaîne la trouve dans un commentaire* (cinquième fois dans ce dépôt).
+// ⇒ Ni ce fichier ni `Base.astro` n'écrivent plus ces noms : ils les
+//   PARAPHRASENT. Les motifs vivent dans `test_session.mjs`, et là seulement.
+//
+// ⛔ ASSOUPLIR LE BANC POUR FAIRE PASSER MON LOT AURAIT ÉTÉ LA VRAIE FAUTE :
+//   on ne desserre pas un garde-fou de sécurité parce qu'il gêne. On déplace
+//   le code. ⇒ `Base.astro` n'écrit plus qu'un `<BandeauVu />`, et la
+//   propriété reste vraie, vérifiable, et vérifiée.
+//
+// ⚠️ CE COMPOSANT NE PEUT PAS APPARAÎTRE SUR UNE PAGE PRÉ-GÉNÉRÉE : les champs
+//   qu'il lit sont posés par le middleware, qui sort avant sur `isPrerendered`.
+//   Les ~8 500 pages figées ne portent donc jamais ce bloc — ce qui est
+//   exactement ce qu'on veut d'un fichier mis en cache et servi à tout le monde.
+//
+// ⭐ AUCUNE CLASSE NEUVE, AUCUN OCTET AJOUTÉ AU CSS COMMUN. Le cliquet de
+//   4 096 o par page est servi 3 097 fois ; un bandeau vu par une seule
+//   personne ne doit rien coûter aux autres. Trois déclarations en ligne, sur
+//   un nœud qui n'existe que pour un administrateur en observation.
+//
+// ⛔ TEXTE LITTÉRAL, PAS DE CLÉ i18n — même arbitrage que le bloc
+//   administrateur de `/compte/`, qui le dit déjà : « poser quinze clés dans
+//   les CINQ dictionnaires pour un écran qu'un seul compte peut voir coûterait
+//   plus cher que ce qu'il rapporte ». Et une clé de plus est une clé que
+//   `test:cles` doit retrouver dans cinq fichiers.
+const vu = Astro.locals?.palier || '';
+const reel = Astro.locals?.palierReel || '';
+// ⭐ LA CONDITION EST `reel`, PAS `vu`. Tout le monde a un palier ; seul
+//   quelqu'un en observation a un palier RÉEL mis de côté. Tester `vu`
+//   afficherait le bandeau à chaque membre connecté.
+const enObservation = Boolean(reel);
+---
+{enObservation && (
+  <div style="background:#3a2a00;color:#ffd479;padding:8px 14px;text-align:center;font-size:14px"
+       data-voir-comme={vu} data-voir-reel={reel}>
+    <b>👓 Vous regardez le site comme :</b> {vu}
+    {' — en réalité vous êtes : '}{reel}
+    {/* ⛔ LE GESTE DE SORTIE EST DANS LE BANDEAU, PAS DANS `/compte/`.
+        Renvoyer vers une autre page pour arrêter obligerait à traverser un
+        écran dont on ne sait plus, à ce moment-là, s'il dit vrai. La sortie
+        doit être là où on est. */}
+    <form method="POST" action="/api/palier-vu" style="display:inline;margin-left:10px">
+      <input type="hidden" name="minutes" value="0" />
+      <button class="btn btn--fantome btn--sm" type="submit">Revenir à moi</button>
+    </form>
+  </div>
+)}

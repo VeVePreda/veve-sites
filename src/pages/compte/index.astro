@@ -51,6 +51,8 @@ import { poserPref, lirePref } from '../../../engine/lib/prefs.mjs';
 //   recalculer « manifeste ou surcharge » ici en ferait une seconde loi.
 import { PORTES_CONNUES, porte as porteDe } from '../../../engine/lib/access.mjs';
 import { etatBrut as portesBrutes, JOURS_MAX } from '../../../engine/lib/portes_surcharge.mjs';
+// 👓 LOT 187 — « voir comme » (demande de Preda du 24/08).
+import { etatVu, MINUTES_MAX, MINUTES_DEFAUT } from '../../../engine/lib/palier_vu.mjs';
 
 // ⭐ CES PAGES SONT RENDUES À LA DEMANDE : elles peuvent donc lire l'en-tête
 // `Accept-Language`, ce qu'une page pré-générée ne peut pas faire. Autant s'en
@@ -281,6 +283,19 @@ const lesPortes = estAdmin ? [...PORTES_CONNUES].map((nom) => {
   };
 }) : [];
 const _p = Astro.url.searchParams.get('p');
+// ═══════════════════════════════════════════════════════════════════════════
+// 👓 LOT 187 — L'ÉTAT DE L'OBSERVATION EN COURS
+// ═══════════════════════════════════════════════════════════════════════════
+// ⚠️ ON NE LIT LA BASE QUE SI ON AFFICHE — même règle que `portesBrutes()`
+//   deux blocs plus haut : appeler pour tout le monde ouvrirait un
+//   descripteur à chaque affichage de `/compte/`, pour une ligne que personne
+//   ne verra.
+// ⚠️ `etatVu` prend le `sid`, jamais l'adresse e-mail : le magasin est indexé
+//   par SESSION (voir la propriété ① de `palier_vu.mjs`). Deux navigateurs du
+//   même administrateur observent donc indépendamment — ce qui est le bon
+//   comportement : arrêter l'observation ici ne doit pas la couper là-bas.
+const monVu = estAdmin ? etatVu(sid) : null;
+const _v = Astro.url.searchParams.get('v');
 
 // ⭐ Les codes d'erreur des routes de service reviennent ICI : la personne doit
 // retrouver son compte, jamais un cul-de-sac. Un seul endroit les traduit.
@@ -786,6 +801,82 @@ const _m = Astro.url.searchParams.get('m');
           )}
         </div>
       ))}
+
+      {/* ═══════════════════════════════════════════════════════════════════
+          👓 LOT 187 — « VOIR COMME » : VÉRIFIER CE QU'UN PALIER VOIT VRAIMENT
+          ═══════════════════════════════════════════════════════════════════
+          Preda, 24/08 : « donne moi la possibilité dans mon compte de switcher
+          de palier pour vérifier que chaque abonné a bien accès à ce qu'il
+          doit avoir. »
+
+          ⭐⭐⭐ CE BLOC EST DANS LE MÊME TIROIR QUE LES PORTES, ET CE N'EST PAS
+          UN RANGEMENT PAR COMMODITÉ : les deux répondent à la même question
+          (« qui voit quoi ? »), ils exigent le même droit, et on règle presque
+          toujours l'un pour vérifier l'autre. Les séparer obligerait à
+          traverser deux pages pour un aller-retour.
+
+          ⛔⛔ ET LA DIFFÉRENCE DE PORTÉE EST ÉCRITE À L'ÉCRAN, PAS SEULEMENT
+          DANS LE CODE. Juste au-dessus, une surcharge de porte « remplace le
+          palier du manifeste POUR TOUT LE MONDE ». Ici, on ne change que ce
+          que VOUS voyez. Deux gestes voisins dont l'un est global et l'autre
+          individuel : si l'écran ne le dit pas, quelqu'un finira par croire
+          qu'il a ouvert un module alors qu'il l'a seulement regardé — ou,
+          bien pire, l'inverse.
+
+          🔴 LES DEUX PALIERS QUI NE S'ATTEIGNENT PAS. Mesuré le 24/08 dans
+          `veveid` : `paliDe()` ne rend que `visitor`, `member` et `crevette`.
+          `langouste` et `whale` n'existent DANS AUCUN COMPTE — c'est
+          justement pour ça que ce bloc est utile : c'est le seul moyen de
+          voir ce qu'ils ouvriraient. ⚠️ Et de constater qu'aujourd'hui
+          personne ne peut y accéder autrement. */}
+      <div class="carte" style="margin-top:var(--s4)">
+        <h3 style="margin:0 0 var(--s2)">👓 Voir le site comme…</h3>
+        <p class="muted" style="font-size:13px;margin:0 0 var(--s3)">
+          Change <b>uniquement ce que VOUS voyez</b>, dans ce navigateur, et
+          seulement pendant la durée choisie ({MINUTES_MAX} minutes au maximum).
+          Les autres visiteurs ne sont pas touchés — contrairement aux
+          surcharges de portes ci-dessus. Un bandeau reste affiché en haut de
+          chaque page tant que l'observation est en cours.
+        </p>
+        {monVu && (
+          <p class="muted" style="font-size:13px;margin:0 0 var(--s3)">
+            {monVu.expire
+              ? `Dernière observation (« ${monVu.palier} ») expirée — votre palier réel a repris la main.`
+              : `En cours : « ${monVu.palier} », jusqu’à ${new Date(monVu.jusqu_a).toISOString().slice(11, 16)} UTC.`}
+          </p>
+        )}
+        <form method="POST" action="/api/palier-vu"
+              style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <select class="champ" name="palier" aria-label="palier à observer" style="max-width:150px">
+            <option value="visitor">visitor</option>
+            <option value="member">member</option>
+            <option value="crevette">crevette</option>
+            <option value="langouste">langouste</option>
+            <option value="whale">whale</option>
+          </select>
+          {/* ⛔ `required`, `min` et `max` : du confort. La borne qui COMPTE
+              est dans `/api/palier-vu` ET dans le magasin — deux fois, parce
+              qu'une élévation de privilège n'a pas droit à une seule garde. */}
+          <input class="champ" name="minutes" type="number" min="1" max={MINUTES_MAX}
+                 value={MINUTES_DEFAUT} required aria-label="durée en minutes" style="width:90px" />
+          <button class="btn btn--sm" type="submit">Observer</button>
+        </form>
+        {monVu && !monVu.expire && (
+          <form method="POST" action="/api/palier-vu" style="margin:8px 0 0">
+            <input type="hidden" name="minutes" value="0" />
+            <button class="btn btn--fantome btn--sm" type="submit">Revenir à mon palier</button>
+          </form>
+        )}
+        {_v && (
+          <p class="muted" style="font-size:13px;margin:var(--s3) 0 0">
+            {_v === 'ok' ? '✅ Observation mise à jour.'
+              : _v === 'duree' ? `⛔ Durée refusée (1 à ${MINUTES_MAX} minutes).`
+              : _v === 'palier' ? '⛔ Palier inconnu.'
+              : _v === 'ecriture' ? '⛔ Rien n’a été enregistré — la base n’a pas répondu.'
+              : '⛔ Formulaire illisible.'}
+          </p>
+        )}
+      </div>
     </section>
   </details>
   )}
