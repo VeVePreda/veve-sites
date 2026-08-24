@@ -25,6 +25,8 @@ import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { COTE_DIR, uuidValide } from '../../../../engine/lib/cote.mjs';
 import { franchit } from '../../../../engine/lib/access.mjs';
+// 💱 LOT 181 — le cours OMI → USD voyage AVEC les cotes. Voir plus bas.
+import { lireTaux } from '../../../../engine/lib/taux_omi.mjs';
 
 const ENTETES = {
   'content-type': 'application/json; charset=utf-8',
@@ -78,7 +80,39 @@ export async function GET({ url, locals }) {
     console.warn(`[cote] AUCUNE des ${uuids.length} cotes demandees n'existe (${COTE_DIR}) — reserve absente de l'image ?`);
   }
 
+  // ═══════════════════════════════════════════════════════════════════════
+  // 💱 LOT 181 — LE COURS OMI VOYAGE ICI, ET PAS DANS LE HTML
+  // ═══════════════════════════════════════════════════════════════════════
+  // Preda, point 156 : « StackR en $ ». Trois endroits étaient possibles pour
+  // faire arriver le cours au navigateur ; celui-ci est le seul qui ne coûte
+  // rien et qui ne ment pas.
+  //
+  // ⛔ PAS UN ATTRIBUT SUR `<html>` (à côté de `data-nf`). Ce qui est dans le
+  //    HTML est SERVI, et il est servi 8 840 fois — et surtout il serait FIGÉ
+  //    À L'HEURE DU BUILD : la production sert un build de plusieurs heures,
+  //    parfois d'un jour. Un cours de la veille affiché comme celui du jour,
+  //    sur un jeton volatil, c'est un chiffre faux qui a l'air juste.
+  // ⛔ PAS UN SECOND APPEL RÉSEAU depuis `60-cote.js` : ce serait un deuxième
+  //    aller-retour pour 40 octets, sur la page où le premier vient de partir.
+  // ⭐ ICI, il coûte ZÉRO octet de page, il est relu du disque à CHAQUE
+  //    requête (donc frais dès que le prochain build le renouvelle), et il
+  //    n'atteint que des gens qui ont déjà franchi la porte `cote` — les
+  //    seuls à qui un plancher StackR est servi.
+  //
+  // ⚠️ CE N'EST PAS UNE DONNÉE RÉSERVÉE, ET C'EST POURTANT LA BONNE PLACE.
+  // Le cours OMI est public (uniswap) ; le mettre derrière la porte ne le
+  // protège pas — il n'y a rien à protéger. Il est ici parce que c'est le
+  // paquet que son unique lecteur reçoit déjà, pas pour le cacher.
+  //
+  // ⛔ `taux` ABSENT DE L'OBJET quand il n'y en a pas (péremption, release pas
+  // encore posée, JSON illisible) — et pas `taux: null`. Le lecteur teste
+  // `if (j.taux && j.taux.omiUsd > 0)` : les deux formes passeraient, mais une
+  // clé présente à `null` invite le prochain à écrire `j.taux.omiUsd` sans
+  // garde. On ne laisse pas traîner l'occasion.
+  const taux = lireTaux();
+
   return new Response(
-    JSON.stringify({ ok: true, palier: locals?.palier || 'visitor', n: Object.keys(cotes).length, c: cotes }),
+    JSON.stringify({ ok: true, palier: locals?.palier || 'visitor',
+      n: Object.keys(cotes).length, c: cotes, ...(taux ? { taux } : {}) }),
     { status: 200, headers: ENTETES });
 }

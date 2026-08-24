@@ -355,5 +355,141 @@ verifie('et aucune autorisation ne survit à la ligne qu\'elle autorisait',
   mortes.length === 0,
   mortes.length ? `à retirer : ${mortes.join(' · ')}` : `${vues.size} autorisation(s) toutes utilisées`);
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 6. LE COURS OMI → USD — LOT 181, son point 156 (« StackR en $ »)
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐ IL EST DANS **CE** BANC ET PAS DANS UN BANC NEUF : la question qu'il pose
+// est mot pour mot celle des cinq blocs au-dessus — « qui écrit, qui lit ? ».
+// Le cours est déposé au build par `dataset()`, relu au RUNTIME par
+// `/api/cote/lot`, puis employé par un script de navigateur. Trois processus,
+// trois moments : aucun des trois ne verrait le silence des deux autres.
+console.log('\n6. le cours OMI → USD : déposé, relu, employé ?');
+{
+  const { rmSync } = await import('node:fs');
+  const DIRT = mkdtempSync(join(tmpdir(), 'taux-banc-'));
+  process.env.RESERVE_COTE_DIR = DIRT;
+  const T = await import('../lib/taux_omi.mjs');
+  const N = Math.floor(Date.now() / 1000);
+
+  // --- a) la lecture du CSV : ⛔ elle ne rend JAMAIS 0 --------------------
+  // Un 0 se propage en silence dans une multiplication et écrit « ≈ $0.00 »
+  // sous chaque plancher — une valeur PLAUSIBLE pour une absence, c'est-à-dire
+  // le défaut de famille de ce dépôt. `null` ne se multiplie pas par accident.
+  const casCsv = [
+    ['cours normal', [{ omi_usd: '0.00456', ts_utc: '1700' }], 0.00456],
+    ['liste vide', [], null],
+    ['source absente (chargerFacultatif rend [])', null, null],
+    ['cours à zéro', [{ omi_usd: '0', ts_utc: '1700' }], null],
+    ['cours illisible', [{ omi_usd: 'abc', ts_utc: '1700' }], null],
+    ['cours négatif', [{ omi_usd: '-1', ts_utc: '1700' }], null],
+    ['horodate absente', [{ omi_usd: '0.004' }], null],
+  ];
+  const ratesKo = casCsv.filter(([, e, att]) => {
+    const r = T.lireCsv(e);
+    return att === null ? r !== null : (r && r.omiUsd) !== att;
+  }).map(([n]) => n);
+  verifie('`lireCsv` : un cours douteux sort par `null`, jamais par 0',
+    ratesKo.length === 0,
+    ratesKo.length ? `échoue sur : ${ratesKo.join(' · ')}` : `${casCsv.length} cas`);
+
+  // --- b) la péremption ---------------------------------------------------
+  // `floor-watch.yml` tourne toutes les heures : un cours de plus de 24 h dit
+  // que la chaîne est ARRÊTÉE, pas que le marché dort.
+  T.deposerTaux({ omiUsd: 0.00456, ts: N - T.PEREMPTION_S + 60 });
+  const frais = T.lireTaux(N);
+  T.deposerTaux({ omiUsd: 0.00456, ts: N - T.PEREMPTION_S - 60 });
+  const vieux = T.lireTaux(N);
+  // 🔴🔴 L'AVANCE TESTÉE DÉPASSE LE SEUIL, ET C'EST TOUT L'INTÉRÊT DU CAS.
+  // Premier jet : `ts = N + 3600`. Faute injectée (`Math.abs(now - ts)`) — le
+  // banc est resté VERT : |−3 600| < 86 400, donc le cas passait des deux
+  // côtés. Un contrôle qu'aucune faute ne peut faire rougir ne mesure rien, il
+  // décore. ⇒ L'avance doit franchir le seuil pour que `Math.abs` la rejette.
+  // → [[regle-terme-a-zero-doit-etre-atteignable]]
+  T.deposerTaux({ omiUsd: 0.00456, ts: N + T.PEREMPTION_S + 3600 });
+  const avance = T.lireTaux(N);
+  verifie('un cours de moins de 24 h est servi, au-delà il se tait',
+    frais !== null && vieux === null,
+    `23 h 59 → ${frais ? 'servi' : 'MUET'} · 24 h 01 → ${vieux ? 'SERVI' : 'muet'}`);
+  // ⚠️ Une horloge en avance chez le producteur ne doit pas disqualifier un
+  //    cours : c'est l'ANCIENNETÉ qui périme, jamais l'avance. Un `Math.abs`
+  //    ici rendrait le mur muet le jour d'un décalage de serveur.
+  verifie('un horodate en avance passe (⛔ pas de `Math.abs` sur l\'âge)',
+    avance !== null, avance ? '+25 h accepté' : 'REFUSÉ');
+
+  // --- c) 🔴🔴 L'ORDRE DU DÉPÔT, ET C'EST LE CONTRÔLE QUI COMPTE ----------
+  // `projeter()` VIDE `COTE_DIR` (cote.mjs : `for (…) rmSync(f)`), exprès, pour
+  // qu'une cote de la veille ne soit jamais servie pour un prix du jour. Un
+  // `deposerTaux()` placé une ligne trop haut serait EFFACÉ par ce ménage : le
+  // mur StackR n'afficherait aucun équivalent, en local comme en production, et
+  // AUCUNE erreur ne le dirait — le fichier absent est un cas déjà prévu.
+  // ⭐⭐ Le banc ne le suppose pas : il PROVOQUE l'effacement, pour que la
+  //    ligne du dessous mesure un danger démontré et pas une crainte.
+  // ⚠️⚠️ SANS OBJET SUR UN SITE SANS PORTE `cote`, ET IL LE DIT AU LIEU DE SE
+  // TAIRE. `projeter()` sort AVANT le ménage quand la porte est inactive
+  // (`if (!estActive()) return`) : sur vevewiki le cours survivrait, et ce
+  // contrôle rougirait sur une condition qui n'existe pas là-bas. Il ne
+  // rougissait pas pour la bonne raison — il posait sa question au mauvais
+  // site. ⭐ Mesuré : rouge sur vevewiki au premier jet, vert sur veveprice.
+  // ⛔ Ne PAS le sauter en silence : un banc muet ressemble à un succès. Le
+  //    verdict « SANS OBJET » est un verdict, il s'imprime.
+  // → [[regle-banc-muet-ressemble-a-un-succes]]
+  if (FERMEE) {
+    const { projeter } = await import('../lib/cote.mjs');
+    T.deposerTaux({ omiUsd: 0.00456, ts: N });
+    projeter([]);
+    const survivant = T.lireTaux(N);
+    verifie('`projeter()` EFFACE bien un cours déposé avant lui (le danger existe)',
+      survivant === null,
+      survivant ? 'il a survécu — ce contrôle ne prouve plus rien, le relire' : 'effacé');
+  } else {
+    console.log('  ⏭️  SANS OBJET   `projeter()` n\'efface rien ici — porte « cote » INACTIVE, ce site n\'a pas de réserve de cote (donc pas de cours à effacer)');
+  }
+
+  // ⭐ Et donc : dans `dataset.mjs`, le dépôt vient APRÈS la projection.
+  // ⚠️ LES COMMENTAIRES D'ABORD — ce fichier en porte plusieurs qui NOMMENT
+  //    les deux appels ; sans `decommenter`, ce contrôle serait vert sur ses
+  //    propres explications. (Défaut payé quatre fois sur ce dépôt.)
+  const ds = readFileSync('engine/lib/dataset.mjs', 'utf8')
+    .split('\n').map(decommenter).join('\n');
+  const iProj = ds.indexOf('projeterCote(items)');
+  const iTaux = ds.indexOf('deposerTaux(');
+  verifie('dans `dataset.mjs`, `deposerTaux()` vient APRÈS `projeterCote()`',
+    iProj > 0 && iTaux > iProj,
+    iProj < 0 ? 'projeterCote introuvable' : (iTaux < 0 ? 'deposerTaux introuvable' : `projeterCote@${iProj} < deposerTaux@${iTaux}`));
+
+  // --- d) le CIRCUIT : trois fichiers, et chacun doit tenir sa part -------
+  // ⛔ Écrire sans lecteur est la panne que ce banc existe pour attraper. Les
+  //    trois lignes ci-dessous sont les trois maillons, mesurés HORS
+  //    commentaires, chacun dans le fichier qui doit le porter.
+  const lu = (f) => readFileSync(f, 'utf8').split('\n').map(decommenter).join('\n');
+  const route = lu('src/pages/api/cote/lot.js');
+  const pilote = lu('src/socle/60-cote.js');
+  const fiche = lu('src/components/pages/Item.astro');
+  const maillons = [
+    ['la route sert le cours', route.includes('lireTaux(') && /taux\s*\?/.test(route)],
+    ['le pilote lit `j.taux`', pilote.includes('j.taux')],
+    ['le pilote vise l\'emplacement', pilote.includes('data-omi-usd')],
+    ['la fiche émet l\'emplacement', fiche.includes('data-omi-usd')],
+    ['la fiche porte le texte, pas le pilote', fiche.includes('data-omi-modele')],
+  ];
+  const casses = maillons.filter(([, ok]) => !ok).map(([n]) => n);
+  verifie('le circuit dépôt → route → pilote → fiche est complet',
+    casses.length === 0,
+    casses.length ? `rompu : ${casses.join(' · ')}` : `${maillons.length} maillons`);
+
+  // --- e) ⛔ LA GARDE QUI EMPÊCHE LA CONVERSION INTERDITE -----------------
+  // `floor`, `ath`, `atl` sont en GEMS chez VeVe. Leur appliquer un cours OMI
+  // serait la conversion entre DEUX MARCHÉS que `cote.mjs`, `warehouse.mjs` et
+  // `floor-watch.yml` interdisent tous les trois — rapport non constant
+  // (médiane 4 423, p10 2 273, p90 8 520 sur 1 306 items communs).
+  // ⭐ La garde porte sur le NOM DU CHAMP, pas sur la présence du taux : un
+  //   jour sans cours ne doit pas être ce qui protège les trois autres champs.
+  verifie('⛔ le pilote ne convertit QUE `floorStackr`',
+    /champ\s*!==\s*'floorStackr'/.test(pilote),
+    /champ\s*!==\s*'floorStackr'/.test(pilote) ? 'garde sur le nom du champ' : 'GARDE ABSENTE — floor/ath/atl convertibles');
+
+  rmSync(DIRT, { recursive: true, force: true });
+}
+
 console.log(`\n${ko === 0 ? '✅ projection : tout est conforme' : `❌ projection : ${ko} écart(s)`}`);
 process.exit(ko === 0 ? 0 : 1);

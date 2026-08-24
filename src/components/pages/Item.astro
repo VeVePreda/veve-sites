@@ -804,6 +804,38 @@ const mcpJour = mcpPoints(item.rarity, item.type);
                 ? <Cote lang={lang} uuid={item.uuid} champ="floorStackr" />
                 : money(item.floorStackr))
             : <span data-attente title={t(lang, 'data.notCollected')}>—</span>}<span class="mur__u">OMI</span></div>
+          {/* ═══ 💱 L'ÉQUIVALENT EN DOLLARS — LOT 181, son point 156 ═══
+              Preda : « StackR en $ ». Ce nœud est VIDE et `hidden` : il n'est
+              qu'un emplacement, comme <Cote> l'est pour le montant lui-même.
+              `60-cote.js` le remplit au retour de `/api/cote/lot`, qui porte
+              le cours du jour à côté des cotes.
+
+              🔴🔴 IL NE PEUT PAS ÊTRE CALCULÉ ICI, ET CE N'EST PAS UN CHOIX
+              DE STYLE. `floorStackr` est dans `CHAMPS_COTE` : à l'instant où
+              ce gabarit est rendu, `projeter()` l'a DÉJÀ retiré de l'objet.
+              Écrire `money(item.floorStackr * taux)` demanderait de le garder
+              — c'est-à-dire de rouvrir la fuite du lot 101 par une division.
+              ⭐ Le principe de <Cote> tient ici mot pour mot : « il n'y a rien
+              à masquer » vaut mieux que « on a pensé à masquer ».
+
+              ⛔ RENDU SEULEMENT SI LA COTE EST FERMÉE. Cote ouverte, le
+              montant est déjà écrit au build par `money()` — mais le cours,
+              lui, n'est pas dans le gabarit, et il n'y sera pas : sur un site
+              sans porte des prix il n'y a ni `/api/cote/lot` ni réserve. Un
+              emplacement qu'aucun script ne viendrait remplir resterait
+              `hidden` à vie ; on ne l'émet pas. (Mesuré : `coteFermee()` vaut
+              vrai sur veveprice, faux sur vevewiki, dont les fiches n'ont
+              aucun plancher StackR.)
+              ⭐ `data-omi-modele` PORTE LE TEXTE, pas le script. Le pilote ne
+              connaît aucune chaîne traduisible — même dispositif que
+              `data-l-offres` pour la courbe des offres (lot 171).
+              ⛔ `hidden` ET PAS `display:none` en CSS : zéro octet ajouté au
+              thème, servi 3 097 fois. */}
+          {coteFermee && (
+            <div class="mur__eq" data-omi-usd={item.uuid}
+                 data-omi-modele={t(lang, 'item.floorStackrUsd')}
+                 title={t(lang, 'item.floorStackrUsdAide')} hidden></div>
+          )}
           {/* 🔴🔴 LOT 145 — `data-releve-corps` N'EST PAS UN ORNEMENT. Le banc
               lisait « la premiere `mur__eq` porteuse d'une date » ; le lot 145
               en ajoute une AVANT celle-ci dans le mur de gauche, et ce

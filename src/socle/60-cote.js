@@ -78,16 +78,54 @@ fetch('/api/cote/lot?u=' + uuids.join(','), {
   return r.json();
 }).then(function (j) {
   if (!j || !j.ok || !j.c) return;
+  // 💱 LOT 181 — le cours du jour, s'il en est venu un. Voir `lot.js` : la clé
+  //    est ABSENTE quand il n'y a pas de cours frais, jamais `null`.
+  var taux = (j.taux && isFinite(j.taux.omiUsd) && j.taux.omiUsd > 0) ? j.taux.omiUsd : 0;
   for (var k = 0; k < places.length; k++) {
     var el = places[k];
     var c = j.c[el.getAttribute('data-cote')];
     if (!c) continue;
-    var v = nb(c[el.getAttribute('data-champ')]);
+    var champ = el.getAttribute('data-champ');
+    var brut = c[champ];
+    var v = nb(brut);
     if (v === null) continue;
     var cible = el.querySelector('[data-cote-v]') || el;
     cible.textContent = v;
     el.setAttribute('data-ouverte', '1');
     el.removeAttribute('title');
+    // ═══════════════════════════════════════════════════════════════════════
+    // 💱 L'ÉQUIVALENT EN DOLLARS DU PLANCHER STACKR — point 156 de sa liste
+    // ═══════════════════════════════════════════════════════════════════════
+    // ⭐⭐⭐ IL SE CALCULE ICI, ET IL NE POUVAIT SE CALCULER NULLE PART
+    // AILLEURS. `floorStackr` est dans `CHAMPS_COTE` : à l'instant où la fiche
+    // est rendue, le champ n'existe DÉJÀ PLUS sur l'objet public
+    // (`projeter()`, cote.mjs). Le multiplier côté serveur aurait demandé de
+    // le garder — c'est-à-dire de rouvrir la fuite du lot 101 par la porte
+    // d'à côté, avec un montant exact déductible d'une division. Le montant
+    // n'existe que dans CE navigateur, après CETTE réponse, pour quelqu'un qui
+    // a franchi la porte. ⛔ Ne jamais remonter ce calcul dans le gabarit.
+    //
+    // ⛔ `champ === 'floorStackr'` ET RIEN D'AUTRE. `floor`, `ath`, `atl` sont
+    // en GEMS chez VeVe — leur appliquer un cours OMI serait exactement la
+    // conversion entre deux MARCHÉS que trois commentaires de ce dépôt
+    // interdisent (rapport non constant, médiane 4 423). Une garde sur le nom
+    // du champ, pas sur la présence du taux.
+    if (champ !== 'floorStackr' || !taux) continue;
+    var eq = document.querySelector('[data-omi-usd="' + el.getAttribute('data-cote') + '"]');
+    if (!eq) continue;
+    var usd = Number(brut) * taux;
+    if (!isFinite(usd) || usd <= 0) continue;
+    // ⭐ « ≈ » EST LA MOITIÉ DU MESSAGE. Le plancher a été relevé à une heure,
+    //   le cours à une autre : le produit est un ORDRE DE GRANDEUR, et le dire
+    //   coûte un caractère. Un montant exact au centime affirmerait une
+    //   précision que ni l'une ni l'autre des deux observations ne porte.
+    // ⭐ Le gabarit a écrit le modèle (« ≈ $%s ») dans `data-omi-modele` : la
+    //   traduction reste dans les dictionnaires, ce script ne connaît aucun
+    //   texte. ⛔ Ne jamais coder « $ » en dur ici.
+    var modele = eq.getAttribute('data-omi-modele') || '≈ $%s';
+    eq.textContent = modele.replace('%s',
+      usd.toLocaleString(nf, { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+    eq.removeAttribute('hidden');
   }
 }).catch(function (e) { console.warn('[cote] ' + e.message); });
 }

@@ -70,6 +70,41 @@ const SOURCES = {
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // 💱 LE COURS OMI → USD — lot 181, 24/08/2026
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Deux lignes, ~40 octets : `omi_usd, ts_utc`. Écrit par `floor-watch.yml`
+  // (fanablefrance/jetonveve) dans la MÊME étape que `releves.csv`, depuis la
+  // MÊME source — le cours que `floor_watch.py` relève déjà à chaque tour pour
+  // ses alertes, et qu'il jetait.
+  //
+  // ⛔ IL N'AUTORISE PAS LA CONVERSION QUE LE BLOC CI-DESSUS INTERDIT. Le
+  // commentaire de `releves` dit ⛔ ne jamais convertir `sfloors` (OMI) en
+  // `vfloors` (USD) : deux MARCHÉS, rapport non constant. Cela reste vrai et
+  // ce fichier n'y change rien. Ce cours-ci convertit un montant DANS SA
+  // PROPRE DEVISE — le prix du jeton, coté sur uniswap. La règle complète et
+  // le seuil de péremption vivent dans `engine/lib/taux_omi.mjs`.
+  //
+  // ⛔ PAS DE `prev`, POUR LA RAISON DE `releves` : `etat-floor-watch-prev`
+  // n'existe pas. Un secours qui n'existe pas ne se déclare pas.
+  // ⚠️ `sample` EST DÉCLARÉ ET LE FICHIER N'EXISTE PAS — C'EST DÉLIBÉRÉ, ET
+  // CE N'EST PAS LA MÊME CHOSE QUE DE L'OMETTRE. `readSample()` (l. 211) fait
+  // `join(SAMPLE_DIR, file)` : avec `undefined`, Node lève un TypeError
+  // « Path must be a string », que `chargerFacultatif()` attraperait — la
+  // bonne conséquence (pas de cours) obtenue par une exception, donc un
+  // journal qui accuse le chargeur d'un défaut qui n'existe pas. Déclaré, le
+  // chemin est valide, `existsSync` rend faux, et la fonction rend `[]`
+  // proprement. ⭐ Le résultat est le même ; ce qui change, c'est ce que lira
+  // la personne qui débogue.
+  // ⛔ NE PAS CRÉER `engine/data/sample/omi_usd.csv`. Hors-ligne, il n'y a pas
+  // de cours à inventer : le build CI (`WAREHOUSE_OFFLINE=1`) doit rendre une
+  // fiche SANS équivalent dollar. Un échantillon ferait juger aux 46 bancs une
+  // condition qui n'existe pas en production.
+  omiUsd: {
+    url: process.env.OMI_USD_URL || base('etat-floor-watch', 'omi_usd.csv'),
+    sample: 'omi_usd.csv',
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // LES DÉRIVÉS DU GRAND LIVRE — lot 44, 03/08/2026
   // ═══════════════════════════════════════════════════════════════════════════
   // ⭐⭐ RIEN À CALCULER, RIEN À PUBLIER : CES FICHIERS EXISTENT DÉJÀ.
@@ -392,6 +427,15 @@ export const getBaselines = () => load('baselines');
 // remplacera par `load('releves')` « pour faire comme les autres », il aura
 // devant les yeux la seule ligne qui explique pourquoi ce n'en est pas un.
 export const getReleves = () => chargerFacultatif('releves');
+
+// 💱 FACULTATIF POUR LA MÊME RAISON, ET D'UN CRAN PLUS : `releves` manquant
+// prive les fiches de leur DATE de relèvement ; `omiUsd` manquant ne prive que
+// d'un équivalent en dollars, sous un montant qui reste affiché. Le jour où la
+// chaîne jetonveve s'arrête, la fiche perd la ligne « ≈ $… » et rien d'autre.
+// ⛔ Ne jamais le passer à `load()` : le premier build après ce lot tourne
+//    AVANT le premier run de `floor-watch.yml` qui pose le fichier — la
+//    release ne le porte pas encore, et `load()` interromprait le déploiement.
+export const getOmiUsd = () => chargerFacultatif('omiUsd');
 
 // Les dérivés du grand livre. ⚠️ Réservés : ne jamais les passer à un composant
 // rendu au build — ils vont dans `.reserve/`, servis par `/api/analytics/`.

@@ -17,7 +17,11 @@ import * as memoire from './memoire.mjs';
 //    `projeterCote()` pour que ce soit vrai par construction.
 import { deposerVignettes } from './vignettes.mjs';
 import { deposerRayonIndex } from './rayon_index.mjs';
-import { getCatalogue, getBaselines, getReleves, streamPrices } from '../data/warehouse.mjs';
+import { getCatalogue, getBaselines, getReleves, getOmiUsd, streamPrices } from '../data/warehouse.mjs';
+// 💱 LOT 181 — le cours OMI → USD, déposé dans la réserve pour `/api/cote/lot`.
+//    Toute la règle (péremption, refus du zéro) vit dans le module ; ici il
+//    n'y a qu'un chargement et un dépôt.
+import { lireCsv as lireTauxCsv, deposerTaux } from './taux_omi.mjs';
 import { manifest, SITE } from './manifest.mjs';
 import { porte } from './access.mjs';
 import { jourISO } from './vitrine.mjs';   // 🔴 LOT 113 — JJ/MM/AAAA, jamais `new Date(chaine)`
@@ -346,7 +350,15 @@ async function construireDataset() {
   //  hasard. ⛔ Ne pas les retirer avant que le defaut soit clos.
   await memoire.plafond();
   memoire.jalon('avant de lire les sources');
-  const [cat, baselines, releves] = await Promise.all([getCatalogue(), getBaselines(), getReleves()]);
+  // 💱 LOT 181 — le cours OMI entre dans le MÊME `Promise.all`, et pas dans un
+  //    `await` à lui. C'est un fichier de 40 octets : séquencé, il coûterait un
+  //    aller-retour réseau complet en plus, sur le chemin critique d'un build
+  //    qui meurt déjà de sa durée (chantier « durée du déploiement »). En
+  //    parallèle des trois autres, il ne coûte RIEN de mesurable.
+  // ⛔ `chargerFacultatif` ne rejette jamais pour une absence (il rend `[]`) :
+  //    ce `Promise.all` ne peut pas échouer à cause de lui.
+  const [cat, baselines, releves, tauxLignes] = await Promise.all([
+    getCatalogue(), getBaselines(), getReleves(), getOmiUsd()]);
   memoire.jalon(`catalogue (${cat.length}) + baselines (${baselines.length}) + releves (${releves.length}) lus`);
 
   // --- Agregation EN FLUX -------------------------------------------------
@@ -1244,6 +1256,39 @@ async function construireDataset() {
 
   const cote = projeterCote(items);
   memoire.jalon(`projeterCote fait (${items.length} fiches publiees)`);
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // 💱 LOT 181 — LE COURS OMI EST DÉPOSÉ **APRÈS** `projeterCote()`
+  // ═══════════════════════════════════════════════════════════════════════
+  // 🔴🔴 ET L'ORDRE N'EST PAS UN DÉTAIL DE STYLE : `projeter()` (cote.mjs
+  // l. 318) fait `for (const f of readdirSync(COTE_DIR)) rmSync(f)` — il
+  // RECRÉE le dossier à neuf, exprès, pour qu'une cote de la veille ne soit
+  // jamais servie pour un prix du jour. Déposé une ligne plus haut, le cours
+  // serait effacé par ce ménage. Le mur StackR n'afficherait aucun équivalent,
+  // en production comme en local, sans une seule erreur nulle part.
+  // ⭐ Même raisonnement, mot pour mot, que `deposerVignettes()` : « déposé
+  //   APRÈS `projeterCote()` pour que ce soit vrai par construction ».
+  //
+  // ⛔ RIEN N'EST DÉPOSÉ SI LA PORTE `cote` EST INACTIVE. Sur vevewiki
+  // (`tiers: [visitor]`) `projeter()` sort avant de créer `COTE_DIR` : y
+  // écrire ferait naître un dossier de réserve sur un site qui n'en a pas,
+  // pour un fichier que personne ne lira jamais.
+  // ⛔ Et rien n'est déposé sans cours : `deposerTaux(null)` rend `false` sans
+  // écrire. Un fichier `{}` obligerait la route à distinguer « absent » de
+  // « vide » — deux formes pour une seule cause.
+  if (cote.actif) {
+    const taux = lireTauxCsv(tauxLignes);
+    if (deposerTaux(taux)) {
+      const age = Math.round((Date.now() / 1000 - taux.ts) / 60);
+      console.log(`[taux] cours OMI ${taux.omiUsd} $ (releve il y a ${age} min) depose dans .reserve/cote/`);
+    } else {
+      // ⚠️ Il DIT qu'il se tait, et il dit combien de lignes il a vues. Un
+      // silence muet ici se relirait « le mur StackR n'a jamais eu
+      // d'équivalent », alors que la cause peut être une release non encore
+      // posée, un CSV vide, ou un cours à zéro — trois choses différentes.
+      console.log(`[taux] aucun cours OMI exploitable (${(tauxLignes || []).length} ligne(s) lue(s)) — le mur StackR n'affichera pas d'equivalent en dollars.`);
+    }
+  }
 
   // ═══════════════════════════════════════════════════════════════════════
   //  🔴🔴🔴 LOT 113 — LE RAYON : TOUT LE CATALOGUE, SANS UN SEUL PRIX
