@@ -11,7 +11,7 @@ import { manifest, siteUrl } from '../../../engine/lib/manifest.mjs';
 import { DESC_MIN, DESC_MAX } from '../../../engine/lib/editorial_pages.mjs';
 import { t, localize, numberLocale, dateLocale, nu } from '../../../engine/lib/i18n.mjs';
 import { postsForItem } from '../../../engine/lib/blog.mjs';
-import { rar, forme, delta, gemsM, RAR, omiM, mcpPoints, mentionEdition } from '../../../engine/lib/vitrine.mjs';
+import { rar, forme, delta, gemsM, RAR, omiM, mcpPoints, mentionEdition, dateSeule, urlStackR } from '../../../engine/lib/vitrine.mjs';
 import { franchit, porte } from '../../../engine/lib/access.mjs';
 import { coteFermee as coteEstFermee } from '../../../engine/lib/cote.mjs';
 import BarreAcces from '../BarreAcces.astro';
@@ -556,7 +556,16 @@ const mcpJour = mcpPoints(item.rarity, item.type);
                   : <span data-attente title={enAttente}>—</span>}</dd></>
         )}
         <><dt>{t(lang, 'item.storePrice')}</dt><dd>{item.storePrice ? money(item.storePrice) : <span data-attente title={enAttente}>—</span>}</dd></>
-        <><dt>{t(lang, 'item.release')}</dt><dd>{item.releaseDate || <span data-attente title={enAttente}>—</span>}</dd></>
+        {/* 🕐 LOT 185 — L'HEURE DE SORTIE PART, LA DATE RESTE.
+            Preda, 24/08 : « supprimer l'heure de sortie, ce n'est pas une info
+            utile ». La ligne servait « 06/10/2021 14:00:00 ».
+            ⭐ `dateSeule()` COUPE, elle ne convertit pas : la fiche continue
+            d'écrire JJ/MM/AAAA, la forme du Sheet. Les fiches déjà sans heure
+            (400 sur 1 200 au lot 68) ne bougent pas d'un caractère.
+            ⛔ La donnée, elle, GARDE son heure : `releaseDate` sert de clé de
+            tri et de filtre par année ailleurs. On n'appauvrit pas un champ
+            partagé pour le confort d'un affichage. */}
+        <><dt>{t(lang, 'item.release')}</dt><dd>{dateSeule(item.releaseDate) || <span data-attente title={enAttente}>—</span>}</dd></>
         <><dt>{t(lang, 'item.dropType')}</dt><dd>{item.methodeDrop
                 ? dropLisible(item.methodeDrop)
                 : <span data-attente title={enAttente}>—</span>}</dd></>
@@ -753,17 +762,52 @@ const mcpJour = mcpPoints(item.rarity, item.type);
               ⛔ NE JAMAIS remplir ces champs par un calcul, un taux devine ou
               une conversion approchee. Le jour ou le collecteur existe, ce
               bloc change de SOURCE sans changer de FORME. */}
-          {/* ⛔ ET CELUI DE STACKR RESTE DÉSACTIVÉ, PARCE QUE L'URL, ELLE,
-              N'EXISTE VRAIMENT NULLE PART — ni dans le catalogue, ni dans le
-              Sheet, ni dans aucun collecteur (vérifié cette fois, pas supposé).
-              ⭐ Un `<span>` et non un `<a>` : un bouton mort qui a l'air
-              cliquable coûte plus cher en confiance qu'un bouton grisé qui dit
-              pourquoi. Le jour où l'URL arrive, `<span>` devient `<a href>` et
-              rien d'autre ne bouge. */}
+          {/* 🛒 LOT 185 — « LE JOUR OÙ L'URL ARRIVE » EST ARRIVÉ, ET ELLE
+              N'ÉTAIT PAS DANS UN COLLECTEUR : ELLE ÉTAIT DANS LEUR SITEMAP.
+              ═══════════════════════════════════════════════════════════════
+              Le commentaire qui vivait ici disait : « l'URL n'existe vraiment
+              nulle part — ni dans le catalogue, ni dans le Sheet, ni dans aucun
+              collecteur (vérifié cette fois, pas supposé) ».
+              🔴 MESURÉ LE 24/08 : `stackr.world/sitemap-collectibles.xml` et
+              `sitemap-comic-covers.xml` publient 19 770 adresses de la forme
+              `/collections/veve/{collectible|comic-cover}/<veve_uuid>`. Les
+              **6 627 items à floor StackR y sont tous — 6 627 sur 6 627**.
+              ⭐⭐⭐ TROISIÈME FOIS (après `veve_url` au 73 et le cours OMI au
+              181) qu'un « ça n'existe pas » écrit en commentaire tient lieu de
+              vérification. La forme du refus était juste ; l'inventaire des
+              endroits où chercher s'arrêtait au projet. Le sitemap d'un tiers
+              est une SOURCE, et personne n'y avait regardé.
+              ⚠️ Le `<span>` promis devient un `<a href>`, et rien d'autre ne
+              bouge — pas une classe, pas un octet de CSS.
+              ⛔ ET IL N'APPARAÎT PAS PARTOUT : sur les items à floor VeVe, 93 %
+              seulement sont chez StackR. Ailleurs le `<span>` grisé reste, et
+              il dit toujours la vérité — on n'a pas vu cet item sur ce marché.
+              Un lien mort coûte plus cher qu'un bouton éteint.
+
+              🔴🔴🔴 LA CONDITION EST `releveStackrLe`, ET SÛREMENT PAS
+              `floorStackr` — CE LOT A FAILLI NAÎTRE INERTE.
+              Ma première écriture testait `item.floorStackr != null`. Elle
+              paraissait juste : « il a un plancher StackR, donc il est sur
+              StackR ». ⛔ Mais `floorStackr` est dans `CHAMPS_COTE`, donc
+              `projeter()` le RETIRE des ~8 500 pages pré-générées (mesuré sur
+              la production le 24/08 : le cadre rend un `<span class="cote">`
+              cadenassé, pas un nombre). La condition aurait été fausse sur
+              toutes les fiches, le lien ne serait apparu NULLE PART, et rien
+              n'aurait rougi. ⭐⭐⭐ *Un état qu'on juge doit d'abord être
+              ATTEIGNABLE là où on le juge.*
+              ⭐ `releveStackrLe` répond à la MÊME question — « a-t-on relevé
+              cet item sur StackR ? » — et il est PUBLIC par construction :
+              `CHAMPS_FRAICHEUR` dans `cote.mjs`, tenu par un invariant qui
+              refuse de charger le module si quelqu'un le bascule en réservé.
+              ⚠️ `rel="noopener"` : même raison qu'au lot 73, la page ouverte ne
+              doit pas pouvoir manipuler la nôtre par `window.opener`. */}
           <div class="mur__k">
             <Fragment set:html={omiM()} /> {t(lang, 'item.floorStackr')}
-            <span class="lien-b" data-attente title={t(lang, 'data.notCollected')}
-                  style="margin-left:auto">{t(lang, 'item.viewStackr')} ↗</span>
+            {item.releveStackrLe && urlStackR(item.uuid, item.type)
+              ? <a class="lien-b" href={urlStackR(item.uuid, item.type)} target="_blank"
+                   rel="noopener" style="margin-left:auto">{t(lang, 'item.viewStackr')} ↗</a>
+              : <span class="lien-b" data-attente title={t(lang, 'data.notCollected')}
+                      style="margin-left:auto">{t(lang, 'item.viewStackr')} ↗</span>}
           </div>
           {/* ═══ LOT 144 — LA SOURCE EXISTE DEPUIS LE 03/08, ET CE CADRE
               AFFICHAIT ENCORE DES TIRETS. ═══

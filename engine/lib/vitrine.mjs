@@ -335,3 +335,101 @@ export function jourISO(valeur) {
   // qu'on publie « 01/01/2001 » sur une fiche dont la date est illisible.
   return '';
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🕐 LOT 185 — LA DATE DE SORTIE SANS SON HEURE
+// ═══════════════════════════════════════════════════════════════════════════
+// Preda, 24/08/2026 : « supprimer l'heure de sortie, ce n'est pas une info
+// utile ». La fiche servait « 06/10/2021 14:00:00 ».
+//
+// ⭐ ELLE NE CONVERTIT PAS, ELLE COUPE. `jourISO()` existe déjà et rend
+// « 2021-10-06 » — ce serait changer la FORME affichée sur ~8 500 fiches pour
+// retirer six caractères. Preda n'a pas demandé un autre format de date, il a
+// demandé qu'on retire l'heure. ⇒ on garde JJ/MM/AAAA tel qu'il l'écrit dans
+// son Sheet, on enlève ce qui suit. Une fiche déjà sans heure ne bouge pas.
+//
+// ⛔ POURQUOI PAS À LA SOURCE (`dataset.mjs`). Le commentaire du lot 68, vingt
+// lignes plus haut, l'interdit au motif que `releaseDate` « repartirait en
+// `datePublished` dans les données structurées ».
+// 🔴 CETTE PRÉMISSE EST FAUSSE, ET ELLE A ÉTÉ MESURÉE LE 24/08 AVANT D'ÊTRE
+//    CONTREDITE. Sur la production, le JSON-LD `Product` d'une fiche porte
+//    `name · sku · url · brand · category` — et RIEN d'autre. `datePublished`
+//    n'existe que sur le blog (`BlogPost.astro`, sur `post.data.date`), qui ne
+//    touche pas `releaseDate`. Le risque SEO invoqué n'existe pas.
+// ⭐⭐⭐ CE QUI RESTE VRAI DU LOT 68, EN REVANCHE, C'EST SA CONCLUSION : on
+//    convertit À L'USAGE. Non plus par peur du SEO, mais parce que
+//    `releaseDate` sert aussi de DONNÉE (tri, filtres par année, `rayon_index`,
+//    `cote.mjs`) et qu'un champ tronqué à la source appauvrit tout le monde
+//    pour le confort d'un seul affichage. La donnée garde l'heure ; l'écran ne
+//    la montre plus. ⚠️ Un commentaire vieux d'un mois est une observation
+//    DATÉE : on mesure sa prémisse avant de s'y plier — et avant de la casser.
+//
+// ⚠️ MESURE DU 24/08 SUR LA PRODUCTION, 3 FICHES : l'heure n'apparaît qu'UNE
+//    fois dans le HTML servi (la ligne « Released » d'`Item.astro`). Les
+//    tuiles, `/sets/` et le Marché passent tous par `jourISO()`, qui l'écarte
+//    déjà. ⇒ un seul point d'appel, et `test:affichage` §11 le tient.
+export function dateSeule(valeur) {
+  const v = String(valeur || '').trim();
+  if (!v) return '';
+  // Les deux formes que le catalogue porte réellement (lot 68), et rien
+  // d'autre. ⛔ Pas de `split(' ')[0]` : sur une valeur inattendue il rendrait
+  // le premier mot venu et l'afficherait comme une date.
+  const m = v.match(/^(\d{2}\/\d{2}\/\d{4}|\d{4}-\d{2}-\d{2})/);
+  // ⭐ AUCUNE RECONNAISSANCE = ON REND LA VALEUR TELLE QUELLE. Rendre '' ferait
+  // disparaître une date lisible-par-un-humain que nous n'aurions pas su lire,
+  // et la fiche afficherait « — » (« pas encore collecté ») sur une donnée qui
+  // EST là. Mieux vaut montrer trop que mentir sur l'absence.
+  return m ? m[1] : v;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🛒 LOT 185 — L'ADRESSE STACKR D'UN ITEM, ET ELLE NE SE COLLECTE PAS
+// ═══════════════════════════════════════════════════════════════════════════
+// Preda, 24/08/2026 : « le bouton voir sur stackr ne marche pas ».
+// Il ne marchait pas parce qu'`Item.astro` écrivait, noir sur blanc :
+//   « ⛔ ET CELUI DE STACKR RESTE DÉSACTIVÉ, PARCE QUE L'URL, ELLE, N'EXISTE
+//     VRAIMENT NULLE PART — ni dans le catalogue, ni dans le Sheet, ni dans
+//     aucun collecteur (vérifié cette fois, pas supposé). »
+//
+// 🔴🔴🔴 MESURÉ LE 24/08, ET LE COMMENTAIRE A TORT — POUR LA TROISIÈME FOIS
+//    DANS CE PROJET (après `veve_url` au lot 73 et le cours OMI au lot 181).
+//    `https://www.stackr.world/sitemap-collectibles.xml` (2 756 adresses) et
+//    `sitemap-comic-covers.xml` (17 014) déclarent, en clair :
+//        /collections/veve/collectible/<element_id>
+//        /collections/veve/comic-cover/<element_id>
+//    et `element_id` EST le `veve_uuid` — c'est le même champ que le flux
+//    `getAllLatestListings_v2` que `floor_watch.py` lit déjà tous les jours.
+//    ⇒ CROISEMENT : les **6 627** items qui portent un floor StackR dans
+//      `floor_state.json` sont dans ces sitemaps. 6 627 sur 6 627. **100 %.**
+//      Et les deux familles ne se chevauchent pas (0 uuid commun) : le type
+//      tranche sans ambiguïté.
+//
+// ⭐⭐⭐ L'URL N'EST PAS UNE DONNÉE À COLLECTER, C'EST UNE RÈGLE. Rien à
+//    scraper, rien à stocker, rien à rafraîchir — et donc rien qui puisse
+//    vieillir dans un CSV. C'est le contraire exact de `veve_url`, qui était
+//    une colonne qu'on jetait.
+//
+// ⛔ ET ON NE LA FABRIQUE PAS POUR TOUT LE MONDE. Sur les 6 851 items à floor
+//    VeVe, 93,1 % seulement sont dans les sitemaps StackR : StackR n'expose pas
+//    la totalité du catalogue VeVe. Fabriquer l'adresse partout poserait des
+//    liens morts sur ~470 fiches, et un lien mort coûte plus cher que pas de
+//    lien — c'est l'argument même qui avait fait choisir un `<span>` grisé.
+// ⭐ LA CONDITION D'AFFICHAGE EST DONC `floorStackr != null`, ET ELLE EST
+//    MESURÉE, PAS DEVINÉE : « cet item a un plancher StackR » veut dire « il a
+//    été vu sur ce marché », et c'est exactement la population à 100 %.
+//    ⚠️ C'est aussi la condition qui remplit déjà le cadre d'à côté : le lien
+//    apparaît là où il y a un chiffre, et disparaît là où il n'y en a pas. Un
+//    seul fait décide des deux — même geste qu'au lot 144 avec `releveStackrLe`.
+//
+// ⚠️ `type` VIENT DU DATASET, où un comic vaut `'comic'` (`Item.astro` teste
+//    déjà `item.type !== 'comic'` pour la saison). Toute autre valeur est un
+//    collectible. ⛔ On ne devine pas depuis le chemin ni depuis le nom.
+export function urlStackR(uuid, type) {
+  const u = String(uuid || '').trim().toLowerCase();
+  // ⛔ LISTE BLANCHE DE FORME, PAS LISTE NOIRE. `uuid` traverse le dataset
+  // depuis un Sheet ; on n'écrit une adresse que si la valeur EST un uuid.
+  // Une liste noire ne protège que de ce qu'on a déjà imaginé.
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(u)) return '';
+  const famille = String(type || '') === 'comic' ? 'comic-cover' : 'collectible';
+  return `https://www.stackr.world/collections/veve/${famille}/${u}`;
+}

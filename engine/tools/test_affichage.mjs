@@ -1331,5 +1331,220 @@ console.log('\n7. le pied de page : quatre colonnes, quatre titres, quatre liste
     ancienne ? '`featured.find((i) => i.image)` est encore là — l\'image resterait figée' : '');
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 11. LA DATE DE SORTIE N'AFFICHE PLUS L'HEURE — lot 185
+// ═══════════════════════════════════════════════════════════════════════════
+// Preda, 24/08/2026 : « supprimer l'heure de sortie, ce n'est pas une info
+// utile ». La fiche servait « 06/10/2021 14:00:00 ».
+//
+// ⭐⭐⭐ TROIS VOLETS, ET AUCUN NE SUFFIT SEUL — c'est le patron du §1 :
+//   ① la FONCTION `dateSeule()`, seul juge du format ;
+//   ② le GABARIT l'appelle (sans ①, il pourrait appeler n'importe quoi) ;
+//   ③ le PRODUIT `dist/` ne montre pas d'heure (sans ③, une heure venue d'une
+//     AUTRE ligne — une tuile, un `title`, un fil d'Ariane — passerait).
+//
+// 🔴🔴 ET VOICI POURQUOI ① EXISTE, MESURÉ LE 24/08 : le corpus d'échantillon
+//    (`WAREHOUSE_OFFLINE=1`, celui de la CI) porte des dates en `2021-10-01`
+//    — ISO, SANS heure. Un § qui ne ferait que ③ serait donc VERT sur un
+//    corpus où l'heure n'existe pas : vert pour une mauvaise raison, sur un
+//    code qu'on n'aurait pas touché. ⭐ La production, elle, sert
+//    `06/10/2021 14:00:00` (lot 68 : 800 fiches sur 1 200). Le corpus de test
+//    ne ressemble pas au sujet — alors on interroge la fonction directement,
+//    avec les valeurs RÉELLEMENT mesurées en production.
+console.log('\n11. la date de sortie : la date, et plus l\'heure');
+{
+  const { dateSeule } = await import('../lib/vitrine.mjs');
+
+  // ① LA FONCTION. Les deux formes du catalogue (lot 68), plus les pièges.
+  verifie('« 06/10/2021 14:00:00 » → « 06/10/2021 »',
+    dateSeule('06/10/2021 14:00:00') === '06/10/2021', `rendu : ${dateSeule('06/10/2021 14:00:00')}`);
+  verifie('« 30/12/2021 » (déjà sans heure) ne bouge pas',
+    dateSeule('30/12/2021') === '30/12/2021', `rendu : ${dateSeule('30/12/2021')}`);
+  verifie('« 2021-10-01T14:00:00Z » → « 2021-10-01 »',
+    dateSeule('2021-10-01T14:00:00Z') === '2021-10-01', `rendu : ${dateSeule('2021-10-01T14:00:00Z')}`);
+  // ⛔ ELLE NE CONVERTIT PAS. Preda a demandé de retirer l'heure, pas de
+  //   changer le format de date de ~8 500 fiches. Ce contrôle interdit qu'un
+  //   lot futur « améliore » la fonction en la faisant passer par `jourISO()`.
+  verifie('elle COUPE et ne convertit pas (JJ/MM/AAAA reste JJ/MM/AAAA)',
+    dateSeule('06/10/2021 14:00:00') !== '2021-10-06');
+  verifie('une valeur vide reste vide (la fiche montrera son tiret)',
+    dateSeule('') === '' && dateSeule(null) === '' && dateSeule(undefined) === '');
+  // ⭐ Une chaîne qu'on ne sait pas lire est rendue TELLE QUELLE, jamais
+  //   effacée : effacer afficherait « pas encore collecté » sur une donnée qui
+  //   est là. Deux causes opposées ne partagent pas un signe.
+  verifie('une forme inconnue est rendue telle quelle, jamais effacée',
+    dateSeule('automne 2021') === 'automne 2021');
+
+  // ② LE GABARIT L'APPELLE. ⚠️ Commentaires retirés d'abord : ce lot en a
+  //   écrit vingt lignes qui NOMMENT `dateSeule` pour expliquer le choix, et
+  //   une recherche naïve les trouverait. Ce dépôt l'a payé quatre fois.
+  const item = lire('src/components/pages/Item.astro')
+    .replace(/\{\/\*[\s\S]*?\*\/\}/g, ' ')
+    .replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/^\s*\/\/.*$/gm, ' ');
+  verifie('`Item.astro` passe la date de sortie par `dateSeule()`',
+    /dateSeule\(item\.releaseDate\)/.test(item));
+  // ⛔ ET L'ANCIENNE ÉCRITURE A DISPARU : `{item.releaseDate}` nu remettrait
+  //   l'heure sans qu'aucun autre contrôle ne bronche.
+  verifie('...et l\'écriture nue `{item.releaseDate}` n\'est plus là',
+    !/\{item\.releaseDate\s*\|\|/.test(item));
+
+  // ③ LE PRODUIT. Ce que l'écran montre vraiment.
+  const racine = existsSync(join(DIST, 'client')) ? join(DIST, 'client') : DIST;
+  const fiches = [];
+  const descendre = (dossier, reste) => {
+    if (reste < 0 || fiches.length >= 400 || !existsSync(dossier)) return;
+    for (const e of readdirSync(dossier, { withFileTypes: true })) {
+      if (fiches.length >= 400) return;
+      const p = join(dossier, e.name);
+      if (e.isDirectory()) descendre(p, reste - 1);
+      else if (e.name === 'index.html') fiches.push(p);
+    }
+  };
+  for (const fam of ['collectibles', 'comics']) descendre(join(racine, fam), 3);
+
+  if (!existsSync(DIST)) {
+    console.log('  ⏸️  ③ INDÉCIDABLE — `dist/` est absent : ce volet se joue APRÈS `npm run build`.');
+  } else if (!fiches.length) {
+    console.log('  ⏸️  ③ sans objet ici — ce site ne rend pas de fiches d\'item'
+      + ' (`/collectibles/` et `/comics/` n\'existent que sur veveprice).');
+  } else {
+    // ⚠️ LA FORME, PAS LA VALEUR : « date suivie d'une heure ». Chercher
+    //   « 14:00:00 » n'attraperait que l'heure qu'on a déjà vue.
+    const AVEC_HEURE = /(\d{2}\/\d{2}\/\d{4}|\d{4}-\d{2}-\d{2})[T ]\d{2}:\d{2}/;
+    const fautives = []; let avecDate = 0;
+    for (const f of fiches) {
+      const html = readFileSync(f, 'utf8');
+      // ⛔ On ne juge QUE la ligne « Sortie ». Une heure ailleurs dans la page
+      //   n'est pas le sujet, et la confondre ferait rougir sur autre chose.
+      const i = html.indexOf('item.release"');
+      if (i < 0) continue;
+      const zone = html.slice(i, i + 400);
+      if (/\d{2}\/\d{2}\/\d{4}|\d{4}-\d{2}-\d{2}/.test(zone)) avecDate++;
+      if (AVEC_HEURE.test(zone)) fautives.push(f.slice(racine.length));
+    }
+    // ⭐⭐⭐ LA CONTRE-ÉPREUVE D'ABORD : un banc qui ne trouve AUCUNE date ne
+    //   trouvera aucune heure et passerait au vert sans rien avoir mesuré.
+    verifie('③ des dates de sortie sont bien servies (il y a de quoi mesurer)',
+      avecDate > 0, `${avecDate} fiche(s) portent une date sur ${fiches.length} lues`);
+    verifie('③ aucune fiche n\'affiche l\'heure à côté de la date de sortie',
+      fautives.length === 0,
+      fautives.length ? `${fautives.length} fiche(s), dont ${fautives.slice(0, 3).join(' · ')}` : '');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 12. « VOIR SUR STACKR » : UN LIEN LÀ OÙ IL Y A QUELQUE CHOSE À VOIR — lot 185
+// ═══════════════════════════════════════════════════════════════════════════
+// Preda, 24/08/2026 : « le bouton voir sur stackr ne marche pas ». Il était
+// VOLONTAIREMENT mort — un `<span>` grisé — parce qu'`Item.astro` affirmait que
+// l'URL « n'existe vraiment nulle part ». Mesuré le 24/08 : les sitemaps de
+// StackR publient 19 770 adresses, et les 6 627 items à floor StackR y sont
+// tous. L'URL n'est pas une donnée à collecter : c'est une RÈGLE.
+//
+// ⭐⭐⭐ MÊME PATRON À TROIS VOLETS, ET LE ③ EST CELUI QUI M'A SAUVÉ. Ma
+// première écriture conditionnait le lien à `item.floorStackr != null` — un
+// champ de `CHAMPS_COTE`, donc RETIRÉ des pages pré-générées par `projeter()`.
+// Le lien n'aurait existé sur AUCUNE fiche, et un banc qui se contente de lire
+// le gabarit (②) aurait été vert. *Un état qu'on juge doit d'abord être
+// ATTEIGNABLE là où on le juge.*
+console.log('\n12. « Voir sur StackR » : un lien, et seulement où c\'est vrai');
+{
+  const { urlStackR } = await import('../lib/vitrine.mjs');
+  const U = 'a719604a-8aa9-4be7-a336-b7dfeeef28de';   // uuid réel, vu dans le sitemap
+
+  // ① LA FONCTION — la forme exacte publiée par StackR, les deux familles.
+  verifie('un comic mène à `/collections/veve/comic-cover/<uuid>`',
+    urlStackR(U, 'comic') === `https://www.stackr.world/collections/veve/comic-cover/${U}`,
+    urlStackR(U, 'comic'));
+  verifie('tout le reste mène à `/collections/veve/collectible/<uuid>`',
+    urlStackR(U, 'collectible') === `https://www.stackr.world/collections/veve/collectible/${U}`
+    && urlStackR(U, '') === `https://www.stackr.world/collections/veve/collectible/${U}`);
+  // ⛔ LISTE BLANCHE DE FORME. Le corpus d'échantillon porte des identifiants
+  //   `sample-0000-582307` : sans ce refus, le banc et le build fabriqueraient
+  //   19 770 adresses plausibles vers des pages qui n'existent pas.
+  verifie('un identifiant qui n\'est pas un uuid ne produit AUCUNE adresse',
+    urlStackR('sample-0000-582307', 'comic') === '' && urlStackR('', 'comic') === ''
+    && urlStackR('../../evil', 'comic') === '');
+
+  // ② LE GABARIT — et surtout, SUR QUEL CHAMP il conditionne.
+  const item = lire('src/components/pages/Item.astro')
+    .replace(/\{\/\*[\s\S]*?\*\/\}/g, ' ')
+    .replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/^\s*\/\/.*$/gm, ' ');
+  verifie('`Item.astro` construit le lien avec `urlStackR()`',
+    /urlStackR\(item\.uuid,\s*item\.type\)/.test(item));
+  // ⛔⛔ LE CONTRÔLE QUI VAUT TOUT LE §. `floorStackr` est réservé : le tester
+  //   rendrait le lien invisible partout, en silence. Ce banc refuse le retour
+  //   de cette faute, en la NOMMANT.
+  verifie('...conditionné à `releveStackrLe` (public), et jamais à `floorStackr` (réservé)',
+    /item\.releveStackrLe\s*&&\s*urlStackR/.test(item)
+    && !/item\.floorStackr\s*!=\s*null\s*&&\s*urlStackR/.test(item),
+    'un champ de CHAMPS_COTE est retiré des pages pré-générées : la condition serait fausse partout');
+
+  // ③ LE PRODUIT.
+  const racine = existsSync(join(DIST, 'client')) ? join(DIST, 'client') : DIST;
+  const fiches = [];
+  const descendre = (dossier, reste) => {
+    if (reste < 0 || fiches.length >= 400 || !existsSync(dossier)) return;
+    for (const e of readdirSync(dossier, { withFileTypes: true })) {
+      if (fiches.length >= 400) return;
+      const p = join(dossier, e.name);
+      if (e.isDirectory()) descendre(p, reste - 1);
+      else if (e.name === 'index.html') fiches.push(p);
+    }
+  };
+  for (const fam of ['collectibles', 'comics']) descendre(join(racine, fam), 3);
+
+  if (!existsSync(DIST) || !fiches.length) {
+    console.log('  ⏸️  ③ sans objet ici — pas de `dist/`, ou ce site ne rend pas de fiches.');
+  } else {
+    const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+    const FORME = /^https:\/\/www\.stackr\.world\/collections\/veve\/(collectible|comic-cover)\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+    let attendus = 0, liens = 0, grises = 0, horsForme = 0, manquants = 0, factices = 0;
+    for (const f of fiches) {
+      const html = readFileSync(f, 'utf8');
+      const i = html.indexOf('item.viewStackr');
+      if (i < 0) continue;
+      const zone = html.slice(Math.max(0, i - 400), i + 200);
+      // ⭐ LES DEUX CONDITIONS DU LIEN, RELUES DANS LE PRODUIT :
+      //   · l'item a été vu sur StackR → `data-releve-corps` NON VIDE ;
+      //   · son identifiant est un vrai uuid → sinon aucune adresse possible.
+      const vu = /data-releve-corps="[^"]+"/.test(html);
+      const id = (html.match(/data-cote="([^"]*)"/) || [])[1] || '';
+      const vrai = UUID.test(id);
+      if (vu && vrai) attendus++;
+      if (vu && !vrai) factices++;
+      const m = zone.match(/href="(https:\/\/www\.stackr\.world[^"]*)"/);
+      if (m) { liens++; if (!FORME.test(m[1])) horsForme++; }
+      else if (/data-attente/.test(zone)) { grises++; if (vu && vrai) manquants++; }
+    }
+
+    if (attendus === 0) {
+      // ⭐⭐⭐ TROISIÈME VERDICT, ET IL S'IMPRIME. Le corpus d'échantillon de la
+      //   CI porte bien des relevés StackR (58 lignes) mais des identifiants
+      //   `sample-…` : aucune adresse n'est constructible, et le bouton grisé
+      //   EST la bonne réponse. Réclamer des liens ici serait poser la question
+      //   à un corpus incapable d'y répondre — et le rouge ne dirait rien du
+      //   code. ⛔ Ce n'est pas une indulgence : sur le corpus de production ce
+      //   compteur vaut 6 627, et chacun devient une exigence.
+      console.log(`  ⏸️  ③ sans objet sur ce corpus — ${factices} fiche(s) relevée(s) sur StackR`
+        + ` mais à identifiant factice, ${grises} bouton(s) grisé(s), 0 adresse constructible.`);
+    } else {
+      // ⭐ UNE CORRESPONDANCE UN À UN, PAS UN « IL Y EN A » : « des liens
+      //   existent » serait satisfait par UN seul lien sur 6 627 attendus.
+      verifie('③ chaque fiche vue sur StackR porte son lien', manquants === 0,
+        `${liens} lien(s) pour ${attendus} fiche(s) relevée(s)`
+        + (manquants ? ` — ${manquants} SANS lien` : ''));
+      // ⛔ LE GARDE-FOU CONTRE LE LIEN MORT : StackR n'expose que 93 % des items
+      //   à floor VeVe. Plus de liens que d'attendus = la condition ne mord plus.
+      verifie('③ ...et les autres gardent le bouton grisé (la condition mord)',
+        liens <= attendus,
+        liens <= attendus ? `${grises} bouton(s) en attente`
+          : `${liens} liens pour ${attendus} attendus : le lien est posé sans condition`);
+      verifie('③ toutes les adresses ont la forme du sitemap StackR', horsForme === 0,
+        horsForme ? `${horsForme} adresse(s) hors forme` : '');
+    }
+  }
+}
+
 console.log(`\n${ko === 0 ? '✅ affichage : tout est conforme' : `❌ affichage : ${ko} écart(s)`}`);
 process.exit(ko === 0 ? 0 : 1);
