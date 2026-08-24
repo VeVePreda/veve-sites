@@ -275,8 +275,29 @@ jobs:
           #   et `test:memoire` (la sonde du build). MESURE, pas relu :
           #      node -e "console.log(require('./package.json').scripts.test.split(' && ').length)"
           #      → 47
-          [ "$n" -ge 47 ] || {
-            echo "ERREUR: la chaine est tombee a $n bancs (plancher 47)."
+          # 🔴🔴 LOT 183 — 47 → 46, ET C'EST UN ABAISSEMENT **DELIBERE**.
+          #   Le lot 161 a supprime la Demonstration : `test:demo` est sorti de
+          #   `npm test` avec `demo_session.mjs`, `api/demo.js` et
+          #   `test_demo.mjs`. La chaine est passee de 47 a 46 POUR UNE BONNE
+          #   RAISON — mais le plancher, lui, est reste a 47, et il a fait
+          #   echouer la CI a chaque run depuis (mesure : run 32730657074,
+          #   « chaine test : 46 banc(s) », les DEUX sites).
+          #   ⭐⭐⭐ Le commentaire ci-dessus dit « le relever fait partie du lot
+          #   qui ajoute un banc ». La reciproque manquait, et elle est aussi
+          #   vraie : **l'ABAISSER fait partie du lot qui retire un banc.**
+          #   Un plancher au-dessus du reel ne garde rien : il rougit tout le
+          #   temps, donc plus personne ne le lit — c'est la meme mort que le
+          #   plancher trop bas, par l'autre bout.
+          # 🔴 ET J'AI MIS UNE HEURE A LE VOIR : le run du 11 h 56 portait
+          #   TROIS etapes rouges, j'ai lu la premiere (`test:acces`, les
+          #   fichiers de demo non supprimes) et conclu. Les 7 fichiers
+          #   supprimes, celle-ci restait — cause DIFFERENTE, meme rouge.
+          #   ⛔ Lire TOUTES les etapes en echec, jamais la premiere seule.
+          # MESURE, pas relu :
+          #   node -e "console.log(require('./package.json').scripts.test.split(' && ').length)"
+          #   → 46
+          [ "$n" -ge 46 ] || {
+            echo "ERREUR: la chaine est tombee a $n bancs (plancher 46)."
             echo "Un banc retire de \`npm test\` disparait SANS RIEN CASSER :"
             echo "ce plancher est la seule chose qui s'en plaigne."
             exit 1
