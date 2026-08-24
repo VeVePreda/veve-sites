@@ -340,9 +340,24 @@ jobs:
       #   moins, et c'est ces jours-la qu'on pose des rustines au bord.
       # 🔴 Trois verdicts : conforme (0) · ecart (1) · INDECIDABLE (2). Reseau
       #   muet ⇒ 2, JAMAIS 0.
-      # ⚠️ AUCUN `env:` ICI, ET C'EST DELIBERE : cette etape a besoin du reseau.
+      # ⚠️ PAS DE `WAREHOUSE_OFFLINE` ICI, ET C'EST DELIBERE : cette etape a
+      #   besoin du reseau. Le SEUL `env:` permis est l'horodate du commit.
+      #
+      # 🔴🔴🔴 LOT 179 — `HORODATE_COMMIT` EST CE QUI EMPECHE CE BANC DE JUGER LA
+      #   VERSION PRECEDENTE. Mesure du 24/08 sur le run `de7c596` : le banc
+      #   frappait la production a 06:54 alors qu'elle servait encore le build de
+      #   06:14 ; le nouveau conteneur n'a bascule qu'a 07:02. Deux alertes
+      #   Discord sont parties pour un defaut qui n'existait plus.
+      #   ⇒ Le banc ATTEND desormais que les deux zones servent un build
+      #     posterieur au commit, puis mesure. Sans cette ligne il attend zero
+      #     seconde et mesure ce qui traine.
+      # ⭐ `github.event.head_commit.timestamp` est vide sur `workflow_dispatch`
+      #   — c'est voulu : un lancement a la main n'a aucun deploiement en vol.
+      #   C'est exactement le choix que fait deja `purge-cache.yml`.
       - name: Le cache ne sert-il aucune page privee ?
         if: always()
+        env:
+          HORODATE_COMMIT: ${{ github.event.head_commit.timestamp }}
         run: npm run test:cache
 
       # 🔊 AJOUTÉ LE 07/08/2026 — MUTUALISATION DU CANAL DE PANNES.
