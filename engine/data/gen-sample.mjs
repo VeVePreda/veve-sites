@@ -1,5 +1,18 @@
 // Genere un echantillon realiste pour builder hors-ligne (bac a sable, CI).
 //
+// ⛔⛔⛔ AVERTISSEMENT MESURÉ LE 25/08/2026 — **RELANCER CE SCRIPT FAIT PERDRE
+// DES CHOSES**. Les CSV de `sample/` versionnés dans le dépôt ont été ENRICHIS
+// À LA MAIN depuis leur dernière génération : ils portent des libellés à
+// apostrophe typographique, esperluette, tiret long, ellipse, accents latins et
+// caractères de largeur zéro, que ce générateur NE PRODUIT PAS. Je l'ai relancé
+// « pour ajouter un cas », et `test:entrepot` §6 est passé de 25/25 à 17/25 :
+// huit classes de caractères difficiles effacées d'un coup.
+// ⇒ POUR AJOUTER UN CAS À L'ÉCHANTILLON : on modifie les CSV **de façon
+//   ciblée**, et on écrit ici la règle appliquée, pour qu'une régénération
+//   future la reproduise. ⛔ On ne régénère pas « pour être propre ».
+// ⭐ `test:entrepot` §6 est le garde-fou : il rougit si l'échantillon
+//   s'appauvrit. Le jouer AVANT de croire qu'on a enrichi quoi que ce soit.
+//
 // ⭐ REGLE PAYEE DEUX FOIS LE 18/07/2026 : un jeu de test qui reprend MES
 // hypotheses ne teste rien. Ma premiere version ecrivait kind='comic' en
 // minuscules ; le catalogue reel dit « Comic » avec une majuscule, si bien que
@@ -151,7 +164,34 @@ for (let i = 0; i < N; i++) {
   //   échantillon où toutes les images existent laisserait passer un gabarit
   //   qui plante ou qui réserve un cadre vide quand elle manque.
   const image = (semence % 6 === 0) ? '' : `https://exemple.invalid/i/${uuid}.jpg`;
-  cat.push([uuid,s.kind,name,edition,rarity,start.toISOString().slice(0,10),s.name,s.brand,s.licensor,tirage,store,last.floor,last.listings,fl[fl.length-1],fl[0],
+  // ═══════════════════════════════════════════════════════════════════════
+  // 🔴🔴🔴 LOT 193 — UNE PIÈCE SUR 23 PORTE UNE ANNONCE FANTAISISTE
+  // ═══════════════════════════════════════════════════════════════════════
+  // MÊME RAISON QUE L'IMAGE MANQUANTE DIX LIGNES PLUS HAUT, ET MÊME LEÇON QUE
+  // L'EN-TÊTE DE CE FICHIER : *un jeu de test qui reprend mes hypothèses ne
+  // teste rien.* Le catalogue réel est plein de planchers qui sont des blagues
+  // — un timbre à 10 000 042 $, vingt « 9 999 999 $ » d'affilée, un
+  // « 42 420 420 420 420 $ ». Le lot 193 les retire de `/market/`, et
+  // l'échantillon n'en portait AUCUN.
+  //
+  // ⛔⛔ CE QUE ÇA A COÛTÉ, LE 25/08 : j'ai fabriqué le cas à la main pour
+  // vérifier ma règle, je l'ai retiré pour la campagne finale, et j'ai donc
+  // joué les 35 bancs sur un corpus où ma fonctionnalité N'EXISTAIT PAS. Le
+  // §8 de `test:marche` — « le filtre de rareté mord » — est resté vert chez
+  // moi POUR LA MAUVAISE RAISON, et a refusé le déploiement en production, où
+  // les blagues existent. *Un jeu d'essai fabriqué puis retiré ne prouve rien.*
+  //
+  // ⭐ LA FORME EST CELLE DU RÉEL, et ce détail est tout : le prix fantaisiste
+  //   est le DERNIER, celui du catalogue ; l'historique en dessous reste sain.
+  //   C'est exactement ce qu'on voit en production — une seule annonce
+  //   délirante posée sur des mois de prix normaux — et c'est ce qui rend la
+  //   règle « le plancher dépasse dix fois sa propre médiane » mesurable.
+  // ⚠️ Une sur 23 : assez pour qu'il en reste après le quota de vitrine, assez
+  //   peu pour ne pas déformer les comptes des autres bancs.
+  const farceur = (semence % 23 === 0);
+  const catFloor = farceur ? 9999999 : last.floor;
+  const catListings = farceur ? 1 : last.listings;
+  cat.push([uuid,s.kind,name,edition,rarity,start.toISOString().slice(0,10),s.name,s.brand,s.licensor,tirage,store,catFloor,catListings,fl[fl.length-1],fl[0],
     // ath_date, atl_date : ISO court, comme la source.
     hist[hist.length-1].ts.slice(0,10), hist[0].ts.slice(0,10),
     image,

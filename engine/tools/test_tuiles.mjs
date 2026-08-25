@@ -339,6 +339,51 @@ if (!refs.length) {
 // pas de la page qu'on juge.
 // ⛔ La cause ② du lot 71 (« deux vues, deux corpus ») reste gardée autrement :
 // les tuiles se bâtissent DEPUIS les lignes servies (§3, `bati === lignesDom`).
+// ═══════════════════════════════════════════════════════════════════════════
+// 🖼️🔴🔴 LA COUVERTURE DE LA PREMIÈRE COLONNE ARRIVE-T-ELLE À L'ÉCRAN ?
+// ═══════════════════════════════════════════════════════════════════════════
+// Preda, deux jours de suite : « la vignette en mode tableau n'est visible sur
+// AUCUNE ligne, je viens de vérifier. » Le 25/08, tout ce qui pouvait se
+// mesurer sans servir la page disait le contraire — le gabarit l'émet, le CSS
+// servi la dimensionne (48×72, `display:block`), le champ est dans
+// `CHAMPS_MARCHE`, la porte « cote » ne le retire pas.
+//
+// ⭐⭐⭐ CE BANC EST LE SEUL ENDROIT DU DÉPÔT QUI SERT `/market/` AVEC UNE
+// SESSION. C'était donc le seul capable de répondre, et personne n'y regardait :
+// aucun contrôle ne comptait les couvertures rendues. *Un défaut que personne
+// n'a instrumenté ne se mesure jamais, il se discute.*
+// ⛔ ET IL NE JUGE PAS L'AVANCEMENT D'UNE COLLECTE : il n'exige pas un
+//    pourcentage d'images. Il exige que la CELLULE existe sur chaque ligne, et
+//    que chacune porte l'une des deux formes prévues — une image, ou le losange
+//    de repli. Le jour où le catalogue n'aurait plus une seule couverture, ce
+//    banc resterait vrai ; c'est le journal du build qui dit le nombre.
+console.log('\n2 ter. la colonne « couverture » arrive-t-elle jusqu\'à la page ?');
+{
+  const tds = html.match(/<td class="rang vign">[\s\S]*?<\/td>/g) || [];
+  const lignes = (html.match(/<tr data-type=/g) || []).length;
+  verifie('⛔ chaque ligne rendue porte SA cellule de couverture',
+    lignes > 0 && tds.length === lignes,
+    `${tds.length} cellule(s) pour ${lignes} ligne(s)`
+    + (lignes && tds.length === 0 ? ' 🔴 la colonne ne sort pas du gabarit' : ''));
+  const avecImg = tds.filter((t) => t.includes('vign__i')).length;
+  const avecRepli = tds.filter((t) => t.includes('vign__v')).length;
+  verifie('…et chacune porte une image OU le losange de repli, jamais rien',
+    tds.length > 0 && avecImg + avecRepli === tds.length,
+    `${avecImg} image(s) · ${avecRepli} repli(s) · ${tds.length - avecImg - avecRepli} vide(s)`);
+  // ⭐ L'EN-TÊTE AUSSI : une cellule sans son `<th>` décale toute la grille, et
+  //   `test:gabarits` ne compte que les accolades, pas les colonnes.
+  const th = (html.match(/<th scope="col" class="rang">/g) || []).length;
+  verifie('…et l\'en-tête de la colonne est là (sinon la grille se décale)',
+    th === 1, `${th} en-tête(s) « rang »`);
+  // ⛔ LE TÉMOIN INVERSE, sinon les trois lignes ci-dessus seraient vraies sur
+  //   une page vide : on vérifie que la première cellule porte VRAIMENT une
+  //   adresse d'image, pas une balise creuse.
+  const premiere = tds.find((t) => t.includes('vign__i'));
+  verifie('⛔ la première image porte une adresse, pas un attribut creux',
+    !!premiere && /src="https?:\/\/[^"]{10,}"/.test(premiere),
+    premiere ? premiere.replace(/\s+/g, ' ').slice(0, 120) : '🔴 aucune image parmi les lignes servies');
+}
+
 console.log('\n2 bis. le filtre mord-il AU SERVEUR, et sur tout le catalogue ?');
 {
   const proj = JSON.parse(readFileSync(join(ROOT, '.reserve', 'marche.json'), 'utf8'));
@@ -348,8 +393,18 @@ console.log('\n2 bis. le filtre mord-il AU SERVEUR, et sur tout le catalogue ?')
   //   ⛔ Et on prend la PLUS FRÉQUENTE : une rareté à 1 exemplaire rendrait le
   //   contrôle vrai pour la mauvaise raison — « 1 sur 1 », c'est aussi ce que
   //   rend un filtre cassé qui ne garde que la première ligne.
+  // 🔴🔴 LOT 193 — ON NE COMPTE QUE LES PIÈCES QUE LA PAGE MONTRE.
+  // Depuis le lot 193, le corpus par défaut de `/market/` retire les planchers
+  // fantaisistes AVANT tout filtre. Compter la rareté sur la projection BRUTE
+  // revenait à exiger que le filtre de rareté annule ce retrait : le compteur
+  // annonçait 20 là où ce banc attendait 21, et il avait tort d'attendre 21.
+  // ⭐ La propriété gardée n'a pas changé — « le filtre a vu TOUT le catalogue,
+  //   pas la tranche affichée » — seule l'idée de « tout le catalogue » s'est
+  //   précisée : c'est le catalogue VISIBLE, celui dont le compteur parle.
+  // ⛔ La case « prix non retenus » est un choix du visiteur ; sans elle, la
+  //   page n'a jamais prétendu montrer les planchers écartés.
   const parRar = {};
-  for (const it of pop) if (it.rarity) parRar[it.rarity] = (parRar[it.rarity] || 0) + 1;
+  for (const it of pop) if (it.rarity && !it.floorEcarte) parRar[it.rarity] = (parRar[it.rarity] || 0) + 1;
   const rarete = Object.keys(parRar).sort((a, b) => parRar[b] - parRar[a])[0];
   if (!rarete) {
     indecis('le filtre de rareté', 'aucune rareté dans la projection : rien à filtrer');

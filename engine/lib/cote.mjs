@@ -618,6 +618,20 @@ export function deposerMarche(ds) {
   writeFileSync(MARCHE_FICHIER, JSON.stringify(charge), 'utf8');
   console.log(`[marche] projection deposee : ${charge.marche.length} ligne(s) sur ${charge.marcheTotal}, `
     + `${(JSON.stringify(charge).length / 1024).toFixed(0)} Ko — /market/ ne rappellera plus dataset()`);
+  // 🔴🔴🔴 LOT 193 — COMBIEN DE LIGNES PORTENT VRAIMENT UNE COUVERTURE ?
+  // Preda, 24/08 puis 25/08 : « la vignette en mode tableau n'est visible sur
+  // AUCUNE ligne, je viens de vérifier. » Tout ce qui se mesure d'ici dit
+  // qu'elle devrait s'afficher — le gabarit l'émet, le CSS servi la dimensionne,
+  // le champ est dans `CHAMPS_MARCHE`, et un vrai serveur hors ligne rend
+  // 19 `<img>` sur 20 lignes. Il manque UN chiffre, et un seul : celui de la
+  // PRODUCTION, où les uuid sont réels et où l'image vient de CloudFront.
+  // ⭐ Une ligne de journal coûte zéro octet servi et répond définitivement :
+  //   « 0 sur 8 840 » désigne la projection, « 8 184 sur 8 840 » innocente le
+  //   moteur et renvoie au navigateur. ⛔ Sans elle, on continue de deviner.
+  // ⚠️ Il s'imprime même à zéro — c'est justement le zéro qu'on cherche.
+  const avecImage = charge.marche.reduce((n, i) => n + (i.image ? 1 : 0), 0);
+  console.log(`[marche] couvertures dans la projection : ${avecImage} ligne(s) sur ${charge.marche.length}`
+    + `${avecImage === 0 ? ' 🔴 AUCUNE — la colonne vignette de /market/ sortira vide' : ''}`);
   // ⭐ LE RÉSUMÉ S'ANNONCE, ET IL DIT SES TROUS. Un champ à `null` sort en
   // toutes lettres : c'est la seule façon de voir, DANS LE JOURNAL DE BUILD,
   // qu'un module du tableau de bord va rester muet — avant le déploiement, pas

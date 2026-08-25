@@ -599,17 +599,29 @@ console.log('\n8. la sélection serveur (marche_selection.mjs) ?');
     //    propriété du CORPUS (`pop.length`), jamais sur ce que la page a rendu :
     //    sinon il deviendrait un assouplissement déguisé là où il doit garder.
     const d = SEL.selectionMarche(pop, P(''));
-    const attendu = Math.min(SEL.PAR_PAGE, pop.length);
+    // ⚠️ LOT 193 — `d.totalVisible` et plus `pop.length` : le corpus par défaut
+    //   retire les planchers écartés, et une tranche se compte sur ce qu'il
+    //   reste. (Sur un corpus sans aucun écarté, les deux coïncident.)
+    const attendu = Math.min(SEL.PAR_PAGE, d.totalVisible);
     verifie('sans paramètre, la page ne rend qu\'une tranche',
       d.lignes.length === attendu,
-      `${d.lignes.length} ligne(s) rendue(s) sur ${pop.length} — PAR_PAGE = ${SEL.PAR_PAGE}`);
+      `${d.lignes.length} ligne(s) rendue(s) sur ${d.totalVisible} visible(s) — PAR_PAGE = ${SEL.PAR_PAGE}`);
 
     // ── ② L'ORDRE PAR DÉFAUT EST CELUI DU FICHIER, PAS UN SECOND TRI.
     // ⭐ L'ancre est INDÉPENDANTE du module : c'est la projection elle-même.
     //   Un comparateur ajouté « pour faire pareil » réordonnerait, et ce
     //   contrôle le verrait — c'est la seule façon de garder l'invariant
     //   « l'ordre est décidé une fois, dans dataset.mjs ».
-    const memeOrdre = d.lignes.every((l, n) => l.uuid === pop[n].uuid);
+    // 🔴🔴 LOT 193 — L'ANCRE EST LA PROJECTION **MOINS LES PLANCHERS ÉCARTÉS**.
+    // L'invariant à garder n'a pas bougé d'un mot : « l'ordre est décidé une
+    // fois, dans dataset.mjs, et personne ne retrie ». Ce qui a changé, c'est
+    // que la page ne part plus de TOUTE la projection — le corpus par défaut
+    // en retire les planchers fantaisistes AVANT tout tri. Comparer à la liste
+    // brute exigeait donc que le retrait n'ait pas lieu : c'est l'ancre qui
+    // était périmée, pas le code. ⛔ Et `filter` PRÉSERVE l'ordre : si un
+    // comparateur était ajouté sous `defaut`, ce contrôle le verrait toujours.
+    const ancre = pop.filter((i) => !i.floorEcarte);
+    const memeOrdre = d.lignes.every((l, n) => ancre[n] && l.uuid === ancre[n].uuid);
     verifie('⛔ le tri par défaut ne RETRIE pas : il rend l\'ordre du fichier',
       d.lignes.length > 0 && memeOrdre,
       memeOrdre ? `${d.lignes.length} premier(s) uuid identiques à la projection`
@@ -639,12 +651,36 @@ console.log('\n8. la sélection serveur (marche_selection.mjs) ?');
     if (!raretes.length) {
       indecis('la morsure du filtre', 'aucune rareté dans la projection');
     } else {
-      const r0 = raretes[0];
-      const combien = pop.filter((i) => i.rarity === r0).length;
+      // ⭐⭐ ON CHOISIT EN PRIORITÉ UNE RARETÉ QUI PORTE UN PLANCHER ÉCARTÉ.
+      //   Sans ça, le croisement ci-dessous est vrai et ne prouve rien : il
+      //   comparerait deux fois le même nombre. *Un contrôle vrai pour la
+      //   mauvaise raison est un contrôle qu'on croit avoir.*
+      const r0 = raretes.find((r) => pop.some((i) => i.rarity === r && i.floorEcarte)) ?? raretes[0];
+      // 🔴🔴🔴 LOT 193 — CE COMPTE A CHANGÉ DE SENS, ET LE BANC AVAIT RAISON
+      // CONTRE MOI. Il comptait les pièces de cette rareté dans TOUTE la
+      // population. Depuis le lot 193, le corpus par défaut de la page n'est
+      // plus « tout » : les planchers écartés en sortent avant tout filtre.
+      // « 1701 retenue(s) sur 8840 » a refusé un déploiement, et c'était juste.
+      // ⭐ La propriété à garder n'est pas « le filtre rend toutes les pièces
+      //   de cette rareté » — elle est devenue fausse — mais « il rend celles
+      //   de cette rareté QUE LA PAGE MONTRE ». On corrige la mesure, pas la
+      //   règle : le filtre de rareté n'a jamais eu à annuler le corpus.
+      const combien = pop.filter((i) => i.rarity === r0 && !i.floorEcarte).length;
       const fr = SEL.selectionMarche(pop, P('f-rar=' + encodeURIComponent(r0) + '&f-n=500'));
       verifie(`le filtre de rareté mord (${r0})`,
         fr.retenues === combien && fr.retenues < pop.length,
         `${fr.retenues} retenue(s) sur ${pop.length}` + (fr.retenues === pop.length ? ' 🔴 il ne mord pas' : ''));
+      // ⭐⭐ ET LE CROISEMENT DANS L'AUTRE SENS, qui est la moitié qu'un
+      //   ajustement de compte aurait pu emporter en silence : la case cochée
+      //   doit rendre TOUTES les pièces de cette rareté, écartées comprises.
+      //   Sans lui, un filtre qui aurait cessé de voir les planchers écartés
+      //   même quand on les demande passerait les deux lignes ci-dessus.
+      const tousR0 = pop.filter((i) => i.rarity === r0).length;
+      const fra = SEL.selectionMarche(pop, P('f-rar=' + encodeURIComponent(r0) + '&f-abr=1&f-n=500'));
+      verifie(`…et la case « prix non retenus » les ramène tous (${r0})`,
+        fra.retenues === tousR0,
+        `${fra.retenues} avec la case, ${fr.retenues} sans, ${tousR0} dans le catalogue`
+        + (tousR0 === combien ? ' ⚠️ aucun plancher écarté dans ce corpus : contrôle vrai mais peu informatif' : ''));
       verifie('…et le TOTAL ne bouge pas quand on filtre (les facettes parlent du catalogue)',
         fr.total === pop.length, `${fr.total} = ${pop.length}`);
     }
