@@ -797,6 +797,153 @@ console.log('\n9. la projection porte-t-elle tout ce que la page LIT ?');
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// 10. LE PLANCHER ÉCARTÉ — la règle, le filtre, le compteur et les libellés
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 CE § NE CONTIENT AUCUN INDÉCIDABLE, ET C'EST UNE OBLIGATION, PAS UN
+// CONFORT : `test:marche` tourne DANS LE DOCKERFILE. Un contrôle qui ne peut
+// pas se prononcer chez moi se prononcera là-bas, en refusant la mise en ligne.
+// ⇒ Tout ce qui est éprouvé ici l'est sur des objets FABRIQUÉS À LA MAIN et sur
+//   des fichiers du dépôt. Rien ne dépend de l'entrepôt, d'une cote déposée, ni
+//   d'un build. C'est pour ça que la règle a été sortie de `construireDataset()`.
+//
+// ⭐⭐⭐ ET AUCUNE EXIGENCE NE PORTE SUR L'AVANCEMENT DE LA COLLECTE. Ce banc ne
+// demande NULLE PART qu'il existe des planchers écartés en production. Le jour
+// où VeVe nettoiera ses annonces farceuses, ce nombre tombera à zéro : c'est la
+// RÉUSSITE, et un banc qui la punirait bloquerait tous les déploiements pour
+// toujours. Il juge le CODE, jamais l'état du monde.
+console.log('\n10. le plancher écarté (lot 193) ?');
+{
+  const { planchierEcarte } = await import('../lib/plancher_ecarte.mjs');
+  const S = { prix: 5000, offres: 2, points: 20, facteur: 10 };
+
+  // ⭐ LES CAS VIENNENT DE LA MESURE DU 25/08 SUR L'ENTREPÔT, pas d'une
+  //   intuition : chaque ligne est une pièce réelle, nommée, dont on sait ce
+  //   qu'elle doit devenir. Un jeu d'essai inventé prouve ce qu'on a imaginé.
+  const CAS = [
+    // nom réel                     floor        listings  totalPoints  médiane   attendu
+    ['Star Wars: Ahsoka (1 relevé)', 9999999,     1,        1,           9999999,  true ],
+    ['X-Men Wedding (0 offre)',      9999999,     0,        1,           9999999,  true ],
+    ['Faces of The ADDICTION',       42420420420420, 1,     26,          6249.93,  true ],
+    ['Battle of Jakku',              9999999,     1,        34,          44.5,     true ],
+    ['Amazing Fantasy',              8888,        0,        592,         8799,     false],
+    ['Marvel Comics',                5900,        0,        645,         4999.99,  false],
+    ['The Amazing Spider-Man',       10000,       0,        521,         5300,     false],
+    ['Maserati MC12 (3 offres)',     50000,       3,        213,         1500,     false],
+    ['une pièce ordinaire',          42,          9,        300,         40,       false],
+  ];
+  let mal = [];
+  for (const [nom, floor, listings, totalPoints, prixMedian, attendu] of CAS) {
+    const rendu = planchierEcarte({ floor, listings, totalPoints, prixMedian }, S);
+    if (rendu !== attendu) mal.push(`${nom} → ${rendu} (attendu ${attendu})`);
+  }
+  verifie('la règle tranche les 9 cas réels du 25/08 comme mesuré',
+    mal.length === 0, mal.length ? `🔴 ${mal.join(' · ')}` : `${CAS.length} cas, dont 4 écartés et 5 gardés`);
+
+  // ⛔ LE CAS QUI M'A COÛTÉ UNE ITÉRATION, ISOLÉ POUR QU'IL NE SE REPERDE PAS.
+  //   Une pièce à relevé unique a une médiane ÉGALE à son floor : son écart
+  //   vaut ×1,00. Un garde-fou qui n'aurait regardé que l'écart l'aurait
+  //   déclarée saine — c'est-à-dire aurait sauvé le farceur le plus évident.
+  verifie('⛔ un plancher à relevé unique est écarté MALGRÉ un écart de ×1,00',
+    planchierEcarte({ floor: 9999999, listings: 1, totalPoints: 1, prixMedian: 9999999 }, S) === true,
+    'le nombre de relevés tranche là où l\'écart est aveugle');
+
+  // ⭐ LE ZÉRO EST UNE VALEUR. `listings: 0` doit MORDRE ; `listings` absent ne
+  //   doit PAS mordre — « personne ne le porte » et « on ne sait pas » sont
+  //   deux états différents, et seul le premier accuse le prix.
+  verifie('⛔ `listings: 0` mord, `listings` absent ne mord pas',
+    planchierEcarte({ floor: 9e6, listings: 0, totalPoints: 1, prixMedian: 9e6 }, S) === true
+    && planchierEcarte({ floor: 9e6, totalPoints: 1, prixMedian: 9e6 }, S) === false,
+    'zéro offre accuse le prix, offre inconnue ne l\'accuse pas');
+
+  // ⭐ LES SEUILS SONT DES ARGUMENTS, PAS DES CONSTANTES CACHÉES : la même
+  //   pièce change de verdict quand le manifeste change d'avis. Sans ce
+  //   contrôle, les trois réglages pourraient être ignorés en silence.
+  verifie('les seuils viennent bien des arguments (le manifeste décide)',
+    planchierEcarte({ floor: 6000, listings: 1, totalPoints: 5, prixMedian: 5900 }, S) === true
+    && planchierEcarte({ floor: 6000, listings: 1, totalPoints: 5, prixMedian: 5900 },
+                       { ...S, prix: 100000 }) === false,
+    'relever `outlier_price` à 100 000 rend la même pièce saine');
+
+  // ── le filtre de la page ────────────────────────────────────────────────
+  const SEL = await import('../lib/marche_selection.mjs');
+  const POP = [
+    { uuid: 'a', name: 'saine',    type: 'collectible', rarity: 'RARE', floor: 10,  listings: 5 },
+    { uuid: 'b', name: 'farceuse', type: 'collectible', rarity: 'RARE', floor: 9e6, listings: 1, floorEcarte: true },
+    { uuid: 'c', name: 'saine 2',  type: 'collectible', rarity: 'RARE', floor: 20,  listings: 7 },
+  ];
+  const defaut = SEL.selectionMarche(POP, SEL.lireParams(new URLSearchParams('')));
+  const coche  = SEL.selectionMarche(POP, SEL.lireParams(new URLSearchParams('f-abr=1')));
+  verifie('par défaut la page écarte le plancher marqué',
+    defaut.retenues === 2 && !defaut.lignes.some((i) => i.floorEcarte),
+    `${defaut.retenues} ligne(s) retenue(s) sur ${POP.length}`);
+  verifie('la case `f-abr=1` le ramène',
+    coche.retenues === 3 && coche.lignes.some((i) => i.floorEcarte),
+    `${coche.retenues} ligne(s) retenue(s)`);
+  // 🔴 LE COMPTEUR, ET IL EST LE VRAI SUJET : une exclusion qui laisse le total
+  //    inchangé fait mentir la page — « 2 sur 3 » alors que la 3ᵉ est
+  //    inatteignable par tout geste du visiteur.
+  verifie('⛔ le compteur suit l\'exclusion, et remonte quand la case est cochée',
+    defaut.totalVisible === 2 && coche.totalVisible === 3 && defaut.total === 3,
+    `par défaut ${defaut.totalVisible}, coché ${coche.totalVisible}, catalogue ${defaut.total}`);
+  verifie('`f-abr` compte comme un filtre actif (sinon aucun jeton ne le dit)',
+    SEL.filtreActif(SEL.lireParams(new URLSearchParams('f-abr=1'))) === true
+    && SEL.filtreActif(SEL.lireParams(new URLSearchParams(''))) === false);
+  // ⛔ UNE CASE NON COCHÉE N'EST PAS ENVOYÉE : l'absence DOIT valoir « écarte ».
+  //    Si le défaut avait été l'inverse, la case n'aurait jamais pu se décocher.
+  verifie('⛔ toute valeur autre que `1` vaut « écarte » (l\'absence est le défaut)',
+    ['', 'f-abr=0', 'f-abr=oui', 'f-abr=true'].every(
+      (q) => SEL.lireParams(new URLSearchParams(q)).abr === false),
+    'seul `f-abr=1` ramène les planchers écartés');
+
+  // ── le gabarit et les dictionnaires ─────────────────────────────────────
+  // 🔴 SUR LE FICHIER **SANS COMMENTAIRES**. Ce dossier a payé quatre fois la
+  //    même faute : un banc qui cherche une chaîne la trouve dans le
+  //    paragraphe qui l'explique, et se déclare vert sur sa propre documentation.
+  const nu = (t) => t
+    .replace(/\{\/\*[\s\S]*?\*\/\}/g, ' ')
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .split('\n').filter((l) => !/^\s*(\/\/|\*)/.test(l)).join('\n');
+  const marketNu = nu(readFileSync(join(ROOT, 'src/components/pages/Market.astro'), 'utf8'));
+  verifie('la case est dans le gabarit, en `checkbox` et en `value="1"`',
+    /name="f-abr"/.test(marketNu) && /type="checkbox"/.test(marketNu)
+    && /value="1"/.test(marketNu));
+  verifie('le compteur de la page lit `totalVisible`, plus `total`',
+    /SEL\.totalVisible/.test(marketNu) && !/c: SEL\.total\.toLocaleString/.test(marketNu),
+    'sinon « n sur N » compterait des lignes que la page vient de retirer');
+  verifie('les bornes des filtres se calculent sur le corpus visible',
+    /facettes\(visibles\)/.test(marketNu),
+    'sinon « Plancher max » proposerait la borne d\'une pièce écartée');
+
+  const LANGUES = ['en', 'fr', 'es', 'de', 'it'];
+  const manquants = [];
+  for (const l of LANGUES) {
+    const f = join(ROOT, 'engine/i18n', `${l}.json`);
+    // ⛔ PAS D'INDÉCIDABLE ICI : un dictionnaire absent est un ÉCART. Les cinq
+    //    fichiers sont dans le dépôt ; s'il en manque un, la page sortira en
+    //    anglais dans une langue qu'on prétend servir.
+    if (!existsSync(f)) { manquants.push(`${l} (fichier absent)`); continue; }
+    const d = JSON.parse(readFileSync(f, 'utf8'));
+    for (const k of ['movers.showOutliers', 'movers.outliersHint']) {
+      if (!d[k] || !String(d[k]).trim()) manquants.push(`${l}:${k}`);
+    }
+  }
+  verifie('les deux libellés neufs existent dans les CINQ dictionnaires',
+    manquants.length === 0,
+    manquants.length ? `🔴 ${manquants.join(', ')}` : `${LANGUES.length} langues × 2 clés`);
+
+  // ⭐ LE CHEMIN « LE MANIFESTE DÉCIDE » DOIT ÊTRE EMPRUNTÉ. Le code porte les
+  //   mêmes valeurs en repli : sans ces trois lignes dans le manifeste, ce
+  //   chemin ne s'exécuterait jamais — et un chemin jamais emprunté n'est pas
+  //   sûr, il est non mesuré.
+  const man = readFileSync(join(ROOT, 'sites/veveprice/manifest.yml'), 'utf8')
+    .split('\n').filter((l) => !/^\s*#/.test(l)).join('\n');
+  const regles = ['outlier_price', 'outlier_listings', 'outlier_min_points']
+    .filter((k) => !new RegExp(`^\\s*${k}\\s*:\\s*\\d`, 'm').test(man));
+  verifie('les trois seuils sont écrits dans le manifeste, pas seulement en repli',
+    regles.length === 0, regles.length ? `🔴 absents : ${regles.join(', ')}` : '5000 / 2 / 20');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 console.log(
   ko === 0 && indecidable === 0 ? '\n✅ marché : tout est conforme'
   : ko === 0 ? `\n⚠️  marché : conforme, mais ${indecidable} point(s) INDÉCIDABLE(S) — voir ci-dessus`

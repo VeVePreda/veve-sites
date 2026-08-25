@@ -143,18 +143,37 @@ const toutes = ds.marche.map((i) => ({ ...i, ...(cotes[i.uuid] || {}) }));
 // du CATALOGUE. Les calculer sur ce qui est rendu les ferait rétrécir à chaque
 // filtre, en silence — la barre finirait par proposer « de 4 à 9 gems » sur un
 // catalogue qui va de 0,5 à 12 000.
-const F = facettes(toutes);
-const bornes = F.bornes;
-const rarete = Object.keys(RAR).filter((r) => F.rarete.has(r));
-const nbColl = F.nbColl;
-const nbComic = F.nbComic;
-
 // ⭐ L'ÉTAT VIENT DE L'URL, ET DE NULLE PART AILLEURS. Une page rendue à la
 // demande a le droit de lire sa requête ; c'est même la seule source qui
 // survive à un partage de lien et à un rechargement.
 // ⛔ Le pilote ne garde plus d'état en `localStorage` : deux sources d'état,
 // c'est une barre qui affiche un filtre que le tableau n'applique pas.
 const P = lireParams(Astro.url.searchParams);
+// ⚠️ LOT 193 — ET IL EST LU **AVANT** LES FACETTES, DÉSORMAIS. Il était plus
+// bas ; `visibles` en dépend, et `const` ne se hisse pas — la page serait
+// tombée en `ReferenceError` au premier rendu, c'est-à-dire sur une 500 pour
+// tout membre connecté. Déplacé, pas dupliqué : deux lectures de la requête
+// seraient deux états à garder d'accord.
+
+// 🔴🔴🔴 LOT 193 — LES FACETTES SE CALCULENT SUR LE CORPUS **VISIBLE**, ET
+// C'EST UNE CORRECTION, PAS UN RÉGLAGE. Le paragraphe ci-dessus reste vrai mot
+// pour mot — on ne calcule pas sur la TRANCHE — mais il ne dit rien du cas
+// nouveau : une pièce dont le plancher est une blague reste dans `toutes`, et
+// `bornes.floorMax` est le MAXIMUM. Mesuré sur l'entrepôt : le champ
+// « Plancher max » proposerait « 42 420 420 420 420 » comme borne haute du
+// catalogue — un nombre que la page vient précisément de retirer du tableau, et
+// qu'aucun filtre ne peut atteindre. Le placeholder rendrait la barre
+// inutilisable et rendrait le retrait incompréhensible.
+// ⭐ ET LE LIEN EST TENU DANS LES DEUX SENS : cocher la case fait remonter la
+//   borne en même temps que les lignes. La barre décrit toujours exactement le
+//   corpus qu'elle filtre — jamais un autre.
+const visibles = P.abr ? toutes : toutes.filter((i) => !i.floorEcarte);
+const F = facettes(visibles);
+const bornes = F.bornes;
+const rarete = Object.keys(RAR).filter((r) => F.rarete.has(r));
+const nbColl = F.nbColl;
+const nbComic = F.nbComic;
+
 const SEL = selectionMarche(toutes, P);
 const lignes = SEL.lignes;
 const aFiltre = filtreActif(P);
@@ -499,6 +518,23 @@ const ILE_TUILES = JSON.stringify({
         <label class="puce"><input type="radio" name="f-var" value="up" checked={P.vari === 'up'} /> ▲ {t(lang, 'movers.up')}</label>
         <label class="puce"><input type="radio" name="f-var" value="down" checked={P.vari === 'down'} /> ▼ {t(lang, 'movers.down')}</label>
       </div>
+      {/* 🔴🔴 LOT 193 — LA CASE QUI RAMÈNE LES PRIX ÉCARTÉS (Preda, 25/08).
+          ⭐ ELLE EST DANS « PRIX & VALEUR », ET PAS DANS « COLONNES » : ce
+          n'est pas un réglage d'affichage, c'est un réglage de CORPUS. Elle
+          change quelles pièces existent pour cette page, comme « Collectibles
+          / Comics » — et personne ne cherche un corpus dans un menu de colonnes.
+          ⛔ `value="1"` ET RIEN D'AUTRE : une case non cochée n'est pas
+          envoyée, donc l'absence du paramètre EST le réglage par défaut du
+          site. C'est ce qui permet à une adresse partagée sans `f-abr` de
+          montrer exactement ce que tout le monde voit.
+          ⚠️ Le libellé dit ce qu'on RAMÈNE, pas ce qu'on cache : « afficher les
+          prix non retenus » se comprend sans avoir lu la règle ; « masquer les
+          aberrations » obligerait à savoir ce qu'est une aberration pour
+          deviner ce que la case décoche. */}
+      <div class="cols-l" style="margin-top:12px">
+        <label class="puce"><input type="checkbox" name="f-abr" value="1" checked={P.abr} /> {t(lang, 'movers.showOutliers')}</label>
+      </div>
+      <p class="etiq" style="margin:8px 0 0;color:var(--muted)">{t(lang, 'movers.outliersHint')}</p>
     </div>
 
     {/* ─── TIRAGE & OFFRES ─── ⚠️ « mint % » de la maquette n'est PAS ici :
@@ -552,10 +588,30 @@ const ILE_TUILES = JSON.stringify({
         ⚠️ `role="status"` conservé : sans JavaScript le texte est là dès le
         rendu, avec JavaScript il change à chaque aller-retour de page — dans
         les deux cas il est lu. */}
+    {/* 🔴 LOT 193 — LE TROISIÈME NOMBRE LIT `totalVisible`, PLUS `total`.
+        Il annonce « sur N pièces cotées » : tant qu'il comptait le catalogue
+        entier, il comptait des lignes que la page venait de retirer et
+        qu'aucun geste du visiteur ne pouvait faire apparaître. ⭐ Il remonte
+        tout seul quand la case est cochée — la preuve, à l'écran, que rien
+        n'a été supprimé, seulement mis de côté.
+        ⛔ ET IL EST AU-DESSUS DU `<p>`, PAS DANS LE TERNAIRE. Un commentaire
+        JSX glissé entre le test du ternaire et son `?` casse la compilation
+        Astro. Mesuré : il m'a coûté un build.
+        ⛔⛔ ET LE SECOND, DANS LA FOULÉE : ne JAMAIS écrire la syntaxe d'un
+        commentaire À L'INTÉRIEUR d'un commentaire. Le compilateur voit la
+        fermeture citée, referme le bloc là, et le reste de la phrase devient
+        du code. Deux builds pour la même correction, et la seconde faute
+        était DANS la note qui expliquait la première.
+        ⛔⛔⛔ ET UN TROISIÈME, DE LA MÊME FAMILLE : `test:gabarits` compte les
+        accolades du corps SANS retirer les commentaires. Une accolade
+        OUVRANTE citée dans une note — même entre guillemets obliques — laisse
+        le compte impair et rend le banc rouge sur un gabarit qui compile.
+        ⇒ RÈGLE, en trois exemplaires payés d'affilée : dans un commentaire de
+        gabarit, on DÉCRIT la syntaxe, on ne l'ÉCRIT jamais. */}
     <p class="etiq" id="cpt" role="status">
       {aFiltre
-        ? t(lang, 'movers.showing', { a: SEL.rendues.toLocaleString(nf), b: SEL.retenues.toLocaleString(nf), c: SEL.total.toLocaleString(nf) })
-        : t(lang, 'movers.capped', { a: SEL.rendues.toLocaleString(nf), b: SEL.total.toLocaleString(nf) })}
+        ? t(lang, 'movers.showing', { a: SEL.rendues.toLocaleString(nf), b: SEL.retenues.toLocaleString(nf), c: SEL.totalVisible.toLocaleString(nf) })
+        : t(lang, 'movers.capped', { a: SEL.rendues.toLocaleString(nf), b: SEL.totalVisible.toLocaleString(nf) })}
     </p>
   </form>
 
@@ -1277,6 +1333,18 @@ const ILE_TUILES = JSON.stringify({
         });
         var q = document.getElementById('f-q');
         if (q && q.value) jeton(q.value, function () { q.value = ''; });
+        // 🔴 LOT 193 — LE SEUL JETON QUI DIT « JE MONTRE PLUS », pas « je
+        // restreins ». Sans lui, une page qui affiche des planchers farceurs
+        // n'aurait AUCUN indice à l'écran de pourquoi elle le fait, et le
+        // bouton « tout effacer » la ramènerait sans que personne comprenne ce
+        // qui vient de disparaître. ⭐ Son libellé est lu sur la case
+        // elle-même : un texte recopié ici serait une deuxième vérité à
+        // traduire, et elle divergerait à la première retouche.
+        var abr = f.querySelector('input[name="f-abr"]');
+        if (abr && abr.checked) {
+          var lab = abr.parentNode ? abr.parentNode.textContent.trim() : 'outliers';
+          jeton(lab, function () { abr.checked = false; });
+        }
       }
 
       // ⭐ Le compteur porté par CHAQUE bouton de groupe. Sans lui, un filtre
@@ -1287,7 +1355,12 @@ const ILE_TUILES = JSON.stringify({
         var par = {
           place: 0,
           type: f.querySelectorAll('input[name="f-rar"]:checked').length,
-          prix: n('f-pmin') + n('f-pmax') + n('f-mcp') + (vv && vv.value ? 1 : 0),
+          // 🔴 LOT 193 — la case compte AUSSI dans le pastillage du groupe
+          // « Prix & valeur ». ⛔ L'omettre ferait exactement ce que ce
+          // compteur existe pour empêcher : un réglage posé dans un panneau
+          // replié, qu'on a oublié d'avoir mis.
+          prix: n('f-pmin') + n('f-pmax') + n('f-mcp') + (vv && vv.value ? 1 : 0)
+                + (f.querySelector('input[name="f-abr"]:checked') ? 1 : 0),
           mint: n('f-smin') + n('f-smax') + n('f-lmin'),
           date: n('f-d1') + n('f-d2')
         };

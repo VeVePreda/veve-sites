@@ -334,6 +334,8 @@
   "movers.capped": "{a} de {b} piezas con cotización.",
   "movers.showing": "{a} de {b} coincidencias — {c} piezas con cotización en total.",
   "movers.colsHint": "Desmarque una columna para ocultarla.",
+  "movers.showOutliers": "Mostrar los precios descartados",
+  "movers.outliersHint": "Suelos muy altos que casi ninguna oferta sostiene y que el histórico de la pieza no confirma: casi siempre anuncios de broma.",
   "movers.down": "Bajadas",
   "movers.empty": "Ninguna pieza coincide con estos filtros.",
   "movers.filters": "Filtros",

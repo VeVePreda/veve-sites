@@ -565,9 +565,20 @@ function resumerPourLeTableauDeBord(ds) {
 // ⚠️ COÛT NUL SUR LES PIÈCES NON COLLECTÉES : `maigrir()` n'écrit pas une clé
 //    absente (voir son commentaire — 14 octets par ligne évités). Pendant la
 //    rotation, la plupart des lignes ne portent donc rien de plus.
+// 🔴 LOT 193 — `floorEcarte` ENTRE ICI, ET PAS DANS `CHAMPS_COTE`.
+// La question s'est posee serieusement : il se CALCULE a partir de `floor`, de
+// `prixMedian` et de `listings`, dont deux sont derriere le mur. Mais ce qui
+// decide n'est pas d'ou vient un champ, c'est ce qu'il DIT : ce booleen dit
+// « ce plancher n'est pas retenu », il ne dit aucun montant, il n'en approche
+// aucun, et on ne peut en reconstituer aucun. C'est exactement le statut de
+// `prixAberrant`, public depuis le lot 101 pour la meme raison, et de
+// `amplitude`, publique alors qu'elle vient de `ath` et `atl`.
+// ⛔ ET LE METTRE DANS LA COTE LE RENDRAIT INUTILISABLE LA OU IL SERT : les
+//    modules publics d'`/analytics/` doivent pouvoir ecarter une piece farceuse
+//    de leurs classements, et ils ne voient jamais la cote.
 export const CHAMPS_MARCHE = ['uuid', 'name', 'series', 'type', 'rarity',
                               'tirage', 'path', 'image', 'releaseDate', 'ed',
-                              'offresStackr', 'veveMarketUrl'];
+                              'offresStackr', 'veveMarketUrl', 'floorEcarte'];
 
 /** Ne garde que les champs de `CHAMPS_MARCHE`. ⛔ Une clé absente de la fiche
  *  n'est PAS écrite : `{image: undefined}` deviendrait `"image":null` dans le

@@ -23,6 +23,12 @@ import { getCatalogue, getBaselines, getReleves, getFichesStackr, getOmiUsd, str
 //    n'y a qu'un chargement et un dépôt.
 import { lireCsv as lireTauxCsv, deposerTaux } from './taux_omi.mjs';
 import { manifest, SITE } from './manifest.mjs';
+// 🔴 LOT 193 — LA RÈGLE DU PLANCHER ÉCARTÉ EST IMPORTÉE, PAS RECOPIÉE. Écrite
+// dans `marche_selection.mjs` parce que c'est le seul endroit où elle est
+// éprouvable sans construire un dataset. ⛔ Deux écritures de « ce plancher
+// n'est pas retenu » divergeraient, et le jour où elles divergent, c'est celle
+// qui écarte le MOINS qui gagne — donc la page qui remontre des blagues.
+import { planchierEcarte } from './plancher_ecarte.mjs';
 import { porte } from './access.mjs';
 import { jourISO } from './vitrine.mjs';   // 🔴 LOT 113 — JJ/MM/AAAA, jamais `new Date(chaine)`
 // ⭐ LA RÉSERVE — l'historique COMPLET, écrit HORS de dist/, pour la route
@@ -392,6 +398,61 @@ async function construireDataset() {
   const MAX_SERIE = Math.max(0, Number(pub.max_new_per_series) || 0);   // 0 = pas de plafond
   const SPILL = pub.quota_spillover !== false;
   const FACTEUR_ABERRANT = Math.max(2, Number(pub.outlier_factor) || 10);
+  // ═══════════════════════════════════════════════════════════════════════
+  // 🔴🔴 LOT 193 — LE PLANCHER QU'ON N'AFFICHE PAS (Preda, 25/08/2026)
+  // ═══════════════════════════════════════════════════════════════════════
+  // Sa demande, mot pour mot : « les planchers (hors item 1/1) qui depassent
+  // 5 000 et qui n'ont pas plus de deux listings ne doivent pas etre pris en
+  // compte ».
+  //
+  // ⭐⭐⭐ SA CAUSE EST JUSTE. MESUREE SUR L'ENTREPOT (13 630 pieces avec un
+  // plancher, archive du 18/07) : 188 pieces au-dessus de 5 000 avec deux
+  // offres ou moins. Les regarder de pres ne laisse aucun doute — un timbre
+  // « 1840 Two Penny Blue » a 10 000 042 $, un « Faces of The ADDICTION » a
+  // 42 420 420 420 420 $ (la blague du 420), et vingt « 9 999 999 $ » d'affilee.
+  // Ce sont des annonces farceuses, pas des prix.
+  //
+  // ⛔⛔ ET SON REMEDE SEUL EMPORTE DE VRAIES PIECES. Meme mesure, meme jour :
+  // 15 pieces passent son filtre alors qu'elles valent VRAIMENT ce prix —
+  // `Amazing Fantasy` a 8 888 $ dont la mediane est 8 799 $ sur 592 releves,
+  // `Marvel Comics` a 5 900 $ (mediane 4 999 $, 645 releves), les quatre
+  // BLACKPINK « Salute » a 10 000 $. Ce sont exactement les pieces qu'un
+  // collectionneur vient voir. Les faire disparaitre du marche serait pire
+  // que d'y laisser une blague.
+  //
+  // ⭐⭐⭐ CE QUI SEPARE VRAIMENT LES DEUX N'EST PAS UN MONTANT, C'EST L'ECART
+  // A SA PROPRE HISTOIRE :
+  //     Amazing Fantasy          8 888 / mediane 8 799  =        x1,01
+  //     Star Wars: Ahsoka    9 999 999 / mediane    44  =  x224 719
+  // ⛔ MAIS L'ECART SEUL NE SUFFIT PAS NON PLUS, et c'est le piege qui m'a
+  //    coute une iteration : une piece qui n'a QU'UN SEUL releve — et il est
+  //    farceur — a une mediane EGALE a son floor. Son ecart vaut x1,00, et le
+  //    garde-fou la sauverait. Mesure : 10 des 9 999 999 $ etaient dans ce cas.
+  // ⇒ IL FAUT LES DEUX, et l'historique arbitre : « assez cher, presque
+  //    personne pour le confirmer, et son propre passe ne le confirme pas —
+  //    ou il n'a pas de passe du tout ».
+  //
+  // 🔴 `outlier_min_points` SE COMPTE SUR `totalPoints`, JAMAIS SUR `points`.
+  //    `points` est la longueur de l'historique PUBLIC : la porte le tronque a
+  //    trois jours pour un visiteur. Le brancher la rendrait la regle
+  //    dependante du PALIER DU LECTEUR — la meme piece ecartee chez l'un et
+  //    gardee chez l'autre, sans qu'aucun banc ne rougisse.
+  //
+  // ⚠️ `?? ` ET PAS `|| ` POUR LES TROIS : `Number(0) || 5000` rend 5 000, donc
+  //    un reglage a 0 (« n'ecarte rien ») serait silencieusement ignore et
+  //    ferait exactement le contraire de ce qu'il demande. La forme est exigee,
+  //    elle n'est pas devinee — meme geste que `jours` dans `/admin/abonner`.
+  const nbReglage = (v, defaut) => {
+    const n = Number(v);
+    return Number.isFinite(n) && n >= 0 ? n : defaut;
+  };
+  const ECART_PRIX   = nbReglage(pub.outlier_price, 5000);
+  const ECART_OFFRES = nbReglage(pub.outlier_listings, 2);
+  const ECART_POINTS = nbReglage(pub.outlier_min_points, 20);
+  // ⭐ UN SEUL OBJET, PASSÉ À LA RÈGLE. Quatre arguments positionnels auraient
+  //   fini par s'inverser — et deux d'entre eux sont des nombres du même ordre.
+  const SEUILS_ECART = { prix: ECART_PRIX, offres: ECART_OFFRES,
+                         points: ECART_POINTS, facteur: FACTEUR_ABERRANT };
   const CHANGE = { minPoints: 5, minRef: 1, maxAbs: 300 };
 
   // ⭐ `getReleves()` est FACULTATIF (`chargerFacultatif`) : son absence rend
@@ -817,6 +878,27 @@ async function construireDataset() {
     // une echelle globale (un objet a 5 000 gems n'a rien d'anormal en soi).
     const repere = item.p95 || item.prixMedian;
     item.prixAberrant = !!(repere && item.floor && item.floor > repere * FACTEUR_ABERRANT);
+    // 🔴🔴 LOT 193 — LE PLANCHER ECARTE. ⛔ CE N'EST PAS `prixAberrant`, ET LES
+    // DEUX DOIVENT COEXISTER : `prixAberrant` compare au **p95** et SIGNALE sur
+    // la fiche (« ce prix n'est pas representatif ») — il ne retire rien.
+    // Celui-ci compare a la **mediane**, exige la solitude de l'offre, et
+    // RETIRE du classement. Reunir les deux, ce serait soit se mettre a cacher
+    // ce qu'on signalait, soit se mettre a signaler ce qu'on cache.
+    // ⚠️ MESURE DU CHOIX p95 CONTRE MEDIANE : sur les memes 13 630 pieces, le
+    //    critere `> 10 x p95` n'ecarte que 11 lignes, parce que le p95 est
+    //    LUI-MEME tire vers le haut par les farceurs qu'on cherche. La mediane
+    //    leur resiste. C'est pour ca qu'elle juge ici et le p95 la-bas.
+    // ⛔ `listings` peut valoir 0, et `0 <= 2` est vrai : c'est VOULU. Un
+    //    plancher a 9 999 999 $ que PLUS PERSONNE ne porte est le cas le plus
+    //    net de tous — mesure : 44 des 188. Un `if (listings)` les aurait tous
+    //    laisses passer, en silence.
+    // ⭐ POSE SEULEMENT QUAND IL EST VRAI, comme `ed` dans `maigrir()`. Un
+    //   `floorEcarte: false` recopie sur 8 750 lignes, c'est 175 Ko de JSON
+    //   pour dire « rien a signaler » — exactement les 124 Ko que le
+    //   commentaire de `maigrir()` refuse deux fichiers plus loin. La lecture
+    //   n'y perd rien : `undefined` et `false` sont tous deux faux, et aucun
+    //   des deux cotes n'a besoin de distinguer « non ecarte » de « pas dit ».
+    if (planchierEcarte(item, SEUILS_ECART)) item.floorEcarte = true;
     // ⭐⭐ LOT 101 — L'AMPLITUDE EST CALCULEE ICI, ET C'EST DELIBERE.
     // `ath / atl` est un RAPPORT : il ne porte aucune unite et ne permet pas
     // de reconstituer un montant (« ce jouet a fait ×12 » ne dit pas s'il vaut
@@ -1294,6 +1376,16 @@ async function construireDataset() {
   }
   const aberrants = items.filter((i) => i.prixAberrant).length;
   if (aberrants) console.log(`[vitrine] ${aberrants} fiches au prix non representatif (offre isolee au-dela de ${FACTEUR_ABERRANT}x leur p95) : signalees sur la fiche`);
+  // 🔴 LOT 193 — ET IL S'IMPRIME MEME A ZERO, CONTRAIREMENT A LA LIGNE
+  // AU-DESSUS. Un `if (ecartes)` ferait qu'une regle DEBRANCHEE et une regle
+  // qui NE MORD PLUS s'ecriraient toutes deux par un silence — et c'est
+  // precisement le jour ou la collecte se sera nettoyee qu'on voudra savoir
+  // laquelle des deux on regarde. Un zero annonce est une mesure ; une ligne
+  // absente n'est rien.
+  const ecartes = items.filter((i) => i.floorEcarte).length;
+  console.log(`[vitrine] planchers ecartes du marche : ${ecartes} sur ${items.length} `
+    + `(> ${ECART_PRIX} avec <= ${ECART_OFFRES} offre(s), et moins de ${ECART_POINTS} releves `
+    + `ou plus de ${FACTEUR_ABERRANT}x leur mediane) — reaffichables par la case « ${'prix non retenus'} »`);
   if (comicsSansRarete) console.log(`[adresses] ATTENTION ${comicsSansRarete} comics sans rarete : adresse basee sur le nom de couverture, ou l'identifiant court s'il n'y a rien de distinctif`);
   if (collisionsComics) console.log(`[adresses] ${collisionsComics} comics en collision de rarete : nom de couverture ajoute a l'adresse`);
   for (const t of TYPES) {

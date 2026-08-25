@@ -334,6 +334,8 @@
   "movers.capped": "{a} di {b} pezzi quotati.",
   "movers.showing": "{a} di {b} corrispondenze — {c} pezzi quotati in totale.",
   "movers.colsHint": "Deseleziona una colonna per nasconderla.",
+  "movers.showOutliers": "Mostra i prezzi scartati",
+  "movers.outliersHint": "Prezzi minimi molto alti sostenuti da quasi nessuna offerta e non confermati dallo storico del pezzo: quasi sempre annunci scherzosi.",
   "movers.down": "Ribassi",
   "movers.empty": "Nessun pezzo corrisponde a questi filtri.",
   "movers.filters": "Filtri",

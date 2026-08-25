@@ -101,6 +101,33 @@ publication:
   # nouveau flottantes les 1 200 URL deja publiees.
   adresses_gelees: true
   min_price_points: 8      # relevés minimum AU TOTAL pour qu'une fiche mérite d'exister
+
+  # ═══════════════════════════════════════════════════════════════════════
+  # 🔴🔴 LOT 193 (25/08/2026) — LES PLANCHERS QU'ON N'AFFICHE PAS
+  # ═══════════════════════════════════════════════════════════════════════
+  # Preda, 25/08 : « les planchers (hors item 1/1) qui dépassent 5 000 et qui
+  # n'ont pas plus de deux listings ne doivent pas être pris en compte ».
+  #
+  # ⭐ CES TROIS NOMBRES SONT ÉCRITS ICI, PAS DANS LE CODE, ET CE N'EST PAS DU
+  # ZÈLE : le code porte les mêmes en repli (5000 / 2 / 20), donc sans ces
+  # lignes le chemin « le manifeste décide » ne serait JAMAIS emprunté — et un
+  # chemin jamais emprunté n'est pas sûr, il est non mesuré. Les poser ici les
+  # rend réglables sans déploiement de code, et éprouvés à chaque build.
+  #
+  # ⚠️ EN DOLLARS, comme la colonne « Floor » de /market/ — le plancher VeVe.
+  #    ⛔ Surtout pas le plancher StackR, qui est en OMI : ce sont deux marchés,
+  #    et 5 000 n'y veut pas dire la même chose.
+  outlier_price: 5000        # au-dessus de ce plancher en $, la pièce est examinée
+  outlier_listings: 2        # ...si au plus ce nombre d'offres la porte (0 compris)
+  # ⭐ LE TROISIÈME EST À MOI, ET IL EST LÀ POUR SAUVER DE VRAIES PIÈCES.
+  # Mesuré le 25/08 sur 13 630 pièces : les deux règles ci-dessus SEULES
+  # emportaient `Amazing Fantasy` (8 888 $, sa médiane depuis 592 relevés) et
+  # `Marvel Comics` (5 900 $, 645 relevés). En dessous de ce nombre de relevés
+  # — ou si le plancher dépasse `outlier_factor` fois la médiane — la pièce est
+  # écartée ; au-dessus, son propre passé la défend.
+  # 🔴 Il se compte sur le TOTAL des relevés, jamais sur l'historique public :
+  #    celui-là est tronqué par le palier du lecteur.
+  outlier_min_points: 20
   # ⚠️ `public_points_max` et `public_history_days` ont MIGRÉ vers `access:`
   # (voir plus bas) le 20/07/2026 : ce sont des réglages d'ACCÈS, pas de
   # publication. Un quota de vitrine décide QUELLES fiches existent ; un palier

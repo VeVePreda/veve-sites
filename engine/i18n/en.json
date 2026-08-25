@@ -334,6 +334,8 @@
   "movers.capped": "Showing {a} of {b} priced pieces.",
   "movers.showing": "Showing {a} of {b} matches — {c} priced pieces in total.",
   "movers.colsHint": "Uncheck a column to hide it.",
+  "movers.showOutliers": "Show prices we set aside",
+  "movers.outliersHint": "Very high floors held up by almost no listings, and not backed by the item's own history — usually joke listings.",
   "movers.down": "Drops",
   "movers.empty": "No piece matches these filters.",
   "movers.filters": "Filters",

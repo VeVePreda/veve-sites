@@ -69,6 +69,14 @@ export const parMcp = (i) => {
 // indexable, et les 11 964 adresses gelées du site ne bougent pas.
 // ⛔ Le jour où quelqu'un voudra la même chose sur une page PUBLIQUE, cette
 // phrase ne s'y appliquera plus : c'est le `no-store` qui l'autorise ici.
+// 🔴 LOT 193 — LA RÈGLE « CE PLANCHER N'EST PAS RETENU » N'EST PAS ICI, ET
+// C'EST MESURÉ : elle lit `totalPoints`, un champ que la page ne lit JAMAIS
+// (il ne sert qu'au build). Écrite dans ce fichier, le relevé du §9 l'aurait
+// comptée comme « lue par la page », aurait exigé qu'elle soit projetée, et
+// aurait fait voyager un entier de plus sur 8 840 lignes — ou rougi.
+// ⇒ `engine/lib/plancher_ecarte.mjs`. Ce module-ci ne connaît que le VERDICT,
+//   `i.floorEcarte`, qui lui est bien projeté.
+
 export const PAR_PAGE = 20;
 
 // 🔴🔴 LE PLAFOND DUR DE CE QU'UNE RÉPONSE PEUT RENDRE. Il ne coupe pas le
@@ -92,7 +100,9 @@ export const TRI_DEFAUT = 'defaut';
 // par le pilote (`input[name="f-rar"]:checked`) et par le thème. Un renommage
 // « pour faire propre » casserait les trois en silence.
 export const CHAMPS = ['f-c', 'f-q', 'f-tri', 'f-rar', 'f-var', 'f-pmin', 'f-pmax',
-                       'f-mcp', 'f-smin', 'f-smax', 'f-lmin', 'f-d1', 'f-d2', 'f-n'];
+                       'f-mcp', 'f-smin', 'f-smax', 'f-lmin', 'f-d1', 'f-d2', 'f-n',
+                       // 🔴 LOT 193 — la seule case qui ELARGIT au lieu de restreindre.
+                       'f-abr'];
 
 /** Un nombre, ou `null` — ⛔ jamais `0` par défaut : « pas de borne » et
  *  « borne à zéro » sont deux choses différentes, et les confondre ferait
@@ -133,6 +143,16 @@ export function lireParams(sp) {
     // partagée puis un renommage de tri ne doivent pas rendre une page morte.
     tri: TRIS.includes(un('f-tri')) ? un('f-tri') : TRI_DEFAUT,
     n: entier(un('f-n'), PAR_PAGE, PAR_PAGE, RENDU_MAX),
+    // 🔴🔴 LOT 193 — « MONTRE-MOI AUSSI LES PRIX QU'ON N'A PAS RETENUS ».
+    // ⛔ EXACTEMENT `'1'`, ET RIEN D'AUTRE. Le piege est connu et il est
+    //    dans l'autre sens : UNE CASE NON COCHEE N'EST PAS ENVOYEE. L'etat par
+    //    defaut du site — ecarter — est donc l'ABSENCE du parametre, ce qui
+    //    tombe juste : une adresse partagee sans `f-abr` montre ce que tout le
+    //    monde voit. Si le defaut avait ete « montrer », il aurait fallu un
+    //    `f-abr=0` que le navigateur n'envoie jamais, et la case n'aurait
+    //    JAMAIS pu etre decochee par un formulaire — un reglage qui ne se
+    //    reglerait que dans un sens.
+    abr: un('f-abr') === '1',
   };
 }
 
@@ -140,9 +160,17 @@ export function lireParams(sp) {
  *  0 filtre », qui ne veut rien dire, et à savoir si la mention de troncature
  *  parle du catalogue ou d'une recherche. */
 export function filtreActif(p) {
+  // ⭐ `p.abr` EN FAIT PARTIE, ET C'EST DISCUTABLE — donc c'est argumente.
+  //   Il ne RESTREINT pas, il elargit : « filtre actif » pourrait sembler faux.
+  //   Mais cette fonction ne repond pas a « as-tu retire des lignes ? », elle
+  //   repond a « ce que tu vois est-il le reglage par defaut du site ? ». Et
+  //   avec la case cochee, non. L'omettre laisserait une page qui montre des
+  //   prix farceurs sans qu'aucun jeton ne dise pourquoi, et sans que le bouton
+  //   « tout effacer » ne la ramene — le pire des deux mondes.
   return !!(p.corpus || p.q || p.rar.length || p.vari
     || p.pmin !== null || p.pmax !== null || p.mcp !== null
-    || p.smin !== null || p.smax !== null || p.lmin !== null || p.d1 || p.d2);
+    || p.smin !== null || p.smax !== null || p.lmin !== null || p.d1 || p.d2
+    || p.abr);
 }
 
 /**
@@ -191,6 +219,16 @@ export function facettes(population) {
  * filtre AURAIT L'AIR DE MARCHER. Elles passent, et le tri les met au bout.
  */
 function garde(i, p) {
+  // 🔴🔴🔴 LOT 193 — EN PREMIER, ET DELIBEREMENT. Ce n'est pas un filtre parmi
+  // les autres : c'est l'ETAT PAR DEFAUT DU CATALOGUE. Le placer plus bas ne
+  // changerait rien au resultat, mais le rendrait illisible — on croirait a un
+  // critere que le visiteur a choisi, alors que c'est celui qu'il n'a pas eu a
+  // choisir.
+  // ⛔ `i.floorEcarte` est ABSENT (et pas `false`) sur les 8 700 lignes saines :
+  //    `dataset.mjs` ne pose la cle que quand elle est vraie. Un test qui
+  //    exigerait `=== false` ne mordrait donc JAMAIS — dans l'autre sens, ce
+  //    serait la panne muette du lot 192 refaite a l'identique.
+  if (!p.abr && i.floorEcarte) return false;
   if (p.corpus && i.type !== p.corpus) return false;
   if (p.rar.length && !p.rar.includes(i.rarity)) return false;
   // ⭐ LA RECHERCHE PORTE SUR LE NOM **ET** LA SÉRIE : un collectionneur tape
@@ -277,6 +315,14 @@ const ORDRE = {
  */
 export function selectionMarche(population, p) {
   const retenues = population.filter((i) => garde(i, p));
+  // 🔴🔴 LOT 193 — LE COMPTEUR DOIT SUIVRE, SINON LA PAGE MENT.
+  // « X pieces cotees » a cote d'une liste dont on vient de retirer 171 lignes
+  // est un chiffre qu'aucun geste du visiteur ne peut retrouver : il compte
+  // toujours, mais il ne compte plus RIEN de ce qu'on lui montre.
+  // ⭐ `total` GARDE son sens d'origine (le catalogue cote entier) — d'autres
+  //   lectures en dependent — et `totalVisible` dit ce que ce reglage laisse
+  //   voir. Deux nombres distincts plutot qu'un nombre dont le sens change.
+  const ecartes = population.reduce((n, i) => n + (i.floorEcarte ? 1 : 0), 0);
   const cmp = ORDRE[p.tri];
   // ⛔ `sort()` MUTE — on trie une COPIE. `population` est la fusion faite par
   //    le gabarit, mais `ds.marche` derrière elle est mémoïsé pour la durée du
@@ -293,6 +339,13 @@ export function selectionMarche(population, p) {
     rendues: Math.min(p.n, triees.length),
     retenues: triees.length,
     total: population.length,
+    //   `ecartes`      combien de planchers la regle du lot 193 retire ;
+    //   `totalVisible` le catalogue tel que CE reglage le laisse voir.
+    // ⭐ Avec la case cochee, `totalVisible === total` : le nombre remonte, et
+    //   c'est la preuve visible a l'ecran que rien n'a ete supprime — seulement
+    //   mis de cote.
+    ecartes,
+    totalVisible: p.abr ? population.length : population.length - ecartes,
     reste: Math.max(0, triees.length - p.n),
   };
 }
