@@ -392,13 +392,60 @@ export function lireCotes(uuids) {
   const out = {};
   let absents = 0;
   for (const u of [...new Set(uuids || [])]) {
+    // ═══════════════════════════════════════════════════════════════════════
+    // 🔴🔴🔴 LOT 197 — LE CACHE PAR UUID, ET IL PORTE 87 % DE LA LENTEUR
+    // ═══════════════════════════════════════════════════════════════════════
+    // Preda : « /market/ est lent ». MESURÉ le 25/08 sur une réserve de TAILLE
+    // PRODUCTION fabriquée pour l'occasion (8 840 lignes, 8 840 cotes), en
+    // jalonnant chaque étape d'une requête sans paramètre :
+    //     lireMarche() ....... 10,2 ms à froid · 0,04 ms à chaud (mémoïsée)
+    //     lireCotes() ....... 109,4 ms à froid · **81,3 ms À CHAQUE REQUÊTE**
+    //     fusion ............. 4,8 ms · facettes 9,5 ms · sélection 1,6 ms
+    // ⇒ 93 ms à chaud, dont 81 pour rouvrir 8 840 fichiers déjà lus. Le reste
+    //   de la page était déjà mémoïsé depuis le lot 155-D ; cette fonction,
+    //   non — elle payait le disque à chaque visiteur, indéfiniment.
+    //
+    // ⭐⭐ LE CACHE EST LÉGITIME ICI POUR EXACTEMENT LA MÊME RAISON QU'EN
+    // DESSOUS POUR LA PROJECTION, et il faut la répéter : `.reserve/` est
+    // déposée AU BUILD et ne bouge plus de la vie du conteneur. Un contenu
+    // figé se garde. Chaque déploiement démarre un processus neuf, donc un
+    // cache vide : il n'existe aucun moment où ce cache puisse être périmé
+    // sans que le processus ait été remplacé.
+    // ⛔ PAS DE DURÉE DE VIE, comme au-dessus : une expiration ferait relire un
+    //   fichier qui n'a pas changé, à un moment imprévisible.
+    // ⛔ ET IL MÉMORISE AUSSI LES ABSENCES (`null`) : sans ça, les uuid sans
+    //   cote — il y en a — rouvriraient un `existsSync` à chaque requête, et
+    //   c'est précisément le cas le plus fréquent sur un site en cours de
+    //   collecte. Un cache qui ne garde que les succès ne soulage rien.
+    // ⚠️ LA CLÉ INCLUT LE DOSSIER : les bancs déplacent `RESERVE_COTE_DIR` vers
+    //   un dossier jetable entre deux mesures. Une clé sur le seul uuid leur
+    //   rendrait la cote d'un autre corpus — un banc vert sur la mauvaise
+    //   matière, ce que ce dossier a déjà payé cinq fois.
+    if (_cacheCotes.has(`${COTE_DIR}\u0000${u}`)) {
+      const v = _cacheCotes.get(`${COTE_DIR}\u0000${u}`);
+      if (v === null) absents++; else out[u] = v;
+      continue;
+    }
     // ⭐ La liste blanche s'applique a CHAQUE element : un seul uuid mal forme
     // suffit a composer un chemin. `_projection.json` est refuse par elle, donc
     // le journal de controle reste illisible depuis toute voie servie.
+    // ⛔ LA LISTE BLANCHE RESTE **AVANT** LE CACHE DANS L'ORDRE DE LECTURE, et
+    //   ce n'est pas un détail : un uuid mal formé ne doit jamais devenir une
+    //   clé de cache, sinon on mémorise une tentative de traversée de chemin.
+    //   Il est refusé ici, il n'entre nulle part.
     if (!uuidValide(u)) { absents++; continue; }
+    const cle = `${COTE_DIR}\u0000${u}`;
     const chemin = join(COTE_DIR, `${u}.json`);
-    if (!existsSync(chemin)) { absents++; continue; }
-    try { out[u] = JSON.parse(readFileSync(chemin, 'utf8')); }
+    if (!existsSync(chemin)) { absents++; _cacheCotes.set(cle, null); continue; }
+    try {
+      const v = JSON.parse(readFileSync(chemin, 'utf8'));
+      out[u] = v;
+      _cacheCotes.set(cle, v);
+    }
+    // ⛔ UNE ERREUR DE LECTURE NE SE MET PAS EN CACHE. Un fichier corrompu peut
+    //   l'être par une copie en cours ; le mémoriser comme « absent » figerait
+    //   la panne pour toute la vie du conteneur, et le message d'alerte
+    //   ci-dessous ne sortirait qu'une fois.
     catch (e) { absents++; console.warn(`[cote] reserve illisible pour ${u} : ${e.message}`); }
   }
   // ⚠️ MEME CAPTEUR QUE LES DEUX ROUTES D'API, et il compte autant ici : sans
@@ -685,4 +732,12 @@ let _cacheMarcheDe = null;
 
 /** ⛔ POUR LES BANCS UNIQUEMENT. Un cache qu'on ne peut pas vider est un cache
  *  qui rend un banc dépendant de l'ordre de ses propres sections. */
-export function oublierMarche() { _cacheMarche = null; _cacheMarcheDe = null; }
+/** 🔴 LOT 197 — le cache des cotes, par `<dossier>\u0000<uuid>`. Voir le bloc
+ *  dans `lireCotes()` : `.reserve/` ne bouge pas de la vie du conteneur. */
+const _cacheCotes = new Map();
+
+/** ⭐ Vider les DEUX ensemble. Un banc qui oublie la projection et garde les
+ *  cotes mesurerait une liste neuve adossée à des montants d'avant — un écart
+ *  qu'aucune erreur ne signalerait. */
+export function oublierCotes() { _cacheCotes.clear(); }
+export function oublierMarche() { _cacheMarche = null; _cacheMarcheDe = null; oublierCotes(); }

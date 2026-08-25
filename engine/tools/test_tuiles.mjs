@@ -384,6 +384,50 @@ console.log('\n2 ter. la colonne « couverture » arrive-t-elle jusqu\'à la pag
     premiere ? premiere.replace(/\s+/g, ' ').slice(0, 120) : '🔴 aucune image parmi les lignes servies');
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔇🔴🔴🔴 LOT 196 — LA MESURE ATTEINT-ELLE UN LECTEUR ?
+// ═══════════════════════════════════════════════════════════════════════════
+// Le lot 195 comptait les couvertures dans le JOURNAL du build. Mesuré sur le
+// déploiement du 25/08 à 11 h 23 : le journal Coolify s'arrête à la 10ᵉ seconde
+// de l'étape. La ligne était écrite, elle était juste, personne ne l'a lue.
+// ⇒ Le compte passe par le témoin et ressort sur `/api/sante`, une adresse
+//   publique qu'on interroge quand on veut.
+// ⭐⭐⭐ ET CE CONTRÔLE EXISTE PARCE QU'UN INSTRUMENT NON ÉPROUVÉ N'EST PAS UN
+// INSTRUMENT. Si le champ disparaissait du témoin, la sonde rendrait `null` —
+// c'est-à-dire exactement ce qu'elle rend sur un site sans projection — et on
+// conclurait « pas de couverture » sur une panne de mesure. Le banc sépare les
+// deux : ici, il y a une projection, donc le nombre DOIT être un nombre.
+console.log('\n2 quater. la mesure des couvertures sort-elle par la sonde ?');
+{
+  const sante = await (await fetch(`http://127.0.0.1:${PORT}/api/sante`)).json().catch(() => null);
+  const m = sante && sante.marche;
+  if (!m) {
+    verifie('⛔ `/api/sante` porte le bloc « marche »', false,
+      '🔴 absent — la mesure des couvertures ne sort nulle part');
+  } else {
+    verifie('⛔ `/api/sante` porte le bloc « marche »', true,
+      `lignes=${m.lignes} · avecImage=${m.avecImage} · ecartes=${m.ecartes} · horsLigne=${m.horsLigne}`);
+    // ⛔ `null` EST UN ÉCHEC ICI, ET SEULEMENT ICI : ce banc tourne avec une
+    //    projection sous la main. Ailleurs (site sans porte « cote »), `null`
+    //    est la bonne réponse. Un contrôle qui accepterait `null` des deux
+    //    côtés ne saurait plus distinguer « aucune image » de « je n'ai pas su
+    //    compter » — la confusion même qui a coûté deux jours sur la vignette.
+    verifie('…et ses trois nombres sont des NOMBRES, pas des « je ne sais pas »',
+      Number.isFinite(m.lignes) && Number.isFinite(m.avecImage) && Number.isFinite(m.ecartes),
+      `lignes ${typeof m.lignes} · avecImage ${typeof m.avecImage} · ecartes ${typeof m.ecartes}`);
+    // ⭐ ET IL DIT LA VÉRITÉ : le nombre annoncé par la sonde doit être celui
+    //   de la projection sur le disque, pas un compte parallèle.
+    const proj0 = JSON.parse(readFileSync(join(ROOT, '.reserve', 'marche.json'), 'utf8'));
+    const vrai = (proj0.marche || []).reduce((n, i) => n + (i && i.image ? 1 : 0), 0);
+    verifie('⛔ le nombre annoncé est celui de la projection déposée',
+      m.avecImage === vrai, `sonde ${m.avecImage} · disque ${vrai}`);
+    // ⭐ Le témoin dit d'où vient le chiffre. Sans lui, « 83 sur 90 » se lirait
+    //   comme un chiffre de production alors qu'il vient de l'échantillon.
+    verifie('…et la sonde dit si le build était hors ligne',
+      typeof m.horsLigne === 'boolean', `horsLigne = ${m.horsLigne}`);
+  }
+}
+
 console.log('\n2 bis. le filtre mord-il AU SERVEUR, et sur tout le catalogue ?');
 {
   const proj = JSON.parse(readFileSync(join(ROOT, '.reserve', 'marche.json'), 'utf8'));

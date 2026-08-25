@@ -196,6 +196,53 @@ const memoireDuBuild = () => {
   }
 };
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 🖼️🔴🔴🔴 LOT 196 — CE QUE LA PROJECTION DU MARCHÉ PORTE VRAIMENT
+// ═══════════════════════════════════════════════════════════════════════════
+// Preda, 24 puis 25/08 : « la vignette en mode tableau n'est visible sur AUCUNE
+// ligne. » Tout ce qui se mesure depuis le dépôt dit qu'elle devrait s'afficher :
+// le gabarit émet la cellule, le CSS servi la dimensionne, un vrai serveur hors
+// ligne rend 19 images sur 20 lignes. Il manquait UN chiffre — celui de la
+// PRODUCTION, où les uuid sont réels.
+//
+// ⛔ LE JOURNAL DU BUILD NE PEUT PAS LE DONNER. Le lot 195 y avait posé la
+// ligne ; mesuré sur le déploiement du 25/08 à 11 h 23, **le journal Coolify
+// s'arrête à la 10ᵉ seconde de cette étape**, au milieu de la lecture des
+// sources. La ligne existait, elle était juste, elle n'a jamais atteint
+// personne. *Un instrument dont la sortie n'atteint pas son lecteur ne mesure
+// rien* — et c'est la deuxième fois que ce journal tronqué coûte une journée.
+//
+// ⭐⭐⭐ CETTE SONDE, ELLE, EST INTERROGEABLE À TOUT MOMENT, depuis n'importe
+// où, sans terminal et sans journal. Elle répond sur le conteneur QUI SERT, pas
+// sur celui qu'on croit déployé — c'est déjà l'argument de `build` plus haut.
+//
+// ⛔ AUCUN MONTANT NE PASSE ICI, et c'est ce qui rend le bloc publiable : trois
+//   nombres qui disent « combien de lignes », « combien portent une couverture »
+//   et « combien de planchers ont été écartés ». Aucun ne désigne un prix, aucun
+//   ne s'en approche. La règle du lot 101 est tenue.
+// ⚠️ `null` PARTOUT PLUTÔT QUE `0` quand le témoin manque ou ne dit rien : sur
+//   un site sans porte « cote », il n'y a pas de projection — « inconnu » n'est
+//   pas « vide », et c'est justement le vide qu'on cherche à reconnaître.
+const marcheDuBuild = () => {
+  try {
+    const chemin = process.env.RESERVE_TEMOIN
+      || join(process.env.PROJECT_ROOT || process.cwd(), '.reserve', '_temoin-build.json');
+    const t = JSON.parse(readFileSync(chemin, 'utf8'));
+    const n = (v) => (Number.isFinite(v) ? v : null);
+    return {
+      lignes: n(t.marche),
+      avecImage: n(t.marcheAvecImage),
+      ecartes: n(t.marcheEcartes),
+      // ⭐ Sans lui, « 83 sur 90 » se lirait comme un chiffre de production
+      //   alors qu'il vient de l'échantillon. Le témoin le sait, il le dit.
+      horsLigne: typeof t.horsLigne === 'boolean' ? t.horsLigne : null,
+      quand: typeof t.quand === 'string' ? t.quand : null,
+    };
+  } catch {
+    return null;
+  }
+};
+
 const branche = () => ({
   inscription: Boolean(process.env.INSCRIPTION_API),
   session: Boolean(process.env.SESSION_API),
@@ -216,6 +263,8 @@ export const GET = ({ url }) => new Response(
     comptes: branche(),
     // 🖥️ Le pic mémoire du build — voir le bloc au-dessus. `null` si inconnu.
     memoire: memoireDuBuild(),
+    // 🖼️ Ce que la projection du marché porte — voir le bloc au-dessus.
+    marche: marcheDuBuild(),
     ...(comptesOuverts() ? { favoris: favoris() } : {}),
   }),
   { headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } },

@@ -90,11 +90,34 @@ export default function temoinBuild(mode) {
         }
         let lignes = null;
         let itemsTotal = null;
+        // ⭐ `null` À L'INITIALISATION, pas `0` : si la projection est illisible,
+        //   le témoin doit dire « je ne sais pas », jamais « aucune ». C'est la
+        //   même règle que `memoireDuBuild()` dans `/api/sante` — INCONNU ≠ ZÉRO.
+        let avecImage = null;
+        let ecartes = null;
         if (existsSync(marche)) {
           try {
             const c = JSON.parse(readFileSync(marche, 'utf8'));
             lignes = Array.isArray(c.marche) ? c.marche.length : null;
             itemsTotal = c.itemsTotal ?? null;
+            // 🔴🔴🔴 LOT 196 — DEUX COMPTES QUI DOIVENT ATTEINDRE UN LECTEUR.
+            // Le lot 195 les avait posés dans le journal du build. Mesuré sur
+            // le déploiement du 25/08 à 11 h 23 : **le journal Coolify s'arrête
+            // à la 10ᵉ seconde de l'étape**, en plein milieu de la lecture des
+            // sources. La ligne était écrite, elle était juste, et personne
+            // n'a jamais pu la lire. *Un instrument dont la sortie n'atteint
+            // pas son lecteur ne mesure rien.*
+            // ⇒ Ils passent par le TÉMOIN, que `/api/sante` sait déjà servir :
+            //   une adresse publique, interrogeable à tout moment, qui ne
+            //   dépend d'aucun journal et ne se tronque pas.
+            // ⛔ Ils sont comptés ICI, sur le fichier RELU depuis le disque, et
+            //   pas transmis par `deposerMarche()` : ce fichier est ce que la
+            //   page recevra vraiment. Un compte transmis en mémoire dirait ce
+            //   que le build croyait déposer.
+            if (Array.isArray(c.marche)) {
+              avecImage = c.marche.reduce((n, i) => n + (i && i.image ? 1 : 0), 0);
+              ecartes = c.marche.reduce((n, i) => n + (i && i.floorEcarte ? 1 : 0), 0);
+            }
           } catch { /* témoin partiel vaut mieux que pas de témoin */ }
         }
 
@@ -109,6 +132,11 @@ export default function temoinBuild(mode) {
           cotes,
           marche: lignes,
           itemsTotal,
+          // ⭐ `null` et pas `0` quand la projection est illisible : « je n'ai
+          //   pas pu compter » et « il n'y en a aucune » sont deux réponses,
+          //   et c'est précisément la seconde qu'on cherche à reconnaître.
+          marcheAvecImage: avecImage,
+          marcheEcartes: ecartes,
         };
 
         const f = TEMOIN_FICHIER(racine);

@@ -40,7 +40,7 @@
 // ⭐⭐⭐ UN BANC QUI RECALCULE CE QU'IL DOIT JUGER NE LE JUGE PLUS, IL LE
 // REMPLACE. ⛔ Ne jamais descendre cette ligne dans le Dockerfile.
 
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -62,7 +62,9 @@ console.log('\n1. la réserve de cote se relit-elle ? (aller-retour complet)');
 const DIR = mkdtempSync(join(tmpdir(), 'cote-banc-'));
 process.env.RESERVE_COTE_DIR = DIR;
 
-const { lireCotes, uuidValide, CHAMPS_COTE, COTE_DIR, JOURNAL, coteFermee } =
+// 🔴 LOT 197 — `oublierMarche` est importée ICI : elle vide aussi le cache des
+// cotes, et le §1 bis s'en sert pour éprouver que l'oubli fonctionne.
+const { lireCotes, uuidValide, CHAMPS_COTE, COTE_DIR, JOURNAL, coteFermee, oublierMarche } =
   await import('../lib/cote.mjs');
 
 verifie('le banc écrit bien dans un dossier temporaire, pas dans .reserve/',
@@ -89,6 +91,69 @@ verifie('et un uuid SANS fichier ne revient pas (témoin)',
   !absent[UUID_B] && Object.keys(absent).length === 0, JSON.stringify(absent));
 verifie('un uuid mal formé est refusé sans composer de chemin (témoin)',
   !uuidValide('../../dist/index.html') && Object.keys(lireCotes(['../../dist/index.html'])).length === 0);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 LOT 197 — LE CACHE DES COTES : IL SERT, ET IL NE MENT PAS
+// ═══════════════════════════════════════════════════════════════════════════
+// Preda : « /market/ est lent ». MESURÉ le 25/08 sur une réserve fabriquée à
+// la TAILLE DE LA PRODUCTION (8 840 lignes, 8 840 cotes), en jalonnant chaque
+// étape d'une requête : `lireCotes()` pesait **81 ms sur les 93 ms** d'une
+// visite à chaud, en rouvrant 8 840 fichiers déjà lus. Après cache : 8 ms.
+//
+// ⭐⭐⭐ ET CE BANC NE CHRONOMÈTRE RIEN, C'EST TOUT SON INTÉRÊT. Une mesure de
+// durée dépend de la machine, du disque et des deux applications que Coolify
+// fait tourner en parallèle : elle rougirait un jour sans qu'aucune panne
+// n'existe, et on finirait par ignorer sa couleur. On éprouve donc le
+// MÉCANISME, de façon déterministe : on efface le fichier entre deux lectures.
+// Si la cote revient, le disque n'a pas été touché — c'est une preuve, pas une
+// estimation. *On mesure ce qu'on veut garantir, pas ce qui est facile à lire.*
+{
+  const UUID_C = '33333333-4444-4555-8666-777777777777';
+  const f = join(DIR, `${UUID_C}.json`);
+  writeFileSync(f, JSON.stringify({ floor: 4242, listings: 3 }), 'utf8');
+  const un = lireCotes([UUID_C]);
+  rmSync(f, { force: true });
+  const deux = lireCotes([UUID_C]);
+  verifie('⛔ la seconde lecture ne retourne PAS au disque (fichier effacé entre-temps)',
+    un[UUID_C]?.floor === 4242 && deux[UUID_C]?.floor === 4242,
+    deux[UUID_C] ? 'la cote revient du cache' : '🔴 elle a disparu — chaque visiteur rouvre 8 840 fichiers');
+
+  // ⛔ ET LE CACHE SE VIDE VRAIMENT. Sans ce contrôle, un cache impossible à
+  //   invalider ferait mesurer aux bancs suivants la matière d'un autre corpus.
+  oublierMarche();
+  const trois = lireCotes([UUID_C]);
+  verifie('…et `oublierMarche()` vide AUSSI les cotes (témoin non désarmé)',
+    !trois[UUID_C], trois[UUID_C] ? '🔴 le cache survit à son oubli' : 'le fichier est parti, la cote aussi');
+
+  // 🔴 LE PIÈGE QUE CE DOSSIER A DÉJÀ PAYÉ CINQ FOIS : un cache qui répond à
+  //    côté. La clé est `<dossier>\u0000<uuid>` — le dossier en fait partie
+  //    parce que les bancs déplacent `RESERVE_COTE_DIR` entre deux mesures.
+  // ⛔ ON L'ÉPROUVE PAR LE COMPORTEMENT, PAS EN LISANT LE CODE SOURCE : une
+  //    version de ce contrôle cherchait la clé par expression régulière dans
+  //    `cote.mjs`. Elle aurait trouvé la chaîne dans le COMMENTAIRE qui
+  //    l'explique et se serait déclarée verte sur sa propre documentation —
+  //    la faute que ce dossier a payée quatre fois.
+  const UUID_E = '55555555-6666-4777-8888-999999999999';
+  writeFileSync(join(DIR, `${UUID_E}.json`), JSON.stringify({ floor: 777 }), 'utf8');
+  const deuxUuid = lireCotes([UUID_A, UUID_E]);
+  verifie('⛔ deux uuid ne se répondent pas l\'un pour l\'autre',
+    deuxUuid[UUID_A]?.floor === 1234 && deuxUuid[UUID_E]?.floor === 777,
+    `A=${deuxUuid[UUID_A]?.floor} · E=${deuxUuid[UUID_E]?.floor}`);
+
+  // ⭐ UNE ABSENCE SE MÉMORISE AUSSI. Sur un site en cours de collecte, les
+  //   uuid sans cote sont le cas le PLUS fréquent : un cache qui ne garderait
+  //   que les succès rouvrirait un `existsSync` par ligne et par visite, et ne
+  //   soulagerait rien là où ça coûte le plus.
+  const UUID_D = '44444444-5555-4666-8777-888888888888';
+  const vide1 = lireCotes([UUID_D]);
+  writeFileSync(join(DIR, `${UUID_D}.json`), JSON.stringify({ floor: 1 }), 'utf8');
+  const vide2 = lireCotes([UUID_D]);
+  verifie('…et une ABSENCE est mémorisée elle aussi (le cas le plus fréquent)',
+    !vide1[UUID_D] && !vide2[UUID_D],
+    vide2[UUID_D] ? '🔴 l\'absence n\'est pas gardée : un existsSync par ligne et par visite'
+      : 'le fichier créé après coup n\'est pas relu — l\'absence tient');
+  oublierMarche();
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 2. LA PROJECTION A-T-ELLE EU LIEU, ET SUR QUOI ?
