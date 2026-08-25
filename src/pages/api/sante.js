@@ -136,6 +136,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { acces } from '../../../engine/lib/access.mjs';
 import { etatDuStockage } from '../../../engine/lib/favoris.mjs';
+import { etatDeLaCaisse } from '../../../engine/lib/caisse_sonde.mjs';
 
 const comptesOuverts = () => acces().tiers.length > 1;
 
@@ -243,6 +244,43 @@ const marcheDuBuild = () => {
   }
 };
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 💳🔴🔴🔴 LOT 199 — « CE CONTENEUR PEUT-IL LIRE LE RÉSEAU BASE ? »
+// ═══════════════════════════════════════════════════════════════════════════
+// Preda, 25/08 : « recevoir des usdc/usdt sur le reseau base et que ça donne
+// automatiquement le role ». Tout le reste du chantier est mesuré : le noeud
+// public répond, la base SQLite de `/data` est montée, `/api/abonner` attend
+// chez veveid. Il restait UNE inconnue, et elle est de celles qui décident de
+// l'architecture : le conteneur Coolify joint-il un hôte de l'internet public ?
+//
+// ⛔ ON NE POUVAIT PAS LA DÉDUIRE. veveprice ne `fetch` que veveid, qui vit sur
+// la MÊME machine ; veveid joint `collectscan.com`, ce qui est un indice et pas
+// une preuve — deux applications, deux configurations. *Le bac à sable prédit
+// le code, jamais la machine.*
+//
+// ⭐⭐⭐ ET C'EST LA ROUTE QUI DOIT LE DIRE, PAS LE JOURNAL DU BUILD. Le lot 195
+// a payé cette leçon : le journal Coolify s'arrête à la 10ᵉ seconde de l'étape
+// qui bâtit, et la ligne mesurée n'a jamais atteint son lecteur. Ici la réponse
+// s'obtient d'un navigateur, à tout moment, sur le conteneur QUI SERT.
+//
+// 🔴 CETTE FONCTION N'ATTEND JAMAIS RIEN — c'est la propriété qui compte.
+// `docker-entrypoint.sh` interroge `/api/sante` au démarrage et refuse de
+// servir si elle tarde ; un réseau bloqué deviendrait un 503 sur tout le site.
+// Le détail de la non-attente est dans `caisse_sonde.mjs`.
+// ⚠️ Conséquence assumée : le TOUT PREMIER appel après un déploiement rend
+//   `joignable: null`. Ce n'est pas une panne, c'est « je n'ai pas encore
+//   fini de regarder ». Le second appel répond. INCONNU ≠ FAUX.
+const caisse = () => {
+  try {
+    return etatDeLaCaisse();
+  } catch {
+    // ⛔ La sonde ne tombe JAMAIS à cause de ce §, même règle que `favoris()` :
+    //    une sonde de santé qui échoue sur la question qu'elle pose est pire
+    //    qu'absente.
+    return { configuree: false, adresse: null, joignable: null, bloc: null, ms: null, cause: null, quand: null };
+  }
+};
+
 const branche = () => ({
   inscription: Boolean(process.env.INSCRIPTION_API),
   session: Boolean(process.env.SESSION_API),
@@ -265,7 +303,7 @@ export const GET = ({ url }) => new Response(
     memoire: memoireDuBuild(),
     // 🖼️ Ce que la projection du marché porte — voir le bloc au-dessus.
     marche: marcheDuBuild(),
-    ...(comptesOuverts() ? { favoris: favoris() } : {}),
+    ...(comptesOuverts() ? { favoris: favoris(), caisse: caisse() } : {}),
   }),
   { headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } },
 );

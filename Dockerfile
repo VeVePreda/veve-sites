@@ -99,6 +99,26 @@ RUN npm run test:nginx
 # ⚠️ CHACUN EST PLACE OU IL PEUT MESURER, PAS EN BLOC : cinq avant le build (ils
 # n'ont besoin que du code), un apres (il lit `dist/`).
 RUN npm run test:dockerfile
+# 💳 `test:caisse` — LOT 199. IL EST ICI, AVANT LE BUILD, ET HORS RESEAU.
+# ═══════════════════════════════════════════════════════════════════════════
+# Il juge la sonde qui doit dire, depuis `/api/sante`, si le conteneur peut
+# lire le reseau Base. ⛔ IL NE SORT SUR AUCUN RESEAU : il monte son propre
+# noeud sur 127.0.0.1 et lui fait jouer les cinq reponses possibles. Un banc
+# qui interrogerait mainnet.base.org mesurerait le reseau du CONSTRUCTEUR
+# D'IMAGES — une question qui n'est pas la sienne, et dont la reponse change
+# d'une machine a l'autre. ⭐ *Un banc juge le code, pas l'avancement.*
+# ⛔ ET IL NE REND AUCUN INDECIDABLE : il tourne dans cette porte, donc il
+#   tranche, toujours, sur les huit points qu'il pose.
+# ⭐⭐⭐ CE QU'IL GARDE VRAIMENT : que la sonde N'ATTENDE JAMAIS. Le lanceur
+#   interroge `/api/sante` au demarrage et refuse de servir si la route tarde ;
+#   Coolify arrete alors le conteneur au bout de douze essais. Une sonde qui
+#   attendrait un hote injoignable transformerait un pare-feu sortant en 503
+#   sur tout le site — et hors ligne, ou le faux noeud repond en 1 ms, ce
+#   defaut serait parfaitement invisible.
+# ⛔ IL VA AVANT LE BUILD : il ne lit que `engine/lib/` et `src/pages/api/`,
+#   jamais `dist/`. Place apres, il ne mesurerait ni plus ni mieux, et il
+#   ferait perdre quatre minutes avant de dire qu'un fichier est fautif.
+RUN npm run test:caisse
 RUN WAREHOUSE_OFFLINE=1 npm run test:entrepot
 
 RUN WAREHOUSE_OFFLINE=1 npm run test:donnees
