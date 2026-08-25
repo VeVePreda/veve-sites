@@ -552,8 +552,22 @@ function resumerPourLeTableauDeBord(ds) {
 // serait `regle-donnee-collectee-puis-jetee` à l'envers.
 // ⚠️ SEULES 9,8 % DES FICHES EN PORTENT UNE (FE 978 · FA 774 · AP 106) : la
 // clé est absente sur les neuf dixièmes, et `maigrir()` n'écrit pas les vides.
+// 🛰️ `offresStackr` — LOT 192, 25/08/2026. AJOUTÉ PARCE QUE `test:marche` L'A
+//    RÉCLAMÉ, ET IL AVAIT RAISON : le lot 190 a branché la seconde ligne de la
+//    colonne « Listings » sur `i.offresStackr` sans l'inscrire ici. `maigrir()`
+//    le retirait donc à la projection, et la colonne serait restée VIDE — sans
+//    la moindre erreur, sur les 8 840 lignes du marché.
+// ⭐ IL EST PROJETÉ ET NON RÉINJECTÉ PAR LA COTE, contrairement à `listings`.
+//    La cote ne porte que ce qui n'a de sens qu'À CÔTÉ D'UN PRIX (`deposer()`
+//    l'explique). Le nombre d'offres StackR est un FAIT de catalogue, du même
+//    ordre que `tirage` : il n'est pas réservé, il n'a pas à passer par la
+//    réserve, et l'y mettre le rendrait invisible à qui n'a pas la porte.
+// ⚠️ COÛT NUL SUR LES PIÈCES NON COLLECTÉES : `maigrir()` n'écrit pas une clé
+//    absente (voir son commentaire — 14 octets par ligne évités). Pendant la
+//    rotation, la plupart des lignes ne portent donc rien de plus.
 export const CHAMPS_MARCHE = ['uuid', 'name', 'series', 'type', 'rarity',
-                              'tirage', 'path', 'image', 'releaseDate', 'ed'];
+                              'tirage', 'path', 'image', 'releaseDate', 'ed',
+                              'offresStackr', 'veveMarketUrl'];
 
 /** Ne garde que les champs de `CHAMPS_MARCHE`. ⛔ Une clé absente de la fiche
  *  n'est PAS écrite : `{image: undefined}` deviendrait `"image":null` dans le

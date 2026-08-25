@@ -27,7 +27,7 @@
 import Base from '../../layouts/Base.astro';
 import BarreAcces from '../BarreAcces.astro';
 import { t, localize, numberLocale } from '../../../engine/lib/i18n.mjs';
-import { rar, forme, delta, gemsM, omiM, RAR, mcpPoints, sparklineNormalisee, jourISO } from '../../../engine/lib/vitrine.mjs';
+import { rar, forme, delta, gemsM, omiM, RAR, mcpPoints, sparklineNormalisee, jourISO, urlStackR } from '../../../engine/lib/vitrine.mjs';
 // 🔴🔴🔴 LOT 155-C — LA SÉLECTION EST SORTIE D'ICI. Filtrer, trier et
 // trancher 8 840 fiches est du calcul, pas du balisage : dans un module pur
 // ça s'éprouve sans DOM, sans build et dans les DEUX corpus. Ici, ça ne
@@ -819,11 +819,46 @@ const ILE_TUILES = JSON.stringify({
               se voit (pointillés, opacité, curseur d'aide) et ne se clique pas.
               Le jour où l'URL arrive, `<span>` devient `<a href>` et rien
               d'autre ne bouge. */}
+          {/* ═══ 🔗 LOT 192 — LES DEUX LIENS S'OUVRENT ═══
+              Preda, 25/08 : « les bouton liens vers veve et stackr ne
+              fonctionne pas ». Exact, et le commentaire du § « CE QUE LA DONNÉE
+              NE FOURNIT PAS » disait « aucune URL dans la donnée ».
+
+              🔴🔴 IL AVAIT TORT, ET MOI AUSSI. Les DEUX adresses existent, et
+              la fiche les sert déjà :
+                · `item.veveMarketUrl` — `Item.astro` l. 712, construite depuis
+                  `c.veve_url` du catalogue ;
+                · `urlStackR(uuid, type)` — `Item.astro` l. 843.
+              ⭐⭐⭐ J'avais cherché `urlVeve` / `veve.com` et conclu « aucune
+              URL nulle part ». *Chercher un NOM au lieu d'un USAGE* — le
+              dossier a déjà payé ce piège sur un banc, il vient de le payer
+              sur une réponse donnée à Preda. Il m'a corrigé.
+
+              ⛔ LES DEUX CONDITIONS NE SONT PAS SYMÉTRIQUES, ET C'EST VOULU.
+              · VeVe : l'adresse est construite ou vide — `veveMarketUrl` vaut
+                `''` si `veve_url` manque ou si l'identifiant n'est pas un uuid.
+                Le champ EST la condition.
+              · StackR : `urlStackR()` fabrique une adresse pour TOUT uuid
+                valide, y compris pour les ~7 % d'items que StackR n'expose
+                pas. Il faut donc un témoin de PRÉSENCE chez eux.
+                ⭐ `offresStackr != null` est ce témoin, et il est meilleur que
+                le `releveStackrLe` de la fiche : il ne vaut non-nul que si la
+                rotation a interrogé StackR sur cette pièce ET que StackR a
+                répondu. ⛔ `!= null` et pas un test de vérité : `0` offre est
+                une réponse, donc une preuve d'existence.
+
+              ⭐ Le `<span>` grisé RESTE partout ailleurs — même dispositif que
+              la fiche : un bouton qui se voit, ne se clique pas, et dit
+              pourquoi. Le jour où la donnée arrive, il devient `<a>`. */}
           <td class="c-4" data-col="liens">
             <span class="liens-2">
-              <span class="lien-b" data-attente>VeVe</span>
+              {i.veveMarketUrl
+                ? <a class="lien-b" href={i.veveMarketUrl} target="_blank" rel="noopener">VeVe ↗</a>
+                : <span class="lien-b" data-attente>VeVe</span>}
               <span class="liens-2__sep" aria-hidden="true">/</span>
-              <span class="lien-b" data-attente>StackR</span>
+              {i.offresStackr != null && urlStackR(i.uuid, i.type)
+                ? <a class="lien-b" href={urlStackR(i.uuid, i.type)} target="_blank" rel="noopener">StackR ↗</a>
+                : <span class="lien-b" data-attente>StackR</span>}
             </span>
           </td>
         </tr>
