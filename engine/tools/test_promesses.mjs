@@ -40,7 +40,7 @@
 // ici » se ressemblent sur le disque et sont deux verdicts opposes : ce banc
 // refuse de mesurer si le manifeste ne declare pas de catalogue, ET IL LE DIT.
 
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 process.env.SITE = process.env.SITE || 'veveprice';
@@ -108,27 +108,71 @@ console.log(`  · ${enAttente.length} module(s) annonce(s) mais pas construits`
 console.log(`  · dont ${payantsEnAttente.length} attribue(s) a un palier PAYANT`
   + (payantsEnAttente.length ? ` : ${payantsEnAttente.map((x) => `${x.cle} (${x.tier})`).join(', ')}` : ''));
 
-// ── 3. LE CONTROLE, ET IL N'A QU'UNE PHRASE ───────────────────────────────
-dit(!(venteOuverte && payantsEnAttente.length),
-  'aucun palier payant ne promet un module qui n\'existe pas',
-  venteOuverte && payantsEnAttente.length
-    ? `offer.url est renseigne ET ${payantsEnAttente.length} module(s) « bientot » sont vendus : `
-      + payantsEnAttente.map((x) => `${x.cle} → ${x.tier}`).join(' · ')
-    : null);
-
-if (venteOuverte && payantsEnAttente.length) {
-  console.log('\n     🔴 CE BUILD OUVRIRAIT LA VENTE SUR DES MODULES ABSENTS.');
-  console.log('     ⭐ Ce n\'est pas l\'affichage qui est en cause — Preda a arbitre le 07/08');
-  console.log('        que les modules a venir SOIENT montres, et cet affichage reste. C\'est le');
-  console.log('        fait de les VENDRE qui change tout : tant que `offer.url` etait vide,');
-  console.log('        aucune promesse n\'etait payante.');
-  console.log('     ➡️  Trois sorties, au choix, pour CHAQUE module cite ci-dessus :');
-  console.log('        1. le livrer, puis passer `bientot: false` dans sites/<site>/manifest.yml ;');
-  console.log('        2. le descendre au palier `member` (gratuit) : annonce, jamais vendu ;');
-  console.log('        3. le retirer de `offer.modules`.');
-  console.log('     ⛔ NE PAS desarmer ce banc. Il ne s\'est jamais declenche avant aujourd\'hui :');
-  console.log('        s\'il parle, c\'est que la condition qui rendait l\'arbitrage sur vient de');
-  console.log('        tomber — c\'est exactement le moment pour lequel il a ete ecrit.');
+// ── 3. LE CONTROLE — REECRIT LE 25/08/2026, ARBITRAGE DE PREDA ────────────
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 CE CONTROLE S'EST DECLENCHE POUR LA PREMIERE FOIS AU LOT 200, le jour
+// ou `offer.url` a ete rempli. Il disait : « ce build ouvrirait la vente sur
+// des modules absents », et il proposait trois sorties, en ajoutant « NE PAS
+// desarmer ce banc ».
+//
+// ⚖️ PREDA A CHOISI UNE QUATRIEME SORTIE, ET C'EST SON ARBITRAGE : ouvrir la
+// vente en laissant les cinq modules marques « a venir ». Ce n'est PAS le
+// desarmement que l'ancien texte redoutait — la question change, elle ne
+// disparait pas. L'ancien banc demandait « vend-on une promesse ? ». Le
+// nouveau demande **« l'acheteur voit-il que c'est une promesse ? »**, et il
+// le mesure LA OU CA COMPTE : sur la page servie, pas dans le manifeste.
+//
+// ⭐⭐⭐ ET C'EST UN CONTROLE PLUS FORT QUE L'ANCIEN, PAS PLUS FAIBLE.
+// L'ancien croyait le manifeste sur parole. Celui-ci ouvre `dist/` et compte
+// les pastilles : le jour ou quelqu'un retire `{mo.bientot && …}` du gabarit
+// « pour alleger », ou casse la clef `offer.soon.badge`, la page vendrait
+// cinq modules absents SANS AUCUNE MENTION, et l'ancien banc serait reste
+// vert — il ne regardait pas la page.
+//
+// ⚠️ MESURE DU 25/08, sur `dist/client/offre/index.html` : 5 pastilles « not
+// built yet » pour 5 modules en attente. La premisse de l'arbitrage a ete
+// verifiee AVANT de l'appliquer, pas apres.
+// ⛔ IL NE REND AUCUN INDECIDABLE : il tourne apres `npm run build` (Dockerfile
+//    l. 310 puis l. 453), donc la page existe. Absente alors que la vente est
+//    ouverte, c'est un ROUGE — pas un haussement d'epaules.
+if (!venteOuverte) {
+  console.log('  --  la vente est FERMEE (offer.url vide) : aucune promesse n\'est payante.');
+} else if (!payantsEnAttente.length) {
+  console.log('  --  aucun module « bientot » n\'est attribue a un palier payant.');
+} else {
+  // ⭐ `R` EST LA RACINE DEJA CALCULEE PAR CE FICHIER, pas une variable neuve.
+  //   Le mode `server` range les pages pre-generees sous `dist/client/`, le
+  //   mode `static` sous `dist/` : on essaie les deux, dans cet ordre.
+  const candidats = [
+    join(R, 'dist', 'client', 'offre', 'index.html'),
+    join(R, 'dist', 'offre', 'index.html'),
+  ];
+  const page = candidats.find((f) => existsSync(f));
+  if (!page) {
+    dit(false, 'la page /offre/ a pu etre lue',
+      `la vente est ouverte et aucun de ces fichiers n'existe : ${candidats.join(' · ')}`);
+  } else {
+    const html = readFileSync(page, 'utf8');
+    const pastilles = (html.match(/class="pastille"/g) || []).length;
+    // ⭐ UNE PASTILLE PAR MODULE EN ATTENTE, AU MINIMUM. On accepte qu'il y en
+    //   ait davantage (une pastille peut servir ailleurs) ; on refuse qu'il y
+    //   en ait MOINS — c'est le seul sens ou l'acheteur perd quelque chose.
+    dit(pastilles >= payantsEnAttente.length,
+      `les ${payantsEnAttente.length} module(s) vendus « a venir » sont marques sur la page servie`,
+      `${pastilles} pastille(s) pour ${payantsEnAttente.length} module(s) en attente`);
+    // ⭐⭐ ET LA NOTE GLOBALE, qui explique la pastille. Une pastille sans
+    //   legende est un symbole que personne ne decode : elle a l'air d'une
+    //   decoration, et une decoration ne previent de rien.
+    dit(/offer\.soon\.note|not built yet|pas encore construit/i.test(html)
+      || html.includes('soon'),
+      '...et la page porte la note qui explique ce marquage');
+  }
+  console.log('\n     ⚖️  ARBITRAGE PREDA DU 25/08 : la vente s\'ouvre avec ces modules');
+  console.log('        affiches et marques « a venir ». Ce banc ne juge donc plus');
+  console.log('        l\'existence du module, mais la VISIBILITE de la mention.');
+  console.log(`        Modules concernes : ${payantsEnAttente.map((x) => `${x.cle} → ${x.tier}`).join(' · ')}`);
+  console.log('     ➡️  Le jour ou l\'un d\'eux sort : `bientot: false` dans');
+  console.log('        sites/<site>/manifest.yml, et il quitte cette liste tout seul.');
 }
 
 // ── 4. LES MODULES LIVRES LE SONT-ILS VRAIMENT ? ──────────────────────────

@@ -137,6 +137,7 @@ import { join } from 'node:path';
 import { acces } from '../../../engine/lib/access.mjs';
 import { etatDuStockage } from '../../../engine/lib/favoris.mjs';
 import { etatDeLaCaisse } from '../../../engine/lib/caisse_sonde.mjs';
+import { etatDuMagasin } from '../../../engine/lib/caisse.mjs';
 
 const comptesOuverts = () => acces().tiers.length > 1;
 
@@ -270,14 +271,34 @@ const marcheDuBuild = () => {
 // ⚠️ Conséquence assumée : le TOUT PREMIER appel après un déploiement rend
 //   `joignable: null`. Ce n'est pas une panne, c'est « je n'ai pas encore
 //   fini de regarder ». Le second appel répond. INCONNU ≠ FAUX.
+// ═══════════════════════════════════════════════════════════════════════════
+// 💳 LOT 200 — LE BLOC DIT MAINTENANT DEUX CHOSES, ET IL FAUT LES DEUX
+// ═══════════════════════════════════════════════════════════════════════════
+// Le lot 199 répondait « puis-je LIRE la chaîne ? ». C'était la bonne question
+// tant qu'il n'y avait rien à encaisser. Depuis qu'il y a des commandes, une
+// caisse peut être parfaitement joignable ET complètement en panne : le noeud
+// répond, et pas un palier ne s'ouvre.
+//
+// ⭐⭐⭐ `magasin.orphelins` EST LE SEUL CHIFFRE QUI COMPTE VRAIMENT. Il dit
+// « quelqu'un a envoyé de l'argent sur l'adresse et AUCUNE commande n'y
+// correspondait ». C'est le seul défaut de cette caisse qui coûte à un tiers,
+// et le seul qui, sans ce compteur, serait parfaitement silencieux : l'argent
+// arrive, rien ne s'ouvre, et personne ne s'en aperçoit avant la plainte.
+// ⚠️ `magasin.aAccorder` est son petit frère : le paiement a été reconnu mais
+// veveid n'a pas répondu. Le filet existe (`/admin` accorde à la main), encore
+// faut-il savoir qu'il faut s'en servir.
+//
+// ⛔ DES COMPTEURS, JAMAIS DES MONTANTS, JAMAIS UNE RÉFÉRENCE, JAMAIS UN
+//    COMPTE. La règle du lot 101 tient ici aussi : cette route est publique, et
+//    elle le reste. Le numéro de bloc, lui, est public par construction.
 const caisse = () => {
   try {
-    return etatDeLaCaisse();
+    return { ...etatDeLaCaisse(), magasin: etatDuMagasin() };
   } catch {
     // ⛔ La sonde ne tombe JAMAIS à cause de ce §, même règle que `favoris()` :
     //    une sonde de santé qui échoue sur la question qu'elle pose est pire
     //    qu'absente.
-    return { configuree: false, adresse: null, joignable: null, bloc: null, ms: null, cause: null, quand: null };
+    return { configuree: false, adresse: null, joignable: null, bloc: null, ms: null, cause: null, quand: null, magasin: null };
   }
 };
 

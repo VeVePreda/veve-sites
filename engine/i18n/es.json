@@ -505,5 +505,21 @@
   "analytics.n.fig": "{n} gráfico",
   "analytics.n.figs": "{n} gráficos",
   "analytics.n.mod": "{n} módulo",
-  "analytics.n.mods": "{n} módulos"
+  "analytics.n.mods": "{n} módulos",
+  "caisse.title": "Mejorar tu acceso",
+  "caisse.lead": "Pago en USDC o USDT en la red Base. El acceso se abre solo, normalmente en menos de un minuto.",
+  "caisse.current": "actual",
+  "caisse.perMonth": "${v} / mes",
+  "caisse.perYear": "${v} / año",
+  "caisse.send": "Envía exactamente este importe:",
+  "caisse.exact": "El importe debe ser exacto, hasta el céntimo. Esos pocos céntimos son los que identifican tu pago: un importe redondeado no se puede reconocer.",
+  "caisse.to": "a esta dirección, en la red Base:",
+  "caisse.warn": "Solo la red Base. Un envío por otra red no se puede recuperar.",
+  "caisse.left": "Tiempo restante:",
+  "caisse.late": "Si esta pantalla caduca, no te preocupes: tu pago sigue siendo reconocido durante 24 horas y el acceso se abrirá solo.",
+  "caisse.wallet": "Abrir mi cartera",
+  "caisse.back": "Elegir otra oferta",
+  "caisse.received": "Pago recibido. Abriendo tu acceso…",
+  "caisse.error": "No se ha podido abrir el pedido. Inténtalo de nuevo en un momento.",
+  "caisse.expired": "caducado"
 }

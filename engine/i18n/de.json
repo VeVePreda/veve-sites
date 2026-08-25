@@ -505,5 +505,21 @@
   "analytics.n.fig": "{n} Grafik",
   "analytics.n.figs": "{n} Grafiken",
   "analytics.n.mod": "{n} Modul",
-  "analytics.n.mods": "{n} Module"
+  "analytics.n.mods": "{n} Module",
+  "caisse.title": "Zugang erweitern",
+  "caisse.lead": "Zahlung in USDC oder USDT im Base-Netzwerk. Der Zugang öffnet sich von selbst, meist in weniger als einer Minute.",
+  "caisse.current": "aktuell",
+  "caisse.perMonth": "${v} / Monat",
+  "caisse.perYear": "${v} / Jahr",
+  "caisse.send": "Senden Sie genau diesen Betrag:",
+  "caisse.exact": "Der Betrag muss exakt sein, auf den Cent genau. Diese wenigen Cent kennzeichnen Ihre Zahlung — ein gerundeter Betrag kann nicht zugeordnet werden.",
+  "caisse.to": "an diese Adresse, im Base-Netzwerk:",
+  "caisse.warn": "Nur das Base-Netzwerk. Über ein anderes Netzwerk gesendete Beträge sind verloren.",
+  "caisse.left": "Verbleibende Zeit:",
+  "caisse.late": "Falls dieser Bildschirm abläuft: keine Sorge, Ihre Zahlung wird 24 Stunden lang erkannt und der Zugang öffnet sich von selbst.",
+  "caisse.wallet": "Meine Wallet öffnen",
+  "caisse.back": "Anderes Angebot wählen",
+  "caisse.received": "Zahlung erhalten. Ihr Zugang wird geöffnet…",
+  "caisse.error": "Die Bestellung konnte nicht geöffnet werden. Bitte versuchen Sie es gleich noch einmal.",
+  "caisse.expired": "abgelaufen"
 }

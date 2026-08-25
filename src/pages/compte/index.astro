@@ -53,6 +53,13 @@ import { PORTES_CONNUES, porte as porteDe } from '../../../engine/lib/access.mjs
 import { etatBrut as portesBrutes, JOURS_MAX } from '../../../engine/lib/portes_surcharge.mjs';
 // 👓 LOT 187 — « voir comme » (demande de Preda du 24/08).
 import { etatVu, MINUTES_MAX, MINUTES_DEFAUT } from '../../../engine/lib/palier_vu.mjs';
+// 💳 LOT 200 — LA CAISSE. ⛔ L'ÉCRAN D'ACHAT VIT ICI, ET PAS DANS UNE PAGE
+// `/caisse/` : une route de compte se déclare à SEPT endroits, dont un hors
+// dépôt (Cloudflare). `/compte/` est déjà déclarée partout. Le chemin le moins
+// cher n'est pas le plus court à écrire, c'est celui qui ne rouvre pas un
+// dossier déjà fermé.
+import CaisseAchat from '../../components/CaisseAchat.astro';
+import { grille } from '../../../engine/lib/caisse.mjs';
 
 // ⭐ CES PAGES SONT RENDUES À LA DEMANDE : elles peuvent donc lire l'en-tête
 // `Accept-Language`, ce qu'une page pré-générée ne peut pas faire. Autant s'en
@@ -269,6 +276,38 @@ const estAdmin = aLaDemande && connecte && _admins.length > 0
 //   mais l'appeler pour tout le monde ouvrirait un descripteur sur la base à
 //   chaque affichage de `/compte/`, pour une ligne que personne ne verra.
 const _brut = estAdmin ? portesBrutes() : [];
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 💳 LOT 200 — CE QUI SE VEND, ET SI LA CAISSE PEUT SEULEMENT OUVRIR
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐ LES PRIX VIENNENT DE `grille()`, QUI LIT LE MANIFESTE — la même source que
+// `/offre/`. ⛔ Un tarif recalculé ici serait un second tarif : `/offre/`
+// afficherait un prix et la caisse en réclamerait un autre, sans qu'aucun banc
+// puisse dire lequel est le bon. `test:caisse` compare les deux formules.
+// ⚠️ LES NOMS VIENNENT DU MANIFESTE AUSSI, et ce sont des CARTES PAR LANGUE
+// (`nom: {fr:…, en:…}`) — comme `site.tagline`. Une chaîne nue s'afficherait en
+// français sur la page anglaise ; le repli est l'anglais, puis la clé.
+// 🔑 `caisseOuverte` : l'adresse d'encaissement est-elle posée ? Sans elle, la
+// section entière disparaît. *Un bouton qui ne mène nulle part coûte plus cher
+// en confiance qu'il ne rapporte en promesse* — c'est la règle de `offer.url`,
+// et elle vaut ici pour la même raison.
+const _grille = (() => { try { return grille(); } catch { return {}; } })();
+const _plansCaisse = (m.offer?.plans || [])
+  .filter((p) => _grille[p?.cle] && tiers.includes(p?.cle))
+  .map((p) => ({
+    cle: p.cle,
+    nom: (p.nom && typeof p.nom === 'object' ? (p.nom[lang] || p.nom.en) : p.nom) || p.cle,
+    mensuel: _grille[p.cle][1],
+    annuel: _grille[p.cle][12],
+  }));
+// ⛔ `process.env`, PAS `import.meta.env`, ET C'EST MESURÉ. `import.meta.env`
+// est FIGÉ À LA COMPILATION : Vite n'y expose que ce qui est préfixé ou déclaré
+// dans `define`, donc `CAISSE_ADRESSE` y vaudrait `undefined` pour toujours —
+// et la section d'achat resterait invisible sur un serveur parfaitement
+// configuré. C'est exactement la panne de la sonde qui répondait
+// `"mode":"static"` sur un site en mode server.
+const _caisseOuverte = connecte && _plansCaisse.length > 0
+  && /^0x[0-9a-fA-F]{40}$/.test(String(process.env.CAISSE_ADRESSE || '').trim());
 const _parPorte = new Map(_brut.map((x) => [x.porte, x]));
 const lesPortes = estAdmin ? [...PORTES_CONNUES].map((nom) => {
   const p = porteDe(nom);              // ⭐ le palier EFFECTIF, surcharge comprise
@@ -496,6 +535,13 @@ const _m = Astro.url.searchParams.get('m');
       ⚠️ ET ON PRÉVIENT QU'ON CHANGE DE DOMAINE. Un bouton qui emmène ailleurs
       sans le dire, sur une page qui parle de portefeuille, ressemble
       exactement à ce contre quoi on met les gens en garde. */}
+  {/* 💳 LOT 200 — L'ACHAT. Il se place APRÈS l'état du compte (on sait ce
+      qu'on a) et AVANT le portefeuille : c'est l'ordre dans lequel la question
+      se pose. ⛔ La section ne s'émet pas du tout si la caisse n'est pas
+      ouverte — pas « désactivée », pas grisée : absente. */}
+  <CaisseAchat lang={lang} plans={_plansCaisse}
+               caisseOuverte={_caisseOuverte} palierActuel={palier} />
+
   <div class="sect-t sect-t--gd"><h2>{t(lang, 'account.wallet')}</h2></div>
   <section class="panneau champ" style="margin-bottom:var(--s5)">
     {dossier?.verifie ? (

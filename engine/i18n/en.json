@@ -505,5 +505,21 @@
   "analytics.n.fig": "{n} chart",
   "analytics.n.figs": "{n} charts",
   "analytics.n.mod": "{n} module",
-  "analytics.n.mods": "{n} modules"
+  "analytics.n.mods": "{n} modules",
+  "caisse.title": "Upgrade your access",
+  "caisse.lead": "Pay in USDC or USDT on the Base network. Your access opens by itself, usually within a minute.",
+  "caisse.current": "current",
+  "caisse.perMonth": "${v} / month",
+  "caisse.perYear": "${v} / year",
+  "caisse.send": "Send exactly this amount:",
+  "caisse.exact": "The amount must be exact, down to the cent. Those few extra cents are what identify your payment — a rounded amount cannot be matched.",
+  "caisse.to": "to this address, on the Base network:",
+  "caisse.warn": "Base network only. Funds sent on any other network cannot be recovered.",
+  "caisse.left": "Time left:",
+  "caisse.late": "If this screen expires, do not worry: your payment is still recognised for 24 hours and your access will open on its own.",
+  "caisse.wallet": "Open my wallet",
+  "caisse.back": "Choose another tier",
+  "caisse.received": "Payment received. Opening your access…",
+  "caisse.error": "The order could not be opened. Please try again in a moment.",
+  "caisse.expired": "expired"
 }

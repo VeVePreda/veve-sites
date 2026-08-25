@@ -580,7 +580,20 @@ offer:
   # remplacent le bouton par « les abonnements ouvrent bientôt ».
   # Un bouton qui ne mène nulle part coûte plus cher en confiance qu'il ne
   # rapporte en promesse.
-  url: ""            # <-- Discord, page d'attente, ou prestataire de paiement
+  # ✅ REMPLIE AU LOT 200 (25/08/2026) — LA CAISSE EXISTE.
+  # Elle allume TROIS endroits d'un coup, et c'est ce qu'on voulait :
+  # `Offre.astro` (les cartes), `BarreAcces.astro` (le bandeau) et
+  # `Dashboard.astro` (`const caisse = Boolean(manifest().offer?.url)`).
+  # ⛔ ELLE POINTE VERS `/compte/`, PAS VERS UNE PAGE `/caisse/`. Une route de
+  #   compte se déclare à SEPT endroits dans ce réseau, dont un hors dépôt
+  #   (Cloudflare) ; `/compte/` est déjà déclarée partout. L'ancre `#caisse`
+  #   amène directement à la section d'achat.
+  # ⚠️ LA CAISSE NE S'OUVRE PAS POUR AUTANT : la section exige EN PLUS que
+  #   `CAISSE_ADRESSE` soit posée sur le serveur. Cette URL dit « il y a un
+  #   endroit où payer », pas « le paiement fonctionne » — les deux se règlent
+  #   séparément, et c'est voulu : le jour où l'adresse change, aucun fichier
+  #   du dépôt ne bouge.
+  url: "/compte/#caisse"
 
   # 🔴🔴 LOT 114 — LA REMISE FAIT 1/6, ET CE N'EST PAS UN CHIFFRE ESTHÉTIQUE.
   # Arbitrage Preda du 10/08 : « 5/15/30 $ est le prix ANNUEL, le plus bas doit

@@ -505,5 +505,21 @@
   "analytics.n.fig": "{n} figure",
   "analytics.n.figs": "{n} figures",
   "analytics.n.mod": "{n} module",
-  "analytics.n.mods": "{n} modules"
+  "analytics.n.mods": "{n} modules",
+  "caisse.title": "Passer au niveau supérieur",
+  "caisse.lead": "Paiement en USDC ou USDT sur le réseau Base. L'accès s'ouvre tout seul, en général en moins d'une minute.",
+  "caisse.current": "en cours",
+  "caisse.perMonth": "${v} / mois",
+  "caisse.perYear": "${v} / an",
+  "caisse.send": "Envoyez exactement ce montant :",
+  "caisse.exact": "Le montant doit être exact, au centime près. Ce sont ces quelques centimes qui identifient votre paiement — un montant arrondi ne peut pas être reconnu.",
+  "caisse.to": "à cette adresse, sur le réseau Base :",
+  "caisse.warn": "Réseau Base uniquement. Un envoi sur un autre réseau est irrécupérable.",
+  "caisse.left": "Temps restant :",
+  "caisse.late": "Si cet écran expire, pas d'inquiétude : votre paiement reste reconnu pendant 24 heures et l'accès s'ouvrira de lui-même.",
+  "caisse.wallet": "Ouvrir mon portefeuille",
+  "caisse.back": "Choisir une autre offre",
+  "caisse.received": "Paiement reçu. Ouverture de votre accès…",
+  "caisse.error": "La commande n'a pas pu être ouverte. Réessayez dans un instant.",
+  "caisse.expired": "expiré"
 }

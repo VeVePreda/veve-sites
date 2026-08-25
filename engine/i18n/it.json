@@ -505,5 +505,21 @@
   "analytics.n.fig": "{n} grafico",
   "analytics.n.figs": "{n} grafici",
   "analytics.n.mod": "{n} modulo",
-  "analytics.n.mods": "{n} moduli"
+  "analytics.n.mods": "{n} moduli",
+  "caisse.title": "Migliora il tuo accesso",
+  "caisse.lead": "Pagamento in USDC o USDT sulla rete Base. L'accesso si apre da solo, di solito in meno di un minuto.",
+  "caisse.current": "attuale",
+  "caisse.perMonth": "${v} / mese",
+  "caisse.perYear": "${v} / anno",
+  "caisse.send": "Invia esattamente questo importo:",
+  "caisse.exact": "L'importo deve essere esatto, al centesimo. Sono questi pochi centesimi a identificare il tuo pagamento: un importo arrotondato non può essere riconosciuto.",
+  "caisse.to": "a questo indirizzo, sulla rete Base:",
+  "caisse.warn": "Solo rete Base. Un invio su un’altra rete non è recuperabile.",
+  "caisse.left": "Tempo rimasto:",
+  "caisse.late": "Se questa schermata scade, nessun problema: il pagamento resta riconosciuto per 24 ore e l'accesso si aprirà da solo.",
+  "caisse.wallet": "Apri il mio portafoglio",
+  "caisse.back": "Scegli un’altra offerta",
+  "caisse.received": "Pagamento ricevuto. Apertura del tuo accesso…",
+  "caisse.error": "Non è stato possibile aprire l’ordine. Riprova tra un istante.",
+  "caisse.expired": "scaduto"
 }

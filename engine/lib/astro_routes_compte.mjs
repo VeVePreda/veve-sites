@@ -180,6 +180,17 @@ const ROUTES_COMPTE = [
   // déjà `location ^~ /api/`, qui proxie TOUT `/api/` vers Node. Pour une
   // route d'API, ce sont DEUX endroits, pas trois.
   'pages/api/favoris.js',
+  // 💳 LOT 200 — LA CAISSE. Septième fois qu'on écrit cette phrase, et elle
+  // reste vraie : cette liste est ÉCRITE À LA MAIN. Une route `/api/` qui n'y
+  // figure pas est PRÉ-GÉNÉRÉE EN SILENCE — un fichier figé, incapable de lire
+  // le cookie de session, qui servirait la MÊME réponse à tout le monde. Ici
+  // ce serait la commande de quelqu'un d'autre, ou plus probablement un refus
+  // servi à un acheteur parfaitement connecté, sur un build vert.
+  // ✅ ET C'EST LE SEUL DEUXIÈME ENDROIT : `nginx.server.conf` porte déjà
+  //    `location ^~ /api/`, générique. Pour une route d'API, ce sont DEUX
+  //    endroits, pas sept — c'est précisément la raison pour laquelle l'écran
+  //    d'achat vit dans `/compte/` et non dans une page `/caisse/` neuve.
+  'pages/api/caisse.js',
   'pages/dashboard/index.astro',
   'pages/[locale]/dashboard/index.astro',
   // ═════════════════════════════════════════════════════════════════════════

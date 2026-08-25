@@ -1,0 +1,117 @@
+---
+// ⚠️ VeVePreda/veve-sites — src/components/CaisseAchat.astro  (FICHIER NEUF — lot 200)
+// ═══════════════════════════════════════════════════════════════════════════
+//  L'ÉCRAN D'ACHAT — il vit DANS `/compte/`, et ce n'est pas un détail
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// ⛔⛔ POURQUOI PAS UNE PAGE `/caisse/`. Une route de compte se déclare à SEPT
+// endroits dans ce réseau, dont un que le dépôt ne peut pas voir : Cloudflare.
+// `/compte/` est déjà déclarée partout — nginx la route, le bord la connaît,
+// `ROUTES_COMPTE` la porte. Un composant inclus là ne coûte AUCUN de ces sept
+// endroits. ⭐ Le chemin le moins cher n'est pas le plus court à écrire, c'est
+// celui qui ne rouvre pas un dossier déjà fermé.
+//
+// ⚠️ `palier` ET `plans` ARRIVENT DE LA ROUTE, jamais d'un appel fait ici. Un
+// composant qui irait chercher la session lui-même rendrait « personne » sur
+// toute page pré-générée, sans erreur et sans banc rouge — la leçon du lot 131.
+//
+// 🔑 CETTE SECTION NE S'AFFICHE QUE SI LA CAISSE EST OUVERTE. `offer.url` du
+// manifeste est la bascule de tout le reste du site (le bouton de `/offre/`, la
+// barre d'accès, le tableau de bord) ; ici c'est `caisseOuverte` qui décide,
+// et elle est calculée par la route à partir de la même source. Une section
+// d'achat qui s'afficherait sans adresse d'encaissement montrerait un bouton
+// qui ne peut rien faire — c'est exactement ce que ce dépôt refuse depuis le
+// premier jour : « un bouton qui ne mène nulle part coûte plus cher en
+// confiance qu'il ne rapporte en promesse ».
+import { moduleJs } from '../../engine/lib/socle_js.mjs';
+import { t } from '../../engine/lib/i18n.mjs';
+
+const pilote = moduleJs('caisse');
+const { lang, plans = [], caisseOuverte = false, palierActuel = 'member' } = Astro.props;
+
+// ⭐ LES PRIX SONT CALCULÉS AU SERVEUR ET N'EXISTENT QU'ICI. Le pilote client
+// n'en recalcule aucun : il affiche ce que la route lui répond. Deux calculs
+// de montant, c'est un montant qui divergera — et une divergence d'un centime
+// rend le paiement non reconnaissable, parce que le montant EST l'étiquette.
+const euros = (cents) => (cents / 100).toFixed(2);
+---
+
+{/* 🔴🔴 LE FRAGMENT `<>` N'EST PAS DÉCORATIF, ET IL A COÛTÉ UN BUILD. Une
+    expression `{condition && ( … )}` doit rendre UNE seule racine. Cette
+    section est suivie de son `<script>` : sans l'enveloppe, l'analyseur voit
+    deux racines et s'arrête sur « Expected `,` or `)` », en pointant la
+    DERNIÈRE ligne du fichier — donc très loin de la faute. */}
+{caisseOuverte && (
+<>
+<section id="caisse" class="sect-t--gd">
+  <div class="sect-t"><h2 class="mono-t">{t(lang, 'caisse.title')}</h2></div>
+  <p class="etiq">{t(lang, 'caisse.lead')}</p>
+
+  {/* ⛔ LES LIBELLÉS DU PILOTE VIVENT DANS LE DOM, PAS DANS LE JAVASCRIPT.
+      Le site traduit son interface en cinq langues ; une chaîne écrite dans
+      `src/socle/modules/caisse.js` serait anglaise pour tout le monde, et
+      `marquer:i18n` ne la verrait jamais. Ces quatre nœuds sont cachés et ne
+      servent qu'à ça. */}
+  <span data-caisse-mot="recu" hidden>{t(lang, 'caisse.received')}</span>
+  <span data-caisse-mot="erreur" hidden>{t(lang, 'caisse.error')}</span>
+  <span data-caisse-mot="expire" hidden>{t(lang, 'caisse.expired')}</span>
+
+  <div id="caisse-choix">
+    {plans.map((p) => (
+      <div class="rang">
+        <strong>{p.nom}</strong>
+        {/* ⚠️ LE PALIER DÉJÀ DÉTENU NE SE REVEND PAS COMME LES AUTRES — il se
+            PROLONGE. On ne cache pas le bouton pour autant : quelqu'un dont
+            l'abonnement se termine dans trois jours doit pouvoir repayer. */}
+        {p.cle === palierActuel && <span class="etiq etiq--bleu">{t(lang, 'caisse.current')}</span>}
+        <button type="button" class="btn btn--principal btn--sm"
+                data-caisse-acheter={p.cle} data-caisse-mois="1">
+          {t(lang, 'caisse.perMonth', { v: euros(p.mensuel) })}
+        </button>
+        <button type="button" class="btn btn--principal btn--sm"
+                data-caisse-acheter={p.cle} data-caisse-mois="12">
+          {t(lang, 'caisse.perYear', { v: euros(p.annuel) })}
+        </button>
+      </div>
+    ))}
+  </div>
+
+  <div id="caisse-ecran" hidden>
+    {/* ⭐⭐⭐ LE MONTANT EST LE PLUS GROS ÉLÉMENT DE L'ÉCRAN, ET C'EST UNE
+        DÉCISION, PAS UNE COQUETTERIE. Il porte quelques centimes qui n'ont
+        rien d'esthétique : ce sont eux qui identifient le paiement, puisqu'un
+        virement USDC ne transporte aucun message. Quelqu'un qui arrondit à
+        « 6,00 » aura payé sans que rien ne s'ouvre. ⛔ C'est aussi pour ça
+        que le prix rond n'est écrit NULLE PART sur cet écran. */}
+    <p class="etiq">{t(lang, 'caisse.send')}</p>
+    <p class="mono-t"><strong id="caisse-montant">—</strong> USDC</p>
+    <p class="etiq">{t(lang, 'caisse.exact')}</p>
+
+    <p class="etiq">{t(lang, 'caisse.to')}</p>
+    <p class="mono-t"><code id="caisse-adresse">—</code></p>
+
+    {/* 🔴🔴 L'AVERTISSEMENT DE RÉSEAU N'EST PAS UNE PRÉCAUTION D'USAGE. Un
+        envoi sur Ethereum, Polygon ou BNB vers cette adresse ne revient pas et
+        ne se rattrape pas. C'est la seule phrase de cette page dont l'oubli
+        coûterait de l'argent à quelqu'un. */}
+    <p class="filtres-mur">{t(lang, 'caisse.warn')}</p>
+
+    <p class="etiq">{t(lang, 'caisse.left')} <span id="caisse-reste">—</span></p>
+    {/* ⭐ « L'écran expire, le paiement reste reconnu 24 h » : les deux durées
+        de l'arbitrage du 25/08. Un retrait d'exchange met souvent plus de
+        quinze minutes — sans cette phrase, l'acheteur croirait avoir perdu. */}
+    <p class="etiq">{t(lang, 'caisse.late')}</p>
+
+    <a id="caisse-wallet" class="btn btn--principal btn--sm" href="#">{t(lang, 'caisse.wallet')}</a>
+    <button type="button" class="btn btn--sm" id="caisse-retour">{t(lang, 'caisse.back')}</button>
+  </div>
+
+  <p class="filtres-mur" id="caisse-etat" hidden></p>
+</section>
+
+{/* ⚠️ `defer` : il s'exécute après l'analyse du document, donc `#caisse`
+    existe quand il démarre. La garantie vient de l'ordre du document, pas d'un
+    hasard de placement — même motif que le pilote de `/favoris/`. */}
+<script defer src={pilote.href}></script>
+</>
+)}
