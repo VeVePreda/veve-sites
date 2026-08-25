@@ -576,6 +576,42 @@ const mcpJour = mcpPoints(item.rarity, item.type);
                 ? `${item.fraisMarche.toLocaleString(nf)}\u00a0%`
                 : <span data-attente title={enAttente}>—</span>}</dd></>
         <><dt>{t(lang, 'item.available')}</dt><dd><span data-attente title={enAttente}>—</span></dd></>
+        {/* ═══ 🔥 LOT 190 — LES ÉDITIONS BRÛLÉES ET LA CIRCULATION RÉELLE ═══
+            ⭐⭐ C'EST UN CHIFFRE QUE PERSONNE N'A. `item.tirage` dit combien de
+            pièces ont été FRAPPÉES ; StackR sait combien en RESTENT. L'écart
+            est le nombre de pièces détruites — mesuré sur les 2 000 premières
+            fiches du 25/08 : jusqu'à 537 196 brûlées sur une même référence.
+            Aucune autre source du projet ne porte cette information.
+
+            🔴🔴 ZÉRO EST UN FAIT, PAS UNE ABSENCE, et les deux se voient ici :
+            « 0 » veut dire « aucune pièce détruite », « — » veut dire « la
+            rotation n'a pas encore visité cette pièce ». `dataset.mjs` les
+            distingue par `?? null` (⛔ jamais `|| null`), et ces deux lignes
+            sont l'endroit où la distinction atteint le lecteur. Les confondre
+            ferait affirmer au site qu'il connaît la circulation de 19 774
+            pièces alors qu'il en connaît 2 000.
+
+            ⚠️ `toLocaleString(nf)` ET PAS LE NOMBRE NU : « 537196 » n'est pas
+            lisible, et c'est le gabarit qui sait qu'on est en fr-FR — même
+            raison que `item.marketFee` douze lignes plus haut. */}
+        {/* ⭐⭐ `data-circulation-stackr` / `data-brulees-stackr` NE SONT PAS DES
+            ORNEMENTS — même rôle que `data-releve-corps` au lot 145. Sans eux,
+            un banc devrait repérer ces cellules par leur LIBELLÉ
+            (`data-i18n="item.burnt"`) — un attribut que `marquer:i18n` pose
+            APRÈS le build. Mesuré le 25/08 : sur un `dist/` non marqué le
+            sélecteur ne trouve rien, et le banc se déclare vert sur zéro
+            observation. Un repère qui dépend d'une étape ultérieure de la
+            chaîne n'est pas un repère.
+            ⚠️ La valeur est le NOMBRE BRUT, pas le texte affiché :
+            `toLocaleString` insère une espace insécable que le banc devrait
+            connaître. L'attribut porte le fait, la cellule porte sa mise en
+            forme. */}
+        <><dt>{t(lang, 'item.circulating')}</dt><dd data-circulation-stackr={item.circulationStackr != null ? String(item.circulationStackr) : ''}>{item.circulationStackr != null
+                ? item.circulationStackr.toLocaleString(nf)
+                : <span data-attente title={enAttente}>—</span>}</dd></>
+        <><dt>{t(lang, 'item.burnt')}</dt><dd data-brulees-stackr={item.bruleesStackr != null ? String(item.bruleesStackr) : ''}>{item.bruleesStackr != null
+                ? item.bruleesStackr.toLocaleString(nf)
+                : <span data-attente title={enAttente}>—</span>}</dd></>
       </dl>
 
       {/* ③ LA PROVENANCE — deux formes, parce qu'un comic et un collectible ne
@@ -889,6 +925,34 @@ const mcpJour = mcpPoints(item.rarity, item.type);
               JSX : ils ne peuvent pas diverger sans que le diff le montre — et
               le banc verifie quand meme que la date de l'attribut apparait
               dans le texte rendu. → [[regle-selecteur-de-classe-en-prefixe]] */}
+          {/* ═══ 🛰️ LOT 190 — LE NOMBRE D'OFFRES EN COURS CHEZ StackR ═══
+              Preda, 24/08 (capture à l'appui) : le mur VeVe annonce ses offres
+              depuis toujours (`item.listings`, l. 683) ; celui de StackR, non.
+              La donnée existe depuis le 24/08 : `offres_en_cours` dans
+              `fiches_stackr.csv`, c'est le `totalCount` de
+              `publicVeve.getElementListings_v2`.
+
+              ⭐ AUCUNE CLÉ NEUVE : on réutilise `item.listings`. Le mur dit
+              déjà de quel marché on parle — une clé « offres StackR » ferait
+              écrire « StackR » deux fois dans la même colonne, et il faudrait
+              la traduire cinq fois pour ne rien ajouter.
+
+              🔴🔴 `!= null` ET SURTOUT PAS UN TEST DE VÉRITÉ. `0` est la valeur
+              LA PLUS INTÉRESSANTE de cette ligne : « plus personne ne vend
+              cette pièce ». Un `item.offresStackr ? … : '—'` l'effacerait
+              précisément sur les items qui comptent, et le tiret dirait « pas
+              collecté » d'une donnée parfaitement collectée. C'est la raison
+              pour laquelle le collecteur lit `totalCount` à la racine plutôt
+              que `total` sur la première ligne : sur un item sans offre,
+              `items` est vide et seul `totalCount` sait dire zéro.
+
+              ⚠️ ROTATION : au 25/08 la couverture est de ~10 % du catalogue.
+              Le tiret `data-attente` est donc la réponse NORMALE aujourd'hui,
+              et il se remplira tout seul au fil des tours. ⛔ Ne pas le lire
+              comme une panne. */}
+          <div class="mur__eq" data-offres-stackr={item.offresStackr != null ? String(item.offresStackr) : ''}>{item.offresStackr != null
+            ? <>{item.offresStackr.toLocaleString(nf)} {t(lang, 'item.listings')}</>
+            : <span data-attente title={t(lang, 'data.notCollected')}>—</span>}</div>
           <div class="mur__eq" data-releve-corps={item.releveStackrLe || ''}>{item.releveStackrLe
             ? <>{t(lang, 'item.releveLe')} {item.releveStackrLe}</>
             : <span data-attente title={t(lang, 'data.notCollected')}>—</span>}</div>

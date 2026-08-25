@@ -160,42 +160,40 @@ export const CIBLES = [
 //   ses en-têtes, l'exception doit sauter — sinon elle protégerait un défaut
 //   futur en croyant protéger un défaut passé.
 export const EXCEPTIONS = [
-  {
-    cible: 'robots',
-    zones: ['veveprice.com', 'vevewiki.com'],
-    entetes: '*', // aucun en-tête attendu sur cette cible
-    // 🔴 MESURÉ LE 11/08/2026, ET CE N'EST NI NGINX NI LA TRANSFORM RULE.
-    //   `GET /robots.txt` rend 1 948 o SANS AUCUN en-tête (HSTS compris),
-    //   là où `HEAD /robots.txt` rend 112 o AVEC tous les en-têtes et
-    //   `cf-cache-status: HIT`. Deux réponses différentes pour une même adresse.
-    //   Cause : Cloudflare « Managed robots.txt » (Content Signals Policy)
-    //   GÉNÈRE la réponse au bord, en préfixant le fichier de l'origine. Cette
-    //   réponse-là NE TRAVERSE PAS les Transform Rules.
-    // ⛔ Ni le edge ni nginx ne peuvent la corriger : l'origine n'est jamais
-    //   atteinte, et la règle ne s'applique pas. La seule sortie serait de
-    //   désactiver Managed robots.txt.
-    // ✅ DÉCISION DE PREDA, 11/08/2026 : ON LE GARDE. « Indexez-moi, n'entraînez
-    //   pas sur moi. » Les signaux servis sont `search=yes, ai-input=no,
-    //   ai-train=no`, et les trois crawlers d'entraînement bloqués sont
-    //   `GPTBot`, `Google-Extended` et `meta-externalagent`.
-    //   ⭐ `Google-Extended` NE PILOTE PAS Google Search : le bloquer ne retire
-    //   rien au référencement, il ne gouverne que l'entraînement de Gemini.
-    //   C'est le point que tout le monde confond, et c'est ce qui rend cette
-    //   décision compatible avec « la véracité avant le SEO ».
-    //   ⚠️ Ces signaux sont une réservation de droits (directive UE 2019/790,
-    //   art. 4), pas un verrou : un crawler qui les ignore passe quand même.
-    // ⭐ Portée réelle de l'écart : un fichier texte public, sans rendu, sans
-    //   cookie. `x-frame-options` sur un `text/plain` ne protège rien. L'écart
-    //   est cosmétique pour un scanner, nul pour un attaquant.
-    // ⛔ Le contenu du site est PRÉSERVÉ — mesuré : Cloudflare PRÉFIXE, il ne
-    //   remplace pas. Le `Sitemap:` et les `Disallow:` du dépôt sont intacts.
-    //   Si un jour ils disparaissaient, ce serait une régression SEO muette.
-    pourquoi: 'Cloudflare Managed robots.txt (Content Signals) génère la ' +
-      'réponse au bord ; elle ne traverse pas les Transform Rules. ' +
-      'Mesuré le 11/08/2026, GET ≠ HEAD sur la même adresse. ' +
-      'Conservé volontairement (Preda, 11/08) : indexation oui, entraînement non.',
-    revoirLe: '2026-11-11',
-  },
+  // ⛔⛔ VIDE, ET C'EST UNE RÉVOCATION MESURÉE — PAS UN OUBLI.
+  //
+  // 📅 25/08/2026 : l'exception « robots » est RETIRÉE. Elle dispensait
+  //   `/robots.txt` de tout en-tête sur les deux zones depuis le 11/08.
+  // 🔬 MESURE QUI LA RÉVOQUE (`curl`, GET, adresse réelle, ⛔ sans `?cb=`) :
+  //   20 passages × 2 zones = **40/40 avec les 5 en-têtes**, `cf-cache-status:
+  //   HIT` sur les 40. Et `test:entetes` lui-même la déclarait périmée sur ses
+  //   3 passages, sur les deux zones, depuis le 23/08 — 10 écarts par run.
+  // ⇒ Cloudflare Managed robots.txt PRÉFIXE toujours le fichier, mais la
+  //   réponse traverse désormais la Transform Rule. La cause de l'exception a
+  //   disparu ; l'exception devait donc disparaître avec elle.
+  //
+  // ⭐⭐ CE QU'ON PERDRAIT À LA GARDER : elle dispensait `robots` de TOUT
+  //   (`entetes: '*'`). Le jour où le bord cesserait à nouveau de poser les
+  //   en-têtes, personne ne l'apprendrait — l'exception aurait protégé un
+  //   défaut FUTUR en croyant protéger un défaut PASSÉ.
+  //
+  // ✅ CE QUI RESTE VRAI, ET QUI NE DÉPEND PAS D'ELLE :
+  //   · Managed robots.txt (Content Signals) est CONSERVÉ — décision de Preda
+  //     du 11/08 : « indexez-moi, n'entraînez pas sur moi ». Signaux servis :
+  //     `search=yes, ai-input=no, ai-train=no` ; crawlers d'entraînement
+  //     bloqués : `GPTBot`, `Google-Extended`, `meta-externalagent`.
+  //     ⭐ `Google-Extended` NE PILOTE PAS Google Search — le bloquer ne retire
+  //     rien au référencement. C'est ce qui rend la décision compatible avec
+  //     « la véracité avant le SEO ».
+  //   · Le § 3 de `test_entetes.mjs` (le contenu du `robots.txt` a-t-il survécu
+  //     au préfixage ?) RESTE, et il n'est plus « la contrepartie d'une
+  //     exception » : c'est un contrôle SEO autonome. Un préfixage qui
+  //     deviendrait un remplacement mangerait la ligne `Sitemap:` en silence.
+  //   · `GET` ≠ `HEAD` sur ce réseau : la méthode reste `GET`, plus bas.
+  //
+  // ⚠️ SI ELLE DOIT REVENIR : elle se justifie par une CAUSE MESURÉE, jamais
+  //   pour faire taire un rouge. Le motif est conservé ci-dessous.
+  //     { cible: 'robots', zones: [...], entetes: '*', pourquoi: '…', revoirLe: '…' }
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════

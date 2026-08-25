@@ -194,6 +194,35 @@ function juge(nom, regle, valeur) {
 
 const exceptionsUtiles = new Set();
 
+// ⚠️⚠️ CE COMPTEUR EST DISTINCT DE `indecidables`, ET LA DISTINCTION EST LE
+//   POINT. `indecidables` compte « je n'ai pas pu regarder » (réseau muet).
+//   Celui-ci compte « j'ai regardé DEUX FOIS et le bord m'a répondu deux
+//   choses ». Les confondre ferait taire le second : un banc qui range une
+//   contradiction du bord dans « non mesuré » a cessé de mesurer.
+let deuxReponses = 0;
+
+/** Une salve de `PASSAGES` requêtes sur une cible. Les 404 se refabriquent à
+ *  chaque appel — jamais deux fois la même adresse, jamais un cache. */
+async function salve(zone, cible, css) {
+  let urls;
+  if (cible.fabrique404) urls = Array.from({ length: PASSAGES }, () => url404(zone.base));
+  else if (cible.decouvreCss) urls = Array(PASSAGES).fill(css);
+  else urls = Array(PASSAGES).fill(zone.base + cible.chemin);
+
+  const vus = [];
+  for (const u of urls) {
+    vus.push(await frappe(u));
+    mesures++;
+    await dodo(PAUSE_MS);
+  }
+  return vus.filter((v) => v.ok);
+}
+
+/** Les verdicts sont-ils du même avis ? ⛔ On compare `ok`, pas `dit` : deux
+ *  `max-age` différents mais tous deux au-dessus du plancher sont d'accord sur
+ *  ce qui compte ici (l'écart de valeur est signalé séparément). */
+const unanime = (v) => v.length > 0 && v.every((x) => x.ok === v[0].ok);
+
 for (const zone of ZONES) {
   console.log(`\n2. ${zone.nom} — production`);
 
@@ -201,34 +230,57 @@ for (const zone of ZONES) {
   let joignable = false;
 
   for (const cible of CIBLES) {
-    // Où frapper ?
-    let urls = [];
-    if (cible.fabrique404) {
-      urls = Array.from({ length: PASSAGES }, () => url404(zone.base));
-    } else if (cible.decouvreCss) {
-      if (!css) { indecis(`${zone.nom} · statique`, 'aucun `.css` trouvé sur l\'accueil — cible non mesurée'); continue; }
-      urls = Array(PASSAGES).fill(css);
-    } else {
-      urls = Array(PASSAGES).fill(zone.base + cible.chemin);
+    if (cible.decouvreCss && !css) {
+      indecis(`${zone.nom} · statique`, 'aucun `.css` trouvé sur l\'accueil — cible non mesurée');
+      continue;
     }
 
-    // Les PASSAGES.
-    const vus = [];
-    for (const u of urls) {
-      const r = await frappe(u);
-      vus.push(r);
-      mesures++;
-      await dodo(PAUSE_MS);
-    }
-
-    const bons = vus.filter((v) => v.ok);
+    let bons = await salve(zone, cible, css);
     if (bons.length === 0) {
       // ⛔ Réseau muet sur cette cible : INDÉCIDABLE, jamais vert.
       indecis(`${zone.nom} · ${cible.cle}`,
-        `aucun des ${PASSAGES} passages n'a abouti — ${vus[0]?.panne || 'panne inconnue'}`);
+        `aucun des ${PASSAGES} passages n'a abouti`);
       continue;
     }
     joignable = true;
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // 🔴🔴⭐⭐⭐ LA SECONDE SALVE — *une mesure pas encore mûre et un vrai
+    //   défaut se ressemblent, et ils sont l'inverse.*
+    // ═══════════════════════════════════════════════════════════════════════
+    // Ce banc tourne en CI, et la CI se déclenche SUR LE PUSH — donc pendant
+    // que Coolify déploie et que la règle Cloudflare se propage. Une salve
+    // partagée entre « présent » et « absent » a deux lectures opposées :
+    //   ① la propagation n'est pas finie  → ça va se stabiliser tout seul ;
+    //   ② le bord rend vraiment deux réponses → il faut le DIRE.
+    // ⛔ TRANCHER SUR LA PREMIÈRE SALVE, C'EST TIRER À PILE OU FACE. C'est
+    //   exactement ce qui a fait abandonner le lot 184 : retirer l'exception
+    //   sans ce filet aurait rendu le banc rouge au tirage.
+    // ⇒ On REJOUE, après une pause franche. Une mesure pas mûre se stabilise ;
+    //   une bi-réponse persiste. Le second tirage n'est pas une seconde chance
+    //   donnée au site : c'est ce qui SÉPARE les deux causes.
+    // ⭐ Et il n'y a pas de troisième salve. Rejouer jusqu'à obtenir un
+    //   résultat propre serait « réparer l'instrument à la place du défaut »
+    //   avec de la patience au lieu d'une borne abaissée.
+    const juges1 = Object.fromEntries(Object.entries(ENTETES_ATTENDUS)
+      .map(([n, r]) => [n, bons.map((b) => juge(n, r, b.h[n]))]));
+    const instables = Object.keys(juges1).filter((n) => !unanime(juges1[n]));
+
+    let juges = juges1;
+    let rejoue = false;
+    if (instables.length) {
+      note(`${zone.nom} · ${cible.cle} — ${instables.length} en-tête(s) partagé(s) sur ` +
+        `${PASSAGES} passages (${instables.join(', ')}) ⇒ on REJOUE avant de conclure ` +
+        '(propagation ou bord à deux réponses : les deux se ressemblent)');
+      await dodo(PAUSE_MS * 4);
+      const bons2 = await salve(zone, cible, css);
+      if (bons2.length) {
+        bons = bons2;
+        rejoue = true;
+        juges = Object.fromEntries(Object.entries(ENTETES_ATTENDUS)
+          .map(([n, r]) => [n, bons2.map((b) => juge(n, r, b.h[n]))]));
+      }
+    }
 
     if (cible.fabrique404) {
       const codes = [...new Set(bons.map((b) => b.code))];
@@ -236,17 +288,38 @@ for (const zone of ZONES) {
         codes.every((c) => c === 404), `codes vus : ${codes.join(', ')}`);
     }
 
-    // En-tête par en-tête, sur les passages ABOUTIS.
+    // En-tête par en-tête, sur les passages ABOUTIS de la salve retenue.
     for (const [nom, regle] of Object.entries(ENTETES_ATTENDUS)) {
       const exc = couverte(zone.nom, cible.cle, nom);
-      const verdicts = bons.map((b) => juge(nom, regle, b.h[nom]));
+      const verdicts = juges[nom];
       const tousBons = verdicts.every((v) => v.ok);
+      const dAccord = unanime(verdicts);
+
+      // ── ⏸️ NI VERT NI ROUGE : LE BORD REND DEUX RÉPONSES ────────────────
+      // ⛔ On ne tranche pas, et on ne se tait pas non plus. Dire « écart »
+      //   accuserait Cloudflare d'un défaut qu'on n'a pas établi ; dire
+      //   « conforme » signerait une sécurité qu'on n'a pas constatée.
+      //   Le seul énoncé vrai est le troisième : *je vois deux réponses.*
+      if (!dAccord) {
+        deuxReponses++;
+        indecidables++;
+        const vus = verdicts.map((v, i) => `passage ${i + 1} : ${v.dit}`).join(' · ');
+        console.log(`  ⏸️   ${zone.nom} · ${cible.cle} · ${nom} — LE BORD REND DEUX RÉPONSES`);
+        console.log(`       ${rejoue ? 'après un second tirage complet' : 'salve unique'} — ${vus}`);
+        console.log('       ⇒ ce n\'est PAS un verdict de conformité. Rejouer avec');
+        console.log('         `--attendre` si une règle Cloudflare vient d\'être touchée ;');
+        console.log('         sinon, deux nœuds du bord ne servent pas la même chose.');
+        continue;
+      }
 
       if (exc) {
         // ⭐⭐ L'EXCEPTION SE RETOURNE CONTRE ELLE-MÊME : si la cible porte
         //   maintenant l'en-tête, l'exception a survécu à sa cause et doit
         //   sauter. Un avertissement périmé protège un défaut futur en croyant
         //   protéger un défaut passé.
+        // ⛔ MAIS ON NE LA DÉCLARE PÉRIMÉE QUE SUR UN AVIS UNANIME — le cas
+        //   partagé est sorti plus haut. Révoquer une exception sur un tirage
+        //   favorable, c'est retirer un garde-fou par chance.
         if (tousBons) {
           verifie(`${zone.nom} · ${cible.cle} · ${nom} — EXCEPTION PÉRIMÉE`, false,
             `l'en-tête est SERVI (${verdicts[0].dit}) alors qu'une exception le ` +
@@ -258,16 +331,12 @@ for (const zone of ZONES) {
         continue;
       }
 
-      const stable = verdicts.every((v) => v.dit === verdicts[0].dit);
+      const memeValeur = verdicts.every((v) => v.dit === verdicts[0].dit);
       verifie(`${zone.nom} · ${cible.cle} · ${nom}`, tousBons,
         tousBons
-          ? verdicts[0].dit + (stable ? '' : ' ⚠️ valeur INSTABLE entre les passages')
+          ? verdicts[0].dit + (memeValeur ? '' : ' ⚠️ valeur INSTABLE entre les passages')
           : verdicts.map((v, i) => `passage ${i + 1} : ${v.dit}`).join(' · ') +
-            (verdicts.some((v) => v.ok)
-              ? '\n       ⚠️ présent à certains passages seulement — une règle ' +
-                'en cours de propagation et un vrai défaut se ressemblent : ' +
-                'rejouer avec `--attendre` avant de conclure'
-              : ''));
+            (rejoue ? '\n       (constaté sur DEUX salves — ce n\'est pas une propagation)' : ''));
     }
   }
   if (joignable) zonesJoignables++;
@@ -343,8 +412,19 @@ for (const e of EXCEPTIONS) {
 console.log('\n5. auto-contrôle');
 
 const attendues = ZONES.length * (CIBLES.length * PASSAGES + 1);
-note(`${mesures} requête(s) émise(s) sur ${attendues} prévue(s) · ` +
-  `${zonesJoignables}/${ZONES.length} zone(s) joignable(s)`);
+// ⚠️ `mesures` PEUT DÉPASSER `attendues`, ET C'EST LE SIGNE D'UNE SECONDE
+//   SALVE — pas d'une anomalie. Écrire « 62 sur 32 prévues » sans le dire
+//   ferait lire un débordement là où il y a un second tirage volontaire.
+//   ⭐ C'est la borne BASSE qui protège ici : un banc qui a émis MOINS que
+//   prévu n'a pas regardé partout, et c'est ça qu'il faut voir.
+const rejeux = Math.max(0, mesures - attendues);
+note(`${mesures} requête(s) émise(s) — ${Math.min(mesures, attendues)}/${attendues} prévue(s)` +
+  (rejeux ? ` + ${rejeux} de seconde salve` : '') +
+  ` · ${zonesJoignables}/${ZONES.length} zone(s) joignable(s)`);
+if (mesures < attendues && zonesJoignables === ZONES.length) {
+  note(`⚠️ ${attendues - mesures} requête(s) prévue(s) n'ont pas été émises — ` +
+    'une cible a été sautée. Le verdict ne porte pas sur elle.');
+}
 
 if (zonesJoignables === 0) {
   console.log('\n⏸️  INDÉCIDABLE — aucune zone n\'a répondu.');
@@ -368,6 +448,23 @@ if (echecs) {
   console.log('      ajoutant une exception : ce serait réparer l\'instrument à la place');
   console.log('      du défaut. Une exception se justifie par une CAUSE mesurée.');
   process.exit(1);
+}
+
+// ⏸️⏸️ UN BORD QUI REND DEUX RÉPONSES NE SE RANGE PAS DANS « VERT ».
+//   ⛔ Sortie 0 ici, c'est `regle-banc-muet-ressemble-a-un-succes` : le banc
+//   aurait VU la contradiction, l'aurait imprimée, et aurait quand même signé.
+//   ⭐ Sortie 2 et pas 1 : « écart » accuserait Cloudflare d'un défaut établi.
+//   Le run rougit — il doit rougir — mais il rougit en disant la vérité :
+//   *je vois deux réponses*, et pas *l'en-tête est absent*.
+if (deuxReponses) {
+  console.log(`\n⏸️  ${deuxReponses} en-tête(s) sur lesquels LE BORD REND DEUX RÉPONSES` +
+    ' — constaté sur deux salves complètes, pas sur un tirage.');
+  console.log('    ⛔ Ce n\'est ni un écart ni une conformité : c\'est une mesure qui');
+  console.log('       ne conclut pas. Ne posez AUCUNE exception là-dessus avant');
+  console.log('       d\'avoir la cause — une exception se justifie par une CAUSE.');
+  console.log('    ⇒ Si une règle Cloudflare vient d\'être touchée : `--attendre`.');
+  console.log('       Sinon : deux nœuds du bord ne servent pas la même chose.');
+  process.exit(2);
 }
 
 if (indecidables && zonesJoignables < ZONES.length) {

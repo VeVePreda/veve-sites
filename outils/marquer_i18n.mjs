@@ -137,6 +137,94 @@ try {
 // passe-t-elle ? » aurait relu une regexp qui n'est plus le juge.
 const estCle = (c) => estUneCle(c, DICT_REF);
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴⭐⭐⭐ LES LIBELLÉS À VARIABLES — la moitié qui manquait depuis le lot 139
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Une clé à variables (`rayon.compte` = « {n} pieces in the catalogue · {c}
+// have a page on this site. ») arrive ici DÉJÀ REMPLIE : le gabarit a été
+// résolu au build, et le texte porte « 2,758 » et « 2,534 ». On la marquait
+// `data-i18n-var`, et le navigateur passait son chemin — le commentaire d'à
+// côté disait déjà pourquoi : *« pour que le navigateur puisse resubstituer
+// S'IL SAIT LE FAIRE »*. Il ne savait pas. Résultat mesuré le 25/08 sur une
+// capture de Preda : « 2,758 pieces in the catalogue » en anglais au milieu
+// d'une page française, **pour tout le monde**, cache vide compris.
+//
+// ⭐⭐ CE QUI MANQUAIT N'EST PAS LA TRADUCTION, C'EST LA VALEUR. Le client a le
+// gabarit français ; il n'a pas « 2,758 ». Personne ne peut le lui rendre
+// après coup — sauf ici, où l'on tient à la fois le gabarit ANGLAIS et le
+// texte REMPLI. On les compare, on en sort les variables, on les émet.
+//
+// ⛔⛔ ET ON REFUSE PLUTÔT QUE DE DEVINER. Deux jetons collés (`{a}{b}`) ou un
+// littéral vide rendent le découpage ambigu : « 12 » pourrait être (1, 2) ou
+// (12, ∅). Dans ce cas on n'émet RIEN, et le libellé reste anglais — *un texte
+// anglais juste vaut mieux qu'un texte français faux*, c'est déjà la doctrine
+// des attributs mixtes trente lignes plus haut.
+let nVariable = 0, nVariableRefus = 0;
+
+/**
+ * Le gabarit de référence (langue pivot) derrière une clé.
+ * 🔴🔴 LE DICTIONNAIRE EST **PLAT** : ses clés sont littéralement
+ *   `'rayon.compte'`, PAS `{ rayon: { compte } }`. La première version de cette
+ *   fonction découpait sur les points et descendait dans l'objet — elle rendait
+ *   `null` sur les 26 libellés à variables du site, donc `data-i18n-v` n'était
+ *   émis nulle part, donc rien n'était traduit. Et le marquage restait
+ *   « réussi » : 0 resubstituable, 26 refusés, aucune erreur.
+ * ⭐⭐⭐ MESURE DU 25/08 : ce chiffre imprimé est ce qui a révélé MA faute — sans
+ *   lui, j'aurais livré une correction qui ne corrige rien, et le libellé serait
+ *   resté anglais en croyant le contraire. *Un compte qu'on imprime est un
+ *   compte qui se défend.*
+ * ⚠️ On garde le repli imbriqué : si un jour le dictionnaire prend une forme
+ *   arborescente, cette fonction ne redeviendra pas muette du jour au lendemain.
+ */
+const gabaritRef = (cle) => {
+  if (!DICT_REF) return null;
+  const direct = DICT_REF[cle];
+  if (typeof direct === 'string') return direct;
+  let n = DICT_REF;
+  for (const part of String(cle).split('.')) {
+    if (!n || typeof n !== 'object') return null;
+    n = n[part];
+  }
+  return typeof n === 'string' ? n : null;
+};
+
+/** Les jetons d'un gabarit, dans l'ordre : `{nom}` nommés, `%s` positionnels. */
+const jetonsDe = (g) => [...g.matchAll(/\{(\w+)\}|%s/g)]
+  .map((m, i) => ({ nom: m[1] !== undefined ? m[1] : String(i), brut: m[0] }));
+
+/**
+ * Les valeurs d'un libellé rempli, ou `null` si le découpage est ambigu.
+ * ⭐ On reconstruit le motif DEPUIS le gabarit : c'est la seule façon de ne pas
+ *   dépendre de la ponctuation d'une langue en particulier.
+ */
+function variablesDe(cle, texte) {
+  const g = gabaritRef(cle);
+  if (!g) return null;
+  const jetons = jetonsDe(g);
+  if (!jetons.length) return null;
+
+  // Les morceaux littéraux entre les jetons. Un littéral vide AU MILIEU rend
+  // deux variables inséparables ⇒ on refuse. (Aux extrémités, c'est normal.)
+  const morceaux = g.split(/\{\w+\}|%s/);
+  for (let i = 1; i < morceaux.length - 1; i++) {
+    if (morceaux[i] === '') return null;
+  }
+  const ech = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const motif = new RegExp('^' + morceaux.map(ech).join('(.*?)') + '$', 's');
+  const m = String(texte).match(motif);
+  if (!m) return null;
+
+  const out = {};
+  for (let i = 0; i < jetons.length; i++) {
+    const v = m[i + 1];
+    if (v === undefined) return null;
+    out[jetons[i].nom] = v;
+  }
+  return out;
+}
+
+
 // ⛔ LES BALISES DE TÊTE NE SE MARQUENT PAS. `<meta>`, `<title>`, `<link>`,
 // `<html>` : c'est le SEO, et tout ce lot existe pour que le HTML servi aux
 // moteurs reste identique pour tout le monde. Un `data-i18n-attr` sur
@@ -252,7 +340,17 @@ for (const f of html) {
     // une surprise.
     if (!estCle(propre)) { nDeforme++; clesDeformees.add(propre); return texte; }
     nTexte++; clesVues.add(propre);
-    return `<span data-i18n="${echapper(propre)}"${variable ? ' data-i18n-var' : ''}>${texte}</span>`;
+    // ⭐ `data-i18n-var` RESTE, même quand on sait resubstituer. C'est lui qui
+    //   dit « ce texte n'est pas le libellé brut » — les bancs et le client
+    //   s'en servent tous les deux, et le retirer changerait le sens d'un
+    //   attribut que d'autres fichiers lisent déjà.
+    let extra = '';
+    if (variable) {
+      const vals = variablesDe(propre, texte);
+      if (vals) { extra = ` data-i18n-v="${echapper(JSON.stringify(vals))}"`; nVariable++; }
+      else nVariableRefus++;
+    }
+    return `<span data-i18n="${echapper(propre)}"${variable ? ' data-i18n-var' : ''}${extra}>${texte}</span>`;
   });
 
   // ⛔⛔ LE BALAI DE FIN, ET IL EST LE FILET DE SÉCURITÉ DE TOUT CE FICHIER.
@@ -385,6 +483,12 @@ console.log(
   + `· ${nAttribut} en ATTRIBUT échangeables (${clesAttribut.size} clés, via data-i18n-attr) `
   + `· ${nAttributRefuse} attribut(s) mixte(s) laissés en anglais (le libellé n'occupe pas toute la valeur) `
   + `· ${nBrut} en <title>/<meta>/<script> laissés bruts (voulu : le SEO reste anglais)`
+  // ⭐⭐ CE COMPTE DOIT ATTEINDRE LE LECTEUR. Sans lui, une extraction qui se
+  //   mettrait à refuser TOUS les libellés à variables (un gabarit anglais
+  //   reformulé, un jeton renommé) rendrait la page anglaise en silence — et
+  //   le marquage resterait « réussi ». *Un chiffre qu'on n'imprime pas est un
+  //   chiffre qu'on ne surveille pas.*
+  + `${nVariable || nVariableRefus ? ` · ${nVariable} libellé(s) à VARIABLES resubstituables (data-i18n-v)${nVariableRefus ? `, ${nVariableRefus} refusé(s) — découpage ambigu, ils restent anglais` : ''}` : ''}`
   + `${nOrphelins ? ` · ⚠️ ${nOrphelins} page(s) portaient un marqueur AMPUTÉ (un gabarit coupe ou transforme un t()) — balayé` : ''}`
   + `${nDeforme ? ` · 🔴 ${nDeforme} clé(s) DÉFORMÉE(S) non échangeables : ${[...clesDeformees].join(', ')} — un gabarit transforme le résultat de t()` : ''}.`);
 console.log(`[i18n] dictionnaires servis : ${poids.join(' · ') || 'aucun (une seule langue d\'interface)'}`);

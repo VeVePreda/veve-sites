@@ -17,7 +17,7 @@ import * as memoire from './memoire.mjs';
 //    `projeterCote()` pour que ce soit vrai par construction.
 import { deposerVignettes } from './vignettes.mjs';
 import { deposerRayonIndex } from './rayon_index.mjs';
-import { getCatalogue, getBaselines, getReleves, getOmiUsd, streamPrices } from '../data/warehouse.mjs';
+import { getCatalogue, getBaselines, getReleves, getFichesStackr, getOmiUsd, streamPrices } from '../data/warehouse.mjs';
 // 💱 LOT 181 — le cours OMI → USD, déposé dans la réserve pour `/api/cote/lot`.
 //    Toute la règle (péremption, refus du zéro) vit dans le module ; ici il
 //    n'y a qu'un chargement et un dépôt.
@@ -312,6 +312,65 @@ export function indexerReleves(releves) {
   return { par, ignorees };
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 🛰️ LES FICHES StackR — lot 190, 25/08/2026
+// ═══════════════════════════════════════════════════════════════════════════
+// Ce que StackR publie sur une pièce et que notre entrepôt n'avait pas : les
+// éditions BRÛLÉES, la circulation réelle, le nombre d'offres en cours, la
+// commission du marché.
+//
+// 🔴🔴🔴 ZÉRO N'EST PAS « PAS DE DONNÉE », ET C'EST TOUT L'ENJEU DE CE LECTEUR.
+// `editions_burnt = 0` est un FAIT (« aucune pièce détruite »), tandis qu'un
+// item que la rotation n'a pas encore visité n'a RIEN. Les deux s'affichent
+// différemment — « 0 » et « — » — et les confondre ferait dire au site qu'il
+// sait quelque chose qu'il ignore, sur ~90 % du catalogue pendant dix jours.
+// ⇒ On rend `null` sur une case vide ou illisible, et le NOMBRE sinon.
+// ⛔ `Number('')` vaut 0 : ce piège-là est exactement celui qu'on désamorce ici.
+//
+// 🔴 UNE SEULE LIGNE PAR PIÈCE EN THÉORIE, MAIS ON NE LE SUPPOSE PAS. Le
+// collecteur réécrit le CSV entier à chaque tour et déduplique par uuid ; si
+// cette garantie tombait un jour, garder la PREMIÈRE ligne publierait une
+// valeur périmée en sortant vert. ⇒ on retient le `ts_releve` le plus GRAND,
+// comme `indexerReleves` retient `MAX(ts)` pour la même raison.
+export function indexerFichesStackr(lignes) {
+  const par = new Map();
+  let ignorees = 0;
+  // ⛔ `nombre` REFUSE la chaîne vide AVANT d'appeler `Number`. Une garde
+  //    posée après aurait laissé passer `0`, et « aucune brûlée » aurait été
+  //    indistinguable de « jamais visité ».
+  const nombre = (x) => {
+    const v = String(x ?? '').trim();
+    if (v === '') return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  };
+  for (const r of lignes || []) {
+    const u = r.veve_uuid || r.uuid;
+    const sec = Number(r.ts_releve);
+    if (!u || !Number.isFinite(sec) || sec <= 0) { ignorees++; continue; }
+    const e = par.get(u);
+    if (e && e.sec >= sec) continue;
+    par.set(u, {
+      sec,
+      famille: String(r.famille || '').trim() || null,
+      circulation: nombre(r.in_circulation),
+      brulees: nombre(r.editions_burnt),
+      emises: nombre(r.issued),
+      offres: nombre(r.offres_en_cours),
+      // ⚠️ `market_fee` ARRIVE EN FRACTION (`0.02`), PAS EN POURCENTAGE. Le
+      //   gabarit multiplie ; le stocker déjà multiplié ferait deux endroits
+      //   qui décident de l'unité, et c'est ainsi qu'on obtient « 200 % ».
+      frais: nombre(r.market_fee),
+      // ⭐ La date de relevé du floor selon StackR — le champ que le projet
+      //   n'avait pas. ⚠️ Il est VIDE sur les collectibles (mesuré sur les
+      //   2 000 premières fiches, 25/08) : leur API ne le porte pas. Une chaîne
+      //   vide devient `null`, jamais une date d'aujourd'hui.
+      floorMaj: String(r.floor_maj || '').trim() || null,
+    });
+  }
+  return { par, ignorees };
+}
+
 /** La date d'un releve, en ISO court. ⚠️ Epoch en SECONDES. */
 export const jourDeReleve = (sec) => new Date(sec * 1000).toISOString().slice(0, 10);
 
@@ -357,8 +416,12 @@ async function construireDataset() {
   //    parallèle des trois autres, il ne coûte RIEN de mesurable.
   // ⛔ `chargerFacultatif` ne rejette jamais pour une absence (il rend `[]`) :
   //    ce `Promise.all` ne peut pas échouer à cause de lui.
-  const [cat, baselines, releves, tauxLignes] = await Promise.all([
-    getCatalogue(), getBaselines(), getReleves(), getOmiUsd()]);
+  // 🛰️ LOT 190 — les fiches StackR entrent dans le MÊME `Promise.all`, pour la
+  //    raison exacte du cours OMI trois lignes plus haut : un `await` à lui
+  //    ajouterait un aller-retour réseau complet sur le chemin critique d'un
+  //    build dont la durée est déjà un chantier ouvert.
+  const [cat, baselines, releves, tauxLignes, fichesSt] = await Promise.all([
+    getCatalogue(), getBaselines(), getReleves(), getOmiUsd(), getFichesStackr()]);
   memoire.jalon(`catalogue (${cat.length}) + baselines (${baselines.length}) + releves (${releves.length}) lus`);
 
   // --- Agregation EN FLUX -------------------------------------------------
@@ -421,10 +484,21 @@ async function construireDataset() {
   for (const b of baselines) bl.set(b.veve_uuid || b.uuid, b);
 
   const { par: rel, ignorees: relIgnores } = indexerReleves(releves);
+  const { par: fst, ignorees: fstIgnores } = indexerFichesStackr(fichesSt);
   // ⭐⭐ L'INSTRUMENT SE DECLARE, MEME QUAND IL VA BIEN. Un `0` sur cette ligne
   // est la seule trace, dans 3 000 lignes de log, de la difference entre « la
   // source est absente » et « la source est la et ne joint rien ».
   console.log(`[entrepot] releves : ${releves.length} ligne(s), ${rel.size} uuid date(s), ${relIgnores} ligne(s) sans horodate exploitable`);
+  // 🛰️ ET LA COUVERTURE SE DIT TOUT HAUT. Pendant la rotation (~10 jours pour
+  //    un tour complet), la plupart des items n'ont PAS de fiche StackR. Sans
+  //    ce chiffre au journal, une chute de couverture — collecteur en panne,
+  //    release renommée, schéma changé — ressemblerait à un build normal.
+  //    ⭐ C'est le seul endroit où « 0 fiche lue » et « tout va bien » se
+  //    distinguent, et il ne coûte qu'une ligne.
+  console.log(`[entrepot] fiches StackR : ${fichesSt.length} ligne(s), ${fst.size} piece(s) couverte(s)`
+    + ` sur ${cat.length} au catalogue (${cat.length ? Math.round(1000 * fst.size / cat.length) / 10 : 0} %)`
+    + `${fstIgnores ? `, ${fstIgnores} ligne(s) sans horodate exploitable` : ''}`
+    + `${fichesSt.length === 0 ? ' — ⚠️ AUCUNE fiche : les colonnes StackR afficheront « — » partout' : ''}`);
   // ⭐ Le schema de l'entrepot n'est pas fige : on le JOURNALISE au lieu de le
   // supposer. Un champ absent ne provoque aucune erreur, il rend juste une
   // valeur nulle — le defaut le plus difficile a voir. C'est exactement ce qui
@@ -627,6 +701,44 @@ async function construireDataset() {
       // et `vfloors` sont deux MARCHES (rapport median 4 423, p10 2 273,
       // p90 8 520). Le taux OMI horodate n'est stocke nulle part.
       floorStackr: rel.get(uuid)?.stackr ?? null,
+      // ═══════════════════════════════════════════════════════════════════════
+      // 🛰️ LOT 190 — CE QUE STACKR SAIT ET QUE NOUS N'AVIONS PAS
+      // ═══════════════════════════════════════════════════════════════════════
+      // ⭐⭐⭐ TOUS CES CHAMPS SONT `null` QUAND LA ROTATION N'A PAS ENCORE VU LA
+      // PIÈCE, ET `null` N'EST PAS `0`. `?? null` et non `|| null` : `|| null`
+      // transformerait « aucune édition brûlée » (0, un fait mesuré) en « on ne
+      // sait pas » (null) — et la fiche afficherait « — » là où elle devrait
+      // afficher « 0 ». La distinction porte sur ~90 % du catalogue pendant
+      // toute la rotation, elle n'est donc pas théorique.
+      //
+      // 🌐 PUBLICS, ET LA LIGNE DE PARTAGE EST CELLE DE `cote.mjs` : un PRIX va
+      // derrière le mur, un FAIT reste public. `floorStackr` est un prix et y
+      // reste. Combien de pièces existent, combien ont été détruites, combien
+      // sont en vente : ce sont des faits de catalogue, du même ordre que
+      // `tirage` et `listings`, qui sont publics depuis toujours. ⛔ Les fermer
+      // « par prudence » fermerait ce que le site a vocation à dire.
+      circulationStackr: fst.get(uuid)?.circulation ?? null,
+      bruleesStackr: fst.get(uuid)?.brulees ?? null,
+      emisesStackr: fst.get(uuid)?.emises ?? null,
+      offresStackr: fst.get(uuid)?.offres ?? null,
+      // ⛔⛔ `market_fee` EST LU PAR L'INDEXEUR ET **N'EST PAS PROJETÉ**, ET CE
+      //    N'EST PAS UN OUBLI. La fiche affiche DÉJÀ des frais de marché
+      //    (`item.fraisMarche`, clé `item.marketFee`), qui viennent du
+      //    catalogue. Projeter celui de StackR donnerait au site DEUX vérités
+      //    sur la même question, dans deux unités différentes (fraction ici,
+      //    pourcentage là) — et c'est ainsi qu'on obtient « 200 % » un jour de
+      //    refactoring. ⭐ Le champ reste lu par `indexerFichesStackr` : si un
+      //    écart entre les deux sources devient intéressant, il est à un seul
+      //    `?.frais` d'ici. Tant que personne ne l'a demandé, il ne sort pas.
+      //    → *un champ qui porte deux sens ne casse rien : il fait dire au
+      //      gabarit une chose vraie sous une étiquette fausse.*
+      // 🕰️ LA DATE DE RELEVÉ DU FLOOR SELON STACKR — ce que le projet cherchait.
+      // ⚠️ VIDE SUR LES COLLECTIBLES (mesuré sur les 2 000 premières fiches du
+      //    25/08) : leur API ne porte pas ce champ. ⛔ Ne pas le remplacer par
+      //    `releveStackrLe` : celui-là date NOTRE observation, celui-ci date
+      //    LEUR prix. Deux horloges, encore — et les confondre est la faute que
+      //    le lot 146 a déjà payée un mur plus loin.
+      floorMajStackr: fst.get(uuid)?.floorMaj ?? null,
       // ═══════════════════════════════════════════════════════════════════════
       // LES SIX COLONNES QUE LE CATALOGUE PORTAIT ET QUE CE FICHIER JETAIT
       // ═══════════════════════════════════════════════════════════════════════

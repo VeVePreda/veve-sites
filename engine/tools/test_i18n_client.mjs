@@ -386,7 +386,19 @@ const src = corps.find((x) => x && x.includes('data-i18n') && x.includes('vp_lan
 if (!src) { indecis('le script d\'échange', 'introuvable, ni en ligne ni dans un socle référencé (cherché : vp_langue + data-i18n)'); fin(); }
 
 const avant = document.body.textContent;
-const faussetFetch = () => Promise.resolve({ ok: true, json: () => Promise.resolve(dicos[lang]) });
+// ⚠️⚠️ CE FAUX `fetch` REND `text()` **ET** `json()`, ET CE N'EST PAS DU ZÈLE.
+//   Depuis le 25/08 le script lit `r.text()` (il compare le texte brut au
+//   cache rangé, voir plus bas). Un faux `fetch` qui n'offrirait que `json()`
+//   ferait lever le script — et ce banc l'aurait signalé comme « le script
+//   d'échange lève », en accusant le code d'un défaut du BANC.
+//   ⭐ C'est `regle-injection-qui-ne-mord-pas-accuse-le-jeu-dessai`, prise dans
+//   l'autre sens : un faux trop pauvre invente un défaut au lieu d'en cacher un.
+const reponse = (d) => ({
+  ok: true,
+  text: () => Promise.resolve(JSON.stringify(d)),
+  json: () => Promise.resolve(d),
+});
+const faussetFetch = () => Promise.resolve(reponse(dicos[lang]));
 let leve = '';
 try {
   new Function('document', 'window', 'localStorage', 'fetch', src)(
@@ -428,6 +440,84 @@ verifie('…et `<html lang>` suit, sinon la synthèse vocale garde l\'accent ang
   document.documentElement.getAttribute('lang') === lang,
   `lang="${document.documentElement.getAttribute('lang')}"`);
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴⭐⭐⭐ 4 bis. LES LIBELLÉS À VARIABLES — « 2,758 pieces in the catalogue »
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Ces libellés-là arrivent DÉJÀ REMPLIS dans le HTML : le gabarit a été résolu
+// au build. Jusqu'au 25/08/2026 le client les sautait (`data-i18n-var` ⇒
+// `continue`), et ils restaient anglais **pour tout le monde** — cache vide
+// compris, navigateur neuf compris, fenêtre privée comprise. Ce n'était donc
+// PAS le même défaut que le cache périmé du § 4 ter : deux causes distinctes
+// qui produisaient le même symptôme à l'écran.
+// ⛔ NE PAS TRAITER L'UNE POUR L'AUTRE. Corriger le cache laisse cette phrase
+//   en anglais ; corriger celle-ci laisse tous les anciens visiteurs en anglais.
+//
+// ⭐⭐ CE QUE CE § REFUSE PAR-DESSUS TOUT : un gabarit à moitié rempli. Voir
+//   « {n} pièces au catalogue » à l'écran serait pire que l'anglais — le
+//   lecteur verrait la mécanique. Le code doit rendre l'anglais plutôt que ça,
+//   et cette ligne est ce qui l'y oblige.
+console.log('\n4 bis. les libellés à VARIABLES sont-ils resubstitués ?');
+{
+  const varNoeuds = [...document.querySelectorAll('[data-i18n-var]')];
+  const avecV = varNoeuds.filter((e) => e.hasAttribute('data-i18n-v'));
+
+  // ⭐⭐⭐ LE JEU D'ESSAI D'ABORD. Si cette page ne porte aucun libellé à
+  //   variables, il n'y a RIEN à mesurer — et le dire vert serait signer une
+  //   page blanche. INDÉCIDABLE, jamais vert.
+  if (varNoeuds.length === 0) {
+    indecis('les libellés à variables',
+      'aucun `data-i18n-var` sur la page la plus marquée — rien à mesurer ici');
+  } else if (avecV.length === 0) {
+    verifie('⛔ au moins un libellé à variables porte ses valeurs (`data-i18n-v`)', false,
+      `🔴 ${varNoeuds.length} libellé(s) à variables, AUCUN ne porte de valeurs. ` +
+      '`marquer_i18n.mjs` les a tous refusés : sans valeurs le client ne peut pas ' +
+      'remplir le gabarit traduit, et la phrase reste anglaise pour TOUS les lecteurs.');
+  } else {
+    let bons = 0;
+    const mauvais = [];
+    for (const e of avecV) {
+      const cle = e.getAttribute('data-i18n');
+      const attendu = dicos[lang][cle];
+      const vu = e.textContent;
+      // ⛔ « traduit » ne suffit pas : on exige qu'AUCUN jeton ne subsiste.
+      //   Un `{n}` ou un `%s` visible est un défaut plus grave que l'anglais.
+      const jetonVisible = /\{\w+\}|%s/.test(vu);
+      if (attendu === undefined) { bons++; continue; } // pas au dictionnaire : hors sujet
+      if (!jetonVisible && vu !== e.getAttribute('data-i18n-v') && vu.trim() !== '') {
+        // Le texte doit correspondre au gabarit traduit, jetons remplis.
+        const motif = new RegExp('^' + attendu
+          .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+          .replace(/\\\{\w+\\\}|%s/g, '.+?') + '$', 's');
+        if (motif.test(vu)) { bons++; continue; }
+      }
+      mauvais.push(`${cle} → « ${vu.slice(0, 60)} »`);
+    }
+    verifie(`⛔ les phrases à nombres passent en ${lang}, jetons remplis`,
+      mauvais.length === 0,
+      mauvais.length === 0
+        ? `${bons}/${avecV.length} libellé(s) à variables resubstitués`
+        : `🔴 ${mauvais.length}/${avecV.length} en échec : ${mauvais.slice(0, 3).join(' · ')}`);
+
+    verifie('⛔ AUCUN gabarit à moitié rempli n\'atteint l\'écran',
+      !avecV.some((e) => /\{\w+\}|%s/.test(e.textContent)),
+      'un `{n}` ou un `%s` visible montre la mécanique au lecteur — ' +
+      'le code doit rendre l\'anglais plutôt que ça');
+  }
+
+  // ⭐ ET LA CONTRE-ÉPREUVE : un libellé à variables SANS valeurs doit rester
+  //   anglais, pas être écrasé par un gabarit brut. C'est ce qui arrive quand
+  //   le marquage a refusé un découpage ambigu — le cas doit rester SÛR.
+  const sansV = varNoeuds.filter((e) => !e.hasAttribute('data-i18n-v'));
+  if (sansV.length) {
+    verifie('⛔ un libellé à variables SANS valeurs reste anglais (pas de gabarit nu)',
+      !sansV.some((e) => /\{\w+\}|%s/.test(e.textContent)),
+      `${sansV.length} libellé(s) refusé(s) au marquage — ils gardent leur texte anglais`);
+  } else {
+    console.log('  ·    tous les libellés à variables de cette page portent leurs valeurs.');
+  }
+}
+
 // ⭐⭐ LA CONTRE-ÉPREUVE : sans cookie, RIEN ne doit bouger. Sans elle, un
 // script qui traduirait tout le monde en français passerait les lignes
 // ci-dessus avec les félicitations du jury.
@@ -440,5 +530,120 @@ await new Promise((r) => setTimeout(r, 20));
 verifie('⛔ SANS cookie de langue, la page ne bouge pas d\'un mot',
   doc2.body.textContent === avant2 && doc2.documentElement.getAttribute('lang') !== lang,
   doc2.body.textContent === avant2 ? 'anglais servi, anglais affiché' : '🔴 la page a été traduite sans qu\'on le demande');
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴⭐⭐⭐ 4 ter. LE VISITEUR QUI REVIENT — un cache PÉRIMÉ doit se rattraper
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// CE § EXISTE PARCE QU'AUCUN AUTRE N'AURAIT VU LE DÉFAUT DU 25/08/2026.
+// Le script rangeait le dictionnaire dans `localStorage` puis, à la visite
+// suivante, faisait `echanger(cache); return;` — sans jamais revalider. Toute
+// clé ajoutée depuis restait anglaise chez ce visiteur, définitivement.
+//
+// ⭐⭐⭐ ET TOUS LES INSTRUMENTS HABITUELS ÉTAIENT VERTS, LÉGITIMEMENT :
+//   le dépôt avait les traductions · `/i18n/fr.json` les servait · le gabarit
+//   était correct · le § 4 ci-dessus passait — parce qu'il part d'un
+//   `localStorage` VIDE, comme la CI, comme `curl`, comme un navigateur neuf.
+// ⇒ *Un instrument qui ne garde pas d'état ne peut pas voir un défaut d'état.*
+//   Le seul jeu d'essai qui mord est celui qui ARRIVE AVEC UN CACHE.
+//
+// LE MONTAGE : on range un dictionnaire AMPUTÉ (la moitié des clés de la page),
+// on sert le dictionnaire COMPLET par `fetch`, et on exige que la page finisse
+// ENTIÈREMENT traduite. Avec l'ancien code, les clés absentes du cache
+// restaient anglaises et cette ligne rougissait.
+console.log('\n4 ter. un visiteur qui revient avec un cache PÉRIMÉ finit-il traduit ?');
+
+{
+  const { document: doc3, window: win3 } = parseHTML(brut);
+  Object.defineProperty(doc3, 'cookie', { get: () => `vp_langue=${lang}`, configurable: true });
+
+  // Les clés RÉELLEMENT portées par cette page — pas celles du dictionnaire.
+  // ⛔ Amputer des clés que la page n'utilise pas ne mesurerait rien.
+  const clesPage = [...new Set([...doc3.querySelectorAll('[data-i18n]')]
+    .filter((e) => !e.hasAttribute('data-i18n-var'))
+    .map((e) => e.getAttribute('data-i18n'))
+    .filter((c) => dicos[lang][c] !== undefined))];
+
+  const moitie = Math.floor(clesPage.length / 2);
+  const gardees = clesPage.slice(0, moitie);
+  const retirees = clesPage.slice(moitie);
+
+  // ⭐⭐⭐ LE JEU D'ESSAI SE JUGE AVANT DE JUGER LE CODE. S'il n'y a pas au
+  //   moins une clé gardée ET une clé retirée, l'injection ne peut pas mordre :
+  //   un cache complet ou un cache vide retomberaient tous deux dans le § 4.
+  //   ⛔ Dans ce cas on dit INDÉCIDABLE — jamais vert.
+  if (gardees.length < 1 || retirees.length < 1) {
+    indecis('le cache périmé',
+      `jeu d'essai insuffisant : ${gardees.length} clé(s) gardée(s) / ` +
+      `${retirees.length} retirée(s) sur ${clesPage.length} — il en faut au moins ` +
+      'une de chaque pour que le cache soit PÉRIMÉ et non vide ou complet');
+  } else {
+    const vieux = {};
+    for (const c of gardees) vieux[c] = dicos[lang][c];
+    const rangé3 = { [`vp-i18n-${lang}`]: JSON.stringify(vieux) };
+    win3.localStorage = {
+      getItem: (k) => rangé3[k] ?? null,
+      setItem: (k, v) => { rangé3[k] = v; },
+    };
+
+    let leve3 = '';
+    try {
+      new Function('document', 'window', 'localStorage', 'fetch', src)(
+        doc3, win3, win3.localStorage, faussetFetch);
+    } catch (e) { leve3 = e.message; }
+    await new Promise((r) => setTimeout(r, 40));
+
+    const lit = (c) => {
+      const e = doc3.querySelector(`[data-i18n="${c}"]`);
+      return e ? e.textContent : null;
+    };
+    const rattrapees = retirees.filter((c) => lit(c) === dicos[lang][c]).length;
+
+    verifie('le script survit à un cache déjà rempli', !leve3, leve3 || 'aucune exception');
+
+    verifie('⛔ les clés ABSENTES du cache sont rattrapées par la revalidation',
+      rattrapees === retirees.length,
+      rattrapees === retirees.length
+        ? `${rattrapees}/${retirees.length} clé(s) neuve(s) traduites malgré un cache périmé`
+        : `🔴 ${rattrapees}/${retirees.length} — un lecteur fidèle verrait ces libellés ` +
+          'EN ANGLAIS POUR TOUJOURS. Le script sert le cache et ne revalide pas : ' +
+          '⛔ ne jamais faire `if (cache) { echanger(cache); return; }`');
+
+    // ⭐ Et la moitié déjà cachée ne doit pas avoir été perdue au passage.
+    const tenues = gardees.filter((c) => lit(c) === dicos[lang][c]).length;
+    verifie('…sans casser ce que le cache portait déjà',
+      tenues === gardees.length,
+      `${tenues}/${gardees.length} clé(s) du cache toujours en place`);
+
+    // ⭐ Le cache est-il RAFRAÎCHI ? Sinon le rattrapage recommence à chaque
+    //   page vue : correct à l'écran, mais une revalidation gaspillée à vie.
+    let range = null;
+    try { range = JSON.parse(rangé3[`vp-i18n-${lang}`]); } catch { range = null; }
+    verifie('…et le cache rangé est REMPLACÉ par le dictionnaire complet',
+      Boolean(range) && retirees.every((c) => range[c] === dicos[lang][c]),
+      range ? `${Object.keys(range).length} clé(s) rangées` : '🔴 cache illisible après passage');
+  }
+
+  // ⭐⭐ LA CONTRE-ÉPREUVE DU RÉSEAU MUET. Le cache existe pour ça : si le
+  //   `fetch` échoue, la page doit RESTER traduite avec ce qu'on avait.
+  //   ⛔ Sans cette ligne, « revalider toujours » pourrait dégénérer en
+  //   « ne rien afficher tant que le réseau n'a pas répondu ».
+  const { document: doc4, window: win4 } = parseHTML(brut);
+  Object.defineProperty(doc4, 'cookie', { get: () => `vp_langue=${lang}`, configurable: true });
+  const rangé4 = { [`vp-i18n-${lang}`]: JSON.stringify(dicos[lang]) };
+  win4.localStorage = { getItem: (k) => rangé4[k] ?? null, setItem: () => {} };
+  try {
+    new Function('document', 'window', 'localStorage', 'fetch', src)(
+      doc4, win4, win4.localStorage, () => Promise.reject(new Error('réseau coupé')));
+  } catch { /* rien */ }
+  await new Promise((r) => setTimeout(r, 40));
+  const n4 = [...doc4.querySelectorAll('[data-i18n]')].filter((e) => !e.hasAttribute('data-i18n-var'));
+  const t4 = n4.filter((e) => e.textContent === dicos[lang][e.getAttribute('data-i18n')]).length;
+  verifie('⛔ RÉSEAU COUPÉ : le cache tient encore la page traduite',
+    n4.length > 0 && t4 === n4.length,
+    t4 === n4.length
+      ? `${t4}/${n4.length} libellés servis par le seul cache`
+      : `🔴 ${t4}/${n4.length} — la revalidation a fait perdre ce que le cache portait`);
+}
 
 fin();

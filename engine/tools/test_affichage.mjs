@@ -1546,5 +1546,167 @@ console.log('\n12. « Voir sur StackR » : un lien, et seulement où c\'est vrai
   }
 }
 
+console.log('\n13. 🛰️ les chiffres StackR : « 0 » et « — » ne disent pas la même chose');
+let indecis13 = 0;
+{
+  // ═════════════════════════════════════════════════════════════════════════
+  // 🔴🔴🔴 CE § SURVEILLE UNE DISTINCTION, PAS UNE PRÉSENCE.
+  // ═════════════════════════════════════════════════════════════════════════
+  // Trois chiffres arrivent de `fiches_stackr.csv` : les offres en cours, la
+  // circulation, les éditions brûlées. Ils partagent tous le même piège :
+  //   · `0`  = un FAIT mesuré (« plus personne ne vend », « aucune brûlée ») ;
+  //   · `—`  = la rotation n'a PAS ENCORE visité cette pièce.
+  // La rotation couvre ~10 % du catalogue et mettra dix jours à faire un tour :
+  // les deux états coexistent en production, sur des dizaines de milliers de
+  // pages, et un `||` mal placé dans `dataset.mjs` les confondrait sans qu'une
+  // seule ligne rougisse ailleurs. `Number('')` vaut 0 — le piège est à un
+  // caractère.
+  //
+  // ⭐⭐⭐ ET C'EST POURQUOI LE § EXIGE **LES DEUX BRANCHES DANS LE MÊME BUILD**.
+  // Un corpus qui ne porterait que des fiches couvertes ne peut pas mesurer le
+  // tiret ; un corpus vide ne peut pas mesurer le chiffre. Dans les deux cas
+  // le verdict serait INDÉCIDABLE et non vert — *une injection qui ne mord pas
+  // accuse le jeu d'essai, pas le code.* L'échantillon
+  // `engine/data/sample/fiches_stackr.csv` couvre volontairement UNE PARTIE des
+  // uuid pour que les deux vivent ici. ⛔ Ne pas le compléter.
+  const gab = lire('src/components/pages/Item.astro')
+    // ⛔ LES COMMENTAIRES D'ABORD. Ce gabarit EXPLIQUE en toutes lettres qu'il
+    //   ne faut pas écrire `item.offresStackr ? …` — un banc qui cherche cette
+    //   chaîne la trouverait dans la mise en garde et déclarerait la faute
+    //   présente. Le dossier a payé ce piège quatre fois.
+    .replace(/\{\/\*[\s\S]*?\*\/\}/g, ' ')
+    .replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/^\s*\/\/.*$/gm, ' ');
+
+  // ── ① LE GABARIT TESTE-T-IL L'EXISTENCE, OU LA VÉRITÉ ? ──────────────────
+  for (const champ of ['offresStackr', 'circulationStackr', 'bruleesStackr']) {
+    const nul = new RegExp(`item\\.${champ}\\s*!=\\s*null`).test(gab);
+    // ⛔ Le motif fautif : `item.X ? … : —` ou `item.X && …`. Il efface le zéro.
+    const verite = new RegExp(`item\\.${champ}\\s*(\\?|&&)`).test(gab);
+    verifie(`\`${champ}\` se teste sur \`!= null\`, jamais sur sa vérité`,
+      nul && !verite,
+      nul && !verite
+        ? 'un « 0 » mesuré s\'affiche comme 0'
+        : '🔴 un test de vérité efface le zéro : « plus personne ne vend cette pièce » '
+          + 'deviendrait « pas encore collecté », exactement sur les pièces qui comptent');
+  }
+
+  // ── ② LE PRODUIT — les deux branches, et ce qu'elles portent ─────────────
+  const racine13 = existsSync(join(DIST, 'client')) ? join(DIST, 'client') : DIST;
+  const fiches13 = [];
+  const descendre13 = (dossier, reste) => {
+    if (reste < 0 || fiches13.length >= 400 || !existsSync(dossier)) return;
+    for (const e of readdirSync(dossier, { withFileTypes: true })) {
+      if (fiches13.length >= 400) return;
+      const q = join(dossier, e.name);
+      if (e.isDirectory()) descendre13(q, reste - 1);
+      else if (e.name === 'index.html') fiches13.push(q);
+    }
+  };
+  for (const fam of ['collectibles', 'comics']) descendre13(join(racine13, fam), 3);
+
+  if (!fiches13.length) {
+    console.log('  ⏸️  ② sans objet — ce site ne rend pas de fiches d\'items.');
+  } else {
+    // ⚠️⚠️ ON MESURE LES TROIS CHAMPS DANS LE PRODUIT, ET PAS SEULEMENT LES
+    //   OFFRES. Première version de ce §, le 25/08 : il lisait le gabarit pour
+    //   les trois et le PRODUIT pour un seul. Injection `?? null` → `|| null`
+    //   sur `bruleesStackr` : le banc est resté VERT. Le contrôle du gabarit
+    //   ne mordait pas parce que la faute n'était pas dans le gabarit — elle
+    //   était deux fichiers plus haut, là où le zéro se perd.
+    //   ⭐⭐⭐ *Une injection qui ne mord pas accuse le jeu d'essai, pas le code*
+    //   — ici elle a accusé la PORTÉE de la mesure, et elle avait raison.
+    const CHAMPS = [
+      ['data-offres-stackr', 'offres en cours'],
+      ['data-circulation-stackr', 'circulation'],
+      ['data-brulees-stackr', 'éditions brûlées'],
+    ];
+    const vus = CHAMPS.map(() => ({ chiffre: 0, tiret: 0, zero: 0, muet: 0, portent: 0 }));
+
+    for (const f of fiches13) {
+      const html = readFileSync(f, 'utf8');
+      CHAMPS.forEach(([attr], k) => {
+        // ⚠️ ASTRO REND UNE CHAÎNE VIDE COMME UN ATTRIBUT NU : `data-…-stackr`
+        //   et non `data-…-stackr=""`. Un banc qui chercherait `=""` ne
+        //   trouverait JAMAIS la branche « pas encore collecté » et se croirait
+        //   vert sur un corpus où elle est majoritaire. Mesuré le 25/08.
+        const m = html.match(new RegExp(attr + '(?:="([^"]*)")?'));
+        if (!m) return;
+        const e = vus[k];
+        e.portent++;
+        const v = m[1] ?? '';
+        if (v === '') {
+          e.tiret++;
+          // Un tiret doit dire POURQUOI il est là.
+          if (!/data-attente/.test(html.slice(m.index, m.index + 260))) e.muet++;
+        } else {
+          e.chiffre++;
+          if (v === '0') e.zero++;
+        }
+      });
+    }
+
+    CHAMPS.forEach(([attr, nom], k) => {
+      const e = vus[k];
+      verifie(`② les fiches portent « ${nom} »`, e.portent > 0,
+        `${e.portent} fiche(s) sur ${fiches13.length}`);
+      if (!e.portent) return;
+
+      // ⭐⭐⭐ LE JEU D'ESSAI SE JUGE AVANT LE CODE.
+      if (e.chiffre === 0 || e.tiret === 0) {
+        indecis13++;
+        console.log(`  ⏸️  ② « ${nom} » INDÉCIDABLE — ce corpus ne porte qu'UNE `
+          + `branche (${e.chiffre} chiffrée(s), ${e.tiret} en attente). Il ne peut `
+          + 'pas mesurer la distinction « 0 » / « — », qui est tout l\'objet de ce §. '
+          + '⇒ `engine/data/sample/fiches_stackr.csv` doit couvrir une PARTIE des '
+          + 'uuid du catalogue d\'échantillon, jamais la totalité, jamais aucun.');
+        return;
+      }
+      verifie(`② « ${nom} » : les DEUX branches vivent dans le même build`, true,
+        `${e.chiffre} avec chiffre · ${e.tiret} en attente — l'état réel de la `
+        + 'production pendant toute la rotation');
+      verifie(`② « ${nom} » : un « — » dit toujours POURQUOI (\`data-attente\`)`,
+        e.muet === 0,
+        e.muet === 0
+          ? `${e.tiret} tiret(s), tous porteurs de leur cause`
+          : `🔴 ${e.muet} tiret(s) muet(s) : indiscernables d'un « aucune valeur »`);
+      // ⛔ LE CŒUR DU §. Il exige un zéro RÉEL dans le corpus : sans lui, le
+      //   contrôle ne mesure rien et le dit.
+      verifie(`② « ${nom} » : un « 0 » mesuré atteint la page en tant que 0`,
+        e.zero > 0,
+        e.zero > 0
+          ? `${e.zero} fiche(s) affichent « 0 » — un fait, pas une absence`
+          : '🔴 aucun zéro servi : soit le corpus n\'en porte pas (⇒ ce contrôle ne '
+            + 'mesure rien), soit un `|| null` ou un test de vérité l\'a effacé en route');
+    });
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴⭐⭐⭐ UN INDÉCIDABLE DU §13 NE SE RANGE PAS DANS « CONFORME ».
+// ═══════════════════════════════════════════════════════════════════════════
+// Injection K4 du 25/08 : on complète `engine/data/sample/fiches_stackr.csv`
+// pour qu'il couvre TOUT le catalogue d'échantillon. Le §13 imprime alors trois
+// ⏸️ parfaitement clairs… et le banc sort 0 en disant « tout est conforme ».
+// Un banc qui a VU qu'il ne pouvait rien mesurer, qui l'a ÉCRIT, et qui signe
+// quand même : c'est `regle-banc-muet-ressemble-a-un-succes` dans sa forme la
+// plus coûteuse, parce que le rapport a l'air d'une réussite.
+//
+// ⭐ ET LA CAUSE SERAIT CHEZ NOUS, PAS CHEZ UN TIERS. Contrairement au §12
+// (« sans objet sur ce corpus » — StackR ne publie pas d'adresse pour un
+// identifiant factice, on n'y peut rien), l'échantillon du §13 est un fichier
+// de CE dépôt. Quelqu'un qui le « complète » par souci de propreté ferait
+// disparaître la mesure sans qu'aucune ligne rougisse. ⇒ sortie 2.
+// ⛔ 2 et pas 1 : il n'y a pas d'écart constaté. Le banc dit « je n'ai pas pu
+//   regarder », jamais « c'est faux ».
+if (ko === 0 && indecis13) {
+  console.log(`\n⏸️  affichage : conforme sur tout ce qui a pu être mesuré, mais`
+    + ` ${indecis13} contrôle(s) du §13 n'ont RIEN pu mesurer.`);
+  console.log('    ⛔ Ce n\'est pas un succès. `engine/data/sample/fiches_stackr.csv`');
+  console.log('       doit couvrir une PARTIE des uuid du catalogue d\'échantillon :');
+  console.log('       trop peu, la branche chiffrée disparaît ; trop, c\'est le tiret.');
+  console.log('       Les deux doivent vivre dans le même build — sortie 2, pas 0.');
+  process.exit(2);
+}
+
 console.log(`\n${ko === 0 ? '✅ affichage : tout est conforme' : `❌ affichage : ${ko} écart(s)`}`);
 process.exit(ko === 0 ? 0 : 1);

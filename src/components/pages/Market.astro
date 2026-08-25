@@ -598,11 +598,24 @@ const ILE_TUILES = JSON.stringify({
           🔴 CE QUE LA DONNÉE NE FOURNIT PAS — à lire avant de s'étonner des
           tirets. `_DynState` de `catalog_export.py` ne rend que `floor` et
           `listings` :
-            · plancher StackR en OMI ........ aucun collecteur
+            · plancher StackR en OMI ........ ⚠️ PÉRIMÉ — voir plus bas
             · OMI/MCP ....................... dépend de ce plancher
             · variation 24 h ................ le moteur ne garde que 7 j et 30 j
-            · listings StackR ............... aucun collecteur
+            · listings StackR ............... ✅ COLLECTÉ depuis le 24/08 (lot 190)
             · liens VeVe et StackR .......... aucune URL dans la donnée
+
+          🔴🔴 CETTE LISTE A VIEILLI, ET C'EST LE GENRE DE COMMENTAIRE QU'ON
+          CITE CONTRE UNE DEMANDE. Elle a été écrite quand `_DynState` de
+          `catalog_export.py` était la seule source. Depuis le 24/08 il y en a
+          une seconde : `stackr_fiches.py` (fanablefrance/jetonveve) publie
+          `fiches_stackr.csv` — plancher StackR, offres en cours, éditions
+          brûlées, circulation. ⇒ AVANT de répondre « aucun collecteur » à
+          quelqu'un, mesurer : `[entrepot] fiches StackR : … piece(s)
+          couverte(s)` au journal du build dit la couverture du jour.
+          ⭐ Les listings StackR sont branchés (lot 190). Le plancher StackR et
+          l'OMI/MCP restent à faire — non par manque de donnée, mais parce que
+          `floorStackr` est dans `CHAMPS_COTE` et passe donc par <Cote>, comme
+          sur la fiche.
           Arbitrage Preda : AFFICHER QUAND MÊME, avec des tirets.
           ⭐⭐ ET C'EST POURQUOI CHAQUE TIRET EN ATTENTE PORTE `data-attente` ET
           UN `title`. Un « — » qui veut dire « aucune offre » et un « — » qui
@@ -700,10 +713,28 @@ const ILE_TUILES = JSON.stringify({
               valeur, pas de seconde ligne inventée pour faire joli. */}
           <td class="n c-4 muted" data-col="sup">{i.tirage ? i.tirage.toLocaleString(nf) : '—'}</td>
 
-          {/* LISTINGS — VeVe puis StackR */}
+          {/* LISTINGS — VeVe puis StackR
+              🛰️ LOT 190 — LA SECONDE LIGNE N'EST PLUS EN ATTENTE. Le commentaire
+              du § « CE QUE LA DONNÉE NE FOURNIT PAS », plus haut, disait
+              « listings StackR … aucun collecteur ». Il y en a un depuis le
+              24/08 : `stackr_fiches.py` lit le `totalCount` de
+              `publicVeve.getElementListings_v2` et le publie dans
+              `fiches_stackr.csv` (`offres_en_cours`).
+
+              🔴🔴 `!= null` ET SURTOUT PAS `??` NI UN TEST DE VÉRITÉ. La ligne
+              VeVe juste au-dessus écrit `i.listings ?? '—'` : correct pour
+              elle, faux ici. `??` traite `0` comme une valeur — parfait — mais
+              il ne distingue pas « aucune offre » de « pas encore collecté »,
+              et sur ce marché-ci la différence est PORTEUSE : la rotation ne
+              couvre que ~10 % du catalogue. ⇒ un chiffre quand on sait, un
+              tiret `data-attente` quand on ne sait pas, et `0` quand c'est zéro.
+              ⭐ `data-attente` disparaît AVEC le tiret : le garder sur un
+              chiffre promettrait une collecte déjà faite. */}
           <td class="n c-4" data-col="lst"><span class="m2">
             <span class="m2__a muted">{i.listings ?? '—'}</span>
-            <span class="m2__b muted" data-attente>—</span>
+            {i.offresStackr != null
+              ? <span class="m2__b muted">{i.offresStackr.toLocaleString(nf)}</span>
+              : <span class="m2__b muted" data-attente>—</span>}
           </span></td>
 
           {/* PLANCHER — gems chez VeVe, OMI chez StackR */}

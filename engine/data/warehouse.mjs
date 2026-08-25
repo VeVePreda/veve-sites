@@ -105,6 +105,45 @@ const SOURCES = {
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // 🛰️ LES FICHES StackR — lot 190, 25/08/2026
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Écrit par `scraper/stackr_fiches.py` (fanablefrance/jetonveve), publié dans
+  // la release `etat-fiches-stackr`. Schéma relevé sur le fichier PUBLIÉ le
+  // 25/08 (2 000 lignes, en-tête compris) :
+  //     veve_uuid, famille, ts_releve, floor_veve_usd, floor_stackr_omi,
+  //     in_circulation, editions_burnt, issued, offres_en_cours, market_fee,
+  //     floor_maj
+  //
+  // ⭐⭐ CE QU'IL APPORTE ET QUE PERSONNE N'AVAIT : les éditions BRÛLÉES et la
+  // circulation réelle. `issued` dit combien de pièces ont été frappées ;
+  // `in_circulation` combien en restent. L'écart est le nombre de pièces
+  // détruites — un chiffre qu'aucune autre source du projet ne porte.
+  //
+  // 🔴🔴 ROTATION, PAS BALAYAGE : LA COUVERTURE EST PARTIELLE ET LE RESTERA
+  // DIX JOURS. Le collecteur prend 2 000 items par run sur 19 774 ; au
+  // 25/08 le curseur était à 2 000, soit ~10 % du catalogue. ⛔ UNE COLONNE
+  // VIDE DOIT SE DIRE, JAMAIS S'INVENTER : un item non encore visité n'a pas
+  // « zéro brûlée », il n'a RIEN. Les gabarits affichent « — », et c'est la
+  // seule chose vraie qu'ils puissent afficher.
+  //
+  // ⛔ PAS DE `prev` : `etat-fiches-stackr-prev` n'existe pas. Un secours qui
+  // n'existe pas ne se déclare pas (même raison que `releves` et `omiUsd`).
+  //
+  // ⚠️⚠️ ET L'ÉCHANTILLON EST **PARTIEL**, DÉLIBÉRÉMENT — ⛔ NE PAS LE COMPLÉTER.
+  // C'est l'inverse du choix fait pour `omi_usd.csv` (pas d'échantillon du
+  // tout), et la raison est la même règle prise dans l'autre sens : *un chemin
+  // de code jamais emprunté n'est pas sûr, il est non mesuré.* Ici DEUX chemins
+  // doivent vivre en même temps — « la fiche a ses chiffres StackR » et « elle
+  // ne les a pas encore » — parce que c'est exactement l'état de la production
+  // pendant toute la rotation. Un échantillon complet rendrait la branche
+  // « — » invisible aux 46 bancs ; un échantillon vide rendrait l'autre
+  // invisible. Il couvre donc une PARTIE des uuid de `catalogue.csv`.
+  fichesStackr: {
+    url: process.env.FICHES_STACKR_URL || base('etat-fiches-stackr', 'fiches_stackr.csv'),
+    sample: 'fiches_stackr.csv',
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // LES DÉRIVÉS DU GRAND LIVRE — lot 44, 03/08/2026
   // ═══════════════════════════════════════════════════════════════════════════
   // ⭐⭐ RIEN À CALCULER, RIEN À PUBLIER : CES FICHIERS EXISTENT DÉJÀ.
@@ -427,6 +466,12 @@ export const getBaselines = () => load('baselines');
 // remplacera par `load('releves')` « pour faire comme les autres », il aura
 // devant les yeux la seule ligne qui explique pourquoi ce n'en est pas un.
 export const getReleves = () => chargerFacultatif('releves');
+// 🛰️ FACULTATIF, ET C'EST LA BONNE FORME. Si la release `etat-fiches-stackr`
+//   disparaît ou tarde, la fiche perd ses chiffres StackR et rien d'autre —
+//   ⛔ le build ne doit pas mourir pour un enrichissement. Voir le bloc de
+//   `SOURCES.fichesStackr` : la couverture est de toute façon partielle, donc
+//   « absent » est un état NORMAL que les gabarits savent déjà rendre.
+export const getFichesStackr = () => chargerFacultatif('fichesStackr');
 
 // 💱 FACULTATIF POUR LA MÊME RAISON, ET D'UN CRAN PLUS : `releves` manquant
 // prive les fiches de leur DATE de relèvement ; `omiUsd` manquant ne prive que
