@@ -1547,7 +1547,6 @@ console.log('\n12. « Voir sur StackR » : un lien, et seulement où c\'est vrai
 }
 
 console.log('\n13. 🛰️ les chiffres StackR : « 0 » et « — » ne disent pas la même chose');
-let indecis13 = 0;
 {
   // ═════════════════════════════════════════════════════════════════════════
   // 🔴🔴🔴 CE § SURVEILLE UNE DISTINCTION, PAS UNE PRÉSENCE.
@@ -1556,19 +1555,35 @@ let indecis13 = 0;
   // circulation, les éditions brûlées. Ils partagent tous le même piège :
   //   · `0`  = un FAIT mesuré (« plus personne ne vend », « aucune brûlée ») ;
   //   · `—`  = la rotation n'a PAS ENCORE visité cette pièce.
-  // La rotation couvre ~10 % du catalogue et mettra dix jours à faire un tour :
-  // les deux états coexistent en production, sur des dizaines de milliers de
-  // pages, et un `||` mal placé dans `dataset.mjs` les confondrait sans qu'une
-  // seule ligne rougisse ailleurs. `Number('')` vaut 0 — le piège est à un
-  // caractère.
+  // `Number('')` vaut 0 : le piège est à un caractère, et il porterait sur des
+  // dizaines de milliers de pages.
   //
-  // ⭐⭐⭐ ET C'EST POURQUOI LE § EXIGE **LES DEUX BRANCHES DANS LE MÊME BUILD**.
-  // Un corpus qui ne porterait que des fiches couvertes ne peut pas mesurer le
-  // tiret ; un corpus vide ne peut pas mesurer le chiffre. Dans les deux cas
-  // le verdict serait INDÉCIDABLE et non vert — *une injection qui ne mord pas
-  // accuse le jeu d'essai, pas le code.* L'échantillon
-  // `engine/data/sample/fiches_stackr.csv` couvre volontairement UNE PARTIE des
-  // uuid pour que les deux vivent ici. ⛔ Ne pas le compléter.
+  // ⛔⛔⛔ ET CE § NE SORT JAMAIS 2 — LEÇON DU 25/08/2026, PAYÉE EN PRODUCTION.
+  // Première version : il exigeait que les DEUX branches (« chiffre » et
+  // « — ») vivent dans le même build, et sortait 2 sinon. Or ce banc tourne
+  // DANS LE DOCKERFILE (`RUN WAREHOUSE_OFFLINE=1 npm run test:affichage`), et
+  // *le Dockerfile est la seule porte que le déploiement respecte*. Résultat :
+  //     #52 ERROR: process "…npm run test:affichage" … exit code: 2
+  //     Deployment failed. Removing the new version of your application.
+  // Le lot entier a été refusé par son propre banc, sur un corpus parfaitement
+  // sain.
+  //
+  // ⭐⭐⭐ ET L'EXIGENCE ELLE-MÊME ÉTAIT FAUSSE, PAS SEULEMENT SA SÉVÉRITÉ.
+  // Le journal disait « 400 chiffrée(s), 0 en attente ». C'est le SUCCÈS de la
+  // rotation, pas une panne : les 2 756 collectibles sont désormais tous
+  // couverts, et le banc ne lisait que ceux-là (plafond de 400 fiches, famille
+  // par famille). Le jour où la rotation aura fait son tour complet, il
+  // n'existera PLUS AUCUN tiret — et l'ancienne version aurait bloqué tous les
+  // déploiements, pour toujours, en punissant l'objectif atteint.
+  // ⇒ *Un banc doit juger le CODE, pas l'avancement d'une collecte.*
+  //
+  // ⇒ CE QUI RESTE, ET OÙ CHAQUE CHOSE SE MESURE :
+  //   ① le GABARIT teste `!= null` — statique, vrai partout, sort 1 si faux ;
+  //   ② l'ÉCHANTILLON porte bien les deux branches — mesuré sur NOS fichiers,
+  //     pas sur un `dist/` dont on ignore la provenance. C'est un vrai écart
+  //     (sortie 1) : ce fichier est à nous ;
+  //   ③ le PRODUIT reste COHÉRENT — tout tiret dit pourquoi. ⛔ On n'y exige
+  //     plus aucune proportion : la couverture est le fait de la rotation.
   const gab = lire('src/components/pages/Item.astro')
     // ⛔ LES COMMENTAIRES D'ABORD. Ce gabarit EXPLIQUE en toutes lettres qu'il
     //   ne faut pas écrire `item.offresStackr ? …` — un banc qui cherche cette
@@ -1582,7 +1597,7 @@ let indecis13 = 0;
     const nul = new RegExp(`item\\.${champ}\\s*!=\\s*null`).test(gab);
     // ⛔ Le motif fautif : `item.X ? … : —` ou `item.X && …`. Il efface le zéro.
     const verite = new RegExp(`item\\.${champ}\\s*(\\?|&&)`).test(gab);
-    verifie(`\`${champ}\` se teste sur \`!= null\`, jamais sur sa vérité`,
+    verifie(`① \`${champ}\` se teste sur \`!= null\`, jamais sur sa vérité`,
       nul && !verite,
       nul && !verite
         ? 'un « 0 » mesuré s\'affiche comme 0'
@@ -1590,45 +1605,93 @@ let indecis13 = 0;
           + 'deviendrait « pas encore collecté », exactement sur les pièces qui comptent');
   }
 
-  // ── ② LE PRODUIT — les deux branches, et ce qu'elles portent ─────────────
+  // ── ② L'ÉCHANTILLON — le seul corpus dont NOUS répondons ─────────────────
+  // ⭐⭐ MESURÉ SUR LES FICHIERS, PAS SUR UN BUILD. Un contrôle qui dépend de
+  //   `dist/` dépend de qui l'a bâti, avec quelles variables, et à quel moment.
+  //   Celui-ci rend le même verdict à chaque exécution, hors ligne, sans build.
+  {
+    const fCat = join(ROOT, 'engine', 'data', 'sample', 'catalogue.csv');
+    const fSt = join(ROOT, 'engine', 'data', 'sample', 'fiches_stackr.csv');
+    if (!existsSync(fCat) || !existsSync(fSt)) {
+      verifie('② l\'échantillon des fiches StackR existe', false,
+        '🔴 `engine/data/sample/fiches_stackr.csv` absent : le build hors ligne ne '
+        + 'peut plus exercer la branche « la pièce a ses chiffres », et personne '
+        + 'ne le dirait');
+    } else {
+      const uuidsCat = new Set(readFileSync(fCat, 'utf8').split('\n').slice(1)
+        .map((l) => l.split(',')[0].trim()).filter(Boolean));
+      const lignes = readFileSync(fSt, 'utf8').trim().split('\n');
+      const tete = lignes[0].split(',').map((x) => x.trim());
+      const col = (n) => tete.indexOf(n);
+      const corps = lignes.slice(1).map((l) => l.split(','));
+      const couverts = new Set(corps.map((c) => c[0]).filter((u) => uuidsCat.has(u)));
+
+      // ⛔ NI ZÉRO NI TOUT. Zéro : la branche chiffrée n'existe plus. Tout : la
+      //   branche « — » disparaît. Les deux rendent le hors-ligne incapable de
+      //   montrer ce que la production montre pendant toute la rotation.
+      verifie('② l\'échantillon couvre une PARTIE du catalogue d\'échantillon',
+        couverts.size > 0 && couverts.size < uuidsCat.size,
+        `${couverts.size} pièce(s) couverte(s) sur ${uuidsCat.size} — `
+        + (couverts.size === 0
+          ? '🔴 AUCUNE : le build hors ligne n\'affichera que des tirets'
+          : couverts.size >= uuidsCat.size
+            ? '🔴 TOUTES : la branche « pas encore collecté » n\'est plus jamais rendue'
+            : 'les deux branches vivent dans un build hors ligne'));
+
+      // ⭐ ET UN ZÉRO RÉEL DANS CHAQUE COLONNE. Sans lui, le chemin « la valeur
+      //   vaut 0 » n'est jamais emprunté, donc jamais mesuré — et c'est
+      //   précisément le chemin que `|| null` casserait.
+      for (const nom of ['offres_en_cours', 'in_circulation', 'editions_burnt']) {
+        const k = col(nom);
+        const zeros = k < 0 ? 0 : corps.filter((c) => (c[k] || '').trim() === '0').length;
+        verifie(`② l'échantillon porte au moins un « 0 » en \`${nom}\``,
+          zeros > 0,
+          zeros > 0
+            ? `${zeros} ligne(s) à zéro — le chemin « la valeur vaut 0 » est exercé`
+            : '🔴 aucune : un `|| null` sur ce champ passerait inaperçu hors ligne');
+      }
+    }
+  }
+
+  // ── ③ LE PRODUIT — la COHÉRENCE, et rien de plus ─────────────────────────
   const racine13 = existsSync(join(DIST, 'client')) ? join(DIST, 'client') : DIST;
   const fiches13 = [];
-  const descendre13 = (dossier, reste) => {
-    if (reste < 0 || fiches13.length >= 400 || !existsSync(dossier)) return;
-    for (const e of readdirSync(dossier, { withFileTypes: true })) {
-      if (fiches13.length >= 400) return;
-      const q = join(dossier, e.name);
-      if (e.isDirectory()) descendre13(q, reste - 1);
-      else if (e.name === 'index.html') fiches13.push(q);
-    }
-  };
-  for (const fam of ['collectibles', 'comics']) descendre13(join(racine13, fam), 3);
+  // ⚠️ ON PARCOURT LES DEUX FAMILLES EN ALTERNANCE, ET C'EST UNE CORRECTION.
+  //   La version du 25/08 remplissait son plafond de 400 avec les seuls
+  //   `collectibles` — tous couverts par la rotation — et n'atteignait JAMAIS
+  //   les `comics`. Elle décrivait donc un demi-corpus en croyant le décrire
+  //   tout entier. ⭐ Un plafond n'est pas un échantillon : ce qu'on plafonne,
+  //   il faut le RÉPARTIR.
+  for (const fam of ['collectibles', 'comics']) {
+    const bac = [];
+    const descendre13 = (dossier, reste) => {
+      if (reste < 0 || bac.length >= 200 || !existsSync(dossier)) return;
+      for (const e of readdirSync(dossier, { withFileTypes: true })) {
+        if (bac.length >= 200) return;
+        const q = join(dossier, e.name);
+        if (e.isDirectory()) descendre13(q, reste - 1);
+        else if (e.name === 'index.html') bac.push(q);
+      }
+    };
+    descendre13(join(racine13, fam), 3);
+    fiches13.push(...bac);
+  }
 
   if (!fiches13.length) {
-    console.log('  ⏸️  ② sans objet — ce site ne rend pas de fiches d\'items.');
+    console.log('  ⏸️  ③ sans objet — ce site ne rend pas de fiches d\'items.');
   } else {
-    // ⚠️⚠️ ON MESURE LES TROIS CHAMPS DANS LE PRODUIT, ET PAS SEULEMENT LES
-    //   OFFRES. Première version de ce §, le 25/08 : il lisait le gabarit pour
-    //   les trois et le PRODUIT pour un seul. Injection `?? null` → `|| null`
-    //   sur `bruleesStackr` : le banc est resté VERT. Le contrôle du gabarit
-    //   ne mordait pas parce que la faute n'était pas dans le gabarit — elle
-    //   était deux fichiers plus haut, là où le zéro se perd.
-    //   ⭐⭐⭐ *Une injection qui ne mord pas accuse le jeu d'essai, pas le code*
-    //   — ici elle a accusé la PORTÉE de la mesure, et elle avait raison.
     const CHAMPS = [
       ['data-offres-stackr', 'offres en cours'],
       ['data-circulation-stackr', 'circulation'],
       ['data-brulees-stackr', 'éditions brûlées'],
     ];
     const vus = CHAMPS.map(() => ({ chiffre: 0, tiret: 0, zero: 0, muet: 0, portent: 0 }));
-
     for (const f of fiches13) {
       const html = readFileSync(f, 'utf8');
       CHAMPS.forEach(([attr], k) => {
         // ⚠️ ASTRO REND UNE CHAÎNE VIDE COMME UN ATTRIBUT NU : `data-…-stackr`
         //   et non `data-…-stackr=""`. Un banc qui chercherait `=""` ne
-        //   trouverait JAMAIS la branche « pas encore collecté » et se croirait
-        //   vert sur un corpus où elle est majoritaire. Mesuré le 25/08.
+        //   trouverait JAMAIS la branche « pas encore collecté ». Mesuré le 25/08.
         const m = html.match(new RegExp(attr + '(?:="([^"]*)")?'));
         if (!m) return;
         const e = vus[k];
@@ -1636,7 +1699,6 @@ let indecis13 = 0;
         const v = m[1] ?? '';
         if (v === '') {
           e.tiret++;
-          // Un tiret doit dire POURQUOI il est là.
           if (!/data-attente/.test(html.slice(m.index, m.index + 260))) e.muet++;
         } else {
           e.chiffre++;
@@ -1644,68 +1706,111 @@ let indecis13 = 0;
         }
       });
     }
-
     CHAMPS.forEach(([attr, nom], k) => {
       const e = vus[k];
-      verifie(`② les fiches portent « ${nom} »`, e.portent > 0,
+      verifie(`③ les fiches portent « ${nom} »`, e.portent > 0,
         `${e.portent} fiche(s) sur ${fiches13.length}`);
       if (!e.portent) return;
-
-      // ⭐⭐⭐ LE JEU D'ESSAI SE JUGE AVANT LE CODE.
-      if (e.chiffre === 0 || e.tiret === 0) {
-        indecis13++;
-        console.log(`  ⏸️  ② « ${nom} » INDÉCIDABLE — ce corpus ne porte qu'UNE `
-          + `branche (${e.chiffre} chiffrée(s), ${e.tiret} en attente). Il ne peut `
-          + 'pas mesurer la distinction « 0 » / « — », qui est tout l\'objet de ce §. '
-          + '⇒ `engine/data/sample/fiches_stackr.csv` doit couvrir une PARTIE des '
-          + 'uuid du catalogue d\'échantillon, jamais la totalité, jamais aucun.');
-        return;
-      }
-      verifie(`② « ${nom} » : les DEUX branches vivent dans le même build`, true,
-        `${e.chiffre} avec chiffre · ${e.tiret} en attente — l'état réel de la `
-        + 'production pendant toute la rotation');
-      verifie(`② « ${nom} » : un « — » dit toujours POURQUOI (\`data-attente\`)`,
+      // ⛔ LE SEUL CONTRÔLE QUI PORTE SUR LE PRODUIT, ET IL NE PARLE PAS DE
+      //   PROPORTION : un « — » doit dire POURQUOI il est là. Qu'il y en ait
+      //   mille ou zéro ne regarde que la rotation.
+      verifie(`③ « ${nom} » : un « — » dit toujours POURQUOI (\`data-attente\`)`,
         e.muet === 0,
         e.muet === 0
-          ? `${e.tiret} tiret(s), tous porteurs de leur cause`
+          ? `${e.chiffre} chiffré(s) · ${e.tiret} en attente, tous porteurs de leur cause`
           : `🔴 ${e.muet} tiret(s) muet(s) : indiscernables d'un « aucune valeur »`);
-      // ⛔ LE CŒUR DU §. Il exige un zéro RÉEL dans le corpus : sans lui, le
-      //   contrôle ne mesure rien et le dit.
-      verifie(`② « ${nom} » : un « 0 » mesuré atteint la page en tant que 0`,
-        e.zero > 0,
-        e.zero > 0
-          ? `${e.zero} fiche(s) affichent « 0 » — un fait, pas une absence`
-          : '🔴 aucun zéro servi : soit le corpus n\'en porte pas (⇒ ce contrôle ne '
-            + 'mesure rien), soit un `|| null` ou un test de vérité l\'a effacé en route');
+      // ⭐ Informatif, jamais bloquant : la couverture est un FAIT du jour.
+      if (e.tiret === 0) {
+        console.log(`  ·    « ${nom} » : ${e.chiffre}/${e.portent} fiche(s) couverte(s) — `
+          + 'la rotation a fait le tour de ce corpus, plus aucun tiret. C\'est le but.');
+      }
     });
-  }
-}
 
-// ═══════════════════════════════════════════════════════════════════════════
-// 🔴🔴⭐⭐⭐ UN INDÉCIDABLE DU §13 NE SE RANGE PAS DANS « CONFORME ».
-// ═══════════════════════════════════════════════════════════════════════════
-// Injection K4 du 25/08 : on complète `engine/data/sample/fiches_stackr.csv`
-// pour qu'il couvre TOUT le catalogue d'échantillon. Le §13 imprime alors trois
-// ⏸️ parfaitement clairs… et le banc sort 0 en disant « tout est conforme ».
-// Un banc qui a VU qu'il ne pouvait rien mesurer, qui l'a ÉCRIT, et qui signe
-// quand même : c'est `regle-banc-muet-ressemble-a-un-succes` dans sa forme la
-// plus coûteuse, parce que le rapport a l'air d'une réussite.
-//
-// ⭐ ET LA CAUSE SERAIT CHEZ NOUS, PAS CHEZ UN TIERS. Contrairement au §12
-// (« sans objet sur ce corpus » — StackR ne publie pas d'adresse pour un
-// identifiant factice, on n'y peut rien), l'échantillon du §13 est un fichier
-// de CE dépôt. Quelqu'un qui le « complète » par souci de propreté ferait
-// disparaître la mesure sans qu'aucune ligne rougisse. ⇒ sortie 2.
-// ⛔ 2 et pas 1 : il n'y a pas d'écart constaté. Le banc dit « je n'ai pas pu
-//   regarder », jamais « c'est faux ».
-if (ko === 0 && indecis13) {
-  console.log(`\n⏸️  affichage : conforme sur tout ce qui a pu être mesuré, mais`
-    + ` ${indecis13} contrôle(s) du §13 n'ont RIEN pu mesurer.`);
-  console.log('    ⛔ Ce n\'est pas un succès. `engine/data/sample/fiches_stackr.csv`');
-  console.log('       doit couvrir une PARTIE des uuid du catalogue d\'échantillon :');
-  console.log('       trop peu, la branche chiffrée disparaît ; trop, c\'est le tiret.');
-  console.log('       Les deux doivent vivre dans le même build — sortie 2, pas 0.');
-  process.exit(2);
+    // ── ④ LA SOURCE ET LA PAGE, PIÈCE PAR PIÈCE ────────────────────────────
+    // 🔴🔴🔴 SANS CE §, LE DÉFAUT LE PLUS PROBABLE PASSERAIT AU VERT.
+    // En retirant l'exigence de proportion (③), on perd du même coup le seul
+    // signal qui trahissait un `?? null` devenu `|| null` : les zéros
+    // disparaissaient dans la masse des tirets, et « 29 chiffrés · 61 en
+    // attente, tous porteurs de leur cause » est un verdict parfaitement vert.
+    // ⭐⭐⭐ *Une correction qui retire un contrôle doit dire ce qu'elle rend
+    //   invisible* — et le remplacer par un contrôle qui ne dépend pas de ce
+    //   qu'on vient d'abandonner.
+    //
+    // ⇒ On ne compte plus : on COMPARE. Pour chaque pièce dont l'échantillon
+    //   dit « 0 », la page de cette pièce doit afficher 0. Une correspondance
+    //   exacte, sans proportion, sans seuil.
+    //
+    // ⛔ ET SI AUCUNE DE CES PIÈCES N'EST DANS `dist/`, ON NE CONCLUT PAS. En
+    //   production le `dist/` est bâti sur le catalogue réel : les identifiants
+    //   `sample-…` n'y existent pas, la question n'a pas de sens, et un rouge
+    //   n'apprendrait rien sur le code. C'est le même arbitrage que le §12 ③.
+    {
+      const fSt4 = join(ROOT, 'engine', 'data', 'sample', 'fiches_stackr.csv');
+      if (existsSync(fSt4)) {
+        const lignes4 = readFileSync(fSt4, 'utf8').trim().split('\n');
+        const tete4 = lignes4[0].split(',').map((x) => x.trim());
+        const PAIRES = [
+          ['offres_en_cours', 'data-offres-stackr', 'offres en cours'],
+          ['in_circulation', 'data-circulation-stackr', 'circulation'],
+          ['editions_burnt', 'data-brulees-stackr', 'éditions brûlées'],
+        ];
+        // uuid -> { attendu par attribut }
+        const attendu = new Map();
+        for (const l of lignes4.slice(1)) {
+          const c = l.split(',');
+          const u = (c[0] || '').trim();
+          if (!u) continue;
+          const e = {};
+          for (const [colonne, attr] of PAIRES) {
+            const k = tete4.indexOf(colonne);
+            if (k >= 0) e[attr] = (c[k] || '').trim();
+          }
+          attendu.set(u, e);
+        }
+
+        let confrontees = 0;
+        const fautes = [];
+        for (const f of fiches13) {
+          const html = readFileSync(f, 'utf8');
+          // ⛔ UNE PAGE QUI NE PORTE AUCUN DES TROIS ATTRIBUTS N'EST PAS UNE
+          //   FICHE D'ITEM. Mesuré le 25/08 : `collectibles/index.html` et
+          //   `comics/page/2/` portent `data-cote` — les cotes de leurs LIGNES
+          //   — sans être des fiches. Sans ce garde, le § réclamait des
+          //   chiffres StackR à une page de rayon et rendait 12 « divergences »
+          //   parfaitement fausses. ⭐ `data-cote` identifie une COTE, pas une
+          //   fiche : viser le mauvais repère produit un rouge qui accuse le
+          //   code d'un défaut du banc.
+          if (!/data-offres-stackr|data-circulation-stackr|data-brulees-stackr/.test(html)) continue;
+          const u = (html.match(/data-cote="([^"]*)"/) || [])[1] || '';
+          const att = attendu.get(u);
+          if (!att) continue;
+          confrontees++;
+          for (const [, attr, nom] of PAIRES) {
+            const veut = att[attr];
+            if (veut === undefined || veut === '') continue;
+            const m = html.match(new RegExp(attr + '(?:="([^"]*)")?'));
+            const vu = m ? (m[1] ?? '') : '(attribut absent)';
+            if (vu !== veut) {
+              fautes.push(`${nom} : la source dit « ${veut} », la page dit « ${vu || '—'} »`);
+            }
+          }
+        }
+
+        if (confrontees === 0) {
+          console.log('  ·    ④ sans objet ici — aucune pièce de l\'échantillon dans '
+            + '`dist/` (build sur le catalogue réel). La confrontation source/page '
+            + 'se fait dans les builds hors ligne.');
+        } else {
+          verifie(`④ chaque valeur de la source atteint sa page à l'identique`,
+            fautes.length === 0,
+            fautes.length === 0
+              ? `${confrontees} pièce(s) confrontée(s), aucune divergence — les zéros compris`
+              : `🔴 ${fautes.length} divergence(s) : ${fautes.slice(0, 3).join(' · ')}`
+                + ' — un `|| null` ou un test de vérité mange la valeur en route');
+        }
+      }
+    }
+  }
 }
 
 console.log(`\n${ko === 0 ? '✅ affichage : tout est conforme' : `❌ affichage : ${ko} écart(s)`}`);
