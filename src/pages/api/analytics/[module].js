@@ -48,12 +48,17 @@ const MODULES = {
   wallet_size: { fichier: 'wallet_size.json', gate: 'modules' },
   whales:      { fichier: 'whales.json',      gate: 'wallet_watch' },
   corner_top:  { fichier: 'corner_top.json',  gate: 'modules' },
-  // 🔴 `modules`, PAS un palier au-dessus — et ce n'est pas de la prudence.
-  // `paliDe()` ne rend aujourd'hui que `member` ou `crevette` : `langouste` et
-  // `whale` sont INATTEIGNABLES. Un module posé là serait vendu sans acheteur
-  // possible. ⛔ Tant que les paliers hauts ne sont pas atteignables, tout
-  // module neuf sort à `member`. ⚠️ Ces agrégats ne portent AUCUNE adresse —
-  // c'est ce qui les sépare de `whales`, seul module à exiger `wallet_watch`.
+  // 🔴 `modules`, PAS un palier au-dessus. ⚠️ Ces agrégats ne portent AUCUNE
+  // adresse — c'est ce qui les sépare de `whales`, seul module à exiger
+  // `wallet_watch`.
+  // ⚠️ LOT 194 (25/08/2026) — CETTE NOTE PORTAIT UNE PRÉMISSE QUI A CESSÉ
+  // D'ÊTRE VRAIE. Elle disait « `langouste` et `whale` sont INATTEIGNABLES,
+  // tout module neuf sort donc à `member` ». Le service des comptes sait
+  // maintenant lequel des trois niveaux a été acheté, et les trois s'accordent.
+  // La règle « tout module neuf sort à `member` » n'est donc plus IMPOSÉE par
+  // le code : elle redevient un arbitrage de produit, à poser avec Preda.
+  // ⛔ On corrige la note en même temps que le fait — un commentaire survivant
+  // à sa cause donne un ordre que plus rien ne justifie.
   profils:     { fichier: 'profils.json',     gate: 'modules' },
   meta:        { fichier: 'meta.json',        gate: 'modules' },
 };
