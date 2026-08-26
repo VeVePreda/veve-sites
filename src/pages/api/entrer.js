@@ -38,6 +38,10 @@ import { retourSur, COOKIE_RETOUR, RETOUR_DEFAUT } from '../../../engine/lib/ret
 import { compteDeLaSession } from '../../../engine/lib/compte.mjs';
 import { lirePref } from '../../../engine/lib/prefs.mjs';
 import { COOKIE_LANGUE, languesInterface } from '../../../engine/lib/i18n.mjs';
+import {
+  CLE_PREF as TB_CLE, COOKIE as TB_COOKIE, COOKIE_DUREE as TB_DUREE,
+  lireAgencement, ecrireAgencement,
+} from '../../../engine/lib/tableau.mjs';
 
 export const prerender = true;
 
@@ -197,6 +201,25 @@ export async function GET({ url, cookies, redirect }) {
           path: '/', maxAge: 60 * 60 * 24 * 365, sameSite: 'lax', secure: true, httpOnly: false,
         });
       }
+
+      // ═══════════════════════════════════════════════════════════════════════
+      // 📊 LOT 202 — L'AGENCEMENT DU TABLEAU DE BORD SUIT LE COMPTE, PAS LE
+      //    NAVIGATEUR. Même dispositif que la langue, ligne pour ligne, et pour
+      //    la même raison mesurée : `/dashboard/` ne connaît PAS le compte.
+      // ⭐ IL EST POSÉ MÊME QUAND RIEN N'EST RANGÉ, et c'est ce qui le distingue
+      //    de la langue. `lireAgencement(null)` rend l'ordre par défaut au
+      //    complet ; l'écrire dans le cookie fait qu'un membre qui vient de
+      //    changer d'appareil, ou qui n'a jamais ouvert le réglage, part d'un
+      //    état EXPLICITE au lieu d'un cookie absent. La page saurait s'en
+      //    passer — mais le jour où le défaut du site changera, un cookie vide
+      //    et un cookie « je veux le défaut d'alors » deviendraient deux choses
+      //    différentes, et on ne pourrait plus les distinguer après coup.
+      // ⛔ `httpOnly: true`, contrairement au cookie de langue : personne ne le
+      //    lit côté navigateur. La différence est expliquée dans `tableau.mjs`.
+      const range = lirePref(compte, TB_CLE);
+      cookies.set(TB_COOKIE, ecrireAgencement(lireAgencement(range)), {
+        path: '/', maxAge: TB_DUREE, sameSite: 'lax', secure: true, httpOnly: true,
+      });
     }
   } catch { /* ⭐ silence VOLONTAIRE — voir le paragraphe ci-dessus */ }
 

@@ -97,8 +97,13 @@ import { catalogueModules, porte, plages, PALIERS, profondeur as profondeurAccor
 import { priceEnabled } from '../../../engine/lib/features.mjs';
 import { lireMarche } from '../../../engine/lib/cote.mjs';
 import { moduleJs } from '../../../engine/lib/socle_js.mjs';
+import { lireAgencement } from '../../../engine/lib/tableau.mjs';
 
-const { lang, palier = 'member' } = Astro.props;
+// ⚠️ `tb` PAR DÉFAUT VIDE, et non `undefined` : une chaîne vide est exactement
+//   ce que `lireAgencement` traite comme « rien de rangé », donc l'ordre par
+//   défaut au complet. Un composant appelé sans cette prop rend donc la même
+//   page qu'avant ce lot — c'est ce qui permet de la rendre hors d'une route.
+const { lang, palier = 'member', tb = '' } = Astro.props;
 const nf = numberLocale[lang] || 'en-GB';
 
 // ⭐ LE RANG, PAS LE NOM. Comparer deux paliers par leur position dans
@@ -176,38 +181,46 @@ const caisse = Boolean(manifest().offer?.url);
 // et une clé inventée ici rendrait un libellé `mod.xxx` en toutes lettres sur
 // la page d'arrivée de chaque membre — un `t()` sur une clé absente rend la clé
 // elle-même, en silence (payé au lot 126 avec `nav.account`).
-const DESTINATIONS = [
-  // ❤️ LOT 160-B, POINT `aa` — « UN MODULE D'ACCÈS RAPIDE VERS LES FAVORIS »
-  // ═════════════════════════════════════════════════════════════════════════
-  // ⭐⭐ EN TÊTE, ET C'EST LA MOITIÉ DE LA DEMANDE. Preda a demandé un accès
-  // RAPIDE ; un accès rapide en quatrième position n'en est plus un. C'est
-  // aussi la seule tuile dont le contenu appartient à la personne qui lit la
-  // page — sur une page d'arrivée personnelle, ce qui est à moi passe avant
-  // ce qui est à tout le monde. ⚠️ Une ligne à déplacer si l'ordre déplaît :
-  // le reste du lot n'en dépend pas.
-  //
-  // 🔑 `compteur:` ET PAS `chiffre:`, ET LES DEUX NE SE RESSEMBLENT QUE DE
-  // LOIN. Les trois autres tuiles lisent la projection déposée AU BUILD : leur
-  // chiffre est le même pour tous les membres, il peut donc être rendu au
-  // serveur. Le nombre de favoris appartient à UN compte, il vit dans SQLite,
-  // et cette page ne sait pas qui elle sert : `/dashboard/index.astro` ne lui
-  // passe que `palier`. ⛔ Le lui faire résoudre coûterait un appel réseau
-  // vers veveid DANS LE CHEMIN DE RENDU — et une panne de veveid ferait alors
-  // tomber le tableau de bord entier pour un compteur.
-  // ⇒ L'hôte est rendu VIDE et `hidden`, et `src/socle/modules/favoris.js` le
-  //   remplit depuis `window.vpFav` — l'accès unique du socle, celui que le
-  //   bouton ★ emploie déjà. ⭐ Aucun `fetch` de plus dans ce dépôt : c'est
-  //   `40-favoris.js` qui parle au réseau, ici comme sur une fiche.
-  // ⚠️ Et s'il ne peut pas savoir (503, socle absent), le span RESTE `hidden` :
-  //   une tuile sans son chiffre reste utile, une tuile qui affiche « 0 » à
-  //   quelqu'un qui en a trente affirme quelque chose de faux.
-  { cle: 'favoris',       href: '/favoris/',       compteur: 'tb-nfav' },
-  { cle: 'market',        href: '/market/',        chiffre: () => nb(charge && charge.marcheTotal) },
-  { cle: 'price_history', href: '/collectibles/',  chiffre: () => (profondeur === null && sansBorne
-                                                     ? t(lang, 'dash.depth.max')
-                                                     : profondeur ? t(lang, 'dash.depth', { n: profondeur }) : null) },
-  { cle: 'modules',       href: '/analytics/',     chiffre: () => nb(R.publies) },
-];
+// ═══════════════════════════════════════════════════════════════════════════
+// 📊 LOT 202, POINT `z` — LA TABLE A DÉMÉNAGÉ DANS `engine/lib/tableau.mjs`
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐⭐⭐ ELLE EST DÉSORMAIS LUE PAR TROIS ENDROITS QUI NE SE VOIENT PAS :
+//   `/compte/` dessine les cases, `/api/reglages` refuse une clé inconnue, et
+//   ce gabarit rend les tuiles. Recopiée trois fois, elle diverge au premier
+//   accès rapide ajouté — et elle diverge EN SILENCE : la case s'affiche, la
+//   route l'accepte, la tuile ne sort pas. ⇒ un seul fichier, importé par les
+//   trois. C'est la règle « une seule vérité » déjà payée par le `data-ch` du
+//   lot 127 et par les deux menus mobiles du 03/08.
+//
+// ❤️ CE QUE LE LOT 160-B AVAIT ÉCRIT ICI RESTE VRAI, ET A SUIVI LA TABLE :
+//   `favoris` est EN TÊTE de l'ordre par défaut — « un accès rapide en
+//   quatrième position n'en est plus un » — et il porte `compteur:` et non
+//   `chiffre:`. Les deux ne se ressemblent que de loin : les autres tuiles
+//   lisent la projection déposée AU BUILD, donc la même pour tous, tandis que
+//   le nombre de favoris appartient à UN compte, vit dans SQLite, et cette
+//   page ne sait pas qui elle sert. ⇒ l'hôte sort VIDE et caché, et
+//   `src/socle/modules/favoris.js` le remplit depuis `window.vpFav`.
+//
+// 🔴🔴 CE QUI RESTE ICI, ET SEULEMENT ÇA : LE CHIFFRE. `tableau.mjs` porte
+//   l'identité (clé, adresse, libellés) et la grammaire de l'agencement ; il
+//   ne sait pas lire une projection de marché, et il ne doit pas — sinon
+//   `/api/reglages`, qui l'importe, chargerait 8 840 fiches pour valider une
+//   case à cocher.
+//
+// ⚠️ UNE CLÉ SANS ENTRÉE DANS CETTE TABLE N'EST PAS UNE FAUTE : sa tuile sort
+//   sans chiffre, ce qui est l'état prévu — `nb()` rend déjà `null` quand le
+//   résumé n'a pas pu compter. ⛔ Ne pas y mettre un tiret : un tiret dirait
+//   « on attend la donnée », or on ne l'attend pas, on ne l'a pas comptée.
+const CHIFFRES = {
+  market:        () => nb(charge && charge.marcheTotal),
+  sets:          () => nb(R.sets),
+  collectibles:  () => nb(R.collectibles),
+  comics:        () => nb(R.comics),
+  modules:       () => nb(R.publies),
+  price_history: () => (profondeur === null && sansBorne
+    ? t(lang, 'dash.depth.max')
+    : profondeur ? t(lang, 'dash.depth', { n: profondeur }) : null),
+};
 
 // ⛔ ET CE QUI N'A PAS DE TUILE, AVEC SA RAISON, PARCE QUE L'ABSENCE SE JUSTIFIE
 // AUSSI. Sans cette liste, `test:tableau` ne saurait pas distinguer « module
@@ -230,24 +243,60 @@ const SANS_TUILE = {
 
 const MODULES = avecPrix ? catalogueModules() : [];
 const livres = MODULES.filter((mo) => !mo.bientot);
-const tuiles = DESTINATIONS
-  .map((d) => {
-    const mo = livres.find((m) => m.cle === d.cle);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 📊 LOT 202 — L'ORDRE ET LA SÉLECTION VIENNENT DU MEMBRE, PLUS DE LA TABLE
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔑 `tb` EST UNE PROP, ET C'EST OBLIGATOIRE. Le cookie est lu par la ROUTE
+//   (`/dashboard/` et `/[locale]/dashboard/`), jamais ici : ce fichier est un
+//   COMPOSANT, et `Astro.cookies` y marcherait tant que la page est rendue à
+//   la demande, puis rendrait l'ordre par défaut sans une erreur le jour où un
+//   gabarit pré-généré l'emploierait. C'est le raisonnement écrit en toutes
+//   lettres au lot 131 pour `Astro.locals`, transposé sans changer un mot.
+//
+// ⭐⭐ `lireAgencement` RÉPOND TOUJOURS, ET AVEC LE CATALOGUE COMPLET : cookie
+//   absent, valeur illisible, clé disparue du site — elle retombe sur l'ordre
+//   par défaut, tout coché. Il n'existe donc aucun état où le tableau de bord
+//   arrive vide parce qu'un cookie manquait.
+//
+// ⛔ `avecPrix ?` GARDE TOUTE LA CHAÎNE, ET CE N'EST PAS UNE PRÉCAUTION DE
+//   STYLE. Depuis que les trois RAYONS sont des accès rapides, ils ne
+//   dépendent plus d'aucun module du manifeste : sans cette garde, vevewiki —
+//   qui ne publie pas de prix et n'a ni `/sets/` ni `/market/` — rendrait
+//   trois tuiles vers des pages inexistantes. Le banc le vérifie sur les DEUX
+//   sites, parce qu'un site sur deux ne prouve rien.
+const tuiles = !avecPrix ? [] : lireAgencement(tb)
+  // ⭐ LE CHOIX DU MEMBRE MORD EN PREMIER. Une ligne décochée ne descend pas
+  //   dans la suite : elle n'a ni palier à résoudre, ni chiffre à calculer.
+  .filter((x) => x.montre)
+  .map((x) => {
+    // ⭐⭐ UN RAYON EST PUBLIC, ET IL LE RESTE. `/sets/`, `/collectibles/` et
+    //   `/comics/` ne sont pas dans `offer.modules` et n'ont pas à y être :
+    //   ils n'ont jamais été fermés. ⛔ Leur inventer un palier pour uniformiser
+    //   la table poserait un cadenas sur une porte ouverte.
+    if (x.rayon) return { ...x, tier: null, ouvert: true, chiffre: CHIFFRES[x.cle] || null };
+    const mo = livres.find((m) => m.cle === x.module);
     if (!mo) return null;                       // module absent ou pas encore livré
-    return { ...d, tier: mo.tier, ouvert: monRang >= rang(mo.tier) };
+    return {
+      ...x, tier: mo.tier, ouvert: monRang >= rang(mo.tier),
+      chiffre: CHIFFRES[x.cle] || null,
+    };
   })
   .filter(Boolean)
   // ⭐⭐ ET LE FILTRE DE LA CAISSE (lot 168) — APRÈS `filter(Boolean)`, parce
   //   qu'il juge une tuile déjà résolue : on masque un module LIVRÉ mais fermé
   //   TANT QU'AUCUNE CAISSE ne permet de l'ouvrir.
-  //   ⛔ `test:tableau` §1 bis refuse le build si ce `|| caisse` disparaît :
-  //   masquer en dur, ce serait graver l'état d'aujourd'hui pour demain.
+  //   ⛔ `test:tableau` refuse le build si ce `|| caisse` disparaît : masquer
+  //   en dur, ce serait graver l'état d'un jour donné pour toujours.
   //   ⭐ Le compteur `x/y` compte dès lors les tuiles RENDUES et non le
-  //   catalogue : il dit « 2/2 » à un membre gratuit au lieu de « 2/4 », ce qui
-  //   est enfin honnête — un dénominateur qu'on ne peut pas atteindre n'informe
+  //   catalogue — un dénominateur qu'on ne peut pas atteindre n'informe
   //   personne, il mesure une frustration.
-  //   ⭐ Et par ricochet il n'y a plus, à l'écran, de tuile fermée peinte en
-  //   `--lock-1v` (cyan) plus voyante que les tuiles ouvertes en `--surface`.
+  //   ⚠️ DEPUIS LE LOT 169 LA CAISSE EXISTE (`offer.url` vaut `/compte/#caisse`)
+  //   ⇒ ce filtre ne masque plus rien aujourd'hui, et c'est le comportement
+  //   voulu : le cadenas redevient un argument de vente. ⛔ Ne pas le retirer
+  //   pour autant — il redeviendrait mordant si la caisse se refermait, et
+  //   c'est exactement le genre de chemin qu'on ne veut pas voir se rouvrir
+  //   non mesuré.
   .filter((x) => x.ouvert || caisse);
 
 // ❤️ LOT 160-B — LE PILOTE N'EST DEMANDÉ QUE SI SON HÔTE EXISTE.
@@ -335,29 +384,47 @@ const cadenas = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stro
       et `/offre/` est en bas de page. */}
   {tuiles.length > 0 && (
     <>
-      <div class="sect-t"><h2 class="mono-t">{t(lang, 'dash.mods')}</h2>
+      {/* 📊 LOT 202 — LE TITRE DIT « ACCÈS RAPIDE », PLUS « MES MODULES ».
+          ⭐ Ce sont SES mots (point `z` : « des modules d'ACCÈS RAPIDE »), et
+          ils sont devenus les seuls justes : depuis que les trois rayons
+          peuvent tenir dans ce bloc, « Mes modules » y nommerait des pages
+          publiques que jamais aucun palier n'a fermées — un titre qui laisse
+          croire qu'un compte ouvre ce qui n'a jamais été verrouillé.
+          ⚠️ `dash.quick` EXISTAIT DÉJÀ dans les cinq dictionnaires, orpheline
+          depuis le 154-A. ⛔ Aucune clé neuve pour ce titre : une clé posée que
+          personne ne lit voyage dans cinq fichiers, et une clé qu'on recrée à
+          côté d'une identique en fait six. */}
+      <div class="sect-t"><h2 class="mono-t">{t(lang, 'dash.quick')}</h2>
         <span class="etiq">{tuiles.filter((x) => x.ouvert).length}/{tuiles.length}</span></div>
       <div class="modules">
         {tuiles.map((x) => (
           x.ouvert ? (
             <a class="module module--ouvert" href={localize(lang, x.href)}>
               <span class="module__c">
-                <span class="module__n">{t(lang, `mod.${x.cle}`)}</span>
-                <span class="module__d">{t(lang, `mod.${x.cle}.d`)}</span>
+                {/* ⭐ LES LIBELLÉS VIENNENT DE LA TABLE, PLUS D'UNE CLÉ
+                    COMPOSÉE. Un rayon ne s'appelle pas `mod.sets` : il porte
+                    `rayon.sets`, déjà traduit dans les cinq dictionnaires
+                    depuis que les rayons existent. Composer `mod.` + la clé
+                    aurait donc affiché « mod.sets » en toutes lettres — `t()`
+                    sur une clé absente rend la clé, en silence. */}
+                <span class="module__n">{t(lang, x.nomCle)}</span>
+                <span class="module__d">{t(lang, x.descCle)}</span>
                 {/* ⚠️ Le chiffre n'est rendu QUE s'il existe. `nb()` renvoie
                     `null` quand le résumé n'a pas pu compter — et une tuile sans
                     son chiffre reste utile, alors qu'une tuile qui affiche « 0 »
-                    affirme quelque chose de faux. */}
+                    affirme quelque chose de faux.
+                    ⚠️ `x.chiffre` peut être `null` : toute clé n'a pas d'entrée
+                    dans `CHIFFRES`, et c'est un état prévu, pas un oubli. */}
                 {x.compteur
                   ? <span class="etiq etiq--bleu" id={x.compteur} hidden></span>
-                  : (x.chiffre() && <span class="etiq etiq--bleu">{x.chiffre()}</span>)}
+                  : (x.chiffre && x.chiffre() && <span class="etiq etiq--bleu">{x.chiffre()}</span>)}
               </span>
             </a>
           ) : (
             <div class="module" title={t(lang, 'dash.locked', { tier: nomPalier(x.tier) })}>
               <span class="module__c">
-                <span class="module__n">{t(lang, `mod.${x.cle}`)}</span>
-                <span class="module__d">{t(lang, `mod.${x.cle}.d`)}</span>
+                <span class="module__n">{t(lang, x.nomCle)}</span>
+                <span class="module__d">{t(lang, x.descCle)}</span>
                 <span class="etiq" style="color:var(--lock)">{t(lang, 'dash.locked', { tier: nomPalier(x.tier) })}</span>
               </span>
               {/* 🔴 LOT 165 — LE CHEVRON A SA PROPRE CLASSE, ET LE STYLE EN
@@ -400,46 +467,33 @@ const cadenas = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stro
       `#tb-fav` (la liste) et `#tb-vide` (son état vide) restent partis, et
       leur vue reste absente du pilote : *un hôte sans pilote et un pilote sans
       hôte se taisent tous les deux, et c'est ce qui rend l'oubli invisible.* */}
-  {/* ═══ LE CATALOGUE ════════════════════════════════════════════════════════
-      ⛔ CE N'EST PAS UNE RANGÉE DE MODULES, ET LE TITRE LE DIT. Les rayons sont
-      PUBLICS : les mettre parmi les tuiles laisserait croire qu'un compte les
-      ouvre, alors qu'ils n'ont jamais été fermés. Deux natures, deux sections.
-      ⚠️ Chaque chiffre peut manquer indépendamment (`null` = pas compté) : la
-      case disparaît, elle n'affiche pas un tiret. Ici un tiret dirait « on
-      attend la donnée », or on ne l'attend pas — on ne l'a pas comptée. */}
-  {(nb(R.sets) || nb(R.collectibles) || nb(R.comics)) && (
-    <>
-      <div class="sect-t"><h2 class="mono-t">{t(lang, 'dash.catalogue')}</h2></div>
-      <div class="stats">
-        {nb(R.sets) && (
-          <a class="stat" href={localize(lang, '/sets/')}>
-            <div class="etiq">{t(lang, 'rayon.sets')}</div>
-            <div class="stat__v">{nb(R.sets)}</div></a>
-        )}
-        {nb(R.collectibles) && (
-          <a class="stat" href={localize(lang, '/collectibles/')}>
-            <div class="etiq">{t(lang, 'rayon.collectibles')}</div>
-            <div class="stat__v">{nb(R.collectibles)}</div></a>
-        )}
-        {nb(R.comics) && (
-          <a class="stat" href={localize(lang, '/comics/')}>
-            <div class="etiq">{t(lang, 'rayon.comics')}</div>
-            <div class="stat__v">{nb(R.comics)}</div></a>
-        )}
-        {/* ⭐ « À venir » N'APPARAÎT QUE S'IL Y EN A. Mesuré le 10/08 : 7 drops.
-            VeVe n'annonce qu'à quelques jours — cette case sera souvent vide, et
-            *un cadre vide ressemble à une panne*. Même règle qu'`AVenir.astro`,
-            qui se tait quand il n'a rien. ⚠️ `> 0` et non `nb()` : ici zéro est
-            une VRAIE mesure (« aucun drop annoncé »), pas un inconnu — et une
-            vraie mesure de zéro ne mérite quand même pas une case. */}
-        {typeof R.aVenir === 'number' && R.aVenir > 0 && (
-          <a class="stat stat--bleu" href={localize(lang, '/collections/')}>
-            <div class="etiq">{t(lang, 'avenir.titre')}</div>
-            <div class="stat__v">{nb(R.aVenir)}</div></a>
-        )}
-      </div>
-    </>
-  )}
+  {/* ═══ LE CATALOGUE — RETIRÉ AU LOT 202, SUR ARBITRAGE DE PREDA (26/08) ════
+      📊 POINT `z`. Les trois rayons sont devenus des ACCÈS RAPIDES, cochables
+      et déplaçables comme les autres. Les laisser aussi dans une rangée du bas
+      les aurait montrés DEUX FOIS sur la même page — exactement le doublon que
+      Preda avait fait retirer pour les Favoris au 154-A (une tuile ET une
+      section montrant la même chose). ⇒ un rayon, un seul endroit.
+      ⭐ L'ancien commentaire disait « deux natures, deux sections : les mettre
+      parmi les tuiles laisserait croire qu'un compte les ouvre ». L'objection
+      était juste, et elle est traitée — pas ignorée : le titre du bloc ne dit
+      plus « Mes modules » mais « Accès rapide », et un rayon y sort sans
+      cadenas, parce qu'il porte `rayon: true` et jamais de palier.
+
+      ⭐ VÉRIFIÉ AVANT DE RETIRER, PAS APRÈS — c'est la seule question qui
+      comptait, et c'est la leçon du bloc « Réglages » juste en dessous :
+        · `/sets/`, `/collectibles/`, `/comics/` sont des accès rapides
+          ci-dessus, et des entrées du menu ;
+        · `/collections/`, que portait la case « À venir », reste atteignable
+          par `Home.astro` (deux liens) et par le fil d'Ariane de CHAQUE rayon
+          et de chaque page de collection.
+      ⇒ aucune adresse n'est orphelinée.
+      ⚠️ CE QUI EST PERDU, ET IL FAUT L'ÉCRIRE : l'annonce « À venir : n » ne
+      s'affiche plus sur le tableau de bord. Ce n'est pas un accès en moins,
+      c'est une information en moins — `/collections/` la porte toujours. À
+      remettre en accès rapide le jour où Preda la réclame, et ce sera une
+      ligne dans `ACCES_RAPIDES`.
+      ⚠️ `dash.catalogue` devient orpheline dans les cinq dictionnaires : elle
+      est retirée dans ce lot, comme les six clés du 154-A. */}
 
   {/* ═══ LES RÉGLAGES — RETIRÉE AU LOT 154-A ═════════════════════════════════
       Preda, 14/08. Ce bloc était une liste de deux liens, et les deux existent

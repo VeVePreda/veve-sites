@@ -7,6 +7,7 @@ export const prerender = true;
 
 import Dashboard from '../../../components/pages/Dashboard.astro';
 import { connecte, palierVisiteur } from '../../../../engine/lib/access.mjs';
+import { COOKIE as TB_COOKIE } from '../../../../engine/lib/tableau.mjs';
 
 export function getStaticPaths() {
   return [];
@@ -31,5 +32,13 @@ Astro.response.headers.set('vary', 'cookie');
 // gabarit, et celle du `<Gate>` évalué au build.
 const palier = palierVisiteur(Astro.locals);
 
+// 🔴🔴🔴 LOT 202 — MÊME LECTURE QUE SUR `/dashboard/`, ET ELLE DOIT Y ÊTRE.
+// Le composant ne peut pas aller chercher le cookie tout seul, pour la raison
+// écrite juste au-dessus à propos de `Astro.locals`. Ce fichier-ci est le
+// jumeau qu'on oublie : il ne s'ouvre qu'en français, en espagnol, en italien
+// ou en allemand, et un réglage qui ne marcherait qu'en anglais ne se voit pas
+// depuis un banc qui ne juge qu'une route. `test:tableau` juge LES DEUX.
+const tb = Astro.cookies.get(TB_COOKIE)?.value || '';
+
 ---
-<Dashboard lang={lang} palier={palier} />
+<Dashboard lang={lang} palier={palier} tb={tb} />

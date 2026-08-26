@@ -126,6 +126,13 @@ if (!existsSync(ENTREE)) {
 //   pas du tout, et le §  serait vert sans avoir rien vu.
 const JOURS_FAUX = 3;
 const SID_DERNIER = 'banc-dernier-jour';
+// 📊 LOT 202 — le compte que le faux service d'identité reconnaît, et la base
+//   jetable dans laquelle ses préférences seront rangées. ⛔ Un chemin sous
+//   `/data` ferait dépendre ce banc d'un volume monté : le bac à sable ne
+//   tourne pas en root, et l'écriture échouerait pour une raison qui n'est pas
+//   son sujet.
+const COMPTE_FAUX = 'banc-compte-202';
+const BASE_JETABLE = join(mkdtempSync(join(tmpdir(), 'veve-tuiles-')), 'prefs.db');
 const faux = createServer((req, res) => {
   if (req.url.startsWith('/session/')) {
     const dernier = req.url.includes(SID_DERNIER);
@@ -133,12 +140,32 @@ const faux = createServer((req, res) => {
     res.end(JSON.stringify({ palier: 'member', jours_restants: dernier ? 1 : JOURS_FAUX }));
     return;
   }
+  // 📊 LOT 202 — LE SECOND ENDPOINT, ET IL EST DIFFÉRENT DU PREMIER.
+  //   `/session/<sid>` rend le palier, et c'est tout ce que le middleware
+  //   demande. L'IDENTIFIANT DE COMPTE vient de `/api/session?sid=`, avec le
+  //   secret de service — c'est cette distinction qui a décidé de toute
+  //   l'architecture du lot 154-B, et sans elle `/api/reglages` ne peut rien
+  //   ranger. ⇒ le faux service doit répondre aux DEUX, sinon ce banc mesure
+  //   une route qui échoue pour une raison qui n'a rien à voir avec son sujet.
+  if (req.url.startsWith('/api/session')) {
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ compte: COMPTE_FAUX, email: 'banc@exemple.test' }));
+    return;
+  }
   res.writeHead(404); res.end('{}');
 });
 await new Promise((ok) => faux.listen(PORT_SESSION, '127.0.0.1', ok));
 
 const serveur = spawn(process.execPath, [ENTREE], {
-  env: { ...process.env, HOST: '127.0.0.1', PORT: String(PORT), SESSION_API: `http://127.0.0.1:${PORT_SESSION}` },
+  env: {
+    ...process.env, HOST: '127.0.0.1', PORT: String(PORT),
+    SESSION_API: `http://127.0.0.1:${PORT_SESSION}`,
+    // 📊 LOT 202 — sans ces deux-là, `/api/reglages` lève avant d'avoir rien
+    //   fait : `compteDeLaSession()` refuse de partir sans secret de service,
+    //   et `prefs.mjs` ouvrirait `/data`, que ce bac à sable n'a pas.
+    VEVEID_SERVICE: process.env.VEVEID_SERVICE || 'secret-de-banc',
+    DB_PATH: BASE_JETABLE,
+  },
   stdio: ['ignore', 'pipe', 'pipe'],
 });
 let journal = '';
@@ -650,6 +677,173 @@ console.log('\n2 quinquies. la bannière « votre accès se termine dans N jours
       verifie('…et `.avertis` est bien peinte par le thème servi',
         /\.avertis\s*\{/.test(css),
         /\.avertis\s*\{/.test(css) ? 'règle présente' : '🔴 classe posée, jamais peinte');
+    }
+  }
+}
+
+// 🔴🔴🔴 CE § DOIT VIVRE **AVANT** `arreter()`, COMME CELUI D'AU-DESSUS.
+//   Écrit à la fin du fichier au premier jet, il tombait après l'arrêt du
+//   serveur : `ECONNREFUSED`, et un banc qui meurt au lieu de mesurer.
+//   6ᵉ occurrence de ce piège dans ce dépôt — il est écrit deux fois plus
+//   haut dans CE fichier, et je l'ai quand même repayé.
+// ═══════════════════════════════════════════════════════════════════════════
+// 📊 LOT 202, POINT `z` — LE CIRCUIT COMPLET, EXÉCUTÉ SUR UN VRAI SERVEUR
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 POURQUOI CE § EXISTE ALORS QUE `test:tableau` EST DÉJÀ VERT.
+//   `test:tableau` lit du TEXTE : il prouve que les lignes sont écrites, jamais
+//   qu'elles s'exécutent. Il a d'ailleurs laissé passer une injection au premier
+//   essai — un `if (false)` posé devant la pose du cookie, deux mots, et le
+//   contrôle restait vert parce qu'il cherchait un NOM et non un USAGE.
+//   ⇒ Ici on POSTE vraiment, on relit vraiment, et on compare deux états.
+//
+// 🔴🔴 ET IL MESURE LA CHAÎNE ENTIÈRE, c'est tout son intérêt :
+//   formulaire → `/api/reglages` → `compteDeLaSession` (faux veveid) →
+//   `prefs.mjs` (vraie base SQLite) → cookie → `/dashboard/` → HTML servi.
+//   Un maillon coupé n'importe où et ce § rougit.
+//
+// ⭐⭐⭐ ON FORCE UN ÉTAT PUIS ON MESURE LE CHANGEMENT. Lire l'ordre des tuiles
+//   sans l'avoir changé ne prouverait rien : c'est la correction du 25/08 sur
+//   un instrument qui gardait un état entre deux mesures. Une BASCULE prouve
+//   plus qu'une lecture.
+console.log('\n📊 LOT 202 — l\'agencement du tableau de bord, de bout en bout');
+{
+  const SID = 'banc-tuiles';
+  const { ACCES_RAPIDES: TB_CAT } = await import('../lib/tableau.mjs');
+  const cookieDe = (rep) => (rep.headers.getSetCookie?.() || [])
+    .map((c) => c.split(';')[0]);
+
+  // ⭐ L'ORDRE DES TUILES SE LIT SUR LES ADRESSES, pas sur les libellés : une
+  //   adresse ne dépend ni de la langue, ni du mode de marquage i18n. C'est la
+  //   leçon du § précédent, payée par un déploiement rouge à l'étape 52/57.
+  const ordreDe = (html) => [...html.matchAll(/<a class="module module--ouvert" href="([^"]+)"/g)]
+    .map((m) => m[1]);
+
+  const voirTableau = async (cookie) => {
+    const rep = await fetch(`http://127.0.0.1:${PORT}/dashboard/`, { headers: { cookie } });
+    return { statut: rep.status, ordre: ordreDe(await rep.text()) };
+  };
+
+  const avant = await voirTableau(`vp_session=${SID}`);
+  verifie('`/dashboard/` se rend, et il rend des tuiles', avant.statut === 200 && avant.ordre.length >= 4,
+    avant.statut === 200 ? `${avant.ordre.length} tuile(s) : ${avant.ordre.join(' ')}`
+      : `🔴 statut ${avant.statut}`);
+
+  // ⭐ LE FORMULAIRE EST LU SUR LA PAGE, PAS RECOPIÉ ICI. Recopier l'ordre
+  //   attendu ferait de ce banc un miroir de mes suppositions ; le lire fait de
+  //   lui un client du formulaire réel.
+  const repCompte = await fetch(`http://127.0.0.1:${PORT}/compte/`, { headers: { cookie: `vp_session=${SID}` } });
+  const pageCompte = await repCompte.text();
+  const champ = pageCompte.match(/name="tb_ordre" value="([^"]*)"/);
+  const cases = [...pageCompte.matchAll(/name="tb" value="([^"]+)"/g)].map((m) => m[1]);
+  verifie('`/compte/` porte le formulaire d\'agencement, avec ses cases',
+    !!champ && cases.length >= 4,
+    champ ? `${cases.length} case(s) · ordre « ${champ[1]} »`
+      : '🔴 champ `tb_ordre` absent — la route ne saurait rien recomposer');
+
+  if (champ && cases.length >= 4 && avant.statut === 200) {
+    // 🔑 UN SEUL GESTE, DEUX EFFETS À MESURER : on descend la première ligne
+    //   (une flèche) ET on décoche la dernière (une case). Un formulaire qui
+    //   n'enregistrerait que l'un des deux se verrait aussitôt.
+    // 🔬🔴🔴 CE CHOIX A ÉTÉ FAUX UNE FOIS, ET LA LEÇON EST LA MÊME QUE LES SEPT
+    //   PRÉCÉDENTES : j'avais pris la DERNIÈRE case du formulaire (`modules`).
+    //   Elle est fermée au palier `member`, donc rendue en `<div>` et non en
+    //   `<a class="module--ouvert">` — c'est-à-dire invisible à `ordreDe()`. La
+    //   décocher ne changeait rien à ce que l'instrument compte, et le contrôle
+    //   accusait le code. *Une injection qui ne mord pas accuse le jeu d'essai
+    //   ou l'instrument, jamais le code* — 8ᵉ fois.
+    //   ⇒ on décoche une ligne QUE L'INSTRUMENT VOIT, et on le prouve en
+    //   partant de la liste qu'il vient lui-même de lire.
+    const parHref = new Map(TB_CAT.map((x) => [x.href, x.cle]));
+    const visibles = avant.ordre.map((h) => parHref.get(h)).filter(Boolean);
+    const decochee = visibles[visibles.length - 1];
+    verifie('le jeu d\'essai vise une tuile que l\'instrument VOIT',
+      Boolean(decochee) && cases.includes(decochee),
+      decochee ? `« ${decochee} » — ${visibles.length} tuile(s) ouverte(s) sur ${cases.length} cases`
+        : '🔴 aucune case ouverte : les contrôles suivants seraient vrais pour rien');
+    const corps = new URLSearchParams();
+    corps.set('poste', '1');
+    corps.set('bloc', 'tableau');
+    corps.set('tb_ordre', champ[1]);
+    for (const c of cases) if (c !== decochee) corps.append('tb', c);
+    corps.set('bas', cases[0]);
+
+    // ═════════════════════════════════════════════════════════════════════
+    // 🔑🔑🔑 DÉCOUVERTE DU 26/08, ET ELLE VALAIT LE DÉTOUR : sans en-tête
+    //    `Origin`, ce POST rend **403**. C'est le contrôle d'origine d'Astro,
+    //    et le lot 160-A avait écrit noir sur blanc qu'il était « une chose que
+    //    je ne peux pas éprouver ici ». On peut : il suffit d'un vrai serveur.
+    //    ⭐ On en fait donc un contrôle À PART ENTIÈRE plutôt qu'un obstacle à
+    //    contourner — c'est la seule mesure du dépôt qui prouve qu'une route
+    //    d'écriture refuse un POST venu d'ailleurs.
+    //    ⛔ Et c'est la raison pour laquelle `checkOrigin: false` reste interdit
+    //    (derrière Cloudflare, `$scheme` ment) : ce § montre ce qu'on perdrait.
+    const horsSite = await fetch(`http://127.0.0.1:${PORT}/api/reglages`, {
+      method: 'POST', redirect: 'manual',
+      headers: {
+        cookie: `vp_session=${SID}`,
+        origin: 'https://exemple-mechant.test',
+        'content-type': 'application/x-www-form-urlencoded',
+      },
+      body: corps.toString(),
+    });
+    verifie('🔑 un POST venu d\'un AUTRE site est refusé (contrôle d\'origine)',
+      horsSite.status === 403,
+      horsSite.status === 403 ? '403 — la route n\'écrit rien pour un tiers'
+        : `🔴 statut ${horsSite.status} : n'importe quelle page pourrait ranger un agencement`);
+
+    const post = await fetch(`http://127.0.0.1:${PORT}/api/reglages`, {
+      method: 'POST', redirect: 'manual',
+      headers: {
+        cookie: `vp_session=${SID}`,
+        origin: `http://127.0.0.1:${PORT}`,
+        'content-type': 'application/x-www-form-urlencoded',
+      },
+      body: corps.toString(),
+    });
+    const ou = post.headers.get('location') || '';
+    verifie('le POST est accepté et renvoie sur l\'ancre du bloc',
+      post.status === 303 && /m=tbok/.test(ou) && /#tableau/.test(ou),
+      post.status === 303 ? ou : `🔴 statut ${post.status} — ${ou || 'sans destination'}`);
+
+    const pose = cookieDe(post).find((c) => c.startsWith('vp_tb='));
+    verifie('🔑 la route repose le COOKIE dans la même réponse',
+      !!pose,
+      pose ? pose.slice(0, 70)
+        : '🔴 aucun `vp_tb` — le réglage serait exact en base et sans effet jusqu\'au prochain login,\n'
+          + '       c\'est-à-dire indiscernable d\'un enregistrement qui a raté');
+
+    if (pose) {
+      const apres = await voirTableau(`vp_session=${SID}; ${pose}`);
+      verifie('la case décochée a QUITTÉ le tableau de bord',
+        apres.ordre.length === avant.ordre.length - 1,
+        `${avant.ordre.length} → ${apres.ordre.length} tuile(s) (« ${decochee} » retiré)`);
+      verifie('…et l\'ordre a bougé, exactement d\'un cran',
+        apres.ordre.join(' ') !== avant.ordre.join(' ')
+          && apres.ordre[0] === avant.ordre[1],
+        `avant ${avant.ordre.slice(0, 3).join(' ')} … · après ${apres.ordre.slice(0, 3).join(' ')} …`);
+
+      // ⭐⭐ LA CONTRE-ÉPREUVE, ET ELLE EST OBLIGATOIRE : sans le cookie, la
+      //   même requête doit rendre l'ordre d'AVANT. Sans elle, un tableau de
+      //   bord qui aurait changé pour une tout autre raison passerait pour une
+      //   preuve — et l'instrument aurait mesuré son propre bruit.
+      const sansCookie = await voirTableau(`vp_session=${SID}`);
+      verifie('🔑 sans le cookie, le tableau de bord retombe sur l\'ordre par défaut',
+        sansCookie.ordre.join(' ') === avant.ordre.join(' '),
+        sansCookie.ordre.join(' ') === avant.ordre.join(' ')
+          ? 'c\'est bien le cookie qui a agi, et rien d\'autre'
+          : `🔴 « ${sansCookie.ordre.join(' ')} » — le changement ne venait pas de lui`);
+
+      // ⭐⭐⭐ ET LA BASE, QUI EST LA VÉRITÉ. `/compte/` ne lit PAS le cookie :
+      //   il relit la préférence rangée. Si ce contrôle passe, l'écriture a
+      //   vraiment traversé veveid, `prefs.mjs` et SQLite — le cookie seul
+      //   aurait pu tout expliquer sans qu'une ligne soit rangée nulle part.
+      const relu = await (await fetch(`http://127.0.0.1:${PORT}/compte/`,
+        { headers: { cookie: `vp_session=${SID}` } })).text();
+      const champ2 = relu.match(/name="tb_ordre" value="([^"]*)"/);
+      verifie('🔑🔑 la BASE a été écrite : `/compte/` relit le nouvel agencement',
+        !!champ2 && champ2[1] !== champ[1] && champ2[1].includes(`-${decochee}`),
+        champ2 ? `« ${champ[1]} » → « ${champ2[1]} »`
+          : '🔴 le formulaire ne se relit plus');
     }
   }
 }

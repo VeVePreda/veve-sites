@@ -46,6 +46,7 @@ import { avoirsDeLaSession, secretDeService, compteDeLaSession } from '../../../
 //   appelant-ci qui borne le SENS — même partage que la langue au 154-B et que
 //   `/api/portes` au 164.
 import { poserPref, lirePref } from '../../../engine/lib/prefs.mjs';
+import { CLE_PREF as TB_CLE, lireAgencement } from '../../../engine/lib/tableau.mjs';
 // 🔴 LOT 164 — LE RÉGLAGE DES PORTES. ⛔ `porte()` est importée pour LIRE le
 //   palier effectif (surcharge comprise) : c'est elle le point unique, et
 //   recalculer « manifeste ou surcharge » ici en ferait une seconde loi.
@@ -423,6 +424,35 @@ if (mailIci) {
   try { mailNews = lirePref(_compteMail, 'mail_news') !== '0'; }
   catch { mailNews = true; }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 📊 LOT 202, POINT `z` — L'AGENCEMENT DU TABLEAU DE BORD
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐ MÊME PORTE QUE LE RÉGLAGE E-MAILS, ET C'EST DÉLIBÉRÉ : `_compteMail` a
+//   déjà coûté son aller-retour vers veveid (il est lu dans `dossier`, que
+//   cette page possède depuis la ligne 220). Rappeler `compteDeLaSession()`
+//   ici paierait une seconde fois, à 4 s de délai, la même question.
+// ⭐⭐ `lireAgencement` NE PEUT PAS LEVER et répond TOUJOURS le catalogue
+//   complet — cookie absent, valeur illisible, clé disparue du site. Il n'y a
+//   donc aucun état où ce bloc s'affiche vide ou à moitié.
+// 🔴 MAIS `lirePref` LÈVE quand la base est illisible, et une exception dans
+//   le frontmatter d'une page rendue à la demande est une 500 servie à un
+//   membre parfaitement connecté — pour un ordre de tuiles. On retombe sur le
+//   défaut, exactement comme le réglage e-mails deux blocs plus haut.
+//   ⛔ Ce n'est pas l'aplatissement interdit par `prefs.mjs` : rien n'est
+//   écrit par-dessus, la lecture retombe sur un défaut affichable.
+const tbIci = mailIci;
+let tbListe = lireAgencement('');
+if (tbIci) {
+  try { tbListe = lireAgencement(lirePref(_compteMail, TB_CLE)); }
+  catch { tbListe = lireAgencement(''); }
+}
+// ⭐⭐⭐ L'ORDRE COURANT VOYAGE DANS UN CHAMP CACHÉ. C'est lui qui permet aux
+//   flèches de marcher sans une ligne de JavaScript : le bouton pressé dit
+//   « monte cette ligne », et la route recompose à partir de cet ordre-ci —
+//   celui que la personne a sous les yeux, pas celui que la base porterait si
+//   un autre onglet l'avait changé entre-temps.
+const tbOrdre = tbListe.map((x) => (x.montre ? x.cle : `-${x.cle}`)).join(',');
 const _m = Astro.url.searchParams.get('m');
 ---
       {/* ⛔ UNE SEULE LANGUE DÉCLARÉE, ET C'EST LE CORRECTIF DU 404.
@@ -799,7 +829,7 @@ const _m = Astro.url.searchParams.get('m');
       requête vide désabonnerait. */}
   {mailIci && (
     <>
-      <div class="sect-t sect-t--gd"><h2>{t(lang, 'account.mail')}</h2></div>
+      <div class="sect-t sect-t--gd" id="emails"><h2>{t(lang, 'account.mail')}</h2></div>
       <section class="panneau champ" style="margin-bottom:var(--s5)">
         <p class="muted respire" style="margin:0 0 var(--s4)">{t(lang, 'account.mail.d')}</p>
         {_m === 'ok' && <p class="etiq" style="margin:0 0 var(--s3)">✓ {t(lang, 'account.mail.saved')}</p>}
@@ -820,6 +850,71 @@ const _m = Astro.url.searchParams.get('m');
             existe ET sait lire cette préférence — pas le jour où l'envoi
             existe. */}
         <p class="muted" style="font-size:13px;margin:var(--s3) 0 0">{t(lang, 'account.mail.none')}</p>
+      </section>
+    </>
+  )}
+
+  {/* ═══════════════════════════════════════════════════════════════════════
+      📊 LOT 202, POINT `z` — « AJOUTER / SUPPRIMER / AGENCER DES MODULES
+      D'ACCÈS RAPIDE ». Tranché sur maquette avec Preda le 25/08 : des cases à
+      cocher et deux flèches, ICI, à côté des réglages e-mails.
+      ═══════════════════════════════════════════════════════════════════════
+      ⛔ PAS DE GLISSER-DÉPOSER, et ce n'est pas un renoncement technique :
+      il ne marche pas sans JavaScript — le site entier fonctionne sans —, il
+      est pénible au doigt, et il exigerait un « remettre comme avant » que
+      personne n'a demandé.
+
+      🔑🔑 CE QUI FAIT MARCHER LES FLÈCHES SANS UNE LIGNE DE SCRIPT : un bouton
+      de soumission n'envoie QUE son propre couple nom/valeur, et le formulaire
+      entier part avec lui. Une flèche est donc un bouton nommé « monte cette
+      ligne », et l'enregistrement des cases se fait au passage. ⭐ Un seul
+      formulaire, une seule route, aucun état d'attente à peindre.
+
+      🔴🔴 LE TÉMOIN `bloc=tableau` EST OBLIGATOIRE, et c'est le même
+      raisonnement que `poste=1` : une case NON cochée n'est pas envoyée par le
+      navigateur. Sans témoin, `/api/reglages` ne pourrait pas distinguer le
+      POST du bloc e-mails d'un « tout décoché » venu d'ici — et chaque
+      enregistrement d'un bloc effacerait l'autre.
+
+      ⛔ AUCUNE CLASSE NEUVE, ni aucune route neuve : `champ`, `panneau`,
+      `etiq`, `muted`, `respire`, `btn`, `btn--sm` sont déjà émises et déjà
+      peintes ; `/api/reglages` existe et est déjà déclarée dans les endroits
+      qu'une route de compte exige. Ce bloc ne rouvre aucune des sept.
+
+      ⭐ LA FLÈCHE DU HAUT MANQUE À LA PREMIÈRE LIGNE, CELLE DU BAS À LA
+      DERNIÈRE — un bouton qui ne peut rien faire est un bouton qui trompe.
+      Le `<span>` vide garde la colonne alignée sans rien promettre. */}
+  {tbIci && (
+    <>
+      <div class="sect-t sect-t--gd" id="tableau"><h2>{t(lang, 'dash.title')}</h2></div>
+      <section class="panneau champ" style="margin-bottom:var(--s5)">
+        <p class="muted respire" style="margin:0 0 var(--s4)">{t(lang, 'account.tb.d')}</p>
+        {_m === 'tbok' && <p class="etiq" style="margin:0 0 var(--s3)">✓ {t(lang, 'account.mail.saved')}</p>}
+        {_m === 'tberr' && <p class="etiq" style="margin:0 0 var(--s3)">⚠️ {t(lang, 'account.mail.err')}</p>}
+        <form method="POST" action="/api/reglages" style="margin:0">
+          <input type="hidden" name="poste" value="1" />
+          <input type="hidden" name="bloc" value="tableau" />
+          <input type="hidden" name="tb_ordre" value={tbOrdre} />
+          {tbListe.map((x, i) => (
+            <div style="display:flex;gap:8px;align-items:center;margin:0 0 var(--s3)">
+              <label style="display:flex;gap:8px;align-items:center;flex:1 1 auto;min-width:0">
+                <input type="checkbox" name="tb" value={x.cle} checked={x.montre} />
+                <span>{t(lang, x.nomCle)}</span>
+              </label>
+              {i > 0
+                ? <button class="btn btn--sm" type="submit" name="haut" value={x.cle}
+                          title={t(lang, 'account.tb.up')}
+                          aria-label={t(lang, 'account.tb.up')}>↑</button>
+                : <span style="display:inline-block;width:2.2em"></span>}
+              {i < tbListe.length - 1
+                ? <button class="btn btn--sm" type="submit" name="bas" value={x.cle}
+                          title={t(lang, 'account.tb.down')}
+                          aria-label={t(lang, 'account.tb.down')}>↓</button>
+                : <span style="display:inline-block;width:2.2em"></span>}
+            </div>
+          ))}
+          <button class="btn btn--sm" type="submit" style="margin-top:var(--s3)">{t(lang, 'account.mail.save')}</button>
+        </form>
       </section>
     </>
   )}
