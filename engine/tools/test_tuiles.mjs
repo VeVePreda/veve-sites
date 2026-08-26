@@ -117,14 +117,20 @@ if (!existsSync(ENTREE)) {
 // Sans lui `/market/` répond 302 et le banc mesurerait une page de connexion —
 // c'est précisément l'angle mort de `test:pages`, qui demande `/market/` sans
 // session et n'atteint donc JAMAIS le rendu qu'on veut peser.
-// 🔔 LOT 201 — LE FAUX SERVICE REND AUSSI `jours_restants`, exactement comme
-//   veveid depuis ce lot. ⭐ Une valeur DANS le délai de rappel (3 ≤ 5), sinon
-//   la bannière ne s'émettrait pas et le §5 serait vert sans rien avoir vu.
+// 🔔 LOT 201 — LE FAUX SERVICE REND AUSSI `jours_restants`, comme veveid.
+// ⭐⭐⭐ ET IL RÉPOND SELON LE SID, ce qui permet de demander la MÊME page dans
+//   deux états sans relancer le serveur. C'est ce qui rend mesurable « le
+//   dernier jour a sa propre phrase » : on COMPARE deux rendus, au lieu de
+//   croire une étiquette.
+// ⚠️ 3 est DANS le délai de rappel (3 ≤ 5) : au-delà la bannière ne s'émettrait
+//   pas du tout, et le §  serait vert sans avoir rien vu.
 const JOURS_FAUX = 3;
+const SID_DERNIER = 'banc-dernier-jour';
 const faux = createServer((req, res) => {
   if (req.url.startsWith('/session/')) {
+    const dernier = req.url.includes(SID_DERNIER);
     res.writeHead(200, { 'content-type': 'application/json' });
-    res.end(JSON.stringify({ palier: 'member', jours_restants: JOURS_FAUX }));
+    res.end(JSON.stringify({ palier: 'member', jours_restants: dernier ? 1 : JOURS_FAUX }));
     return;
   }
   res.writeHead(404); res.end('{}');
@@ -568,37 +574,74 @@ console.log('\n2 quinquies. la bannière « votre accès se termine dans N jours
 //   faux veveid → `GET /session/<sid>` → middleware → `Astro.locals` → seuil
 //   de la page → HTML servi. Un maillon coupé n'importe où et ce §  rougit.
 {
-  const r = await fetch(`http://127.0.0.1:${PORT}/compte/`,
-    { headers: { cookie: 'vp_session=banc-tuiles' } });
-  const page = await r.text();
-  verifie('`/compte/` se rend pour un membre connecté', r.status === 200,
-    r.status === 200 ? `${Buffer.byteLength(page)} o` : `🔴 statut ${r.status}`);
-  if (r.status === 200) {
-    // ⚠️ ON CHERCHE LA CLÉ i18n, PAS LE TEXTE FRANÇAIS. Le libellé change au
-    //    premier ajustement de formulation ; la clé, non. Et sous
-    //    `I18N_MARQUAGE=1` le HTML porte le marqueur, pas la phrase — un banc
-    //    qui chercherait « se termine dans » serait INDÉCIDABLE la moitié du
-    //    temps sans jamais le dire.
-    const cle = /account\.endsIn/.test(page);
-    const demain = /account\.endsTomorrow/.test(page);
-    verifie('…et elle porte la bannière de fin d\'accès',
-      cle || demain,
-      cle || demain ? `clé ${cle ? 'account.endsIn' : 'account.endsTomorrow'} servie`
-        : '🔴 aucune des deux clés dans le HTML — le chiffre n\'a pas traversé middleware → locals → page');
-    // ⭐ LA BONNE DES DEUX : à 3 jours c'est le pluriel, pas « demain ». Sans
-    //   ce contrôle, un gabarit qui afficherait toujours la même phrase
-    //   passerait — et « votre accès se termine demain » à cinq jours de la
-    //   fin est une phrase fausse envoyée à un client qui paie.
-    verifie('…et c\'est la bonne phrase pour 3 jours (pas « demain »)',
-      cle && !demain, cle && !demain ? 'pluriel' : '🔴 la page ne distingue pas le dernier jour');
-    // ⛔ ET LE NOMBRE EST BIEN CELUI DU SERVICE, pas une valeur par défaut.
-    verifie('…et le nombre vient du service d\'identité',
-      new RegExp(`>\\s*${JOURS_FAUX}\\s*<|\\b${JOURS_FAUX}\\b`).test(page.replace(/<svg[\s\S]*?<\/svg>/g, '')),
-      `${JOURS_FAUX} attendu`);
-    // ⭐⭐⭐ LA CONTRE-ÉPREUVE : la classe du thème existe VRAIMENT. Une
-    //   bannière posée avec une classe que personne ne peint est un « posé
-    //   jamais lu » — invisible dans les deux sens, exactement la faute que ce
-    //   dépôt a déjà payée sur `.rayon__cote`.
+  const lire = async (sid) => {
+    const rep = await fetch(`http://127.0.0.1:${PORT}/compte/`, { headers: { cookie: `vp_session=${sid}` } });
+    return { statut: rep.status, html: await rep.text() };
+  };
+  const BANDEAU = /<p class="avertis"[^>]*data-fin="(\d+)"[^>]*>([\s\S]*?)<\/p>/;
+  // ⚠️ LES TROIS SENTINELLES DU MARQUAGE S'ÉCRIVENT EN ÉCHAPPEMENT, JAMAIS
+  //    EN CLAIR : ce sont des caractères de CONTRÔLE, invisibles dans un
+  //    éditeur et perdus à la première copie qui les normalise.
+  const nu = (x) => x.replace(/<[^>]*>/g, '')
+    .replace(/[\u0011\u0012\u0013]/g, ' ').replace(/\s+/g, ' ').trim();
+
+  const { statut, html: page } = await lire('banc-tuiles');
+  verifie('`/compte/` se rend pour un membre connecté', statut === 200,
+    statut === 200 ? `${Buffer.byteLength(page)} o` : `🔴 statut ${statut}`);
+
+  if (statut === 200) {
+    // ═════════════════════════════════════════════════════════════════════
+    // 🔴🔴🔴 CE §  A DÉJÀ FAIT ÉCHOUER UN DÉPLOIEMENT — SUR DU CODE JUSTE.
+    // ═════════════════════════════════════════════════════════════════════
+    // Première version : il cherchait la CLÉ i18n `account.endsIn` dans le
+    // HTML servi. Cette clé n'y est QUE sous `I18N_MARQUAGE=1` — un réglage
+    // que la CI pose pour `npm test`, et que le **Dockerfile ne pose PAS**
+    // pour ce banc-ci (`RUN WAREHOUSE_OFFLINE=1 npm run test:tuiles`). Vert en
+    // bac à sable, rouge à l'étape 52 sur 57 du build de production.
+    // ⭐⭐⭐ *Sur quoi est-il branché ?* — sur un marqueur de mise au point, pas
+    // sur son sujet. Un banc doit tenir dans les DEUX conditions : c'est le
+    // Dockerfile, et lui seul, qui décide d'un déploiement.
+    // ⇒ On lit `data-fin`, posé par le gabarit : il ne dépend ni de la langue,
+    //   ni du mode de marquage, ni de la formulation.
+    const bandeau = page.match(BANDEAU);
+    verifie('`/compte/` porte la bannière de fin d\'accès',
+      !!bandeau, bandeau ? `data-fin="${bandeau[1]}"`
+        : '🔴 absente — le chiffre n\'a pas traversé middleware → locals → page');
+
+    if (bandeau) {
+      const texte = nu(bandeau[2]);
+      verifie('…et son chiffre est celui du service d\'identité',
+        bandeau[1] === String(JOURS_FAUX), `${bandeau[1]} vu · ${JOURS_FAUX} attendu`);
+
+      // 🐛 LE DÉFAUT DU 26/08, QUE LA VERSION PRÉCÉDENTE AVAIT LAISSÉ PASSER :
+      //    le libellé était écrit « ends in ${n} days » — la forme recopiée sur
+      //    `caisse.perMonth` (« ${v} / month »), où le `$` est le SYMBOLE
+      //    DOLLAR et non une syntaxe. `t()` substitue `{n}`, jamais `${n}` ⇒ la
+      //    page servait « ends in $3 days » à des clients qui paient.
+      //    ⭐⭐⭐ *Un banc qui cherche une CLÉ ne lit jamais ce que l'utilisateur
+      //    voit.* Celui-ci lit le TEXTE, et refuse toute trace de gabarit.
+      const reste = texte.match(/\$\{|\{\w+\}|\$\d/);
+      verifie('…et le libellé ne porte AUCUNE trace de gabarit non substitué',
+        !reste, reste ? `🔴 « ${texte.slice(0, 90)} » — motif ${reste[0]}` : `« ${texte.slice(0, 58)}… »`);
+      verifie('…et le nombre est bien écrit dans la phrase',
+        new RegExp(`(^|[^\\d])${JOURS_FAUX}([^\\d]|$)`).test(texte), `« ${texte.slice(0, 58)}… »`);
+
+      // ⭐⭐⭐ LE DERNIER JOUR SE MESURE PAR COMPARAISON, PAS PAR UNE ÉTIQUETTE.
+      //    « il reste 1 jours » ne s'écrit pas, et aucune langue ne pluralise
+      //    comme le français. On demande donc la MÊME page dans l'autre état et
+      //    on exige que la phrase DIFFÈRE — vrai en cinq langues, vrai avec ou
+      //    sans marquage, et vrai le jour où la formulation change.
+      const autre = (await lire(SID_DERNIER)).html.match(BANDEAU);
+      const distinctes = !!autre && nu(autre[2]) !== texte;
+      verifie('…et le DERNIER jour a sa propre phrase',
+        !!autre && autre[1] === '1' && distinctes,
+        autre ? `data-fin="${autre[1]}" · phrase ${distinctes ? 'différente' : '🔴 IDENTIQUE'}`
+          : '🔴 aucune bannière à 1 jour');
+    }
+
+    // ⭐ LA CONTRE-ÉPREUVE : la classe existe VRAIMENT dans la feuille servie.
+    //   Une bannière posée avec une classe que personne ne peint est un « posé
+    //   jamais lu » — invisible dans les deux sens.
     const feuille = [...page.matchAll(/href="(\/theme-[^"]+\.css)"/g)][0];
     if (!feuille) {
       indecis('la classe de la bannière', 'aucune feuille de thème référencée sur cette page');

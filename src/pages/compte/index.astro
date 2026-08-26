@@ -572,7 +572,16 @@ const _m = Astro.url.searchParams.get('m');
       s'écrit pas — et qu'aucune langue ne pluralise comme le français. Le
       dernier jour a donc sa propre clé, dans les cinq dictionnaires. */}
   {_bientotFini && (
-    <p class="avertis" style="margin:var(--s5) 0 0">
+    /* 🔬 `data-fin` EST LE SEUL ANCRAGE QU'UN BANC PEUT SUIVRE, et il a été
+       ajouté APRÈS un déploiement rouge. Le banc cherchait la CLÉ i18n
+       (`account.endsIn`) dans le HTML servi : elle n'y est que sous
+       `I18N_MARQUAGE=1`, que la CI pose et que le **Dockerfile ne pose pas**
+       pour ce banc-là. Vert en bac à sable, rouge en production, sur du code
+       parfaitement juste.
+       ⭐⭐⭐ Un attribut de données ne dépend NI de la langue, NI du mode de
+       marquage, NI de la formulation : il dit le CHIFFRE, qui est ce qu'on
+       veut garder. Le libellé, lui, changera au premier ajustement de style. */
+    <p class="avertis" data-fin={String(_joursRestants)} style="margin:var(--s5) 0 0">
       <b>{_joursRestants <= 1
         ? t(lang, 'account.endsTomorrow')
         : t(lang, 'account.endsIn', { n: String(_joursRestants) })}</b>
