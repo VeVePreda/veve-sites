@@ -528,7 +528,19 @@ const _m = Astro.url.searchParams.get('m');
 
   {/* ⭐ CE QUE LA PERSONNE EST — trois faits, rien d'autre. Un espace compte
       qui commence par un argumentaire fait douter qu'on soit au bon endroit. */}
-  <div class="sect-t sect-t--gd"><h2>{t(lang, 'account.title')}</h2></div>
+  {/* 🔴 LOT 204 — LE TITRE DE SECTION A ÉTÉ RETIRÉ, PAS DÉPLACÉ.
+      Sa capture du 26/08 : « Mon compte » écrit DEUX FOIS DE SUITE. Le `<h1>`
+      trente lignes plus haut et ce `<h2>` portaient la MÊME clé `account.title`,
+      séparés par la seule phrase d'introduction.
+      ⭐ POURQUOI RETIRER PLUTÔT QUE RENOMMER : un titre de section neuf, c'est
+      une clé de plus dans CINQ dictionnaires, pour annoncer un contenu que le
+      `<h1>` juste au-dessus annonce déjà. Ce premier bloc n'a pas besoin de se
+      présenter — il EST la page. Les quatre blocs suivants gardent leur
+      `sect-t sect-t--gd`, et c'est cohérent : eux viennent après un long
+      défilement, ils doivent se renommer.
+      ⚠️ L'ÉTIQUETTE `// MON COMPTE` DE LA LIGNE 501 RESTE. C'est l'ossature du
+      réseau — huit pages sur onze la portent — et elle ne fait pas doublon avec
+      un titre, elle le précède. */}
   <section class="panneau champ" style="margin-bottom:var(--s5)">
     <div class="stats">
       <div class="stat"><div class="k">{t(lang, 'account.tier')}</div><div class="v">{palier}</div></div>

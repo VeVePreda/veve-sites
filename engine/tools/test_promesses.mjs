@@ -42,6 +42,10 @@
 
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+// 🔴 LOT 204 — `texteVu()` AVANT TOUT COMPTAGE DE LIBELLÉ. Un bouton servi
+// porte des sentinelles i18n et des balises ; comparer du HTML brut ferait
+// passer deux libellés identiques pour distincts (ou l'inverse).
+import { texteVu } from '../lib/seo.mjs';
 
 process.env.SITE = process.env.SITE || 'veveprice';
 const R = new URL('../..', import.meta.url).pathname;
@@ -321,9 +325,98 @@ dit(fausses.length === 0, 'une porte marquee provisoire est ouverte a un palier 
   const RACINE = existe(joindre(R, 'dist', 'client')) ? joindre(R, 'dist', 'client') : joindre(R, 'dist');
   const PAGE = joindre(RACINE, 'offre', 'index.html');
 
-  if (venteOuverte) {
-    console.log('  --  la vente est OUVERTE : chaque carte porte un vrai appel a l\'action, rien a departager.');
-    console.log('      ⭐ Ce message est volontaire : un banc muet et un banc vert se ressemblent.');
+  // ═══════════════════════════════════════════════════════════════════════
+  // 🔴🔴🔴 LOT 204 — CE § S'ETEIGNAIT LE JOUR OU IL DEVENAIT UTILE
+  // ═══════════════════════════════════════════════════════════════════════
+  // LE COMMENTAIRE CI-DESSUS DISAIT : « LE CONTROLE NE VAUT QUE VENTE FERMEE.
+  // Le jour ou `offer.url` se remplit, toutes les cartes portent un vrai appel
+  // a l'action et il n'y a plus rien a departager. »
+  // ⛔ CETTE PREMISSE ETAIT FAUSSE, ET C'EST MESURE. La vente s'est ouverte ;
+  // les quatre cartes ont porte le MEME libelle — « Acces membre » — sous
+  // Membre (gratuit) comme sous Whale (30 $/mois). Le bouton d'un palier payant
+  // ne disait pas qu'il menait a un paiement. Ce §-ci s'est tu ce jour-la, et
+  // c'est PARCE QU'IL S'EST TU que le defaut a vecu en production.
+  //
+  // ⭐⭐⭐ LA REGLE, ET ELLE VAUT AU-DELA DE CE BANC : **un banc qui se desarme
+  // quand la condition qu'il attendait arrive n'est pas un banc, c'est un
+  // interrupteur.** La bonne question n'etait jamais « y a-t-il quelque chose a
+  // departager ? » mais « chaque carte dit-elle la verite sur ce qui l'attend
+  // au clic ? » — et cette question a une reponse dans les DEUX etats.
+  // ⇒ La branche vente-ouverte MESURE maintenant, au lieu d'annoncer.
+  if (venteOuverte && !existe(PAGE)) {
+    indecidable++;
+    console.log(`  ⚠️  INDECIDABLE — ${PAGE.replace(R, '')} absente : jouer ce banc APRES npm run build.`);
+  } else if (venteOuverte) {
+    const html = readFileSync(PAGE, 'utf8');
+    const i = html.indexOf('class="tarifs"');
+    const zone = i < 0 ? '' : html.slice(i, html.indexOf('compa-t__h') > 0 ? html.indexOf('compa-t__h') : html.length);
+    dit(Boolean(zone), 'la grille des tarifs est lisible dans la page servie',
+      zone ? `${zone.length} octets` : 'aucun bloc `class="tarifs"` : l\'instrument ne peut rien mesurer');
+    if (zone) {
+      const cartes = (zone.match(/class="tarif[ "]/g) || []).length;
+      dit(cartes === plans.length, 'la page rend exactement une carte par plan declare',
+        cartes === plans.length ? `${cartes} = ${plans.length}`
+          : `${cartes} carte(s) pour ${plans.length} plan(s) : l'instrument mesure autre chose`);
+      // ⭐ VENTE OUVERTE, LE PARTAGE EST LE MEME QU'A LA FERMETURE, seule la
+      //   destination change : le gratuit va s'inscrire, le payant va payer.
+      const versCaisse = (zone.match(new RegExp(`href="${offre.url.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`, 'g')) || []).length;
+      const inscriptions = (zone.match(/href="\/connexion\/"/g) || []).length;
+      console.log(`\n  · ${cartes} carte(s) · ${gratuits.length} gratuite(s) · ${payants.length} payante(s)`);
+      console.log(`  · ${versCaisse} bouton(s) vers la caisse · ${inscriptions} lien(s) vers l'inscription`);
+      dit(versCaisse === payants.length,
+        'chaque palier PAYANT mene a la caisse, et lui seul',
+        versCaisse === payants.length ? `${versCaisse} lien(s) vers « ${offre.url} » pour ${payants.length} palier(s) payant(s)`
+          : `${versCaisse} lien(s) vers la caisse pour ${payants.length} palier(s) payant(s) : `
+            + (versCaisse > payants.length
+              ? `${versCaisse - payants.length} palier(s) GRATUIT(s) envoient payer une chose qui ne se vend pas`
+              : 'un palier payant n\'a plus de chemin pour se payer'));
+      dit(inscriptions === gratuits.length,
+        'et chaque palier gratuit porte un chemin pour y entrer',
+        inscriptions === gratuits.length ? `${inscriptions} lien(s) pour ${gratuits.length} palier(s) gratuit(s)`
+          : `${inscriptions} lien(s) vers /connexion/ pour ${gratuits.length} palier(s) gratuit(s) : `
+            + 'un palier ouvert sans porte est un palier ferme');
+      // ⭐⭐⭐ ET LE POINT QUE PREDA A VU LE 26/08 : un bouton doit dire QUEL
+      //   palier il ouvre. Quatre boutons identiques sur quatre prix differents,
+      //   c'est une page de tarifs qui ne vend rien.
+      //   ⛔ ON NE CHERCHE PAS LE LIBELLE, ON LE COMPTE DISTINCT. Un controle
+      //   « le bouton contient "Choisir" » serait vert sur quatre boutons
+      //   « Choisir » identiques — exactement le defaut qu'on repare.
+      const libelles = [...zone.matchAll(/<a[^>]*class="btn[^"]*"[^>]*>([\s\S]*?)<\/a>/g)]
+        // 🔴 MESURE DU 26/08 : `texteVu()` SEUL NE SUFFIT PAS ICI. Il retire les
+        //   `<script>`/`<style>` et les sentinelles, mais laisse les balises —
+        //   et `marquer:i18n` enrobe CHAQUE libellé d'un `<span data-i18n=…>`.
+        //   Sans le dépouillage ci-dessous, ce banc comparait du HTML : deux
+        //   boutons au même texte visible mais aux clés différentes seraient
+        //   comptés « distincts », et le contrôle serait vert sur le défaut
+        //   qu'il est censé voir. ⭐ L'instrument s'est trompé de sujet — il
+        //   lisait l'étiquette technique, pas ce que la personne LIT.
+        .map((x) => texteVu(x[1]).replace(/<[^>]*>/g, ' ').replace(/&[a-z]+;|&#\d+;/gi, ' ').replace(/\s+/g, ' ').trim())
+        .filter(Boolean);
+      const distincts = new Set(libelles);
+      console.log(`  · libelles des boutons : ${libelles.map((l) => `« ${l} »`).join(' · ') || '(aucun)'}`);
+      dit(distincts.size === libelles.length,
+        'aucun palier ne porte le meme libelle qu\'un autre',
+        distincts.size === libelles.length ? `${libelles.length} bouton(s), ${distincts.size} libelle(s) distinct(s)`
+          : `🔴 ${libelles.length} bouton(s) pour ${distincts.size} libelle(s) : `
+            + 'le visiteur ne peut pas savoir lequel ouvre quel palier — c\'est le defaut du 26/08');
+      // ⭐ ET CHAQUE BOUTON PAYANT NOMME SON PALIER. Le controle du dessus
+      //   accepterait « Choisir 1 / 2 / 3 » : distinct, et muet.
+      // ⚠️ `nom` EST UNE CARTE PAR LANGUE dans le manifeste. On accepte
+      //   N'IMPORTE LAQUELLE de ses valeurs : la page servie est bâtie dans la
+      //   langue pivot, mais « Crevette » est un nom de MARQUE et il ne change
+      //   pas d'une langue à l'autre — exiger la langue pivot rendrait ce banc
+      //   faux le jour où une langue traduirait un nom de palier.
+      const manquants = payants.filter((p) => {
+        const noms = (p.nom && typeof p.nom === 'object' ? Object.values(p.nom) : [p.nom])
+          .map((x) => String(x || '').trim()).filter(Boolean);
+        const cherches = noms.length ? noms : [String(p.cle)];
+        return !libelles.some((l) => cherches.some((n) => l.toLowerCase().includes(n.toLowerCase())));
+      });
+      dit(manquants.length === 0,
+        'et le bouton d\'un palier payant porte le NOM de son palier',
+        manquants.length === 0 ? `${payants.length} palier(s) payant(s) nommes dans leur bouton`
+          : `🔴 ${manquants.map((p) => p.cle).join(', ')} : son bouton ne le nomme pas`);
+    }
   } else if (!gratuits.length) {
     console.log(`  --  aucun palier gratuit declare sur « ${process.env.SITE} » : ce controle n'a rien a mesurer.`);
     console.log('      ⭐ Ce message est volontaire : un banc muet et un banc vert se ressemblent.');

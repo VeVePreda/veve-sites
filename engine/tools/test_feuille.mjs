@@ -526,6 +526,291 @@ console.log('\n═══ LOT 203, POINT `ag` — la série est bornée, et son n
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 LOT 204 — LE BANC QUI MANQUAIT : « EST-CE LISIBLE ? »
+// ═══════════════════════════════════════════════════════════════════════════
+// LE 26/08, LE BLOC « MON TABLEAU DE BORD » DU LOT 202 EST ARRIVÉ EN PRODUCTION
+// ILLISIBLE. Il était passé par 43 bancs, 4 conditions et 21 injections. Aucun
+// n'a rougi. Tous mesuraient le CIRCUIT — la valeur est rangée, le cookie
+// repart, la tuile bouge — et AUCUN ne mesurait la MISE EN PAGE.
+// C'est une capture d'écran de Preda qui l'a vu. ⇒ « produite » ≠ « atteignable »
+// ≠ **« lisible »**, et une capture valait ici quarante-trois bancs.
+//
+// ⭐⭐⭐ CE § NE DEMANDE PAS « LA RÈGLE EST-ELLE ÉCRITE ? » MAIS « QUI GAGNE ? ».
+// La distinction est toute la valeur du bloc. Le défaut du 202 n'était pas une
+// règle absente : c'était une règle PRÉSENTE — `.champ input{width:100%}` — qui
+// gagnait sur une case à cocher parce que rien ne la contredisait. Un contrôle
+// qui aurait cherché la chaîne « checkbox » dans la feuille serait resté vert
+// le jour où quelqu'un aurait écrit cette exception DERRIÈRE la règle générale
+// avec une spécificité plus faible. On résout donc la cascade : ordre source,
+// spécificité, `!important` — et on lit la valeur qui l'emporte.
+//
+// ⛔ LES RÈGLES SOUS `@media` / `@supports` SONT IGNORÉES, EXPRÈS. La question
+// posée est « que voit-on par défaut ? ». Une exception qui ne vaudrait qu'au
+// delà de 900 px laisserait le téléphone cassé — ce banc la compte donc pour
+// absente, et c'est le verdict conservateur qu'on veut.
+//
+// ⚠️ CE QU'IL NE PEUT PAS FAIRE, ET IL FAUT L'ÉCRIRE : il ne dessine pas. Il ne
+// dira jamais qu'un contraste est faible ou qu'une marge est laide. Il borne UNE
+// famille de fautes — « une classe employée hors de son rôle écrase ses
+// enfants » — celle qui a coûté deux blocs illisibles le même jour.
+// ⇒ ⛔ IL NE REMPLACE PAS UNE CAPTURE. Il empêche CE défaut-ci de revenir.
+{
+  const css204 = texteFeuilleBrut.replace(/\/\*[\s\S]*?\*\//g, ' ');
+
+  // ── L'ANALYSEUR : les règles PLATES, dans l'ordre de la source ────────────
+  // ⛔ On ne descend pas dans les `@media` : `pileAt` retient les blocs `@`
+  //    ouverts, et tant qu'il n'est pas vide on ne retient rien.
+  const reglesPlates = (css) => {
+    const out = [];
+    const pileAt = [];
+    let prof = 0, selDebut = 0;
+    for (let i = 0; i < css.length; i++) {
+      const c = css[i];
+      if (c === '{') {
+        const tete = css.slice(selDebut, i).trim();
+        prof++;
+        if (tete.startsWith('@')) pileAt.push(prof);
+        else if (pileAt.length === 0) {
+          let p = 1, j = i + 1;
+          while (j < css.length && p > 0) { if (css[j] === '{') p++; else if (css[j] === '}') p--; j++; }
+          out.push({ sel: tete, corps: css.slice(i + 1, j - 1), ordre: out.length });
+        }
+        selDebut = i + 1;
+      } else if (c === '}') {
+        if (pileAt.length && pileAt[pileAt.length - 1] === prof) pileAt.pop();
+        prof--;
+        selDebut = i + 1;
+      }
+    }
+    return out;
+  };
+
+  // ── LE MATCHEUR : un seul élément, sa chaîne d'ancêtres ───────────────────
+  // ⚠️ SOUS-ENSEMBLE ASSUMÉ : type, `.classe`, `#id`, `[attr="v"]`, descendance
+  //    et `>`. Tout sélecteur portant une pseudo-classe, `~` ou `+` est ÉCARTÉ :
+  //    il décrit un ÉTAT (`:hover`, `:focus`) ou un voisinage, pas le repos —
+  //    et c'est le repos qu'on mesure. Un sélecteur écarté ne peut donc jamais
+  //    faire passer ce banc au vert par accident : il ne participe pas.
+  const compose = (part) => {
+    const m = { tag: null, ids: [], classes: [], attrs: [] };
+    const re = /([a-zA-Z][\w-]*)|\.([\w-]+)|#([\w-]+)|\[([\w-]+)(?:([~|^$*]?=)"?([^\]"]*)"?)?\]/g;
+    let x; let vu = 0;
+    while ((x = re.exec(part))) {
+      vu = re.lastIndex;
+      if (x[1]) m.tag = x[1];
+      else if (x[2]) m.classes.push(x[2]);
+      else if (x[3]) m.ids.push(x[3]);
+      else if (x[4]) m.attrs.push([x[4], x[6] ?? null]);
+    }
+    return vu === part.length ? m : null;   // ⛔ reste illisible ⇒ on écarte
+  };
+  const colle = (n, c) => {
+    if (c.tag && c.tag !== '*' && c.tag !== n.tag) return false;
+    if (c.ids.some((i) => i !== n.id)) return false;
+    if (c.classes.some((k) => !(n.classes || []).includes(k))) return false;
+    return c.attrs.every(([a, v]) => (n.attrs || {})[a] !== undefined && (v === null || (n.attrs || {})[a] === v));
+  };
+  // chaîne = du plus lointain ancêtre à l'élément lui-même
+  const matche = (sel, chaine) => {
+    if (/[:~+]/.test(sel)) return null;
+    const jetons = sel.trim().split(/\s+/).flatMap((j) => (j === '>' ? ['>'] : j.split(/(?=>)|(?<=>)/))).filter(Boolean);
+    const parts = [];
+    for (let i = 0; i < jetons.length; i++) {
+      if (jetons[i] === '>') { parts[parts.length - 1].enfant = true; continue; }
+      const c = compose(jetons[i]);
+      if (!c) return null;
+      parts.push({ c, enfant: false });
+    }
+    if (!parts.length) return null;
+    // le dernier doit coller à l'élément
+    const dernier = parts[parts.length - 1];
+    if (!colle(chaine[chaine.length - 1], dernier.c)) return false;
+    let k = chaine.length - 2;
+    for (let p = parts.length - 2; p >= 0; p--) {
+      const direct = parts[p + 1].enfant;
+      if (direct) { if (k < 0 || !colle(chaine[k], parts[p].c)) return false; k--; continue; }
+      let trouve = false;
+      while (k >= 0) { if (colle(chaine[k], parts[p].c)) { trouve = true; k--; break; } k--; }
+      if (!trouve) return false;
+    }
+    // spécificité (id, classe+attr, type)
+    const spec = parts.reduce((a, { c }) => [a[0] + c.ids.length, a[1] + c.classes.length + c.attrs.length, a[2] + (c.tag && c.tag !== '*' ? 1 : 0)], [0, 0, 0]);
+    return spec;
+  };
+
+  // ── QUI GAGNE SUR CETTE PROPRIÉTÉ ? ───────────────────────────────────────
+  const REGLES_204 = reglesPlates(css204);
+  const gagnant = (chaine, prop) => {
+    let best = null;
+    for (const r of REGLES_204) {
+      for (const sel of r.sel.split(',')) {
+        const spec = matche(sel.trim(), chaine);
+        if (!spec) continue;
+        const re = new RegExp(`(?:^|;)\\s*${prop}\\s*:\\s*([^;]+)`, 'gi');
+        let d;
+        while ((d = re.exec(r.corps))) {
+          const brut = d[1].trim();
+          const imp = /!important/i.test(brut);
+          const val = brut.replace(/!important/i, '').trim();
+          // ⭐ L'ORDRE DE LA CASCADE, DANS SON ORDRE : `!important` d'abord,
+          //   puis la spécificité (id, classe+attr, type), puis l'ordre de la
+          //   source. ⚠️ Une comparaison lexicographique, pas une somme : une
+          //   spécificité ne s'additionne pas — 11 classes ne battent pas un id.
+          const rang = [imp ? 1 : 0, spec[0], spec[1], spec[2], r.ordre];
+          const plusFort = !best || rang.some((v, i) => v > best.rang[i] && rang.slice(0, i).every((w, j) => w === best.rang[j]));
+          if (plusFort) best = { val, rang, sel: sel.trim() };
+        }
+      }
+    }
+    return best;
+  };
+
+  // ── §204-A — UNE CASE À COCHER N'EST PAS UN CHAMP DE SAISIE ───────────────
+  // La chaîne reproduit le balisage RÉEL de `src/pages/compte/index.astro` :
+  // `<section class="panneau champ">` → `<form>` → `<div>` → `<label>` → la case.
+  const CASE = [
+    { tag: 'html', classes: [] }, { tag: 'body', classes: [] },
+    { tag: 'section', classes: ['panneau', 'champ'] },
+    { tag: 'form', classes: [] }, { tag: 'div', classes: [] }, { tag: 'label', classes: [] },
+    { tag: 'input', classes: [], attrs: { type: 'checkbox' } },
+  ];
+  const TEXTE = [
+    { tag: 'html', classes: [] }, { tag: 'body', classes: [] },
+    { tag: 'section', classes: ['panneau', 'champ'] },
+    { tag: 'form', classes: [] }, { tag: 'div', classes: [] }, { tag: 'label', classes: [] },
+    { tag: 'input', classes: [], attrs: { type: 'text' } },
+  ];
+  // ⭐⭐ LE TÉMOIN D'ABORD, ET IL EST LA MOITIÉ DU CONTRÔLE. Si aucune règle ne
+  //    gagne sur un `input[type=text]` dans un `.champ`, c'est que ce thème
+  //    n'a pas de trousse de formulaire — le contrôle est SANS OBJET, pas vert.
+  //    ⛔ « zéro parce que c'est corrigé » et « zéro parce qu'il n'y a rien
+  //    ici » sont deux verdicts opposés, et `aurora` comme `encyclopedie`
+  //    tombent dans le second : `.champ` n'existe que dans `vitrine`.
+  const largeurTexte = gagnant(TEXTE, 'width');
+  if (!largeurTexte) {
+    console.log('\n  --  §204-A SANS OBJET — ce thème ne pose aucune largeur sur un `input` de `.champ` :');
+    console.log('      il n\'a pas de trousse de formulaire, il n\'y a pas de case à écraser.');
+    console.log('      ⭐ Ce message est volontaire : un banc muet et un banc vert se ressemblent.');
+  } else {
+    console.log(`\n  · §204-A — sur un champ de SAISIE, « ${largeurTexte.sel} » gagne : width:${largeurTexte.val}`);
+    const l = gagnant(CASE, 'width');
+    const h = gagnant(CASE, 'min-height');
+    const p = gagnant(CASE, 'padding');
+    const okL = Boolean(l) && !/%/.test(l.val) && l.val !== '100%';
+    dit(okL, 'ce qui GAGNE en largeur sur une case à cocher n\'est pas une pleine largeur',
+      okL ? `« ${l.sel} » l'emporte avec width:${l.val}`
+        : `🔴 « ${l ? l.sel : '(aucune)'} » l'emporte avec width:${l ? l.val : '—'} — la case devient une barre, et le navigateur dessine la coche au milieu`);
+    const okH = Boolean(h) && /^0(?:px|em|rem)?$/.test(h.val);
+    dit(okH, '…et sa hauteur minimale ne lui impose pas la cible tactile',
+      okH ? `« ${h.sel} » l'emporte avec min-height:${h.val}`
+        : `🔴 min-height:${h ? h.val : '(aucune)'} — une case de 44 px de haut désaligne son libellé même une fois la largeur rendue`);
+    const okP = Boolean(p) && /^0(?:px|em|rem)?$/.test(p.val);
+    dit(okP, '…et son rembourrage est nul',
+      okP ? `« ${p.sel} » l'emporte avec padding:${p.val}`
+        : `🔴 padding:${p ? p.val : '(aucune)'} — 14 px de rembourrage sur une case la décale de son libellé`);
+    // ⭐ LE CONTRE-CONTRÔLE : l'exception ne doit pas avoir tout emporté. Un
+    //   `input[type="text"]` doit CONTINUER de prendre la largeur. Sans ce
+    //   point, un `.champ input{width:auto}` global passerait les trois
+    //   contrôles ci-dessus en cassant tous les formulaires du site.
+    dit(largeurTexte.val === '100%', '…et le champ de saisie, lui, garde sa pleine largeur',
+      largeurTexte.val === '100%' ? 'l\'exception mord sur les cases, pas sur les champs'
+        : `🔴 width:${largeurTexte.val} sur un champ texte — l'exception a débordé sur ce qu'elle devait épargner`);
+  }
+
+  // ── §204-B — LE CONTENEUR DES PRIX NE DOIT PAS ÊTRE UNE COLONNE DE TABLEAU ─
+  // ⭐⭐⭐ ON CHERCHE UN USAGE, JAMAIS UN NOM. Un contrôle « `.rang` n'est pas
+  //    dans `CaisseAchat.astro` » serait vert le jour où quelqu'un y met une
+  //    AUTRE classe étroite. On lit donc la classe que le composant emploie
+  //    RÉELLEMENT autour de ses boutons de prix, quelle qu'elle soit, et on
+  //    demande à la feuille SERVIE ce qu'elle lui fait.
+  const COMPO = join(R, 'src/components/CaisseAchat.astro');
+  // 🔴 MESURÉ SUR VEVEWIKI LE 26/08 : ma première version lisait le manifeste À
+  //   LA MAIN, avec une expression sur le texte YAML. `vevewiki` déclare
+  //   `offer:` avec une `url: ""` VIDE — et mon motif, qui acceptait un
+  //   guillemet optionnel puis « un caractère non blanc », a pris le guillemet
+  //   FERMANT pour l'adresse. Le banc a donc cru la vente ouverte sur un site
+  //   qui ne vend rien, et il a rougi sur l'absence de règles de caisse dans un
+  //   thème qui n'a pas de caisse.
+  // ⭐⭐⭐ ON NE REDÉCODE PAS UN FORMAT QUAND LE CODE SAIT LE LIRE. `manifest()`
+  //   est ce que la PAGE interroge, et `Boolean(String(url).trim())` est le
+  //   critère EXACT que `Dashboard.astro` et `test:promesses` emploient déjà
+  //   pour décider si la caisse existe. Trois lecteurs, un seul critère : c'est
+  //   la seule façon qu'ils ne divergent pas.
+  const { manifest: manifeste204 } = await import(join(R, 'engine/lib/manifest.mjs'));
+  const venteOuverte204 = Boolean(String(manifeste204().offer?.url || '').trim());
+  if (!venteOuverte204) {
+    console.log(`\n  --  §204-B SANS OBJET — « ${process.env.SITE} » ne déclare pas d'\`offer.url\` : ce site ne sert pas de caisse.`);
+    console.log('      ⭐ Ce message est volontaire : un banc muet et un banc vert se ressemblent.');
+  } else if (!existsSync(COMPO)) {
+    console.error(`\n❌ ${COMPO.replace(R, '')} introuvable alors que la vente est ouverte — ce banc ne peut rien prouver.`);
+    process.exit(2);
+  } else {
+    const src = readFileSync(COMPO, 'utf8').replace(/\{\/\*[\s\S]*?\*\/\}/g, ' ');
+    const iBouton = src.indexOf('data-caisse-acheter');
+    if (iBouton < 0) {
+      console.error('\n❌ aucun `data-caisse-acheter` dans CaisseAchat.astro — l\'instrument ne trouve plus son sujet.');
+      process.exit(2);
+    }
+    // ── LE CONTENEUR : LE DERNIER `<div>` ENCORE OUVERT AVANT LE BOUTON ──
+    // 🔴 MESURÉ LE 26/08 PAR INJECTION : ma première version prenait « le
+    //   dernier `<div class="…">` rencontré avant le bouton ». Elle ne comptait
+    //   pas les fermetures. On remplace le conteneur par un `<div>` NU — le
+    //   défaut le plus bête qui soit — et le banc restait VERT : il remontait
+    //   jusqu'à un `<div class="…">` d'un bloc PRÉCÉDENT, déjà refermé, et
+    //   annonçait fièrement que le conteneur « porte une classe à lui ».
+    //   ⭐⭐ L'INSTRUMENT MESURAIT UN AUTRE ÉLÉMENT QUE SON SUJET, et il le
+    //   disait avec aplomb. C'est la famille de fautes qui a coûté 14 bancs
+    //   faux en quatre jours : la question n'est pas « le banc rougit-il ? »
+    //   mais « sur QUOI est-il branché ? ».
+    // ⇒ On remonte en comptant les fermetures : le conteneur est le premier
+    //   `<div>` dont la fermeture n'a pas encore été vue.
+    const avant = src.slice(0, iBouton);
+    const jetonsDiv = [...avant.matchAll(/<div(\s[^>]*)?>|<\/div>/g)];
+    let profondeur = 0; let conteneur = null;
+    for (let i = jetonsDiv.length - 1; i >= 0; i--) {
+      const j = jetonsDiv[i][0];
+      if (j === '</div>') { profondeur++; continue; }
+      if (profondeur > 0) { profondeur--; continue; }
+      conteneur = j; break;                       // ⇐ le premier encore ouvert
+    }
+    const mClasse = conteneur && conteneur.match(/\sclass="([^"]*)"/);
+    const classes = mClasse ? mClasse[1].trim().split(/\s+/).filter(Boolean) : [];
+    if (!conteneur) {
+      console.error('\n❌ aucun `<div>` ouvert n\'entoure les boutons de prix — l\'instrument ne trouve plus son sujet.');
+      process.exit(2);
+    }
+    console.log(`\n  · §204-B — les boutons de prix vivent dans « ${classes.join(' ') || '(aucune classe)'} »`);
+    dit(classes.length > 0, 'le conteneur des boutons de prix porte une classe à lui',
+      classes.length ? null : '🔴 sans classe, rien ne le peint et il hérite de ce qu\'il trouve');
+    // ⚠️ ON RÉSOUT SUR CHAQUE CLASSE DU CONTENEUR, pas seulement la première :
+    //    `class="rang machin"` cassait autant que `class="rang"`.
+    for (const k of classes) {
+      const chaine = [{ tag: 'html', classes: [] }, { tag: 'body', classes: [] },
+        { tag: 'div', classes: ['champ'], id: null }, { tag: 'div', classes: [k], id: null }];
+      const w = gagnant(chaine, 'width');
+      const etroit = w && (/^\d+(\.\d+)?%$/.test(w.val) && parseFloat(w.val) < 100);
+      dit(!etroit, `« .${k} » ne réduit pas le conteneur à une colonne de tableau`,
+        etroit ? `🔴 « ${w.sel} » l'emporte avec width:${w.val} — c'est ce qui a roulé les six boutons de prix en pastilles rondes le 26/08`
+          : w ? `width:${w.val}` : 'aucune largeur imposée');
+    }
+    // et la grille elle-même doit être peinte
+    const peint = REGLES_204.some((r) => r.sel.split(',').some((s) => s.trim() === '#caisse-choix'));
+    dit(peint, 'la grille des prix est peinte dans la feuille servie (`#caisse-choix`)',
+      peint ? null : '🔴 aucune règle : un conteneur non peint hérite de ce qu\'il trouve — et il avait trouvé `.rang`');
+    // ⭐ « $36.00 / mois » ne doit JAMAIS se couper : c'est la coupure en trois
+    //   lignes qui rendait la pilule aussi haute que large, donc ronde.
+    const BTN = [{ tag: 'html', classes: [] }, { tag: 'body', classes: [] },
+      { tag: 'div', classes: [], id: 'caisse-choix' },
+      { tag: 'div', classes: classes, id: null },
+      { tag: 'button', classes: ['btn', 'btn--principal', 'btn--sm'], id: null }];
+    const ws = gagnant(BTN, 'white-space');
+    dit(Boolean(ws) && ws.val === 'nowrap', 'et un prix ne peut pas se couper en trois lignes dans son bouton',
+      ws && ws.val === 'nowrap' ? `« ${ws.sel} » l'emporte avec white-space:nowrap`
+        : `🔴 white-space:${ws ? ws.val : '(aucune)'} — « $36.00 / mois » se casse en trois lignes et la pilule devient un disque`);
+  }
+}
+
 console.log(ko === 0
   ? `\n✅ une feuille de ${octets.length} o pour ${pages.length} pages, rien de recopié,`
     + ` et le JS en ligne sous son cliquet (${moyenneJs} o/page)\n`

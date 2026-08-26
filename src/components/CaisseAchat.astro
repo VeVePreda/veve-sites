@@ -86,9 +86,27 @@ const euros = (cents) => (cents / 100).toFixed(2);
   <span data-caisse-mot="erreur" hidden>{t(lang, 'caisse.error')}</span>
   <span data-caisse-mot="expire" hidden>{t(lang, 'caisse.expired')}</span>
 
+  {/* 🔴 LOT 204 — `.rang` A ÉTÉ RETIRÉE D'ICI, ET CE N'EST PAS UN RENOMMAGE.
+      `.rang` est la colonne de RANG d'un tableau : elle porte `width:1%`, donc
+      « prends la place minimale ». Employée comme conteneur de ligne, elle
+      écrasait les six boutons de prix en pastilles rondes illisibles — la
+      capture de Preda du 26/08. ⛔ LE BOUTON N'EST PAS COUPABLE : les mêmes
+      `.btn btn--principal btn--sm` sont corrects sur `/offre/`.
+      ⛔ NE PAS REMETTRE UNE CLASSE DE TABLEAU ICI. Ce bloc n'est pas un
+      tableau, c'est une liste de choix. `.caisse-rangee` est peinte dans le
+      thème sous `#caisse-choix`, et n'a que ce rôle-là.
+      ⚠️ ET CE COMMENTAIRE EST ICI, PAS DANS LE `map()` : le corps entre
+      parenthèses d'une flèche doit avoir UNE SEULE RACINE, et un commentaire
+      JSX posé devant le `<div>` en fait une deuxième. Le build refuse — mesuré
+      le 26/08, deux fois de suite.
+      ⛔ ET LA DEUXIÈME FOIS, C'ÉTAIT CETTE PHRASE-CI : j'y avais ÉCRIT les
+      délimiteurs du commentaire JSX au lieu de les nommer, et le délimiteur de
+      fermeture a refermé le commentaire au milieu. Septième fois dans ce
+      projet. ON DÉCRIT UNE SYNTAXE, ON NE L'ÉCRIT JAMAIS DANS UN COMMENTAIRE
+      QUI EST FAIT DE CETTE SYNTAXE. */}
   <div id="caisse-choix">
     {plans.map((p) => (
-      <div class="rang">
+      <div class="caisse-rangee">
         <strong>{p.nom}</strong>
         {/* ⚠️ LE PALIER DÉJÀ DÉTENU NE SE REVEND PAS COMME LES AUTRES — il se
             PROLONGE. On ne cache pas le bouton pour autant : quelqu'un dont

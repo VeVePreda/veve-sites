@@ -266,10 +266,46 @@ const dsOffre = await dataset();
             bouton verrouillé par palier payant et un chemin d'entrée par
             palier gratuit. Il mesure ce qui est RENDU, pas ce qui est écrit
             ici — le gabarit et la page ont déjà divergé deux fois. */}
-        {m.offer?.url
-          ? <a class="btn btn--principal btn--sm" href={m.offer.url}>{t(lang, 'offer.cta')}</a>
-          : (p.prix === 0 && comptesActifs())
-            ? <a class="btn btn--principal btn--sm" href="/connexion/">{t(lang, 'signup.title')}</a>
+        {/* ═══════════════════════════════════════════════════════════════
+            🔴🔴 LOT 204 — L'ORDRE DES BRANCHES ÉTAIT FAUX, ET JE L'AVAIS ÉCRIT
+            ═══════════════════════════════════════════════════════════════
+            MESURÉ EN PRODUCTION LE 26/08 : cette page servait « Accès membre »
+            QUATRE fois — sous Membre (gratuit) comme sous Crevette, Langouste
+            et Whale. Le bouton d'un palier à 30 $/mois ne disait pas qu'il
+            menait à un paiement.
+            ⭐⭐ LA CAUSE EST LE COMMENTAIRE QUI ÉTAIT ICI. Il affirmait :
+            « L'ORDRE DES TROIS BRANCHES COMPTE. La vente ouverte passe en
+            premier : le jour où `offer.url` se remplit, chaque carte retrouve
+            un vrai appel à l'action. » ⛔ CETTE PRÉMISSE N'A JAMAIS ÉTÉ
+            MESURÉE. Le jour où `offer.url` s'est rempli, la première branche a
+            gagné pour TOUS les paliers et a servi le MÊME libellé aux quatre —
+            exactement la faute que le lot 140-4 avait corrigée pour « bientôt »,
+            refaite à l'identique un cran plus loin. C'est la deuxième fois sur
+            ce bloc qu'une condition JUSTE est appliquée TROP LARGE.
+            ⭐⭐⭐ LE GRATUIT PASSE DONC EN PREMIER, ET C'EST LE BON ORDRE : un
+            palier qui ne se vend pas n'a rien à faire dans une branche qui
+            décrit la VENTE, que la caisse soit ouverte ou fermée. La condition
+            de tête n'est plus « vend-on ? » mais « ce palier se vend-il ? ».
+            ⛔ LE NOM DU PALIER N'EST PAS SUBSTITUÉ DANS LA CLÉ, et ce n'est pas
+            un détail de style. `t(lang, k, vars)` marque sa sortie `clé!`, ce
+            que `marquer_i18n.mjs` lit comme « variable, NE PAS ÉCHANGER » : le
+            bouton serait figé dans la langue du build sur une page dont le seul
+            travail est de convertir. Deux nœuds — le verbe par `t()`, le nom par
+            `pickT()` — restent échangeables tous les deux, chacun par sa source,
+            exactement comme le `<h2>` de la carte quarante lignes plus haut.
+            ⚠️ CE QUE ÇA COÛTE, ET C'EST ASSUMÉ : l'allemand dirait « Crevette
+            wählen », pas « Wählen Crevette ». Un libellé mal ordonné mais
+            traduit vaut mieux qu'un libellé bien ordonné et figé en anglais —
+            et ça se corrige en une ligne de dictionnaire le jour où il le
+            demande. ⛔ Pas en réintroduisant une substitution.
+            🔬 `test:promesses` §5 compte désormais, VENTE OUVERTE, un lien vers
+            `offer.url` par palier payant et le NOM du palier dans son bouton.
+            Ce § se taisait dès que la vente s'ouvrait : c'est pour ça que ce
+            défaut a vécu en production sans qu'un seul banc rougisse. */}
+        {(p.prix === 0 && comptesActifs())
+          ? <a class="btn btn--principal btn--sm" href="/connexion/">{t(lang, 'signup.title')}</a>
+          : m.offer?.url
+            ? <a class="btn btn--principal btn--sm" href={m.offer.url}>{t(lang, 'offer.choose')} {pickT(p.nom, lang, `mf.offer.plans.${p.cle}.nom`)}</a>
             : <span class="btn btn--verrou btn--sm" aria-disabled="true">{t(lang, 'account.soon')}</span>}
       </div>
     ))}

@@ -985,6 +985,73 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 .champ input,.champ select,.champ textarea{width:100%;min-height:var(--tap);padding:11px 14px; background:var(--surface-2);border:1px solid var(--rule-int);color:var(--text);font:inherit; font-size:var(--t-md);border-radius:var(--r-md);transition:border-color var(--d-fast),box-shadow var(--d-fast)}
 .champ input:focus,.champ select:focus{border-color:var(--sect-a);outline:none;box-shadow:0 0 0 3px var(--sect-1v)}
 .champ input::placeholder{color:var(--muted)}
+/* ═══════════════════════════════════════════════════════════════════════════
+   🔴🔴🔴 LOT 204 — UNE CASE À COCHER N'EST PAS UN CHAMP DE SAISIE
+   ═══════════════════════════════════════════════════════════════════════════
+   MESURÉ SUR SA CAPTURE DU 26/08 : dans « Mon tableau de bord », les sept cases
+   flottaient en escalier au milieu de la largeur, libellés collés à l'extrême
+   droite. On ne savait plus quelle case allait avec quel libellé.
+   LA CAUSE : la règle juste au-dessus vise `.champ input` SANS EXCEPTION. Elle
+   est écrite pour un `<input type="text">` qui doit prendre toute la largeur ;
+   appliquée à une `checkbox`, elle en fait une barre de 100 % de large avec
+   14 px de rembourrage. Le navigateur dessine alors la coche quelque part au
+   milieu de cette barre — d'où l'escalier.
+   ⭐⭐ ET LE DÉFAUT EXISTAIT DEPUIS LE LOT 160-A, sur le bloc e-mails. Il n'y
+   avait qu'UNE case, donc personne ne l'a jamais remarqué : une case seule mal
+   placée ressemble à un choix de mise en page. C'est en en mettant sept côte à
+   côte au lot 202 que le défaut est devenu lisible. ⛔ Ce n'est pas le lot 202
+   qui l'a créé, c'est lui qui l'a RÉVÉLÉ — corriger ici corrige les DEUX.
+   ⭐⭐⭐ LA LEÇON, ET ELLE EST PLUS GRANDE QUE CES DEUX BLOCS : `.champ` décrit
+   un RÔLE (« ce conteneur porte des champs de saisie pleine largeur »), et on
+   l'a recopiée comme un conteneur générique. Une classe recopiée sans lire ce
+   qu'elle fait à ses ENFANTS, c'est un défaut recopié. Troisième fois dans ce
+   projet — `.rang` sur les prix de la caisse est la même faute, le même jour.
+   ⛔ ON CORRIGE DANS LE THÈME, PAS DANS LES PAGES. Deux pages réparées à la
+   main laisseraient la troisième cassée, et le prochain `class="panneau champ"`
+   naîtrait cassé. Ici, l'exception vaut pour tout usage futur.
+   ⚠️ `min-height:0` autant que `width:auto` : `--tap` vaut 44 px (la cible
+   tactile), et une case de 44 px de HAUT désaligne son libellé même une fois
+   sa largeur rendue. Les trois déclarations de la règle du dessus se défont,
+   pas seulement la plus visible.
+   🔬 `test:feuille` §204-A résout la cascade sur la feuille SERVIE et lit qui
+   GAGNE sur une `checkbox` dans un `.champ` — pas « la règle est écrite »,
+   mais « la règle gagne ». Retirer la ligne ci-dessous doit rendre `exit 1`. */
+.champ input[type="checkbox"],.champ input[type="radio"]{width:auto;min-height:0;padding:0}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   🔴🔴 LOT 204 — LA GRILLE DES PRIX DE LA CAISSE, ET LA MÊME FAUTE QUE CI-DESSUS
+   ═══════════════════════════════════════════════════════════════════════════
+   MESURÉ SUR SA CAPTURE DU 26/08 : « $6.00 / mois » entassé sur trois lignes
+   dans un DISQUE bleu de la taille d'un jeton. Six boutons, six pastilles
+   rondes illisibles.
+   LA CAUSE : `CaisseAchat.astro` employait `<div class="rang">` comme conteneur
+   de ligne. `.rang` est la colonne de RANG d'un tableau — `width:1%`, c'est-à-
+   dire « prends la place minimale ». Écrasé à 1 %, un `.btn` (`inline-flex`,
+   `border-radius:var(--r-full)`) casse son texte en trois lignes ; une pilule
+   aussi haute que large est un cercle. ⛔ LE BOUTON N'EST PAS COUPABLE : sur
+   `/offre/` les MÊMES `.btn btn--principal btn--sm` sont corrects. La
+   différence est le CONTENEUR — donc on ne touche pas à `.btn`.
+   ⚠️ ET `#caisse-choix` N'AVAIT AUCUNE RÈGLE : la grille des prix n'était
+   peinte nulle part. Un conteneur non peint hérite de ce qu'il trouve, et ce
+   qu'il avait trouvé était `.rang`.
+   ⭐ LA FORME EST L'ARBITRAGE DE PREDA (26/08) : une LIGNE PAR PALIER, le nom
+   à gauche, les deux durées à droite. `flex-wrap` laisse les boutons descendre
+   sur un téléphone plutôt que d'écraser le nom — c'est exactement le défaut
+   qu'on répare, on ne le réintroduit pas au format étroit.
+   ⚠️ `min-width:0` sur le nom : sans lui, un nom de palier long refuse de
+   rétrécir et repousse les boutons hors de la carte. C'est la même règle que
+   `.item{min-width:0}` que `test:feuille` surveille déjà — un enfant non
+   plafonné casse une grille.
+   ⭐ `white-space:nowrap` est PORTÉ ICI, pas sur `.btn` : « 36 $ / mois » ne
+   doit jamais se couper, mais un bouton d'article long a le droit de le faire.
+   🔬 `test:feuille` §204-B exige ces règles dès que `offer.url` existe au
+   manifeste — la MÊME condition qui décide d'afficher la caisse. Sur un site
+   sans caisse, le contrôle est SANS OBJET, pas indécidable. */
+#caisse-choix{display:grid;gap:0}
+.caisse-rangee{display:flex;align-items:center;flex-wrap:wrap;gap:var(--s3);padding:var(--s3) 0;border-top:1px solid var(--rule-int)}
+.caisse-rangee:first-child{border-top:0;padding-top:0}
+.caisse-rangee>strong{flex:1 1 auto;min-width:0}
+#caisse-choix .btn{flex:0 0 auto;white-space:nowrap}
 .champ--sm input,.champ--sm select{min-height:36px;padding:7px 11px;font-size:var(--t-sm)}
 .champ__aide{font-size:var(--t-xs);color:var(--muted);line-height:1.5}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden; clip:rect(0 0 0 0);white-space:nowrap;border:0}
