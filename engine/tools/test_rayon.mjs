@@ -20,6 +20,8 @@
 //  ③ LA PAGINATION NE PERD RIEN. Une pagination qui laisse tomber son dernier
 //     élément est muette : la page existe, elle est bien formée, et 12 pièces
 //     ont disparu du site.
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { dataset } from '../lib/dataset.mjs';
 import { jourISO } from '../lib/vitrine.mjs';
 // 🔎 LOT 155 — LE BANC S'ÉTEND, IL NE SE DÉDOUBLE PAS. ⭐ L'index de rayon est
@@ -241,6 +243,144 @@ for (const corpus of CORPUS) {
   try { indexRayon(ds, 'chaussettes'); } catch (e) { refuse = /corpus inconnu/.test(e.message); }
   dit(refuse, 'un corpus inconnu est REFUSÉ, il ne rend pas un index vide',
     '⛔ un corpus mal orthographié rendrait un index vide et une barre muette');
+}
+
+// ── ⑥ LOT 201 — LE PLANCHER SUR LA LIGNE, ET LA GRILLE QUI DOIT LE TENIR ──
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐⭐⭐ CE §  SE BRANCHE SUR `dist/`, PAS SUR `ds`. Les cinq §  au-dessus
+// jugent la DONNÉE (le rayon ne porte pas de prix). Celui-ci juge le HTML
+// RÉELLEMENT SERVI, parce que le défaut §M-209 ne vivait pas dans la donnée :
+// la donnée était juste, c'est le gabarit qui ne posait rien. Un banc branché
+// sur `ds` serait resté vert pendant tout le temps où les lignes n'affichaient
+// aucun prix. *Sur quoi est-il branché ?*
+//
+// ⏸️ INDÉCIDABLE SI `dist/` EST ABSENT, et il le DIT. ⛔ Un `if (!existsSync)
+//    return;` silencieux rendrait ce §  vert avant tout build — un succès qui
+//    ressemble à un succès, c'est le pire des muets.
+{
+  console.log('\n── ⑥ le plancher de la ligne de rayon (lot 201) ──');
+  // 🔴🔴🔴 LE DOSSIER SERVI N'A PAS LE MÊME NOM SELON LE MODE DE RENDU, et le
+  //   confondre coûte un VERDICT FAUX, pas une erreur : `RENDERING=server`
+  //   (veveprice) dépose dans `dist/client`, `RENDERING=static` (vevewiki)
+  //   dépose dans `dist`. La première version ne connaissait que `dist/client`
+  //   ⇒ sur vevewiki elle annonçait « INDÉCIDABLE, dist/ est absent » alors que
+  //   le site venait d'être bâti sous ses yeux.
+  //   ⭐⭐⭐ ET LA DIFFÉRENCE COMPTE : « indécidable » dit « je n'ai pas pu
+  //   regarder » — c'est un TROU, et le Dockerfile n'en accepte aucun. « Sans
+  //   objet » dit « la question est tranchée, elle vaut non ». Ici la vérité
+  //   est la seconde : vevewiki ne rend pas de rayon. Un banc qui range un
+  //   « non » dans la case « je ne sais pas » fait chercher une panne
+  //   inexistante, et masque le jour où le dossier manque VRAIMENT.
+  const DIST = ['dist/client', 'dist'].find((d) => existsSync(join(d, 'index.html'))
+    || existsSync(join(d, 'collectibles'))) || 'dist/client';
+  if (!existsSync(DIST)) {
+    console.log('  ⏸️  INDÉCIDABLE — `dist/` est absent : ce §  se joue APRÈS `npm run build`.');
+  } else {
+    const pages = ['collectibles/index.html', 'comics/index.html']
+      .map((f) => join(DIST, f)).filter((f) => existsSync(f));
+    if (!pages.length) {
+      // ⭐ « SANS OBJET » N'EST PAS UN INDÉCIDABLE : la condition « ce site
+      //   rend-il des rayons ? » est TRANCHÉE, et elle vaut non sur vevewiki.
+      //   Un indécidable dirait « je n'ai pas pu regarder ».
+      console.log('  --  SANS OBJET — ce site ne rend pas de rayon'
+        + ' (`/collectibles/` et `/comics/` n\'existent que sur veveprice).');
+    } else {
+      let lignes = 0, avecExt = 0, avecPrix = 0, enfantsMax = 0;
+      const montants = [];
+      for (const f of pages) {
+        const html = readFileSync(f, 'utf8');
+        for (const m of html.matchAll(/<(a|div) class="rayon__c[^"]*"[^>]*>([\s\S]*?)<\/\1>/g)) {
+          const corps = m[2];
+          lignes++;
+          const ext = corps.includes('rayon__ext');
+          const prix = /class="cote rayon__p"/.test(corps);
+          if (ext) avecExt++;
+          if (prix) avecPrix++;
+          // ⭐⭐ LES ENFANTS DE PREMIER NIVEAU, COMPTÉS. C'est ce nombre-là que
+          //   la grille doit tenir : un enfant de plus que de colonnes ne
+          //   déborde pas en largeur, il REPLIE la ligne sur une seconde rangée
+          //   et la fait grandir. Sur vingt lignes empilées ça ne ressemble pas
+          //   à une faute, ça ressemble à du texte long — c'est pour ça que ce
+          //   défaut a vécu depuis le lot 139 sans être nommé.
+          let prof = 0, n = 0;
+          for (const t of corps.matchAll(/<(\/?)(span|svg)\b/g)) {
+            if (t[1]) prof--;
+            else { if (prof === 0 && t[2] === 'span') n++; prof++; }
+          }
+          if (n > enfantsMax) enfantsMax = n;
+          // ⛔ ET AUCUN MONTANT DANS L'EMPLACEMENT. `<Cote>` ne reçoit pas de
+          //   valeur : si un chiffre apparaît ici, c'est qu'on lui en a repassé
+          //   une, et 19 412 pages publiques porteraient le prix.
+          for (const v of corps.matchAll(/data-cote-v[^>]*>([^<]*)</g)) {
+            if (/[0-9]/.test(v[1])) montants.push(v[1].trim());
+          }
+        }
+      }
+
+      // ⭐⭐⭐ LA CONTRE-ÉPREUVE D'ABORD, TOUJOURS. Un banc qui ne lit AUCUNE
+      //   ligne ne trouve aucun manque et passe au vert sans avoir rien mesuré.
+      dit(lignes > 0, `${lignes} ligne(s) de rayon réellement lue(s) dans dist/`,
+        '⛔ aucune ligne lue : ce §  ne peut pas rougir, il ne mesure rien');
+      dit(avecExt > 0, `${avecExt} ligne(s) portent les extrêmes (il y a de quoi comparer)`,
+        '⛔ aucune ligne à fiche : le prédicat partagé n\'est pas éprouvable ici');
+
+      // 🔑 L'IDENTITÉ, PAS UN NOMBRE MAGIQUE. Le plancher et les extrêmes sont
+      //   gardés par le MÊME prédicat (`filtrable && l.path`) : ils doivent
+      //   apparaître et disparaître ENSEMBLE. Un compte figé aurait mesuré
+      //   l'échantillon dont il vient — 90 lignes ici, 19 412 en production.
+      dit(avecPrix === avecExt,
+        `chaque ligne à extrêmes porte aussi son plancher (${avecPrix} = ${avecExt})`,
+        `⛔ ${avecExt - avecPrix} ligne(s) montrent ATL/ATH sans prix — le défaut §M-209`);
+
+      dit(montants.length === 0, 'aucun montant écrit dans un emplacement de cote',
+        montants.length ? `⛔ ${montants.length} valeur(s) en clair : ${montants.slice(0, 3).join(', ')}` : null);
+
+      // ── LA GRILLE DOIT TENIR CE QU'ON LUI POSE ──────────────────────────
+      // ⭐ ON LIT LE THÈME, PAS UNE CONSTANTE. Un nombre recopié ici diverge du
+      //   thème au premier lot qui touche la grille — et il divergerait EN
+      //   SILENCE, puisque les deux resteraient plausibles.
+      const feuille = 'themes/vitrine/theme.css';
+      if (!existsSync(feuille)) {
+        console.log('  --  SANS OBJET — ce site n\'utilise pas le thème `vitrine`.');
+      } else {
+        const css = readFileSync(feuille, 'utf8');
+        const regle = css.match(/\.rayon__c\{[^}]*grid-template-columns:([^;]+);/);
+        const colonnes = regle ? regle[1].trim().split(/\s+(?![^(]*\))/).length : 0;
+        dit(colonnes > 0, `la grille de \`.rayon__c\` est lisible dans le thème (${colonnes} colonne(s))`,
+          '⛔ règle introuvable : le contrôle suivant ne mesurerait rien');
+        dit(enfantsMax > 0 && colonnes >= enfantsMax,
+          `la grille tient la ligne la plus chargée (${colonnes} colonne(s) ≥ ${enfantsMax} enfant(s))`,
+          `⛔ ${enfantsMax - colonnes} enfant(s) de trop : ces lignes-là se replient sur une`
+          + ' seconde rangée et grandissent — regle-enfant-non-plafonne-casse-une-grille');
+      }
+    }
+  }
+
+  // ── LA SECONDE FABRIQUE — le pilote peint la MÊME ligne ─────────────────
+  // 🔴🔴🔴 CINQUIÈME FOIS QUE CE DÉPÔT PAIE « deux gabarits qui rendent la même
+  //   liste divergent en silence ». `Rayon.astro` sert la page 1 ; dès le
+  //   premier filtre, c'est `rayon.js` qui repeint TOUT. Un plancher posé d'un
+  //   seul côté apparaîtrait au chargement et disparaîtrait au premier clic —
+  //   ou l'inverse. Aucun banc branché sur `dist/` ne le verrait : le pilote
+  //   n'écrit rien dans `dist/`.
+  // ⛔ ET ON RETIRE LES COMMENTAIRES AVANT DE CHERCHER. Cinq fois dans ce
+  //   dépôt, un banc a trouvé la chaîne qu'il cherchait DANS le commentaire qui
+  //   documentait le sujet — et une fois dans le commentaire qui DÉSACTIVAIT
+  //   la ligne. Ce §-ci ne peut pas se faire avoir de cette façon.
+  const pilote = 'src/socle/modules/rayon.js';
+  if (!existsSync(pilote)) {
+    console.log('  --  SANS OBJET — ce site n\'embarque pas le pilote de rayon.');
+  } else {
+    const nu = readFileSync(pilote, 'utf8')
+      .replace(/\/\*[\s\S]*?\*\//g, ' ')
+      .split('\n').map((l) => l.replace(/(^|[^:])\/\/.*$/, '$1')).join('\n');
+    dit(/cadenasNu\s*\(\s*u\s*,\s*'floor'/.test(nu),
+      'le pilote peint lui aussi le plancher (code, commentaires retirés)',
+      '⛔ le plancher n\'existe qu\'au chargement : il disparaîtrait au premier filtre');
+    dit(/rayon__p/.test(nu),
+      'le pilote pose la classe que le thème peint (`rayon__p`)',
+      '⛔ classe absente ou renommée : un badge sans règle, invisible dans les deux sens');
+  }
 }
 
 console.log(ko === 0 ? '\n✅ le rayon est entier, sans prix, et rien ne se perd\n'

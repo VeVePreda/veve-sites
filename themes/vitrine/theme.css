@@ -2342,7 +2342,31 @@ body > main{ background:var(--bg); }
    émettent pas (18 212 pièces sur 19 412 n'ont pas de fiche, donc pas de cote
    en réserve). Une colonne `auto` vide se replie sur zéro ; une colonne `1fr`
    aurait creusé un blanc sur toutes les autres lignes. */
-.rayon__c{ display:grid; grid-template-columns:minmax(0,2fr) minmax(0,1.4fr) auto auto auto;
+/* 🔴🔴🔴 LOT 201 — UNE SIXIÈME COLONNE : le plancher (`.rayon__p`).
+   ⛔ ELLE S'AJOUTE DANS LE MÊME LOT QUE SON ÉMETTEUR, et ce n'est pas de la
+   discipline de façade. Cette grille nomme SIX colonnes pour six enfants ; un
+   septième enfant ne déborde pas en largeur, il se REPLIE SUR UNE LIGNE
+   SUPPLÉMENTAIRE et fait grandir toutes les lignes du rayon d'un coup. C'est
+   `regle-enfant-non-plafonne-casse-une-grille`, et elle ne se voit pas sur une
+   ligne isolée — elle se voit sur 20.
+   ⭐ `auto`, comme la colonne des extrêmes juste après, et pour la même
+   raison : 18 212 pièces sur 19 412 n'ont pas de fiche, donc n'émettent ni
+   plancher ni extrêmes. Une colonne `auto` vide se replie sur zéro ; une
+   colonne `1fr` aurait creusé un blanc sur 94 % des lignes.
+   🐛 ET ELLE PASSE DE CINQ À SEPT, PAS À SIX — parce que la mesure a trouvé
+   un défaut qui était DÉJÀ LÀ, indépendant de ce lot. Compté sur le HTML
+   servi de `/collectibles/` : 15 lignes émettent 6 enfants et 5 en émettent
+   7 (celles qui portent `.rayon__e`, la mention d'édition). Avec cinq
+   colonnes, ces 5 lignes-là débordaient déjà sur une SECONDE RANGÉE et
+   grandissaient d'un cran, une sur quatre. Personne ne l'avait nommé : une
+   ligne un peu plus haute au milieu de vingt ne ressemble pas à une faute,
+   elle ressemble à du texte long.
+   ⭐ Sept `auto` coûtent zéro : celles que la ligne n'alimente pas se replient
+   sur zéro, exactement comme la colonne des extrêmes le fait depuis le lot
+   139. ⛔ Ne pas les poser aurait laissé mon plancher accusé d'un repli qu'il
+   n'a pas causé — et c'est la seule raison pour laquelle ce chiffre est écrit
+   ici plutôt que dans une note. */
+.rayon__c{ display:grid; grid-template-columns:minmax(0,2fr) minmax(0,1.4fr) auto auto auto auto auto;
   align-items:center; gap:var(--s4); padding:11px 14px; min-height:var(--tap);
   background:var(--surface); border:1px solid var(--rule); border-radius:var(--r-md);
   color:var(--text-2); transition:border-color var(--d-fast),background var(--d-fast); }
@@ -2382,6 +2406,18 @@ body > main{ background:var(--bg); }
 /* ⭐ Le cadenas du `<Cote>` reste lisible dans une ligne : il hérite de la
    taille du texte, il ne la fixe pas. */
 .rayon__ext .cote{ display:inline-flex; align-items:center; gap:3px; }
+/* 🔴 LOT 201 — LE PLANCHER DE LA LIGNE. ⭐ Il est en `--text`, pas en
+   `--muted` : c'est le seul chiffre de la ligne que le visiteur cherche
+   vraiment, et les extrêmes juste à côté sont volontairement plus discrets.
+   Un plancher au même gris que son ATL ne se distinguerait pas de lui.
+   ⚠️ `tabular-nums` : sans lui, la colonne des prix danse d'une ligne à
+   l'autre parce que le `1` est plus étroit que le `8` — sur 20 lignes
+   empilées, c'est le défaut qu'on voit sans savoir le nommer.
+   ⭐ Même `display:inline-flex` sur `.cote` que dans `.rayon__ext` : le
+   cadenas et le tiret doivent rester sur la même ligne de base. */
+.rayon__p{ font-family:var(--tech); font-size:var(--t-sm); font-weight:700;
+  color:var(--text); font-variant-numeric:tabular-nums; white-space:nowrap; }
+.rayon__p.cote{ display:inline-flex; align-items:center; gap:3px; }
 @media (max-width:760px){
   .rayon__c{ grid-template-columns:1fr auto; row-gap:4px; }
   .rayon__s{ grid-column:1/-1; }
@@ -2701,3 +2737,21 @@ body[data-tiroir]::after{ opacity:1; pointer-events:auto; }
 /* ⛔ On ne bloque PAS le défilement du document (`overflow:hidden` sur body) :
    sur iOS ça fait sauter la page en haut à la fermeture, et l'utilisateur perd
    sa place dans une liste de 835 pages. Le voile suffit à empêcher les clics. */
+
+/* ── 🔳 LE CODE QR DE L'ÉCRAN D'ACHAT (lot 201) ───────────────────────────── */
+/* ⭐⭐⭐ LE CADRE BLANC N'EST PAS DÉCORATIF, IL EST FONCTIONNEL. Ce site a un
+   thème sombre. Un code QR a besoin d'une marge claire de quatre modules
+   (« quiet zone ») pour que le décodeur trouve ses bords — le SVG la porte
+   déjà — mais il a AUSSI besoin que cette marge ne soit pas noyée dans un fond
+   noir. `padding` + `background` blancs sont ce qui rend le code lisible sur
+   une page sombre, pas ce qui le rend joli.
+   ⛔ Et surtout : ⛔ AUCUN `filter: invert()` en thème sombre. Un QR inversé
+   (modules clairs sur fond sombre) EST lisible par certains décodeurs et pas
+   par d'autres — c'est exactement le genre de « marche chez moi » qui coûte un
+   paiement perdu.
+   ⚠️ `max-width` en pourcentage ET une largeur fixe sur le SVG : sur un
+   téléphone étroit, un carré de 200 px déborderait la colonne. */
+.caisse-qr{ margin:var(--s4) 0 0; }
+.caisse-qr svg{ display:block; width:200px; max-width:100%; height:auto;
+  padding:8px; background:#fff; border-radius:var(--r-md); }
+.caisse-qr .etiq{ margin:8px 0 0; max-width:38ch; }

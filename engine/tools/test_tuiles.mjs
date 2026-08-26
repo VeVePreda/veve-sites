@@ -88,8 +88,27 @@ const SEUIL_NOEUDS_TUILE = 0;   // aucune tuile rendue par le serveur
 const SEUIL_REPETITION = 12;    // une géométrie écrite au plus 12× (6 formes × 2)
 const SEUIL_RECOPIE = 90_000;   // avant : 249 252 o · après le sprite : 54 112 o
 
+// 🔴🔴🔴 LOT 201 — DEUX RAISONS POUR UN MÊME FICHIER ABSENT, DEUX VERDICTS.
+//   Ce banc annonçait « INDÉCIDABLE — entry.mjs absent » sur vevewiki, à
+//   CHAQUE campagne. Or vevewiki est rendu en STATIQUE : il n'a pas de serveur,
+//   il n'en aura jamais, et `/market/` n'existe pas chez lui. La question
+//   « peut-on servir cette page avec une session ? » y est TRANCHÉE, elle vaut
+//   non — c'est un SANS OBJET, pas un trou.
+//   ⭐⭐⭐ ET LA DIFFÉRENCE N'EST PAS COSMÉTIQUE : le Dockerfile n'accepte aucun
+//   indécidable, et un indécidable qui revient à chaque build apprend à tout le
+//   monde à les ignorer — jusqu'au jour où il en apparaît un vrai.
+//   ⚠️ Le VRAI indécidable existe toujours, et il reste : sur un site rendu au
+//   serveur, un `entry.mjs` manquant veut bien dire « je n'ai pas pu regarder,
+//   le banc est passé avant le build ». On distingue donc sur le MODE DE RENDU,
+//   jamais sur l'absence du fichier — c'est la cause qu'on lit, pas le symptôme.
 if (!existsSync(ENTREE)) {
-  indecis('le serveur', `${ENTREE} absent — ce banc vient APRÈS npm run build`);
+  const statique = String(process.env.RENDERING || '').toLowerCase() === 'static';
+  if (statique) {
+    console.log('  --  SANS OBJET — ce site est rendu en statique : il n\'a pas de serveur,'
+      + ' et `/market/` n\'existe que sur veveprice.');
+  } else {
+    indecis('le serveur', `${ENTREE} absent — ce banc vient APRÈS npm run build`);
+  }
   fin(0);
 }
 
@@ -98,10 +117,14 @@ if (!existsSync(ENTREE)) {
 // Sans lui `/market/` répond 302 et le banc mesurerait une page de connexion —
 // c'est précisément l'angle mort de `test:pages`, qui demande `/market/` sans
 // session et n'atteint donc JAMAIS le rendu qu'on veut peser.
+// 🔔 LOT 201 — LE FAUX SERVICE REND AUSSI `jours_restants`, exactement comme
+//   veveid depuis ce lot. ⭐ Une valeur DANS le délai de rappel (3 ≤ 5), sinon
+//   la bannière ne s'émettrait pas et le §5 serait vert sans rien avoir vu.
+const JOURS_FAUX = 3;
 const faux = createServer((req, res) => {
   if (req.url.startsWith('/session/')) {
     res.writeHead(200, { 'content-type': 'application/json' });
-    res.end(JSON.stringify({ palier: 'member' }));
+    res.end(JSON.stringify({ palier: 'member', jours_restants: JOURS_FAUX }));
     return;
   }
   res.writeHead(404); res.end('{}');
@@ -523,6 +546,72 @@ console.log('\n2 bis. le filtre mord-il AU SERVEUR, et sur tout le catalogue ?')
   }
 }
 
+// 🔴🔴🔴 CE §  DOIT VIVRE **AVANT** `arreter()`, ET C'EST TOUT LE PIÈGE.
+//   Première rédaction : placé à la fin du fichier, après les sections qui
+//   travaillent sur un DOM déjà chargé. Le serveur y est mort depuis deux
+//   cents lignes — le banc est tombé sur ECONNREFUSED, pas sur un écart.
+//   ⭐⭐⭐ *Un banc au mauvais MOMENT ne mesure pas son sujet, il mesure son
+//   propre ordre d'exécution* — et un plantage n'est pas un verdict.
+// ═══════════════════════════════════════════════════════════════════════════
+console.log('\n2 quinquies. la bannière « votre accès se termine dans N jours » (lot 201)');
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐⭐⭐ POURQUOI CE §  VIT **ICI**, DANS LE BANC DES TUILES. Ce fichier est le
+// SEUL endroit du dépôt qui sert une page avec une SESSION : un vrai serveur
+// lancé sur `dist/`, et un faux service d'identité à la place de veveid. La
+// bannière ne s'affiche QUE pour un membre connecté dont l'abonnement se
+// termine — c'est-à-dire dans un rendu qu'aucun autre banc n'atteint.
+// ⛔ Un contrôle de SOURCE aurait dit qu'un gabarit contient un `if`. Il
+//   n'aurait rien dit du middleware, ni de `Astro.locals`, ni du seuil, ni de
+//   savoir si le chiffre traverse vraiment les deux dépôts.
+//
+// 🔴🔴 ET IL MESURE UNE CHAÎNE COMPLÈTE, C'EST TOUT SON INTÉRÊT :
+//   faux veveid → `GET /session/<sid>` → middleware → `Astro.locals` → seuil
+//   de la page → HTML servi. Un maillon coupé n'importe où et ce §  rougit.
+{
+  const r = await fetch(`http://127.0.0.1:${PORT}/compte/`,
+    { headers: { cookie: 'vp_session=banc-tuiles' } });
+  const page = await r.text();
+  verifie('`/compte/` se rend pour un membre connecté', r.status === 200,
+    r.status === 200 ? `${Buffer.byteLength(page)} o` : `🔴 statut ${r.status}`);
+  if (r.status === 200) {
+    // ⚠️ ON CHERCHE LA CLÉ i18n, PAS LE TEXTE FRANÇAIS. Le libellé change au
+    //    premier ajustement de formulation ; la clé, non. Et sous
+    //    `I18N_MARQUAGE=1` le HTML porte le marqueur, pas la phrase — un banc
+    //    qui chercherait « se termine dans » serait INDÉCIDABLE la moitié du
+    //    temps sans jamais le dire.
+    const cle = /account\.endsIn/.test(page);
+    const demain = /account\.endsTomorrow/.test(page);
+    verifie('…et elle porte la bannière de fin d\'accès',
+      cle || demain,
+      cle || demain ? `clé ${cle ? 'account.endsIn' : 'account.endsTomorrow'} servie`
+        : '🔴 aucune des deux clés dans le HTML — le chiffre n\'a pas traversé middleware → locals → page');
+    // ⭐ LA BONNE DES DEUX : à 3 jours c'est le pluriel, pas « demain ». Sans
+    //   ce contrôle, un gabarit qui afficherait toujours la même phrase
+    //   passerait — et « votre accès se termine demain » à cinq jours de la
+    //   fin est une phrase fausse envoyée à un client qui paie.
+    verifie('…et c\'est la bonne phrase pour 3 jours (pas « demain »)',
+      cle && !demain, cle && !demain ? 'pluriel' : '🔴 la page ne distingue pas le dernier jour');
+    // ⛔ ET LE NOMBRE EST BIEN CELUI DU SERVICE, pas une valeur par défaut.
+    verifie('…et le nombre vient du service d\'identité',
+      new RegExp(`>\\s*${JOURS_FAUX}\\s*<|\\b${JOURS_FAUX}\\b`).test(page.replace(/<svg[\s\S]*?<\/svg>/g, '')),
+      `${JOURS_FAUX} attendu`);
+    // ⭐⭐⭐ LA CONTRE-ÉPREUVE : la classe du thème existe VRAIMENT. Une
+    //   bannière posée avec une classe que personne ne peint est un « posé
+    //   jamais lu » — invisible dans les deux sens, exactement la faute que ce
+    //   dépôt a déjà payée sur `.rayon__cote`.
+    const feuille = [...page.matchAll(/href="(\/theme-[^"]+\.css)"/g)][0];
+    if (!feuille) {
+      indecis('la classe de la bannière', 'aucune feuille de thème référencée sur cette page');
+    } else {
+      const css = await (await fetch(`http://127.0.0.1:${PORT}${feuille[1]}`)).text();
+      verifie('…et `.avertis` est bien peinte par le thème servi',
+        /\.avertis\s*\{/.test(css),
+        /\.avertis\s*\{/.test(css) ? 'règle présente' : '🔴 classe posée, jamais peinte');
+    }
+  }
+}
+
+
 arreter();
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -784,6 +873,91 @@ console.log('\n6. les montants de la tuile sont-ils CLONÉS de la ligne ?');
           ? `ligne ${k} : le « ! » est cloné avec le montant`
           : `🔴 ligne ${k} porte l'alerte, sa tuile NON — un prix manifestement faux `
             + 's\'affiche sans sa marque sur la vue par défaut');
+    }
+  }
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+console.log('\n4. « voir plus » emporte-t-il la VUE et les COLONNES ? (lot 201)');
+// ═══════════════════════════════════════════════════════════════════════════
+// 🐛 LE DÉFAUT §M-209, ET POURQUOI IL SE MESURE **ICI** ET NULLE PART AILLEURS.
+// La vue et les colonnes sont de l'affichage pur : elles ne soumettent rien,
+// elles écrivent dans des champs cachés et attendent le prochain filtre. Le
+// « voir plus », lui, est un `<a href>` calculé PAR LE SERVEUR. Les deux ne se
+// parlaient pas ⇒ basculer en tuiles puis cliquer « voir plus » revenait au
+// tableau, toutes colonnes revenues.
+// ⛔ UN BANC DE SOURCE N'AURAIT RIEN PROUVÉ. Chercher `majPlus` dans le texte
+//    du fichier dit qu'un nom existe, pas qu'un clic répare un lien — et ce
+//    dépôt a déjà trouvé cinq fois la chaîne qu'il cherchait dans un
+//    commentaire, dont une fois dans celui qui DÉSACTIVAIT la ligne.
+// ⭐⭐⭐ Ce §  vit donc après l'exécution du pilote : on CLIQUE, et on relit
+//    l'adresse du lien. C'est le geste de l'utilisateur, pas sa description.
+{
+  const plus = document.getElementById('plus');
+  if (!plus) {
+    // ⭐ SANS OBJET, pas indécidable : le bouton n'existe que s'il RESTE des
+    //   lignes à montrer. La condition est tranchée, elle vaut non.
+    indecis('« voir plus »', 'le lien n\'est pas rendu : tout le corpus tient dans la première tranche');
+  } else {
+    const bTui = document.querySelector('.v-b[data-vue="tui"]');
+    const bTbl = document.querySelector('.v-b[data-vue="tbl"]');
+    const cases = [...document.querySelectorAll('input[name="f-col"]')];
+
+    verifie('les deux boutons de vue et les cases « colonnes » existent',
+      !!bTui && !!bTbl && cases.length > 0,
+      bTui && bTbl && cases.length ? `${cases.length} colonne(s) commutable(s)` : '🔴 repères absents');
+
+    if (bTui && bTbl && cases.length) {
+      // 🔴🔴🔴 LA CONTRE-ÉPREUVE EST UNE **BASCULE**, PAS UNE LECTURE DE DÉPART.
+      //   Première version : « l'adresse ne porte pas encore `f-vue=tui` ».
+      //   Elle a rougi sur du code juste — parce que le §3 de CE MÊME FICHIER
+      //   exécute le pilote et construit les tuiles AVANT d'arriver ici : le
+      //   DOM lui était déjà passé entre les mains, la vue valait `tui`, et
+      //   mon « départ » n'était pas un départ.
+      //   ⭐⭐⭐ *Mon instrument garde-t-il un état entre deux mesures ?* — oui,
+      //   et un banc qui l'ignore mesure le § d'avant.
+      //   ⇒ On force donc l'état, puis on mesure le CHANGEMENT. C'est plus
+      //   fort qu'une lecture : ça prouve que le lien SUIT la vue dans les
+      //   deux sens, pas qu'il contient une chaîne par hasard.
+      bTbl.dispatchEvent(new window.Event('click', { bubbles: true }));
+      const enTbl = plus.getAttribute('href') || '';
+      verifie('⛔ ramené en vue Tableau, le lien dit « tableau » (il y a de quoi mesurer)',
+        /[?&]f-vue=tbl(&|$)/.test(enTbl),
+        /[?&]f-vue=tbl(&|$)/.test(enTbl) ? enTbl
+          : `🔴 ${enTbl} — le lien ne suit pas la vue : le contrôle suivant ne prouverait rien`);
+
+      bTui.dispatchEvent(new window.Event('click', { bubbles: true }));
+      const apresVue = plus.getAttribute('href') || '';
+      verifie('après un clic sur « Tuiles », « voir plus » emporte la vue',
+        /[?&]f-vue=tui(&|$)/.test(apresVue),
+        /[?&]f-vue=tui(&|$)/.test(apresVue) ? apresVue
+          : `🔴 ${apresVue} — le clic ramènerait au TABLEAU (défaut §M-209)`);
+
+      // ⚠️ `:checked` SUIT L'ATTRIBUT dans linkedom (correctif déjà porté par
+      //    `monterDOM`) : on retire donc l'ATTRIBUT, pas seulement la
+      //    propriété — sinon le pilote relirait une case encore cochée et le
+      //    contrôle serait vert pour la mauvaise raison.
+      const victime = cases[0];
+      victime.removeAttribute('checked');
+      victime.checked = false;
+      victime.dispatchEvent(new window.Event('change', { bubbles: true }));
+      const apresCols = plus.getAttribute('href') || '';
+      const emportees = [...apresCols.matchAll(/[?&]f-col=([^&#]*)/g)].map((m) => m[1]);
+
+      verifie('…et il emporte la liste EXPLICITE des colonnes (`f-cx=1`)',
+        /[?&]f-cx=1(&|$)/.test(apresCols),
+        /[?&]f-cx=1(&|$)/.test(apresCols) ? apresCols
+          : '🔴 sans ce témoin, tout décocher est indiscernable d\'une première visite');
+      verifie('…et la colonne décochée n\'y est PLUS',
+        !emportees.includes(victime.value) && emportees.length === cases.length - 1,
+        !emportees.includes(victime.value)
+          ? `${emportees.length} colonne(s) emportée(s) sur ${cases.length}, « ${victime.value} » retirée`
+          : `🔴 « ${victime.value} » voyage encore : la tranche suivante la ferait revenir`);
+      verifie('…et la vue n\'a pas été perdue en chemin',
+        /[?&]f-vue=tui(&|$)/.test(apresCols),
+        /[?&]f-vue=tui(&|$)/.test(apresCols) ? 'vue et colonnes voyagent ensemble'
+          : '🔴 le second geste a écrasé le premier');
     }
   }
 }

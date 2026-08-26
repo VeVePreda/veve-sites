@@ -25,9 +25,39 @@
 // confiance qu'il ne rapporte en promesse ».
 import { moduleJs } from '../../engine/lib/socle_js.mjs';
 import { t } from '../../engine/lib/i18n.mjs';
+import { svg as qrSvg, adressePaiement } from '../../engine/lib/qr.mjs';
 
 const pilote = moduleJs('caisse');
-const { lang, plans = [], caisseOuverte = false, palierActuel = 'member' } = Astro.props;
+const { lang, plans = [], caisseOuverte = false, palierActuel = 'member', adresse = '' } = Astro.props;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔳 LE CODE QR — DESSINÉ AU SERVEUR, ET C'EST CE QUI LE REND POSSIBLE
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐⭐⭐ L'ADRESSE D'ENCAISSEMENT EST UNE CONSTANTE DU DÉPLOIEMENT. C'est le
+// MONTANT qui identifie un paiement, jamais l'adresse — il n'y a donc rien
+// d'individuel dans ce code, et rien à recalculer chez le visiteur. On le
+// dessine ici, une fois, et il part dans le HTML déjà fait : zéro octet de
+// JavaScript, et un QR qui s'affiche même si le pilote ne s'exécute jamais.
+// ⛔ La version cliente aurait coûté ~250 lignes d'encodeur SUR LE FIL, à
+//   chaque visite, sur une page `no-store`. Pour dessiner toujours le même
+//   carré.
+//
+// ⚠️ IL EST CALCULÉ MÊME QUAND LA SECTION NE S'AFFICHE PAS — Astro évalue le
+//   frontmatter avant le gabarit. Le coût est de ~1 ms et il ne part PAS dans
+//   la page (l'expression `{caisseOuverte && …}` ne rend rien). ⛔ L'envelopper
+//   dans une condition ici aurait ajouté un chemin de code de plus pour
+//   économiser une milliseconde sur une route déjà `no-store`.
+//
+// 🔴 ET IL NE PEUT PAS FAIRE ÉCHOUER LA PAGE. `qr.mjs` LÈVE au-delà de 213
+//   octets — c'est voulu, un refus vaut mieux qu'un carré vide. Mais une
+//   exception ici emporterait TOUT `/compte/` : les favoris, les portes, la
+//   suppression de compte. ⇒ le `catch` rend `''`, et le gabarit n'émet alors
+//   AUCUN bloc QR. L'adresse et le montant restent écrits en clair juste à
+//   côté : on perd un raccourci, jamais le moyen de payer.
+const cible = adresse ? adressePaiement(adresse) : '';
+let qr = '';
+try { qr = cible ? qrSvg(cible, { taille: 200, titre: t(lang, 'caisse.qrTitle') }) : ''; }
+catch { qr = ''; }
 
 // ⭐ LES PRIX SONT CALCULÉS AU SERVEUR ET N'EXISTENT QU'ICI. Le pilote client
 // n'en recalcule aucun : il affiche ce que la route lui répond. Deux calculs
@@ -89,6 +119,22 @@ const euros = (cents) => (cents / 100).toFixed(2);
 
     <p class="etiq">{t(lang, 'caisse.to')}</p>
     <p class="mono-t"><code id="caisse-adresse">—</code></p>
+
+    {/* 🔳 LE CODE QR. ⭐ IL VIENT APRÈS L'ADRESSE EN CLAIR, PAS À LA PLACE :
+        quelqu'un qui paie depuis un exchange n'a pas de portefeuille à scanner,
+        il a un champ où coller une adresse. Le QR est un raccourci pour les
+        téléphones, l'adresse écrite reste le chemin principal.
+        ⚠️ ET LE MONTANT N'Y EST PAS — voir le long commentaire de `qr.mjs` :
+        un portefeuille qui interprète mal un virement de jeton proposerait
+        d'envoyer la somme en ETH. La phrase ci-dessous le dit à l'acheteur,
+        parce que « j'ai scanné, donc c'est bon » est exactement ce qu'il
+        croirait sans elle. */}
+    {qr && (
+      <div class="caisse-qr">
+        <Fragment set:html={qr} />
+        <p class="etiq">{t(lang, 'caisse.qrHint')}</p>
+      </div>
+    )}
 
     {/* 🔴🔴 L'AVERTISSEMENT DE RÉSEAU N'EST PAS UNE PRÉCAUTION D'USAGE. Un
         envoi sur Ethereum, Polygon ou BNB vers cette adresse ne revient pas et

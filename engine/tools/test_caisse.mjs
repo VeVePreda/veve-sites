@@ -642,11 +642,17 @@ const PALIER = Object.keys(c.grille())[0];
   const CLES = ['caisse.title', 'caisse.lead', 'caisse.send', 'caisse.exact', 'caisse.to',
     'caisse.warn', 'caisse.left', 'caisse.late', 'caisse.wallet', 'caisse.back',
     'caisse.received', 'caisse.error', 'caisse.expired', 'caisse.current',
-    'caisse.perMonth', 'caisse.perYear'];
+    'caisse.perMonth', 'caisse.perYear',
+    // 🔳 lot 201 — les deux libellés du code QR
+    'caisse.qrTitle', 'caisse.qrHint'];
   for (const d of ['en', 'fr', 'es', 'de', 'it']) {
     const dico = JSON.parse(readFileSync(join(ROOT, `engine/i18n/${d}.json`), 'utf8'));
     const abs = CLES.filter((k) => !dico[k]);
-    dire(abs.length === 0, `⑳ les 16 libellés existent en « ${d} »`,
+    // ⛔ LE NOMBRE SE CALCULE, IL NE S'ÉCRIT PAS. Le libellé disait « les 16
+    //   libellés » ; ce lot en ajoute deux, et un contrôle qui annonce un
+    //   chiffre faux en annoncera un autre au lot suivant. Personne ne relit un
+    //   nombre dans un message vert.
+    dire(abs.length === 0, `⑳ les ${CLES.length} libellés existent en « ${d} »`,
       abs.length ? abs.join(', ') : `${CLES.length} clés`);
   }
 
@@ -657,6 +663,151 @@ const PALIER = Object.keys(c.grille())[0];
   dire(/data-caisse-mot/.test(pilote), '⑳ le pilote lit ses libellés dans le DOM');
   dire(!/textContent\s*=\s*['"][A-Za-z]{4,}/.test(pilote),
     '⑳ ...et n\'écrit aucun texte en dur');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ㉑ LOT 201 — LE CODE QR : IL SE MESURE, IL NE SE REGARDE PAS
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 LE MODE DE PANNE PAR DÉFAUT DE CE FORMAT EST *UN CODE D'APPARENCE
+// PARFAITE QUE RIEN NE LIT*. Mesuré pendant l'écriture : mon polynôme de
+// correction d'erreurs était construit à l'envers. Les 16 octets de DONNÉES
+// sortaient justes, les 10 octets de CORRECTION étaient tous faux — et la
+// matrice avait ses trois cibles, sa synchronisation, son format, sa taille.
+// Elle ressemblait exactement à un code QR. Aucune relecture à l'œil, aucun
+// contrôle de structure n'aurait vu quoi que ce soit.
+// ⇒ ⭐⭐⭐ ON NE VÉRIFIE DONC PAS QUE ÇA « RESSEMBLE À » UN CODE QR. On compare
+//   la matrice ENTIÈRE à un témoin figé, obtenu et vérifié le 25/08 par DEUX
+//   voies indépendantes de ce dépôt : `python-qrcode` (matrice identique) et
+//   un décodeur réel (OpenCV), qui a relu le texte de départ.
+// ⛔ ET LE TÉMOIN NE SE MET PAS À JOUR « PARCE QUE LE BANC ROUGIT ». S'il
+//   rougit, c'est l'encodeur qui a changé — regénérer le témoin serait
+//   supprimer le seul contrôle qui prouve quelque chose.
+{
+  const { matrice, versionPour, svg, adressePaiement } = await import(
+    pathToFileURL(join(ROOT, 'engine/lib/qr.mjs')).href);
+  const { createHash } = await import('node:crypto');
+  const empreinte = (t) => {
+    const m = matrice(t);
+    let s = '';
+    for (let r = 0; r < m.taille; r++) {
+      for (let c = 0; c < m.taille; c++) s += m.modules[r * m.taille + c] ? '1' : '0';
+      s += '\n';
+    }
+    return { sha: createHash('sha256').update(s).digest('hex'), m };
+  };
+
+  // ⭐ QUATRE TÉMOINS, CHOISIS POUR CE QU'ILS EXERCENT — pas au hasard :
+  //   la forme de PRODUCTION, la plus petite version, la première qui porte le
+  //   bloc d'information de version (7), et la borne haute (10). Un seul témoin
+  //   aurait laissé les trois autres chemins non mesurés.
+  const TEMOINS = [
+    ['ethereum:0x1234567890abcdef1234567890abcdef12345678@8453', 4, 33,
+      '9793c84ff3e22de35e17dcf045b339b0206da74b9f9e54dd8840b79e311493e3',
+      'la forme exacte de production'],
+    ['x'.repeat(14), 1, 21,
+      '1dbe039d94b1175ace5bd56284fc5cdf7ed01efa1b87b96af04a6e4113efc1e8',
+      'la plus petite version'],
+    ['x'.repeat(122), 7, 45,
+      '2e33c3efb3d2b036a85ab7ad1b8a70e270372b5a523bc8fa8ee974976b76fc12',
+      'la première version à porter son numéro dans la matrice'],
+    ['x'.repeat(213), 10, 57,
+      'cbf45b8cfeafe5c9ada4d4c32ed559c05204dbbc773e51b89bd2dce37656bdae',
+      'la borne haute'],
+  ];
+  for (const [texte, v, taille, sha, quoi] of TEMOINS) {
+    const { sha: vu, m } = empreinte(texte);
+    dire(m.version === v && m.taille === taille && vu === sha,
+      `㉑ témoin figé — ${quoi} (v${v}, ${taille}×${taille})`,
+      vu === sha ? `sha256 ${sha.slice(0, 12)}…`
+        : `🔴 v${m.version} ${m.taille}×${m.taille} sha ${vu.slice(0, 12)}… — ⛔ NE PAS REGÉNÉRER LE TÉMOIN : l'encodeur a changé`);
+  }
+
+  // ── LA STRUCTURE, SUR CHAQUE VERSION SUPPORTÉE ──────────────────────────
+  // ⭐ Elle ne prouve pas qu'un code se lit — les témoins s'en chargent — mais
+  //   elle dit OÙ ça casse quand un témoin rougit, et elle couvre les dix
+  //   versions au lieu de quatre.
+  {
+    let mauvaises = [];
+    for (let v = 1; v <= 10; v++) {
+      // une longueur qui tombe pile dans la version v
+      const n = [14, 26, 42, 62, 84, 106, 122, 152, 180, 213][v - 1];
+      const m = matrice('a'.repeat(n));
+      const a = (r, c) => m.modules[r * m.taille + c];
+      const N = m.taille;
+      const ok = m.version === v
+        && N === 17 + v * 4
+        // les trois cibles : coin sombre, anneau clair, coeur sombre
+        && [[0, 0], [0, N - 7], [N - 7, 0]].every(([dr, dc]) =>
+          a(dr, dc) === 1 && a(dr + 1, dc + 1) === 0 && a(dr + 3, dc + 3) === 1)
+        // la synchronisation alterne, et elle commence par du sombre
+        && a(6, 8) === 1 && a(6, 9) === 0 && a(8, 6) === 1 && a(9, 6) === 0
+        // le module toujours sombre
+        && a(N - 8, 8) === 1;
+      if (!ok) mauvaises.push(v);
+    }
+    dire(mauvaises.length === 0, '㉑ les 10 versions ont cibles, synchronisation et module sombre',
+      mauvaises.length ? `🔴 version(s) ${mauvaises.join(', ')}` : 'v1 à v10');
+  }
+
+  // ── LA BORNE : elle REFUSE, elle ne rend pas un carré vide ───────────────
+  // ⭐⭐⭐ LA CONTRE-ÉPREUVE D'ABORD : 213 doit PASSER. Un contrôle qui vérifie
+  //   seulement que 214 lève serait vert si la fonction levait sur TOUT.
+  {
+    let passe = true, refuse = false;
+    try { versionPour(213); } catch { passe = false; }
+    try { versionPour(214); } catch { refuse = true; }
+    dire(passe, '㉑ 213 octets passent (la borne n\'est pas un refus général)');
+    dire(refuse, '㉑ …et 214 octets LÈVENT',
+      '⛔ sans refus, l\'appelant dessinerait une matrice vide — un carré blanc ne se voit pas en revue');
+  }
+
+  // ── LE SVG : ce qui part vraiment dans la page ───────────────────────────
+  {
+    const cible = adressePaiement('0x1234567890abcdef1234567890abcdef12345678');
+    dire(cible === 'ethereum:0x1234567890abcdef1234567890abcdef12345678@8453',
+      '㉑ l\'adresse de paiement porte la chaîne Base (8453)', cible);
+    const out = svg(cible, { taille: 200, titre: 'x' });
+    // ⚠️ LA MARGE CLAIRE EST FONCTIONNELLE. 33 modules + 4 de marge de chaque
+    //    côté = 41. Sans elle, un décodeur ne trouve pas les bords du code, et
+    //    l'échec ressemble à un problème d'appareil photo.
+    dire(/viewBox="0 0 41 41"/.test(out), '㉑ le SVG porte ses 4 modules de marge claire',
+      (out.match(/viewBox="[^"]*"/) || [''])[0]);
+    dire(/<rect width="41" height="41" fill="#fff"\/>/.test(out),
+      '㉑ …et un fond clair explicite',
+      '⛔ sur un thème sombre, un fond transparent rend le code illisible');
+    // ⭐ UN SEUL CHEMIN, PAS 1 089 RECTANGLES : c'est ce qui fait tenir le code
+    //   en ~1,3 Ko au lieu de ~19 Ko, sur une page `no-store` repayée à chaque
+    //   visite.
+    dire((out.match(/<rect/g) || []).length === 1,
+      '㉑ …et un seul rectangle (le fond), les modules tiennent dans UN chemin',
+      `${(out.match(/<rect/g) || []).length} rect · ${out.length} o`);
+  }
+
+  // ── LES DEUX FABRIQUES DE LA MÊME CIBLE ─────────────────────────────────
+  // 🔴🔴🔴 LE BOUTON « ouvrir mon portefeuille » ET LE CODE QR DOIVENT MENER AU
+  //   MÊME ENDROIT. Le premier est construit dans le pilote, le second dans
+  //   `qr.mjs` : deux fabriques d'une même adresse, donc deux occasions de
+  //   diverger — et une divergence ici enverrait l'argent sur la mauvaise
+  //   chaîne. ⛔ Commentaires retirés AVANT de chercher : cinq fois dans ce
+  //   dépôt, un banc a trouvé la chaîne qu'il cherchait dans le commentaire qui
+  //   documentait le sujet.
+  {
+    const pilote = readFileSync(join(ROOT, 'src/socle/modules/caisse.js'), 'utf8')
+      .split('\n').filter((l) => !l.trim().startsWith('//')).join('\n');
+    dire(/'ethereum:'\s*\+\s*d\.adresse\s*\+\s*'@8453'/.test(pilote),
+      '㉑ le bouton portefeuille vise la MÊME chaîne que le QR (8453)',
+      '⛔ deux cibles pour un même geste : l\'argent part sur le mauvais réseau');
+
+    const gabarit = readFileSync(join(ROOT, 'src/components/CaisseAchat.astro'), 'utf8');
+    const nu = gabarit.replace(/\{\/\*[\s\S]*?\*\/\}/g, ' ')
+      .split('\n').filter((l) => !l.trim().startsWith('//')).join('\n');
+    dire(/adressePaiement\(adresse\)/.test(nu) && /qrSvg\(/.test(nu),
+      '㉑ l\'écran d\'achat dessine le QR au SERVEUR (aucun octet de JS)',
+      '⛔ absent : le raccourci de paiement n\'existe plus');
+    dire(/catch\s*\{\s*qr\s*=\s*''/.test(nu),
+      '㉑ …et un refus de l\'encodeur ne peut pas emporter toute la page /compte/',
+      '⛔ sans le repli, une adresse trop longue casserait favoris, portes et suppression de compte');
+  }
 }
 
 noeud.close();

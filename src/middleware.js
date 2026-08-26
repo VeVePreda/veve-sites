@@ -47,7 +47,18 @@ async function palierDeLaSession(sid, env) {
     });
     if (!r.ok) return null;
     const j = await r.json();
-    return typeof j?.palier === 'string' ? j.palier : null;
+    if (typeof j?.palier !== 'string') return null;
+    // 🔔 LOT 201 — LE COMPTE À REBOURS VOYAGE AVEC LE PALIER, DANS LA MÊME
+    //   RÉPONSE. La bannière « votre accès se termine dans N jours » a besoin
+    //   d'un entier ; cette requête est DÉJÀ payée à chaque page rendue à la
+    //   demande. Un second appel l'aurait doublée — sur `/market/`, qui est
+    //   `no-store`, donc repayée à chaque visite.
+    // ⚠️ `null` SI LE SERVICE NE LE DIT PAS. Un veveid plus ancien que ce site
+    //   ne renvoie pas ce champ : `?? null` le distingue de « zéro jour »,
+    //   sinon la bannière annoncerait une fin de droits à tous les abonnés
+    //   pendant le temps du déploiement décalé des deux dépôts.
+    const n = j?.jours_restants;
+    return { palier: j.palier, jours: Number.isFinite(n) ? Number(n) : null };
   } catch {
     // ⚠️ ÉCHOUER FERMÉ. Un `catch` qui rendrait « member » serait exactement le
     // défaut de `getattr(…, ())` qui a mal étiqueté 216 838 transferts : une
@@ -155,9 +166,18 @@ export async function onRequest(context, next) {
   // tout ce qui testait `session === 'demo'` a été retiré dans le même geste
   // (`src/pages/compte/index.astro`) : une valeur qu'on cesse d'écrire et un
   // test qu'on laisse vivre, c'est une branche morte qui a l'air active.
-  const reelle = await palierDeLaSession(sid, env);
+  const etat = await palierDeLaSession(sid, env);
+  const reelle = etat ? etat.palier : null;
   const brut = reelle;
   if (reelle) context.locals.session = 'reelle';
+  // ⭐ DÉPOSÉ TEL QUEL, SANS SEUIL. C'est la PAGE qui décide à partir de quand
+  //   elle prévient (cinq jours, l'arbitrage de Preda) : un seuil appliqué ici
+  //   serait un second endroit où le nombre cinq vit, et le jour où il change
+  //   l'un des deux resterait en arrière.
+  // ⛔ Et il n'existe QUE pour une session réelle : sur les ~8 500 pages
+  //   pré-générées, `locals` est figé au build — y écrire un compte à rebours
+  //   servirait le même chiffre à tout le monde, pour toujours.
+  if (reelle) context.locals.joursRestants = etat.jours;
 
   // ⭐ On dépose la valeur BRUTE. C'est `palierVisiteur()` d'access.mjs qui
   // décide ce qu'elle vaut : il vérifie qu'elle existe, qu'elle est déclarée

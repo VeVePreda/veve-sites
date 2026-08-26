@@ -399,6 +399,26 @@
     //   ⭐ Le balisage est celui de `Cote.astro` : `60-cote.js` cherche
     //   `[data-cote]` et remplit `[data-cote-v]`. On l'appelle en fin de rendu.
     var u = ligneVal(l, 'u');
+    // 🔴🔴🔴 LOT 201 — LE PLANCHER, ET IL EST ÉMIS PAR LES DEUX FABRIQUES.
+    //   `Rayon.astro` le pose côté serveur dans le même lot. ⛔ Ne l'ajouter
+    //   qu'ici aurait fait apparaître un prix au premier filtre et disparaître
+    //   au rechargement — « deux gabarits qui rendent la même liste divergent
+    //   en silence », la faute que ce fichier a déjà payée quatre fois.
+    //   ⭐ MÊME PRÉDICAT `p && u` QUE LES EXTRÊMES : pas de fiche, pas de cote
+    //   en réserve, donc pas de cadenas. Le prédicat n'est pas neuf, il est
+    //   PARTAGÉ — c'est ce qui garantit que les deux badges apparaissent et
+    //   disparaissent ensemble.
+    if (p && u) {
+      // ⛔ PAS D'ENVELOPPE. `Cote.astro` rend UN seul nœud, `class="cote
+      //   rayon__p"` — la classe s'ajoute SUR le badge, elle ne l'emballe pas.
+      //   Un `<span class="rayon__p">` autour aurait produit un enfant de plus
+      //   dans la grille (donc la ligne repliée du lot 201) et un sélecteur
+      //   `.rayon__p.cote` qui ne mordrait plus. Les deux fabriques rendent le
+      //   même HTML À L'OCTET, ou elles divergeront au lot suivant.
+      var prx = document.createElement('span');
+      prx.innerHTML = cadenasNu(u, 'floor', 'cote rayon__p');
+      boite.appendChild(prx.firstChild);
+    }
     if (p && u) {
       var ext = document.createElement('span');
       ext.className = 'rayon__ext';
@@ -427,6 +447,25 @@
    *  thème le dessine depuis `.cote__l`, et le serveur l'écrit en dur. ⭐ On
    *  émet la même structure et le même `title` (`data-titre`, posé par le
    *  serveur donc traduit) — le cadenas graphique est repris du gabarit. */
+  /** ⭐ LE MÊME BADGE, SANS L'ÉTIQUETTE. `cadenas()` enveloppe dans
+   *  `<span class=b|h><i>ATL</i><b>…` parce qu'un extrême a besoin de dire
+   *  LEQUEL il est. Un plancher n'a besoin d'aucun mot : il est le prix.
+   *  ⛔ Émettre `<i></i>` vide « pour garder la même forme » aurait posé un
+   *  nœud que le thème peint (`.rayon__ext i` a une taille et un
+   *  interlettrage) et qui ne dirait rien — un blanc dont personne ne
+   *  retrouverait la cause.
+   *  ⭐⭐ ET IL SORT DU MÊME ENDROIT QUE `cadenas()` : la structure interne du
+   *  `<span class="cote">` n'est écrite QU'UNE FOIS dans ce fichier. Deux
+   *  copies du même balisage, c'est `CoteScript` qui remplit l'une et pas
+   *  l'autre le jour où l'une bouge. */
+  function cadenasNu(uuid, champ, cl) {
+    return '<span class="' + (cl || 'cote') + '" data-cote="' + uuid + '" data-champ="' + champ + '"'
+      + ' title="' + txt('titrecote').replace(/"/g, '&quot;') + '">'
+      + '<span class="cote__v" data-cote-v>—</span>'
+      + '<span class="cote__l" aria-hidden="true">' + CADENAS + '</span>'
+      + '</span>';
+  }
+
   function cadenas(cl, k, uuid, champ) {
     return '<span class="' + cl + '"><i>' + k + '</i><b>'
       // ⛔ `class="cote"` ET RIEN DE PLUS — comparé à l'octet près au HTML servi
@@ -436,11 +475,8 @@
       //   Elle n'aurait rien cassé et n'aurait rien fait — c'est
       //   `regle-emetteur-sans-regle`, la faute qui traverse une revue parce
       //   qu'elle est invisible dans les deux sens.
-      + '<span class="cote" data-cote="' + uuid + '" data-champ="' + champ + '"'
-      + ' title="' + txt('titrecote').replace(/"/g, '&quot;') + '">'
-      + '<span class="cote__v" data-cote-v>—</span>'
-      + '<span class="cote__l" aria-hidden="true">' + CADENAS + '</span>'
-      + '</span></b></span>';
+      + cadenasNu(uuid, champ)
+      + '</b></span>';
   }
 
   // ═══════════════════════════════════════════════════════════════════════

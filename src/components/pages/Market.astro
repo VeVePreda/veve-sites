@@ -1285,14 +1285,81 @@ const ILE_TUILES = JSON.stringify({
           e.hidden = ![].slice.call(e.children).some(function (c) { return !c.hidden; });
         });
         if (cx) cx.value = '1';
+        majPlus();
       }
       var champVue = document.getElementById('f-vue');
+
+      // ═══════════════════════════════════════════════════════════════════
+      // 🔴🔴🔴 LOT 201 — « VOIR PLUS » PERDAIT LA VUE ET LES COLONNES
+      // ═══════════════════════════════════════════════════════════════════
+      // LA CAUSE, MESURÉE DANS CE FICHIER ET PAS SUPPOSÉE. Deux mécanismes
+      // portent l'état, et ils ne se parlaient pas :
+      //   · la vue et les colonnes sont de l'AFFICHAGE PUR (bloc ② ci-dessus)
+      //     ⇒ elles ne soumettent rien, elles écrivent dans les champs cachés
+      //     `f-vue` / `f-cx` et attendent le PROCHAIN filtre pour voyager ;
+      //   · `#plus` est un `<a href>` calculé PAR LE SERVEUR (`urlSuite`), à
+      //     partir de l'URL de la requête — celle d'AVANT la bascule.
+      // ⇒ Basculer en tuiles, décocher trois colonnes, puis cliquer « voir
+      //   plus » naviguait vers une adresse qui ne portait ni `f-vue=tui` ni
+      //   `f-col` : retour au tableau, toutes colonnes revenues. C'est le
+      //   défaut §M-209 mot pour mot.
+      //
+      // ⛔ CE QU'ON NE FAIT PAS : transformer `#plus` en bouton piloté. Le
+      //    commentaire du gabarit est explicite et il a raison — « c'est un
+      //    lien, pas un geste » : il doit marcher sans JavaScript, sur une
+      //    page qui, elle, marche très bien sans.
+      // ⭐ CE QU'ON FAIT : on RÉÉCRIT SON `href` quand l'affichage change. Le
+      //    lien reste un lien ; sans script il garde exactement l'adresse que
+      //    le serveur a écrite, donc le repli d'aujourd'hui est intact.
+      //
+      // ⭐⭐⭐ ET ON PART DE `href`, PAS D'UNE URL RECOMPOSÉE. Les treize
+      //    filtres en cours et `f-n` sont DÉJÀ dedans — c'est le serveur qui
+      //    les y a mis. N'écraser que les trois paramètres d'affichage rend
+      //    structurellement impossible d'en perdre un quatorzième le jour où
+      //    il arrivera. Recomposer l'adresse aurait rouvert exactement le
+      //    piège que `urlSuite` avait fermé côté serveur.
+      var PLUS = document.getElementById('plus');
+      function majPlus() {
+        if (!PLUS) return;
+        // ⚠️ BASE ABSOLUE OBLIGATOIRE : `href` est relatif (`/market/?…`) et
+        //    `new URL()` lève sur une adresse relative sans base. On n'en
+        //    ressort que `pathname + search + hash`, donc l'hôte de la base
+        //    n'est JAMAIS lu — une constante suffit.
+        // 🔴🔴🔴 ET C'EST UNE CONSTANTE, PAS `window.location.origin`, POUR UNE
+        //    RAISON MESURÉE : `test:tuiles` monte la page servie dans linkedom
+        //    pour jouer ce pilote, et linkedom NE FOURNIT PAS `window.location`.
+        //    La première version lisait l'origine, levait, et tombait dans le
+        //    `catch` — silencieusement. Le banc voyait un lien jamais mis à
+        //    jour et rougissait sur du code juste : *l'instrument accusait le
+        //    code, alors que c'est le code qui s'était rendu inobservable.*
+        //    ⭐⭐⭐ On ne rend pas le banc plus tolérant, on retire la
+        //    dépendance : le comportement en navigateur est identique À
+        //    L'OCTET, et le chemin devient mesurable. Un chemin de code qu'on
+        //    ne peut pas emprunter en banc n'est pas sûr, il est non mesuré.
+        var u;
+        try { u = new URL(PLUS.getAttribute('href'), 'https://veve.invalid'); }
+        catch (e) { return; }
+        u.searchParams.set('f-vue', champVue ? champVue.value : 'tbl');
+        // ⭐ LES COLONNES SE LISENT SUR LES CASES, PAS SUR L'URL D'AVANT.
+        //   `f-cx=1` dit « cette liste est explicite, même vide » — sans lui,
+        //   tout décocher serait indiscernable d'une première visite et les
+        //   colonnes reviendraient toutes. Même témoin que la soumission.
+        u.searchParams.delete('f-col');
+        if (cx && cx.value === '1') {
+          u.searchParams.set('f-cx', '1');
+          [].slice.call(f.querySelectorAll('input[name="f-col"]:checked'))
+            .forEach(function (c) { u.searchParams.append('f-col', c.value); });
+        }
+        PLUS.setAttribute('href', u.pathname + u.search + u.hash);
+      }
+
       function peindreVue(v) {
         if (champVue) champVue.value = v;
         if (v === 'tui') batirTuiles();
         var tbl = document.getElementById('vue-tbl');
         if (tbl) tbl.hidden = v !== 'tbl';
         if (grille) grille.hidden = v !== 'tui';
+        majPlus();
       }
 
       // ═══════════════════════════════════════════════════════════════════

@@ -211,6 +211,41 @@ const cadenasSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" s
               « je n'ai pas ». ⭐ Et le prédicat n'est pas neuf — c'est le MÊME
               `l.path` qui décide déjà `<a>` contre `<div>` deux lignes plus
               haut. Une porte de plus aurait été une porte de plus à tenir. */}
+          {/* 🔴🔴🔴 LOT 201 — LE PLANCHER SUR LA LIGNE DE RAYON (§M-209).
+              Le défaut disait « les tuiles /collectibles/ et /comics/ n'ont pas
+              de prix ». MESURÉ AVANT DE CORRIGER, et ce n'était pas une
+              régression : ce gabarit n'a JAMAIS émis de plancher, ni ici ni
+              dans son pilote. Il n'y avait rien à réparer, il y avait quelque
+              chose à poser.
+              ⛔ ET ON NE PEUT PAS LE POSER EN CLAIR. `rayon_index.mjs` porte
+              une liste `INTERDITS` qui refuse `floor`, `listings`, `ath`,
+              `atl` — ces pages sont PUBLIQUES et pré-générées, un montant
+              écrit dedans partirait dans `dist/` pour tout le monde, et
+              `test:fuite` ratisse précisément ça. Écrire le prix ici aurait
+              rouvert le lot 101 par la porte d'à côté.
+              ⭐⭐⭐ ⇒ ON POSE UN EMPLACEMENT, PAS UN MONTANT. `<Cote>` ne reçoit
+              qu'un uuid : à l'instant du rendu, `l.floor` n'existe pas — il ne
+              PEUT pas fuiter, ce n'est pas qu'on a pensé à le masquer.
+              `CoteScript` remplit l'emplacement au chargement pour qui a le
+              droit ; le visiteur voit le cadenas, le membre voit son plancher.
+              Arbitrage de Preda du 25/08, sur maquette.
+              ⭐ MÊME PRÉDICAT QUE LES EXTRÊMES — `l.path`, et pour la même
+              raison exactement : une pièce sans fiche n'a pas de cote en
+              réserve et n'en aura jamais. Un cadenas dessus dirait « je ne
+              montre pas » là où la vérité est « je n'ai pas ». Une porte de
+              plus aurait été une porte de plus à tenir.
+              ⭐⭐⭐ ET `filtrable` (= `coteFermee()`) GARDE LA LIGNE, POUR UNE
+              RAISON MESURÉE DANS CE FICHIER : c'est la MÊME condition qui
+              décide d'émettre `<BarreRayon>` — donc le pilote `rayon.js`
+              n'existe QUE lorsqu'elle est vraie. Sans elle, le serveur poserait
+              un cadenas sur un site à cote OUVERTE, où le pilote, lui, n'aurait
+              même pas été chargé : un verrou dessiné sur une porte sans mur, et
+              les deux fabriques diverger dès le premier filtre.
+              ⛔ On ne peut pas non plus afficher le montant en clair dans ce
+              cas : `l.floor` n'existe pas — `INTERDITS` l'a refusé à l'index.
+              Cote ouverte, ce rayon n'a donc RIEN à dire sur le prix, et il se
+              tait. */}
+          {filtrable && l.path && <Cote lang={lang} uuid={l.uuid} champ="floor" classe="rayon__p" />}
           {l.path && <Extremes lang={lang} uuid={l.uuid} nf={nf} classe="rayon__ext" />}
           {l.tirage && <span class="rayon__t">{l.tirage.toLocaleString(nf)}</span>}
           {!l.path && <span class="rayon__x">{t(lang, 'rayon.sansfiche')}</span>}

@@ -306,8 +306,28 @@ const _plansCaisse = (m.offer?.plans || [])
 // et la section d'achat resterait invisible sur un serveur parfaitement
 // configuré. C'est exactement la panne de la sonde qui répondait
 // `"mode":"static"` sur un site en mode server.
+// ⭐ L'ADRESSE EST LUE UNE FOIS, ET LES DEUX QUI S'EN SERVENT LISENT LA MÊME
+//   VARIABLE : le prédicat « la caisse est-elle ouverte ? » et le code QR.
+//   Deux lectures de `process.env` à deux endroits, c'est une section d'achat
+//   ouverte avec un QR vide le jour où l'une des deux se trompe de nom.
+// 🔔 LOT 201 — LE COMPTE À REBOURS DE LA BANNIÈRE.
+// ⭐ LE SEUIL EST ÉCRIT ICI, ET NULLE PART AILLEURS. Le middleware dépose le
+//   nombre brut ; c'est cette page qui décide à partir de quand elle prévient.
+//   Le même cinq vit chez veveid (`JOURS_AVANT`) pour le COURRIEL — deux
+//   canaux, deux endroits, et c'est assumé : le service d'identité ne connaît
+//   pas les pages de ce site, et ce site ne pilote pas les envois. ⛔ Les
+//   coupler aurait demandé une route de plus pour lire une constante.
+// ⚠️ `null` N'EST PAS `0`. Quelqu'un qui n'a jamais payé n'a pas de compte à
+//   rebours : lui annoncer « il vous reste 0 jour » serait annoncer la fin
+//   d'un droit qu'il n'a jamais eu.
+const RAPPEL_JOURS = 5;
+const _joursRestants = Number.isFinite(Astro.locals?.joursRestants)
+  ? Number(Astro.locals.joursRestants) : null;
+const _bientotFini = _joursRestants !== null && _joursRestants <= RAPPEL_JOURS;
+
+const _adresseCaisse = String(process.env.CAISSE_ADRESSE || '').trim();
 const _caisseOuverte = connecte && _plansCaisse.length > 0
-  && /^0x[0-9a-fA-F]{40}$/.test(String(process.env.CAISSE_ADRESSE || '').trim());
+  && /^0x[0-9a-fA-F]{40}$/.test(_adresseCaisse);
 const _parPorte = new Map(_brut.map((x) => [x.porte, x]));
 const lesPortes = estAdmin ? [...PORTES_CONNUES].map((nom) => {
   const p = porteDe(nom);              // ⭐ le palier EFFECTIF, surcharge comprise
@@ -535,11 +555,36 @@ const _m = Astro.url.searchParams.get('m');
       ⚠️ ET ON PRÉVIENT QU'ON CHANGE DE DOMAINE. Un bouton qui emmène ailleurs
       sans le dire, sur une page qui parle de portefeuille, ressemble
       exactement à ce contre quoi on met les gens en garde. */}
+  {/* ═══════════════════════════════════════════════════════════════════════
+      🔔 LOT 201 — « VOTRE ACCÈS SE TERMINE DANS N JOURS »
+      ═══════════════════════════════════════════════════════════════════════
+      ⭐⭐⭐ ELLE SE PLACE JUSTE AU-DESSUS DE LA CAISSE, ET C'EST LE POINT. Une
+      bannière qui prévient sans donner le geste suivant transforme une
+      information en inquiétude. Ici, la section qui permet de prolonger est la
+      suivante à l'écran — il n'y a rien à chercher.
+      ⛔ ELLE NE S'ÉMET PAS DU TOUT hors du délai. Pas grisée, pas masquée en
+      CSS : absente. Ce qui est dans le HTML est SERVI, et une bannière cachée
+      resterait lisible dans la source par tous les membres à jour.
+      ⭐ `.avertis` EXISTE DÉJÀ dans le thème — ⛔ on n'invente pas une classe
+      pour ça : une classe émise sans règle est un « posé jamais lu », et une
+      règle sans émetteur une classe morte de plus.
+      ⚠️ DEUX PHRASES SELON LE JOUR RESTANT, parce qu'« il reste 1 jours » ne
+      s'écrit pas — et qu'aucune langue ne pluralise comme le français. Le
+      dernier jour a donc sa propre clé, dans les cinq dictionnaires. */}
+  {_bientotFini && (
+    <p class="avertis" style="margin:var(--s5) 0 0">
+      <b>{_joursRestants <= 1
+        ? t(lang, 'account.endsTomorrow')
+        : t(lang, 'account.endsIn', { n: String(_joursRestants) })}</b>
+      {' '}{t(lang, 'account.endsHint')}
+    </p>
+  )}
+
   {/* 💳 LOT 200 — L'ACHAT. Il se place APRÈS l'état du compte (on sait ce
       qu'on a) et AVANT le portefeuille : c'est l'ordre dans lequel la question
       se pose. ⛔ La section ne s'émet pas du tout si la caisse n'est pas
       ouverte — pas « désactivée », pas grisée : absente. */}
-  <CaisseAchat lang={lang} plans={_plansCaisse}
+  <CaisseAchat lang={lang} plans={_plansCaisse} adresse={_adresseCaisse}
                caisseOuverte={_caisseOuverte} palierActuel={palier} />
 
   <div class="sect-t sect-t--gd"><h2>{t(lang, 'account.wallet')}</h2></div>
