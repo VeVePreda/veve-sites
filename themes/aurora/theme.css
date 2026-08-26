@@ -121,3 +121,42 @@ footer.site{border-top:1px solid #ffffff14;padding:26px 0;color:var(--muted);fon
 /* `.cover` : l'image d'en-tete d'un article. Sans regle elle sortait a sa
    taille naturelle, cassant la grille des cartes du blog. */
 .cover{ width:100%; aspect-ratio:16/9; object-fit:cover; border-radius:8px; background:var(--surface); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   📏 LOT 203, POINT `ag` — UNE SÉRIE NE DÉFORME PLUS SA CARTE
+   ═══════════════════════════════════════════════════════════════════════════
+   🔴 CE QUE PREDA A DEMANDÉ, AVEC SES MOTS : « il faut juste tronquer
+   l'affichage, et quand on passe le curseur dessus on voit dans une infobulle
+   le nom complet — le but est que ça ne déforme pas les tuiles ».
+   ⭐⭐⭐ LE BUT EST « NE PAS DÉFORMER », PAS UN NOMBRE DE CARACTÈRES. Sa
+   première formulation donnait 13 ; sa raison donne le critère. Couper à 13
+   aurait tronqué « Spider-Man '94 » (14 caractères) dans une colonne qui en
+   tient 34, et l'aurait tronqué pareil sur un écran deux fois plus large.
+
+   ⛔ ET LA COUPE RESTE ICI, PAS AU SERVEUR. Une chaîne tronquée à la source ne
+   peut plus rien dire au survol, et elle serait coupée identiquement partout.
+   `text-overflow` coupe à la place RÉELLE et laisse le texte entier dans le
+   document — c'est ce qui rend l'infobulle possible.
+
+   🔴🔴 `[data-serie]` ET JAMAIS `.item .s` NU. Cette classe porte AUSSI des
+   dates d'article, des rôles et des notes éditoriales (`BlogIndex`, `BlogTag`,
+   `Editorial`). Leur imposer une ligne unique tronquerait des textes qui ont le
+   droit de respirer — et un correctif global sur une classe partagée avait déjà
+   coûté 764 titres à ce projet.
+
+   ⭐ `max-width` en `ch` et non en pixels : la borne suit la taille de police
+   du lecteur. `34ch` est la valeur que `.tbl-obj__s` emploie depuis le lot 139,
+   reprise ici pour que les deux familles coupent au même endroit.
+   ⚠️ `min-width:0` sur le PARENT : sans lui, un enfant qui refuse de rétrécir
+   élargit la carte au lieu d'être coupé, et l'`ellipsis` ne se déclenche
+   jamais. C'est le défaut qu'on croit corriger en ajoutant `overflow:hidden`
+   à l'enfant, alors qu'il se règle chez le parent. */
+.item{ min-width:0; }
+.item .s[data-serie]{
+  display:block; max-width:34ch;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.item .n[title]{
+  display:block; max-width:34ch;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}

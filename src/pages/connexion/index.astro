@@ -54,6 +54,9 @@ import { comptesActifs } from '../../../engine/lib/features.mjs';
 import { sceau, champPiegeHtml } from '../../../engine/lib/robots.mjs';
 import { retourSur, COOKIE_RETOUR, RETOUR_DUREE } from '../../../engine/lib/retour.mjs';
 import { getCatalogue } from '../../../engine/data/warehouse.mjs';
+import { lireMarche } from '../../../engine/lib/cote.mjs';
+import { priceEnabled } from '../../../engine/lib/features.mjs';
+import { numberLocale } from '../../../engine/lib/i18n.mjs';
 
 // ⭐ CETTE PAGE EST RENDUE À LA DEMANDE : elle peut lire `Accept-Language`, ce
 // qu'une page pré-générée ne peut pas faire. On ne fait confiance qu'aux
@@ -138,6 +141,48 @@ try {
     .filter(Boolean)
     .map((i, k) => ({ src: i.image, st: PLACES[k][0], p: PLACES[k][1], dur: PLACES[k][2] }));
 } catch { pieces = []; }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 📣 LOT 203, POINT `o` — « le texte doit expliquer les avantages »
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴 LE DÉFAUT MESURÉ LE 26/08 : la page promettait « Les 1 200 fiches,
+//    contre 8 en accès libre » — GRAVÉ dans les cinq dictionnaires. La sonde
+//    en annonce **8 840**. Le premier argument de vente de la page d'entrée du
+//    site était donc faux d'un facteur sept, sans que rien ne le dise.
+//    ⭐ Le commentaire du bloc, plus bas, portait déjà l'aveu : « CE QUE JE
+//    N'AI PAS MESURÉ ». Un chiffre qu'on n'a pas mesuré et qu'on écrit quand
+//    même ne devient pas vrai en attendant.
+//
+// ⭐⭐⭐ LE REMÈDE N'EST PAS UN AUTRE CHIFFRE, C'EST DE NE PLUS EN GRAVER.
+//    Il vient de la projection déposée au build — la même source que
+//    `/dashboard/` et `/market/`. Le jour où le catalogue grandit, la phrase
+//    grandit avec lui. C'est mot pour mot la règle déjà écrite pour les bornes
+//    de `BarreRayon` : « un placeholder écrit en dur se périme le jour où le
+//    catalogue bouge, en silence, et personne ne relit un placeholder ».
+//
+// ⛔ ET LA COMPARAISON « CONTRE 8 EN ACCÈS LIBRE » DISPARAÎT, elle n'est pas
+//    remplacée. Je n'ai pas su retrouver d'où sortait ce 8 : le manifeste
+//    borne `public_max: 30` relevés et `public_days: 3` jours, jamais un
+//    nombre de fiches. ⭐ *On ne remplace pas un chiffre non mesuré par un
+//    autre chiffre non mesuré* — on retire l'affirmation qu'on ne peut pas
+//    soutenir, et on garde celle qu'on peut.
+//
+// 🔴 `lireMarche()` LÈVE quand la projection manque, et c'est délibéré de sa
+//    part. Mais ici l'appelant est la PAGE D'ENTRÉE du site : une exception y
+//    est un 500 servi à qui vient s'inscrire. ⇒ on retombe sur une phrase SANS
+//    chiffre, qui reste vraie. ⛔ Pas sur « 0 fiche », qui serait un mensonge
+//    exact du genre que ce lot corrige.
+// ⚠️ Le coût est nul en régime : `lireMarche()` garde sa projection en cache
+//    dans le processus, et `/market/` la charge de toute façon.
+const nFiches = (() => {
+  if (!priceEnabled()) return null;
+  try {
+    const n = lireMarche()?.resume?.publies;
+    return typeof n === 'number' && n > 0 ? n : null;
+  } catch { return null; }
+})();
+const nFichesTxt = nFiches === null
+  ? null : nFiches.toLocaleString(numberLocale[lang] || 'en-GB');
 
 const cguMorceaux = t(lang, 'signup.cgu').split(/(\{terms\}|\{privacy\})/);
 
@@ -311,17 +356,30 @@ const marqueTemps = sceau();
     </div>
 
     {/* ⭐ CE PANNEAU DIT AUSSI CE QUE LE COMPTE N'OUVRE PAS, et c'est délibéré :
-        la quatrième ligne est un cadenas. Une promesse qui borne elle-même sa
+        la dernière ligne est un cadenas. Une promesse qui borne elle-même sa
         portée est la seule qu'on croit.
-        🙋 CE QUE JE N'AI PAS MESURÉ : « 1 200 fiches, contre 8 en accès libre »
-        (`signup.o1`). La sonde annonce 8 840 fiches publiées ; je ne sais pas si
-        « fiches » compte la même chose ici. ⛔ Je ne remplace pas un chiffre par
-        un autre au jugé — le libellé part dans la liste des libellés à trancher
-        avec Preda. */}
+
+        📣 LOT 203, POINT `o` — « le texte doit expliquer les avantages ».
+        ✅ LE CHIFFRE N'EST PLUS GRAVÉ : il vient de la projection (voir le
+        frontmatter). Le libellé qui « partait dans la liste des libellés à
+        trancher avec Preda » n'a plus besoin d'être tranché — il se mesure.
+        ⭐⭐ DEUX LIGNES AJOUTÉES, ET ELLES ÉTAIENT DUES : les favoris (lot 160-B)
+        et l'agencement du tableau de bord (lot 202) sont livrés et gratuits, et
+        cette page ne les annonçait pas. *Un avantage livré que la page de vente
+        ne nomme pas est un avantage qui n'existe pour personne.*
+        ⛔ AUCUNE CLASSE NEUVE : `inscr__liste`, `inscr__oui`, `inscr__non`,
+        `inscr__clos` sont déjà émises et déjà peintes. */}
     <div class="panneau inscr__ouvre" style="position:relative;z-index:2">
       <p class="etiq">{t(lang, 'signup.opens')}</p>
       <ul class="inscr__liste">
-        <li><span class="inscr__oui" aria-hidden="true">✓</span>{t(lang, 'signup.o1')}</li>
+        {/* ⚠️ `t()` substitue `{n}`, JAMAIS `${n}` — le `$` de `caisse.perMonth`
+            est le symbole dollar, et l'avoir recopié a coûté « ends in $3 days »
+            servi à des clients qui paient (25/08). */}
+        <li><span class="inscr__oui" aria-hidden="true">✓</span>{
+          nFichesTxt ? t(lang, 'signup.o1', { n: nFichesTxt }) : t(lang, 'signup.o1b')
+        }</li>
+        <li><span class="inscr__oui" aria-hidden="true">✓</span>{t(lang, 'signup.o5')}</li>
+        <li><span class="inscr__oui" aria-hidden="true">✓</span>{t(lang, 'signup.o6')}</li>
         <li><span class="inscr__oui" aria-hidden="true">✓</span>{t(lang, 'signup.o2')}</li>
         <li><span class="inscr__oui" aria-hidden="true">✓</span>{t(lang, 'signup.o3')}</li>
         <li class="inscr__non"><span class="inscr__clos" aria-hidden="true">🔒</span>{t(lang, 'signup.o4')}</li>

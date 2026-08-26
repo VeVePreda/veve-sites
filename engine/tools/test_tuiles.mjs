@@ -46,13 +46,17 @@
 // panne qu'il surveille. ⛔ On corrige l'instrument, jamais le code pour lui plaire.
 
 import { spawn } from 'node:child_process';
-import { existsSync, writeFileSync, mkdtempSync, readFileSync } from 'node:fs';
+import { existsSync, writeFileSync, mkdtempSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createServer } from 'node:http';
 import { lireTemoin } from '../lib/astro_temoin_build.mjs';
 
 const ROOT = process.env.PROJECT_ROOT || process.cwd();
+// 📣 LOT 203 — la racine du dépôt, pour lire les dictionnaires. ⛔ Pas `ROOT` :
+//   celui-là peut être surchargé par `PROJECT_ROOT` pour viser un `dist/` ailleurs,
+//   alors que `engine/i18n/` vit toujours à côté de ce fichier-ci.
+const R_I18N = new URL('../..', import.meta.url).pathname;
 const ENTREE = join(ROOT, 'dist', 'server', 'entry.mjs');
 const PORT = Number(process.env.PORT_BANC_TUILES || 43229);
 const PORT_SESSION = PORT + 1;
@@ -848,6 +852,95 @@ console.log('\n📊 LOT 202 — l\'agencement du tableau de bord, de bout en bou
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 📣 LOT 203, POINT `o` — LA PAGE D'ACCÈS NE DOIT PLUS GRAVER SON CHIFFRE
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴 CE QU'AUCUN BANC NE VOYAIT : la page promettait « 1 200 fiches » pendant
+//   que le site en publiait 8 840. Un chiffre faux d'un facteur sept, sur le
+//   premier argument de vente, et VERT partout — parce qu'un chiffre gravé est
+//   du texte, et que du texte ne casse rien.
+//   ⇒ Ce § confronte ce que la page SERT à ce que le build a COMPTÉ. C'est la
+//   seule confrontation qui puisse attraper ce genre de mensonge.
+// ⭐ Et il vit ici, pas dans un banc de source, parce que `/connexion/` est
+//   rendue À LA DEMANDE : elle n'est pas dans `dist/`, aucun banc de fichiers
+//   ne peut la lire.
+console.log('\n📣 LOT 203 — la page d\'accès dit-elle un chiffre VRAI ?');
+{
+  const rep = await fetch(`http://127.0.0.1:${PORT}/connexion/`);
+  const page = await rep.text();
+  verifie('`/connexion/` se rend sans session', rep.status === 200,
+    rep.status === 200 ? `${Buffer.byteLength(page)} o` : `🔴 statut ${rep.status}`);
+
+  // 🔬🔴 LA ZONE S'ARRÊTE À SON `</ul>`, ET CE N'EST PAS UN DÉTAIL. Écrite
+  //   d'abord en « 2 500 caractères après le repère », elle attrapait 17 lignes
+  //   au lieu de 6 — les entrées du PIED DE PAGE. Le contrôle « il y a des
+  //   lignes » serait alors resté vert si le panneau entier disparaissait, et
+  //   le contrôle du nombre aurait pu le trouver n'importe où sur la page.
+  //   *Un instrument qui regarde trop large mesure autre chose que son sujet.*
+  const i = page.indexOf('inscr__liste');
+  const fin = i < 0 ? -1 : page.indexOf('</ul>', i);
+  const zone = i < 0 || fin < 0 ? '' : page.slice(i, fin);
+  const lignes = [...zone.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/g)]
+    .map((m) => m[1].replace(/<[^>]*>/g, '')
+      // ⚠️ Les trois sentinelles du marquage s'écrivent en ÉCHAPPEMENT, jamais
+      //    en clair : ce sont des caractères de contrôle, invisibles dans un
+      //    éditeur et perdus à la première copie qui les normalise.
+      .replace(/[]/g, ' ').replace(/&#39;/g, "'")
+      .replace(/\s+/g, ' ').trim());
+  verifie('le panneau « ce que le compte ouvre » est servi, et il a des lignes',
+    lignes.length >= 4, `${lignes.length} ligne(s)`);
+
+  if (lignes.length >= 4) {
+    // ⭐⭐⭐ LA CONFRONTATION. On ne demande pas « y a-t-il un nombre » : on
+    //   exige QUE CE SOIT CELUI-LÀ. Un banc qui accepterait n'importe quel
+    //   nombre aurait laissé passer « 1 200 » pendant huit mois.
+    const { MARCHE_FICHIER } = await import('../lib/cote.mjs');
+    const attendu = JSON.parse(readFileSync(MARCHE_FICHIER, 'utf8'))?.resume?.publies ?? null;
+    const chiffres = lignes.join(' ').match(/\d[\d  ., ]*\d|\d/g) || [];
+    const vus = chiffres.map((x) => Number(x.replace(/[^\d]/g, ''))).filter((n) => n > 0);
+    verifie('🔑 le nombre annoncé est EXACTEMENT celui que le build a compté',
+      attendu !== null && vus.includes(attendu),
+      attendu === null ? '⏸️ pas de résumé dans la projection'
+        : vus.includes(attendu) ? `${attendu} annoncé et publié`
+          : `🔴 la page dit ${vus.join(', ') || 'aucun nombre'} · le build a compté ${attendu}`);
+
+    // ⚠️ ET LE TEXTE, PAS LA CLÉ. C'est la leçon du 25/08, payée en production :
+    //    un banc qui cherche `signup.o1` ne voit jamais « The site's {n} records »
+    //    servi tel quel à un visiteur.
+    const reste = lignes.join(' ').match(/\$\{|\{\w+\}|\$\d/);
+    verifie('…et aucune ligne ne porte de gabarit non substitué',
+      !reste, reste ? `🔴 motif ${reste[0]} dans « ${lignes.join(' | ').slice(0, 110)} »`
+        : `${lignes.length} ligne(s) propres`);
+
+    // ⭐⭐ LA SOURCE, ET C'EST LE CONTRÔLE QUI EMPÊCHE LA RÉGRESSION.
+    //   Le § ci-dessus attrape un chiffre faux ; celui-ci interdit d'en graver
+    //   un nouveau. ⛔ Sans lui, il suffirait de réécrire « 8 840 » en dur pour
+    //   que tout redevienne vert — jusqu'au prochain drop.
+    const DICOS = join(R_I18N, 'engine', 'i18n');
+    const graves = [];
+    for (const f of readdirSync(DICOS).filter((x) => x.endsWith('.json'))) {
+      const d = JSON.parse(readFileSync(join(DICOS, f), 'utf8'));
+      const v = String(d['signup.o1'] ?? '');
+      if (!v.includes('{n}')) graves.push(`${f} (« ${v.slice(0, 40)} »)`);
+      if (/\d/.test(v.replace('{n}', ''))) graves.push(`${f} : chiffre en dur`);
+      // 🔬🔴 CE CONTRÔLE-CI A ÉTÉ AJOUTÉ APRÈS UNE INJECTION QUI N'AVAIT PAS
+      //   MORDU : `${n}` CONTIENT `{n}`, donc le contrôle du dessus le laissait
+      //   passer — et `t()` substitue `{n}`, JAMAIS `${n}`. La page aurait
+      //   servi « Les ${n} fiches » en toutes lettres.
+      //   ⭐ C'est mot pour mot la faute du 25/08 (« ends in $3 days »), et
+      //   elle vient toujours du même endroit : `caisse.perMonth` écrit
+      //   « ${v} / month » où le dollar est le SYMBOLE MONÉTAIRE, pas une
+      //   syntaxe. Le motif se recopie, la prémisse ne se recopie pas.
+      if (v.includes('${')) graves.push(`${f} : un dollar devant le trou`);
+    }
+    verifie('🔑 `signup.o1` porte un TROU, jamais un chiffre, dans chaque langue',
+      graves.length === 0,
+      graves.length ? `🔴 ${graves.join(' · ')}\n`
+        + '       ⇒ un chiffre gravé se périme au prochain drop, en silence'
+        : 'les cinq dictionnaires attendent leur nombre du build');
+  }
+}
+
 
 arreter();
 
@@ -1019,6 +1112,41 @@ console.log('\n5. la tuile porte-t-elle ses morceaux là où ils tiennent ?');
       bas && bas.querySelector('.tuile__s') && !hd.querySelector('.tuile__s')
         ? `« ${(bas.querySelector('.tuile__s').textContent || '').trim().slice(0, 40)} »`
         : '🔴 .tuile__s est encore dans .tuile__hd — « N Offres » se cassera en deux');
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // 📏 LOT 203, POINT `ag` — « qu'on voie le nom complet dans une infobulle »
+    // ═══════════════════════════════════════════════════════════════════════
+    // ⭐⭐ MESURÉ SUR LA TUILE BÂTIE, PAS SUR LA LIGNE SOURCE, et c'est tout
+    //   l'intérêt : le pilote recopie le TEXTE depuis `.tbl-obj__s`. Rien ne
+    //   l'obligeait à recopier l'attribut — il aurait donc laissé l'infobulle
+    //   dans le tableau, où la place est large, et l'aurait retirée de la
+    //   tuile, qui est deux fois plus étroite. Un contrôle de source n'aurait
+    //   rien vu : les deux lignes du gabarit sont justes séparément.
+    const tS = bas && bas.querySelector('.tuile__s');
+    const tN = t.querySelector('.tuile__n');
+    verifie('…et son infobulle a suivi jusqu\'à la tuile (point `ag`)',
+      !!tS && (tS.getAttribute('title') || '').length > 0,
+      tS && tS.getAttribute('title')
+        ? `title = « ${tS.getAttribute('title').slice(0, 46)} »`
+        : '🔴 la tuile coupe le texte et n\'offre aucun moyen de le lire en entier');
+    verifie('…et le titre de la pièce aussi',
+      !!tN && (tN.getAttribute('title') || '').length > 0,
+      tN && tN.getAttribute('title') ? 'les deux lignes coupées sont lisibles au survol'
+        : '🔴 `.tuile__n` est bornée à deux lignes et ne dit pas ce qu\'elle cache');
+    // ⭐⭐⭐ ET L'INFOBULLE DOIT EN DIRE PLUS QUE CE QUI EST DÉJÀ VISIBLE.
+    //   Un `title` recopié du texte affiché est une infobulle qui s'ouvre pour
+    //   ne rien apprendre — elle a l'air de marcher, et elle ne sert à rien.
+    //   ⚠️ On compare au texte de la LIGNE SOURCE, seul endroit où le texte est
+    //   entier : celui de la tuile est déjà coupé par le CSS, que `linkedom` ne
+    //   calcule pas. *On ne mesure pas une coupe visuelle dans un DOM sans
+    //   moteur de rendu — on mesure ce qui la rend RÉPARABLE.*
+    if (tS && tS.getAttribute('title')) {
+      const src = document.querySelector('.tbl-obj__s');
+      verifie('…et ce `title` porte bien le texte ENTIER de la source',
+        !!src && tS.getAttribute('title') === (src.getAttribute('title') || ''),
+        src ? 'la tuile dit exactement ce que la ligne sait'
+          : '⏸️ pas de ligne source à comparer');
+    }
   }
 }
 

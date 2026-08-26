@@ -754,7 +754,26 @@ const ILE_TUILES = JSON.stringify({
                 `maigrir()` — un seul juge, comme partout ailleurs.
                 ⭐⭐ ET LA TUILE L'A GRATUITEMENT : `batirTuiles()` recopie déjà
                 le texte de `.tbl-obj__s`. Zéro ligne de pilote en plus. */}
-            <span><span class="tbl-obj__n">{i.name}</span><span class="tbl-obj__s"
+            {/* 📏 LOT 203, POINT `ag` — L'INFOBULLE PORTE LE NOM ENTIER.
+                🔴 CE QUE PREDA A DEMANDÉ, ET C'EST SON MOT : « il faut juste
+                tronquer l'affichage, et quand on passe le curseur dessus on
+                voit dans une infobulle le nom complet — le but est que ça ne
+                déforme pas les tuiles ».
+                ⭐⭐⭐ LE BUT EST DONC « NE PAS DÉFORMER », PAS « 13 CARACTÈRES ».
+                Sa première formulation donnait un chiffre ; sa raison donne le
+                critère. Un chiffre gravé aurait coupé « Spider-Man '94 » (14
+                caractères) alors que la colonne en tient 34 — et l'aurait coupé
+                de la même façon sur un écran deux fois plus large.
+                ⇒ La coupe reste au CSS (`text-overflow`), qui s'adapte à la
+                place RÉELLE. Le texte entier reste dans le document, donc rien
+                n'est perdu — et c'est ce qui rend l'infobulle possible.
+                ⛔ NE PAS couper le texte au serveur : une chaîne tronquée à la
+                source ne peut plus rien dire au survol, et elle serait coupée
+                identiquement sur un téléphone et sur un écran large.
+                ⚠️ `title` sur les DEUX : le nom de la pièce est borné à 34ch
+                comme la série, et il déborde plus souvent qu'elle. */}
+            <span><span class="tbl-obj__n" title={i.name}>{i.name}</span><span class="tbl-obj__s"
+              title={i.ed ? `${i.ed} · ${i.series}` : i.series}
               >{i.ed ? `${i.ed} · ` : ''}{i.series}</span></span>
           </a></td>
 
@@ -1199,9 +1218,21 @@ const ILE_TUILES = JSON.stringify({
           var srcN = l.querySelector('.tbl-obj__n');
           // ⛔ le titre est SEUL dans son bloc : c'est ce qui fige la hauteur
           titre.textContent = srcN ? srcN.textContent : '';
+          // 📏 LOT 203 — L'INFOBULLE SUIT LE TEXTE JUSQU'À LA TUILE.
+          // ⭐⭐ C'EST ICI QUE LA TUILE EN A LE PLUS BESOIN : sa case est bien
+          //   plus étroite que la colonne du tableau, donc elle coupe bien plus
+          //   tôt. Recopier le texte sans recopier son `title` aurait donné
+          //   l'infobulle là où elle sert le moins et l'aurait retirée là où
+          //   elle sert le plus.
+          // ⛔ `getAttribute` et non `.title` en repli sur le texte : si la
+          //   source n'a pas d'attribut, on n'en invente pas un — un `title`
+          //   qui répète exactement le texte visible est une infobulle qui
+          //   s'ouvre pour ne rien apprendre.
+          if (srcN && srcN.getAttribute('title')) titre.title = srcN.getAttribute('title');
           var se = document.createElement('span'); se.className = 'tuile__s';
           var srcSe = l.querySelector('.tbl-obj__s');
           se.textContent = srcSe ? srcSe.textContent : '';
+          if (srcSe && srcSe.getAttribute('title')) se.title = srcSe.getAttribute('title');
 
           var prix = document.createElement('span'); prix.className = 'tuile__p';
           var srcP = l.querySelector('[data-prix] .num');

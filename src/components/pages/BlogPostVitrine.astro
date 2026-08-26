@@ -127,7 +127,16 @@ const tagsAvecPage = new Set((await tagsFor(lang)).map((x) => x.tag));
           <p class="etiq">{t(lang, 'blog.relatedItems')}</p>
           {cited.map((i) => (
             <a class="carte" href={localize(lang, i.path)}>
-              <span class="n">{i.name}</span><span class="s">{i.series}</span>
+              {/* 📏 LOT 203, POINT `ag` — le jumeau vitrine de `BlogPost`, et
+                  il doit recevoir le même traitement : c'est la même liste, sur
+                  l'autre site. Ne corriger qu'un des deux serait « une
+                  correction qui s'arrête au bord de son fichier », et le défaut
+                  ne se verrait plus que sur un site — donc plus du tout, tant
+                  qu'on regarde l'autre.
+                  ⚠️ `data-serie` : la borne du thème ne vise que la série, pas
+                  les dates ni les notes éditoriales qui partagent `.s`. */}
+              <span class="n" title={i.name}>{i.name}</span><span
+                class="s" data-serie title={i.series}>{i.series}</span>
             </a>
           ))}
         </div>

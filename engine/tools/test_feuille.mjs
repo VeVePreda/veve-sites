@@ -448,6 +448,84 @@ if (gros.length) {
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 📏 LOT 203, POINT `ag` — UNE SÉRIE LISTÉE NE DÉFORME PLUS SA CARTE
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴 CE QUE PREDA A DEMANDÉ, AVEC SES MOTS : « il faut juste tronquer
+//   l'affichage, et quand on passe le curseur dessus on voit dans une infobulle
+//   le nom complet — le but est que ça ne déforme pas les tuiles. Vérifie
+//   partout. »
+//
+// ⭐⭐⭐ « PARTOUT » EST LA MOITIÉ DE LA DEMANDE, ET C'EST CE § QUI LA TIENT.
+//   La série s'affiche à QUATRE endroits, mesurés le 26/08 :
+//     · `/market/` en tableau  → `.tbl-obj__s`, bornée à 34ch depuis le lot 139
+//     · `/market/` en tuiles   → `.tuile__s`, bornée par la largeur de sa case
+//     · `/collection/<x>/`     → `.tbl-obj__s`, la même classe
+//     · les cartes du blog     → `.item .s`, AUCUNE borne (série jusqu'à 89 car.)
+//   Les deux premiers sont couverts par `test:tuiles`, qui a un vrai serveur.
+//   Les CARTES DU BLOG sont pré-générées : aucun banc à serveur ne les voit,
+//   et sans ce §-ci le seul endroit qui n'avait pas de borne serait aussi le
+//   seul à n'être pas mesuré. *Le trou du filet se trouve toujours là où le
+//   défaut est le plus probable.*
+//
+// ⚠️ CE QU'IL NE PROUVE PAS, écrit pour que personne ne s'y fie : il ne mesure
+//   pas une largeur en pixels. `dist/` est du texte, il n'y a pas de moteur de
+//   rendu ici. Il mesure ce qui REND la coupe possible (la règle est servie) et
+//   ce qui la rend RÉPARABLE (le texte entier reste lisible au survol).
+console.log('\n═══ LOT 203, POINT `ag` — la série est bornée, et son nom reste lisible ═══');
+{
+  // ⭐ ON JUGE LA FEUILLE SERVIE, pas le fichier source du thème. Trois thèmes
+  //   existent (`vitrine`, `aurora`, `encyclopedie`) et chaque site n'en sert
+  //   qu'un : lire la source dirait « la règle est écrite quelque part », ce
+  //   qui n'est pas « elle arrive au lecteur de CE site ».
+  const css = texteFeuilleBrut.replace(/\/\*[\s\S]*?\*\//g, ' ');
+  const regle = /\.item\s+\.s\[data-serie\]/.test(css);
+  dit(regle, 'la feuille servie borne la série des cartes (`.item .s[data-serie]`)',
+    regle ? 'coupe à la place réelle, sans toucher au texte'
+      : '🔴 absente de CE thème — une série de 89 caractères repousserait la carte');
+  const parent = /\.item\s*\{[^}]*min-width\s*:\s*0/.test(css);
+  dit(parent, '…et le parent accepte de rétrécir (`.item { min-width:0 }`)',
+    parent ? 'sans lui l\'`ellipsis` ne se déclenche jamais : l\'enfant élargit la carte'
+      : '🔴 absent — c\'est le défaut qu\'on croit corriger chez l\'enfant');
+
+  // ⚠️ ET LA RÈGLE NE DOIT PAS DÉBORDER SUR SES VOISINES. `.item .s` porte
+  //   aussi des dates d'article, des rôles et des notes éditoriales : leur
+  //   imposer une ligne unique tronquerait des textes qui ont le droit de
+  //   respirer. Un correctif global sur une classe partagée avait déjà coûté
+  //   764 titres à ce projet — ce contrôle est là pour qu'on ne le refasse pas
+  //   en « simplifiant » le sélecteur.
+  const nu = /\.item\s+\.s\s*\{[^}]*white-space\s*:\s*nowrap/.test(css);
+  dit(!nu, '…et elle ne mord QUE sur la série, jamais sur `.item .s` nu',
+    !nu ? 'dates, rôles et notes éditoriales gardent leurs lignes'
+      : '🔴 le sélecteur a été élargi : il tronque maintenant des textes qui doivent respirer');
+
+  // ⭐⭐ ET DANS LES PAGES : chaque série marquée doit porter son nom entier.
+  //   Un `data-serie` sans `title` est le pire des deux mondes — le texte est
+  //   coupé ET il n'y a plus moyen de le lire.
+  let marques = 0; let sansTitre = 0; let vus = 0;
+  for (const p of pages) {
+    const h = readFileSync(p, 'utf8');
+    for (const m of h.matchAll(/<(?:div|span)[^>]*class="s"[^>]*>/g)) {
+      vus++;
+      if (!/data-serie/.test(m[0])) continue;
+      marques++;
+      if (!/title="[^"]+"/.test(m[0])) sansTitre++;
+    }
+  }
+  if (marques === 0) {
+    // ⭐ « SANS OBJET » EST UN VERDICT LÉGITIME, et ce n'est pas un indécidable :
+    //   la question est tranchée — ce corpus ne cite aucune pièce dans un
+    //   article. Le Dockerfile refuse les indécidables, pas les sans-objet.
+    console.log(`  --  SANS OBJET — aucune série listée dans ${pages.length} page(s) :`
+      + ` ce site ne cite pas de pièce dans ses articles (${vus} « .s » vus, aucun marqué).`);
+  } else {
+    dit(sansTitre === 0,
+      `chaque série listée porte son nom entier en infobulle (${marques} trouvée(s))`,
+      sansTitre === 0 ? 'coupée à l\'écran, lisible au survol'
+        : `🔴 ${sansTitre} sur ${marques} sans \`title\` — coupée ET illisible, le pire des deux`);
+  }
+}
+
 console.log(ko === 0
   ? `\n✅ une feuille de ${octets.length} o pour ${pages.length} pages, rien de recopié,`
     + ` et le JS en ligne sous son cliquet (${moyenneJs} o/page)\n`

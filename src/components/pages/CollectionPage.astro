@@ -114,7 +114,15 @@ const titreCollection = [...nu(brutCollection)].length <= TITLE_BUDGET
         <tbody>{items.slice(24).map((i) => (
           <tr>
             <td><a class="tbl-obj" href={localize(lang, i.path)}>
-              <span><span class="tbl-obj__n">{i.name}</span><span class="tbl-obj__s">{i.series}</span></span>
+              {/* 📏 LOT 203, POINT `ag` — même coupe et même infobulle qu'au
+                  marché, et c'est le point : `.tbl-obj__s` est la MÊME classe,
+                  donc la même borne (34 caractères, 19 sur téléphone). Deux
+                  pages qui montrent la même chose la coupent pareil, sinon il
+                  faudrait se souvenir de corriger les deux le jour où la borne
+                  bouge. ⛔ Le texte n'est pas tronqué au serveur : il reste
+                  entier dans le document, c'est ce qui permet l'infobulle. */}
+              <span><span class="tbl-obj__n" title={i.name}>{i.name}</span><span
+                class="tbl-obj__s" title={i.series}>{i.series}</span></span>
             </a></td>
             <td class="c-2"><span class="puce puce--rar">
               {i.rarity && <Fragment set:html={rar(i.rarity)} />}

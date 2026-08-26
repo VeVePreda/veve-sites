@@ -87,7 +87,22 @@ const tagsAvecPage = new Set((await tagsFor(lang)).map((x) => x.tag));
       <div class="grid">
         {cited.map((i) => (
           <a class="item" href={localize(lang, i.path)}>
-            <div class="n">{i.name}</div><div class="s">{i.series}</div>
+            {/* 📏 LOT 203, POINT `ag` — LA SEULE FAMILLE QUI N'AVAIT AUCUNE
+                BORNE. Mesuré le 26/08 : `.tbl-obj__s` coupe à 34 caractères,
+                `.tuile__s` coupe à la largeur de sa case — `.item .s` ne
+                coupait rien du tout, et une série mesure jusqu'à 89 caractères
+                dans le corpus. Elle partait donc sur trois lignes et poussait
+                la carte, ce qui est exactement ce que Preda décrit par « ça
+                déforme ».
+                ⭐⭐⭐ `data-serie`, ET C'EST TOUT LE SOIN DE CE POINT. `.item .s`
+                porte AUSSI des dates de blog, des rôles et des notes
+                éditoriales (`BlogIndex`, `BlogTag`, `Editorial` ×2) : leur
+                imposer une ligne unique tronquerait des textes qui ont le droit
+                de respirer. Un correctif global sur une classe partagée avait
+                déjà coûté 764 titres à ce projet.
+                ⇒ la règle du thème vise `.item .s[data-serie]`, jamais `.s`. */}
+            <div class="n" title={i.name}>{i.name}</div><div
+              class="s" data-serie title={i.series}>{i.series}</div>
           </a>
         ))}
       </div>
