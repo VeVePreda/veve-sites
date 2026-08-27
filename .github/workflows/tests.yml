@@ -118,6 +118,26 @@ jobs:
       - name: Installer (npm ci strict — c'est un capteur)
         run: npm ci --no-audit --no-fund
 
+      # 🔒 LOT 209 — LES ALERTES DE SECURITE SE SURVEILLENT ICI, ET NULLE PART
+      # AILLEURS. Le 27/08 le depot portait 3 alertes (js-yaml et nanoid en
+      # HIGH, postcss en MODERATE) sans que rien ne les dise : les CINQ appels
+      # a npm du depot passent `--no-audit`, et c'est VOULU — un build qui
+      # interroge le registre npm devient un build qui depend du reseau.
+      # ⛔ CETTE ETAPE N'A DONC RIEN A FAIRE DANS LE DOCKERFILE : elle exige le
+      #    reseau, et le Dockerfile ne doit porter aucun controle indecidable
+      #    hors ligne. La CI, elle, a le reseau — et elle CONSTATE sans
+      #    empecher : un rouge ici ne bloque aucun deploiement, il previent.
+      # ⭐ `--audit-level=high` et pas moins : une alerte `low` publiee un
+      #    dimanche rendrait ce capteur rouge en permanence, et un capteur
+      #    toujours rouge ne se lit plus. On ne surveille que ce sur quoi on
+      #    agirait le jour meme.
+      # ⚠️ Ce controle rougit sans qu'aucune ligne du depot ait bouge — c'est
+      #    sa raison d'etre. La reparation habituelle est `npm audit fix`, qui
+      #    ne touche que `package-lock.json` ; toute correction du lock oblige
+      #    a rejouer la chaine complete du Dockerfile avant de deposer.
+      - name: Alertes de securite des dependances (constat, pas barrage)
+        run: npm audit --audit-level=high
+
       # `test:slugs`, `test:nginx` et `test:indexnow` sont en Python.
       - uses: actions/setup-python@v5
         with:
