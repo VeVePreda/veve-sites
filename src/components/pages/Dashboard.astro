@@ -211,12 +211,19 @@ const caisse = Boolean(manifest().offer?.url);
 //   sans chiffre, ce qui est l'état prévu — `nb()` rend déjà `null` quand le
 //   résumé n'a pas pu compter. ⛔ Ne pas y mettre un tiret : un tiret dirait
 //   « on attend la donnée », or on ne l'attend pas, on ne l'a pas comptée.
+// 🔴 LOT 205 — CHAQUE CHIFFRE DIT SON UNIVERS. Mesuré le 26/08 : la tuile
+//   Comics affichait 16 911 — le CATALOGUE — quand /market/ comptait 6 273
+//   comics COTÉS. Les deux étaient justes ; aucun ne disait lequel il était,
+//   et le lecteur concluait qu'un des deux mentait. ⇒ on LIBELLE, on ne
+//   change aucun comptage. `libelle()` garde le contrat de `nb()` : null
+//   quand on n'a pas compté, donc rien d'affiché — jamais un libellé vide.
+const libelle = (v, cle) => (v === null ? null : t(lang, cle, { n: v }));
 const CHIFFRES = {
-  market:        () => nb(charge && charge.marcheTotal),
-  sets:          () => nb(R.sets),
-  collectibles:  () => nb(R.collectibles),
-  comics:        () => nb(R.comics),
-  modules:       () => nb(R.publies),
+  market:        () => libelle(nb(charge && charge.marcheTotal), 'dash.n.cotees'),
+  sets:          () => libelle(nb(R.sets), 'dash.n.catalogue'),
+  collectibles:  () => libelle(nb(R.collectibles), 'dash.n.catalogue'),
+  comics:        () => libelle(nb(R.comics), 'dash.n.catalogue'),
+  modules:       () => libelle(nb(R.publies), 'dash.n.publiees'),
   price_history: () => (profondeur === null && sansBorne
     ? t(lang, 'dash.depth.max')
     : profondeur ? t(lang, 'dash.depth', { n: profondeur }) : null),

@@ -21,12 +21,19 @@ import { searchEnabled } from '../../engine/lib/features.mjs';
 // ⭐ La raison d'interdire n'a jamais ete « il y a des prix dedans », c'est
 //    « ce n'est pas du contenu ». La condition devait donc porter sur
 //    l'existence de l'index, pas sur la nature du site.
+// 🔴 LOT 209 (avancé au 26/08) — LE CONTENT-SIGNAL VIT ICI DÉSORMAIS.
+// Il vivait dans le robots.txt MANAGÉ de Cloudflare ; le jour où Preda a
+// ouvert les robots IA (arbitrage 5 du train), le fichier managé est parti
+// ENTIER — et l'interdiction d'entraînement avec lui. Mesuré le 26/08 :
+// plus aucun Content-Signal servi. ⇒ on le grave dans NOTRE robots.txt,
+// qui ne dépend d'aucun réglage du bord : lire et citer = oui,
+// entraîner = non. Même valeur que celle que Cloudflare posait.
 export async function GET() {
   const root = siteUrl();
   const interdits = ['/api/'];
   if (searchEnabled()) interdits.push('/search-index.json');
   const regles = interdits.map((u) => `Disallow: ${u}`).join('\n');
   return new Response(
-    `User-agent: *\nAllow: /\n${regles}\n\nSitemap: ${root}/sitemap.xml\n`,
+    `User-agent: *\nContent-Signal: search=yes,ai-train=no,use=reference\nAllow: /\n${regles}\n\nSitemap: ${root}/sitemap.xml\n`,
     { headers: { 'content-type': 'text/plain' } });
 }

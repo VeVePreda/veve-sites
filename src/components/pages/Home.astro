@@ -22,7 +22,8 @@ import { dataset } from '../../../engine/lib/dataset.mjs';
 import { manifest } from '../../../engine/lib/manifest.mjs';
 import { t, pick, localize, numberLocale } from '../../../engine/lib/i18n.mjs';
 import { pli, delta, gemsM } from '../../../engine/lib/vitrine.mjs';
-import { coteFermee as coteEstFermee } from '../../../engine/lib/cote.mjs';
+import { coteFermee as coteEstFermee, lireMarche } from '../../../engine/lib/cote.mjs';
+import { priceEnabled } from '../../../engine/lib/features.mjs';   // 🔴 LOT 205 — le titre de la boîte 002
 import Cote from '../Cote.astro';
 import Gate from '../Gate.astro';   // 🔴 LOT 112 — le témoin du classement fermé
 import AVenir from '../AVenir.astro';   // ⏳ LOT 113 — les drops annoncés (Preda : « partout, y compris l'accueil »)
@@ -36,6 +37,37 @@ const m = manifest();
 const V = m.vitrine || {};
 const ds = await dataset();
 const nf = numberLocale[lang] || 'en-GB';
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴 LOT 205 — LE TITRE « fiches publiées » N'EST PLUS GRAVÉ DANS LE
+// MANIFESTE. Il disait « 1 200 » pendant que le site en publiait 8 840 : la
+// première promesse de l'accueil était fausse d'un facteur sept.
+// ⭐ Même remède que /connexion/ (lot 203, point o) : le nombre vient de la
+// projection déposée au build — la même source que /market/ — et le jour où
+// le catalogue grandit, le titre grandit avec lui.
+// 🔴 `lireMarche()` LÈVE quand la projection manque, et c'est délibéré de sa
+// part. Ici l'appelant est l'ACCUEIL : une exception y serait un 500 servi à
+// tout le monde. ⇒ on retombe sur `t0`, la variante SANS chiffre déclarée par
+// le manifeste, qui reste vraie. ⛔ Jamais « 0 fiche » : un zéro inventé est
+// un mensonge exact — la règle de `nb()` du tableau de bord, mot pour mot.
+const nFiches = (() => {
+  if (!priceEnabled()) return null;
+  try {
+    const n = lireMarche()?.resume?.publies;
+    return typeof n === 'number' && n > 0 ? n : null;
+  } catch { return null; }
+})();
+// ⭐ Le jeton est décrit sans être écrit ici : c'est le mot fiches entre
+// accolades. Une boîte qui ne le porte pas sort inchangée — le mécanisme est
+// donc inerte sur les trois autres boîtes, et sur tout manifeste qui n'en
+// veut pas.
+const JETON_FICHES = '{fiches}';
+const titreBoite = (b) => {
+  const brut = pick(b.t, lang);
+  if (!brut.includes(JETON_FICHES)) return brut;
+  if (nFiches === null) return pick(b.t0, lang) || brut.replace(JETON_FICHES, '').trim();
+  return brut.replace(JETON_FICHES, nFiches.toLocaleString(nf));
+};
 const money = (v) => (v === null || v === undefined ? '—' : v.toLocaleString(nf, { maximumFractionDigits: 2 }));
 const up = ds.movers.up.slice(0, 6);
 const down = ds.movers.down.slice(0, 6);
@@ -412,7 +444,7 @@ const horo = maj ? `${String(maj.getUTCDate()).padStart(2,'0')}.${String(maj.get
                   passer sous le visuel. Le thème le prévoyait, la maquette
                   l'émet ; seul le moteur l'avait perdu. */}
               <span class="boite__bas">
-                <span class="boite__t" set:html={pick(b.t, lang)} />
+                <span class="boite__t" set:html={titreBoite(b)} />
                 <span class="boite__d">{pick(b.d, lang)}</span>
               </span>
             </a>

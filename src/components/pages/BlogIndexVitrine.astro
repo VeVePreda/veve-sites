@@ -100,15 +100,20 @@ const VARIANTE = [' boite--os', '', ' boite--sect', '', ''];
   {/* LA UNE — champ noir + panneau os, le motif de l'accueil.
       ⚠️ `cover` peut être vide (mesuré : 13 articles sans image sur vevewiki).
       Le bloc doit tenir SANS image, sinon on publie un cadre creux. */}
+  {/* 🔴 LOT 206 (M2) — LES STYLES DE LA UNE QUITTENT LE GABARIT. En ligne,
+      ils gagnaient sur toute media query : la carte gardait 340px et sa
+      cover absolue à 390px — le grand vide noir de la capture mobile.
+      `.bloc--une` et `.bloc--une__viz` portent les mêmes valeurs dans la
+      feuille, où le mobile peut les plier. Le dégradé devient un ::after.
+      ⚠️ Ce commentaire vit ICI, au niveau des enfants — pas en tête du corps
+      entre parenthèses qui suit : là, il serait une seconde racine et le
+      build refuse. 8ᵉ rencontre avec ce piège, la 2ᵉ du 26/08. */}
   {une && (
-    <a class="bloc revele" href={localize(lang, `/blog/${une.slug}/`)}
-       style="margin-top:var(--s5);min-height:340px;text-decoration:none">
+    <a class="bloc bloc--une revele" href={localize(lang, `/blog/${une.slug}/`)}>
       <span class="bloc__champ bloc__champ--noir"></span>
       {une.cover && (
-        <span style="position:absolute;inset:0 0 0 auto;width:56%;overflow:hidden">
-          <img src={une.cover} alt="" loading="lazy" decoding="async" width="720" height="405"
-               style="width:100%;height:100%;object-fit:cover;opacity:.9" />
-          <span style="position:absolute;inset:0;background:linear-gradient(90deg,#0E0E0E 6%,transparent 52%)"></span>
+        <span class="bloc--une__viz">
+          <img src={une.cover} alt="" loading="lazy" decoding="async" width="720" height="405" />
         </span>
       )}
       <span class="ref ref--td">{t(lang, 'blog.featured')}

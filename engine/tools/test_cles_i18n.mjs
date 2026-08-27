@@ -253,5 +253,51 @@ dit(pollution.length === 0, 'le vocabulaire ne contient aucun nom de fichier',
   pollution.length === 0 ? `${vocabulaire.size} cles, toutes plausibles`
     : `${pollution.length} intrus : ${pollution.slice(0, 5).join(', ')}`);
 
+
+// ═══════════════════════════════════════════════════════════════════════════
+// §VOIX (lot 207) — UNE SEULE VOIX PAR LANGUE, ET C'EST LE REGISTRE FORMEL
+// ═══════════════════════════════════════════════════════════════════════════
+// Arbitrage Preda du 26/08/2026 : « vous », partout. Mesuré ce jour-la :
+// fr melangeait 2 cles tutoyees a 500+ vouvoyees, de 17 « du » contre 29
+// « Sie », es 22 « tu » contre 25 « usted » — trois langues, trois voix
+// melangees, invisibles page a page. La regle vit ici pour que la 541e cle
+// ne reparte pas dans l'autre registre.
+// ⭐ L'ITALIEN EST EXEMPTE, ET C'EST UNE DECISION MESUREE : 31 cles « tu »,
+//    ZERO formelle — il a deja UNE voix, l'idiomatique du web italien. Le
+//    converger serait 31 retraductions pour zero incoherence corrigee.
+// ⭐ On scanne les SOURCES (dictionnaires + valeurs de langue du manifeste) :
+//    c'est la qu'une nouvelle cle nait ; la page servie herite.
+{
+  const { readFileSync: lire } = await import('node:fs');
+  const RACINE = new URL('../..', import.meta.url).pathname;
+  // 🔴 PAS DE \b ICI, ET C'EST MESURÉ : le \b de JavaScript ne connaît que
+  //    [A-Za-z0-9_] — dans « êtes » ou « complètes », l'accent ouvre une
+  //    frontière et « tes » matchait DEDANS. Trois faux rouges à la première
+  //    exécution. La borne se dit en Unicode : « pas une lettre autour ».
+  const borne = (mots) => new RegExp('(?<![\\p{L}])(?:' + mots + ')(?![\\p{L}])', 'u');
+  const MARQUES = {
+    fr: borne('[Tt]u|[Tt]es|[Tt]on|[Tt]a|[Tt]oi'),
+    de: borne('[Dd]u|[Dd]ich|[Dd]ir|[Dd]ein[\\p{L}]*'),
+    es: borne('[Tt]ú|[Tt]us|[Tt]uyo[\\p{L}]*|tu|te|ti'),
+  };
+  const fautes = [];
+  for (const [lg, m] of Object.entries(MARQUES)) {
+    const dico = JSON.parse(lire(`${RACINE}engine/i18n/${lg}.json`, 'utf8'));
+    for (const [k, v] of Object.entries(dico)) {
+      if (m.test(String(v))) fautes.push(`${lg}.json ${k} : « ${String(v).slice(0, 48)} »`);
+    }
+  }
+  // Le manifeste : seules les lignes-valeurs de langue, jamais les commentaires.
+  const manifeste = lire(`${RACINE}sites/${process.env.SITE || 'veveprice'}/manifest.yml`, 'utf8');
+  manifeste.split('\n').forEach((ligne, i) => {
+    const val = ligne.match(/^\s*(fr|de|es):\s*"(.*)"/);
+    if (!val) return;
+    const m = MARQUES[val[1]];
+    if (m && m.test(val[2])) fautes.push(`manifest.yml l.${i + 1} (${val[1]}) : « ${val[2].slice(0, 48)} »`);
+  });
+  dit(fautes.length === 0, 'fr, de et es parlent d\'une seule voix, la formelle (it : tu, assume)',
+    fautes.length === 0 ? 'aucune marque de tutoiement' : fautes.slice(0, 6).join(' · '));
+}
+
 console.log(`\n${echecs === 0 ? '✅ tout est vert' : `❌ ${echecs} echec(s)`}`);
 process.exit(echecs === 0 ? 0 : 1);

@@ -61,7 +61,13 @@ languages:
   #   anglais. Les traduire là demanderait soit une adresse par langue (ce
   #   qu'on vient de supprimer), soit de marquer 534 appels `t()` pour un
   #   remplacement côté navigateur. C'est un autre lot, et une autre décision.
-  interface: [en, fr, es, de]
+  # 🌍 LOT 207 — `it` REJOINT L'INTERFACE, et c'est une CONSÉQUENCE MESURÉE de
+  # l'arbitrage « blog en 5 langues » : des articles italiens sous un chrome
+  # anglais, c'est la fuite que test:langues refuse (« articles annoncés,
+  # interface absente »). Son dictionnaire a toujours été complet — la note
+  # « it n'a jamais été actif » (plus haut) est donc DATÉE : vraie jusqu'au
+  # 27/08/2026. ⚠️ Le registre italien est TU, assumé (voir test:cles §voix).
+  interface: [en, fr, es, de, it]
   # LES LANGUES DES ARTICLES. Preda, 10/08 : « on peut garder les différentes
   # pages du blog dans différentes langues si c'est vraiment intéressant » —
   # et ses articles sont écrits ou relus en `en` et `fr`, pas dans les autres.
@@ -69,7 +75,12 @@ languages:
   #   langue à l'autre, donc le seul où une adresse par langue se justifie.
   # 🔴 `/fr/blog/` DOIT ÊTRE EXCLUE des redirections 301 de nginx : ces pages
   #   existent. C'est le piège de ce lot, et un banc le tient.
-  blog: [en, fr]
+  # 🌍 LOT 207 — ARBITRAGE PREDA (26/08) : LE BLOG PASSE EN 5 LANGUES.
+  # Le Sheet porte es/it/de complets depuis toujours ; seul ce manifeste les
+  # taisait. ⚠️ Les exceptions nginx suivent (`/es/blog/`, `/de/blog/` en
+  # `^~` avant les 301 de fusion) ; `/it/…` n'a JAMAIS eu de règle 301 — il
+  # n'a pas besoin d'exception, et lui en écrire une serait du bruit.
+  blog: [en, fr, es, de, it]
 
 rendering: server          # static | server
 features:
@@ -631,6 +642,7 @@ offer:
         en: "Member"
         es: "Miembro"
         de: "Mitglied"
+        it: "Membro"
       prix: 0
       alertes: 0
       d:
@@ -638,12 +650,14 @@ offer:
         en: "Three days of history, the Market page, the full records."
         es: "Tres días de historial, la página Market, las fichas completas."
         de: "Drei Tage Historie, die Market-Seite, die vollständigen Blätter."
+        it: "Tre giorni di storico, la pagina Market, le schede complete."
     - cle: crevette
       nom:
         fr: "Crevette"
         en: "Shrimp"
         es: "Gamba"
         de: "Garnele"
+        it: "Gambero"
       prix: 5
       alertes: 1
       d:
@@ -651,12 +665,14 @@ offer:
         en: "Seven days of history, the floor price, the extremes."
         es: "Siete días de historial, el precio mínimo, los extremos."
         de: "Sieben Tage Historie, der Bodenpreis, die Extreme."
+        it: "Sette giorni di storico, il prezzo minimo, gli estremi."
     - cle: langouste
       nom:
         fr: "Langouste"
         en: "Lobster"
         es: "Langosta"
         de: "Languste"
+        it: "Aragosta"
       prix: 15
       alertes: 5
       d:
@@ -664,12 +680,14 @@ offer:
         en: "Thirty and ninety days of history, and five alerts."
         es: "Treinta y noventa días de historial, y cinco alertas."
         de: "Dreißig und neunzig Tage Historie, und fünf Warnungen."
+        it: "Trenta e novanta giorni di storico, e cinque avvisi."
     - cle: whale
       nom:
         fr: "Whale"
         en: "Whale"
         es: "Ballena"
         de: "Wal"
+        it: "Balena"
       prix: 30
       alertes: 15
       d:
@@ -677,6 +695,7 @@ offer:
         en: "History with no limit, fifteen alerts, wallet watching."
         es: "El historial sin límite, quince alertas, el seguimiento de carteras."
         de: "Historie ohne Grenze, fünfzehn Warnungen, Wallet-Beobachtung."
+        it: "Storico senza limiti, quindici avvisi, il monitoraggio dei portafogli."
 
   # ═════════════════════════════════════════════════════════════════════════
   # 🔴🔴 LE CATALOGUE DES MODULES — LOT 104, ET C'EST LE BLOC SENSIBLE
@@ -834,8 +853,8 @@ identity:
   accroche:
     fr: "Traquez ce que vous aimez"
     en: "Track down what you love"
-    es: "Rastrea lo que amas"
-    de: "Finde, was du liebst"
+    es: "Rastree lo que ama"
+    de: "Finden Sie, was Sie lieben"
     it: "Trova ciò che ami"
 
   # ⭐ LA PALETTE DE BASE EST LA SOMBRE — c'est l'identité de VeVe Price, et
@@ -965,17 +984,35 @@ vitrine:
            es: "El mínimo,<br>registrado y fechado", de: "Der Bodenpreis,<br>erfasst und datiert" }
       d: { fr: "Relevé et horodaté. Aucune estimation, aucun modèle : ce que vous lisez a été constaté à une heure précise.",
            en: "Recorded and timestamped. No estimate, no model: what you read was observed at a precise time.",
-           es: "Registrado y con hora. Sin estimaciones ni modelos: lo que lees fue observado a una hora precisa.",
-           de: "Erfasst und mit Zeitstempel. Keine Schätzung, kein Modell: Was du liest, wurde zu einer genauen Zeit beobachtet." }
+           es: "Registrado y con hora. Sin estimaciones ni modelos: lo que lee fue observado a una hora precisa.",
+           de: "Erfasst und mit Zeitstempel. Keine Schätzung, kein Modell: Was Sie lesen, wurde zu einer genauen Zeit beobachtet." }
     - n: "002"
       span: 5
       rang: 2
-      t: { fr: "1 200 fiches<br>publiées", en: "1,200 pages<br>published",
-           es: "1200 fichas<br>publicadas", de: "1.200 Seiten<br>veröffentlicht" }
-      d: { fr: "Choisies sur la densité de leur historique, avec une part garantie aux comics — 86 % du catalogue.",
-           en: "Chosen on the density of their history, with a guaranteed share for comics — 86 % of the catalogue.",
-           es: "Elegidas por la densidad de su historial, con una parte garantizada a los cómics: 86 % del catálogo.",
-           de: "Nach der Dichte ihrer Historie gewählt, mit garantiertem Anteil für Comics — 86 % des Katalogs." }
+      # 🔴🔴 LOT 205 — LE CHIFFRE N'EST PLUS GRAVÉ. Ce titre a dit « 1 200
+      # fiches publiées » pendant que le site en publiait 8 840 : la première
+      # promesse de l'accueil était fausse d'un facteur sept, en quatre
+      # langues. La leçon vivait déjà plus haut dans CE fichier (« un chiffre
+      # écrit en dur se périme en silence ») — écrite, jamais armée. Elle est
+      # armée : test:promesses §P refuse désormais tout chiffre gravé dans les
+      # surfaces de promesse (ces boîtes, l'accroche).
+      # ⭐ Home.astro remplace le jeton (le mot fiches entre accolades) par la
+      # projection déposée au build — la même source que /market/ et le
+      # tableau de bord. Le jour où le catalogue grandit, le titre suit.
+      # ⭐ Si la projection manque, `t0` prend la place : une phrase SANS
+      # chiffre, qui reste vraie. ⛔ Jamais « 0 fiche » — un zéro inventé est
+      # un mensonge exact.
+      # ⛔ « 86 % du catalogue » est parti sans remplaçant : le lecteur ne
+      # pouvait pas savoir s'il qualifiait la part des comics ou la
+      # couverture — un pourcentage ambigu trompe même quand il est juste.
+      t: { fr: "{fiches} fiches<br>publiées", en: "{fiches} pages<br>published",
+           es: "{fiches} fichas<br>publicadas", de: "{fiches} Seiten<br>veröffentlicht" }
+      t0: { fr: "Les fiches,<br>publiées", en: "The pages,<br>published",
+            es: "Las fichas,<br>publicadas", de: "Die Seiten,<br>veröffentlicht" }
+      d: { fr: "Choisies sur la densité de leur historique, avec une part garantie aux comics.",
+           en: "Chosen on the density of their history, with a guaranteed share for comics.",
+           es: "Elegidas por la densidad de su historial, con una parte garantizada a los cómics.",
+           de: "Nach der Dichte ihrer Historie gewählt, mit garantiertem Anteil für Comics." }
     # 🔴 LOT 102 — CETTE BOÎTE DÉCRIVAIT LA JAUGE, ET LA JAUGE NE SE REND PLUS.
     # « où se situe le prix du jour entre les deux » nommait exactement le
     # curseur retiré par le lot 101 — parce que sa POSITION rendait le plancher

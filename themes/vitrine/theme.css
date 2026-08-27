@@ -674,6 +674,14 @@ h3{font-size:var(--t-lg)}
 .sect-t--gd h2{font-family:var(--geo);font-weight:800;font-stretch:108%; text-transform:uppercase;letter-spacing:-.03em;line-height:.92; font-size:clamp(28px,4.4vw,54px);max-width:16ch}
 .sect-t--gd::after{display:none}
 .sect-t--gd .etiq,.sect-t--gd a{margin-bottom:6px}
+/* 🔴 LOT 206 (V7, Preda 26/08) — LE COMPTEUR N'EST PLUS COLLE AU TITRE.
+   « MES FAVORIS 2 », « LES SUJETS 4 » : dans un `.sect-t--gd`, `::after` est
+   eteint (pas de filet), donc l'etiq — `order:3` — atterrissait a `gap` du
+   titre et rendait comme une faute de frappe. Le remede est celui que les
+   `.sect-t` nus appliquent deja : le compteur part au bord droit. ⛔ Seule
+   l'`.etiq` bouge — le lien « voir tout → » d'un titre reste pres du titre,
+   c'est un chemin, pas un comptage. */
+.sect-t--gd .etiq{margin-left:auto}
 .sect-t::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--rule-2),transparent 80%)}
 .sect-t a,.sect-t .etiq{order:3;flex:0 0 auto}
 .sect-t a{font-family:var(--geo);font-size:var(--t-sm);font-weight:500;color:var(--muted)}
@@ -746,6 +754,14 @@ h3{font-size:var(--t-lg)}
 .carte:hover .socle__fav,.carte-h:hover .socle__fav,.socle__fav:focus-visible,.socle__fav[aria-pressed="true"]{opacity:1}
 .socle__fav:hover,.socle__fav[aria-pressed="true"]{color:var(--sect-a);border-color:var(--sect-a)}
 .socle__fav[aria-pressed="true"] svg{fill:var(--sect-a)}
+/* 🔴 LOT 206 (V8, capture Preda 26/08) — SUR /favoris/, LE CŒUR DESCEND EN
+   BAS À DROITE. Sur cette page chaque cœur est ALLUMÉ en permanence
+   (aria-pressed vrai ⇒ opacity:1) : posé en haut à droite il recouvrait le
+   HAUT de la couverture — le ruban « ANIMATED » de l'œuvre tronqué en
+   « (( ANIMA… » sur sa capture. Le bas du socle n'est occupé que par le
+   reflet, jamais par le sujet de l'œuvre. (1,1,0) bat le (0,1,0) du haut.
+   ⛔ Ailleurs, rien ne change : le cœur n'apparaît qu'au survol, en haut. */
+#fav-l .socle__fav{top:auto;bottom:8px}
 .socle__coin{position:absolute;top:8px;left:8px;z-index:3}
 .grille{display:grid;gap:var(--s4);grid-template-columns:repeat(auto-fill,minmax(196px,1fr))}
 .grille--ligne{grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);grid-template-columns:none}
@@ -1269,7 +1285,11 @@ dl.fiche-tbl + dl.fiche-tbl{border-top:1px solid var(--rule);padding-top:2px}
 .banniere__txt{position:absolute;inset:auto 0 0;z-index:4;padding:0 24px var(--s5)}
 .tete-p{display:flex;align-items:center;gap:var(--s5);flex-wrap:wrap}
 .tete-p__viz{flex:0 0 auto;display:flex;gap:5px}
-.tete-p__viz .socle{width:74px;border-radius:var(--r-md)}
+/* 🔴 LOT 206 (V9) — LE CADRE. « Sans légende, sans cadre, sans lien » :
+   le filet rattache la pile au langage des cartes du site ; la légende et le
+   lien resteraient mensongers sur un décor `aria-hidden`. À juger sur sa
+   prochaine capture — c'est un remède de rendu, pas de circuit. */
+.tete-p__viz .socle{width:74px;border-radius:var(--r-md);border:1px solid var(--rule-2)}
 .tete-p__viz .socle:nth-child(2){width:56px;opacity:.82}
 .tete-p__viz .socle:nth-child(3){width:44px;opacity:.6}
 .tete-p__viz .socle::after,.tete-p__viz .socle__droit,.tete-p__viz .socle__ext{display:none}
@@ -1320,6 +1340,21 @@ dl.fiche-tbl + dl.fiche-tbl{border-top:1px solid var(--rule);padding-top:2px}
 .bloc{position:relative;display:grid;isolation:isolate}
 .bloc__champ{position:absolute;inset:0;background:var(--surface);overflow:hidden}
 .bloc__champ--noir{background:#0E0E0E}
+/* 🔴 LOT 206 (M2, capture mobile 26/08) — LA UNE DU BLOG S'EMPILE SUR MOBILE.
+   La carte vedette gardait ses 340px et sa cover absolue à droite (56%) : à
+   390px il restait un grand champ noir vide entre la date et le titre. Les
+   styles quittent le gabarit (ils étaient EN LIGNE, donc ingagnables par une
+   media query) pour ces classes ; sous 640px la cover devient une bande en
+   flux au-dessus du texte, et la hauteur suit le contenu. */
+.bloc--une{margin-top:var(--s5);min-height:340px;text-decoration:none}
+.bloc--une__viz{position:absolute;inset:0 0 0 auto;width:56%;overflow:hidden}
+.bloc--une__viz img{width:100%;height:100%;object-fit:cover;opacity:.9}
+.bloc--une__viz::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,#0E0E0E 6%,transparent 52%)}
+@media (max-width:640px){
+  .bloc--une{min-height:0}
+  .bloc--une__viz{position:relative;inset:auto;width:100%;aspect-ratio:16/7}
+  .bloc--une__viz::after{background:linear-gradient(0deg,#0E0E0E 10%,transparent 60%)}
+}
 [data-theme="jour"] .bloc__champ--noir{background:#1A1A1A}
 .bloc__os{background:var(--carte);color:var(--carte-ink);padding:var(--s6) var(--s6) var(--s5); position:relative;z-index:2;max-width:640px}
 .bloc__os .mono-t{color:var(--carte-ink)}
@@ -1455,13 +1490,24 @@ dl.fiche-tbl + dl.fiche-tbl{border-top:1px solid var(--rule);padding-top:2px}
 @media (max-width:700px){ .murs{grid-template-columns:1fr;gap:var(--s5)} .murs__sep{display:none} }
 @media (max-width:560px){ .jauge__l{grid-template-columns:1fr 1fr;gap:var(--s3)} .jauge__e--c{grid-column:1/-1;order:3;justify-items:center;padding-top:8px;border-top:1px solid var(--rule)} }
 @media (max-width:640px){ .stats{grid-template-columns:repeat(2,1fr)} .site-h__in{height:56px;gap:10px} }
+/* 🔴 LOT 206 (M1, captures mobile du 26/08) — L'ACCROCHE NE SE CLIPPE PLUS.
+   A ~390px, « TRAQUEZ CE QUE VOUS AIMEZ » se pliait en 3 lignes de 8,5px dans
+   un en-tete fige a 56px : la troisieme ligne etait COUPEE par le bord — une
+   devise illisible vaut moins que pas de devise. Sous 640px elle se tait ;
+   au-dessus, rien ne change, c'est la ou Preda la voulait (lot 74). ⛔ Ne pas
+   agrandir l'en-tete a la place : 56px est le prix d'un ecran de 390px. */
+@media (max-width:640px){ .marque__t small{display:none} }
 @media (max-width:840px){ .deux-col{grid-template-columns:1fr} }
 @media (max-width:900px){ .avec-aside{grid-template-columns:1fr} }
 @media (max-width:1040px){ .tarifs{grid-template-columns:repeat(2,1fr)} }
 @media (max-width:600px){ .tarifs{grid-template-columns:1fr} }
 @media (max-width:640px){ .mono-t{font-size:clamp(32px,9.4vw,50px)} }
 @media (max-width:640px){ .banniere{height:150px} }
-@media (max-width:560px){ .tete-p__viz .socle:nth-child(n+2){display:none} }
+/* 🔴 LOT 206 (V9 + capture mobile 26/08) — SOUS 560px LA PILE SE TAIT EN
+   ENTIER. L'ancienne règle ne gardait que la première vignette : une cover
+   seule, sans cadre ni légende, flottait sous l'intro — « orpheline », le mot
+   de Preda. Une pile décorative se montre à trois ou pas du tout. */
+@media (max-width:560px){ .tete-p__viz{display:none} }
 @media (prefers-reduced-motion: no-preference){    }
 @media (prefers-reduced-motion: reduce){  }
 
@@ -2032,6 +2078,13 @@ body > main{ flex:1 0 auto; }
    autre intention, donc une variante et pas une retouche. */
 .boites--blog{ gap:var(--s4); grid-auto-rows:136px; }
 @media (max-width:560px){ .boites--blog{ gap:var(--s3); } }
+/* 🔴 LOT 206 (M2, capture mobile 26/08) — SOUS 560px UNE CARTE D'ARTICLE SUIT
+   SON CONTENU. Les empans de grille des cartes du blog sont EN LIGNE dans le
+   gabarit (mode vitrine comme mode dégradé) : à 390px, « span 6 / row span 2 »
+   donnait ~280px de haut pour un titre et une date — le grand champ vide de
+   sa capture. Un style en ligne ne se plie qu'à `!important` — précédent
+   assumé du thème : `.decor,.banniere` à 640px. Le desktop ne change pas. */
+@media (max-width:560px){ .boites--blog>.boite{grid-column:1/-1!important;grid-row:auto!important;min-height:136px} }
 
 /* ───────────────────────────────────────────────────────────────────────────
    5. ACCUEIL — L'ESPACE ENTRE « À L'AFFICHE » ET LES DEUX COLONNES
@@ -2263,7 +2316,11 @@ body > main{ background:var(--bg); }
    « réservé aux membres » prennent désormais la couleur de leur page. C'est
    cohérent avec « une couleur par page » — et `--lock` gardait de toute façon
    le cyan du site, pas une sémantique propre (il vaut `var(--primary)` dans le
-   socle, l. 352). */
+   socle, l. 352).
+   ✅ ARBITRAGE PREDA, 26/08/2026 (train 205→209) : « le verrou SUIT LA PAGE »
+   — la conséquence ci-dessus n'est plus une conséquence, c'est la règle
+   choisie. ⛔ Un audit qui resignale « le cadenas n'est pas magenta » a une
+   observation juste et un verdict faux : c'est voulu, et c'est daté. */
 [data-sect]{
   --lock:     var(--sect-a);
   --lock-pur: var(--sect-pur);

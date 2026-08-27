@@ -65,6 +65,52 @@ const { catalogueModules, palierPayant } = await import(join(R, 'engine/lib/acce
 const m = manifest();
 const offre = m.offer || {};
 
+// ── P. LES SURFACES DE PROMESSE NE GRAVENT AUCUN CHIFFRE (lot 205) ────────
+// 🔴🔴 L'ACCUEIL A DIT « 1 200 fiches publiées » pendant que le site en
+// publiait 8 840 — en quatre langues, avec un « 86 % » ambigu en sous-texte.
+// Le manifeste portait déjà la leçon en commentaire (« un chiffre écrit en
+// dur se périme en silence ») : écrite, jamais armée. Ce § l'arme.
+// ⭐ LE PÉRIMÈTRE EST NOMMÉ : les boîtes de la vitrine (t, t0, d) et
+// l'accroche de l'en-tête — les surfaces qui PROMETTENT. Un chiffre y est
+// interdit qu'il soit juste ou faux : c'est le fait de GRAVER qui périme.
+// Le pour-cent est interdit avec, même sans chiffre autour : « % » annonce
+// toujours une mesure. ⭐ La voie légitime est le jeton de substitution (un
+// mot entre accolades, rempli depuis la projection au build) — il ne
+// contient aucun chiffre, ce § le laisse donc passer sans le connaître.
+// ⭐⭐ CE § TOURNE AVANT LA SORTIE ANTICIPÉE « site sans vente » : vevewiki
+// ne vend rien mais pourrait un jour porter une accroche chiffrée — le banc
+// doit être vrai sur les DEUX sites. Sans boîtes ni accroche, il dit
+// « rien à mesurer » et c'est un SANS OBJET, pas un indécidable.
+{
+  const surfaces = [];
+  const vit = m.vitrine || {};
+  (Array.isArray(vit.boites) ? vit.boites : []).forEach((b, i) => {
+    for (const champ of ['t', 't0', 'd']) {
+      const carte = b && b[champ];
+      if (carte && typeof carte === 'object') {
+        for (const [lg, tx] of Object.entries(carte)) {
+          surfaces.push([`vitrine.boites[${i}].${champ}.${lg}`, String(tx)]);
+        }
+      }
+    }
+  });
+  const acc = m.identity && m.identity.accroche;
+  if (acc && typeof acc === 'object') {
+    for (const [lg, tx] of Object.entries(acc)) surfaces.push([`identity.accroche.${lg}`, String(tx)]);
+  }
+  if (!surfaces.length) {
+    console.log(`  --  « ${process.env.SITE} » ne déclare ni boîtes ni accroche : aucune surface de promesse, et c'est NORMAL.`);
+    console.log('      ⭐ Ce message est volontaire : un banc muet et un banc vert se ressemblent.');
+  } else {
+    const fautifs = surfaces.filter(([, tx]) => /[0-9%]/.test(tx));
+    dit(fautifs.length === 0,
+      `aucun chiffre gravé dans ${surfaces.length} texte(s) de promesse du manifeste`,
+      fautifs.length
+        ? `${fautifs.map(([ou]) => ou).join(', ')} — le chiffre doit venir de la projection (jeton), jamais du manifeste`
+        : null);
+  }
+}
+
 // ── 0. L'INSTRUMENT AVANT LA MESURE ───────────────────────────────────────
 // ⭐⭐ « Un banc se juge sur ce qu'il LAISSE PASSER. » Sans catalogue declare,
 // tout ce qui suit serait vert — et vert POUR LA SEULE RAISON QUI REND UN BANC

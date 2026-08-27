@@ -125,6 +125,17 @@ const eurAn = (v) => (v === 0 ? t(lang, 'offer.free.price') : t(lang, 'offer.per
 const eurMois = (v) => (v === 0 ? t(lang, 'offer.free.price') : t(lang, 'offer.permonth', { v: mensuel(v) }));
 const noteAn = (v) => (v === 0 ? '' : t(lang, 'offer.billedYear', { v: v * 12 }));
 const noteMois = (v) => (v === 0 ? '' : t(lang, 'offer.billedMonth'));
+// 🔴 LOT 205 — L'ACCORD DU COMPTEUR D'ALERTES. La prod servait « 0 alerts »,
+// « 1 alerts », « 5 alerts » : « 1 alerts » est fautif dans les cinq langues.
+// ⭐ LE CHOIX SE FAIT PAR CLÉ, PAS PAR LANGUE, ET C'EST STRUCTUREL : cette
+// page se bâtit en anglais et l'échange de langue du navigateur remplace le
+// texte PAR CLÉ (`data-i18n`). Une règle « par langue » écrite ici serait un
+// chemin jamais emprunté — lang vaut toujours en au build de veveprice.
+// ⇒ à 1 : la clé singulière, juste dans les cinq langues. À 0 et au-delà de
+// 1 : la clé plurielle — juste en en/es/de/it ; le « 0 alertes » français
+// (plutôt que « 0 alerte ») est l'écart ASSUMÉ de ce mécanisme, l'échange ne
+// sachant pas choisir une clé par langue. L'infini reste au pluriel partout.
+const cleAlertes = (n) => (n === 1 ? 'offer.alerts.one' : 'offer.alerts');
 
 // ⭐⭐ LE TABLEAU COMPARATIF — demande Preda : « en dessous des offres, à la
 //    place de Modules, un tableau comparatif des offres avec la liste des
@@ -239,7 +250,7 @@ const dsOffre = await dataset();
         <p class="etiq etiq--bleu">
           {/* ⚠️ `-1` veut dire ILLIMITÉ. Afficher « -1 alerte » sur une page de
               tarifs est le genre de bug qui se voit depuis la rue. */}
-          {p.alertes === -1 ? '∞' : p.alertes} {t(lang, 'offer.alerts')}
+          {p.alertes === -1 ? '∞' : p.alertes} {t(lang, p.alertes === -1 ? 'offer.alerts' : cleAlertes(p.alertes))}
         </p>
         {/* ═══════════════════════════════════════════════════════════════
             🔴🔴 LOT 140-4 — UN PALIER GRATUIT ET OUVERT NE DIT PAS « BIENTOT »

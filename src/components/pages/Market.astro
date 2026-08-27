@@ -207,7 +207,6 @@ const COLONNES = [
   // index public (`rayon_index.mjs`, INTERDITS). Une cellule, et un clone.
   { c: 'atl',   l: t(lang, 'item.atl') },
   { c: 'ath',   l: t(lang, 'item.ath') },
-  { c: 'd24',   l: t(lang, 'movers.24h') },
   { c: 'c7',    l: t(lang, 'movers.7d') },
   { c: 'mcp',   l: t(lang, 'movers.perMcp') },
   { c: 'liens', l: t(lang, 'movers.links') },
@@ -376,7 +375,11 @@ const ILE_TUILES = JSON.stringify({
       elle prend la couleur de la section — ROUGE ici, puisque le Marché
       déclare `sect="cotes"`. ⚠️ Le nom de la classe ment depuis toujours ;
       il n'est pas renommé dans ce lot parce qu'il est employé 11 fois et que
-      ce lot parle d'autre chose. */}
+      ce lot parle d'autre chose.
+      ✅ ARBITRAGE PREDA, 26/08/2026 : le Market RESTE ROUGE — « veve utilise
+      la couleur rouge pour son market ». Le référentiel est révisé, pas la
+      page ; et la baisse comme Secret Rare restent rouges ici, assumé
+      (« on ne change rien »). ⛔ Ne pas re-proposer l'orange. */}
   <p class="etiq etiq--bleu">// {t(lang, 'movers.title')}</p>
   <h1 class="mono-t">{t(lang, 'movers.title')}</h1>
   <p class="respire">{t(lang, 'desc.movers', { n: ds.itemsTotal.toLocaleString(nf) })}</p>
@@ -709,7 +712,6 @@ const ILE_TUILES = JSON.stringify({
         <th scope="col" class="n">{t(lang, 'movers.floor')}</th>
         <th scope="col" class="n c-5" data-col="atl">{t(lang, 'item.atl')}</th>
         <th scope="col" class="n c-5" data-col="ath">{t(lang, 'item.ath')}</th>
-        <th scope="col" class="n c-5" data-col="d24">{t(lang, 'movers.24h')}</th>
         <th scope="col" class="c-2 col-courbe" data-col="c7">{t(lang, 'movers.7d')}</th>
         <th scope="col" class="n c-5" data-col="mcp">{t(lang, 'movers.perMcp')}</th>
         <th scope="col" class="c-4" data-col="liens">{t(lang, 'movers.links')}</th>
@@ -843,13 +845,17 @@ const ILE_TUILES = JSON.stringify({
           <td class="n c-5" data-col="ath" data-ext="ath">
             <span class="num"><Fragment set:html={gemsU} /> {money(i.ath)}</span></td>
 
-          {/* VARIATION 24 H — absente des DEUX côtés : le moteur ne conserve
-              que 7 jours et 30 jours. Ce n'est pas un oubli de collecte, c'est
-              la profondeur de l'entrepôt. */}
-          <td class="n c-5" data-col="d24"><span class="m2">
-            <span class="m2__a muted" data-attente>—</span>
-            <span class="m2__b muted" data-attente>—</span>
-          </span></td>
+          {/* 🔴 LOT 205 — LA COLONNE « VAR. 24 H » EST RETIRÉE, PAS MASQUÉE.
+              Mesuré le 26/08 : « — » sur TOUTES les lignes, par construction —
+              le moteur ne conserve que 7 j et 30 j, la donnée ne PEUT pas
+              exister. Une colonne entière de tirets promet une donnée qu'on
+              n'attend pas ; « inconnu, pas encore là » et « jamais collecté »
+              ne se disent pas pareil, et celle-ci était du second genre.
+              ⭐ Elle reviendra le jour où l'entrepôt garde 24 h ; `movers.24h`
+              RESTE dans les cinq dictionnaires pour ce jour-là (et pour
+              test:cles). Le th et l'entrée de la barre Colonnes sont partis
+              dans le même geste — une colonne se retire ENTIÈRE, jamais en
+              laissant une tête sans corps. */}
 
           {/* 7 j — LA COURBE, désormais la colonne elle-même.
               ⚠️ Moins de 2 relevés => AUCUNE courbe, jamais une ligne plate :
