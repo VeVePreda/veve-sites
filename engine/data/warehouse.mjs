@@ -138,6 +138,45 @@ const SOURCES = {
   // pendant toute la rotation. Un échantillon complet rendrait la branche
   // « — » invisible aux 46 bancs ; un échantillon vide rendrait l'autre
   // invisible. Il couvre donc une PARTIE des uuid de `catalogue.csv`.
+  ventes: {
+    // ═══════════════════════════════════════════════════════════════════════
+    // 💰 LES VENTES StackR + VeVe — lot 210, 29/08/2026
+    // ═══════════════════════════════════════════════════════════════════════
+    // 🔴🔴 SEULE SOURCE DU DEPOT `VeVePreda/scrapeur-veve` — PAS jetonveve.
+    // `base()` est cloue sur `WAREHOUSE_REPO` ; cette release vit dans le depot
+    // qui PRODUIT le fichier (`scraper/ventes_agregat.py`, publie par
+    // `daily.yml`). L'URL est donc en dur, et c'est l'ECART qu'il fallait
+    // commenter, pas cacher. Le depot est PUBLIC (verifie par l'API le 28/08).
+    //
+    // Schema, releve sur le fichier PRODUIT le 29/08 (8 429 lignes + en-tete) :
+    //     element_id, ts_utc, marche, edition, price_usd, price_omi,
+    //     vendeur, acheteur
+    // · `element_id` EST notre `veve_uuid` — jointure directe, pas de `guid`.
+    // · `marche` : `veve` (gems) ou `stackr` (OMI), MELANGES dans l'ordre
+    //   chronologique : la fiche montre « les 10 dernieres ventes », pas « les
+    //   10 dernieres de chaque cote ».
+    // · `price_usd` : DEJA CALCULE EN AMONT. ⛔⛔ NE RIEN RECONVERTIR ICI.
+    //   StackR = `price_omi` x le cours du JOUR DE LA VENTE (gate.io, 120 j) ;
+    //   VeVe = le prix en gems (1 gem ~ 1 $). ⚠️ VIDE quand le jour n'a pas de
+    //   cours — la fiche affiche alors l'OMI, et c'est voulu.
+    //   ⛔ Surtout pas « boucher » avec `omiUsd` : c'est le cours d'AUJOURD'HUI,
+    //   il ecraserait un prix date par un prix qui ne l'est pas.
+    // · `price_omi` : VIDE sur tout le marche VeVe. Une colonne vide n'est pas
+    //   une lacune, c'est une unite qui ne s'applique pas.
+    // · `vendeur`/`acheteur` : PSEUDO quand on l'a, sinon adresse TRONQUEE a la
+    //   source. ⚠️ Couverture mesuree : StackR 100 %/100 %, VeVe 18 %/9 %.
+    //
+    // 🔴 COUVERTURE PARTIELLE MAIS QUI MONTE VITE : 3 015 pieces sur 8 840
+    // fiches (34 %) au 29/08 ; le marche VeVe apporte ~416 pieces PAR JOUR.
+    // ⛔ « Pas de vente » reste l'etat NORMAL d'une majorite de fiches.
+    //
+    // ⛔ PAS DE `prev` : `etat-ventes-stackr-prev` n'existe pas. Un secours qui
+    // n'existe pas ne se declare pas (meme raison que `releves` et `omiUsd`).
+    url: process.env.VENTES_URL
+      || 'https://github.com/VeVePreda/scrapeur-veve/releases/download/etat-ventes-stackr/ventes_stackr.csv',
+    sample: 'ventes.csv',
+  },
+
   fichesStackr: {
     url: process.env.FICHES_STACKR_URL || base('etat-fiches-stackr', 'fiches_stackr.csv'),
     sample: 'fiches_stackr.csv',
@@ -481,6 +520,11 @@ export const getFichesStackr = () => chargerFacultatif('fichesStackr');
 //    AVANT le premier run de `floor-watch.yml` qui pose le fichier — la
 //    release ne le porte pas encore, et `load()` interromprait le déploiement.
 export const getOmiUsd = () => chargerFacultatif('omiUsd');
+
+// 💰 FACULTATIF, MEME FAMILLE QUE `fichesStackr` : si la release tarde, la
+// fiche perd son tableau de ventes et RIEN d'autre. ⛔ Le build ne meurt pas
+// pour un enrichissement dont deux fiches sur trois se passent deja.
+export const getVentes = () => chargerFacultatif('ventes');
 
 // Les dérivés du grand livre. ⚠️ Réservés : ne jamais les passer à un composant
 // rendu au build — ils vont dans `.reserve/`, servis par `/api/analytics/`.

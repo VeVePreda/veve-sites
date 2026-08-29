@@ -66,6 +66,16 @@ const ROUTES_COMPTE = [
   // la pré-générerait en silence — le fichier serait figé au build, à vide,
   // et répondrait « pas de session » à un abonné parfaitement connecté.
   'pages/api/historique/[uuid].js',
+  // 💰 LOT 210 — LES VENTES. Meme famille que l'historique : elle lit
+  // `locals.palier`, donc elle n'a de sens qu'en mode server. ⛔ L'oublier
+  // ici ne casse RIEN au build — elle serait pre-generee EN SILENCE, figee a
+  // vide, et repondrait « pas de session » a un membre connecte. C'est
+  // exactement la panne du lot 24, et elle ne se voit qu'en production.
+  // ⭐ ET C'EST LE SEUL DES QUATRE ENDROITS A TOUCHER : nginx delegue deja
+  // par `location ^~ /api/` (generique) et `cache_attendu.mjs` couvre la
+  // famille `pages/api/`. Vrai pour toute route SOUS `/api/`, jamais pour
+  // une page.
+  'pages/api/ventes/[uuid].js',
   // 🔴 LOT 101 — LA COTE. Même famille, même raison : elle lit `locals.palier`,
   // donc elle n'a de sens qu'en mode server. ⛔ L'oublier ici ne casse RIEN au
   // build : la route resterait pré-générée et répondrait le refus de tout le

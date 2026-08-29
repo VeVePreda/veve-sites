@@ -38,6 +38,15 @@ const DEFAUTS_PORTES = {
   price_history: { tier: 'member', public_max: 30, public_days: 90 },
   // ⭐ Ces portes ne se TRONQUENT pas : elles s'ouvrent ou non, pas de plafond.
   extremes:     { binaire: true, tier: 'crevette' },
+  // 💰 LOT 210 — LES VENTES PASSEES. Arbitrage Preda du 28/08 : « membres
+  // seulement ». ⭐ BINAIRE, PAS UNE PROFONDEUR : la table montre les 10
+  // dernieres ventes ou rien. Des `plages:` ecriraient une seconde fois une
+  // decision que personne n'a prise, et une decision non prise finit par
+  // etre prise par le code. ⚠️ `member` et non `crevette` : le concurrent
+  // montre ses ventes EN CLAIR ; nous les mettons derriere le compte
+  // GRATUIT — assez pour valoir une inscription, pas assez pour qu'on nous
+  // accuse de vendre ce que tout le monde donne.
+  sales:        { binaire: true, tier: 'member' },
   modules:      { binaire: true, tier: 'crevette' },
   // 🔴 LOT 104 (07/08/2026) — LES PLAFONDS CHANGENT : 0 / 1 / 5 / 15.
   // Arbitrage Preda, et il REMPLACE le 0/2/10/illimite du 20/07. ⭐ `whale`
@@ -77,7 +86,7 @@ const DEFAUTS_PORTES = {
 //   lister exactement ce que ce moteur sait faire. Une seconde liste
 //   là-bas aurait divergé au premier ajout de porte — c'est la panne du
 //   lot 127 (`data-ch` à `300` d'un côté, `300.00` de l'autre).
-export const PORTES_CONNUES = new Set(['price_history', 'extremes', 'modules', 'alerts', 'wallet_watch', 'cote', 'movers']);
+export const PORTES_CONNUES = new Set(['price_history', 'extremes', 'modules', 'alerts', 'wallet_watch', 'cote', 'movers', 'sales']);
 
 let _cache = null;
 

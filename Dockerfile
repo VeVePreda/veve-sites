@@ -202,6 +202,17 @@ RUN WAREHOUSE_OFFLINE=1 npm run test:projection
 #   · des classes émises par le Cadran que le thème n'habille pas.
 RUN WAREHOUSE_OFFLINE=1 npm run test:reserve
 
+# 💰 LOT 210 — LE BANC DES VENTES RESERVEES. Voisin de `test:reserve` parce
+# qu'il garde le meme genre de chose : une donnee qui ne doit PAS entrer dans
+# `dist/`. Trois pannes qu'il attrape, et aucune ne leve d'erreur : une fuite
+# de prix, un DECALAGE du tableau positionnel (un champ insere au milieu
+# ferait afficher un prix a la place d'une edition, sans rien casser), une
+# adresse entiere publiee le jour ou l'amont cesserait de tronquer.
+# ⭐ PAS de `WAREHOUSE_OFFLINE=1`, contrairement a son voisin, ET C'EST VOULU :
+# ce banc ne lit pas l'entrepot, il fabrique ses lignes. Poser la variable
+# laisserait croire qu'il en depend.
+RUN npm run test:ventes
+
 # ⭐ Les garde-fous qui ne tournent PAS en production ne gardent rien.
 # `test:blog`, `test:figures` et `test:fiches` protègent trois pannes 100 %
 # silencieuses : un article sans date qui passe en brouillon, une figure sans

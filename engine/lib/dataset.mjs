@@ -17,7 +17,7 @@ import * as memoire from './memoire.mjs';
 //    `projeterCote()` pour que ce soit vrai par construction.
 import { deposerVignettes } from './vignettes.mjs';
 import { deposerRayonIndex } from './rayon_index.mjs';
-import { getCatalogue, getBaselines, getReleves, getFichesStackr, getOmiUsd, streamPrices } from '../data/warehouse.mjs';
+import { getCatalogue, getBaselines, getReleves, getFichesStackr, getOmiUsd, getVentes, streamPrices } from '../data/warehouse.mjs';
 // 💱 LOT 181 — le cours OMI → USD, déposé dans la réserve pour `/api/cote/lot`.
 //    Toute la règle (péremption, refus du zéro) vit dans le module ; ici il
 //    n'y a qu'un chargement et un dépôt.
@@ -37,6 +37,7 @@ import { jourISO } from './vitrine.mjs';   // 🔴 LOT 113 — JJ/MM/AAAA, jamai
 // un second script retéléchargerait le fichier entier — et `test:donnees`
 // interdit une seconde construction du jeu de données, précisément pour ça.
 import * as reserve from './reserve.mjs';
+import * as ventes from './ventes.mjs';
 
 const ROOT = process.env.PROJECT_ROOT || process.cwd();
 const DAY = 86400000;
@@ -481,8 +482,11 @@ async function construireDataset() {
   //    raison exacte du cours OMI trois lignes plus haut : un `await` à lui
   //    ajouterait un aller-retour réseau complet sur le chemin critique d'un
   //    build dont la durée est déjà un chantier ouvert.
-  const [cat, baselines, releves, tauxLignes, fichesSt] = await Promise.all([
-    getCatalogue(), getBaselines(), getReleves(), getOmiUsd(), getFichesStackr()]);
+  // 💰 LOT 210 — les ventes entrent dans le MEME `Promise.all`, pour la raison
+  //    exacte des deux sources au-dessus : un `await` a lui ajouterait un
+  //    aller-retour reseau complet sur le chemin critique du build.
+  const [cat, baselines, releves, tauxLignes, fichesSt, lignesVentes] = await Promise.all([
+    getCatalogue(), getBaselines(), getReleves(), getOmiUsd(), getFichesStackr(), getVentes()]);
   memoire.jalon(`catalogue (${cat.length}) + baselines (${baselines.length}) + releves (${releves.length}) lus`);
 
   // --- Agregation EN FLUX -------------------------------------------------
@@ -1402,6 +1406,15 @@ async function construireDataset() {
   // des publiés n'existe pas encore, et un `fermer()` sans filtre garderait
   // tout — sans qu'aucune erreur ne le dise.
   reserve.fermer(new Set(items.map((i) => i.uuid)));
+
+  // 💰 LOT 210 — LES VENTES SUIVENT LA MEME REGLE QUE LA RESERVE DE PRIX :
+  // elles s'ecrivent sur les uuid REELLEMENT PUBLIES, et pas avant. Garder
+  // les 3 015 pieces couvertes quand 8 840 fiches seulement existent
+  // gonflerait l'image pour des fichiers que personne ne peut demander.
+  // ⚠️ MEME `Set`, MEME MOMENT : si un jour l'un des deux appels bouge sans
+  // l'autre, les deux reserves cessent de decrire le meme site — et rien ne
+  // le dirait.
+  ventes.ecrire(lignesVentes, new Set(items.map((i) => i.uuid)));
 
   // ═════════════════════════════════════════════════════════════════════════
   //  🔴 LA PROJECTION PUBLIQUE — DERNIÈRE ÉTAPE, ET ELLE DOIT LE RESTER

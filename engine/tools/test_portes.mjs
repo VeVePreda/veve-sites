@@ -228,8 +228,21 @@ dit(/vp_session/.test(page), '4.2 l’ancre `vp_session` est bien dans /compte/'
 dit(page.length < lire('src/pages/compte/index.astro').length * 0.85,
   '🔑 4.3 le dépouillement des commentaires fonctionne',
   'sinon le § 3 jugerait des phrases explicatives au lieu du code');
-dit([...A.PORTES_CONNUES].length === 7, '4.4 les sept portes sont bien exportées',
-  `${[...A.PORTES_CONNUES].length} portes`);
+// 🔴 LOT 210 — ON SCELLE LA LISTE, PLUS LE NOMBRE.
+// ⭐ Un compte (`=== 7`) rougit a chaque porte AJOUTEE — un evenement normal —
+//   et reste vert si une porte est REMPLACEE par une autre, ce qui est la
+//   vraie regression. Il repondait donc a cote de sa question.
+// ⭐⭐ La liste, elle, dit LAQUELLE manque, et un ajout se declare ici en un
+//   mot au lieu d'incrementer un chiffre dont plus personne ne sait la raison.
+const PORTES_ATTENDUES = ['price_history', 'extremes', 'modules', 'alerts',
+                          'wallet_watch', 'cote', 'movers', 'sales'];
+const manquantes = PORTES_ATTENDUES.filter((p) => !A.PORTES_CONNUES.has(p));
+const enTrop = [...A.PORTES_CONNUES].filter((p) => !PORTES_ATTENDUES.includes(p));
+dit(manquantes.length === 0 && enTrop.length === 0,
+  '4.4 les portes exportées sont exactement celles attendues',
+  manquantes.length || enTrop.length
+    ? `manquantes: [${manquantes}] · en trop: [${enTrop}]`
+    : `${PORTES_ATTENDUES.length} portes`);
 
 rmSync(dossier, { recursive: true, force: true });
 console.log(echecs === 0
