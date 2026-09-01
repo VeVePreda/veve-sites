@@ -537,6 +537,58 @@ a:hover{text-decoration:underline;text-underline-offset:3px}
 .h-cta .btn--principal{ background:linear-gradient(100deg,var(--cyan),var(--cyan-fonce));
   color:var(--nuit); }
 .h-cta .btn--principal:hover{ box-shadow:var(--lueur); }
+/* ═══════════════════════════════════════════════════════════════════════════
+   ✨ LOT 212 — LE HALO QUI RESPIRE (choix de Preda sur maquette, 01/09)
+   ═══════════════════════════════════════════════════════════════════════════
+   « rendre le bouton s'inscrire plus remarquable, avec une petite animation ».
+   Six propositions lui ont été montrées dans les vraies couleurs ; il a choisi
+   le halo. *Questions techniques : trancher avec l'argument. Design : montrer.*
+
+   ⛔⛔ L'ANIMATION NE TOUCHE NI LE FOND NI LE TEXTE, ET CE N'EST PAS UNE
+   PRÉCAUTION DE STYLE — C'EST LE LOT 111 QUI L'INTERDIT. Le texte de ce bouton
+   était mesuré à 2,7:1 sur un comic et 2,3:1 sur un collectible, parce que le
+   fond suivait `--sect-*`. On l'a détaché exprès (quatre lignes plus haut).
+   Une animation qui repeindrait le fond rouvrirait ce trou — et elle le
+   rouvrirait par intermittence, donc invisible à la relecture et introuvable
+   au rapport de contraste, qui mesure un instant.
+   ⇒ On anime la LUMIÈRE AUTOUR. `box-shadow` ne participe à aucun calcul de
+     contraste et ne déplace aucun voisin : pas de `reflow`, pas d'en-tête qui
+     tressaute quand le menu est serré.
+
+   ⭐ 3 s, et le halo passe par ZÉRO. Un halo qui ne s'éteint jamais devient un
+   décor et cesse d'être vu au bout de dix secondes ; c'est le retour au néant
+   qui refait exister l'apparition suivante.
+   ⭐⭐ `:hover` GARDE LA MAIN. `--lueur` est plus fort que le halo et arrive sur
+   la même propriété : au survol, la règle de survol gagne (elle est écrite
+   après, à spécificité égale) et l'animation ne clignote pas par-dessous.
+   ⛔ ET SURTOUT PAS `animation: … ; box-shadow: …` SUR LA MÊME RÈGLE : une
+   animation en cours l'emporte sur une déclaration, `!important` compris. Le
+   survol serait resté sans effet, et personne ne l'aurait vu venir. */
+@keyframes h-cta-halo{
+  0%,100%{ box-shadow:0 0 0 0 color-mix(in srgb,var(--cyan) 34%,transparent),
+                     0 0 0 0 color-mix(in srgb,var(--cyan) 0%,transparent); }
+  50%    { box-shadow:0 0 0 5px color-mix(in srgb,var(--cyan) 0%,transparent),
+                     0 0 22px 3px color-mix(in srgb,var(--cyan) 40%,transparent); }
+}
+/* ⚠️ SOUS `no-preference`, PAS EN NU + UNE COUPURE PLUS BAS. La l. 1452 coupe
+   déjà toutes les animations sous `reduce` en ramenant leur durée à .001 ms —
+   mais une animation ramenée à zéro FIGE son élément sur son image finale.
+   Ici l'image finale vaut « pas de halo », donc ça marcherait ; ça ne marchera
+   plus le jour où quelqu'un inversera les étapes. La déclarer sous
+   `no-preference` la rend absente, et absente est plus sûr qu'instantanée. */
+@media (prefers-reduced-motion:no-preference){
+  .h-cta .btn--principal{ animation:h-cta-halo 3s ease-in-out infinite; }
+}
+
+/* 🌐 LOT 212 — LE SÉLECTEUR D'ADRESSE SORT DE LA VUE, PAS DU DOM.
+   Sur les 10 pages de blog, l'en-tête portait deux boutons de langue affichant
+   deux lettres différentes (« EN » pour l'adresse, « FR » pour l'interface).
+   Preda n'en veut qu'un. Les liens restent servis — c'est la promesse du
+   lot 103 — et `#langue-ui` porte désormais les adresses par `data-href`.
+   ⛔ `display:none` ET NON `visibility` NI UNE TAILLE NULLE : le bouton ne doit
+   pas rester dans l'ordre de tabulation. Un `<details>` invisible mais
+   focalisable envoie au clavier sur un menu que la souris ne trouve pas. */
+.globe--adr{display:none}
 .h-cta__b{color:var(--text-2);font-size:var(--t-sm);white-space:nowrap}
 .h-cta__b:hover{color:var(--sect-a)}
 
@@ -1508,6 +1560,56 @@ dl.fiche-tbl + dl.fiche-tbl{border-top:1px solid var(--rule);padding-top:2px}
    seule, sans cadre ni légende, flottait sous l'intro — « orpheline », le mot
    de Preda. Une pile décorative se montre à trois ou pas du tout. */
 @media (max-width:560px){ .tete-p__viz{display:none} }
+/* ═══════════════════════════════════════════════════════════════════════════
+   🖼️🔴🔴🔴 LOT 212 — LE HAUT DE PAGE EN UNE COLONNE (demande Preda, 01/09)
+   ═══════════════════════════════════════════════════════════════════════════
+   🖼️ CE QU'IL A VU sur 5 captures ~390 px sur 7 : l'écran d'ouverture ne porte
+   qu'un en-tête, un fil d'ariane, un sur-titre, un titre géant, une description
+   — puis du vide. Le premier élément utile arrive très bas.
+   ⭐ Et `/favoris/` est la seule page qui s'en sort. C'est aussi la seule SANS
+   sur-titre. Il l'avait remarqué avant moi.
+
+   🔬 MESURÉ AU NAVIGATEUR À 390 px SUR LA PRODUCTION (01/09), pas déduit :
+     /collections/  description finie 324 px · 1res cartes 702 px  (378 de vide)
+     /analytics/    description finie 306 px · 1er module  680 px  (374 de vide)
+     /sets/         description finie 237 px · 1res cartes 368 px
+   ⛔ MA PROPRE NOTE ACCUSAIT `--t-3xl: clamp(32px,5vw,52px)`. ELLE ÉTAIT FAUSSE :
+   ces titres portent `.mono-t`, que la ligne 1504 réécrit déjà en
+   `clamp(32px,9.4vw,50px)` sous 640 px — soit **36,7 px** à 390, pas 32. Le
+   titre n'est pas le coupable, et le réduire n'aurait rien rendu.
+
+   🔑 LE VRAI COUPABLE EST UNE RÉPÉTITION, PAS UNE TAILLE. Mesuré au DOM :
+     /sets/         fil d'ariane « … › Sets »              +  « // Sets »
+                    + `<h1>Sets</h1>`
+     /collections/  « … › Explorer le catalogue VeVe »     +  « // Explorer le
+                    catalogue VeVe » + le même `<h1>`
+   ⇒ **le même texte, trois fois, dans les 60 premiers pixels.** Sur un écran
+   large ça se lit comme un rythme ; sur 390 px ça mange l'écran d'ouverture
+   pour ne rien dire de neuf.
+
+   ⭐⭐⭐ ON RETIRE LA RÉPÉTITION, PAS L'INFORMATION. Le sur-titre disparaît SOUS
+   640 px seulement : sur grand écran il porte le liseré coloré par section
+   (bleu catalogue, rouge marché, cyan favoris…) que Preda a explicitement
+   demandé de ne pas toucher, et il n'y coûte rien.
+   ⛔ ET C'EST DU CSS, PAS UN RETRAIT DE BALISE. Le `<p>` reste dans le HTML :
+   aucun banc qui compte des marqueurs ne change d'avis, et la seule différence
+   vit là où elle se voit — dans le rendu. Un retrait au gabarit aurait modifié
+   3 097 pages pour un défaut qui n'existe qu'à une largeur.
+
+   ⚠️ SECOND POSTE, ET IL N'AVAIT AUCUN GARDE-FOU MOBILE : `.sect-t` (l. 637) et
+   `.sect-t--gd` (l. 673) posent 56 px et **88 px** de marge haute, sans la
+   moindre `@media`. Une valeur pensée pour une page à deux colonnes, appliquée
+   telle quelle à une colonne de 390 px. C'est ce qui produit les ~380 px de
+   vide mesurés ci-dessus, pas la description.
+   ⛔ On les réduit, on ne les supprime pas : la respiration entre deux sections
+   est ce qui dit « autre sujet ». 32 et 40 px restent lisibles comme une
+   coupure — zéro les aurait collées.
+   ═══════════════════════════════════════════════════════════════════════════ */
+@media (max-width:640px){
+  .tete-p__st{display:none}
+  .sect-t{margin-top:var(--s6)}
+  .sect-t--gd{margin-top:40px}
+}
 @media (prefers-reduced-motion: no-preference){    }
 @media (prefers-reduced-motion: reduce){  }
 

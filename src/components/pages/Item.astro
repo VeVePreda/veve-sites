@@ -560,7 +560,33 @@ const mcpJour = mcpPoints(item.rarity, item.type);
                   ? item.saison.toLocaleString(nf)
                   : <span data-attente title={enAttente}>—</span>}</dd></>
         )}
-        <><dt>{t(lang, 'item.storePrice')}</dt><dd>{item.storePrice ? money(item.storePrice) : <span data-attente title={enAttente}>—</span>}</dd></>
+        {/* 💵🔴🔴🔴 LOT 212 — LE PRIX DE SORTIE DIT ENFIN SON UNITÉ, ET C'EST DU $.
+            🖼️ Vu par Preda sur la capture ~390 px : « Prix de sortie 107 », sans
+            rien. C'était le SEUL montant de la fiche sans unité — le plancher
+            porte `mur__u`>gems, StackR porte `mur__u`>OMI, les frais portent %.
+            🔬 MESURÉ en production le 01/09 sur 14 fiches tirées au sort :
+            comics 6.98 / 7.98 / 6.99, collectibles 5 / 16.99 / 40 / 107 / 450.
+            🙋 ARBITRAGE PREDA (01/09) : c'est le prix payé à la boutique VeVe,
+            en DOLLARS. Il connaît le magasin, je ne l'ai pas deviné.
+            ⭐⭐⭐ ET C'EST POUR ÇA QUE LA LIGNE ÉTAIT DANGEREUSE, PAS SEULEMENT
+            INCOMPLÈTE : sans unité, elle se lisait dans l'unité de sa voisine.
+            « Prix de sortie 107 » au-dessus de « Plancher 22 gems » raconte une
+            chute de 80 % qui n'a jamais eu lieu — les deux nombres ne vivent pas
+            dans la même monnaie.
+            ⚠️ PIÈGE ÉVITÉ : mon archive locale (`catalogue.csv.gz`, arrêtée au
+            09/07) porte 699 / 798 là où la production porte 6.99 / 7.98 — la
+            colonne y était en CENTIMES et a été normalisée depuis. J'ai failli
+            déclarer une panne ×100 sur 8 245 fiches en lisant un cache périmé.
+            *Un script qui lit un cache vieillit avec son cache* : la mesure qui
+            compte est celle prise SUR LA PRODUCTION.
+            ⛔ LE `$` EST UN LITTÉRAL, PAS UN `Intl` EN `style:'currency'`. Sur
+            les cinq langues du site celui-ci rendrait « 6,98 $US » en français
+            et « 6,98 $ » ailleurs : cinq rendus pour un fait unique, et un
+            `$US` que personne n'écrit. Le symbole devant est lu partout.
+            ⛔ ET PAS DE `mur__u` ICI : cette classe habille les deux grands murs
+            de la fiche. Dans une cellule de `.fiche-tbl` le voisinage est « 2.5 % »
+            et « 1.50 » — un littéral, exactement comme le pourcentage. */}
+        <><dt>{t(lang, 'item.storePrice')}</dt><dd>{item.storePrice ? `$${money(item.storePrice)}` : <span data-attente title={enAttente}>—</span>}</dd></>
         {/* 🕐 LOT 185 — L'HEURE DE SORTIE PART, LA DATE RESTE.
             Preda, 24/08 : « supprimer l'heure de sortie, ce n'est pas une info
             utile ». La ligne servait « 06/10/2021 14:00:00 ».

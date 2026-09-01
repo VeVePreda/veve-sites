@@ -27,7 +27,7 @@
 import Base from '../../layouts/Base.astro';
 import BarreAcces from '../BarreAcces.astro';
 import { t, localize, numberLocale } from '../../../engine/lib/i18n.mjs';
-import { rar, forme, delta, gemsM, omiM, RAR, mcpPoints, sparklineNormalisee, jourISO, urlStackR } from '../../../engine/lib/vitrine.mjs';
+import { rar, forme, delta, gemsM, omiM, RAR, mcpPoints, sparklineNormalisee, jourISO, urlStackR, serieUtile } from '../../../engine/lib/vitrine.mjs';
 // 🔴🔴🔴 LOT 155-C — LA SÉLECTION EST SORTIE D'ICI. Filtrer, trier et
 // trancher 8 840 fiches est du calcul, pas du balisage : dans un module pur
 // ça s'éprouve sans DOM, sans build et dans les DEUX corpus. Ici, ça ne
@@ -380,7 +380,7 @@ const ILE_TUILES = JSON.stringify({
       la couleur rouge pour son market ». Le référentiel est révisé, pas la
       page ; et la baisse comme Secret Rare restent rouges ici, assumé
       (« on ne change rien »). ⛔ Ne pas re-proposer l'orange. */}
-  <p class="etiq etiq--bleu">// {t(lang, 'movers.title')}</p>
+  <p class="etiq etiq--bleu tete-p__st">// {t(lang, 'movers.title')}</p>
   <h1 class="mono-t">{t(lang, 'movers.title')}</h1>
   <p class="respire">{t(lang, 'desc.movers', { n: ds.itemsTotal.toLocaleString(nf) })}</p>
 
@@ -434,13 +434,32 @@ const ILE_TUILES = JSON.stringify({
     <div class="barre-f__l">
       <span class="barre-f__t">{t(lang, 'movers.filters')}</span>
       <div class="seg-p" role="group" aria-label={t(lang, 'movers.type')}>
-        {/* ⭐ LES COMPTEURS SONT CEUX DU CATALOGUE COTÉ (8 840), plus ceux des
-            lignes rendues : depuis que la page ne rend qu'une tranche, « le
-            nombre présent » ne voudrait plus rien dire — il afficherait 20.
+        {/* ⭐ LES TROIS COMPTEURS LISENT LE CORPUS **VISIBLE**, plus les lignes
+            rendues : depuis que la page ne rend qu'une tranche, « le nombre
+            présent » ne voudrait plus rien dire — il afficherait 20.
             ⚠️ Ils ne tiennent pas compte des autres filtres actifs : ce sont
             des repères de corpus, et le compteur sous la barre dit, lui, ce que
-            la recherche en cours a retenu. */}
-        <button type="button" data-corpus="" aria-pressed={P.corpus === '' ? 'true' : 'false'}>{t(lang, 'movers.all')} <span class="etiq" style="opacity:.7">{toutes.length}</span></button>
+            la recherche en cours a retenu.
+            🔴🔴🔴 LOT 212 — « TOUT » LISAIT `toutes`, SES DEUX VOISINS LISAIENT
+            `visibles`. Le lot 193 a fait passer les facettes au corpus visible
+            (`nbColl`, `nbComic`) ET le compteur du bas (`totalVisible`) ; ce
+            bouton-ci est resté sur `toutes`. Mesuré en production le 01/09 :
+            « Tout 8 840 » au-dessus de « Collectibles 2 516 » + « Comics
+            6 280 » = 8 796, et « sur 8 796 pièces cotées » 400 px plus bas.
+            L'écart est exactement `ecartes` (44), les planchers aberrants que
+            la page vient de retirer.
+            ⭐⭐ CE N'ÉTAIT PAS DEUX FAITS JUSTES QUI SE CONTREDISENT — c'était
+            UNE somme qui n'additionnait pas ses propres parties. Un lecteur ne
+            peut pas savoir qu'un troisième corpus existe entre les deux.
+            ⭐ ET LE LIEN REDEVIENT TENU DANS LES DEUX SENS : quand la case
+            « afficher les planchers aberrants » est cochée, `visibles` vaut
+            `toutes` et les trois compteurs remontent ENSEMBLE. C'est
+            exactement ce que la note du lot 193 promettait quinze lignes plus
+            haut, et que ce bouton empêchait de tenir.
+            ⛔ NE PAS « corriger » les deux autres vers 8 840 : ils comptent ce
+            que la page peut réellement montrer. C'est la somme qui doit dire
+            la même chose que ses parts, pas l'inverse. */}
+        <button type="button" data-corpus="" aria-pressed={P.corpus === '' ? 'true' : 'false'}>{t(lang, 'movers.all')} <span class="etiq" style="opacity:.7">{visibles.length}</span></button>
         <button type="button" data-corpus="collectible" aria-pressed={P.corpus === 'collectible' ? 'true' : 'false'}>Collectibles <span class="etiq" style="opacity:.7">{nbColl}</span></button>
         <button type="button" data-corpus="comic" aria-pressed={P.corpus === 'comic' ? 'true' : 'false'}>Comics <span class="etiq" style="opacity:.7">{nbComic}</span></button>
       </div>
@@ -774,9 +793,41 @@ const ILE_TUILES = JSON.stringify({
                 identiquement sur un téléphone et sur un écran large.
                 ⚠️ `title` sur les DEUX : le nom de la pièce est borné à 34ch
                 comme la série, et il déborde plus souvent qu'elle. */}
-            <span><span class="tbl-obj__n" title={i.name}>{i.name}</span><span class="tbl-obj__s"
-              title={i.ed ? `${i.ed} · ${i.series}` : i.series}
-              >{i.ed ? `${i.ed} · ` : ''}{i.series}</span></span>
+            {/* 🔴🔴🔴 LOT 212 — LA SÉRIE NE SE RÉPÈTE PLUS QUAND ELLE N'AJOUTE RIEN.
+                🖼️ Vu par Preda sur la capture ~390 px : `Chris Robots Will Kill -…`
+                sur la ligne 1, `FE · Chris Robots Will Kill…` sur la ligne 2 —
+                deux troncatures du MÊME texte, au MÊME endroit.
+                🔬 MESURÉ sur le catalogue (18 961 lignes nom+série) :
+                  · nom **strictement égal** à la série ............ 8 613 (45 %)
+                  · mêmes 19 premiers caractères (la borne mobile) . 11 701 (61,7 %)
+                ⇒ ce n'est pas un cas limite, c'est la MAJORITÉ des lignes : sur
+                un téléphone, six lignes sur dix dépensent leur seconde ligne à
+                réécrire la première, tronquée pareil.
+                ⭐⭐⭐ ET C'EST LA MÊME FAMILLE QUE `couperMilieu()` DU LOT 134b :
+                le discriminant d'un nom par rapport à sa série vit À LA FIN, et
+                `19ch` coupe exactement là. Là-bas on avait déplacé la coupe ;
+                ici il n'y a rien à couper — l'information n'existe pas.
+                ⭐ ON NE TOUCHE PAS À LA COUPE CSS. `text-overflow` s'adapte à la
+                place réelle et garde le texte entier dans le document, donc
+                l'infobulle du point `ag` (lot 203) continue de rendre le nom
+                complet. On retire une RÉPÉTITION, pas une troncature.
+                ⭐ `i.ed` SURVIT SEUL. La mention FE/FA/AP est le seul fait que
+                la ligne 2 apportait vraiment ; quand la série tombe, elle reste,
+                et la ligne garde une raison d'exister.
+                ⛔ ET LA COMPARAISON EST SUR LE PRÉFIXE, PAS SUR L'ÉGALITÉ. Une
+                égalité stricte n'aurait attrapé que 8 613 des 11 701 : les
+                3 088 autres sont des noms qui PROLONGENT leur série et se
+                coupent avant le prolongement. C'est ce que l'œil voit, donc
+                c'est ce qu'on mesure.
+                ⛔ 19 EST LA BORNE DE `theme.css` l. 1482 (`max-width:19ch` sous
+                580 px). Si elle bouge là-bas, elle doit bouger ici — `test:marche`
+                le vérifie, sinon le jour où la colonne s'élargit on retirerait
+                une série encore lisible. */}
+            <span><span class="tbl-obj__n" title={i.name}>{i.name}</span>{serieUtile(i.name, i.series) || i.ed ? (
+              <span class="tbl-obj__s"
+                title={i.ed ? `${i.ed} · ${i.series}` : i.series}
+                >{i.ed ? `${i.ed}` : ''}{i.ed && serieUtile(i.name, i.series) ? ' · ' : ''}{serieUtile(i.name, i.series) ? i.series : ''}</span>
+            ) : null}</span>
           </a></td>
 
           {/* RARETÉ — ligne 1 : le symbole et le nom. ligne 2 : la valeur MCP.

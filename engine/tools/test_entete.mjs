@@ -546,6 +546,116 @@ console.log('\n── 5. la chaîne du sélecteur de langue d\'interface ──'
     cc ? `⛔ ${cc} cas mal jugé(s)` : null);
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 🆕 LOT 212 — UN SEUL BOUTON DE LANGUE, ET UNE SUGGESTION QUI PEUT PARLER
+// ═══════════════════════════════════════════════════════════════════════════
+// 🖼️ DEMANDE DE PREDA (01/09) : « il existe un bouton langue pour le site et un
+// bouton langue pour le contenu du blog, je ne veux pas de bouton de langue
+// pour le blog ».
+// 🔬 MESURÉ SUR `dist/` AVANT D'ÉCRIRE : le sélecteur d'ADRESSE n'était rendu
+// que sur **10 pages sur 178** — les index et articles du blog dans les cinq
+// langues — et sur ces dix pages l'en-tête portait DEUX `<details class="globe">`
+// avec `aria-label` « Choisir la langue », l'un affichant « EN » (l'adresse),
+// l'autre « FR » (l'interface). Aucun ne mentait ; personne ne pouvait le savoir.
+{
+  console.log('\n🆕 lot 212 — le sélecteur de langue et la suggestion');
+
+  // ── ① LE SÉLECTEUR D'ADRESSE SORT DE LA VUE, PAS DU DOM ───────────────────
+  // ⛔ CE CONTRÔLE EXISTE POUR EMPÊCHER LA CORRECTION FACILE. Retirer le bloc
+  //    aurait donné le même écran et supprimé les liens que la note du lot 103
+  //    protège en toutes lettres. On exige donc les DEUX faits ensemble : la
+  //    classe est posée ET le `<details>` est toujours émis.
+  dit(/<details class="globe globe--adr"/.test(src),
+    '§6 le sélecteur d\'adresse est toujours ÉMIS, avec sa classe de masquage',
+    /globe--adr/.test(src) ? null : '⛔ classe absente — les liens ont-ils été retirés ?');
+
+  const THEME_V = join(R, 'themes/vitrine/theme.css');
+  const cssV = existsSync(THEME_V) ? readFileSync(THEME_V, 'utf8') : '';
+  dit(/\.globe--adr\{display:none\}/.test(cssV),
+    '§6 …et la feuille `vitrine` le masque',
+    // ⭐⭐ LA CLASSE SANS LA RÈGLE NE MASQUE RIEN, ET INVERSEMENT. Les deux
+    //    moitiés vivent dans deux fichiers ; n'en déposer qu'une donne un lot
+    //    vert, déployé, sans le moindre effet. *Un fichier déposé n'est pas un
+    //    fichier branché* — c'est la leçon du 29/08, remesurée ici.
+    /globe--adr/.test(cssV) ? null : '⛔ la classe est posée mais rien ne la masque');
+
+  // ── ② LE BOUTON RESTANT EMMÈNE VERS L'ARTICLE TRADUIT ─────────────────────
+  dit(/data-lang=\{l\} data-href=\{adressePourLangue\[l\]\}/.test(src),
+    '§6 le sélecteur d\'interface porte l\'adresse traduite (`data-href`)',
+    'sinon « Français » ne rendrait que des menus français autour d\'un texte anglais');
+
+  const LANGUE_JS = join(R, 'src/socle/55-langue.js');
+  const jsL = existsSync(LANGUE_JS) ? readFileSync(LANGUE_JS, 'utf8') : '';
+  dit(/function poser\(lang, dest\)/.test(jsL) && /if \(dest\) \{ window\.location\.assign\(dest\); return; \}/.test(jsL),
+    '§6 …et `55-langue.js` navigue quand une adresse est fournie',
+    // ⚠️ L'ATTRIBUT SANS LE LECTEUR EST INERTE. `data-href` écrit dans le
+    //    gabarit et jamais lu se déposerait, passerait la revue, et le bouton
+    //    ferait exactement ce qu'il faisait avant — sans qu'aucun banc n'ait
+    //    de raison de le dire. *Deux écrivains, aucun lecteur.*
+    /data-href/.test(jsL) ? null : '⛔ l\'attribut est écrit mais personne ne le lit');
+
+  // ── ③ LA SUGGESTION A ENFIN QUELQUE CHOSE À DIRE AILLEURS QUE SUR LE BLOG ──
+  // 🔬 `suggestData` se dérivait des ADRESSES : mesuré `[]` sur 168 pages sur
+  //    178. Le composant était servi partout et ne pouvait s'exécuter que sur
+  //    dix pages. `suggestUi` porte les langues d'INTERFACE — jamais vides.
+  dit(/const suggestUi = languesUi\.map/.test(src) && /const suggestAdr = alternates\.filter/.test(src),
+    '§6 deux sources distinctes : l\'interface et les adresses',
+    'les confondre est ce qui a produit un composant mort sur 94 % du site');
+
+  const SUGG_JS = join(R, 'src/socle/56-suggestion.js');
+  dit(existsSync(SUGG_JS), '§6 le module `56-suggestion.js` existe');
+  const jsS = existsSync(SUGG_JS) ? readFileSync(SUGG_JS, 'utf8') : '';
+
+  // ⭐⭐⭐ LE CONTRÔLE QUI COMPTE LE PLUS DE CE §. L'ancien code comparait
+  //    `navigator.language` à `lang`, la langue du FICHIER — « en » sur 3 097
+  //    pages sur 3 097. Il proposait donc le français à qui lisait déjà en
+  //    français, et il l'a fait sans jamais rougir, parce qu'aucun banc ne
+  //    demande à un test « as-tu déjà eu une raison d'être faux ? ».
+  dit(/vp_langue=\(\[a-z\]\{2\}\)/.test(jsS.replace(/\\s\*/g, '')) || /vp_langue/.test(jsS),
+    '§6 la suggestion compare au COOKIE, pas à la langue du fichier',
+    'la langue vue vit dans le cookie ; `lang` vaut « en » sur toutes les pages pré-générées');
+  dit(!/!==\s*lang\b/.test(jsS),
+    '§6 …et elle ne compare plus à `lang` nulle part');
+
+  // ── ④ LE MODULE EST DÉCLARÉ DANS `ORDRE`, DONC IL S'EXÉCUTE ───────────────
+  // ⛔ `socle_js.mjs` LÈVE déjà si le dossier et la liste divergent — ce
+  //    contrôle-ci ne double pas cette garde, il vérifie la PLACE : après
+  //    `50-i18n.js`, qui échange les deux libellés que le module va lire.
+  const ordreSrc = readFileSync(join(R, 'engine/lib/socle_js.mjs'), 'utf8');
+  const iI18n = ordreSrc.indexOf("'50-i18n.js'");
+  const iSugg = ordreSrc.indexOf("'56-suggestion.js'");
+  dit(iSugg > 0 && iI18n > 0 && iSugg > iI18n,
+    '§6 `56-suggestion.js` est déclaré APRÈS `50-i18n.js`',
+    iSugg < 0 ? '⛔ absent de ORDRE — il ne serait jamais servi'
+      : 'avant lui, la bulle s\'ouvrirait en anglais sur un site affiché en français');
+
+  // ── ⑤ LE REPLI DES AUTRES SITES DU RÉSEAU SURVIT ──────────────────────────
+  // ⚠️ Le socle sert 15 sites. `themes/encyclopedie` habille `#langsuggest` en
+  //    propre : un module qui ne saurait QUE poser une infobulle laisserait
+  //    vevewiki sans aucune suggestion, sans une ligne rouge nulle part.
+  dit(/#langue-ui \.globe__m/.test(jsS) && /boite\.style\.display = 'block'/.test(jsS),
+    '§6 le bandeau reste le repli d\'un site sans `#langue-ui`',
+    'vevewiki n\'a pas `langues_dans: compte` — il n\'a aucun bouton sous lequel s\'ancrer');
+
+  // ── ⑥ LE HALO DU BOUTON S'INSCRIRE ────────────────────────────────────────
+  // 🖼️ Choix de Preda sur maquette (01/09), parmi six propositions montrées.
+  dit(/@keyframes h-cta-halo/.test(cssV),
+    '§6 le halo du bouton d\'inscription est déclaré');
+  // ⛔⛔ ET IL NE REPEINT NI LE FOND NI LE TEXTE. Au lot 111, ce bouton était
+  //    mesuré à 2,3:1 sur une fiche de collectible parce que son fond suivait
+  //    `--sect-*` ; on l'en a détaché exprès. Une animation qui toucherait
+  //    `background` ou `color` rouvrirait ce trou PAR INTERMITTENCE — donc
+  //    invisible à un rapport de contraste, qui mesure un instant.
+  const corpsHalo = (cssV.match(/@keyframes h-cta-halo\{[\s\S]*?\n\}/) || [''])[0];
+  dit(!!corpsHalo && !/background|(^|[^-])color\s*:/.test(corpsHalo.replace(/color-mix/g, 'X')),
+    '§6 …et il n\'anime QUE la lumière, jamais le fond ni le texte',
+    corpsHalo ? 'box-shadow seulement — le contraste du lot 111 reste intact'
+      : '⛔ corps de l\'animation illisible');
+  dit(/@media \(prefers-reduced-motion:no-preference\)\{[\s\S]{0,120}h-cta-halo/.test(cssV),
+    '§6 …et il est ABSENT pour qui a demandé moins d\'animations',
+    'déclaré sous `no-preference` : absent est plus sûr qu\'instantané');
+}
+
 console.log(ko === 0 ? '\n✅ l\'en-tête est identique dans les deux modes de rendu\n'
                      : `\n🔴 ${ko} contrôle(s) en échec\n`);
 process.exit(ko === 0 ? 0 : 1);

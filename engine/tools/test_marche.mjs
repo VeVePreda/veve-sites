@@ -39,7 +39,7 @@ import { lireTemoin } from '../lib/astro_temoin_build.mjs';
 // 🔴 `jourISO` ET PAS UN `slice(0, 10)` : la donnée est en JJ/MM/AAAA. Un
 // découpage naïf rendrait « 06/1 » et le contrôle d'ordre ne mordrait jamais
 // — c'est le piège du lot 68, qui avait auto-supprimé un panneau en silence.
-import { jourISO } from '../lib/vitrine.mjs';
+import { jourISO, serieUtile, COUPE_MOBILE } from '../lib/vitrine.mjs';
 
 const ICI = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(ICI, '..', '..');
@@ -977,6 +977,148 @@ console.log('\n10. le plancher écarté (lot 193) ?');
     .filter((k) => !new RegExp(`^\\s*${k}\\s*:\\s*\\d`, 'm').test(man));
   verifie('les trois seuils sont écrits dans le manifeste, pas seulement en repli',
     regles.length === 0, regles.length ? `🔴 absents : ${regles.join(', ')}` : '5000 / 2 / 20');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🆕 LOT 212 — LA BARRE DIT-ELLE LA MÊME CHOSE QUE SES PARTS ?
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 CE QUI EST ARRIVÉ, ET POURQUOI AUCUN BANC NE L'A VU PENDANT 19 LOTS.
+// Le lot 193 a fait passer les facettes (`nbColl`, `nbComic`) et le compteur du
+// bas (`totalVisible`) au corpus VISIBLE. Le bouton « Tout » est resté sur
+// `toutes`. Résultat en production le 01/09, à l'œil, sur un téléphone :
+//     Tout 8 840   ·   Collectibles 2 516   ·   Comics 6 280   (= 8 796)
+//   « 20 affichées sur 8 796 pièces cotées », 400 px plus bas.
+// ⭐⭐⭐ AUCUN BANC N'A ROUGI PARCE QUE LES TROIS NOMBRES ÉTAIENT JUSTES,
+// CHACUN SÉPARÉMENT. Ce qui était faux vivait ENTRE eux — dans une addition que
+// seul un lecteur fait. *Un banc qui vérifie des valeurs une par une ne voit
+// jamais une incohérence de somme.* C'est la règle que ce §-ci existe pour
+// couvrir, et elle vaut au-delà de cette page.
+// ⚠️ CE BANC LIT LE GABARIT, PAS LE `dist/`. Le corpus rendu dépend du
+// catalogue : hors ligne l'échantillon fait 90 lignes et l'écart de 44 pièces
+// écartées n'existe pas. Une question posée au HTML serait MUETTE exactement le
+// jour où elle devrait mordre — donc on interroge la SOURCE, où la faute vit.
+{
+  console.log('\n🆕 lot 212 — la barre de corpus, la série répétée, le sur-titre');
+  const G = readFileSync(join(ROOT, 'src/components/pages/Market.astro'), 'utf8');
+
+  // ── ① LES TROIS COMPTEURS LISENT LA MÊME SOURCE ────────────────────────────
+  // ⛔ On ne cherche PAS le mot `visibles` (il apparaît 6 fois dans le fichier,
+  //    dont dans des commentaires). On isole les trois boutons de corpus et on
+  //    regarde ce que CHACUN affiche. *Chercher un usage, jamais un nom.*
+  const boutons = [...G.matchAll(/data-corpus="[^"]*"[^>]*>[^<]*<span class="etiq"[^>]*>\{([^}]+)\}<\/span>/g)]
+    .map((m) => m[1].trim());
+  const attendus = ['visibles.length', 'nbColl', 'nbComic'];
+  verifie('les trois boutons de corpus lisent le corpus VISIBLE',
+    boutons.length === 3 && boutons.every((b, i) => b === attendus[i]),
+    boutons.length !== 3 ? `🔴 ${boutons.length} bouton(s) trouvé(s), 3 attendus`
+      : `${boutons.join(' · ')}`);
+
+  // 🔬 AUTO-CONTRÔLE — LE §① SAIT-IL ROUGIR ? On rejoue la MÊME expression sur
+  //    un gabarit fabriqué qui porte la faute d'avant le lot. Sans ce témoin, le
+  //    jour où la forme du bouton change, le `matchAll` rendrait 0 résultat et le
+  //    banc passerait de « vert » à « vert » sans jamais poser sa question.
+  const AVANT = G.replace('{visibles.length}', '{toutes.length}');
+  const rejoue = [...AVANT.matchAll(/data-corpus="[^"]*"[^>]*>[^<]*<span class="etiq"[^>]*>\{([^}]+)\}<\/span>/g)]
+    .map((m) => m[1].trim());
+  verifie('AUTO-CONTRÔLE — le §① rougit bien sur le gabarit d\'AVANT le lot',
+    rejoue.length === 3 && rejoue[0] === 'toutes.length',
+    rejoue.length === 3 ? `témoin : « ${rejoue[0]} » détecté` : '🔴 le témoin ne se relit pas');
+
+  // ── ② LA BORNE DE COUPE EST LA MÊME DES DEUX CÔTÉS ────────────────────────
+  // `serieUtile()` décide au BUILD ce que le CSS coupera au RENDU. Si les deux
+  // valeurs divergent, on retire une série encore lisible, ou on en garde une
+  // qui ne l'est plus — dans les deux cas sans rien casser, donc sans rien voir.
+  const CSS = readFileSync(join(ROOT, 'themes/vitrine/theme.css'), 'utf8');
+  const mCh = CSS.match(/\.tbl-obj__n,\.tbl-obj__s\{max-width:(\d+)ch\}/);
+  verifie('COUPE_MOBILE (JS) et le `max-width` mobile de theme.css concordent',
+    !!mCh && Number(mCh[1]) === COUPE_MOBILE,
+    mCh ? `CSS ${mCh[1]}ch · JS ${COUPE_MOBILE}` : '🔴 règle CSS introuvable');
+
+  // ── ③ `serieUtile()` — LES QUATRE CAS, DONT DEUX TÉMOINS FABRIQUÉS ────────
+  // ⭐⭐ LES DEUX PREMIERS NE DÉPENDENT D'AUCUNE DONNÉE : ils tournent identiques
+  //    en ligne et hors ligne. Un contrôle qui n'a de matière qu'en production
+  //    est un interrupteur, pas un banc.
+  const cas = [
+    ['série identique au nom',            'Turtle Cycle', 'Turtle Cycle',                  ''],
+    ['le nom PROLONGE sa série',          'Chris Robots Will Kill - Bunny', 'Chris Robots Will Kill', ''],
+    ['série réellement distincte',        'Donny', 'Powerpuff Girls - Series 2', 'Powerpuff Girls - Series 2'],
+    ['série vide',                        'Donny', '',                              ''],
+    ['divergence APRÈS la coupe → masqué', 'Aaaaaaaaaaaaaaaaaaa1', 'Aaaaaaaaaaaaaaaaaaa2', ''],
+  ];
+  const rates = cas.filter(([, n, s2, att]) => serieUtile(n, s2) !== att)
+    .map(([t]) => t);
+  verifie('serieUtile() : les cinq cas, dont deux témoins fabriqués',
+    rates.length === 0, rates.length ? `🔴 ${rates.join(' · ')}` : `${cas.length}/${cas.length}`);
+
+  // ⚠️⚠️ LE CINQUIÈME CAS EST LE CONTRE-CONTRÔLE, ET IL M'A REPRIS.
+  //    Je l'avais écrit en attendant que la série soit GARDÉE : deux chaînes
+  //    qui ne diffèrent qu'après le 19ᵉ caractère, ça « se distingue », non ?
+  //    Non — pas à l'écran, et c'est l'écran qui juge. Le banc a rougi, le
+  //    prédicat avait raison, mon TÉMOIN était faux.
+  //    ⭐⭐⭐ *Une injection qui ne mord pas accuse le jeu d'essai ou
+  //    l'instrument, jamais le code* — et la réciproque vaut aussi : un banc
+  //    qui rougit accuse d'abord son propre témoin. Dixième fois pour ce
+  //    projet, et la première où c'est le contre-contrôle lui-même qui s'est
+  //    trompé.
+  //    ⇒ Le cas RESTE, avec l'attente corrigée : il documente la limite exacte
+  //    du prédicat — au-delà de la borne, on ne distingue plus, donc on masque.
+  //    Si un jour la colonne s'élargit, `COUPE_MOBILE` bouge et ce cas change
+  //    de réponse tout seul. C'est ce qu'on veut.
+
+  // ── ④ LE GABARIT NE RÉÉCRIT PLUS LA SÉRIE EN DUR ──────────────────────────
+  verifie('la seconde ligne du tableau passe par serieUtile()',
+    /serieUtile\(i\.name, i\.series\)/.test(G) && G.includes("import") && /serieUtile/.test(G.split('---')[1] || ''),
+    'gabarit + import');
+
+  // ── ⑤ LES NEUF SUR-TITRES DE TÊTE DE PAGE PORTENT LEUR CLASSE ─────────────
+  // 🔴 SANS CE CONTRÔLE, LA DIXIÈME PAGE NAÎTRAIT SANS. La règle CSS ne dit rien
+  //    d'une page qui oublie la classe : elle resterait simplement visible, et
+  //    personne ne le verrait avant la prochaine capture — c'est-à-dire jamais.
+  const PAGES = [
+    'src/components/pages/Collections.astro', 'src/components/pages/Market.astro',
+    'src/components/pages/Orientation.astro', 'src/components/pages/Offre.astro',
+    'src/components/pages/BlogIndexVitrine.astro', 'src/components/pages/AnalyticsSujet.astro',
+    'src/components/pages/Analytics.astro', 'src/components/pages/Dashboard.astro',
+    'src/pages/compte/index.astro',
+  ];
+  const nus = [];
+  for (const f of PAGES) {
+    const c = readFileSync(join(ROOT, f), 'utf8');
+    // ⛔ ON LIT LA LISTE DE CLASSES COMME UN ENSEMBLE, PAS COMME UNE CHAÎNE.
+    //    Première version de ce contrôle : `/<p class="etiq etiq--bleu">\/\/ /`.
+    //    Elle marchait — et elle serait passée à côté d'un gabarit écrit
+    //    `class="etiq--bleu etiq"`, qui rend exactement la même page. C'est la
+    //    faute que le même lot venait de corriger dans `test:tableau` §4, à
+    //    deux fichiers de distance. *Un attribut `class` est un ensemble.*
+    //    ⚠️ Les `.num-s` et les `.etiq` nus de module ne sont pas des sur-titres
+    //    de page : ils n'entrent pas dans cette expression et restent visibles
+    //    sur mobile, à raison.
+    const surtitres = [...c.matchAll(/<p class="([^"]*)">\/\/ /g)]
+      .map((m) => m[1].trim().split(/\s+/))
+      .filter((j) => j.includes('etiq') && j.includes('etiq--bleu'));
+    if (!surtitres.length) nus.push(`${f.split('/').pop()} (aucun sur-titre de tête ?)`);
+    else if (!surtitres.every((j) => j.includes('tete-p__st'))) nus.push(f.split('/').pop());
+  }
+  verifie('les 9 sur-titres de tête de page portent `tete-p__st`',
+    nus.length === 0, nus.length ? `🔴 ${nus.join(', ')}` : `${PAGES.length}/${PAGES.length}`);
+
+  // ── ⑥ ET LA FEUILLE LES MASQUE BIEN SOUS 640 px ───────────────────────────
+  // ⭐⭐⭐ LA CLASSE SANS LA RÈGLE NE MASQUE RIEN. Les deux moitiés vivent dans
+  //    deux fichiers ; marquer neuf gabarits et oublier trois lignes de CSS
+  //    aurait donné un lot vert, déployé, et strictement sans effet. *Un fichier
+  //    déposé n'est pas un fichier branché.*
+  const bloc640 = CSS.match(/@media \(max-width:640px\)\{[^}]*\.tete-p__st\{display:none\}[\s\S]{0,220}?\n\}/);
+  verifie('theme.css masque `.tete-p__st` sous 640 px',
+    !!bloc640, bloc640 ? 'règle trouvée' : '🔴 la classe est posée mais rien ne la masque');
+
+  // ── ⑦ LES MARGES DE SECTION ONT UN GARDE-FOU MOBILE ───────────────────────
+  // Elles n'en avaient AUCUN : 56 px et 88 px pensés pour deux colonnes,
+  // appliqués tels quels à 390 px. C'est le poste qui pesait le plus lourd dans
+  // les ~380 px de vide mesurés au navigateur le 01/09.
+  const gardes = ['.sect-t{margin-top:', '.sect-t--gd{margin-top:']
+    .filter((r) => !(bloc640 && bloc640[0].includes(r)));
+  verifie('`.sect-t` et `.sect-t--gd` ont une marge haute mobile',
+    gardes.length === 0, gardes.length ? `🔴 sans garde-fou : ${gardes.join(' ')}` : 's6 / 40px');
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

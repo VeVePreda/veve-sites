@@ -369,7 +369,37 @@ const selecteurLangueUi = langueUiDansEntete() && pagePreGeneree && languesUi.le
 // l'inscription. C'est exactement ce qu'on veut d'une page servie à un anonyme.
 const aUneSession = connecte(Astro.locals);
 const comptesOuverts = acces().tiers.length > 1;
-const suggestData = alternates.filter((a) => a.lang !== lang).map((a) => ({ l: a.lang, h: a.href, n: localeNames[a.lang] || a.lang }));
+// ═══════════════════════════════════════════════════════════════════════════
+// 🌐🔴🔴🔴 LOT 212 — LA SUGGESTION DE LANGUE CHANGEAIT DE QUESTION (demande Preda)
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔬 MESURÉ SUR `dist/` AVANT D'ÉCRIRE : `suggestData` valait `[]` sur
+// **168 pages sur 178**. Il se dérivait d'`alternates`, c'est-à-dire des
+// ADRESSES de la page — or veveprice n'a d'adresses traduites QUE sur le blog.
+// Le bandeau était donc du code servi 3 097 fois pour s'exécuter sur 10 pages.
+// ⭐⭐⭐ IL RÉPONDAIT À « CETTE PAGE EXISTE-T-ELLE EN FRANÇAIS ? » ALORS QUE LA
+// QUESTION DU LECTEUR EST « CE SITE ME PARLE-T-IL EN FRANÇAIS ? ». Les deux
+// coïncidaient sur le blog et nulle part ailleurs — un invariant juste, posé
+// sur la mauvaise prémisse, exactement comme le commentaire `hreflang` du
+// lot 103 vingt lignes plus bas.
+// ⇒ DEUX SOURCES, ET ELLES NE SE CONFONDENT PLUS :
+//   · `suggestUi`  — les langues d'INTERFACE (toujours ≥ 2 sur veveprice) : de
+//                    quoi proposer sur TOUTES les pages ;
+//   · `suggestAdr` — les ADRESSES traduites, quand la page en a (le blog) : de
+//                    quoi emmener le lecteur sur l'ARTICLE, pas juste sur des
+//                    menus traduits.
+// ⛔ ET LE SCRIPT NE COMPARE PLUS À `lang`. `lang` est la langue du FICHIER
+// pré-généré (« en » sur 3 097 pages) ; la langue que la personne voit est
+// celle de son cookie. Comparer au fichier proposait « ce site est aussi en
+// français » à quelqu'un qui lisait déjà en français. Le cookie est la seule
+// source, comme dans `55-langue.js` — un seul juge.
+const suggestAdr = alternates.filter((a) => a.lang !== lang)
+  .map((a) => ({ l: a.lang, h: a.href, n: localeNames[a.lang] || a.lang }));
+const suggestUi = languesUi.map((l) => ({ l, n: localeNames[l] || l.toUpperCase() }));
+// ⭐ La table ADRESSE PAR LANGUE, lue par le sélecteur d'interface. Vide hors
+//   blog : `data-href` y sera simplement absent, et le bouton garde son
+//   comportement d'aujourd'hui. *Une table vide est un cas normal, pas un cas
+//   dégradé.*
+const adressePourLangue = Object.fromEntries(alternates.map((a) => [a.lang, a.href]));
 
 // ⭐ Le menu, lu UNE fois. Une entree non prete est ECARTEE et DITE : un menu
 // qui rétrécit sans le dire se lit comme une régression.
@@ -1075,8 +1105,36 @@ const menuComplet = wikiNav
          /de/. » La règle était écrite, à trois lignes de la faute.
          ⭐ Rendu inconditionnel, l'état porté par `hidden` : le DOM est le même
          partout, et c'est le cookie — lui seul — qui masque. */}
+      {/* 🌐🔴🔴🔴 LOT 212 — DEUX BOUTONS DE LANGUE CÔTE À CÔTE, ET ILS
+         AFFICHAIENT DES LETTRES DIFFÉRENTES (demande Preda, 01/09).
+         🔬 MESURÉ SUR `dist/` : ce `<details>` n'est rendu que là où
+         `alternates.length > 1`, c'est-à-dire sur **10 pages sur 178** — les
+         index et articles du blog, dans les cinq langues. Sur ces dix pages,
+         l'en-tête portait DEUX sélecteurs de langue : celui-ci, qui dit la
+         langue de l'ADRESSE (« EN »), et `#langue-ui`, qui dit celle de
+         l'INTERFACE (« FR »). Aucun des deux ne ment — ils répondent à deux
+         questions — mais personne ne lit un en-tête en se demandant laquelle.
+         ⇒ Un seul bouton visible : `#langue-ui`, qui reçoit désormais les
+           adresses par `data-href` et emmène donc le lecteur sur l'ARTICLE
+           traduit, pas seulement sur des menus traduits.
+         ⛔⛔ ET CE BLOC N'EST PAS RETIRÉ DU DOM, IL EST MASQUÉ PAR LA FEUILLE.
+         La note du lot 103, juste en dessous, interdit de le retirer : « LES
+         LIENS RESTENT DANS LE DOM, REPLIÉS, JAMAIS RETIRÉS. »
+         ⚠️ J'AI MESURÉ SA PRÉMISSE AVANT DE M'APPUYER DESSUS, et elle a vieilli :
+         les six `<link rel="alternate" hreflang>` du `<head>` (l. 535) sont
+         émis SANS CONDITION — vérifié sur la production le 01/09 — et la note
+         de la l. 309 le dit elle-même (« les `link` du `<head>`, eux, ne
+         bougent pas du tout »). Google ne dépend donc plus de ces liens-ci.
+         ⭐⭐⭐ ON LE MASQUE QUAND MÊME PLUTÔT QUE DE LE RETIRER. Le masquage
+         coûte une ligne de feuille, ne change pas un octet de HTML servi, ne
+         peut faire changer d'avis aucun banc qui compte des marqueurs, et se
+         défait d'un geste. *Quand deux gestes donnent le même écran, on prend
+         celui qui se rétracte.* → `themes/vitrine/theme.css`, `.globe--adr`
+         ⛔ La classe vit sur veveprice SEUL : vevewiki n'a pas
+         `langues_dans: compte`, donc `langAuCompte` y est faux et ce bloc n'y
+         est jamais rendu. Mesuré, pas supposé. */}
       {langAuCompte && alternates.length > 1 && (
-      <details class="globe" data-anonyme hidden={aUneSession}>
+      <details class="globe globe--adr" data-anonyme hidden={aUneSession}>
         <summary aria-label={t(lang, 'lang.pick')} title={t(lang, 'lang.pick')}>
           <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6">
             <circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c2.5 2.6 2.5 15.4 0 18M12 3c-2.5 2.6-2.5 15.4 0 18" />
@@ -1295,8 +1353,21 @@ const menuComplet = wikiNav
             déjà écrite au pied de page ; on la tient ici aussi.
             ⛔ Ces libellés ne portent PAS `data-i18n` : un nom de langue ne se
             traduit pas, et `50-i18n.js` les écraserait au chargement suivant. */}
+        {/* 🌐 LOT 212 — `data-href` : L'ADRESSE TRADUITE, QUAND ELLE EXISTE.
+            ⭐ Le bouton faisait une seule chose (poser le cookie) ; sur le blog
+            il en fait deux, parce que le lecteur en attend deux. Choisir
+            « Français » sur un article anglais doit rendre l'ARTICLE français,
+            pas des menus français autour d'un texte anglais.
+            ⛔ L'ATTRIBUT EST ABSENT HORS BLOG, ET C'EST LE CAS NORMAL.
+            `adressePourLangue` est vide là où la page n'a pas d'autre adresse :
+            `55-langue.js` ne trouve rien, pose le cookie et recharge — le
+            comportement d'aujourd'hui, à l'octet près, sur 168 pages sur 178.
+            ⭐⭐ ET C'EST LE GABARIT QUI DÉCIDE, PAS LE SCRIPT. Lui seul sait, au
+            build, quelles adresses existent pour CETTE page ; un script qui le
+            devinerait depuis l'URL serait un second juge, et le premier à se
+            tromper le jour où une adresse change de forme. */}
         {languesUi.map((l) => (
-          <button type="button" data-lang={l} lang={l}>{localeNames[l] || l.toUpperCase()}</button>
+          <button type="button" data-lang={l} data-href={adressePourLangue[l]} lang={l}>{localeNames[l] || l.toUpperCase()}</button>
         ))}
       </div>
     </details>
@@ -1399,7 +1470,29 @@ const menuComplet = wikiNav
     au lecteur d'écran), et `font-size:9.5px` sur la navigation principale du
     téléphone — le MOB‑2 de l'audit du 10/08. */}
 <main class="wrap" id="contenu" tabindex="-1">
-  <div id="langsuggest"></div>
+  {/* 🌐 LOT 212 — LE CONTENEUR PORTE SES DONNÉES, LA LOGIQUE VIT AU SOCLE.
+      ⭐⭐ `data-*` ET NON UN `<script>` PAR PAGE : c'est déjà la façon dont
+      `60-cote.js` reçoit les siennes (`data-cote`, `data-champ`, `data-nf`).
+      Un module qui lit le DOM est servi une fois, haché et mis en cache pour
+      3 097 pages ; un script en ligne est recopié 3 097 fois.
+      🔬 ET C'EST LE BANC QUI L'A EXIGÉ, PAS MOI. Première écriture de ce lot :
+      toute la logique en ligne ⇒ `test:feuille` a rougi à **12 832 o/page** de
+      JavaScript pour un cliquet à 8 192, avec le remède dans le message même
+      (« il en ressort en fichier haché »). *Un cliquet qui mord une fois a payé
+      son écriture.* Après déplacement : les données seules, ~300 o.
+      ⛔ LES DEUX LIBELLÉS PASSENT PAR `t()` ET RESTENT ÉCHANGEABLES. Chacun
+      occupe TOUTE la valeur de son attribut : c'est la condition pour que
+      `marquer_i18n` produise le `data-i18n-attr` (les 450 attributs « mixtes »
+      du journal de build sont ceux qui ne la remplissent pas). `50-i18n.js`
+      tourne AVANT `56-suggestion.js` dans l'ordre du socle — le module lit donc
+      des textes déjà traduits, sans jamais traduire lui-même.
+      ⛔ `data-ui` / `data-adr` sont du JSON, sans `t()` : aucun marqueur, rien
+      à échanger, et les noms de langue ne se traduisent pas de toute façon. */}
+  <div id="langsuggest"
+       data-ui={JSON.stringify(suggestUi)}
+       data-adr={JSON.stringify(suggestAdr)}
+       data-txt={t(lang, 'lang.suggest')}
+       data-non={t(lang, 'lang.dismiss')}></div>
   {crumbs.length > 0 && (
     <div class="crumbs">
       {crumbs.map((c, i) => (<>{i > 0 && ' › '}{c.url ? <a href={c.url}>{c.name}</a> : <span>{c.name}</span>}</>))}
@@ -1624,22 +1717,7 @@ const menuComplet = wikiNav
   </script>
 )}
 
-<script is:inline define:vars={{ suggestData, suggestTxt: t(lang, 'lang.suggest'), switchTxt: t(lang, 'lang.switch'), dismissTxt: t(lang, 'lang.dismiss') }}>
-  // Detection DOUCE : on propose, on ne redirige jamais (sinon Googlebot ne verrait qu'une langue).
-  (function () {
-    try {
-      if (localStorage.getItem('langChoice') || localStorage.getItem('langDismiss')) return;
-      var nav = (navigator.language || '').slice(0, 2).toLowerCase();
-      var match = suggestData.filter(function (s) { return s.l === nav; })[0];
-      if (!match) return;
-      var box = document.getElementById('langsuggest');
-      box.innerHTML = suggestTxt + ' <a href="' + match.h + '">' + match.n + '</a> — <button type="button">' + dismissTxt + '</button>';
-      box.style.display = 'block';
-      box.querySelector('a').addEventListener('click', function () { localStorage.setItem('langChoice', match.l); });
-      box.querySelector('button').addEventListener('click', function () { localStorage.setItem('langDismiss', '1'); box.style.display = 'none'; });
-    } catch (e) {}
-  })();
-</script>
+
 
 {/* ═══════════════════════════════════════════════════════════════════════════
     LA PALETTE DE RECHERCHE — disponible sur TOUTES les pages.

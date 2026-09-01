@@ -609,9 +609,31 @@ if (!existsSync(THEME)) {
 }
 
 // ⭐ L'OSSATURE — les trois lignes que 8 gabarits sur 11 portent déjà.
-verifie('la page ouvre par l\'étiquette de section du réseau (`etiq etiq--bleu">// `)',
-  /class="etiq etiq--bleu">\/\/ /.test(nu),
-  '⇒ « présentation comme les autres pages » — Analytics, Market, Offre, Collections… l\'ont');
+// 🧾🔴🔴🔴 LOT 212 — CE CONTRÔLE A ROUGI SANS AUCUNE FAUTE DANS LE CODE.
+// Il exigeait la chaîne EXACTE `class="etiq etiq--bleu">// `. Le lot 212 ajoute
+// un troisième jeton à la liste de classes (`tete-p__st`, qui masque le
+// sur-titre sous 640 px) : l'étiquette est toujours là, toujours en tête de
+// page, toujours bleue — et le banc a dit non.
+// ⭐⭐⭐ IL NE MESURAIT PAS SA PROPRE QUESTION. Sa question est « la page
+// ouvre-t-elle par l'étiquette de section ? » ; ce qu'il lisait était « la liste
+// de classes est-elle écrite avec ces deux mots-là, dans cet ordre-là, et rien
+// d'autre ». Un attribut `class` est un ENSEMBLE non ordonné et extensible : le
+// comparer octet par octet fabrique un faux rouge à chaque ajout légitime, et
+// c'est le dixième banc de ce projet à se faire prendre sur *sur quoi est-il
+// branché ?* plutôt que sur ce qu'il croit surveiller.
+// ⇒ On interroge désormais la FORME : un `<p>` dont la liste de classes
+//   CONTIENT `etiq` et `etiq--bleu`, et dont le contenu ouvre par `// `.
+// ⛔ ET SURTOUT PAS EN RELÂCHANT VERS `/etiq--bleu/` TOUT COURT : cette classe
+//   habille aussi des étiquettes de MODULE au milieu de la page. Le banc doit
+//   continuer à refuser une page qui n'ouvrirait plus par son sur-titre — c'est
+//   sa seule raison d'exister.
+const OUVRE_PAR_SURTITRE = /<p class="([^"]*)">\/\/ /;
+const mCls = nu.match(OUVRE_PAR_SURTITRE);
+const jetons = mCls ? mCls[1].trim().split(/\s+/) : [];
+verifie('la page ouvre par l\'étiquette de section du réseau (`etiq` + `etiq--bleu`)',
+  jetons.includes('etiq') && jetons.includes('etiq--bleu'),
+  jetons.length ? `classes lues : ${jetons.join(' ')}`
+    : '🔴 aucun `<p class="…">// ` en tête de page');
 verifie('le `<h1 class="mono-t">` n\'est plus enfermé dans un titre de SECTION',
   /<h1 class="mono-t">/.test(nu) && !/sect-t--gd"><h1/.test(nu),
   '`sect-t sect-t--gd` est le titre de second rang : l\'employer au premier était l\'écart mesuré');

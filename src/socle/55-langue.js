@@ -77,7 +77,15 @@
     else choix[i].removeAttribute('aria-current');
   }
 
-  function poser(lang) {
+  // 🌐 LOT 212 — `poser()` PREND UNE DESTINATION.
+  // Sur les pages de blog, chaque bouton porte `data-href` : l'adresse de CETTE
+  // page dans CETTE langue, écrite par `Base.astro` au build. Ailleurs
+  // l'attribut est absent et la fonction se comporte exactement comme avant.
+  // ⭐⭐ LE COOKIE SE POSE DANS LES DEUX CAS, ET AVANT LE DÉPART. Naviguer sans
+  // lui ferait arriver sur l'article français dans une interface anglaise, le
+  // temps que `50-i18n.js` s'exécute — un clignotement à chaque changement de
+  // langue, et sur la seule page où l'on vient précisément de changer de langue.
+  function poser(lang, dest) {
     if (!/^[a-z]{2}$/.test(lang)) return;
     // ⚠️ ON EFFACE PLUTÔT QUE D'ÉCRIRE « en ». Le cookie absent et le cookie
     // `en` produisent le même écran — `50-i18n.js` sort immédiatement dans les
@@ -94,6 +102,17 @@
     // marqué `data-i18n` suit — y compris les 3 924 libellés qui vivent dans
     // un attribut. Réécrire ça ici en raterait une part, et on ne saurait pas
     // laquelle.
+    // ⭐⭐ LOT 212 — SAUF S'IL EXISTE UNE ADRESSE POUR CETTE LANGUE. Recharger
+    // la même adresse aurait traduit les MENUS d'un article resté en anglais :
+    // le lecteur a demandé le français, il obtenait une bordure française
+    // autour d'un texte anglais. `assign()` et non `replace()` — le bouton
+    // « précédent » doit ramener à l'article d'où l'on vient.
+    // ⛔ ON NE CONSTRUIT PAS L'ADRESSE ICI. Elle est écrite par le gabarit, qui
+    // seul sait quelles pages existent ; la deviner depuis `location.pathname`
+    // marcherait sur le blog et enverrait vers un 404 le jour où une autre
+    // famille de pages devient multilingue. *Un script ne recalcule pas ce
+    // qu'un gabarit sait déjà.*
+    if (dest) { window.location.assign(dest); return; }
     window.location.reload();
   }
 
@@ -105,7 +124,7 @@
     var b = e.target && e.target.closest ? e.target.closest('[data-lang]') : null;
     if (!b || !boite.contains(b)) return;
     e.preventDefault();
-    poser(b.getAttribute('data-lang'));
+    poser(b.getAttribute('data-lang'), b.getAttribute('data-href'));
   });
 
   // ⭐ LE MENU SE REFERME COMME CELUI DU COMPTE. `<details>` reste ouvert

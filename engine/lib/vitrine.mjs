@@ -109,6 +109,49 @@ export const mentionEdition = (v) => {
   return MENTIONS_EDITION.includes(s) ? s : '';
 };
 
+/** 📏 LA BORNE DE COUPE MOBILE DE `.tbl-obj__n` / `.tbl-obj__s`.
+ *  ⛔ ELLE EST ÉCRITE DEUX FOIS, ET C'EST ASSUMÉ : `theme.css` l. ~1482 la pose
+ *  en `ch` sous 580 px, ici elle sert à DÉCIDER si la seconde ligne apporte
+ *  quelque chose. Le CSS ne peut pas répondre à cette question et le JavaScript
+ *  ne peut pas mesurer des `ch` au build — deux endroits, une seule valeur.
+ *  🔬 `test:marche` refuse qu'elles divergent : c'est le seul garde-fou possible.
+ */
+export const COUPE_MOBILE = 19;
+
+/** La série à AFFICHER sous un nom de pièce, ou `''` si elle n'apporte rien.
+ *
+ *  🔴🔴 LOT 212 — POURQUOI CE PRÉDICAT EXISTE, ET POURQUOI IL N'EST PAS `===`.
+ *  Mesuré sur le catalogue complet (18 961 lignes ayant nom ET série) :
+ *    · nom strictement égal à la série ................. 8 613  (45,4 %)
+ *    · mêmes `COUPE_MOBILE` premiers caractères ....... 11 701  (61,7 %)
+ *  Une égalité stricte laissait donc passer 3 088 lignes où le nom PROLONGE sa
+ *  série (« Chris Robots Will Kill - Bunny » sous « Chris Robots Will Kill ») :
+ *  à 19 caractères les deux lignes rendent le même texte, tronqué au même
+ *  endroit, et la seconde ne dit plus rien du tout.
+ *  ⭐⭐⭐ *On ne juge pas ce que la donnée CONTIENT, on juge ce que le lecteur
+ *  VOIT.* C'est la même bascule que le lot 203 sur l'infobulle : la raison de
+ *  Preda (« que ça ne déforme pas ») valait mieux que son chiffre.
+ *
+ *  ⛔ LA COMPARAISON EST INSENSIBLE À LA CASSE ET AUX ESPACES DE BORD, RIEN DE
+ *  PLUS. Pas de normalisation d'accents, pas de retrait de ponctuation : une
+ *  série « Spider-Man » et un nom « Spider Man » sont deux chaînes que le
+ *  lecteur distingue à l'œil, et les fondre reviendrait à masquer une série
+ *  lisible. En cas de doute, on GARDE — un doublon coûte une ligne, un retrait
+ *  abusif coûte une information.
+ *
+ *  ⭐ Rend une CHAÎNE VIDE et jamais `undefined`, comme `mentionEdition()` :
+ *  même raison, un gabarit qui l'écrirait directement rendrait « undefined ».
+ */
+export const serieUtile = (nom, serie) => {
+  const s = String(serie ?? '').trim();
+  if (!s) return '';
+  const n = String(nom ?? '').trim();
+  if (!n) return s;
+  const a = n.slice(0, COUPE_MOBILE).toLowerCase();
+  const b = s.slice(0, COUPE_MOBILE).toLowerCase();
+  return a === b ? '' : s;
+};
+
 // Les six géométries, en 24×24, CREUSES.
 // ⭐ Creuses et non pleines : une forme pleine devient une pastille de couleur
 // et crie plus fort que le prix, qui est le sujet de la page.

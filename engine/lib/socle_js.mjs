@@ -90,6 +90,17 @@ const ORDRE = [
   // mais la liste se lit comme une chronologie, et une chronologie fausse est
   // un piège pour le prochain lecteur.
   '55-langue.js',
+  // 🌐 LOT 212 — la suggestion de langue, en infobulle sous le bouton.
+  // ⭐ APRÈS `50-i18n.js` : elle lit ses deux libellés dans des attributs que
+  //   celui-ci vient d'échanger. Avant lui, la bulle s'ouvrirait en anglais sur
+  //   un site affiché en français — et seulement au premier chargement, donc de
+  //   façon irreproductible à la demande.
+  // ⭐ APRÈS `55-langue.js` aussi, et ce n'est pas indifférent : les deux
+  //   écrivent le cookie `vp_langue`, avec la MÊME écriture (`path=/`, un an,
+  //   `SameSite=Lax`, pas de `Secure`). La liste se lit comme une chronologie ;
+  //   le voisin qui pose ce cookie doit être juste au-dessus de celui qui le
+  //   repose, pour que la prochaine personne les compare sans les chercher.
+  '56-suggestion.js',
   '60-cote.js',      // les cotes remplies à la demande (ex-`CoteScript.astro`)
   '70-figures.js',   // le bouton « télécharger cette figure » (ex-`Figures.astro`)
 ];
