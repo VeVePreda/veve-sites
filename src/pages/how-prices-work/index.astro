@@ -1,0 +1,42 @@
+---
+// ⚠️ VeVePreda/veve-sites — src/pages/how-prices-work/index.astro   (FICHIER NEUF — lot 213)
+//
+// 🔑 L'ADRESSE VIENT DE PREDA, 01/09/2026, ET ELLE A ÉTÉ ARBITRÉE CONTRE DEUX
+// AUTRES. ⛔ Ni `/methodologie/` ni `/methodology/`. Deux raisons, dans cet
+// ordre : le site est servi en anglais par défaut, et les routes PUBLIQUES y
+// sont déjà anglaises ou neutres (`/market/`, `/sets/`, `/collectibles/`,
+// `/comics/`, `/analytics/`, `/blog/`) — les routes françaises qui subsistent
+// (`/offre/`, `/acces/`, `/compte/`, `/connexion/`) sont toutes des pages de
+// COMPTE, jamais indexées. Et « how prices work » est ce qu'un lecteur tape.
+//
+// ⭐ MINCE PAR CONSTRUCTION, comme `/analytics/` : toute la page vit dans le
+// composant, donc cette route et sa jumelle localisée ne peuvent pas diverger.
+//
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 LA GARDE `priceEnabled()` N'EST PAS DÉCORATIVE — C'EST LE LOT 157-B
+// ═══════════════════════════════════════════════════════════════════════════
+// Une page de MÉTHODE DES PRIX sur un site SANS PRIX est une page fantôme.
+// vevewiki déclare `content.data_modules: []`, donc `priceEnabled()` y rend
+// faux : sans cette ligne, le site publierait une page qui explique d'où
+// viennent des prix qu'il n'affiche nulle part, plus un lien mort au pied de
+// ses pages. C'est mot pour mot ce que le lot 157 a fait avec `/analytics/`,
+// et le lot 104 avec `/favoris/`.
+//
+// ⚠️ EN STATIC, CE `redirect` PRODUIT UN TALON (rafraîchissement + `noindex`),
+// pas une vraie redirection — il n'y a pas de serveur au build. C'est
+// exactement ce qu'il faut : `astro_features.mjs` n'efface QUE des talons, et
+// refuse de toucher à une vraie page. Les deux moitiés se tiennent :
+//   · ici on émet un talon,
+//   · là-bas `/how-prices-work/` figure dans les préfixes de la zone « prix »,
+//     et le talon est retiré de `dist/`.
+// ⛔ Retirer l'une des deux laisse soit une page morte, soit un préfixe qui ne
+//    garde rien.
+import Methode from '../../components/pages/Methode.astro';
+import { locales } from '../../../engine/lib/i18n.mjs';
+import { priceEnabled } from '../../../engine/lib/features.mjs';
+
+const lang = locales().def;
+
+if (!priceEnabled()) return Astro.redirect('/');
+---
+<Methode lang={lang} />

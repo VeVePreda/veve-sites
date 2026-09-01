@@ -1,0 +1,36 @@
+---
+// ⚠️ VeVePreda/veve-sites — src/pages/[locale]/how-prices-work/index.astro
+//                                                        (FICHIER NEUF — lot 213)
+//
+// ⭐⭐ CETTE ROUTE NE PRODUIT AUCUNE PAGE SUR VEVEPRICE AUJOURD'HUI, ET C'EST
+// NORMAL — elle n'est pas pour autant du code mort. Mesuré le 01/09 :
+// veveprice déclare `languages.active: [en]`, donc `active.filter(l => l !== def)`
+// rend une liste VIDE et `getStaticPaths()` ne fabrique rien. En production,
+// `/fr/sets/` et `/es/sets/` répondent 301 — seul le BLOG a ses adresses par
+// langue.
+// ⭐ Elle existe quand même parce que TOUTES les pages de ce dépôt vont par
+// paire, et qu'une paire dépareillée est une divergence qui attend son tour.
+// Le jour où une seconde langue s'active, cette page suit ; sans le fichier,
+// elle serait la seule à manquer, et personne ne le verrait avant la mise en
+// ligne.
+// ⛔ VEVEPRICE NE TRADUIT QUE SON INTERFACE — jamais de `/fr/ /es/` de contenu
+//    (le blog excepté). Ce fichier ne rouvre pas cette décision : il obéit à
+//    `locales()`, qui obéit au manifeste.
+//
+// 🔴 LA GARDE EST ICI AUSSI, ET DANS LA MÊME FONCTION QUE LES CHEMINS. Sur un
+// site sans prix, `getStaticPaths` rend `[]` : aucune page, donc aucun talon à
+// effacer. Mettre la garde après aurait fabriqué les chemins avant de les
+// refuser — le travail serait fait et jeté, en silence.
+import Methode from '../../../components/pages/Methode.astro';
+import { locales } from '../../../../engine/lib/i18n.mjs';
+import { priceEnabled } from '../../../../engine/lib/features.mjs';
+
+export function getStaticPaths() {
+  if (!priceEnabled()) return [];
+  const { active, def } = locales();
+  return active.filter((l) => l !== def).map((l) => ({ params: { locale: l } }));
+}
+
+const lang = Astro.params.locale;
+---
+<Methode lang={lang} />

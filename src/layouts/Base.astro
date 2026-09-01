@@ -1648,6 +1648,27 @@ const menuComplet = wikiNav
           « à propos », c'est vrai sur les deux sites, et ça ne dépend d'aucun
           réglage optionnel. La colonne a donc toujours au moins une ligne. */}
       <ul>
+        {/* 🔑 LOT 213 — LE LIEN VERS LA PAGE DE METHODE, ARBITRAGE PREDA DU 01/09.
+            Il a ete arbitre CONTRE trois autres emplacements, et le choix se
+            defend par ce qu'il coute :
+              · le MENU PRINCIPAL porte deja huit entrees, et cette page ne se
+                consulte pas tous les jours ;
+              · SOUS LE PRIX de chaque fiche, ce serait un lien de plus sur la
+                page la plus chargee du site ;
+              · ici, il est present sur les 8 840 fiches sans rien encombrer,
+                et c'est ou l'on cherche ce genre de page.
+            ⭐ IL PASSE EN TETE DE LA COLONNE, avant `legal.notAffiliated` : la
+            phrase de non-affiliation est une mention, pas une destination. Un
+            lien enterre sous une mention se lit comme une note de bas de page.
+            🔴 `priceEnabled()` GARDE LE LIEN, ET PAS SEULEMENT LA ROUTE. Sans
+            cette condition, vevewiki afficherait au pied de ses 277 pages un
+            lien vers une adresse dont `astro_features.mjs` vient justement
+            d'effacer le talon — donc un 404, sur tout le site, jamais visite
+            par personne et donc jamais signale. *Une page gatee se gate a
+            TOUS ses points d'entree, pas seulement a sa porte.* */}
+        {priceEnabled() && (
+          <li><a href={localize(lang, '/how-prices-work/')}>{t(lang, 'nav.method')}</a></li>
+        )}
         <li>{t(lang, 'legal.notAffiliated')}</li>
         {team.map((l) => (<li><a href={l.url} target="_blank" rel="noopener">{l.label}</a></li>))}
         {affiliate.map((l) => (

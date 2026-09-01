@@ -100,9 +100,18 @@ const ZONES = [
   //   un paquet JavaScript de 235 Ko. *Un compteur qui ne borne pas ce qu'il
   //   ouvre compte autre chose que ce qu'il croit* — le banc ne regarde que les
   //   `.html`.
+  // 🔴 LOT 213 — `/how-prices-work/` REJOINT LA ZONE, ET C'EST OBLIGATOIRE.
+  // Une page qui EXPLIQUE d'ou viennent des prix, sur un site qui n'en publie
+  // aucun, est une page fantome — plus le lien mort qui la designe au pied de
+  // chaque page. C'est mot pour mot `/analytics/` au lot 157-B et `/favoris/`
+  // au lot 104 : la route emet bien un talon quand `priceEnabled()` est faux,
+  // mais un talon que PERSONNE N'EFFACE reste servi en 200.
+  // ⭐ Le contrat annonce en tete de ce fichier tient toujours : « ajouter une
+  // fonctionnalite gatee = ajouter une ligne ici ». On l'a suivi au lieu
+  // d'inventer un second mecanisme d'extinction a cote du premier.
   { nom: 'prix', actif: priceEnabled,
     prefixes: ['/market/', '/collections/', '/collectibles/', '/comics/', '/collection/',
-               '/sets/', '/movers/'] },
+               '/sets/', '/movers/', '/how-prices-work/'] },
   // ⭐ LOT 42 — « ajouter une fonctionnalite gatee = ajouter une ligne ici ».
   // On suit le contrat que ce fichier annonce en tete, au lieu d'inventer un
   // second mecanisme d'extinction a cote du premier.

@@ -11,6 +11,17 @@ hotes.forEach(function (hote) {
   var bulle = hote.querySelector('[data-bulle]');
   var legende = hote.querySelector('[data-legende]');
 
+  // LOT 213 — le teasing s'efface ICI, et surtout pas la ou le graphe arrive.
+  // Ce module sort a sa premiere ligne sans `data-membre` : quiconque atteint
+  // cette ligne a une session. L'effacer plus bas, au moment ou la courbe est
+  // dessinee, aurait laisse un membre lire « l'historique s'ouvre a partir du
+  // palier Membre » pendant tout l'aller-retour reseau — un message faux,
+  // affiche a la seule personne qui sait qu'il est faux.
+  // Un membre sans droit sur aucune plage ne voit donc ni graphe ni teasing :
+  // c'est ce qu'il voyait deja avant ce lot, et le refus a son propre libelle.
+  var teaser = hote.querySelector('[data-teaser]');
+  if (teaser) teaser.hidden = true;
+
   var enCours = false;
 
   function charger() {

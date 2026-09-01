@@ -918,6 +918,62 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
    où un second contrôle verrouillé arrive, il la réutilise au lieu d'en
    recopier une — c'est la divergence des deux gabarits de tuiles, en CSS. */
 :root{ --cadenas-m:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2.4" stroke-linecap="round"><rect x="4.5" y="10.5" width="15" height="10" rx="2"/><path d="M8 10.5V7.8a4 4 0 0 1 8 0v2.7"/></svg>'); }
+/* ═══════════════════════════════════════════════════════════════════════
+   LOT 213 — LE TEASING DU GRAPHE (visiteur sans session)
+   ═══════════════════════════════════════════════════════════════════════
+   ⛔ LA COURBE EST UNE FORME, PAS UNE DONNEE. Elle est identique sur les
+   8 840 fiches : elle ne peut structurellement decrire aucune piece. C'est ce
+   qui distingue ce bloc de `svgPublic`, retire au lot 123 parce qu'il portait
+   la VRAIE courbe dans le HTML sous un simple flou de presentation.
+   ⭐ Et elle vit ici pour la meme raison que le cadenas du lot 127 : dans le
+   gabarit elle pesait 8 840 fois, dans cette feuille elle pese une fois.
+   ⚠️ `mask` et non `background-image` : un data-URI garderait la couleur
+   ecrite dans le SVG et ignorerait le theme jour. Le masque ne donne que la
+   FORME, et `background-color` fait le reste. Meme mecanique, meme raison. */
+:root{ --courbe-m:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 120" preserveAspectRatio="none"><path d="M0 88 L40 74 L80 92 L120 58 L160 66 L200 40 L240 52 L280 28 L320 44 L360 22 L400 34 L400 120 L0 120 Z" fill="black"/></svg>'); }
+.graph-teaser{position:relative;margin-top:var(--s4);border:1px solid var(--rule);
+  border-radius:var(--r-lg);background:var(--surface);padding:var(--s4);overflow:hidden}
+.graph-teaser[hidden]{display:none}
+.graph-teaser::after{content:"";position:absolute;left:0;right:0;bottom:0;height:150px;
+  background-color:var(--sect-a);opacity:.14;
+  -webkit-mask:var(--courbe-m) bottom/100% 150px no-repeat;
+          mask:var(--courbe-m) bottom/100% 150px no-repeat;pointer-events:none}
+/* ⭐ LE VOILE EST AU-DESSUS DE LA FORME (`position:relative` + z-index) et
+   porte le seul texte lisible du bloc. Un `min-height` plutot qu'une hauteur
+   fixe : la phrase fait deux lignes en allemand et trois a 390 px. */
+.graph-teaser__voile{position:relative;z-index:1;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:var(--s3);text-align:center;
+  min-height:132px;padding:var(--s4) var(--s2)}
+.graph-teaser__voile p{margin:0;font-family:var(--tech);font-size:var(--t-sm);
+  color:var(--text-2);max-width:40ch;line-height:1.55}
+.graph-teaser__cad{width:20px;height:20px;background-color:var(--lock);
+  -webkit-mask:var(--cadenas-m) center/contain no-repeat;
+          mask:var(--cadenas-m) center/contain no-repeat}
+/* 🔴 LA RANGEE DECORATIVE REUTILISE `.plages` POUR SON FOND ET SON RAYON, mais
+   ses enfants sont des `span` : la regle du cadenas ci-dessus vise
+   `.plages button[data-verrou]` et ne les atteindrait pas. On ne la desserre
+   PAS en `.plages [data-verrou]` — ce selecteur mordrait aussi les vrais
+   boutons et melerait deux etats qui doivent rester distincts. Une regle
+   propre a la vitrine, adossee a la MEME variable de forme. */
+.plages--vitrine{position:relative;z-index:1;width:max-content;max-width:100%;
+  margin:0 auto;flex-wrap:wrap}
+/* ⚠️ `>` ET PAS UN DESCENDANT — MESURE DU 01/09 SUR `dist/`. Avec
+   `I18N_MARQUAGE=1`, `marquer_i18n` enveloppe chaque libellé dans son propre
+   `<span data-i18n>` : la pastille sort en
+   `span[data-verrou] > span[data-i18n]`. Un sélecteur descendant aurait donc
+   applique le padding DEUX FOIS, une pastille sur deux, et seulement sur les
+   pages marquées — un décalage qui n'apparaît ni au build normal ni dans le
+   dépôt, seulement en production. *Un sélecteur se règle sur le HTML ÉMIS,
+   jamais sur celui du gabarit.* */
+.plages--vitrine > span{font-family:var(--tech);font-size:11px;padding:6px 11px;
+  border-radius:var(--r-full);color:var(--muted)}
+.plages--vitrine > span[data-verrou]{color:var(--lock);padding-right:8px}
+.plages--vitrine > span[data-verrou]::after{
+  content:"";display:inline-block;width:9px;height:9px;margin-left:5px;vertical-align:-1px;
+  background-color:currentColor;
+  -webkit-mask:var(--cadenas-m) center/contain no-repeat;
+          mask:var(--cadenas-m) center/contain no-repeat; }
+@media (max-width:640px){ .graph-teaser__voile{min-height:112px} }
 .series{display:flex;gap:var(--s3);flex-wrap:wrap}
 .serie-b{display:inline-flex;align-items:center;gap:7px;background:none;border:0;cursor:pointer; font-family:var(--tech);font-size:11px;color:var(--muted);padding:5px 2px;min-height:var(--tap-min);transition:color var(--d-fast)}
 .serie-b:hover{color:var(--text)}

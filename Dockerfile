@@ -99,6 +99,15 @@ RUN npm run test:nginx
 # ⚠️ CHACUN EST PLACE OU IL PEUT MESURER, PAS EN BLOC : cinq avant le build (ils
 # n'ont besoin que du code), un apres (il lit `dist/`).
 RUN npm run test:dockerfile
+# 🔗 `test:liens` — LOT 213. AVANT LE BUILD, parce qu'il lit la SOURCE.
+# Il verifie qu'un lien vers une adresse gatee est garde par la fonction qui la
+# gate. Ecrit apres une mesure, pas par principe : le 01/09, retirer la garde
+# du lien de pied de page a produit 58 liens vers un 404 sur vevewiki, et les
+# CINQ bancs qui auraient pu le voir (adresses, pages, cache, lastmod, schema)
+# sont restes VERTS. Le build, lui, sort rc=0 avec la page fantome dans dist/.
+# ⭐ Il ne depend NI de `dist/` NI de `SITE=` : sur veveprice, un banc adosse a
+# la sortie serait vert faute de condition — un interrupteur de plus.
+RUN npm run test:liens
 # 💳 `test:caisse` — LOT 199. IL EST ICI, AVANT LE BUILD, ET HORS RESEAU.
 # ═══════════════════════════════════════════════════════════════════════════
 # Il juge la sonde qui doit dire, depuis `/api/sante`, si le conteneur peut

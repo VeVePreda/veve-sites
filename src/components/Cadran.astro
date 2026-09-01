@@ -31,7 +31,7 @@
 // catalogue du 16/07, la réparation a tourné le 22/07, et le garde-fou
 // n'était posé que sur UN des deux chemins d'export). Un min/max lu sur la
 // série observée ne peut pas être incohérent avec la courbe qu'il annote.
-import { t, nu, numberLocale, dateLocale } from '../../engine/lib/i18n.mjs';
+import { t, nu, numberLocale, dateLocale, localize } from '../../engine/lib/i18n.mjs';   // 🔴 LOT 213 — `localize` pour le lien du teasing
 import { porte, PALIERS, plages } from '../../engine/lib/access.mjs';
 import { manifest } from '../../engine/lib/manifest.mjs';
 import { pick } from '../../engine/lib/i18n.mjs';
@@ -203,6 +203,58 @@ const pilote = moduleJs('cadran');
       </div>
       <div data-svg></div>
       <div class="info-bulle" data-bulle hidden></div>
+    </div>
+
+    {/* ═══════════════════════════════════════════════════════════════════
+        🔑🔴🔴 LOT 213 — LE TEASING. IL ROUVRE LA DECISION DU LOT 123, EXPRES.
+        ═══════════════════════════════════════════════════════════════════
+        Le 123 avait retire le panneau verrouille en posant : « un emplacement
+        vide se lit comme une panne ; un emplacement ABSENT ne se lit pas du
+        tout. » La regle etait juste et le resultat mesure le 01/09 l'etait
+        aussi : un visiteur ne voyait RIEN — pas meme qu'une profondeur existe
+        et se vend. ⇒ ARBITRAGE PREDA DU 01/09, sur maquette : « montrer la
+        forme + les 5 cadenas ».
+        ⭐ Ce n'est pas le panneau du 123 qui revient. Le 123 refusait un
+        emplacement VIDE ; celui-ci n'est pas vide — il porte une phrase, un
+        cadenas et une destination. La regle du 123 tient toujours contre ce
+        qu'elle visait : un cadre gris, une silhouette muette, un « bientot ».
+
+        ⛔⛔ ET IL NE FUIT RIEN. C'est le point qui a coute le plus cher au lot
+        123, qui avait du supprimer `svgPublic` : celui-ci portait la COURBE
+        REELLE de la piece dans le HTML de chaque fiche — servie a tout le
+        monde, robots compris — sous une couche de flou qui n'est que de la
+        presentation, et qu'on retire en trois clics dans la console.
+        Ici : AUCUN releve, AUCUN montant, AUCUNE date ne descend. La forme
+        vit dans le THEME (`--courbe-m`), identique sur les 8 840 fiches, donc
+        structurellement incapable de decrire une piece.
+        ⭐ ET ELLE Y VIT AUSSI POUR LE POIDS : en SVG dans ce gabarit elle
+        pesait 8 840 fois ; dans la feuille elle pese UNE fois, dans un
+        fichier deja en cache. C'est le calcul du cadenas du lot 127.
+
+        ⚠️ VISIBLE PAR DEFAUT, MASQUE PAR LE SCRIPT — et pas l'inverse.
+        `cadran.js` sort a sa premiere ligne si `<html>` ne porte pas
+        `data-membre` : un teasing masque par defaut serait donc reste masque
+        pour EXACTEMENT le public a qui il s'adresse. L'etat sans JavaScript
+        doit etre l'etat du visiteur. */}
+    <div class="graph-teaser" data-teaser>
+      {/* ⚠️ `aria-hidden` SUR LA RANGEE, ET PAS SUR LE VOILE. Ces libellés
+          sont decoratifs : ils ne cliquent pas, et « 3d 7d 30d 90d Max » lu a
+          voix haute n'apprend rien. Le message accessible est la PHRASE du
+          voile, qui dit ce qui existe et ce qui l'ouvre.
+          ⛔ Ce sont des `span`, jamais des `button` : cinq boutons morts
+          entreraient dans l'ordre de tabulation pour ne rien faire — et
+          `test:plages`, qui compte les `<button … data-verrou … title>`,
+          verrait son chiffre doubler sans qu'une seule plage soit servie. */}
+      {LES_PLAGES.length > 0 && (
+        <div class="plages plages--vitrine" aria-hidden="true">
+          {LES_PLAGES.map((pl) => (<span data-verrou>{libelle(pl.cle)}</span>))}
+        </div>
+      )}
+      <div class="graph-teaser__voile">
+        <span class="graph-teaser__cad" aria-hidden="true"></span>
+        <p>{t(lang, 'item.teaseHistory')}</p>
+        <a class="puce" href={localize(lang, '/offre/')}>{t(lang, 'nav.offer')}</a>
+      </div>
     </div>
   </div>
 )}

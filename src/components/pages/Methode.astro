@@ -1,0 +1,229 @@
+---
+// ⚠️ VeVePreda/veve-sites — src/components/pages/Methode.astro   (FICHIER NEUF — lot 213)
+//
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔑🔴🔴🔴 CETTE PAGE DIT LE RÉSULTAT, ELLE NE DIT JAMAIS LA RECETTE
+// ═══════════════════════════════════════════════════════════════════════════
+// ARBITRAGE PREDA DU 01/09/2026, sur maquette : « la méthode donne un peu trop
+// la secret sauce ; si un concurrent se base sur ces propos il peut recréer
+// notre service. »
+//
+// ⛔ SONT INTERDITS SUR CETTE PAGE, ET LE RESTENT :
+//   · les TROIS SEUILS chiffrés du contrôle des planchers. On dit qu'un
+//     contrôle existe et CE QU'IL CROISE ; on n'écrit jamais ses nombres.
+//   · la SOURCE du cours OMI→USD. On dit « le cours du jour de la vente ».
+//   · une section « ce que ce site ne fera pas » — elle vit sur `/offre/`
+//     (`offer.p1`, `p2`, `p3`), et une promesse écrite à deux endroits finit
+//     par se contredire.
+//
+// ⚠️ ET CE RETRAIT NE FERME PAS LE TROU, il ferme la vitrine. Mesuré le
+// 01/09 : `veve-sites` est un dépôt PUBLIC, et `sites/veveprice/manifest.yml`
+// rend 200 sur `raw.githubusercontent.com` SANS AUCUN JETON — les trois seuils
+// s'y lisent en clair. Les fermer vraiment demande de passer le dépôt en
+// privé, avec Coolify à revalider : c'est un chantier, pas ce lot.
+// ⛔ Ne pas laisser croire, plus tard, que le 213 avait bouché ça.
+//
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐⭐⭐ LA FAQ N'EST PAS RECOPIÉE ICI, ELLE EST RÉUTILISÉE
+// ═══════════════════════════════════════════════════════════════════════════
+// Mesuré AVANT d'écrire : `vitrine.faq` du manifeste porte déjà quatre
+// réponses, traduites, dont « D'où viennent les prix ? » et « Le prix plancher
+// est-il un prix de vente ? ». Elles étaient affichées sur l'ACCUEIL et nulle
+// part ailleurs.
+// ⛔ Les réécrire ici aurait produit deux définitions du même mot, dans deux
+// fichiers, sans rien pour les tenir d'accord — exactement le défaut que
+// `pick()` existe pour éviter. La page les LIT.
+// ⚠️ `pick()` et pas `t()` : ces textes vivent au MANIFESTE (une valeur par
+// langue dans le même document), pas dans les dictionnaires. Deux magasins,
+// deux lecteurs, et les confondre rend une chaîne vide sans erreur.
+//
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔢 LES QUATRE CHIFFRES SONT VIVANTS — c'est ce qui rend la page crédible
+// ═══════════════════════════════════════════════════════════════════════════
+// Ils sont comptés sur `ds.items` AU BUILD, jamais écrits à la main. Le jour
+// où le catalogue passe à 9 000, la page le dit toute seule ; une page de
+// confiance qui affiche un chiffre périmé dessert plus qu'elle ne sert.
+// ⭐ `dataset()` est mémoïsé (une promesse, pas un résultat) : cet appel ne
+// relit rien, il rejoint celui des dix-huit autres routes.
+// ⛔ AUCUN MONTANT ne descend d'ici dans le HTML. Ce sont des COMPTEURS de
+// lignes — pas un plancher, pas une médiane, pas une cote. La règle « le prix
+// n'est jamais dans le HTML » n'est pas entamée, et `test:fuite` n'a pas de
+// nouveau champ à couvrir.
+import Base from '../../layouts/Base.astro';
+import { dataset } from '../../../engine/lib/dataset.mjs';
+import { manifest } from '../../../engine/lib/manifest.mjs';
+import { t, pick, localize, numberLocale } from '../../../engine/lib/i18n.mjs';
+
+const { lang } = Astro.props;
+const m = manifest();
+const V = m.vitrine || {};
+
+const ds = await dataset();
+
+// ⚠️ LES TROIS COMPTEURS SE LISENT SUR LA MÊME LISTE, ET C'EST DÉLIBÉRÉ.
+// `ds.items` est ce que la vitrine PUBLIE. Compter les écartés sur une autre
+// liste que celle du total donnerait deux dénominateurs et une fraction fausse
+// — « 44 sur 8 840 » ne veut rien dire si les deux nombres ne parlent pas des
+// mêmes pièces.
+const total = ds.items.length;
+const ecartes = ds.items.filter((i) => i.floorEcarte).length;
+const avecImage = ds.items.filter((i) => i.image).length;
+
+// ⭐ LE GROUPEMENT DES MILLIERS N'EST PAS COSMETIQUE : 8 840 s'écrit « 8,840 »
+// en anglais et « 8 840 » en français. Un chiffre mal groupé sur une page qui
+// vend la rigueur se remarque avant l'argument.
+//
+// 🔴🔴 ET J'AI ECRIT `numberLocale(lang, n)` AU PREMIER JET — LE BUILD A JETE
+// (« numberLocale is not a function »). `numberLocale` n'est PAS une fonction :
+// c'est une TABLE (`{ en: 'en-GB', fr: 'fr-FR', … }`), et son nom seul ne le
+// dit pas. Les dix-huit autres pages s'en servent toutes ainsi — j'ai deduit
+// un usage d'un nom au lieu d'aller lire un appel existant.
+// ⭐ *Chercher un USAGE, jamais un nom* : `grep numberLocale` sur `Home.astro`
+//   donnait la reponse en une ligne, avant d'ecrire.
+// ⚠️ LE REPLI EST NOMME (`'en-GB'`), comme partout ailleurs : une langue neuve
+//   au manifeste rendrait `undefined`, et `toLocaleString(undefined)` prend
+//   silencieusement la locale de la MACHINE DE BUILD — donc un groupement qui
+//   change avec le serveur, sans qu'aucun banc le voie.
+const nf = numberLocale[lang] || 'en-GB';
+const nb = (n) => n.toLocaleString(nf);
+
+// ⚠️ LE POURCENTAGE EST ARRONDI À L'ENTIER, ET IL EST CALCULÉ, PAS ÉCRIT.
+// `Math.round` et non `toFixed(0)` : sur un catalogue vide le second rendrait
+// « NaN » dans la page. Le garde-fou est le `total > 0`, pas la mise en forme.
+const partImage = total > 0 ? Math.round((avecImage / total) * 100) : 0;
+
+// 🕐 LA DATE DE MESURE. `ds.updatedAt` est la même que celle du pied de page et
+// de toutes les autres pages : une seule horloge pour tout le site.
+// ⛔ Surtout pas `new Date()` — la page afficherait l'heure du BUILD, qui n'est
+// pas l'heure du RELEVÉ. Deux instants différents, et c'est le second qui
+// intéresse un lecteur qui doute d'un prix.
+const maj = ds.updatedAt ? new Date(ds.updatedAt) : null;
+const majTexte = maj
+  ? maj.toLocaleDateString(lang, { year: 'numeric', month: 'long', day: 'numeric' })
+  : null;
+
+const titre = t(lang, 'method.title');
+const desc = t(lang, 'desc.method');
+---
+<Base sect="analyse" lang={lang} path="/how-prices-work/" title={titre} description={desc}
+      updatedAt={ds.updatedAt}
+      crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') }, { name: titre }]}>
+
+  <p class="etiq etiq--bleu tete-p__st">// {t(lang, 'method.kicker')}</p>
+  <h1 class="mono-t">{titre}</h1>
+  <p class="respire">{t(lang, 'method.lead')}</p>
+
+  {/* ── LES QUATRE CHIFFRES ─────────────────────────────────────────────── */}
+  {/* 🔴🔴 DEUX MARQUAGES DE `.stat` COEXISTENT DANS CE DÉPÔT, ET J'AI FAILLI
+      PRENDRE LE MAUVAIS. Mesuré le 01/09 :
+        · `.stat > .k + .v`            → n'est émis QUE par `/compte/`, une
+          page rendue à la demande ;
+        · `.stats > .stat > .etiq + .stat__v` → c'est le motif des pages
+          PUBLIQUES (`CollectionPage.astro`).
+      Les deux sont habillés, donc les deux ont l'air justes en lisant le
+      thème. Ce qui les départage tient en une règle : `.stats` porte une
+      grille MOBILE (`max-width:640px` → 2 colonnes) que `.k`/`.v` n'a pas.
+      Sur la capture ~390 px, le premier marquage aurait empilé quatre blocs
+      pleine largeur. ⭐ *Le bon marquage n'est pas celui qui compile, c'est
+      celui dont la feuille prévoit le petit écran.*
+      ⛔ PAS de `.panneau` en plus : `.stat` porte déjà fond, bordure et rayon.
+      Les cumuler dessinerait deux bordures concentriques. */}
+  <div class="stats" style="margin-top:var(--s5)">
+    <div class="stat stat--bleu">
+      <div class="etiq">{t(lang, 'method.stat.total')}</div>
+      <div class="stat__v">{nb(total)}</div>
+    </div>
+    <div class="stat">
+      <div class="etiq">{t(lang, 'method.stat.flagged')}</div>
+      <div class="stat__v">{nb(ecartes)}</div>
+    </div>
+    <div class="stat">
+      <div class="etiq">{t(lang, 'method.stat.withImage')}</div>
+      {/* ⚠️ LE POURCENTAGE EST UN SECOND NŒUD, pas une chaîne collée au
+          nombre. `.stat__v` est un `flex` à `align-items:baseline` : il sait
+          poser une unité à côté d'une valeur, et c'est exactement à ça qu'il
+          sert sur les autres pages. Concaténer aurait donné la même image en
+          annulant l'alignement typographique. */}
+      <div class="stat__v">{nb(avecImage)}<span class="etiq">{partImage} %</span></div>
+    </div>
+    {majTexte && (
+      <div class="stat">
+        <div class="etiq">{t(lang, 'method.stat.measured')}</div>
+        <div class="stat__v" style="font-size:var(--t-md)">{majTexte}</div>
+      </div>
+    )}
+  </div>
+
+  {/* ── ① CE QUE « PLANCHER » VEUT DIRE ─────────────────────────────────── */}
+  <div class="sect-t sect-t--gd"><h2 class="mono-t">{t(lang, 'method.h.floor')}</h2></div>
+  <div class="prose">
+    <p>{t(lang, 'method.floor.p1')}</p>
+    <p>{t(lang, 'method.floor.p2')}</p>
+  </div>
+
+  {/* ── ② CE QU'ON REFUSE DE COMPTER ────────────────────────────────────── */}
+  {/* 🔑 ICI, ET NULLE PART AILLEURS, SE TIENT L'ARBITRAGE DU 01/09.
+      `method.excluded.p1` décrit CE QUE LE CONTRÔLE CROISE — le niveau du
+      prix, le nombre d'offres qui le portent, le passé de la pièce. Il ne
+      donne aucun seuil. ⛔ Ne pas « préciser » ce paragraphe : le rendre
+      exact au nombre près, c'est le rendre copiable. */}
+  <div class="sect-t sect-t--gd"><h2 class="mono-t">{t(lang, 'method.h.excluded')}</h2></div>
+  <div class="prose">
+    <p>{t(lang, 'method.excluded.p1')}</p>
+    {/* ⚠️ LES DEUX NOMBRES SONT SUBSTITUÉS, PAS CONCATÉNÉS. Le dictionnaire
+        porte la phrase entière avec ses deux emplacements, donc chaque langue
+        met le sujet et le complément dans SON ordre. Une concaténation aurait
+        figé l'ordre anglais dans les cinq. */}
+    <p>{t(lang, 'method.excluded.count', { n: nb(ecartes), total: nb(total) })}</p>
+    <p>{t(lang, 'method.excluded.p2')}</p>
+  </div>
+
+  {/* ── ③ LES DEUX MARCHÉS ──────────────────────────────────────────────── */}
+  {/* ⛔⛔ `stackr` EST EN OMI, `veve` EST EN USD — DEUX MARCHÉS, JAMAIS FONDUS.
+      C'est la mise en garde que ce lot devait publier, et elle est vraie
+      aujourd'hui : les deux relevés sont stockés et affichés séparément. */}
+  <div class="sect-t sect-t--gd"><h2 class="mono-t">{t(lang, 'method.h.markets')}</h2></div>
+  <div class="prose">
+    <p>{t(lang, 'method.markets.p1')}</p>
+    <p>{t(lang, 'method.markets.p2')}</p>
+  </div>
+
+  {/* ── ④ LE COURS DE CONVERSION ────────────────────────────────────────── */}
+  {/* ⛔ AUCUNE SOURCE NOMMÉE. On dit QUEL cours (celui du jour de la vente) et
+      qu'il est affiché à côté du montant — donc refaisable par le lecteur.
+      D'où il vient ne regarde pas un concurrent. */}
+  <div class="sect-t sect-t--gd"><h2 class="mono-t">{t(lang, 'method.h.rate')}</h2></div>
+  <div class="prose">
+    <p>{t(lang, 'method.rate.p1')}</p>
+  </div>
+
+  {/* ── ⑤ LA FAQ DU MANIFESTE, RÉUTILISÉE ───────────────────────────────── */}
+  {/* ⭐⭐ MÊME MARQUAGE QUE L'ACCUEIL (`.faq`, `.faq__n`, `.faq__c`, `<details>`)
+      parce que c'est le MÊME contenu. Un second habillage aurait fait diverger
+      deux rendus d'une seule source — et le thème n'a qu'un jeu de règles.
+      ⚠️ Le compteur repart de 001 ici : il numérote la LISTE affichée, pas une
+      identité de question. Deux pages, deux listes, et rien ne les lie. */}
+  {V.faq?.length > 0 && (
+    <>
+      <div class="sect-t sect-t--gd"><h2 class="mono-t">{t(lang, 'home.faq')}</h2></div>
+      <div class="faq">
+        {V.faq.map((f, k) => (
+          <details>
+            <summary><span class="faq__n">{String(k + 1).padStart(3, '0')}</span>{pick(f.q, lang)}</summary>
+            <div class="faq__c">{pick(f.r, lang)}</div>
+          </details>
+        ))}
+      </div>
+    </>
+  )}
+
+  {/* ── LA MENTION DE MESURE ────────────────────────────────────────────── */}
+  {/* ⭐ ELLE PORTE LA MÊME DATE QUE LES CHIFFRES DU HAUT, prise à la même
+      source. Une page qui affirme « relevé et horodaté » et n'ose pas dire
+      QUAND se dément toute seule. */}
+  {majTexte && (
+    <p class="etiq" style="margin-top:var(--s6)">
+      {t(lang, 'method.measuredOn', { date: majTexte })}
+    </p>
+  )}
+</Base>
