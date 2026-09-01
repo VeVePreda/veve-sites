@@ -6,6 +6,11 @@ import Base from '../../layouts/Base.astro';
 import Cadran from '../Cadran.astro';
 import { dataset } from '../../../engine/lib/dataset.mjs';
 import Cote from '../Cote.astro';
+// 💰 LOT 211 — LE PILOTE DU TABLEAU DES VENTES.
+// ⭐ `moduleJs`, PAS le socle global : ce code ne sert que sur une fiche. Le
+// verser a `src/socle/*.js` le ferait telecharger par les rayons et l'accueil,
+// qui n'ont aucun `[data-ventes]` — meme arbitrage que `Cadran.astro`.
+import { moduleJs } from '../../../engine/lib/socle_js.mjs';
 import { productLd, breadcrumbLd, couperMilieu } from '../../../engine/lib/seo.mjs';
 import { manifest, siteUrl } from '../../../engine/lib/manifest.mjs';
 import { DESC_MIN, DESC_MAX } from '../../../engine/lib/editorial_pages.mjs';
@@ -1124,6 +1129,106 @@ const mcpJour = mcpPoints(item.rarity, item.type);
               total={item.totalPoints} shown={item.points} />
     </div>
   </div>
+
+  {/* ═══════════════════════════════════════════════════════════════════════
+      💰 LOT 211 — LES DERNIERES VENTES REELLES. Arbitrage Preda du 01/09.
+      ═══════════════════════════════════════════════════════════════════════
+      🔴 CE N'EST PAS LE TABLEAU RETIRE LE 03/08. Celui-la (« derniers
+      releves ») redisait en chiffres ce que la courbe juste au-dessus dit en
+      forme — deux fois la meme observation. Celui-ci porte des TRANSACTIONS :
+      qui a paye combien, a qui, et quel jour. Aucune courbe ne dit ca. Preda a
+      re-tranche le 01/09 en connaissant le precedent.
+
+      ⭐⭐⭐ IL N'EXISTE QUE SI DES VENTES EXISTENT, et c'est tout le role de
+      `item.nVentes`. Sans ce compte, le bloc s'emettrait sur les 8 840 fiches
+      et poserait un cadenas sur les ~68 % qui n'ont aucune vente collectee :
+      *un cadenas qui ment est pire qu'un tiret nu* (Cote.astro, lot 101). Un
+      emplacement ABSENT ne se lit pas du tout — la lecon du lot 123.
+      ⛔ Ne JAMAIS remplacer ce test par un `hidden` leve en JS : le HTML
+      porterait alors une promesse que 68 % des fiches ne peuvent pas tenir, et
+      un robot la lirait.
+
+      🔐 AUCUN MONTANT N'EST ICI, ET AUCUN NE PEUT L'ETRE. Le prix n'est jamais
+      dans le HTML (projeter(), cote.mjs) — la donnee arrive par un appel a
+      `/api/ventes/<uuid>`, pour qui a une session. Le tableau part donc VIDE.
+      ⛔ ET SURTOUT : LA TRAME SOUS LE VOILE NE PORTE AUCUN CHIFFRE. Preda a
+      demande le tableau floute ; un tableau floute de vrais montants les
+      servirait a tout le monde, robots compris, sous une couche de flou qui
+      n'est que de la PRESENTATION — c'est exactement la fuite que le lot 123 a
+      fermee en retirant `svgPublic`. Et des montants INVENTES pour faire joli
+      seraient pires encore. La trame est donc structurelle : des cellules
+      vides, qui donnent sa hauteur au bloc et rien d'autre.
+
+      ⭐⭐ ZERO OCTET DE CSS AJOUTE. `.verrou`, `.verrou__fond`, `.verrou__voile`,
+      `.verrou__in`, `.verrou__t`, `.verrou__d`, `.cadenas`, `.tbl-hote` et les
+      styles de `table` existent tous depuis les lots 45 et 123 — et
+      `.verrou__*` n'etait EMIS PAR AUCUN GABARIT depuis que le lot 123 a retire
+      le panneau du cadran. On ne cree rien : on rend enfin ce que la feuille
+      attendait, sur un cliquet de 4 096 o servi 3 097 fois.
+      ⚠️ CONSEQUENCE : ce chemin CSS n'a jamais ete VU en production. *Un chemin
+      jamais emprunte n'est pas sur, il est non mesure.* Une capture est due.
+
+      🔑 `data-l-*` PORTE TOUS LES MOTS. `ventes.js` est du JS de socle : il n'a
+      aucun acces aux dictionnaires, et `test:cles_i18n` ne lit pas le JS. Un
+      libelle en dur dans le module rendrait le tableau francais sur les cinq
+      langues sans qu'aucun banc ne le voie (panne P30 du lot 139). */}
+  {item.nVentes > 0 && (
+    <div class="verrou" data-ventes={item.uuid} data-verrouille>
+      <div class="tbl-hote verrou__fond" data-ventes-fond>
+        <table>
+          <caption class="mur__k" style="padding:14px 15px 12px;text-align:left">
+            {t(lang, 'ventes.titre')}
+          </caption>
+          <thead>
+            <tr>
+              <th>{t(lang, 'ventes.date')}</th>
+              <th class="n">{t(lang, 'ventes.edition')}</th>
+              <th class="n">{t(lang, 'ventes.prix')}</th>
+              <th>{t(lang, 'ventes.marche')}</th>
+              <th>{t(lang, 'ventes.qui')}</th>
+            </tr>
+          </thead>
+          {/* 🧱 LA TRAME — quatre lignes vides, et pas une de plus.
+              Elle donne au bloc la hauteur sans laquelle le voile n'aurait rien
+              a couvrir : un `.tbl-hote` a `tbody` vide fait 40 px, et le
+              panneau du verrou deborderait par-dessus le texte suivant.
+              ⚠️ `&#160;` ET PAS UNE CHAINE VIDE : une cellule vide est repliee
+              par le navigateur et la ligne retombe a zero — l'espace insecable
+              est ce qui la tient ouverte. C'est un caractere de MISE EN PAGE,
+              il ne dit rien et ne peut rien dire.
+              ⛔ Elle disparait au deverrouillage, avec le voile et le flou. */}
+          <tbody data-ventes-trame aria-hidden="true">
+            {[0, 1, 2, 3].map(() => (
+              <tr>{[0, 1, 2, 3, 4].map(() => <td>&#160;</td>)}</tr>
+            ))}
+          </tbody>
+          <tbody data-ventes-corps></tbody>
+        </table>
+      </div>
+      {/* ⭐ LE VOILE ANNONCE UN NOMBRE MESURE, JAMAIS UNE ESTIMATION.
+          `item.nVentes` est le cardinal exact des ventes deposees dans la
+          reserve pour cette piece — c'est la seule valeur vraie que le HTML
+          public peut porter sur ce sujet, et un cardinal ne laisse deduire
+          aucun montant. `item.listings` est public au meme titre depuis le
+          lot 43 : ce sont des faits de catalogue. */}
+      <div class="verrou__voile" data-ventes-voile>
+        <div class="verrou__in">
+          <span class="cadenas" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+              <rect x="4.5" y="10.5" width="15" height="10" rx="2" /><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5" />
+            </svg>
+          </span>
+          <p class="verrou__t">{t(lang, 'ventes.verrou.t', { n: nu(item.nVentes.toLocaleString(nf)) })}</p>
+          <p class="verrou__d">{t(lang, 'ventes.verrou.d')}</p>
+        </div>
+      </div>
+    </div>
+  )}
+  {/* ⭐ LE PILOTE N'EST EMIS QUE SI LE BLOC L'EST. Un `<script>` inconditionnel
+      partirait sur les 8 840 fiches pour ne rien trouver a remplir sur 68 %
+      d'entre elles — et `socle_js.mjs` refuse par construction un module qui
+      n'a pas d'hote. La condition voyage avec le code, ou elle disparait. */}
+  {item.nVentes > 0 && <script defer src={moduleJs('ventes').href}></script>}
 
   {item.prixAberrant && <p class="avertis">{t(lang, 'item.outlier')}</p>}
 

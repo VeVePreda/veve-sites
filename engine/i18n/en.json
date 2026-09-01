@@ -538,5 +538,13 @@
   "caisse.back": "Choose another tier",
   "caisse.received": "Payment received. Opening your access…",
   "caisse.error": "The order could not be opened. Please try again in a moment.",
-  "caisse.expired": "expired"
+  "caisse.expired": "expired",
+  "ventes.titre": "Recent sales",
+  "ventes.date": "Date",
+  "ventes.edition": "Ed.",
+  "ventes.prix": "Price",
+  "ventes.marche": "Market",
+  "ventes.qui": "Seller → Buyer",
+  "ventes.verrou.t": "{n} real sales on this piece",
+  "ventes.verrou.d": "Date, edition, price paid and counterparties. A free account opens them."
 }

@@ -158,6 +158,22 @@ export function ecrire(lignes, publies) {
   }
 
   let fichiers = 0, ventes = 0, octets = 0;
+  // 🔢 LOT 211 — LE COMPTE PAR PIECE SORT D'ICI, ET DE NULLE PART AILLEURS.
+  // La fiche doit savoir s'il existe des ventes AVANT d'emettre quoi que ce
+  // soit : sans ce compte, le bloc s'emettrait sur les 8 840 fiches et
+  // afficherait un cadenas sur les ~68 % qui n'ont aucune vente — un cadenas
+  // qui MENT, exactement ce que `Cote.astro` interdit depuis le lot 101
+  // (« un cadenas qui ment est pire qu'un tiret nu »).
+  // ⭐⭐ IL SE PREND ICI PARCE QU'ICI EST LE SEUL ENDROIT QUI SAIT. `par` vient
+  // d'etre filtre par `garder` (uuid publies), trie, et il disparait a la fin
+  // de cette fonction. Le recompter dans `dataset.mjs` demanderait de relire
+  // le CSV une seconde fois — et deux comptes du meme fait divergent un jour.
+  // ⛔ UN COMPTE N'EST PAS UN MONTANT. `item.listings` (nombre d'offres) est
+  // deja public dans les murs depuis le lot 43 au meme titre : c'est un fait de
+  // catalogue. Aucun prix ne se deduit d'un cardinal — et `projeter()` retire
+  // des champs par LISTE NOIRE (`CHAMPS_COTE`), donc celui-ci survit par
+  // construction, sans qu'on ait a l'y inscrire.
+  const comptes = new Map();
   for (const [u, b] of par) {
     // 🔴 LE TRI EST REFAIT ICI, ET CE N'EST PAS UNE REDONDANCE.
     // `ventes_agregat.py` trie déjà par (pièce, date décroissante) — mais ce
@@ -169,6 +185,7 @@ export function ecrire(lignes, publies) {
     const json = JSON.stringify(b);
     writeFileSync(join(VENTES_DIR, `${u}.json`), json);
     fichiers++; ventes += b.length; octets += json.length;
+    comptes.set(u, b.length);
   }
 
   console.log(`[ventes] ${fichiers} fiches, ${ventes} ventes, ${octets} o`
@@ -198,7 +215,11 @@ export function ecrire(lignes, publies) {
     console.warn('::warning title=Ventes refusees en masse::Verifier les colonnes de ventes_stackr.csv');
   }
 
-  return { fichiers, ventes, octets, refuses, sansPage, horsForme };
+  // ⭐ `comptes` VOYAGE AVEC LES COMPTEURS, dans le meme objet. Un second
+  // canal (un export mutable, un fichier annexe) serait un second etat a tenir
+  // en phase avec celui-ci — et le jour ou l'un des deux bouge sans l'autre,
+  // la fiche annonce un nombre de ventes que la reserve ne porte pas.
+  return { fichiers, ventes, octets, refuses, sansPage, horsForme, comptes };
 }
 
 // ⭐ Exportés pour le banc, et pour lui seul : un banc qui réécrit la liste des

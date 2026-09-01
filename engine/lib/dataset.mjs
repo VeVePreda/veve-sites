@@ -1414,7 +1414,22 @@ async function construireDataset() {
   // ⚠️ MEME `Set`, MEME MOMENT : si un jour l'un des deux appels bouge sans
   // l'autre, les deux reserves cessent de decrire le meme site — et rien ne
   // le dirait.
-  ventes.ecrire(lignesVentes, new Set(items.map((i) => i.uuid)));
+  const nVentes = ventes.ecrire(lignesVentes, new Set(items.map((i) => i.uuid))).comptes;
+  // 🔢 LOT 211 — LE COMPTE REJOINT L'OBJET PUBLIC, ET IL EST LE SEUL A LE FAIRE.
+  // ⭐⭐⭐ SANS LUI, LA FICHE NE PEUT PAS SE TAIRE. Le gabarit n'a aucun moyen
+  // de savoir si une piece a des ventes : la donnee est dans `.reserve/`, et
+  // une reserve ne se lit pas au build d'une page. Il emettrait donc son bloc
+  // partout, et les ~68 % de fiches sans aucune vente porteraient un cadenas
+  // sur du VIDE. *Une absence deguisee en reserve est le defaut de famille de
+  // ce depot* — le meme que `data-attente` repare dans les murs.
+  // ⛔ ET SURTOUT : IL INTERDIT D'INVENTER. Le teaser du visiteur annonce un
+  // NOMBRE ; ce nombre doit etre mesure, jamais estime. C'est la seule valeur
+  // vraie que le HTML public peut porter sur ce sujet.
+  // ⚠️ ICI, ET PAS PLUS BAS. Sous `projeterCote()` la boucle tournerait encore
+  // — mais elle marcherait, et c'est le piege : on prendrait l'habitude de
+  // poser des champs apres la projection, jusqu'au jour ou l'un d'eux lit un
+  // prix efface. La regle tient parce qu'elle n'a pas d'exception.
+  for (const i of items) i.nVentes = nVentes.get(i.uuid) || 0;
 
   // ═════════════════════════════════════════════════════════════════════════
   //  🔴 LA PROJECTION PUBLIQUE — DERNIÈRE ÉTAPE, ET ELLE DOIT LE RESTER

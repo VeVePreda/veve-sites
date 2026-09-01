@@ -165,6 +165,83 @@ const hl = ecrire([L({ element_id: 'sample-0000-582307' })],
 verifie('hors ligne : 0 fichier, compte en horsForme, AUCUN refus',
   hl.fichiers === 0 && hl.horsForme === 1 && hl.refuses === 0, JSON.stringify(hl));
 
+
+// ── 8. LE BLOC DE LA FICHE NE PORTE AUCUN CHIFFRE ──────────────────────────
+// 🔴🔴🔴 C'EST LE SEUL BANC QUI GARDE CE CHEMIN, ET IL A FALLU LE MESURER POUR
+// LE SAVOIR. `test:fuite` ne couvre PAS les ventes : il tire ses montants
+// temoins du journal de `.reserve/cote/`, qui ne contient que `floor`, `ath`,
+// `atl`, `prixMedian` et `p95`. Un prix de vente ecrit dans le HTML d'une fiche
+// passerait donc sous TOUS les bancs du depot. *Un chemin jamais emprunte n'est
+// pas sur, il est non mesure.*
+//
+// ⭐⭐⭐ ET LA QUESTION A UNE REPONSE DANS LES DEUX ETATS. Un banc qui ne
+// regarderait `dist/` que s'il y trouve des blocs serait MUET hors ligne — ou
+// le jour ou une regression cesse d'emettre le bloc, c'est-a-dire exactement
+// quand il devrait crier. L'auto-controle plus bas s'execute TOUJOURS : meme a
+// zero bloc, ce banc prouve au moins que son detecteur mord.
+const CHIFFRE = /\d/;
+
+// ⭐ Le detecteur, ecrit une fois et exerce deux fois — sur la production et
+// sur un temoin fabrique. Deux implementations divergeraient, et c'est le
+// temoin qui deviendrait faux en silence.
+function blocsSansChiffre(html) {
+  const mauvais = [];
+  const re = /<div class="verrou" data-ventes=[\s\S]*?<\/table>/g;
+  let m, n = 0;
+  while ((m = re.exec(html)) !== null) {
+    n++;
+    // ⛔ ON RETIRE LES EN-TETES ET LE TITRE AVANT DE CHERCHER : ce sont des
+    // mots traduits, pas de la donnee, et « Ed. » ou « Série 6 » peuvent
+    // legitimement porter un chiffre. Ce qu'on interdit, c'est un chiffre dans
+    // les CELLULES — la ou un montant se logerait.
+    const corps = m[0].slice(m[0].indexOf('<tbody'));
+    const texte = corps.replace(/<[^>]*>/g, '').replace(/&#160;|&nbsp;/g, '');
+    if (CHIFFRE.test(texte)) mauvais.push(texte.trim().slice(0, 60));
+  }
+  return { n, mauvais };
+}
+
+const DIST = process.env.DIST_DIR || new URL('../../dist', import.meta.url).pathname;
+let blocs = 0, sales = [];
+if (existsSync(DIST)) {
+  // ⭐ Parcours explicite : `e.parentPath` n'existe pas avant Node 20.12, et un
+  // banc qui depend d'une version de Node se met a mentir sur une autre machine
+  // sans que personne ne change une ligne de code.
+  const pile = [DIST];
+  while (pile.length) {
+    const dossier = pile.pop();
+    for (const e of readdirSync(dossier, { withFileTypes: true })) {
+      const chemin = join(dossier, e.name);
+      if (e.isDirectory()) pile.push(chemin);
+      else if (e.name === 'index.html') {
+        const r = blocsSansChiffre(readFileSync(chemin, 'utf8'));
+        blocs += r.n;
+        for (const x of r.mauvais) sales.push(`${chemin}: ${x}`);
+      }
+    }
+  }
+  verifie('aucun bloc de ventes de `dist/` ne porte un chiffre dans ses cellules',
+    sales.length === 0, `${blocs} bloc(s) lu(s)` + (sales.length ? ` · ${sales[0]}` : ''));
+} else {
+  // ⚠️ « SANS OBJET » N'EST PAS UN INDECIDABLE : le banc dit ce qu'il n'a pas
+  // mesure, et l'auto-controle ci-dessous tourne quand meme.
+  console.log('  ··  dist/ absent — la mesure sur la production est SANS OBJET (l\'auto-controle, lui, s\'execute)');
+}
+
+// ── 8bis. L'AUTO-CONTROLE — le banc se juge lui-meme ───────────────────────
+// ⭐⭐ SANS CES DEUX LIGNES, LE CONTROLE 8 EST VRAI POUR RIEN. Hors ligne il lit
+// zero bloc ; « zero bloc sale sur zero bloc » est vrai et ne prouve rien. Ces
+// temoins repondent a la seule question qui compte : *si un montant etait la,
+// est-ce que je le verrais ?*
+const TEMOIN_PROPRE = '<div class="verrou" data-ventes="x"><table><thead><tr><th>Ed. 6</th></tr></thead>'
+  + '<tbody data-ventes-trame><tr><td>&#160;</td></tr></tbody><tbody data-ventes-corps></tbody></table>';
+const TEMOIN_SALE = '<div class="verrou" data-ventes="x"><table><thead><tr><th>Ed.</th></tr></thead>'
+  + '<tbody data-ventes-trame><tr><td>$6.00</td></tr></tbody><tbody data-ventes-corps></tbody></table>';
+verifie('le detecteur sait dire « propre » (sinon le controle 8 serait vrai par accident)',
+  blocsSansChiffre(TEMOIN_PROPRE).mauvais.length === 0);
+verifie('le detecteur sait dire « sale » (sinon le controle 8 ne mordrait jamais)',
+  blocsSansChiffre(TEMOIN_SALE).mauvais.length === 1);
+
 rmSync(DIR, { recursive: true, force: true });
 console.log(`\n${echecs === 0 ? '✅' : '❌'} ventes : ${cas - echecs}/${cas} controles passes.\n`);
 process.exit(echecs === 0 ? 0 : 1);
