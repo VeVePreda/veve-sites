@@ -103,6 +103,29 @@ const BUILD = typeof __BUILD_TIME__ === 'string' ? __BUILD_TIME__ : null;
 const COMMIT = typeof __COMMIT__ === 'string' && __COMMIT__ ? __COMMIT__ : null;
 
 // ═══════════════════════════════════════════════════════════════════════════
+// ⏱️🔴🔴🔴 LOT 214 — `demarre` : L'INSTANT OÙ CE PROCESSUS A COMMENCÉ À VIVRE
+// ═══════════════════════════════════════════════════════════════════════════
+// CE QU'IL DIT, ET RIEN D'AUTRE : `demarre − build` est la durée de TOUT ce qui
+// se passe APRÈS que l'image est faite — pousser l'image, la tirer, démarrer le
+// conteneur, basculer le proxy. C'est la seule phase du déploiement qu'AUCUN
+// instrument de ce dépôt ne voyait, et le chrono du Dockerfile ne peut pas la
+// voir non plus : elle commence après son dernier jalon.
+// 🔑 Le 01/09, l'écart total était de 43 minutes. Si `demarre − build` en fait
+//   deux, la cible est le BUILD ; s'il en fait trente, c'est la BASCULE — et
+//   ce sont deux chantiers qui n'ont rien à voir.
+//
+// ⛔ CE N'EST PAS EXACTEMENT LE DÉMARRAGE DU CONTENEUR, ET JE L'ÉCRIS PLUTÔT
+//    QUE DE LAISSER CROIRE LE CONTRAIRE : c'est le premier CHARGEMENT DE CE
+//    MODULE. En mode server Astro charge l'entrée au démarrage, donc les deux
+//    coïncident à quelques millisecondes ; si un jour le module devenait
+//    paresseux, cette valeur glisserait vers « le premier appel ». Elle reste
+//    un MAJORANT honnête du démarrage, jamais un minorant.
+// ⭐ Et c'est justement pour ça qu'elle est lue ICI, au chargement, et pas dans
+//   le `GET` : une date lue à la requête rendrait « maintenant », c'est-à-dire
+//   la seule réponse qui ne renseigne sur rien. Même leçon que `BUILD`.
+const DEMARRE = new Date().toISOString();
+
+// ═══════════════════════════════════════════════════════════════════════════
 // ❤️ LOT 140-3 — LA SENTINELLE DU VOLUME, ET ELLE EXISTE POUR UN OUBLI PRÉCIS
 // ═══════════════════════════════════════════════════════════════════════════
 // Sans volume monté sur `/data`, LES FAVORIS FONCTIONNENT. Ils se posent, ils
@@ -191,6 +214,15 @@ const memoireDuBuild = () => {
     return {
       picMo: Number.isFinite(r.picMo) ? r.picMo : null,
       plafondMo: Number.isFinite(r.plafondMo) ? r.plafondMo : null,
+      // ⏱️ LOT 214 — la charge de la MACHINE relevée à chaque jalon du build.
+      // ⭐ `coeurs` voyage avec, sinon le nombre ne se compare à rien : 3,5 est
+      //   catastrophique sur 2 cœurs et confortable sur 8. Même raison que
+      //   `plafondMo` à côté de `picMo`, une ligne plus haut.
+      // ⚠️ `null` et pas `0` sur un rapport écrit AVANT ce lot : un ancien
+      //   conteneur encore en service rendrait « charge nulle », c'est-à-dire
+      //   exactement la réponse qui innocenterait la piste qu'on instrumente.
+      chargeMax: Number.isFinite(r.chargeMax) ? r.chargeMax : null,
+      coeurs: Number.isFinite(r.coeurs) ? r.coeurs : null,
       etapes: Array.isArray(r.etapes) ? r.etapes : [],
     };
   } catch {
@@ -235,10 +267,99 @@ const marcheDuBuild = () => {
       lignes: n(t.marche),
       avecImage: n(t.marcheAvecImage),
       ecartes: n(t.marcheEcartes),
+      // 🔬🔴 LOT 214 — CE CHAMP EXISTE POUR DESAMBIGUISER SON VOISIN.
+      // `ecartes: 0` seul ne dit pas si la collecte s'est nettoyee ou si la
+      // regle a cesse de mordre — deux etats du monde opposes derriere le meme
+      // zero. Mesure du 02/09 : 44 la veille, 0 le lendemain, et rien pour
+      // trancher. `candidats` compte les pieces qui franchissent la PREMIERE
+      // marche de la regle ; `candidats: 0` innocente, `candidats > 0` avec
+      // `ecartes: 0` accuse.
+      // ⛔ CE N'EST PAS UN PRIX : un nombre de fiches au-dessus d'un seuil qui
+      //    est deja public dans `sites/*/manifest.yml`. Lot 101 tenu.
+      candidats: n(t.marcheCandidats),
       // ⭐ Sans lui, « 83 sur 90 » se lirait comme un chiffre de production
       //   alors qu'il vient de l'échantillon. Le témoin le sait, il le dit.
       horsLigne: typeof t.horsLigne === 'boolean' ? t.horsLigne : null,
       quand: typeof t.quand === 'string' ? t.quand : null,
+    };
+  } catch {
+    return null;
+  }
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ⏱️🔴🔴🔴 LOT 214 — LE CHRONO DU DÉPLOIEMENT, PHASE PAR PHASE
+// ═══════════════════════════════════════════════════════════════════════════
+// Cinq jalons posés en tête de `RUN` existants (voir `engine/lib/chrono_build.mjs`
+// pour le POURQUOI de « en tête, jamais en fin »). Leurs écarts donnent les
+// quatre durées qu'on cherche depuis le 01/09 :
+//     debut → build .............. les 23 bancs d'avant   (132 s au bac à sable)
+//     build → apres-build ........ `astro build`          ( 67 s au bac à sable)
+//     apres-build → precompression  i18n + les 22 bancs   (  4 s au bac à sable)
+//     precompression → image ..... gzip -9 sur `dist/`    (14,9 s au lot 161)
+// ...et `demarre − build` donne la cinquième, celle que personne ne voyait :
+// pousser l'image, la tirer, démarrer, basculer.
+// 🔑 La somme mesurée au bac à sable fait QUATRE minutes. Le déploiement en
+// prend QUARANTE-CINQ. Ce bloc dit enfin OÙ passent les quarante et une autres.
+//
+// ⛔⛔ ON NE REND QUE DES HORODATAGES BRUTS ET DES ÉCARTS. Pas de verdict, pas
+//    de seuil, pas de « c'est lent » : cette route MESURE, elle ne juge pas.
+//    Un seuil ici deviendrait un garde-fou que personne n'a réglé — et un
+//    garde-fou sous son seuil n'existe pas.
+// ⚠️ UN ÉCART NÉGATIF OU ABSURDE N'EST PAS CORRIGÉ, IL EST MONTRÉ. C'est la
+//    signature d'une couche servie par le CACHE Docker, dont le jalon date d'un
+//    build antérieur. Lisser ça effacerait la seule trace de la seule chose que
+//    ce fichier ne peut pas savoir tout seul.
+//
+// ⭐⭐⭐ « CHRONO VIDE » ET « CHAMP ABSENT » NE PRENNENT PAS LE MÊME CHEMIN, ET
+//    C'EST LA MOITIÉ DE L'INTÉRÊT DE CE BLOC :
+//      · `chrono: null` .......... le fichier manque ou est illisible — un
+//                                  conteneur bâti AVANT ce lot répond ça, et
+//                                  c'est la bonne réponse : « je ne sais pas ».
+//      · `chrono.jalons: []` ..... le fichier existe et ne porte AUCUN jalon —
+//                                  donc le Dockerfile ne les appelle plus, ou
+//                                  les appelle sous un nom refusé. C'est une
+//                                  PANNE DE L'INSTRUMENT, et elle doit se
+//                                  distinguer d'un instrument absent.
+//    Confondre les deux dans un seul `null` ferait passer une sonde débranchée
+//    pour une sonde pas encore déployée. C'est la faute du lot 193 sur
+//    `ecartes: 0`, et on ne la refait pas ici.
+//
+// ⛔ AUCUN CHEMIN, AUCUN NOM DE MACHINE. Des noms de phase (`[a-z0-9-]`,
+//    imposés à l'écriture), des dates, des nombres. Publique et le reste.
+const chronoDuBuild = () => {
+  try {
+    const chemin = process.env.CHRONO_FICHIER
+      || join(process.env.PROJECT_ROOT || process.cwd(), '.chrono.json');
+    const c = JSON.parse(readFileSync(chemin, 'utf8'));
+    // ⛔ `jalons` ABSENT N'EST PAS `jalons` VIDE. Un fichier sans le tableau est
+    //    un fichier qu'on ne comprend pas : il rejoint `null`, pas la liste vide.
+    if (!Array.isArray(c.jalons)) return null;
+    const n = (v) => (Number.isFinite(v) ? v : null);
+    const secondes = (a, b) => {
+      const ta = Date.parse(a); const tb = Date.parse(b);
+      if (!Number.isFinite(ta) || !Number.isFinite(tb)) return null;
+      return Math.round((tb - ta) / 100) / 10;
+    };
+    let precedent = null;
+    const jalons = c.jalons
+      // ⭐ LA FORME EST EXIGÉE À LA LECTURE AUSSI, pas seulement à l'écriture.
+      //   Le fichier voyage dans une image ; une route publique ne fait pas
+      //   confiance à ce qu'elle relit, même si c'est elle qui l'a écrit.
+      .filter((j) => j && typeof j.nom === 'string' && /^[a-z0-9-]{1,32}$/.test(j.nom)
+                     && typeof j.ts === 'string')
+      .map((j) => {
+        const depuis = precedent ? secondes(precedent, j.ts) : null;
+        precedent = j.ts;
+        return { nom: j.nom, ts: j.ts, charge: n(j.charge), depuisPrecedentS: depuis };
+      });
+    return {
+      jalons,
+      coeurs: n(c.jalons.find((j) => j && Number.isFinite(j.coeurs))?.coeurs),
+      // ⭐ Du premier au dernier jalon : ce que le BUILD a duré, vu de l'intérieur.
+      buildS: jalons.length > 1 ? secondes(jalons[0].ts, jalons[jalons.length - 1].ts) : null,
+      // 🔑 LA PHASE QUE PERSONNE NE VOYAIT — voir le § de `DEMARRE`.
+      basculeS: BUILD ? secondes(BUILD, DEMARRE) : null,
     };
   } catch {
     return null;
@@ -324,6 +445,10 @@ export const GET = ({ url }) => new Response(
     memoire: memoireDuBuild(),
     // 🖼️ Ce que la projection du marché porte — voir le bloc au-dessus.
     marche: marcheDuBuild(),
+    // ⏱️ Quand CE processus a commencé à vivre — voir le bloc de `DEMARRE`.
+    demarre: DEMARRE,
+    // ⏱️ Où passe le temps d'un déploiement — voir le bloc au-dessus.
+    chrono: chronoDuBuild(),
     ...(comptesOuverts() ? { favoris: favoris(), caisse: caisse() } : {}),
   }),
   { headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } },

@@ -69,6 +69,11 @@
 
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+// ⚠️ `loadavg()` DANS UN CONTENEUR REND CELUI DE L'HÔTE, pas du cgroup. C'est
+// une limite connue de Linux, et ICI C'EST LA BONNE GRANDEUR : l'hypothèse
+// mesurée est que six applications PLUS le build se partagent DEUX cœurs. Ce
+// qu'on écoute, c'est la machine entière — pas la part du build.
+import { loadavg, cpus } from 'node:os';
 
 // 🔴🔴 LE CHEMIN SE RÉSOUT À L'APPEL, PAS À L'IMPORT. Une `const` lue au
 //   chargement fige `process.env` tel qu'il était à ce moment-là — et un banc
@@ -85,6 +90,14 @@ let pic = 0;
 let compteur = 0;
 const etapes = [];
 let plafondMo = null;
+// ⭐ LE PIC DE CHARGE, comme il y a un pic de mémoire. Un maximum survit à la
+//   troncature du journal : même si un seul jalon arrive, le rapport porte le
+//   plus haut vu depuis le début.
+let chargeMax = 0;
+// ⛔ LU UNE FOIS À L'IMPORT, ET C'EST LÉGITIME ICI : le nombre de cœurs d'une
+//   machine ne change pas pendant un build. (Le CHEMIN du rapport, lui, se
+//   résout à l'appel — voir `rapport()` : ce n'est pas la même question.)
+const COEURS = cpus().length;
 
 const Mo = (o) => Math.round(o / 1048576);
 
@@ -104,13 +117,26 @@ export function jalon(nom) {
   const delta = precedent === null ? null : m.rss - precedent;
   precedent = m.rss;
   const bout = delta === null ? '' : ` · ${delta >= 0 ? '+' : ''}${Mo(delta)} Mo depuis le jalon precedent`;
+  // ⏱️🔴🔴 LOT 214 — LA CHARGE, AU MÊME ENDROIT QUE LA MÉMOIRE.
+  // Le lot 175 a rendu le pic mémoire lisible et il a tranché : le hors-tas est
+  // écarté, le tas est à 50 % de son plafond. ⇒ **la mémoire n'est pas la cause
+  // des 45 minutes**, et il ne restait aucun chiffre pour la phrase du 24/08 :
+  // « 72 s → 720 s le même jour, c'est la machine ».
+  // ⭐⭐ Ce relevé coûte un appel système par jalon et il répond à la seule
+  //   question qui restait ouverte. ⚠️ Il n'est PAS le loadavg du conteneur —
+  //   voir l'import en tête. ⛔ Un `loadavg` sans son nombre de cœurs ne se
+  //   compare à rien, exactement comme un `rss` sans son plafond : les deux
+  //   voyagent ensemble.
+  const charge1 = Math.round(loadavg()[0] * 100) / 100;
+  if (charge1 > chargeMax) chargeMax = charge1;
   console.log(
     `[memoire] ${nom} — rss ${Mo(m.rss)} Mo · tas ${Mo(m.heapUsed)}/${Mo(m.heapTotal)} Mo`
-    + ` · hors-tas ${Mo(m.external)} Mo · PIC ${Mo(pic)} Mo${bout}`,
+    + ` · hors-tas ${Mo(m.external)} Mo · PIC ${Mo(pic)} Mo${bout}`
+    + ` · charge ${charge1} sur ${COEURS} coeur(s)`,
   );
   // ⭐ Le jalon est retenu EN PLUS d'être imprimé. Les deux chemins servent :
   //   le journal quand il arrive, le fichier quand il n'arrive pas.
-  etapes.push({ nom, rss: Mo(m.rss), tas: Mo(m.heapUsed), horsTas: Mo(m.external) });
+  etapes.push({ nom, rss: Mo(m.rss), tas: Mo(m.heapUsed), horsTas: Mo(m.external), charge: charge1 });
   // 🔑 LOT 176 — on écrit MAINTENANT, pas à la fin. Un build qui meurt au jalon
   //   suivant laisse quand même celui-ci derrière lui... **dans son conteneur
   //   de build**, qui disparaît. ⚠️ Ça ne sauve donc PAS le cas de la mort ;
@@ -154,7 +180,7 @@ export function picMo() { return Mo(pic); }
 /** Remet la sonde à zéro. Réservé aux bancs. */
 export function _reinitialiser() {
   precedent = null; pic = 0; compteur = 0;
-  etapes.length = 0; plafondMo = null;
+  etapes.length = 0; plafondMo = null; chargeMax = 0;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -187,6 +213,11 @@ function ecrire() {
       picMo: Mo(pic),
       plafondMo,                // rempli par `plafond()` — `null` s'il n'a pas tourné
       lignesLues: compteur,
+      // ⏱️ LOT 214 — la charge de la MACHINE pendant le build, pas celle du
+      //   conteneur. `coeurs` est ce qui rend `chargeMax` lisible : 3,5 est
+      //   catastrophique sur 2 cœurs et confortable sur 8.
+      chargeMax,
+      coeurs: COEURS,
       etapes,
       ecritLe: new Date().toISOString(),
     }), 'utf8');

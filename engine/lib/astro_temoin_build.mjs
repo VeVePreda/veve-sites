@@ -95,11 +95,21 @@ export default function temoinBuild(mode) {
         //   même règle que `memoireDuBuild()` dans `/api/sante` — INCONNU ≠ ZÉRO.
         let avecImage = null;
         let ecartes = null;
+        // 🔬 LOT 214 — voir le § de `dataset.mjs`. `null` a l'initialisation
+        //   comme ses voisins : « je n'ai pas pu lire » n'est pas « aucune ».
+        let candidats = null;
         if (existsSync(marche)) {
           try {
             const c = JSON.parse(readFileSync(marche, 'utf8'));
             lignes = Array.isArray(c.marche) ? c.marche.length : null;
             itemsTotal = c.itemsTotal ?? null;
+            // 🔬 LOT 214 — LE SEUL COMPTE DE CE FICHIER QUI NE SE RECOMPTE PAS
+            // SUR LES LIGNES, ET LA RAISON EST DANS LA DONNEE : `floor` a
+            // disparu de la projection a `projeterCote()`. Il n'y a donc rien
+            // a recompter ici — la valeur ne peut venir que d'amont, comme
+            // `itemsTotal` juste au-dessus, qui est deja dans ce cas.
+            // ⛔ On ne le derive de rien : absent = `null`, jamais 0.
+            candidats = Number.isFinite(c.candidats) ? c.candidats : null;
             // 🔴🔴🔴 LOT 196 — DEUX COMPTES QUI DOIVENT ATTEINDRE UN LECTEUR.
             // Le lot 195 les avait posés dans le journal du build. Mesuré sur
             // le déploiement du 25/08 à 11 h 23 : **le journal Coolify s'arrête
@@ -137,6 +147,10 @@ export default function temoinBuild(mode) {
           //   et c'est précisément la seconde qu'on cherche à reconnaître.
           marcheAvecImage: avecImage,
           marcheEcartes: ecartes,
+          // 🔬 LOT 214 — `ecartes` seul est INDECIDABLE a zero. Avec celui-ci,
+          //   « la collecte s'est nettoyee » et « la regle ne mord plus »
+          //   cessent d'emprunter le meme chemin de sortie.
+          marcheCandidats: candidats,
         };
 
         const f = TEMOIN_FICHIER(racine);

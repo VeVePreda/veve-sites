@@ -229,6 +229,65 @@ if (!distLa) {
         html.includes(`/analytics/${s}/`) ? '' : 'ADRESSE ABSENTE : ce sujet est inatteignable depuis le site');
   }
 
+  // ═══ 2 ter. 📊 LE BANDEAU DE STATS — LOT 214, POINT ⓒ DU 213 ═══════════
+  // ⭐⭐⭐ CE BLOC MESURE UNE PAGE LISIBLE, PAS UN CIRCUIT. Un `.stats` présent
+  // dans le HTML ne prouve rien : le lot 213 a payé qu'un banc vert ne dit rien
+  // d'une page lisible. Ce qu'on exige ici, ce sont les TROIS choses qui
+  // peuvent casser en silence — le marquage que la feuille reconnaît, des
+  // valeurs qui sont des nombres, et l'absence de tout montant.
+  {
+    const bloc = html.match(/<div class="stats"[^>]*>[\s\S]*?<\/div>\s*<\/div>\s*<\/div>/);
+    dit(!!bloc, '2 ter · le bandeau de stats est dans la page',
+        bloc ? `${bloc[0].length} o` : '🔴 ABSENT — c\'est l\'état mesuré le 02/09, celui que ce lot répare');
+    if (bloc) {
+      const b = bloc[0];
+      // 🔴🔴 LE MARQUAGE QUE LES **TROIS** THÈMES RECONNAISSENT. `.stat__v` ne
+      // vit que dans `vitrine`.
+      // ⚠️ MESURÉ LE 02/09, ET ÇA CORRIGE MA PREMIÈRE VERSION DE CE CONTRÔLE :
+      //   sur vevewiki, `/analytics/` est une REDIRECTION de 271 octets — ce
+      //   composant n'y est JAMAIS rendu, et le thème `encyclopedie` ne voit
+      //   donc jamais ce bandeau. Le défaut n'est PAS actuel, et l'écrire comme
+      //   s'il l'était aurait posé un piège pour celui qui relira.
+      // ⭐ Ce contrôle garde une ROBUSTESSE, et c'est déjà une raison : le jour
+      //   où `/analytics/` s'ouvrira sur le second site, ou le jour où ce
+      //   marquage sera recopié sur une page qui y est rendue, RIEN d'autre ne
+      //   le verrait — `test:feuille` juge la feuille SERVIE, pas la
+      //   coïncidence entre un gabarit et trois feuilles différentes.
+      const tuiles = (b.match(/<div class="stat">/g) || []).length;
+      dit(tuiles >= 2, '2 ter · ...avec au moins deux tuiles',
+          `${tuiles} tuile(s) — Preda en a arbitré TROIS le 02/09, et une tuile sans son chiffre DISPARAÎT`);
+      dit(!/class="stat__v"/.test(b),
+          '2 ter · ...marqué `.stat > .v`, jamais `.stat__v`',
+          '`.stat__v` n\'existe que dans le thème vitrine — nu sur vevewiki, sans qu\'aucun banc ne rougisse');
+      dit((b.match(/<div class="k">/g) || []).length === tuiles
+          && (b.match(/<div class="v">/g) || []).length === tuiles,
+          '2 ter · ...chaque tuile a SON étiquette et SA valeur',
+          'une tuile sans `.k` perd son sens, une tuile sans `.v` perd sa raison d\'être');
+
+      // ⛔⛔ ET AUCUNE VALEUR N'EST NULLE, VIDE, `NaN` NI ZÉRO.
+      // ⭐ « Une tuile sans son chiffre reste utile, alors qu'une tuile qui
+      //   affiche 0 affirme quelque chose de faux » (`Dashboard.astro` l. 224).
+      //   Le gabarit filtre en amont ; ce contrôle mesure que le filtre MORD.
+      //   🔑 Il n'est pas décoratif : `catalogueSize` est le seul des trois dont
+      //   la valeur de production n'a pas pu être lue avant d'écrire le lot.
+      const vals = [...b.matchAll(/<div class="v">([^<]*)<\/div>/g)].map((m) => m[1].trim());
+      const vides = vals.filter((v) => v === '' || v === '0' || /nan|null|undefined/i.test(v));
+      dit(vides.length === 0, '2 ter · ...et aucune valeur n\'est vide, nulle ou à zéro',
+          vides.length ? `🔴 ${JSON.stringify(vides)} — la tuile devait DISPARAÎTRE, pas affirmer un faux` : vals.join(' · '));
+
+      // 🔐🔴🔴🔴 AUCUN MONTANT DANS UN BLOC SERVI À GOOGLE.
+      // `/analytics/` est PRÉ-GÉNÉRÉE et évaluée au palier `visitor` : ce bloc
+      // part chez l'anonyme et chez le moteur. ⛔ `test:fuite` ne le couvrirait
+      // PAS — mesuré et écrit : il ne regarde que les cinq champs de
+      // `.reserve/cote/`, et un prix de vente lui est déjà passé sous le nez.
+      // ⭐ D'où un contrôle POSÉ ICI, sur le bloc lui-même : trois comptes, et
+      //   rien qui ressemble à de la monnaie.
+      const monnaie = b.match(/[$€£]|\bUSD\b|\bOMI\b|\bgems?\b/i);
+      dit(!monnaie, '2 ter · ...et aucun montant n\'y figure (page publique)',
+          monnaie ? `🔴 « ${monnaie[0]} » dans un bloc servi à Google — la règle du lot 101` : 'trois comptes, zéro monnaie');
+    }
+  }
+
   // ═══ 3. ET ELLE NE DOIT PLUS RIEN SERVIR ═══════════════════════════════
   // ⭐ « Porte nue » est un choix de Preda, pas une figure de style : si le
   // contenu remontait ici, il redeviendrait PUBLIC — l'inverse exact de ce

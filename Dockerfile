@@ -37,6 +37,7 @@ ENV NODE_OPTIONS=--max-old-space-size=3072
 # Le mode est LU DANS LE MANIFESTE, une fois, et depose dans un fichier que
 # toutes les etapes suivantes relisent (chaque RUN est un shell distinct).
 RUN set -e; \
+    node engine/lib/chrono_build.mjs debut; \
     MODE=$(sed -n 's/^rendering:[[:space:]]*\([a-zA-Z]*\).*/\1/p' "sites/$SITE/manifest.yml" | head -1); \
     [ -n "$MODE" ] || MODE=static; \
     case "$MODE" in \
@@ -98,7 +99,21 @@ RUN npm run test:nginx
 # apres un build reel.
 # ⚠️ CHACUN EST PLACE OU IL PEUT MESURER, PAS EN BLOC : cinq avant le build (ils
 # n'ont besoin que du code), un apres (il lit `dist/`).
-RUN npm run test:dockerfile
+# ⏱️🔴🔴🔴 LOT 214 — `test:memoire` N'ETAIT DANS AUCUN `RUN`, ET IL AURAIT DU.
+# Mesure du 02/09 : le Dockerfile appelle 46 bancs ; celui-ci n'en faisait pas
+# partie depuis sa naissance au lot 175. La sonde memoire etait donc EPROUVEE
+# au bac a sable et NON GARDEE au deploiement — un banc depose n'est pas un
+# banc branche, exactement comme un fichier. ⭐ Le lot 214 lui ajoute le §⑧,
+# qui garde le chrono ; le laisser dehors aurait livre un instrument que rien
+# ne surveille, sur le seul chemin qui compte.
+# ⭐⭐ GREFFE SUR LE `RUN` VOISIN, PAS DE COUCHE EN PLUS. Ce lot cherche a
+# ALLEGER l'image ; lui ajouter une 60ᵉ couche pour se mesurer lui-meme serait
+# se contredire. Et les deux bancs observent la MEME chose — le Dockerfile :
+# `test:dockerfile` sa syntaxe, `test:memoire` §⑧ la position de ses jalons.
+# ⛔ `&&` ET NON `;` — la lecon du lot 27, ecrite trois fois dans ce fichier :
+# avec `;` le code de sortie serait celui du dernier, et un `test:dockerfile`
+# rouge passerait au vert.
+RUN npm run test:dockerfile && WAREHOUSE_OFFLINE=1 npm run test:memoire
 # 🔗 `test:liens` — LOT 213. AVANT LE BUILD, parce qu'il lit la SOURCE.
 # Il verifie qu'un lien vers une adresse gatee est garde par la fonction qui la
 # gate. Ecrit apres une mesure, pas par principe : le 01/09, retirer la garde
@@ -327,7 +342,7 @@ RUN WAREHOUSE_OFFLINE=1 npm run test:adresses
 # pas, donc les pages rendues a la demande — /compte/, /favoris/, /market/ —
 # rendent du texte NU, deja dans la bonne langue. Les deux mondes ne se croisent
 # jamais, et c'est cette ligne-ci qui le garantit.
-RUN set -e; export RENDERING=$(cat /app/.rendering); I18N_MARQUAGE=1 npm run build && mkdir -p /app/.reserve
+RUN set -e; node engine/lib/chrono_build.mjs build; export RENDERING=$(cat /app/.rendering); I18N_MARQUAGE=1 npm run build && mkdir -p /app/.reserve
 
 # 🌍🔴🔴 ET LE POST-TRAITEMENT, IMMEDIATEMENT APRES LE BUILD.
 # Il convertit les sentinelles en `data-i18n` et ecrit les dictionnaires servis.
@@ -336,7 +351,7 @@ RUN set -e; export RENDERING=$(cat /app/.rendering); I18N_MARQUAGE=1 npm run bui
 # controle a tout le monde, invisibles a l'oeil et impossibles a diagnostiquer.
 # ⭐⭐ `test:i18n` refuse toute sentinelle survivante dans `dist/` : c'est lui qui
 # MESURE cet ordre, au lieu de se contenter de l'ecrire en commentaire.
-RUN npm run marquer:i18n
+RUN set -e; node engine/lib/chrono_build.mjs apres-build; npm run marquer:i18n
 
 # 🔴 LE GARDE-FOU : le mode annonce et la forme produite doivent coincider.
 # Sans lui, l'incoherence se decouvre en production, en servant des pages
@@ -687,6 +702,7 @@ RUN WAREHOUSE_OFFLINE=1 npm run test:i18n
 #    busybox : sans ce test, une image de base plus ancienne ferait echouer
 #    l'etape entiere. Le repli est l'ancienne forme, plus lente et sure.
 RUN set -e; \
+    node engine/lib/chrono_build.mjs precompression; \
     MODE=$(cat /app/.rendering); \
     if [ "$MODE" = "server" ]; then RACINE=dist/client; else RACINE=dist; fi; \
     liste() { R="$1"; shift; find "$R" -type f \( -name '*.html' -o -name '*.css' \
@@ -795,8 +811,22 @@ COPY --from=build /app/sites ./sites
 # ⭐ La cote vide est aussi grave que l'historique vide, et plus difficile a
 # voir : le site s'affiche parfaitement, seuls LES ABONNES ne voient plus aucun
 # prix. Un deploiement vert qui ne casse que pour ceux qui paient.
+# ⏱️🔴🔴🔴 LOT 214 — LE CHRONO DU BUILD VOYAGE DANS L'IMAGE.
+# ⛔ IL N'EST PAS DANS `.reserve/`, ET C'ETAIT UNE ERREUR DE PREMIER JET :
+# `engine/lib/reserve.mjs` l. 98 fait `rmSync(RESERVE_DIR, recursive)` PENDANT
+# le build. Le temoin et le rapport memoire y survivent parce qu'ils sont ecrits
+# APRES cette ligne ; le chrono, lui, pose son premier jalon AVANT le build — il
+# aurait ete efface, et `/api/sante` aurait servi un chrono commencant au
+# milieu, sans qu'aucun banc ne rougisse. D'ou la racine, hors de tout dossier
+# que quelqu'un nettoie.
+# ⚠️ `.chrono.json` EXISTE TOUJOURS : le jalon `debut` est pose au tout premier
+# `RUN` de l'etape de construction. Un `COPY` sur une source absente ferait
+# echouer le build — et ce serait la bonne reaction : un instrument disparu doit
+# se voir, pas se taire.
+COPY --from=build /app/.chrono.json ./.chrono.json
 COPY --from=build /app/.reserve ./.reserve
 RUN set -e; \
+    node engine/lib/chrono_build.mjs image; \
     MODE=$(cat /app/.rendering); \
     if [ "$MODE" = "server" ]; then \
       n=$(find .reserve/historique -name '*.json' 2>/dev/null | wc -l); \

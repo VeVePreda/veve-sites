@@ -26,7 +26,7 @@
 //  code, jamais la machine. Ce banc prouve que l'instrument est branché et
 //  qu'il compte juste ; il ne prouve pas que le VPS tiendra.
 
-import { readFileSync, rmSync } from 'node:fs';
+import { mkdirSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
 const ROOT = process.env.PROJECT_ROOT || process.cwd();
@@ -324,13 +324,20 @@ dire(/await memoire\.plafond\(\)/.test(code),
     //   s'oublie le jour où la source gagne un champ.* C'est la règle que
     //   `dataset.mjs` applique déjà au rayon (« on n'ajoute que ce qu'on
     //   NOMME »), et elle vaut ici pour la même raison.
-    const PERMIS = ['picMo', 'plafondMo', 'lignesLues', 'etapes', 'ecritLe'];
+    // ⏱️ LOT 214 — `chargeMax` et `coeurs` REJOIGNENT LA LISTE BLANCHE, et
+    //   la liste blanche est la raison pour laquelle ce banc a rougi dès le
+    //   premier essai du lot. ⭐ C'est exactement son travail : un champ qui
+    //   apparaît dans un rapport SERVI PUBLIQUEMENT doit être NOMMÉ par
+    //   quelqu'un, jamais se glisser dedans. ⛔ On ne l'élargit donc pas « pour
+    //   faire passer » : on l'élargit ET on exige la forme des deux nouveaux,
+    //   quinze lignes plus bas.
+    const PERMIS = ['picMo', 'plafondMo', 'lignesLues', 'chargeMax', 'coeurs', 'etapes', 'ecritLe'];
     const enTrop = Object.keys(r).filter((k) => !PERMIS.includes(k));
     dire(enTrop.length === 0,
       '⑦ le rapport ne porte QUE les champs nommés',
       enTrop.length ? `en trop : ${enTrop.join(', ')}` : PERMIS.join(', '));
 
-    const CHAMPS_ETAPE = ['nom', 'rss', 'tas', 'horsTas'];
+    const CHAMPS_ETAPE = ['nom', 'rss', 'tas', 'horsTas', 'charge'];
     const etapesSales = (r.etapes || []).filter(
       (e) => Object.keys(e).some((k) => !CHAMPS_ETAPE.includes(k)));
     dire(etapesSales.length === 0,
@@ -339,11 +346,34 @@ dire(/await memoire\.plafond\(\)/.test(code),
 
     // ⭐ ET LES VALEURS SONT DES NOMBRES. Un champ permis qui porterait un
     //   chemin passerait la liste blanche : on vérifie aussi la FORME.
-    const nonNombres = ['picMo', 'plafondMo', 'lignesLues']
+    const nonNombres = ['picMo', 'plafondMo', 'lignesLues', 'chargeMax', 'coeurs']
       .filter((k) => !Number.isFinite(r[k]));
     dire(nonNombres.length === 0,
       '⑦ ...et ce sont des nombres, pas des chaînes',
-      nonNombres.length ? nonNombres.join(', ') : 'picMo, plafondMo, lignesLues');
+      nonNombres.length ? nonNombres.join(', ') : 'picMo, plafondMo, lignesLues, chargeMax, coeurs');
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // ⏱️🔴🔴 LOT 214 — LA CHARGE EST-ELLE VRAIMENT RELEVÉE, OU JUSTE DÉCLARÉE ?
+    // ═══════════════════════════════════════════════════════════════════════
+    // ⛔ `Number.isFinite(chargeMax)` ci-dessus est VRAI pour `0`, et `0` est
+    //    exactement ce que rendrait un champ posé mais jamais alimenté. Le
+    //    contrôle de forme ne distingue pas « mesuré » de « déclaré ».
+    // ⭐ Ce qui les distingue : `chargeMax` doit être le MAXIMUM des charges
+    //    des étapes. Un champ décoratif ne tiendrait pas cette relation.
+    // ⚠️ ON N'EXIGE PAS `> 0` : une machine parfaitement au repos rend `0.00`,
+    //    et un banc qui refuserait ça rougirait pour une raison fausse — sur la
+    //    seule machine où l'on voudrait qu'il soit vert. C'est la RELATION
+    //    qu'on mesure, pas la valeur.
+    const charges = (r.etapes || []).map((e) => e.charge).filter(Number.isFinite);
+    dire(charges.length === (r.etapes || []).length,
+      '⑦ CHAQUE étape porte sa charge',
+      `${charges.length} sur ${(r.etapes || []).length} — une étape sans charge est un trou muet`);
+    dire(charges.length > 0 && r.chargeMax === Math.max(...charges),
+      '⑦ `chargeMax` est bien le MAXIMUM des étapes, pas un champ décoratif',
+      `chargeMax=${r.chargeMax} · max des étapes=${charges.length ? Math.max(...charges) : 'aucune'}`);
+    dire(r.coeurs >= 1,
+      '⑦ `coeurs` accompagne la charge — sans lui elle ne se compare à rien',
+      `${r.coeurs} coeur(s) — un loadavg de 3,5 est catastrophique sur 2 et confortable sur 8`);
   }
 
   // ⭐ `/api/sante` doit VRAIMENT le lire — et lire à CHAQUE appel, pas au
@@ -362,5 +392,139 @@ dire(/await memoire\.plafond\(\)/.test(code),
   try { rmSync(dossier, { recursive: true, force: true }); } catch { /* rien */ }
 }
 
-console.log(echecs ? `\n❌ ${echecs} écart(s)\n` : '\n✅ la sonde mémoire est branchée, et son rapport sort du journal\n');
+// ═══════════════════════════════════════════════════════════════════════════
+// ⑧ ⏱️🔴🔴🔴 LOT 214 — LE CHRONO DU DÉPLOIEMENT
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐⭐ IL VIT DANS **CE** BANC, ET PAS DANS UN 52ᵉ. Ce fichier n'observe pas
+// « la mémoire » : il observe **les instruments que le build écrit dans un
+// fichier et que `/api/sante` sert**, parce que le journal Coolify se tronque.
+// Le chrono est le troisième de cette famille, après le rapport mémoire et le
+// témoin de marché. ⛔ Un banc de plus aurait ajouté une couche au Dockerfile
+// pour mesurer un lot qui cherche à en RETIRER. *On étend un banc plutôt que
+// d'en créer un — et on le choisit par ce qu'il OBSERVE, jamais par son nom.*
+{
+  const dossier = join(ROOT, '.reserve', '_banc_chrono');
+  mkdirSync(dossier, { recursive: true });
+  const fichier = join(dossier, '.chrono.json');
+  process.env.CHRONO_FICHIER = fichier;
+  const { jalonner } = await import('../lib/chrono_build.mjs');
+
+  // ⭐ DEUX APPELS, ET C'EST TOUT LE MÉCANISME : le chrono est écrit par CINQ
+  //   processus Node différents (cinq `RUN` distincts du Dockerfile, chacun
+  //   son shell). S'il ÉCRASAIT au lieu d'AJOUTER, `/api/sante` ne servirait
+  //   jamais qu'un seul jalon — celui de l'image — et les quatre durées qu'on
+  //   cherche n'existeraient dans aucun canal. C'est LE défaut qui rendrait ce
+  //   lot inutile tout en le laissant parfaitement vert partout ailleurs.
+  jalonner('debut');
+  jalonner('build');
+  const c1 = JSON.parse(readFileSync(fichier, 'utf8'));
+  dire(Array.isArray(c1.jalons) && c1.jalons.length === 2,
+    '⑧ deux appels AJOUTENT deux jalons (ils ne s\'écrasent pas)',
+    `${(c1.jalons || []).length} jalon(s) — attendu 2 : cinq RUN, cinq processus`);
+  dire(c1.jalons[0].nom === 'debut' && c1.jalons[1].nom === 'build',
+    '⑧ ...dans l\'ORDRE où ils ont été posés',
+    'un chrono qui perd l\'ordre ne mesure plus des durées, mais des écarts au hasard');
+  dire(c1.jalons.every((j) => Number.isFinite(j.charge) && j.coeurs >= 1),
+    '⑧ chaque jalon porte sa charge ET son nombre de cœurs',
+    'un loadavg sans son nombre de cœurs ne se compare à rien');
+
+  // ⛔⛔ LISTE BLANCHE, MÊME RAISON QU'AU § ⑦ : ce fichier est servi tel quel
+  //   par une route PUBLIQUE. Une liste noire ne protège que de ce qu'on a
+  //   déjà imaginé, et s'oublie le jour où la source gagne un champ.
+  const PERMIS_J = ['nom', 'ts', 'charge', 'coeurs'];
+  const sales = c1.jalons.filter((j) => Object.keys(j).some((k) => !PERMIS_J.includes(k)));
+  dire(sales.length === 0, '⑧ un jalon ne porte QUE les champs nommés',
+    sales.length ? JSON.stringify(sales[0]) : PERMIS_J.join(', '));
+
+  // 🔴🔴 UN NOM REFUSÉ N'ÉCRIT RIEN — ET NE LÈVE PAS. Le nom voyage jusqu'à une
+  //   route publique : la forme est EXIGÉE, pas espérée. Mais un instrument qui
+  //   ferait ÉCHOUER une étape du Dockerfile sur un nom mal tapé casserait ce
+  //   qu'il observe — c'est la faute qu'on refuse depuis le lot 27.
+  const refuse = jalonner('/app/secret ; rm -rf /');
+  const c2 = JSON.parse(readFileSync(fichier, 'utf8'));
+  dire(refuse === false && c2.jalons.length === 2,
+    '⑧ un nom hors forme est REFUSÉ, sans rien écrire et sans lever',
+    `${c2.jalons.length} jalon(s) après l'appel refusé — attendu 2`);
+
+  // ⭐ ET IL N'ÉCHOUE JAMAIS, MÊME SUR UN CHEMIN IMPOSSIBLE. Un build qui
+  //   tomberait parce que son CHRONO n'a pas pu écrire serait le comble.
+  process.env.CHRONO_FICHIER = join(dossier, 'nexiste-pas', 'sous', 'dossier', 'c.json');
+  let leve = false;
+  try { jalonner('image'); } catch { leve = true; }
+  dire(!leve, '⑧ un chemin impossible ne fait PAS lever le chrono',
+    'l\'instrument ne doit jamais pouvoir casser ce qu\'il observe');
+  process.env.CHRONO_FICHIER = fichier;
+
+  // ═════════════════════════════════════════════════════════════════════════
+  // ⑧ bis — CE QUE `/api/sante` EN FAIT, ET LA DISTINCTION QUI PORTE LE LOT
+  // ═════════════════════════════════════════════════════════════════════════
+  const sante = readFileSync(join(ROOT, 'src/pages/api/sante.js'), 'utf8');
+  const sansCom = sante.split('\n').filter((l) => !l.trim().startsWith('//')).join('\n');
+  dire(/chrono: chronoDuBuild\(\)/.test(sansCom), '⑧ `/api/sante` sert le chrono');
+  dire(/const chronoDuBuild = \(\) =>/.test(sansCom),
+    '⑧ ...et le lit à CHAQUE appel (une fonction, pas une constante de module)',
+    'un conteneur remplacé rendrait sinon le chrono du build précédent');
+  dire(/demarre: DEMARRE/.test(sansCom) && /const DEMARRE = new Date\(\)/.test(sansCom),
+    '⑧ `demarre` est figé au CHARGEMENT, pas lu à la requête',
+    'lu dans le GET il rendrait « maintenant » — la seule réponse qui ne renseigne sur rien');
+
+  // ⭐⭐⭐ « CHRONO VIDE » ET « CHAMP ABSENT » NE PRENNENT PAS LE MÊME CHEMIN.
+  // C'est la moitié de l'intérêt du bloc, et c'est la leçon d'`ecartes: 0`
+  // (lot 193, remesuré le 02/09) : un seul zéro portait deux états du monde
+  // opposés — « la collecte s'est nettoyée » et « la règle ne mord plus » —
+  // et rien ne permettait de les distinguer. Ici :
+  //     `chrono: null`      = le fichier manque   → un conteneur d'AVANT ce lot
+  //     `chrono.jalons: []` = le fichier est vide → l'instrument est DÉBRANCHÉ
+  // ⛔ Les confondre ferait passer une sonde débranchée pour une sonde pas
+  //   encore déployée, et on chercherait la panne du mauvais côté.
+  dire(/if \(!Array\.isArray\(c\.jalons\)\) return null;/.test(sansCom),
+    '⑧ un fichier SANS tableau de jalons rend `null` (« je ne sais pas »)',
+    'et surtout PAS une liste vide, qui affirmerait « l\'instrument tourne et n\'a rien vu »');
+
+  // 🔴🔴🔴 LE CONTRÔLE QUI EMPÊCHE DE REFAIRE LA FAUTE DU LOT 27.
+  // Un jalon posé en FIN de `RUN` devient la dernière commande de l'étape :
+  // c'est SON code de sortie qui devient celui de l'étape. Ce chrono réussit
+  // toujours ⇒ il ferait passer AU VERT n'importe quel échec devant lui.
+  // C'est mot pour mot ce que `npm run build; mkdir -p /app/.reserve` avait
+  // fait le 03/08/2026, et le Dockerfile porte encore le commentaire.
+  // ⭐ Le banc est volontairement GROSSIER : il refuse tout jalon qui n'est pas
+  //   en tête. Un faux négatif ici rendrait un déploiement rouge invisible.
+  const dock = readFileSync(join(ROOT, 'Dockerfile'), 'utf8').split('\n');
+  const lignesJalon = dock.map((l, i) => [i + 1, l])
+    .filter(([, l]) => l.includes('chrono_build.mjs'));
+  dire(lignesJalon.length >= 4,
+    '⑧ le Dockerfile appelle vraiment le chrono',
+    `${lignesJalon.length} appel(s) — un instrument non appelé est un instrument absent`);
+  // ⭐ « EN TÊTE » SE MESURE SUR LE CONTENU, PAS SUR LE NUMÉRO DE LIGNE : le
+  //   jalon doit être suivi d'un `;` et d'AUTRE CHOSE, sur sa ligne ou par une
+  //   continuation. Ce qu'on refuse, c'est qu'il soit le DERNIER maillon.
+  const enFin = lignesJalon.filter(([n, l]) => {
+    const nu = l.trim().replace(/\\$/, '').trim();
+    const finit = /chrono_build\.mjs\s+[a-z0-9-]+\s*$/.test(nu);
+    if (!finit) return false;                        // suivi de quelque chose : bon
+    const suite = (dock[n] || '').trim();            // la ligne d'après (continuation)
+    return !(l.trim().endsWith('\\') && suite.length > 0);
+  });
+  dire(enFin.length === 0,
+    '⑧ AUCUN jalon n\'est la dernière commande de son `RUN`',
+    enFin.length
+      ? `🔴 ligne(s) ${enFin.map(([n]) => n).join(', ')} — le chrono réussit TOUJOURS : il ferait passer au vert l'échec qui le précède (faute du lot 27)`
+      : `${lignesJalon.length} appel(s), tous en tête ou suivis`);
+  // 🔬 AUTO-CONTRÔLE : le détecteur ci-dessus rougit-il sur un cas fabriqué ?
+  //   Sans lui, une expression régulière fausse rendrait ce contrôle VERT pour
+  //   toujours, sur un Dockerfile qui aurait le défaut. ⭐ C'est le geste qui a
+  //   révélé que cinq bancs étaient aveugles à 58 liens morts.
+  {
+    const faux = ['RUN set -e; npm run build; node engine/lib/chrono_build.mjs fin'];
+    const mord = faux.filter((l) => /chrono_build\.mjs\s+[a-z0-9-]+\s*$/.test(l.trim()));
+    dire(mord.length === 1,
+      '⑧ auto-contrôle : le détecteur mord sur un jalon fabriqué EN FIN de RUN',
+      mord.length ? 'il voit le défaut qu\'il existe pour voir' : '🔴 le détecteur est aveugle, son vert ne vaut rien');
+  }
+
+  delete process.env.CHRONO_FICHIER;
+  try { rmSync(dossier, { recursive: true, force: true }); } catch { /* rien */ }
+}
+
+console.log(echecs ? `\n❌ ${echecs} écart(s)\n` : '\n✅ les sondes du build sont branchées, et leurs rapports sortent du journal\n');
 process.exit(echecs ? 1 : 0);

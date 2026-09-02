@@ -1387,9 +1387,40 @@ async function construireDataset() {
   // laquelle des deux on regarde. Un zero annonce est une mesure ; une ligne
   // absente n'est rien.
   const ecartes = items.filter((i) => i.floorEcarte).length;
+  // ═══════════════════════════════════════════════════════════════════════
+  // 🔬🔴🔴🔴 LOT 214 — COMBIEN DE PIECES ONT SEULEMENT ETE *EXAMINEES*
+  // ═══════════════════════════════════════════════════════════════════════
+  // MESURE DU 02/09 QUI A CAUSE CE COMPTEUR : `/api/sante` rendait
+  // `ecartes: 0` sur 8 840 lignes, contre 44 la veille. Le zero est
+  // INDECIDABLE tel quel, et le commentaire du lot 193 six lignes plus haut
+  // l'avait annonce mot pour mot : « c'est precisement le jour ou la collecte
+  // se sera nettoyee qu'on voudra savoir laquelle des deux on regarde ».
+  //   · `candidats: 0`   ⇒ plus AUCUNE piece ne franchit meme le seuil de
+  //                        prix. La collecte s'est nettoyee. La regle n'a
+  //                        rien a mordre, et c'est une bonne nouvelle.
+  //   · `candidats: 188` avec `ecartes: 0` ⇒ 188 pieces sont examinees et
+  //                        AUCUNE n'est retenue. La regle NE MORD PLUS, et
+  //                        c'est un defaut.
+  // ⭐⭐⭐ Un seul chiffre ne peut pas porter deux etats du monde. Il en
+  //   fallait un second, et un seul : la PREMIERE marche de la regle.
+  //
+  // ⛔ IL SE CALCULE **ICI**, ET PAS DANS LE TEMOIN. `floor` ne survit pas a
+  //   `projeterCote()` : le temoin relit `.reserve/marche.json`, ou le montant
+  //   a deja disparu (c'est tout l'interet du lot 101). Le compter en aval
+  //   serait impossible ; le compter ici est la seule facon.
+  // ⭐ LA POPULATION EST LA MEME QUE CELLE DES ECARTES, ET CE N'EST PAS UNE
+  //   COINCIDENCE : les deux exigent un `floor`, donc les deux vivent dans
+  //   `marche` aussi bien que dans `items`. Les deux comptes se comparent
+  //   sans precaution — ce qui est exactement ce qu'on attend d'eux.
+  // ⛔ CE N'EST PAS UN PRIX. C'est un NOMBRE DE FICHES au-dessus d'un seuil
+  //   qui est deja public dans `sites/*/manifest.yml`. La regle du lot 101
+  //   tient : aucun montant ne sort d'ici.
+  const candidatsEcart = items.filter((i) => Number(i.floor) > ECART_PRIX).length;
   console.log(`[vitrine] planchers ecartes du marche : ${ecartes} sur ${items.length} `
     + `(> ${ECART_PRIX} avec <= ${ECART_OFFRES} offre(s), et moins de ${ECART_POINTS} releves `
-    + `ou plus de ${FACTEUR_ABERRANT}x leur mediane) — reaffichables par la case « ${'prix non retenus'} »`);
+    + `ou plus de ${FACTEUR_ABERRANT}x leur mediane) — reaffichables par la case « ${'prix non retenus'} »`
+    + ` · ${candidatsEcart} piece(s) EXAMINEE(S) (plancher > ${ECART_PRIX})`
+    + `${candidatsEcart && !ecartes ? ' 🔴 EXAMINEES SANS AUCUNE RETENUE — la regle ne mord plus' : ''}`);
   if (comicsSansRarete) console.log(`[adresses] ATTENTION ${comicsSansRarete} comics sans rarete : adresse basee sur le nom de couverture, ou l'identifiant court s'il n'y a rien de distinctif`);
   if (collisionsComics) console.log(`[adresses] ${collisionsComics} comics en collision de rarete : nom de couverture ajoute a l'adresse`);
   for (const t of TYPES) {
@@ -1670,6 +1701,12 @@ async function construireDataset() {
     empreinteCote, empreinteMarche,
     rayon, aVenir,
     marche, marcheTotal,
+    // 🔬 LOT 214 — voir le § « COMBIEN DE PIECES ONT SEULEMENT ETE EXAMINEES ».
+    //   ⛔ Transporte, et pas recompte en aval : `floor` a disparu apres
+    //   `projeterCote()`. C'est la seule exception au principe du lot 196
+    //   (« compter sur le fichier RELU »), et elle est forcee par la donnee,
+    //   pas choisie — d'ou ce commentaire plutot qu'un silence.
+    marcheCandidats: candidatsEcart,
     catalogueSize: cat.length,
     windowDays: WINDOW_DAYS,
     maxPoints: MAX_POINTS,

@@ -34,7 +34,7 @@
 import Base from '../../layouts/Base.astro';
 import { dataset } from '../../../engine/lib/dataset.mjs';
 import { franchit, porte, acces } from '../../../engine/lib/access.mjs';
-import { t, localize } from '../../../engine/lib/i18n.mjs';
+import { t, localize, numberLocale } from '../../../engine/lib/i18n.mjs';
 
 const { lang } = Astro.props;
 const ds = await dataset();
@@ -51,6 +51,65 @@ const MODULES = ['modules', 'extremes', 'price_history', 'alerts', 'wallet_watch
 // `visitor` — et c'est ce qui rend cette page identique pour Google et pour un
 // visiteur anonyme, donc indexable sans mensonge.
 const ouvert = Object.fromEntries(MODULES.map((mo) => [mo, franchit(mo, Astro.locals)]));
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 📊🔴🔴 LOT 214 — LE BANDEAU DE STATS. POINT ⓒ DU LOT 213, RESTE NON FAIT.
+// ═══════════════════════════════════════════════════════════════════════════
+// Demande de Preda au lot 213 ; mesuré le 02/09 : ce fichier ne contenait
+// AUCUN bloc `.stats`. Le lot avait livré ses autres points et perdu celui-ci.
+//
+// ⭐⭐⭐ TROIS COMPTES, ET PAS UN MONTANT. Cette page est PRÉ-GÉNÉRÉE et
+// évaluée au palier `visitor` : tout ce qu'on y écrit part chez Google et chez
+// l'anonyme. Ces trois valeurs disent COMBIEN, jamais QUOI ni À COMBIEN — la
+// même frontière que le § « CE QUE CHAQUE SUJET CONTIENT » plus bas, qui existe
+// pour la même raison. ⛔ Un « plancher médian » ici serait un prix : il n'y a
+// pas sa place, et aucun banc ne le rattraperait — `test:fuite` ne couvre que
+// les cinq champs de `.reserve/cote/`.
+//
+// 🔬🔴🔴 UNE TUILE SANS SON CHIFFRE DISPARAÎT ; ELLE N'AFFICHE JAMAIS ZÉRO.
+// C'est la règle déjà écrite dans `Dashboard.astro` l. 224 : « une tuile sans
+// son chiffre reste utile, alors qu'une tuile qui affiche 0 affirme quelque
+// chose de faux ». Ici elle n'est pas décorative : `catalogueSize` est le SEUL
+// des trois dont je n'ai pas pu lire la valeur de production avant d'écrire ce
+// lot — ni `/api/sante` ni aucune page publique ne le sert. S'il sort `null`,
+// le bandeau doit tomber à deux tuiles, pas afficher « 0 pièce suivie » sur la
+// page qui explique ce qu'on vend.
+//
+// ⭐ ZÉRO RÈGLE CSS AJOUTÉE, ET LE MARQUAGE EST CHOISI POUR ÇA. `.stats`,
+// `.stat`, `.stat .k` et `.stat .v` existent dans LES TROIS thèmes (vitrine
+// l. 252 et 841, aurora l. 32-35, encyclopedie l. 325-330), et la bascule à
+// deux colonnes sous 640 px avec. ⛔ `.stat__v` NE VIT QUE DANS `vitrine`.
+//
+// ⚠️⚠️ ET J'AI FAILLI ÉCRIRE ICI UNE PRÉMISSE FAUSSE — mesurée le 02/09, APRÈS
+// avoir écrit la phrase. Mon premier jet disait : « `.stat__v` sortirait nu sur
+// vevewiki ». C'EST FAUX AUJOURD'HUI : bâti avec `SITE=vevewiki`,
+// `dist/analytics/index.html` fait **271 octets** et n'est qu'une redirection
+// vers `/`. Ce composant n'est JAMAIS rendu sur le second site, et le thème
+// `encyclopedie` ne voit donc jamais ce bandeau.
+// ⇒ L'argument tient quand même, mais ce n'est pas le même : ce n'est pas un
+//   défaut MESURÉ, c'est de la ROBUSTESSE. Le jour où `/analytics/` s'ouvrira
+//   sur vevewiki — ou le jour où quelqu'un réutilisera ce marquage sur une page
+//   qui, elle, y est rendue — la forme retenue tient toute seule, et l'autre
+//   non. Choisir la forme portée par les trois feuilles ne coûte rien
+//   aujourd'hui et évite un défaut qu'aucun banc ne verrait ce jour-là.
+// ⭐ *Le bon marquage n'est pas celui qui compile, c'est celui dont la feuille
+//   prévoit le petit écran* — et l'argument qui le défend doit être mesuré,
+//   lui aussi. Une prémisse fausse dans un commentaire est un piège posé pour
+//   celui qui relira.
+// ⛔ PAS DE SOUS-TITRE SOUS LA VALEUR : il demanderait un `.stat .d` qui
+//    n'existe dans AUCUN thème, donc trois règles CSS servies sur 3 097 pages
+//    pour trois lignes de légende. L'étiquette porte le sens toute seule.
+//
+// 🙋 ARBITRAGE DE PREDA, 02/09 : TROIS tuiles, pas quatre — « Dernier relevé »
+//    est retirée (elle répétait ce que `/how-prices-work/` dit déjà) — et le
+//    bandeau va AU-DESSUS du panneau « réservé aux membres » : on montre la
+//    matière avant le cadenas. ⛔ Ne pas le redescendre sans lui redemander.
+const nf = numberLocale[lang] || 'en-GB';
+const STATS = [
+  { k: 'analytics.stat.items',  v: ds.catalogueSize },
+  { k: 'analytics.stat.priced', v: ds.marcheTotal },
+  { k: 'analytics.stat.series', v: ds.collections instanceof Map ? ds.collections.size : null },
+].filter((s) => Number.isFinite(s.v) && s.v > 0);
 
 // ═══════════════════════════════════════════════════════════════════════════
 // LES QUATRE SUJETS
@@ -147,6 +206,23 @@ const unites = (c) => [
       VIVANTES dans les cinq dictionnaires (`/offre/` s'en sert) — ⛔ ne pas
       les supprimer « puisqu'elles ne servent plus » : c'est la panne du
       lot 34, et `test:cles` ne le dirait qu'après un build. */}
+  {/* ═══ LE BANDEAU DE STATS — LOT 214, POINT ⓒ DU 213 ═══
+      📄 Le POURQUOI est en tête de fichier : trois comptes, aucun montant,
+      zéro règle CSS, et une tuile sans chiffre disparaît au lieu d'afficher 0.
+      ⛔ `STATS` est déjà filtré : s'il est vide, on ne rend pas un `.stats`
+         vide — une grille sans enfant garde sa marge et laisse un trou que
+         personne ne saurait expliquer en regardant la page. */}
+  {STATS.length > 0 && (
+    <div class="stats" style="margin-top:var(--s5)">
+      {STATS.map((s) => (
+        <div class="stat">
+          <div class="k">{t(lang, s.k)}</div>
+          <div class="v">{s.v.toLocaleString(nf)}</div>
+        </div>
+      ))}
+    </div>
+  )}
+
   {/* ═══ CE BANDEAU EST FAUX POUR UN MEMBRE, ET C'EST TOUT CE QU'ON CORRIGE ═══
       🔴 LE DEFAUT, SIGNALE PAR PREDA LE 19/08 : connecte, il lisait encore
       « RESERVE AUX MEMBRES » et « Connectez-vous pour lire les chiffres ».

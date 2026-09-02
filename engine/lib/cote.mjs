@@ -657,6 +657,13 @@ export function deposerMarche(ds) {
     // ⭐ `itemsTotal` et pas `items` : la page n'affiche que le NOMBRE.
     itemsTotal: Array.isArray(ds.items) ? ds.items.length : 0,
     marcheTotal: ds.marcheTotal,
+    // 🔬 LOT 214 — combien de pieces la regle du plancher ecarte a EXAMINEES.
+    // ⛔ Il ne se recalcule pas ici : `floor` est sorti a `projeterCote()`,
+    //   juste avant cet appel. Voir le § de `dataset.mjs`.
+    // ⚠️ `?? null` ET PAS `|| 0` : un dataset construit sans ce champ doit
+    //   dire « je ne sais pas », jamais « aucune » — c'est precisement la
+    //   confusion que ce compteur existe pour lever.
+    candidats: Number.isFinite(ds.marcheCandidats) ? ds.marcheCandidats : null,
     resume: resumerPourLeTableauDeBord(ds),
     // ⭐ L'ORDRE EST CONSERVÉ : `maigrir()` filtre des CLÉS, il ne touche pas à
     //   la liste. L'ordre neutre posé dans `dataset.mjs` traverse intact.
