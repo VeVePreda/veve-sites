@@ -17,7 +17,7 @@ import { DESC_MIN, DESC_MAX } from '../../../engine/lib/editorial_pages.mjs';
 import { t, localize, numberLocale, dateLocale, nu } from '../../../engine/lib/i18n.mjs';
 import { postsForItem } from '../../../engine/lib/blog.mjs';
 import { rar, forme, delta, gemsM, RAR, omiM, mcpPoints, mentionEdition, dateSeule, urlStackR } from '../../../engine/lib/vitrine.mjs';
-import { franchit, porte } from '../../../engine/lib/access.mjs';
+import { franchit, porte, acces } from '../../../engine/lib/access.mjs';
 import { coteFermee as coteEstFermee } from '../../../engine/lib/cote.mjs';
 import BarreAcces from '../BarreAcces.astro';
 
@@ -194,6 +194,16 @@ const jolieRareteFr = (r) => String(r).toLowerCase().split(/[_\s]+/).filter(Bool
 // gelees. Ceci est un champ d'AFFICHAGE.
 const titreOeuvre = item.nomComic || item.name;
 const serieRedondante = norm(item.series) === norm(item.name);
+// 🔔 LOT 215-B — LES COMPTES SONT-ILS OUVERTS SUR CE SITE ?
+// ⭐⭐ LE PRÉDICAT EST IMPORTÉ, PAS RECOPIÉ. `socle_js.mjs` et `Base.astro`
+// emploient EXACTEMENT `acces().tiers.length > 1` pour décider s'ils embarquent
+// le code d'espace membre. Écrire ici `manifest().features.comptes`, qui « veut
+// dire la même chose », donnerait deux définitions d'un seul état — la panne P30
+// du lot 139. ⛔ Sans cette porte, vevewiki (`tiers: [visitor]`) servirait un
+// bouton d'alerte sur ses fiches, avec un panneau que rien ne peut remplir.
+// ⭐ *La condition voyage avec le code, ou elle disparaît en silence* — et le
+//   build reste vert dans les deux cas.
+const comptesOuverts = acces().tiers.length > 1;
 const crumbs = [{ name: t(lang, 'home.crumb'), url: localize(lang, '/') }];
 if (colSlug) crumbs.push({ name: item.series, url: localize(lang, `/collection/${colSlug}/`) });
 // Le fil d'Ariane doit refleter l'adresse : la serie est deja le maillon
@@ -453,6 +463,115 @@ const mcpJour = mcpPoints(item.rarity, item.type);
           <path d="M12 20.2 4.6 12.9a4.6 4.6 0 0 1 6.5-6.5l.9.9.9-.9a4.6 4.6 0 1 1 6.5 6.5Z" />
         </svg>
       </button>
+
+      {/* ═══════════════════════════════════════════════════════════════════
+          🔔 LOT 215-B — SURVEILLER CE PRIX
+          ═══════════════════════════════════════════════════════════════════
+          ⚖️ TROIS ARBITRAGES DE PREDA, tranchés sur
+          `maquette-lot215b-bouton-fiche.html` le 03/09/2026 :
+            ① LES DEUX SENS — « sous » et « au-dessus de » ;
+            ② UNE ALERTE DÉJÀ POSÉE ne se modifie PAS ici : on la rappelle, et
+               on renvoie à `/alertes/reglages/`. Un seul endroit où l'on
+               modifie, donc un seul chemin à garder ;
+            ③ LE LIBELLÉ EST « Surveiller ce prix », jamais « Me prévenir ».
+               ⭐ Rien n'est envoyé (arbitrage ④ du 03/09) : un bouton qui promet
+               un message qui n'arrivera pas est un mensonge que personne ne
+               relit.
+
+          ⛔⛔ AUCUN PRIX N'EST ÉCRIT ICI, ET CE N'EST PAS UNE PRÉCAUTION : C'EST
+          LA CONTRAINTE QUI A DÉCIDÉ DE LA FORME. Cette page est PRÉ-GÉNÉRÉE —
+          8 484 fichiers identiques pour tout le monde, robots compris.
+          Pré-remplir le champ avec le plancher du jour, même comme simple
+          suggestion, cuirait un montant réservé dans chacun d'eux. C'est le mur
+          du lot 101, et `test:fuite` balaie `dist/` pour cette seule raison.
+          ⇒ Le champ part VIDE. Le seuil déjà posé, lui, est écrit À L'EXÉCUTION
+            par `alerte_fiche.js`, à partir d'une route qui lit la session.
+
+          ⭐⭐⭐ TOUTES LES FACES SONT RENDUES ICI, `hidden`, AVEC LEURS LIBELLÉS.
+          Le pilote montre une face et en cache d'autres — il n'écrit aucun mot.
+          ⛔ Le motif inverse (un panneau vide qu'un script remplit) donnerait un
+          écran blanc sans JavaScript, et surtout ses textes échapperaient à
+          `marquer:i18n`, qui lit le HTML SERVI et jamais le JavaScript : les
+          cinq langues s'en iraient sans qu'aucun banc ne le dise.
+
+          ⭐ RENDU POUR TOUT LE MONDE, comme le cœur ★ juste au-dessus : cette
+          page n'a pas de visiteur au moment du build, et un bloc enveloppé dans
+          un test de session disparaîtrait des fichiers statiques tout en
+          restant sur les routes dynamiques (règle du lot 100). C'est le
+          NAVIGATEUR qui sait qui regarde. */}
+      {comptesOuverts && (
+      <div class="veille" data-alerte={item.uuid}
+           data-path={item.path} data-nom={item.qualifie || item.name}>
+        <button type="button" class="veille__b" data-bascule
+                aria-expanded="false" aria-pressed="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none"
+               stroke="currentColor" stroke-width="2" stroke-linejoin="round">
+            <path d="M18 8a6 6 0 1 0-12 0c0 7-3 8-3 8h18s-3-1-3-8" />
+            <path d="M13.7 21a2 2 0 0 1-3.4 0" />
+          </svg>
+          <span>{t(lang, 'alerts.watch')}</span>
+        </button>
+
+        <div class="veille__pan" data-panneau hidden>
+          {/* ① PAS CONNECTÉ — le bouton reste VISIBLE et mène au compte. Le
+              cacher priverait le site de sa meilleure raison d'en faire créer
+              un ; et le palier gratuit permet une alerte, ce qui se dit. */}
+          <p class="veille__n" data-face="anon" hidden>
+            {t(lang, 'alerts.need.account')}{' '}
+            <a href={localize(lang, '/connexion/')}>{t(lang, 'alerts.signin')}</a>
+          </p>
+
+          {/* ② POSER — les deux sens, et un champ VIDE. */}
+          <div data-face="poser" hidden>
+            <p class="veille__t">{t(lang, 'alerts.when')}</p>
+            <div class="veille__l">
+              <select class="veille__s" data-sens aria-label={t(lang, 'alerts.when')}>
+                <option value="sous">{t(lang, 'alerts.dir.under')}</option>
+                <option value="sur">{t(lang, 'alerts.dir.over')}</option>
+              </select>
+              {/* ⚠️ `inputmode="decimal"` ouvre le clavier numérique du
+                  téléphone. Sans lui, poser un seuil au doigt demande de
+                  changer de clavier — sur la moitié des visites. */}
+              <input class="veille__c" type="number" data-seuil
+                     placeholder="0,00" inputmode="decimal" min="0" step="any"
+                     aria-label={t(lang, 'alerts.when')} />
+              <span class="veille__d">$</span>
+            </div>
+            <button type="button" class="veille__ok" data-poser>{t(lang, 'alerts.set')}</button>
+            <p class="veille__n">
+              <b data-n>—</b> / <b data-m>—</b> {t(lang, 'alerts.watched')} ·{' '}
+              <a href={localize(lang, '/alertes/')}>{t(lang, 'alerts.mine')}</a>
+            </p>
+          </div>
+
+          {/* ③ DÉJÀ POSÉE — arbitrage ② : on RAPPELLE, on ne modifie pas ici.
+              ⚠️ `data-etat` est VIDE dans le fichier servi : c'est le pilote qui
+              y écrit le seuil, et le seuil est un montant. */}
+          <div data-face="posee" hidden>
+            <p class="veille__t">{t(lang, 'alerts.set.done')}</p>
+            <p class="veille__e" data-etat></p>
+            <p class="veille__n">
+              <a href={localize(lang, '/alertes/reglages/')}>{t(lang, 'alerts.change')}</a>
+            </p>
+          </div>
+
+          {/* ④ PLAFOND — le refus DIT LE CHIFFRE et propose ses deux sorties.
+              Un « non » sans nombre se lit comme une panne. */}
+          <div data-face="plein" hidden>
+            <p class="veille__t"><b data-n>—</b> / <b data-m>—</b> {t(lang, 'alerts.watched')}</p>
+            <p class="veille__n">
+              {t(lang, 'alerts.full')}{' '}
+              <a href={localize(lang, '/offre/')}>{t(lang, 'alerts.tiers')}</a>
+            </p>
+          </div>
+
+          {/* ⑤ ON NE SAIT PAS — et ça n'emprunte jamais la sortie de « rien à
+              signaler ». Montrer le formulaire de pose sur un 503 laisserait
+              quelqu'un écraser un seuil qu'on n'a pas pu lire. */}
+          <p class="veille__n" data-face="hs" hidden>{t(lang, 'alerts.hs')}</p>
+        </div>
+      </div>
+      )}
 
       {/* ═══════════════════════════════════════════════════════════════════
           LA COLONNE DE GAUCHE — LOT 73, l'ordre exact demandé par Preda
@@ -1255,6 +1374,13 @@ const mcpJour = mcpPoints(item.rarity, item.type);
       d'entre elles — et `socle_js.mjs` refuse par construction un module qui
       n'a pas d'hote. La condition voyage avec le code, ou elle disparait. */}
   {item.nVentes > 0 && <script defer src={moduleJs('ventes').href}></script>}
+  {/* 🔔 LOT 215-B — MÊME RÈGLE QUE LE PILOTE DES VENTES JUSTE AU-DESSUS : le
+      script n'est émis QUE si son hôte l'est. Sur vevewiki, `comptesOuverts`
+      est faux, le bloc n'existe pas, et ces octets ne partent pas.
+      ⚠️ `defer` et APRÈS `</Base>` du socle : `window.vpAlertes` (posé par
+      `src/socle/45-alertes.js`, dans le `<head>`) est déjà là quand celui-ci
+      démarre. La garantie vient de l'ordre du document, pas d'un hasard. */}
+  {comptesOuverts && <script defer src={moduleJs('alerte_fiche').href}></script>}
 
   {item.prixAberrant && <p class="avertis">{t(lang, 'item.outlier')}</p>}
 

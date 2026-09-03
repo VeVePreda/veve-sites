@@ -128,6 +128,18 @@ export const PRIVEES = [
   { chemin: '/market/', attendu: 'no-store', quoi: 'le marché, réservé aux membres' },
   { chemin: '/favoris/', attendu: 'no-store', quoi: 'les favoris du membre' },
   { chemin: '/dashboard/', attendu: 'no-store', quoi: 'le tableau de bord' },
+  // 🔔 LOT 215 — LES DEUX PAGES D'ALERTES (arbitrage ② de Preda : DEUX pages).
+  // 🔴🔴🔴 ELLES RENDENT **200** POUR UN MEMBRE, DONC ELLES SONT DE LA FAMILLE
+  //   EXPOSEE — celle de `/connexion/` et de `/acces/`, pas celle des 302.
+  //   ⇒ **IL FAUT LES EXCLURE DANS CLOUDFLARE**, c'est le SEPTIEME endroit, et
+  //   il n'est pas dans ce depot. Sans cette exclusion, le bord peut servir le
+  //   feed d'un membre a un autre — mesure en production le 24/08 sur
+  //   `/acces/`, exactement ainsi. ⛔ Ce banc le dira, et il le dira TARD :
+  //   apres le deploiement, pas avant.
+  // ⚠️ ET LES DEUX, avec le prefixe de langue : une exclusion ecrite « le
+  //   chemin commence par /alertes/ » ne couvre PAS `/fr/alertes/`.
+  { chemin: '/alertes/', attendu: 'no-store', quoi: 'le feed des alertes du membre' },
+  { chemin: '/alertes/reglages/', attendu: 'no-store', quoi: 'les configurations d\'alertes du membre' },
   // ⭐ Ces deux-là rendent 200, pas 302 — elles sont donc les plus exposées :
   //   une réponse 200 est ce qu'un cache aime mettre de côté, et elles lisent
   //   `Accept-Language`, donc elles diffèrent d'un visiteur à l'autre.
@@ -166,6 +178,10 @@ export const PRIVEES = [
   { chemin: '/fr/market/', attendu: 'no-store', quoi: 'le marché en français (préfixe de langue)' },
   { chemin: '/es/favoris/', attendu: 'no-store', quoi: 'les favoris en espagnol (préfixe de langue)' },
   { chemin: '/de/dashboard/', attendu: 'no-store', quoi: 'le tableau de bord en allemand (préfixe de langue)' },
+  // ⭐ UNE QUATRIEME LANGUE, ET C'EST DELIBERE : si les quatre variantes
+  //   pointaient vers `/fr/…`, on ne saurait rien des trois autres prefixes, et
+  //   « je n'ai teste qu'une langue » se lirait « les langues sont couvertes ».
+  { chemin: '/it/alertes/', attendu: 'no-store', quoi: 'le feed en italien (préfixe de langue)' },
 
   // ═════════════════════════════════════════════════════════════════════════
   // 📊 LOT 157 — LES SUJETS D'ANALYTICS, ET LE BANC LES A RÉCLAMÉS TOUT SEUL
@@ -213,7 +229,7 @@ export const ZONE_MEMBRE = 'veveprice.com';
 //   EXISTER. Le jour où l'une d'elles répondrait 200, ce serait qu'un espace
 //   membre s'est glissé sur un site qui n'en a pas, et le cache le diffuserait.
 //   Un banc qui ne regarde que ce qui existe ne voit jamais ce qui apparaît.
-export const ABSENTES_HORS_MEMBRE = ['/compte/', '/market/', '/connexion/', '/favoris/', '/acces/'];
+export const ABSENTES_HORS_MEMBRE = ['/compte/', '/market/', '/connexion/', '/favoris/', '/acces/', '/alertes/'];
 
 // ⭐⭐ LE MOTIF QUI RATTACHE UNE ADRESSE À `ROUTES_COMPTE`.
 //   Le § 1 du banc lit `astro_routes_compte.mjs` COMME UN TEXTE et vérifie que
@@ -228,6 +244,13 @@ export const FAMILLES_COMPTE = [
   { source: 'pages/market/', couvertPar: '/market/' },
   { source: 'pages/favoris/', couvertPar: '/favoris/' },
   { source: 'pages/dashboard/', couvertPar: '/dashboard/' },
+  // 🔔 LOT 215 — ⭐ UNE SEULE FAMILLE COUVRE LES DEUX PAGES : le banc rattache
+  //   par PREFIXE (`startsWith`), et `pages/alertes/reglages/index.astro`
+  //   commence par `pages/alertes/`. ⛔ Ne pas ajouter une famille
+  //   `pages/alertes/reglages/` : elle serait redondante, et le controle
+  //   inverse (« aucune famille ne vise une route disparue ») la garderait
+  //   vivante pour rien.
+  { source: 'pages/alertes/', couvertPar: '/alertes/' },
   { source: 'pages/api/', couvertPar: '/api/sante' },
   // ⭐ Les trois familles que la première version de ce fichier avait oubliées.
   //   Chacune est réclamée par une adresse dans une langue DIFFÉRENTE : si les
@@ -237,6 +260,7 @@ export const FAMILLES_COMPTE = [
   { source: 'pages/[locale]/market/', couvertPar: '/fr/market/' },
   { source: 'pages/[locale]/favoris/', couvertPar: '/es/favoris/' },
   { source: 'pages/[locale]/dashboard/', couvertPar: '/de/dashboard/' },
+  { source: 'pages/[locale]/alertes/', couvertPar: '/it/alertes/' },
   // ═════════════════════════════════════════════════════════════════════════
   // 📊 LOT 157 — LES QUATRE SUJETS D'ANALYTICS, ET LE PIÈGE EST DANS L'ADRESSE
   //             QUI LES RÉCLAME

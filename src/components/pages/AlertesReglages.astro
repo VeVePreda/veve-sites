@@ -1,0 +1,137 @@
+---
+// ⚠️ VeVePreda/veve-sites — src/components/pages/AlertesReglages.astro (NEUF — lot 215)
+// ═══════════════════════════════════════════════════════════════════════════
+// LES RÉGLAGES — ce que je surveille, et combien j'ai le droit d'en surveiller
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// ⚖️ ARBITRAGE ② DE PREDA, 03/09/2026 : **DEUX pages**. Le feed est ce qu'on
+// vient voir ; les configurations sont ce qu'on règle rarement — le plus
+// souvent depuis la fiche de la pièce elle-même. Les mettre sur la même page
+// aurait fait descendre le feed sous une liste de trente lignes.
+// ⚠️ CE QUE CE CHOIX COÛTE, ET IL FAUT LE DIRE : cette page traverse **les sept
+// endroits d'une route de compte** une seconde fois (ROUTES_COMPTE, nginx,
+// `cache_attendu.mjs`, `test_pages.mjs`, le manifeste, le Dockerfile et
+// Cloudflare). C'est ce qui rend ce lot indivisible.
+//
+// ⭐⭐ DEUX QUOTAS, ET ILS NE COMPTENT PAS LA MÊME CHOSE. Cette page montre le
+// premier — **les CONFIGURATIONS**, c'est-à-dire combien de pièces je peux
+// surveiller (`alerts.caps`, 1 / 10 / 30 / 100). Le second — combien de
+// MESSAGES peuvent me joindre — n'existe pas encore : arbitrage ④ du 03/09,
+// **aucune notification pour l'instant**. ⛔ Ne pas inventer ici un plafond de
+// notifications : il n'y a rien à plafonner tant que rien n'est poussé.
+//
+// ⛔ AUCUN PRIX DE MARCHÉ ICI NON PLUS. Les montants affichés sont les SEUILS,
+// que la personne a tapés elle-même. Le plancher du jour ne figure sur aucune
+// des deux pages.
+import Base from '../../layouts/Base.astro';
+import { moduleJs } from '../../../engine/lib/socle_js.mjs';
+import { t, localize, numberLocale } from '../../../engine/lib/i18n.mjs';
+
+const pilote = moduleJs('alertes');
+
+const {
+  lang, alertes = [], indisponible = false, plafond = 0,
+} = Astro.props;
+
+const nf = numberLocale[lang] || 'en-GB';
+// ⛔ `$` LITTÉRAL — même raison qu'`Item.astro` l. 582 et que `Alertes.astro`.
+const money = (v) => Number(v).toLocaleString(nf, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+// ⭐ LE POURCENTAGE DE LA JAUGE EST BORNÉ À 100, ET CE N'EST PAS DÉCORATIF :
+//   un plafond qui baisse (changement de palier) laisserait des lignes
+//   au-dessus de la limite, et une barre à 300 % aurait l'air d'un défaut
+//   d'affichage plutôt que de l'état réel du compte.
+const rempli = plafond > 0 ? Math.min(100, Math.round((alertes.length / plafond) * 100)) : 0;
+---
+
+<Base sect="general" lang={lang} path="/alertes/reglages/" noindex={true}
+      title={t(lang, 'alerts.settings')} description={t(lang, 'alerts.settings.desc')}
+      crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') },
+               { name: t(lang, 'alerts.title'), url: localize(lang, '/alertes/') },
+               { name: t(lang, 'alerts.settings') }]}>
+
+  <div class="sect-t sect-t--gd"><h1 class="mono-t">{t(lang, 'alerts.settings')}</h1>
+    <span class="etiq etiq--bleu">{t(lang, 'alerts.count', { n: alertes.length, m: plafond })}</span></div>
+  <p class="etiq">{t(lang, 'alerts.settings.desc')}</p>
+
+  {/* 🔴 LE PALIER À ZÉRO SE DIT, IL NE SE DEVINE PAS. Une page vide sans
+      explication se lit « c'est cassé ». ⭐ Et le message ne s'affiche que
+      quand il est VRAI : `plafond` vient de la porte du manifeste, pas d'une
+      constante écrite ici — voir `capacite()` dans `/api/alertes`. */}
+  {plafond <= 0 && (
+    <p class="filtres-mur">
+      {t(lang, 'alerts.cap0')} <a href={localize(lang, '/offre/')}>{t(lang, 'alerts.tiers')}</a>
+    </p>
+  )}
+
+  {indisponible
+    ? <p class="filtres-mur">{t(lang, 'alerts.hs')}</p>
+    : alertes.length === 0
+      ? (plafond > 0 && <p class="filtres-mur" id="al-cfg-vide">{t(lang, 'alerts.none')}</p>)
+      : (
+        <>
+          <ul class="cfgs" id="al-cfgs">
+            {alertes.map((a) => (
+              <li class="cfg" data-uuid={a.uuid}>
+                <span class="cfg__n">
+                  {a.chemin ? <a href={a.chemin}>{a.nom || a.uuid}</a> : (a.nom || a.uuid)}
+                </span>
+                <span class="cfg__s">
+                  {a.sens === 'sous'
+                    ? t(lang, 'alerts.under.short', { v: `$${money(a.seuil)}` })
+                    : t(lang, 'alerts.over.short', { v: `$${money(a.seuil)}` })}
+                </span>
+                {/* ⭐ « ARMÉE » CONTRE « DÉCLENCHÉE » EST L'ÉTAT LE PLUS UTILE
+                    DE CETTE PAGE, et il n'est écrit nulle part ailleurs : une
+                    alerte désarmée ne redéclenchera pas tant que le prix n'est
+                    pas repassé de l'autre côté. Sans cette mention, quelqu'un
+                    dont le prix stagne sous son seuil croirait l'alerte morte.
+                    ⛔ Le réarmement, lui, ne produit AUCUNE ligne de feed : ce
+                    n'est pas ce qu'on a demandé à surveiller. */}
+                <span class={`cfg__e ${a.arme ? 'cfg__e--arme' : 'cfg__e--tire'}`}>
+                  {a.arme ? t(lang, 'alerts.armed') : t(lang, 'alerts.fired')}
+                </span>
+                <button type="button" class="cfg__x" data-retirer={a.uuid}>{t(lang, 'alerts.remove')}</button>
+              </li>
+            ))}
+          </ul>
+          <div class="jauge"><i style={`width:${rempli}%`}></i></div>
+        </>
+      )}
+
+  {/* ⚠️ L'AVERTISSEMENT EST SUR LA PAGE, PAS DANS UNE FENÊTRE DE CONFIRMATION.
+      Retirer une surveillance efface aussi ses déclenchements (voir
+      `retirerAlerte()`). Une suppression qu'on découvre APRÈS coup n'est pas
+      une suppression demandée — et une boîte de dialogue que le pilote lève
+      n'existe pas quand le JavaScript est absent. */}
+  <p class="etiq">{t(lang, 'alerts.remove.warn')}</p>
+  <p><a class="puce" href={localize(lang, '/alertes/')}>{t(lang, 'alerts.feed.link')}</a></p>
+</Base>
+
+<script defer src={pilote.href}></script>
+
+<style>
+  .cfgs { list-style: none; margin: 0 0 var(--s3); padding: 0; display: grid; gap: 1px;
+          background: var(--rule); border: 1px solid var(--rule); border-radius: var(--r-md);
+          overflow: hidden; }
+  .cfg { background: var(--surface); display: flex; gap: var(--s3); align-items: center;
+         padding: 9px var(--s3); flex-wrap: wrap; }
+  .cfg__n { flex: 1 1 180px; min-width: 0; font-size: 13px; overflow: hidden;
+            text-overflow: ellipsis; white-space: nowrap; }
+  .cfg__s { font-family: var(--tech); font-size: 12px; color: var(--text-2);
+            font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .cfg__e { font-family: var(--tech); font-size: var(--t-3xs); text-transform: uppercase;
+            letter-spacing: var(--ls-etiq); padding: 2px 6px; border-radius: 2px;
+            white-space: nowrap; border: 1px solid var(--rule-2); color: var(--muted); }
+  .cfg__e--arme { color: var(--up); border-color: var(--up); }
+  /* ⚠️ `min-height` À LA TAILLE DE FRAPPE DU THÈME (`--tap-min`) : un bouton de
+     28 px se manque au doigt, et cette page est d'abord consultée au
+     téléphone. */
+  .cfg__x { background: none; border: 1px solid var(--rule-2); color: var(--muted);
+            border-radius: 2px; font-family: var(--tech); font-size: 11px;
+            min-height: var(--tap-min); padding: 3px 10px; cursor: pointer; }
+  .cfg__x:hover { color: var(--down); border-color: var(--down); }
+  .jauge { height: 3px; max-width: 280px; background: var(--surface-2);
+           border-radius: 2px; overflow: hidden; margin-bottom: var(--s4); }
+  .jauge i { display: block; height: 100%; background: var(--sect-a); }
+</style>

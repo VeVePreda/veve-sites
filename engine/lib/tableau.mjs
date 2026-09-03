@@ -124,6 +124,23 @@ export const ACCES_RAPIDES = [
     cle: 'market', href: '/market/', module: 'market',
     nomCle: 'mod.market', descCle: 'mod.market.d',
   },
+  // 🔔 LOT 215 — LES ALERTES ENTRENT AU TABLEAU DE BORD, ET C'EST LE BANC QUI
+  //   L'A RÉCLAMÉ. `test:tableau` exige que tout module LIVRÉ (`bientot: false`)
+  //   soit ou bien montré ici, ou bien inscrit dans `SANS_TUILE` avec sa raison.
+  //   ⭐ Le lot avait branché SEPT endroits et oublié celui-ci : le circuit
+  //   fermé a nommé l'oubli tout seul, exactement comme au 11/08 et au 18/08.
+  //   *Un audit ne voit que ce qu'il ouvre ; un circuit fermé ouvre ce qu'on a
+  //   oublié de lui citer.*
+  // ⛔ AUCUN COMPTEUR ICI, ET C'EST DÉLIBÉRÉ. `compteur:` sert un chiffre rendu
+  //   par le navigateur (comme `tb-nfav` pour les favoris). En poser un
+  //   demanderait un second accès réseau aux alertes — or le pilote de
+  //   `/alertes/` est le seul, et il doit le rester : deux appelants
+  //   traiteraient 401 et 503 différemment le jour où l'un apprend une règle
+  //   de plus. C'est la leçon du lot 140-1.
+  {
+    cle: 'alerts', href: '/alertes/', module: 'alerts',
+    nomCle: 'mod.alerts', descCle: 'mod.alerts.d',
+  },
   {
     cle: 'sets', href: '/sets/', rayon: true,
     nomCle: 'rayon.sets', descCle: 'dash.sets.d',

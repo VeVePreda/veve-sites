@@ -1,0 +1,127 @@
+---
+// ⚠️ VeVePreda/veve-sites — src/pages/alertes/index.astro   (FICHIER NEUF — lot 215)
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔔 LE FEED — la page que Preda a demandée, et elle est derrière le mur
+// ═══════════════════════════════════════════════════════════════════════════
+// Preda, 02/09 : « une page /alertes/ avec un genre de feed où apparaît en
+// ligne toutes les alertes que j'avais préalablement configurées ». Les deux
+// moitiés comptent, et elles vivent à deux endroits différents :
+//   · le LIEN  → `nav.alerts` passe à `pret: true, membre: true` dans le manifeste ;
+//   · la PORTE → ce fichier, plus l'inscription dans `ROUTES_COMPTE`.
+// ⛔ Masquer le lien sans fermer la route serait un AFFICHAGE, pas une porte.
+//
+// ⛔⛔ `prerender = true` EN LITTÉRAL, ET C'EST VOULU — même dispositif que les
+// vingt-cinq autres routes de compte. Un `false` littéral fait échouer le build
+// en mode static (NoAdapterInstalled) et casserait vevewiki ; une EXPRESSION
+// n'est pas évaluée par Astro, qui retombe silencieusement sur `true` — la
+// panne du lot 24. C'est `engine/lib/astro_routes_compte.mjs` qui bascule cette
+// route à la demande.
+// 🔴 L'OUBLIER LÀ-BAS NE CASSE RIEN ICI : la page resterait pré-générée, la
+// redirection ci-dessous serait évaluée UNE fois au build (au niveau visiteur,
+// donc toujours vraie) et figée dans un fichier — une page qui redirige tout le
+// monde, membres compris, sur un build parfaitement vert.
+export const prerender = true;
+
+import Alertes from '../../components/pages/Alertes.astro';
+import { locales, COOKIE_LANGUE, languesInterface } from '../../../engine/lib/i18n.mjs';
+import { connecte } from '../../../engine/lib/access.mjs';
+import { compteDeLaSession } from '../../../engine/lib/compte.mjs';
+import { lireFeed, compterAlertes, RETENTION_JOURS } from '../../../engine/lib/alertes.mjs';
+import { balayer } from '../../../engine/lib/journal.mjs';
+import { vignette } from '../../../engine/lib/vignettes.mjs';
+
+/* global __BUILD_TIME__ */
+// ⭐ L'IDENTITÉ DU BUILD, ET C'EST CE QUI CADENCE LE PRODUCTEUR. `__BUILD_TIME__`
+// est une valeur figée à la compilation (même source que le champ `build` de
+// `/api/sante`). La réserve ne bouge qu'au build : sous le même identifiant, un
+// second balayage relit exactement les mêmes points.
+const BUILD = typeof __BUILD_TIME__ === 'string' ? __BUILD_TIME__ : null;
+
+const { def } = locales();
+const _l = Astro.cookies.get(COOKIE_LANGUE)?.value;
+const lang = (_l && languesInterface().includes(_l)) ? _l : def;
+
+// ═══ LE MUR ═══════════════════════════════════════════════════════════════
+// ⭐ `connecte()` SEUL, PAS `franchit()`, et la différence est le produit.
+// « Qui es-tu » n'est pas « à quoi as-tu droit ». Le feed ne montre que des
+// seuils que la personne a tapés elle-même : il ne révèle aucun prix, il n'a
+// rien à vendre, et exiger un palier ici ajouterait un mur que personne n'a
+// demandé. ⚠️ Le PALIER, lui, plafonne le nombre de CONFIGURATIONS — et ça se
+// joue sur `/alertes/reglages/`, pas ici.
+// ⛔ Et confondre les deux est la faute qui produit les élévations de
+//    privilège, dans un sens comme dans l'autre.
+if (!connecte(Astro.locals)) {
+  // ⭐ 302 et pas 401 : ce n'est pas une erreur, c'est une porte. Et l'adresse
+  // de retour voyage, sinon on renvoie à l'accueil quelqu'un qui allait
+  // justement se connecter pour voir ses alertes.
+  return Astro.redirect('/connexion/?suite=%2Falertes%2F', 302);
+}
+
+// ⚠️ OBLIGATOIRE, ET PAS DÉCORATIF. Cloudflare est devant ce site : sans cet
+// en-tête, un cache intermédiaire peut servir la page d'un membre à un
+// visiteur. Une page ne passe pas par le même chemin qu'une réponse d'API, et
+// c'est pour ça que la précaution est répétée ici plutôt que centralisée.
+Astro.response.headers.set('cache-control', 'private, no-store');
+Astro.response.headers.set('vary', 'cookie');
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴 TROIS SORTIES, ET ELLES NE SE CONFONDENT PAS
+// ═══════════════════════════════════════════════════════════════════════════
+//   · des lignes      → on sait, et on montre ;
+//   · zéro ligne      → on sait, et rien ne s'est déclenché ;
+//   · `indisponible`  → on NE SAIT PAS (veveid muet, base muette).
+// ⛔ Rendre `[]` sur une panne afficherait « rien ne s'est déclenché » à
+//    quelqu'un dont la base est injoignable. « Je ne sais pas » n'emprunte
+//    jamais la sortie de « rien à signaler ».
+// ⛔ ET ON NE FAIT PAS TOMBER LA PAGE : un `throw` ici rendrait un 500 pour une
+//    base momentanément muette. On dégrade, on ne casse pas.
+let lignes = [];
+let surveillees = 0;
+let indisponible = false;
+try {
+  const sid = Astro.cookies.get('vp_session')?.value || null;
+  const compte = sid ? await compteDeLaSession(sid) : null;
+  if (!compte) {
+    // ⚠️ `connecte()` a dit oui plus haut et veveid dit non ici : la session a
+    //    expiré entre les deux, ou le service est muet. Dans les deux cas on ne
+    //    sait pas ce que cette personne surveille.
+    indisponible = true;
+  } else {
+    // ═══════════════════════════════════════════════════════════════════════
+    // ⭐⭐⭐ LE PRODUCTEUR TOURNE ICI, AU MOMENT OÙ QUELQU'UN REGARDE
+    // ═══════════════════════════════════════════════════════════════════════
+    // Le feed est TIRÉ : il n'a besoin d'être à jour qu'au moment où on le lit.
+    // ⭐ Et `balayer()` sort immédiatement si ce build a déjà été dépouillé —
+    //   la réserve étant figée au build, un second passage relirait les mêmes
+    //   points. Le premier visiteur après un déploiement paie le balayage ; les
+    //   suivants ne paient rien.
+    // ⛔ PAS DANS `/api/sante` : cette sonde est PUBLIQUE et le lanceur
+    //   l'interroge à chaque démarrage. Y accrocher un travail ferait dépendre
+    //   le démarrage du conteneur de l'état d'une base.
+    // ⛔ ET SON ÉCHEC NE DOIT PAS EMPORTER LA PAGE : un balayage impossible
+    //   (base en lecture seule, réserve absente) doit laisser le feed
+    //   AFFICHER CE QU'IL A DÉJÀ. On avale donc l'erreur ici, et seulement ici.
+    try { balayer({ buildId: BUILD }); } catch { /* le feed lit ce qui existe déjà */ }
+
+    surveillees = compterAlertes(compte);
+    // ⭐ L'INDEX DES VIGNETTES DONNE LE NOM D'AUJOURD'HUI, la base donne celui
+    //   d'alors. `vignette()` fait gagner l'index et garde la base en repli —
+    //   une pièce sortie du catalogue ressort avec son nom d'époque et sans
+    //   couverture : dégradée, pas effacée.
+    // ⛔ `vignette()` a une liste FERMÉE de six champs, aucun n'est un montant,
+    //   et il écrit `floor: null` en toutes lettres. Rien de ce qui arrive ici
+    //   ne peut donc porter un prix de marché.
+    lignes = lireFeed(compte).map((d) => {
+      const v = vignette(d.uuid, { p: d.chemin, n: d.nom });
+      return {
+        uuid: d.uuid, quand: d.quand, sens: d.sens, seuil: d.seuil,
+        name: v.qualifie || v.name, path: v.path, image: v.image,
+      };
+    });
+  }
+} catch {
+  indisponible = true;
+}
+---
+<Alertes lang={lang} lignes={lignes} indisponible={indisponible}
+         surveillees={surveillees} retention={RETENTION_JOURS} />

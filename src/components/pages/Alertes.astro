@@ -1,0 +1,185 @@
+---
+// ⚠️ VeVePreda/veve-sites — src/components/pages/Alertes.astro  (NEUF — lot 215)
+// ═══════════════════════════════════════════════════════════════════════════
+// LE FEED — une ligne par franchissement, la plus récente en haut
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// ⚖️ PREDA, 02/09/2026 : « c'était surtout une page /alertes/ que je voulais
+// avec un genre de feed où apparaît en ligne toutes les alertes que j'avais
+// préalablement configurées ; les alertes par mail n'étaient pas très
+// pertinent ». ⇒ **On vient VOIR.** Rien n'est poussé, rien n'est envoyé.
+//
+// ⚖️ ET LES QUATRE ARBITRAGES DU 03/09, tranchés sur maquette :
+//   ① la ligne est SOBRE — « mais l'heure doit être précise » ;
+//   ② les RÉGLAGES vivent sur une AUTRE page (`/alertes/reglages/`) ;
+//   ③ 30 jours de profondeur, et ça se nettoie tout seul ;
+//   ④ aucune notification.
+//
+// ⛔⛔ AUCUN PRIX DE MARCHÉ SUR CETTE PAGE, ET CE N'EST PAS UNE PRÉCAUTION :
+// C'EST UNE CONSÉQUENCE DE ①. Une ligne sobre montre le SEUIL — que la personne
+// a tapé elle-même — et l'heure. Le plancher du jour n'y figure pas, la courbe
+// non plus. ⇒ Le mur du lot 101 n'est pas seulement respecté : il n'est jamais
+// approché, et `declenchements` n'a même pas de colonne de prix.
+// ⭐ C'est aussi pour ça que cette page est réservée aux COMPTES (`connecte()`)
+//   et pas aux PALIERS : « qui es-tu » n'est pas « à quoi as-tu droit », et
+//   confondre les deux est la faute qui produit les élévations de privilège.
+//   ⚠️ Le PALIER, lui, plafonne le nombre de CONFIGURATIONS — et ça se joue sur
+//   l'autre page, pas ici.
+//
+// ⚠️ `lignes` ARRIVE DE LA ROUTE, PAS D'UN APPEL FAIT ICI. `Astro.locals` et
+// les cookies n'existent que sur la ROUTE ; un composant qui irait chercher la
+// session lui-même rendrait « personne » sur toute page pré-générée, sans
+// erreur et sans banc rouge. C'est la leçon de `palierVisiteur()` au lot 131.
+//
+// ⚠️ `indisponible` N'EST PAS `lignes: []`, ET LES DEUX NE SE DISENT PAS PAREIL.
+// « Je ne sais pas » (base muette, veveid muet) n'emprunte jamais la sortie de
+// « rien ne s'est déclenché ». Afficher « aucune alerte » à quelqu'un dont la
+// base est injoignable est une affirmation fausse.
+import Base from '../../layouts/Base.astro';
+import { moduleJs } from '../../../engine/lib/socle_js.mjs';
+import { t, localize, numberLocale } from '../../../engine/lib/i18n.mjs';
+
+const pilote = moduleJs('alertes');
+
+const {
+  lang, lignes = [], indisponible = false, surveillees = 0, retention = 30,
+} = Astro.props;
+
+const nf = numberLocale[lang] || 'en-GB';
+// ⛔ LE `$` EST UN LITTÉRAL, PAS UN `Intl` EN `style:'currency'` — même raison
+//    qu'à la ligne 582 d'`Item.astro` : sur cinq langues celui-ci rendrait
+//    « 40,00 $US » en français et « 40,00 $ » ailleurs, c'est-à-dire cinq
+//    rendus pour un fait unique, et un « $US » que personne n'écrit.
+const money = (v) => (v === null || v === undefined ? '—'
+  : Number(v).toLocaleString(nf, { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔑 L'HEURE — LA DEMANDE ① DE PREDA, ET ELLE EST TENUE À LA SECONDE PRÈS
+// ═══════════════════════════════════════════════════════════════════════════
+// `quand` est l'horodatage DU RELEVÉ, lu dans la réserve par `journal.mjs` —
+// pas l'heure du build, pas l'heure de l'écriture en base.
+//
+// ⭐⭐ ON REND L'HEURE EN UTC, ET ON L'ÉCRIT. Le serveur vit en UTC ; formater
+// dans un fuseau qu'on ne connaît pas serait inventer. La mention « UTC » n'est
+// donc pas un détail technique : sans elle, un lecteur en France lirait 07:03
+// pour un événement de 09:03 chez lui, et il n'aurait aucun moyen de le savoir.
+// ⭐ ET L'ATTRIBUT `datetime` PORTE L'INSTANT EXACT : le pilote le relit et
+//   réécrit la ligne dans le fuseau du navigateur. Sans JavaScript, l'heure UTC
+//   reste juste et lisible — la page ne dépend pas du pilote, il l'améliore.
+// ⛔ PAS DE « IL Y A 3 H ». Une durée relative est exactement ce que Preda a
+//   refusé : elle est vague par construction, et elle se périme dans la page.
+const fmt = new Intl.DateTimeFormat(nf, {
+  day: '2-digit', month: '2-digit', year: 'numeric',
+  hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'UTC',
+});
+const quandTexte = (s) => fmt.format(new Date(Number(s) * 1000));
+const quandIso = (s) => new Date(Number(s) * 1000).toISOString();
+---
+
+<Base sect="general" lang={lang} path="/alertes/" noindex={true}
+      title={t(lang, 'alerts.title')} description={t(lang, 'alerts.desc')}
+      crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') },
+               { name: t(lang, 'alerts.title') }]}>
+
+  <div class="sect-t sect-t--gd"><h1 class="mono-t">{t(lang, 'alerts.title')}</h1>
+    {lignes.length > 0 && <span class="etiq etiq--bleu">{lignes.length}</span>}</div>
+
+  {/* ⭐⭐ LA PHRASE DE FRAÎCHEUR EST OBLIGATOIRE, ET ELLE EST EXACTE.
+      La réserve est FIGÉE AU BUILD : un franchissement n'apparaît qu'au
+      déploiement suivant. ⭐ Un feed rend ce verrou confortable — une page ne
+      promet aucune fréquence, là où un courriel quotidien en promettait une.
+      ⛔ Ne pas la retirer « parce qu'elle fait peur » : sans elle, la page
+      laisse croire au temps réel, et c'est la seule promesse qu'on ne peut
+      pas tenir. */}
+  <p class="etiq">{t(lang, 'alerts.note')}</p>
+
+  {indisponible
+    ? <p class="filtres-mur">{t(lang, 'alerts.hs')}</p>
+    : lignes.length === 0
+      ? (
+        <p class="filtres-mur" id="al-vide">
+          {surveillees > 0
+            ? t(lang, 'alerts.empty', { n: surveillees })
+            : t(lang, 'alerts.empty.none')}
+        </p>
+      )
+      : (
+        <ul class="feed" id="al-feed">
+          {lignes.map((l) => (
+            <li class={`feed__e feed__e--${l.sens}`}>
+              {/* ⭐ La couverture vient de l'index des vignettes, comme sur
+                  `/favoris/`. ⛔ Cet index a une liste FERMÉE de six champs,
+                  aucun n'est un montant — voir `vignettes.mjs`. */}
+              {l.image
+                ? <img class="feed__v" src={l.image} alt="" loading="lazy" width="44" height="58" />
+                : <span class="feed__v feed__v--vide" aria-hidden="true"></span>}
+              <span class="feed__c">
+                {l.path
+                  ? <a class="feed__n" href={l.path}>{l.name}</a>
+                  /* ⚠️ UNE PIÈCE SANS ADRESSE RESTE AFFICHÉE, ET ELLE N'EST PAS
+                     UN LIEN. Un item sorti du catalogue n'a plus d'entrée dans
+                     l'index. ⛔ Le retirer silencieusement du feed de quelqu'un
+                     serait effacer sa donnée pour un défaut d'affichage. */
+                  : <span class="feed__n">{l.name}</span>}
+                <span class="feed__f">
+                  {l.sens === 'sous'
+                    ? t(lang, 'alerts.under', { v: `$${money(l.seuil)}` })
+                    : t(lang, 'alerts.over', { v: `$${money(l.seuil)}` })}
+                </span>
+              </span>
+              <time class="feed__d" datetime={quandIso(l.quand)}>
+                {quandTexte(l.quand)} {t(lang, 'alerts.utc')}
+              </time>
+            </li>
+          ))}
+        </ul>
+      )}
+
+  <p class="etiq">{t(lang, 'alerts.retention', { n: retention })}</p>
+  <p><a class="puce" href={localize(lang, '/alertes/reglages/')}>{t(lang, 'alerts.settings.link')}</a></p>
+</Base>
+
+{/* ⭐ LE PILOTE NE BÂTIT PAS LE FEED — LE SERVEUR LE REND. Il ne fait qu'une
+    chose : réécrire chaque `<time>` dans le fuseau du lecteur. Sans lui, la
+    page reste juste (l'heure UTC est affichée et étiquetée). */}
+<script defer src={pilote.href}></script>
+
+<style>
+  .feed { list-style: none; margin: 0 0 var(--s5); padding: 0; display: grid; gap: 1px;
+          background: var(--rule); border: 1px solid var(--rule); border-radius: var(--r-md);
+          overflow: hidden; }
+  .feed__e { background: var(--surface); display: flex; gap: var(--s3); align-items: center;
+             padding: 11px var(--s3); position: relative; }
+  .feed__e::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 2px;
+                     background: var(--rule-2); }
+  /* ⛔ LE ROUGE ET LE VERT NE PORTENT AUCUNE INFORMATION SEULS : la phrase dit
+     déjà « est passé sous » ou « au-dessus de ». La couleur double le sens,
+     elle ne le remplace pas — sinon la ligne devient illisible pour qui ne
+     distingue pas les deux teintes. */
+  /* ⭐ `--down` / `--up` VIENNENT DU THÈME, et ils changent en mode jour
+     (`#B01F32` / `#096E38`) : une valeur écrite en dur ici serait illisible sur
+     fond clair, et le banc du thème ne le dirait pas — il compte des octets,
+     pas des contrastes. */
+  .feed__e--sous::before { background: var(--down); }
+  .feed__e--sur::before  { background: var(--up); }
+  .feed__v { width: 44px; height: 58px; flex: 0 0 44px; object-fit: cover;
+             border-radius: 2px; background: var(--surface-2); }
+  .feed__v--vide { display: block; border: 1px solid var(--rule-2); }
+  .feed__c { flex: 1; min-width: 0; }
+  .feed__n { display: block; font-weight: 600; font-size: 13.5px; text-decoration: none;
+             white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .feed__f { display: block; font-size: 12.5px; color: var(--text-2); margin-top: 2px; }
+  .feed__d { flex: 0 0 auto; font-family: var(--tech); font-size: var(--t-xs);
+             color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  /* ⚠️ 390 px — la largeur mesurée sur la capture mobile du 01/09. L'heure
+     passe SOUS le libellé plutôt que de disparaître : c'est la donnée que
+     Preda a demandé de rendre précise, elle ne tombe jamais. */
+  @media (max-width: 560px) {
+    /* ⛔ `flex-wrap` EST OBLIGATOIRE ICI, ET C'EST LE GENRE D'OUBLI QUI NE
+       CASSE RIEN : sans lui, `width:100%` sur l'heure ne passe pas à la ligne,
+       elle écrase le libellé. La page reste « correcte », et illisible. */
+    .feed__e { align-items: flex-start; flex-wrap: wrap; }
+    .feed__c { order: 2; }
+    .feed__d { order: 3; width: 100%; padding-left: 56px; margin-top: 2px; }
+  }
+</style>

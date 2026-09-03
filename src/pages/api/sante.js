@@ -159,6 +159,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { acces } from '../../../engine/lib/access.mjs';
 import { etatDuStockage } from '../../../engine/lib/favoris.mjs';
+import { etatDesAlertes } from '../../../engine/lib/alertes.mjs';
 import { etatDeLaCaisse } from '../../../engine/lib/caisse_sonde.mjs';
 import { etatDuMagasin } from '../../../engine/lib/caisse.mjs';
 
@@ -172,6 +173,37 @@ const favoris = () => {
     // ⛔ La sonde ne tombe JAMAIS à cause de ce §. Une sonde de santé qui
     //    échoue sur la question qu'elle pose est pire qu'absente.
     return { ouverte: false, montee: null };
+  }
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔔 LOT 215 — LES ALERTES, ET CE QU'ELLES DISENT SANS RIEN RÉVÉLER
+// ═══════════════════════════════════════════════════════════════════════════
+// ⛔⛔ CETTE ROUTE EST PUBLIQUE. Elle ne rend donc QUE DES COMPTES — combien de
+// configurations, combien de déclenchements, la rétention, et quel build a été
+// dépouillé. ⚠️ LES SEUILS SONT DES MONTANTS et ils ne sortent JAMAIS d'ici :
+// un chiffre qui part par cette porte ne se rattrape pas.
+//
+// ⭐⭐ CE QUE `balaye` REND VISIBLE, ET QUE RIEN D'AUTRE NE DIT : le producteur
+// ne tourne qu'une fois par build, déclenché par la première visite de
+// `/alertes/`. Si ce champ reste sur un build ANCIEN alors que `build` a
+// changé, c'est que personne n'est venu voir depuis le déploiement — ce qui est
+// normal, et qui ne se distingue d'une panne que si on peut lire les deux.
+// ⛔ `null` ici veut dire « jamais balayé », pas « à jour ».
+const alertes = () => {
+  try {
+    const e = etatDesAlertes();
+    return {
+      ouverte: e.ouverte,
+      configurations: e.configurations,
+      declenchements: e.declenchements,
+      retentionJours: e.retentionJours,
+      balaye: e.balaye,
+    };
+  } catch {
+    // ⛔ La sonde ne tombe JAMAIS à cause de ce §, exactement comme au-dessus.
+    return { ouverte: false, configurations: null, declenchements: null,
+             retentionJours: null, balaye: null };
   }
 };
 
@@ -449,7 +481,7 @@ export const GET = ({ url }) => new Response(
     demarre: DEMARRE,
     // ⏱️ Où passe le temps d'un déploiement — voir le bloc au-dessus.
     chrono: chronoDuBuild(),
-    ...(comptesOuverts() ? { favoris: favoris(), caisse: caisse() } : {}),
+    ...(comptesOuverts() ? { favoris: favoris(), caisse: caisse(), alertes: alertes() } : {}),
   }),
   { headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } },
 );

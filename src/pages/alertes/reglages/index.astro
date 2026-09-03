@@ -1,0 +1,66 @@
+---
+// ⚠️ VeVePreda/veve-sites — src/pages/alertes/reglages/index.astro  (NEUF — lot 215)
+// ═══════════════════════════════════════════════════════════════════════════
+// ⚙️ LES RÉGLAGES — arbitrage ② de Preda du 03/09 : DEUX pages, pas une
+// ═══════════════════════════════════════════════════════════════════════════
+// Le feed est ce qu'on vient voir ; les configurations sont ce qu'on règle
+// rarement. ⚠️ CE CHOIX A UN PRIX, ET IL EST ÉCRIT : cette page traverse LES
+// SEPT ENDROITS d'une route de compte une seconde fois. C'est ce qui rend ce
+// lot indivisible — et c'est pour ça que tout est dit une fois dans
+// `src/pages/alertes/index.astro`, que ce fichier ne redit pas.
+//
+// ⛔⛔ `prerender = true` EN LITTÉRAL — même dispositif, même raison. C'est
+// `engine/lib/astro_routes_compte.mjs` qui bascule cette route à la demande.
+// 🔴 L'oublier là-bas laisserait cette page PRÉ-GÉNÉRÉE : elle répondrait 200 à
+// tout le monde et la redirection ci-dessous serait figée au build.
+export const prerender = true;
+
+import AlertesReglages from '../../../components/pages/AlertesReglages.astro';
+import { locales, COOKIE_LANGUE, languesInterface } from '../../../../engine/lib/i18n.mjs';
+import { connecte, plafond } from '../../../../engine/lib/access.mjs';
+import { compteDeLaSession } from '../../../../engine/lib/compte.mjs';
+import { lireAlertes } from '../../../../engine/lib/alertes.mjs';
+import { vignette } from '../../../../engine/lib/vignettes.mjs';
+
+const { def } = locales();
+const _l = Astro.cookies.get(COOKIE_LANGUE)?.value;
+const lang = (_l && languesInterface().includes(_l)) ? _l : def;
+
+if (!connecte(Astro.locals)) {
+  return Astro.redirect('/connexion/?suite=%2Falertes%2Freglages%2F', 302);
+}
+
+Astro.response.headers.set('cache-control', 'private, no-store');
+Astro.response.headers.set('vary', 'cookie');
+
+// ⭐ LE PLAFOND VIENT DE LA PORTE DU MANIFESTE, JAMAIS D'UNE CONSTANTE ÉCRITE
+//   ICI — exactement comme dans `/api/alertes`. Deux définitions d'une même
+//   grille finissent par diverger, et celle qui perd est celle qui refuse.
+// ⚠️ `plafond()` peut rendre `null` quand la porte n'a pas de `caps` : on
+//   traite ça comme ZÉRO, pas comme l'infini. *Quand on doit se tromper, on
+//   choisit le sens dans lequel se tromper.*
+const _cap = Number(plafond('alerts', Astro.locals));
+const capacite = Number.isFinite(_cap) && _cap >= 0 ? _cap : 0;
+
+let alertes = [];
+let indisponible = false;
+try {
+  const sid = Astro.cookies.get('vp_session')?.value || null;
+  const compte = sid ? await compteDeLaSession(sid) : null;
+  if (!compte) {
+    indisponible = true;
+  } else {
+    // ⛔ AUCUN BALAYAGE ICI. Le producteur tourne sur `/alertes/`, la page dont
+    //    le contenu en dépend. Le lancer aussi depuis les réglages ne
+    //    changerait rien à ce qu'on voit (les seuils ne bougent pas) et
+    //    ajouterait un second appelant à cadencer.
+    alertes = lireAlertes(compte).map((a) => {
+      const v = vignette(a.uuid, { p: a.chemin, n: a.nom });
+      return { ...a, nom: v.qualifie || v.name, chemin: v.path || a.chemin };
+    });
+  }
+} catch {
+  indisponible = true;
+}
+---
+<AlertesReglages lang={lang} alertes={alertes} indisponible={indisponible} plafond={capacite} />

@@ -1,0 +1,22 @@
+---
+// ⚠️ VeVePreda/veve-sites — src/pages/[locale]/alertes/reglages/index.astro (NEUF — lot 215)
+// ⚙️ La variante par langue des réglages. Tout est dit dans
+// `src/pages/alertes/index.astro` et `src/pages/alertes/reglages/index.astro`.
+// ⛔⛔ `getStaticPaths()` rend VIDE — voir `[locale]/alertes/index.astro`.
+export const prerender = true;
+
+import AlertesReglages from '../../../../components/pages/AlertesReglages.astro';
+import { connecte } from '../../../../../engine/lib/access.mjs';
+
+export function getStaticPaths() { return []; }
+
+const lang = Astro.params.locale;
+
+if (!connecte(Astro.locals)) {
+  return Astro.redirect(`/connexion/?suite=%2F${encodeURIComponent(lang)}%2Falertes%2Freglages%2F`, 302);
+}
+
+Astro.response.headers.set('cache-control', 'private, no-store');
+Astro.response.headers.set('vary', 'cookie');
+---
+<AlertesReglages lang={lang} />

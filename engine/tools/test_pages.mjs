@@ -65,6 +65,14 @@ const ROUTES = [
   { p: '/inscription/', quoi: "l'inscription (mène à /connexion/)", exige30x: '/connexion/' },
   { p: '/market/', quoi: 'le marché' },
   { p: '/favoris/', quoi: 'les favoris' },
+  // 🔔 LOT 215 — LA TROISIEME PLACE DES DEUX PAGES D'ALERTES. Les deux autres :
+  //   `astro_routes_compte.mjs` (Node les REND) et `nginx.server.conf` (nginx
+  //   les DEMANDE). ⛔ Une route qu'aucun banc ne demande n'est verifiee qu'en
+  //   production, par le premier visiteur — c'est le 503 du lot 123.
+  // ⚠️ ON N'EXIGE PAS LE 200 : sans session, ces deux-la REDIRIGENT vers
+  //   `/connexion/`, et c'est leur comportement correct.
+  { p: '/alertes/', quoi: 'le feed des alertes' },
+  { p: '/alertes/reglages/', quoi: 'les reglages d\'alertes' },
   // 🧭 LOT 126 — LA TROISIÈME PLACE DE `/dashboard/`. Les deux autres :
   //   `astro_routes_compte.mjs` (Node la REND) et `nginx.server.conf` (nginx la
   //   DEMANDE). ⛔ Une route qui n'est demandée par aucun banc n'est vérifiée
@@ -216,7 +224,7 @@ if (pret) {
     let langues = ['en'];
     try { langues = languesInterface(); } catch { /* repli sur la seule sûre */ }
 
-    const PORTES = ['/favoris/', '/dashboard/', '/compte/'];
+    const PORTES = ['/favoris/', '/dashboard/', '/compte/', '/alertes/'];
     let morts = [];
     let suivis = 0;
     const vu = new Set();
@@ -297,7 +305,7 @@ if (pret) {
     // le vert le plus dangereux qui soit.
     {
       const { langueUiDansEntete } = await import('../lib/i18n.mjs');
-      const MEMBRE = ['/compte/', '/market/', '/favoris/', '/dashboard/'];
+      const MEMBRE = ['/compte/', '/market/', '/favoris/', '/dashboard/', '/alertes/'];
       if (!langueUiDansEntete()) {
         // ⭐ SANS OBJET, et on l'imprime. vevewiki n'a pas de sélecteur
         //   d'interface : « aucun sur les pages membre » y serait vrai pour

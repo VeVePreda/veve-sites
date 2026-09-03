@@ -194,6 +194,32 @@ RUN WAREHOUSE_OFFLINE=1 npm run test:session
 #   production serait pire que le defaut qu'il surveille.
 RUN WAREHOUSE_OFFLINE=1 npm run test:prefs
 # ═══════════════════════════════════════════════════════════════════════════
+# 🔔 LOT 215 — `test:alertes` EST ICI, ET POUR LA MEME RAISON QUE `test:prefs`
+# ═══════════════════════════════════════════════════════════════════════════
+# ⭐⭐⭐ TROISIEME MAGASIN SUR LE MEME FICHIER DE BASE. `/data/veve-favoris.db`
+# porte maintenant `favoris.mjs` (lot 140-3), `prefs.mjs` (154-B),
+# `portes_surcharge.mjs` (164) et `alertes.mjs` (celui-ci). Si le dernier arrive
+# abime une table des precedents, les favoris ou les reglages des membres
+# disparaissent — sans erreur, sans run rouge, sans plainte.
+# ⇒ C'est la classe de defaut que le Dockerfile doit EMPECHER, pas constater :
+#   « la CI constate, elle n'empeche pas ». Un banc qui garde des donnees
+#   d'utilisateur n'a rien a faire uniquement dans `tests.yml`, ou son rouge
+#   arrive pendant que Coolify met le site en ligne.
+#
+# 🔴🔴 LEÇON DU LOT 214, APPLIQUEE DES LE PREMIER JOUR : un banc neuf qui n'est
+# dans AUCUN `RUN` n'existe pas. Le 214 a depose `test:memoire` sans le brancher
+# ici, et il n'a jamais tourne au deploiement. ⛔ Deposer n'est pas brancher.
+#
+# ⭐ AVANT LE BUILD, comme ses voisins : il n'importe pas `dataset()` et ne lit
+#   pas `dist/`. Il ouvre une base SQLite dans un dossier temporaire et l'efface.
+# ⛔ IL N'ECRIT PAS DANS `/data` — la base d'essai vit sous `mkdtempSync`, via
+#   `DB_PATH`. Un banc qui toucherait le volume de production serait pire que le
+#   defaut qu'il surveille.
+# ⛔ ET IL NE REND AUCUN INDECIDABLE : `node:sqlite` est integre a Node 22, la
+#   reserve d'essai est fabriquee par le banc lui-meme, et rien ici ne depend du
+#   reseau. Il tranche, toujours, sur les points qu'il pose.
+RUN WAREHOUSE_OFFLINE=1 npm run test:alertes
+# ═══════════════════════════════════════════════════════════════════════════
 # 🔴🔴🔴 `test:projection` — LOT 117. IL IMPORTE `dataset()` : IL EST **ICI**.
 # ═══════════════════════════════════════════════════════════════════════════
 # Il ferme le CIRCUIT que les controles precedents n'ouvraient qu'a une

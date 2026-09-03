@@ -401,20 +401,30 @@ access:
     # module, jamais son contenu.
     alerts:
       binaire: true   # ouvre ou non — ni troncature ni plafond
-      tier: crevette
-      # 🔴 LOT 104 — 0 / 1 / 5 / 15 (arbitrage Preda du 07/08). Remplace le
-      # 0/2/10/illimité du 20/07. ⭐ `whale` n'est plus illimité : 15 est un
-      # nombre, et un nombre se tient. Le moteur d'alertes interroge une
-      # source tierce — « illimité » y est une promesse que la source peut
-      # refuser à notre place.
-      # ⛔ AUCUNE DE CES ALERTES N'EST LIVRÉE : `/alertes/` n'existe pas et
-      # les 4 muettes sur 7 de `jetonveve` ne sont reliées à aucun compte.
-      # C'est la GRILLE. `offer.modules` le dit à la page d'offre.
+      # 🔔 LOT 215 (03/09/2026) — LA PORTE DESCEND À `member`, ET LA GRILLE
+      # CHANGE. Arbitrage Preda du 03/09, posé explicitement parce que la
+      # grille 1/10/30/100 traînait dans MES notes sans venir de lui :
+      # « passer à 1 / 10 / 30 / 100 ». Un membre gratuit peut donc surveiller
+      # UNE pièce — de quoi goûter au produit. ⛔ « 0 alerte » ne vend rien, et
+      # une page réservée qui n'autorise rien se lit comme une panne.
+      tier: member
+      # ⭐⭐ CE QUE CE PLAFOND COMPTE, ET C'EST PREDA QUI L'A NOMMÉ (02/09) :
+      # « quand je parle d'une 1 alerte c'est 1 configuration d'alerte ».
+      # ⇒ Une ligne de la table `alertes`, c'est-à-dire UNE PIÈCE SURVEILLÉE.
+      # ⛔ Ce n'est PAS un nombre de déclenchements, ni un nombre de messages.
+      # Le feed porte TOUS les déclenchements — il est tiré, jamais poussé,
+      # donc il n'y a rien à y plafonner.
+      # ⏳ LE SECOND QUOTA — combien de MESSAGES peuvent joindre quelqu'un —
+      # n'existe pas : arbitrage ④ du 03/09, AUCUNE notification pour
+      # l'instant. Il reviendra le jour où un canal existera.
+      # ✅ LIVRÉ : `/alertes/` (le feed) et `/alertes/reglages/` existent, et
+      # `offer.modules` porte `bientot: false`. `test:promesses` vérifie les
+      # deux sens de cette affirmation.
       caps:
-        member:    0
-        crevette:  1
-        langouste: 5
-        whale:     15
+        member:    1
+        crevette:  10
+        langouste: 30
+        whale:     100
     # Suivre le portefeuille de QUELQU'UN D'AUTRE — réservé au dernier palier.
     wallet_watch:
       binaire: true   # ouvre ou non — ni troncature ni plafond
@@ -518,7 +528,15 @@ nav:
   - { cle: nav.favoris,   href: /favoris/,    pret: true, membre: true }
   - { cle: nav.analytics, href: /analytics/,  pret: true  }   # ✅ lot 39 — démo publique + partie abonnée
   - { cle: nav.blog,      href: /blog/,       pret: true  }
-  - { cle: nav.alerts,    href: /alertes/,    pret: false }   # ⏳ demande un compte
+  # 🔔 LOT 215 — LES ALERTES ENTRENT AU MENU, ET DERRIÈRE LE MUR EN MÊME TEMPS.
+  # `membre: true` masque le lien aux anonymes ET la route passe dans
+  # ROUTES_COMPTE (astro_routes_compte.mjs) : le lien ET la porte, jamais l'un
+  # sans l'autre. ⛔ Masquer le lien sans fermer la route serait un AFFICHAGE,
+  # pas une porte — la confusion exacte des filtres de sets, où la barre est
+  # grisée et les 910 lignes sont toujours dans le HTML public.
+  # ⚠️ `/alertes/reglages/` N'ENTRE PAS AU MENU, ET C'EST L'ARBITRAGE ② : on
+  # vient VOIR le feed ; on règle rarement, et on y arrive depuis le feed.
+  - { cle: nav.alerts,    href: /alertes/,    pret: true, membre: true }
   - { cle: nav.vault,     href: /vault/,      pret: false }   # ⏳ demande un compte
   - { cle: nav.offer,     href: /offre/,      pret: true  }
 
@@ -644,7 +662,7 @@ offer:
         de: "Mitglied"
         it: "Membro"
       prix: 0
-      alertes: 0
+      alertes: 1
       d:
         fr: "Trois jours d'historique, la page Market, les fiches complètes."
         en: "Three days of history, the Market page, the full records."
@@ -659,7 +677,7 @@ offer:
         de: "Garnele"
         it: "Gambero"
       prix: 5
-      alertes: 1
+      alertes: 10
       d:
         fr: "Sept jours d'historique, le prix plancher, les extrêmes."
         en: "Seven days of history, the floor price, the extremes."
@@ -674,13 +692,13 @@ offer:
         de: "Languste"
         it: "Aragosta"
       prix: 15
-      alertes: 5
+      alertes: 30
       d:
-        fr: "Trente et quatre-vingt-dix jours d'historique, et cinq alertes."
-        en: "Thirty and ninety days of history, and five alerts."
-        es: "Treinta y noventa días de historial, y cinco alertas."
-        de: "Dreißig und neunzig Tage Historie, und fünf Warnungen."
-        it: "Trenta e novanta giorni di storico, e cinque avvisi."
+        fr: "Trente et quatre-vingt-dix jours d'historique, et trente alertes."
+        en: "Thirty and ninety days of history, and thirty alerts."
+        es: "Treinta y noventa días de historial, y treinta alertas."
+        de: "Dreißig und neunzig Tage Historie, und dreißig Warnungen."
+        it: "Trenta e novanta giorni di storico, e trenta avvisi."
     - cle: whale
       nom:
         fr: "Whale"
@@ -689,13 +707,13 @@ offer:
         de: "Wal"
         it: "Balena"
       prix: 30
-      alertes: 15
+      alertes: 100
       d:
-        fr: "L'historique sans borne, quinze alertes, le suivi de portefeuilles."
-        en: "History with no limit, fifteen alerts, wallet watching."
-        es: "El historial sin límite, quince alertas, el seguimiento de carteras."
-        de: "Historie ohne Grenze, fünfzehn Warnungen, Wallet-Beobachtung."
-        it: "Storico senza limiti, quindici avvisi, il monitoraggio dei portafogli."
+        fr: "L'historique sans borne, cent alertes, le suivi de portefeuilles."
+        en: "History with no limit, one hundred alerts, wallet watching."
+        es: "El historial sin límite, cien alertas, el seguimiento de carteras."
+        de: "Historie ohne Grenze, hundert Warnungen, Wallet-Beobachtung."
+        it: "Storico senza limiti, cento avvisi, il monitoraggio dei portafogli."
 
   # ═════════════════════════════════════════════════════════════════════════
   # 🔴🔴 LE CATALOGUE DES MODULES — LOT 104, ET C'EST LE BLOC SENSIBLE
@@ -752,7 +770,11 @@ offer:
     #    cessé de l'être dans le même commit — *un commentaire qui décrit l'état
     #    d'avant se lit comme une spécification.*
     - { cle: dashboard,     palier: member,       bientot: false }
-    - { cle: alerts,        porte: alerts,        bientot: true }   # /alertes/ absente · 4 muettes sur 7 dans jetonveve
+    # 🔔 LOT 215 — LIVRÉ. ⛔ `bientot: false` n'est PAS une déclaration
+    #   d'intention : `test:promesses` §4 ouvre le disque et exige
+    #   `src/pages/alertes/index.astro`. Il refuse aussi l'inverse — déclarer
+    #   « en attente » un module dont la page existe.
+    - { cle: alerts,        porte: alerts,        bientot: false }
     - { cle: wallet_watch,  porte: wallet_watch,  bientot: true }   # /vault/ absente
     # 🔴 LOT 131 — « rien nulle part » ÉTAIT VRAI AU 07/08, ET FAUX DEPUIS LE 119.
     # Mesuré : `/favoris/` a sa page (`src/pages/favoris/index.astro`), son

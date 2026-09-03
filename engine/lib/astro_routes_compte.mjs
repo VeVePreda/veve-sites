@@ -190,6 +190,37 @@ const ROUTES_COMPTE = [
   // déjà `location ^~ /api/`, qui proxie TOUT `/api/` vers Node. Pour une
   // route d'API, ce sont DEUX endroits, pas trois.
   'pages/api/favoris.js',
+  // ═════════════════════════════════════════════════════════════════════════
+  // 🔔 LOT 215 (03/09/2026) — LES DEUX PAGES D'ALERTES ET LEUR ROUTE
+  // ═════════════════════════════════════════════════════════════════════════
+  // ⚖️ ARBITRAGE ② DE PREDA, TRANCHE SUR MAQUETTE : DEUX pages. `/alertes/`
+  // porte le FEED (une ligne par franchissement) ; `/alertes/reglages/` porte
+  // les configurations. ⇒ Le lot traverse cette liste DEUX FOIS, et c'est le
+  // prix accepte de son choix. ⛔ C'est aussi ce qui rend ce lot indivisible :
+  // une page ici sans sa jumelle laisserait un lien vers une page publique.
+  //
+  // ⛔⛔ CELLES-CI SONT DE LA FAMILLE QUI DEVIENT MUETTE, PAS DE CELLE DE
+  // `/market/` — et il faut le dire, parce que les deux ne coutent pas pareil.
+  // Oubliees ici, ces pages seraient PRE-GENEREES : la redirection ecrite dans
+  // le fichier serait evaluee UNE fois au build, au niveau visiteur, donc
+  // toujours vraie, et figee. Resultat : une page qui redirige TOUT LE MONDE,
+  // membres compris, sur un build parfaitement vert. C'est la panne du lot 24.
+  // ⭐ ET ELLES NE PEUVENT PAS DEVENIR UNE FUITE, contrairement a `/market/` :
+  //   le feed n'affiche AUCUN prix de marche — que des seuils tapes par la
+  //   personne elle-meme (arbitrage ① : « sobre »). Meme pre-generee au niveau
+  //   visiteur, cette page n'aurait rien de reserve a ecrire dans `dist/`.
+  'pages/alertes/index.astro',
+  'pages/[locale]/alertes/index.astro',
+  'pages/alertes/reglages/index.astro',
+  'pages/[locale]/alertes/reglages/index.astro',
+  // 🔔 ET LA ROUTE D'API — NEUVIEME FOIS QU'ON ECRIT CETTE PHRASE, et elle
+  // reste vraie : cette liste est ECRITE A LA MAIN. Une route `/api/` qui n'y
+  // figure pas est PRE-GENEREE EN SILENCE — un fichier fige rendant la meme
+  // reponse a tout le monde, donc les alertes d'un compte servies a un autre,
+  // ou plus probablement une liste vide servie a tous.
+  // ✅ ET C'EST LE SEUL DEUXIEME ENDROIT : `nginx.server.conf` porte deja
+  //    `location ^~ /api/`, generique. Pour une route d'API, DEUX endroits.
+  'pages/api/alertes.js',
   // 💳 LOT 200 — LA CAISSE. Septième fois qu'on écrit cette phrase, et elle
   // reste vraie : cette liste est ÉCRITE À LA MAIN. Une route `/api/` qui n'y
   // figure pas est PRÉ-GÉNÉRÉE EN SILENCE — un fichier figé, incapable de lire

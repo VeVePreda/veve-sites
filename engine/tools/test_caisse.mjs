@@ -262,8 +262,25 @@ const neuf = (adresse) => {
   // ⭐⭐ SOUS LA PORTE DES COMPTES, comme `favoris`. vevewiki n'ouvre aucun
   //   compte, ne vend aucun palier, et n'a donc pas de caisse : sa sonde
   //   annoncerait un problème sur une installation parfaitement correcte.
-  dire(/comptesOuverts\(\) \? \{ favoris: favoris\(\), caisse: caisse\(\) \}/.test(code),
-    '⑧ ...sous la porte `comptesOuverts()`, comme les favoris');
+  // 🩹🔴 CE CONTRÔLE ÉTAIT BRANCHÉ SUR L'ORTHOGRAPHE EXACTE D'UNE LIGNE, ET IL
+  //   A ROUGI SUR DU CODE CONFORME — deux fois : au lot 215 d'abord (une
+  //   troisième sonde ajoutée sous la même porte), puis à sa réécriture.
+  //   L'ancienne forme exigeait littéralement
+  //   « comptesOuverts() ? { favoris: favoris(), caisse: caisse() } » :
+  //   toute sonde de plus sous la MÊME porte le faisait échouer.
+  //   ⭐⭐ *Un banc peut voir sa question changer sans être désarmé.* La
+  //   question n'a jamais été « la ligne est-elle écrite ainsi » mais « la
+  //   caisse sort-elle SOUS la porte des comptes ». On isole donc le CONTENU
+  //   de la conditionnelle et on y cherche l'appel — les voisins peuvent
+  //   arriver et partir sans réveiller ce banc pour rien.
+  //   ⛔ Ne pas « réparer » en élargissant jusqu'à accepter une caisse servie
+  //   HORS de la porte : ce serait la sonde de vevewiki qui crierait sur une
+  //   installation parfaitement correcte.
+  const sousPorte = code.match(/comptesOuverts\(\)\s*\?\s*\{([^}]*)\}/);
+  dire(Boolean(sousPorte) && /caisse:\s*caisse\(\)/.test(sousPorte[1])
+       && /favoris:\s*favoris\(\)/.test(sousPorte[1]),
+    '⑧ ...sous la porte `comptesOuverts()`, comme les favoris',
+    sousPorte ? `servi sous la porte : ${sousPorte[1].trim().slice(0, 80)}` : 'porte introuvable');
   dire(!/require\(/.test(code), '⑧ ...et toujours sans `require()` (module ES)');
 
   // 🔴 LE MODULE NE DOIT PAS SONDER AU CHARGEMENT. Un appel réseau au niveau du

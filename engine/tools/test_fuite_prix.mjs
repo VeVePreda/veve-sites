@@ -331,6 +331,63 @@ dit(!uuidValide('_projection.json') && !uuidValide('../.reserve/cote/_projection
 dit(sousDist === 0, '.reserve/ n\'apparait pas sous dist/',
   sousDist === 0 ? null : `${sousDist} fichier(s) de reserve SERVIS EN CLAIR`);
 
+// ── 6. LOT 215-B — LE PANNEAU « SURVEILLER CE PRIX » NE PORTE AUCUN MONTANT ──
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐⭐⭐ CE CONTROLE FERME UN TROU CONNU DE CE BANC : jusqu'ici il ne couvrait
+// QUE les cinq champs de `.reserve/cote/`. Le lot 215-B pose sur CHAQUE fiche un
+// champ de seuil, et le geste le plus naturel du monde serait de le pre-remplir
+// avec le plancher du jour « pour aider ». Ce serait un montant reserve cuit
+// dans 8 484 fichiers publics — la fuite du lot 101, par une porte neuve.
+//
+// ⛔ ON CHERCHE UN ATTRIBUT `value`, PAS UN CHIFFRE. Chercher un nombre dans le
+// panneau ferait mordre sur le `0` de `min="0"` et sur le `0,00` du
+// `placeholder` — deux choses qui ne sont PAS des donnees. La question est
+// « le serveur a-t-il ecrit une valeur ? », et elle se lit sur l'attribut.
+//
+// ⭐ ET IL A UNE REPONSE DANS LES DEUX ETATS : s'il n'y a aucun panneau dans
+// `dist/`, on le DIT au lieu de sortir vert. Un banc muet quand sa condition
+// arrive est un interrupteur, pas un instrument.
+{
+  const fiches = [];
+  const empiler = (d) => {
+    for (const e of readdirSync(d, { withFileTypes: true })) {
+      const c = join(d, e.name);
+      if (e.isDirectory()) empiler(c);
+      else if (e.name.endsWith('.html')) fiches.push(c);
+    }
+  };
+  try { empiler(RACINE); } catch { /* dist absent : deja traite plus haut */ }
+
+  let avecPanneau = 0;
+  const fautifs = [];
+  for (const f of fiches) {
+    const html = readFileSync(f, 'utf8');
+    if (!html.includes('data-seuil')) continue;
+    avecPanneau++;
+    // le champ, tel qu'il est servi
+    const m = html.match(/<input[^>]*data-seuil[^>]*>/g) || [];
+    for (const balise of m) {
+      if (/\svalue\s*=/.test(balise)) fautifs.push(`${f.slice(RACINE.length)} : ${balise.slice(0, 90)}`);
+    }
+    // ⛔ Et la face « deja posee » doit etre VIDE : c'est le pilote qui y ecrit
+    //    le seuil, a l'execution, depuis une route qui lit la session.
+    const e = html.match(/<p[^>]*data-etat[^>]*>([\s\S]*?)<\/p>/);
+    if (e && e[1].trim() !== '') fautifs.push(`${f.slice(RACINE.length)} : data-etat non vide « ${e[1].trim().slice(0, 40)} »`);
+  }
+
+  if (!avecPanneau) {
+    // ⚠️ SANS OBJET, et on l'imprime — ce n'est pas un vert. vevewiki n'ouvre
+    //    aucun compte, donc `Item.astro` ne rend pas le bloc : c'est correct, et
+    //    ca ne se distingue d'un bloc disparu que si on le dit.
+    console.log(`  ..  aucun panneau de seuil dans dist/ (${process.env.SITE}) : `
+      + 'attendu sur un site sans comptes, ANORMAL sur veveprice.');
+  } else {
+    dit(fautifs.length === 0,
+      `les ${avecPanneau} panneau(x) de seuil servis ne portent AUCUN montant`,
+      fautifs.length ? `🔴 ${fautifs.slice(0, 3).join(' · ')}` : null);
+  }
+}
+
 console.log(ko === 0 ? '\n✅ aucune fuite de cote dans dist/\n' : `\n🔴 ${ko} controle(s) en echec\n`);
 // ═══════════════════════════════════════════════════════════════════════════
 //  🔴🔴🔴 LOT 112 — LES POURCENTAGES SONT DES PRIX, ET CE BANC NE LES VOYAIT PAS

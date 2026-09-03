@@ -82,6 +82,16 @@ const ORDRE = [
   '20-menu.js',      // le tiroir de navigation et son voile
   '30-membre.js',    // l'avatar et l'en-tête, ⚠️ seulement si les comptes sont ouverts
   '40-favoris.js',   // les boutons ★, `localStorage` uniquement
+  // 🔔 LOT 215-B — L'ACCÈS UNIQUE AUX ALERTES (`window.vpAlertes`).
+  // ⭐ JUSTE APRÈS `40-favoris.js`, ET LA LISTE SE LIT COMME UNE CHRONOLOGIE :
+  //   c'est son jumeau exact — même forme, même raison (un seul accès réseau
+  //   pour tous les lecteurs), et on veut que le prochain lecteur les compare
+  //   sans avoir à les chercher.
+  // ⭐⭐ AVANT les modules de composant, forcément : le socle est émis dans le
+  //   `<head>`, un module dans le `<body>`, et les deux sont `defer` — donc
+  //   exécutés dans l'ordre du document. `alerte_fiche.js` et
+  //   `modules/alertes.js` appellent `window.vpAlertes` ; il doit exister.
+  '45-alertes.js',
   '50-i18n.js',      // l'échange des libellés chez le visiteur (lot 129)
   // 🌍 LOT 139 — le sélecteur de langue d'interface de l'en-tête public.
   // ⭐ APRÈS `50-i18n.js`, ET L'ORDRE EST UN CONTRAT ICI AUSSI : celui-ci pose
@@ -128,6 +138,13 @@ const ORDRE = [
 // exactement pour ça que ça se rate.
 const CONDITIONS = {
   '30-membre.js': () => acces().tiers.length > 1,
+  // 🔔 LOT 215-B — MÊME CONDITION, MÊME PRÉDICAT, ET IL EST APPELÉ PAS RECOPIÉ.
+  // Un site sans comptes n'a pas d'alertes : vevewiki (`tiers: [visitor]`)
+  // n'embarque donc pas cet accès, exactement comme il n'embarque pas
+  // `30-membre.js`. ⭐ Et `Item.astro` évalue LA MÊME expression pour décider
+  // s'il rend le bouton : le script et son hôte apparaissent et disparaissent
+  // ensemble. *La condition voyage avec le code, ou elle disparaît en silence.*
+  '45-alertes.js': () => acces().tiers.length > 1,
   '60-cote.js': () => coteFermee(),
   // 🌍 LOT 139 — ⭐⭐ LA CONDITION EST IMPORTÉE, PAS RÉÉCRITE.
   // `Base.astro` appelle EXACTEMENT `langueUiDansEntete()` pour décider s'il

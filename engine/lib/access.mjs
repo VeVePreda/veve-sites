@@ -48,16 +48,32 @@ const DEFAUTS_PORTES = {
   // accuse de vendre ce que tout le monde donne.
   sales:        { binaire: true, tier: 'member' },
   modules:      { binaire: true, tier: 'crevette' },
-  // 🔴 LOT 104 (07/08/2026) — LES PLAFONDS CHANGENT : 0 / 1 / 5 / 15.
-  // Arbitrage Preda, et il REMPLACE le 0/2/10/illimite du 20/07. ⭐ `whale`
-  // n'est plus illimite : 15 est un NOMBRE, et un nombre se tient. « Illimite »
-  // sur un moteur d'alertes qui interroge une source tierce est une promesse
-  // que la source peut refuser a notre place — c'est le meme piege que le
-  // module absent, deplace dans le temps.
-  // ⛔ CES VALEURS NE SONT PAS VENDABLES AUJOURD'HUI : `/alertes/` n'existe
-  // pas, et les 4 alertes muettes sur 7 de `jetonveve` ne sont reliees a aucun
-  // compte. Elles sont la GRILLE, pas la livraison — cf. `offer.modules`.
-  alerts:       { binaire: true, tier: 'crevette', caps: { member: 0, crevette: 1, langouste: 5, whale: 15 } },
+  // 🔔 LOT 215 (03/09/2026) — LES PLAFONDS PASSENT A 1 / 10 / 30 / 100, ET LA
+  // PORTE DESCEND A `member`. Arbitrage Preda du 03/09, pose explicitement :
+  // « passer a 1 / 10 / 30 / 100 ». Le gratuit peut surveiller UNE piece.
+  // ⭐ `whale` reste un NOMBRE et pas « illimite » : un nombre se tient.
+  //
+  // 🔴🔴 CE COMMENTAIRE A ETE DEMENTI PAR LE LOT 215, ET C'EST POUR CA QU'IL
+  // EST REECRIT PLUTOT QUE COMPLETE. Il affirmait, en toutes lettres : « CES
+  // VALEURS NE SONT PAS VENDABLES AUJOURD'HUI : /alertes/ n'existe pas ».
+  // Les deux pages existent depuis ce lot, `offer.modules` porte
+  // `bientot: false`, et `test:promesses` §4 le verifie sur le disque.
+  // ⭐ *Un commentaire faux est un banc a l'envers* — 19e note dementie du
+  //   dossier, et la seconde qui vivait dans le depot lui-meme.
+  //
+  // ⭐⭐ CE QUE CE PLAFOND COMPTE : des CONFIGURATIONS — une ligne par
+  //   (compte, piece) dans `engine/lib/alertes.mjs`. C'est le sens que Preda
+  //   donne au mot (02/09 : « quand je parle d'une 1 alerte c'est 1
+  //   configuration d'alerte »). ⛔ Ce n'est ni un nombre de declenchements
+  //   (le feed les porte tous), ni un nombre de messages (il n'y en a aucun :
+  //   arbitrage ④, aucune notification pour l'instant).
+  //
+  // ⚠️ CETTE GRILLE EST UN DEFAUT, PAS LA SOURCE. veveprice la declare
+  //   explicitement dans son manifeste, et le manifeste gagne cle par cle. Les
+  //   deux sont ecrites pareil DELIBEREMENT : un defaut qui diverge du
+  //   manifeste ne se voit que sur un site qui ne declare rien — c'est-a-dire
+  //   nulle part, jusqu'au jour ou quelqu'un ajoute un site.
+  alerts:       { binaire: true, tier: 'member', caps: { member: 1, crevette: 10, langouste: 30, whale: 100 } },
   wallet_watch: { binaire: true, tier: 'whale' },
   // 🔴 LOT 101 (07/08/2026) — LA COTE : prix plancher courant, extrêmes,
   // percentiles. Arbitrage Preda du 06/08 : « pas le floor price actuel ».

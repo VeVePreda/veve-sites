@@ -1257,6 +1257,32 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 .fiche{display:grid;gap:var(--s6);grid-template-columns:minmax(0,300px) minmax(0,1fr);align-items:start}
 .fiche__viz{position:sticky;top:88px;display:grid;gap:var(--s4)}
 .fiche__socle{border-radius:var(--r-lg);overflow:hidden;border:1px solid var(--rule);box-shadow:var(--sh-2)}
+
+/* 🔔 LOT 215-B — « SURVEILLER CE PRIX », sous le cœur de la fiche.
+   ⛔ LA FAMILLE S'APPELLE `veille` ET NON `alerte` : `.alerte` EXISTE DÉJÀ
+   (l. ~1256) — c'est la pastille rouge de 16 px du prix aberrant, portée par
+   Market.astro et CollectionPage.astro. Le bloc en aurait hérité
+   `display:inline-grid; width:16px; height:16px; background:var(--down)`, et
+   personne ne l'aurait vu avant une capture. */
+.veille{display:grid;gap:var(--s2)}
+.veille__b{display:inline-flex;align-items:center;justify-content:center;gap:7px; min-height:var(--tap-min);padding:0 13px;border-radius:var(--r-full); border:1px solid var(--rule-2);background:var(--surface);color:var(--text-2); font-family:var(--geo);font-size:var(--t-sm);font-weight:500;cursor:pointer; transition:all var(--d-fast)}
+.veille__b:hover{border-color:var(--sect-a);color:var(--text)}
+.veille__b[aria-pressed="true"]{background:var(--sect-pur);border-color:var(--sect-pur); color:var(--sect-sur);font-weight:600}
+.veille__b svg{width:15px;height:15px;flex:0 0 15px}
+.veille__pan{background:var(--surface);border:1px solid var(--rule-2); border-radius:var(--r-md);padding:var(--s3)}
+.veille__t{font-family:var(--tech);font-size:var(--t-2xs);text-transform:uppercase; letter-spacing:var(--ls-etiq);color:var(--muted);margin:0 0 var(--s2)}
+.veille__l{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.veille__s,.veille__c{background:var(--surface-2);border:1px solid var(--rule-int); color:var(--text);border-radius:var(--r-sm);min-height:var(--tap-min);padding:0 9px; font-family:var(--geo);font-size:var(--t-sm)}
+/* ⭐ `tabular-nums` : sans lui, taper un montant fait sauter la largeur du champ
+   à chaque chiffre — un tremblement qu'on remarque sans savoir le nommer. */
+.veille__c{flex:1;min-width:80px;font-family:var(--tech);font-variant-numeric:tabular-nums}
+.veille__d{font-family:var(--tech);color:var(--muted);font-size:var(--t-sm)}
+.veille__ok{margin-top:var(--s3);width:100%;min-height:var(--tap-min);border:0; border-radius:var(--r-sm);background:var(--sect-pur);color:var(--sect-sur); font-family:var(--geo);font-weight:600;font-size:var(--t-sm);cursor:pointer}
+.veille__ok[disabled]{opacity:.55;cursor:progress}
+.veille__n{margin:var(--s2) 0 0;font-size:var(--t-xs);color:var(--muted);line-height:1.45}
+.veille__n a{color:var(--sect-a)}
+.veille__n b{color:var(--text-2);font-variant-numeric:tabular-nums}
+.veille__e{margin:0;font-family:var(--tech);font-size:var(--t-sm);color:var(--text-2); font-variant-numeric:tabular-nums}
 .murs{display:grid;grid-template-columns:1fr auto 1fr;gap:var(--s6);margin-top:var(--s5); padding:var(--s5) 0;border-block:1px solid var(--rule);align-items:start}
 .murs__sep{width:1px;background:var(--rule);align-self:stretch}
 .mur__k{display:flex;align-items:center;gap:9px;font-family:var(--tech);font-size:var(--t-xs); text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:500}
