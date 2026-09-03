@@ -248,9 +248,58 @@ publication:
   # 🔐 APRES LE DEPLOIEMENT : `npm run slugs` (le gel passe de 7744 a 8978).
   #   (7744 + 1234 = 8978.) Le gel est IRREVERSIBLE A LA BAISSE — d'ou le palier, plutot que le
   #   plafond retire d'un coup.
+  # ═══════════════════════════════════════════════════════════════════════
+  # 🎯 PALIER B (03/09/2026, arbitrage Preda) — 8 840 ➜ 9 354 fiches
+  # ═══════════════════════════════════════════════════════════════════════
+  # 🔴🔴 CE QUI A ÉTÉ CORRIGÉ D'ABORD, ET C'ÉTAIT DANS MES NOTES, PAS DANS LE
+  #   CODE : « 8 840 publiées sur 14 090 items qui ont un prix ⇒ 5 250 fiches
+  #   en attente ». FAUX. « Avoir un prix » n'est pas « être éligible » : le
+  #   seuil de relevés écarte 9 548 pièces du catalogue de 19 786.
+  #   MESURÉ le 03/09 par un build RÉEL (entrepôt en ligne, pas l'échantillon) :
+  #       éligibles — collectibles 2 565 · comics 7 673 · TOTAL 10 238
+  #   ⇒ le gisement entier vaut +1 398 fiches, pas +5 250. Un facteur 3,8.
+  #   ⭐ « Qui a un prix » et « qui mérite une fiche » sont deux populations, et
+  #      la seconde se mesure — le build l'imprime à chaque fois.
+  #
+  # 📐 LE PLAFOND DE SÉRIE DÉCIDE DU RESTE, ET IL A ÉTÉ MESURÉ AUX 5 PALIERS.
+  #   Quotas posés à l'éligible, un build de dataset par ligne :
+  #       plafond 12 ➜ PUBLIE 9 354 (+514)   ·  écartés 884
+  #       plafond 16 ➜ PUBLIE 9 457 (+617)   ·  écartés 781
+  #       plafond 20 ➜ PUBLIE 9 546 (+706)   ·  écartés 692
+  #       plafond 24 ➜ PUBLIE 9 623 (+783)   ·  écartés 615
+  #       sans plafond ➜ PUBLIE 10 238 (+1 398)
+  #   Arbitrage : on garde le plafond à 12, UNE SEULE VARIABLE CHANGE.
+  #   ⚠️ Ce que le plafond achète, mesuré aussi : la plus grosse série passe de
+  #      36 à 48 fiches à 12, à 60 à 24, et à **176** sans plafond (puis 171,
+  #      135). Le retirer ferait pencher le site sur quelques grosses séries de
+  #      comics — et le gel rendrait ce penchant définitif.
+  #
+  # ⭐⭐⭐ LE CHIFFRE ÉCRIT EST CE QUE LE BUILD PUBLIE, PAS L'ÉLIGIBLE — c'est la
+  #   leçon du 14/08, et elle a été RE-VÉRIFIÉE ici plutôt que crue :
+  #       quota comics à 7 673 ➜ PUBLIE 9 354, dont 6 789 comics
+  #       quota comics à 6 789 ➜ PUBLIE 9 354, dont 6 789 comics
+  #   Les deux rendent EXACTEMENT le même site. Écrire l'éligible annoncerait
+  #   884 places que le plafond de série ne laissera jamais dépenser, et le
+  #   report ne les récupère pas : les collectibles sont déjà à 100 % du leur.
+  #   ⇒ 6 789 est le seul nombre qui ne promet rien qu'on ne serve.
+  #
+  # 🔵 LES COLLECTIBLES : 2 534 ➜ 2 565, soit +31, et c'est TOUT le gisement.
+  #   Le quota du 14/08 valait déjà l'éligible d'alors ; le catalogue en a
+  #   ajouté 31 depuis. ⛔ « Priorité aux collectibles » ne se joue donc PAS
+  #   ici — le verrou des collectibles est le seuil de relevés, pas ce quota.
+  #
+  # 💶 FACTURE, MESURÉE SUR LE BUILD RÉEL DE CE LOT (pas estimée) — voir le
+  #   jalon du 03/09 dans outputs/SUIVI.md pour les pages, le sitemap, le pic
+  #   mémoire et la durée.
+  #
+  # 🔐 APRÈS LE DÉPLOIEMENT, LE GEL : les 514 adresses neuves restent
+  #   flottantes jusqu'au passage du job hebdomadaire « Geler les adresses des
+  #   fiches » (dimanche). ⭐ Il se déclenche aussi à la main, en un clic, et
+  #   c'est un commit — donc un déploiement de plus. Le gel est IRRÉVERSIBLE À
+  #   LA BAISSE : c'est ce qui impose le palier plutôt que le plafond retiré.
   quotas:
-    collectible: 2534
-    comic: 6306
+    collectible: 2565
+    comic: 6789
   quota_spillover: true    # un type qui ne remplit pas sa part cède ses places à l'autre
   max_new_per_series: 12   # diversité : nouvelles fiches max par série (0 = pas de plafond)
   # 🔢 PLAFOND DU CLASSEMENT D'AMPLITUDE — lot 171 (21/08/2026)
