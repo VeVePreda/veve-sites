@@ -25,6 +25,7 @@ import AnalyticsSujet from '../../../components/pages/AnalyticsSujet.astro';
 import { locales, COOKIE_LANGUE, languesInterface } from '../../../../engine/lib/i18n.mjs';
 import { connecte } from '../../../../engine/lib/access.mjs';
 
+import { comptesActifs } from '../../../../engine/lib/features.mjs';
 // 🌍 LOT 123 — CETTE PAGE AUSSI LIT LA PRÉFÉRENCE DE LANGUE. Elle est rendue à
 // la demande et réservée : elle peut donc servir des libellés traduits sans URL
 // supplémentaire et sans risque de cache partagé.
@@ -63,6 +64,63 @@ const lang = (_l && languesInterface().includes(_l)) ? _l : def;
 //   mise en cache serait servie à un membre — une dégradation, pas une fuite,
 //   mais une dégradation invisible et permanente. ⛔ Ne pas l'enlever « parce
 //   que la page est publique maintenant » : c'est justement là qu'il sert.
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 LOT 226 — LA GARDE DE SITE, QUE LE 223 A EMPORTÉE AVEC LA GARDE D'AUTH
+// ═══════════════════════════════════════════════════════════════════════════
+// CE SITE-CI N'A PAS D'ESPACE MEMBRE, ET CETTE PAGE NE DOIT PAS Y EXISTER.
+// MESURÉ LE 04/09/2026 À 16 h : `vevewiki.com/api/sante` servait encore le
+// build de **08:59:14.610Z**. Les lots 223, 224 et 225 n'y sont JAMAIS
+// arrivés. Le run `33879596126` (étape « Vérifier que le site est VRAIMENT
+// reconstruit ») a fait **40 tentatives sur 30 min** puis a alerté Discord :
+// le déploiement Coolify de vevewiki échoue ICI, sur
+// `[extremes] classement absent (.reserve/extremes.json)`.
+//
+// ⭐⭐⭐ CE N'EST PAS UN DÉFAUT « HORS LIGNE », C'EST UN ORDRE.
+// `.reserve/extremes.json` est déposé par l'intégration `veve:extremes` au
+// hook `astro:build:done` — donc APRÈS le prerender. Une page PRÉ-GÉNÉRÉE qui
+// le lit lit un fichier pas encore écrit : en ligne comme hors ligne. Et dans
+// une image Docker fraîche il ne peut même pas traîner d'un build précédent —
+// `Dockerfile` l. 371 : `npm run build && mkdir -p /app/.reserve`.
+// ⛔ Donc « ça passera en prod parce que la prod a l'entrepôt » est FAUX.
+//
+// ⭐⭐⭐ ET CE QUI A RENDU LE DÉFAUT INVISIBLE : `astro_features.mjs` DÉCLARE
+// POURTANT `/analytics/catalogue/` (l. 231, famille `comptes`). Mais
+// `fonctionnalitesEteintes()` tourne ELLE AUSSI à `astro:build:done` : elle
+// EFFACE un talon déjà émis dans `dist/`. Elle ne peut rien pour une page qui
+// LÈVE pendant son rendu — le build est mort bien avant son hook.
+// ⭐ *Une garde qui nettoie après coup ne garde pas un chemin qui n'arrive
+//    jamais au bout.* La ligne 231 était juste, et elle ne servait à rien.
+//
+// 🔑 CE QUE LE LOT 223 A RÉELLEMENT RETIRÉ. Avant lui, cette route renvoyait
+// tout visiteur non connecté vers la page de connexion. Au build de vevewiki
+// la session est forcément absente ⇒ redirection ⇒ TALON ⇒ effacé par la passe.
+// ⛔ ON DÉCRIT CE MUR, ON NE LE RECOPIE PAS. Première écriture de ce bloc : il
+//    CITAIT la ligne retirée. Le § 9.1 de `test:analytics` cherche ce motif
+//    dans ces huit fichiers — il a lu ma citation et a rendu « mur encore
+//    posé » sur un fichier qui n'en portait aucun. *Un commentaire qui cite la
+//    syntaxe qu'il décrit pose un piège au prochain banc.* (Le banc a été
+//    décapé aussi : on ne compte pas sur cette discipline.) La garde d'AUTHENTIFICATION tenait donc, par accident, la garde
+// de SITE. Le 223 a ouvert la page — arbitrage ⑦ de Preda, et il a eu raison —
+// il a retiré la première, et la seconde est partie avec elle, en silence.
+// ⭐⭐⭐ *UNE PORTE QUI EN TENAIT DEUX : EN RETIRER UNE LES RETIRE TOUTES LES
+//    DEUX.* Même famille que le champ mal nommé — un dispositif qui rendait un
+//    service qu'il n'annonçait nulle part. ⇒ Avant de retirer une garde,
+//    demander ce qu'elle tenait EN PLUS de ce que son nom dit.
+//
+// ⛔ NE PAS « réparer » ceci par un `try/catch` autour de `lireExtremes()`, ni
+//    par un repli sur `dataset()` (10 328 ms par visite, mesuré au lot 125) :
+//    le bon verdict pour un site sans espace membre n'est ni un repli ni un
+//    plantage, c'est **NE PAS ÉMETTRE LA PAGE**.
+// ⭐ `comptesActifs()` ET PAS UNE LISTE DE SITES — même raison qu'à
+//    `src/pages/analytics/index.astro` l. 33 : il rend `tiers.length > 1`, donc
+//    un site qui gagne un espace membre est couvert sans toucher à ce fichier.
+// 🔬 Le banc qui garde ceci est `test:analytics-porte` (`test_analytics_porte.mjs`) :
+//    il exige cette garde sur TOUTE route qui rend `AnalyticsSujet`, et il
+//    DÉCAPE les commentaires avant de chercher — sinon ce bloc-ci le rendrait
+//    vert à lui tout seul.
+if (!comptesActifs()) return Astro.redirect('/', 301);
+
 const membre = connecte(Astro.locals);
 Astro.response.headers.set('cache-control',
   membre ? 'private, no-store' : 'public, max-age=0, s-maxage=300');

@@ -671,6 +671,38 @@ if (!existsSync(FEUILLE)) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 LOT 226 — LE DÉCAPEUR, ET C'EST LA **QUATRIÈME** FOIS
+// ═══════════════════════════════════════════════════════════════════════════
+// § 9.1 cherchait le mur de route dans le TEXTE BRUT des huit fichiers. Le lot
+// 226 a ajouté une garde de site à ces routes, avec un commentaire qui
+// EXPLIQUE quel mur le lot 223 avait retiré — en le citant. Le banc a lu la
+// citation et a rendu « 🔴 mur encore posé » sur un fichier qui n'en portait
+// aucun.
+//
+// ⭐⭐⭐ LE MÊME DÉFAUT, QUATRE FOIS, DANS QUATRE BANCS DIFFÉRENTS : § 9.4
+// juste en dessous (le 223, injection qui n'a pas mordu), `test:familles`
+// trois fois au lot 225 — une par forme de commentaire — et celui-ci
+// aujourd'hui. *Chercher un NOM, c'est chercher aussi tout ce qui en PARLE.*
+// ⛔ NE JAMAIS brancher un banc sur un identifiant sans décaper la prose.
+//
+// ⚠️ ET LE DÉFAUT EST DES DEUX CÔTÉS. Un commentaire qui CITE la syntaxe qu'il
+//   décrit est un piège posé pour le prochain banc ; la règle de ce dépôt est
+//   de DÉCRIRE la syntaxe, jamais de l'écrire. Le commentaire fautif a été
+//   réécrit dans `src/pages/analytics/catalogue/index.astro` — mais on ne
+//   compte pas sur cette discipline : c'est le banc qui doit tenir.
+//
+// ⭐ `//` N'EST DÉCAPÉ QUE S'IL N'EST PAS PRÉCÉDÉ DE `:` — sans quoi ce
+//   décapeur mangerait la moitié de toute adresse `https://…` présente dans
+//   une chaîne, et un banc qui cherche une URL deviendrait muet. *Un décapeur
+//   trop gourmand ne rend pas le banc plus juste, il le rend aveugle
+//   autrement.*
+const decape = (t) => (t || '')
+  .replace(/<!--[\s\S]*?-->/g, ' ')
+  .replace(/\{\s*\/\*[\s\S]*?\*\/\s*\}/g, ' ')
+  .replace(/\/\*[\s\S]*?\*\//g, ' ')
+  .replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+
 // §9 — LOT 223 : LES QUATRE SUJETS SONT OUVERTS, ET RIEN N'A FUI AVEC EUX
 // ═══════════════════════════════════════════════════════════════════════════
 // 🔴🔴 CE §9 EXISTE PARCE QUE LE BANC ANTI-FUITE NE PEUT PAS VOIR CES PAGES.
@@ -702,7 +734,7 @@ if (!existsSync(FEUILLE)) {
     indecidable('§9.1 les huit routes de sujet',
       `${illisibles.length} fichier(s) illisible(s) : ${illisibles.join(', ')}`);
   } else {
-    const murs = chemins.filter((p) => /Astro\.redirect\(\s*[`'"]\/connexion\//.test(src(p)));
+    const murs = chemins.filter((p) => /Astro\.redirect\(\s*[`'"]\/connexion\//.test(decape(src(p))));
     dit(murs.length === 0, '§9.1 aucune des 8 routes de sujet ne redirige vers /connexion/',
         murs.length ? `🔴 mur encore posé : ${murs.join(', ')}` : '8/8 ouvertes');
 
@@ -713,7 +745,9 @@ if (!existsSync(FEUILLE)) {
     //   les deux, et il doit rester même sur la branche publique — c'est
     //   justement là qu'on serait tenté de l'enlever.
     const sansVary = chemins.filter((p) => {
-      const t = src(p);
+      // ⭐ LOT 226 — décapé lui aussi : ces trois motifs sont exactement le
+      //   genre de chose qu'un commentaire voisin recopie pour l'expliquer.
+      const t = decape(src(p));
       return !/no-store/.test(t) || !/s-maxage/.test(t) || !/'vary',\s*'cookie'/.test(t);
     });
     dit(sansVary.length === 0,

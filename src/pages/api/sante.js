@@ -155,7 +155,7 @@ const DEMARRE = new Date().toISOString();
 // d'espace membre. Ecrire ici `manifest().features.comptes`, qui « veut dire la
 // meme chose », donnerait deux definitions d'un seul etat — la panne P30 du
 // lot 139.
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { acces } from '../../../engine/lib/access.mjs';
 import { etatDuStockage } from '../../../engine/lib/favoris.mjs';
@@ -359,6 +359,49 @@ const marcheDuBuild = () => {
 //
 // ⛔ AUCUN CHEMIN, AUCUN NOM DE MACHINE. Des noms de phase (`[a-z0-9-]`,
 //    imposés à l'écriture), des dates, des nombres. Publique et le reste.
+// ═══════════════════════════════════════════════════════════════════════════
+// 📒 LE CLASSEUR A-T-IL TOURNÉ ?   (LOT 226 — le témoin de la mesure)
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐⭐⭐ CE CHAMP N'EXISTE QUE POUR RENDRE UNE MESURE DÉCIDABLE, ET C'EST SA
+// SEULE RAISON D'ÊTRE. `CLASSEUR_OFF=1` existe depuis le lot 224 et s'applique
+// dans `classeur.mjs` — mais RIEN, une fois le conteneur en ligne, ne disait
+// s'il avait été lu. On aurait donc comparé deux `basculeS` en SUPPOSANT que
+// le second build avait bien éteint le classeur.
+//
+// 🔴🔴 ET CETTE SUPPOSITION AURAIT ÉTÉ FATALE, PARCE QUE LE BRUIT DÉPASSE LE
+// SIGNAL CHERCHÉ. Trois builds du 04/09, code quasi identique :
+//     13:21 → 783,1 s / 2 464 Mo · 13:44 → 752,6 s / 2 593 Mo
+//     15:28 → 795,0 s / 2 506 Mo
+// soit **42,4 s et 129 Mo d'amplitude sans changement de fond**. Un build
+// « avec `CLASSEUR_OFF=1` » qui n'aurait pas reçu la variable rendrait un
+// écart dans cette fourchette — c'est-à-dire un chiffre parfaitement crédible,
+// et faux. ⭐ *Une mesure sans témoin de son propre dispositif mesure le
+// bruit et l'appelle par le nom qu'on espérait.*
+//
+// ⛔ ON NE LIT PAS `process.env.CLASSEUR_OFF` ICI. Ce serait relire la
+//    variable du processus qui RÉPOND, pas de celui qui a BÂTI — et ce sont
+//    deux processus différents (le build est dans l'image, la réponse dans le
+//    conteneur). On lit donc la TRACE laissée sur le disque : `meta.json`
+//    n'est écrit que par un classeur qui est allé au bout.
+// ⭐ Trois états, et le troisième compte : `actif: true` (il a tourné et on
+//    sait combien), `actif: false` (le dossier est là mais sans `meta.json`),
+//    `null` (on n'a pas pu regarder — ⛔ jamais confondu avec « éteint »).
+const classeurDuBuild = () => {
+  try {
+    const dir = process.env.CLASSEUR_DIR
+      || join(process.env.PROJECT_ROOT || process.cwd(), '.reserve', 'classeur');
+    const f = join(dir, 'meta.json');
+    if (!existsSync(f)) return { actif: false, pieces: 0, fragments: 0 };
+    const m = JSON.parse(readFileSync(f, 'utf8'));
+    return {
+      actif: true,
+      pieces: Number.isFinite(m?.pieces) ? m.pieces : null,
+      fragments: Number.isFinite(m?.fragments) ? m.fragments : null,
+      lignes: Number.isFinite(m?.lignes) ? m.lignes : null,
+    };
+  } catch { return null; }
+};
+
 const chronoDuBuild = () => {
   try {
     const chemin = process.env.CHRONO_FICHIER
@@ -481,6 +524,9 @@ export const GET = ({ url }) => new Response(
     demarre: DEMARRE,
     // ⏱️ Où passe le temps d'un déploiement — voir le bloc au-dessus.
     chrono: chronoDuBuild(),
+    // 📒 Le classeur a-t-il tourné dans CE build ? — voir le bloc au-dessus.
+    //   ⭐ C'est le témoin sans lequel la mesure `CLASSEUR_OFF=1` ne conclut rien.
+    classeur: classeurDuBuild(),
     ...(comptesOuverts() ? { favoris: favoris(), caisse: caisse(), alertes: alertes() } : {}),
   }),
   { headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } },

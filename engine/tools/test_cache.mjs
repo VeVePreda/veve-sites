@@ -43,6 +43,7 @@ import {
   CACHE_RULE_POSEE, TTL_EDGE_S, ECHELLE_TTL, RETARD_TOLERE_S, jugerFraicheur,
   PRIVEES, ZONE_MEMBRE, ABSENTES_HORS_MEMBRE, FAMILLES_COMPTE,
   PUBLIQUES_PAR_ZONE, VARY_TOLERES, SONDE, META_BUILD,
+  TEASERS_PUBLICS, TEASER_CHIFFRES_MAX,
 } from '../lib/cache_attendu.mjs';
 // 🔴 LOT 221 — LA LISTE DES LANGUES SE LIT, ELLE NE SE RECOPIE PAS.
 // Le filtre du §1 portait `fr|es|de|en` en dur ; le site en parle cinq, et
@@ -219,15 +220,25 @@ verifie(`${PRIVEES.length} route(s) privée(s) déclarée(s)`, PRIVEES.length >=
     // ⭐ Chaque famille doit nommer une adresse qui est VRAIMENT dans PRIVEES.
     //   « Est-ce là ? » n'est pas « est-ce que ça marche ? » : on relie les deux
     //   listes au lieu de supposer qu'elles se ressemblent.
-    const cheminsPrives = new Set(PRIVEES.map((p) => p.chemin));
-    const pendantes = FAMILLES_COMPTE.filter((f) => !cheminsPrives.has(f.couvertPar));
+    // ⭐ LOT 226 — DEUX LISTES, PAS UNE. Une famille peut désormais être
+    //   couverte par un TEASER PUBLIC : les sujets analytics ont quitté
+    //   `PRIVEES` sans cesser d'être réclamés par quelqu'un. ⛔ Sans cette
+    //   union, la famille `pages/analytics/` se serait déclarée orpheline et
+    //   ce banc aurait rougi sur le lot qui vient de le réparer.
+    const cheminsReclames = new Set([
+      ...PRIVEES.map((p) => p.chemin),
+      ...TEASERS_PUBLICS.map((p) => p.chemin),
+    ]);
+    const pendantes = FAMILLES_COMPTE.filter((f) => !cheminsReclames.has(f.couvertPar));
     verifie('chaque famille nomme une adresse réellement réclamée',
       pendantes.length === 0,
       pendantes.length
         ? `🔴 ${pendantes.map((f) => `${f.source} → ${f.couvertPar}`).join(' · ')} — ` +
-          'l\'adresse citée n\'est pas dans `PRIVEES` : la famille se croit gardée, ' +
+          'l\'adresse citée n\'est ni dans `PRIVEES` ni dans `TEASERS_PUBLICS` : la ' +
+          'famille se croit gardée, ' +
           'et personne ne frappe à sa porte.'
-        : 'les 7 familles pointent vers une adresse de `PRIVEES`');
+        : `les ${FAMILLES_COMPTE.length} familles pointent vers une adresse réclamée `
+          + '(`PRIVEES` ou `TEASERS_PUBLICS`)');
   }
 }
 
@@ -414,8 +425,67 @@ const HORODATE_COMMIT = process.env.HORODATE_COMMIT || '';
 // puis **21 min** (Coolify n'avait même pas COMMENCÉ 5 min 33 après le push :
 // il y a une file d'attente avant le build). ⇒ *une régularité vue sur un seul
 // cas est une coïncidence*, et ce banc a crié une troisième fois pour rien.
-// ⭐ 30 min couvre la mesure la plus longue avec 50 % de marge.
-const ATTENTE_MAX_MS = Number(process.env.BANC_CACHE_ATTENTE_MS || 30 * 60 * 1000);
+// ⭐ 30 min couvrait la mesure la plus longue avec 50 % de marge — POUR UNE ZONE.
+//
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 LOT 226 — LE BUDGET ÉTAIT **PAR ZONE**, LE TIMEOUT EST **PAR JOB**
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐⭐⭐ CE BANC NE POUVAIT PAS ATTEINDRE SON PROPRE VERDICT. Il a été écrit pour
+// rendre INDÉCIDABLE plutôt que de crier ; il n'y arrivait jamais, parce qu'il
+// mourait AVANT de pouvoir le dire. Trois lots ont recopié « rejouer le run »
+// en lisant `cancelled` comme un caprice de GitHub. C'était nous.
+//
+// L'ARITHMÉTIQUE, ET ELLE SUFFIT :
+//   · 30 min de budget × **2 zones**, attendues **l'une après l'autre**  = 60 min
+//   · `tests.yml`, job `bancs` : `timeout-minutes: 25`
+//   ⇒ 60 > 25. Il n'existe AUCUN déploiement lent assez rare pour sauver ça :
+//     dès que la 2ᵉ zone traîne, le job est tué (`exit 143` = SIGTERM) et le
+//     run s'affiche `cancelled`, sans une ligne de plus dans le journal.
+//
+// MESURÉ SUR LE RUN `33889605654` (lot 225), job `bancs (veveprice)` :
+//   15:30:18  l'étape démarre
+//   15:42:24  ✅ `veveprice.com` sert le build du commit — **725 s, 25 essais**
+//   15:42:24 → 15:58:25  **SILENCE**, puis `exit 143`
+//   ⇒ Les 725 s de la 1ʳᵉ zone n'ont RIEN débordé : ils tiennent largement.
+//     C'est la 2ᵉ zone qui a démarré son PROPRE budget de 30 min à 15:42, sur
+//     un job qui n'avait plus 16 minutes à vivre.
+// ⛔ MA NOTE DU 225 DISAIT « l'attente de 756-787 s dépasse le timeout de
+//    25 min ». **C'est faux, et c'était vérifiable** : 787 s = 13 min. J'ai
+//    nommé le bon coupable avec le mauvais mécanisme, ce qui aurait produit la
+//    mauvaise correction (raccourcir une attente qui n'était pas le problème).
+//
+// ⭐⭐ ET LA 2ᵉ ZONE, C'EST `vevewiki.com` — QUI NE SERT PLUS LE COMMIT DEPUIS LE
+//    LOT 223, parce que son build Coolify meurt (voir
+//    `src/pages/analytics/catalogue/index.astro`). Donc depuis le 223 ce banc
+//    brûlait son budget entier **à chaque push**, sans exception. Les deux
+//    rouges n'en faisaient qu'un.
+//
+// 🔑 CE QUE CE LOT CHANGE — trois gestes, et le 3ᵉ est le seul qui dure :
+//   ① le budget devient **GLOBAL** : il couvre TOUTES les zones ensemble ;
+//   ② les zones sont attendues **EN PARALLÈLE** — elles se déploient en
+//      parallèle, les attendre en série payait deux fois la même minute ;
+//   ③ le banc VÉRIFIE LUI-MÊME que son budget tient dans le timeout du job
+//      (§ 0 bis ci-dessous). C'est le seul des trois qui empêchera la
+//      prochaine version de ce défaut : un chiffre qui vit à deux endroits
+//      finit toujours par n'être juste qu'à un seul.
+//
+// ⛔ NE PAS remonter ce budget sans remonter `timeout-minutes` dans
+//    `tests.yml` : le § 0 bis rougira, et il aura raison.
+const ATTENTE_MAX_MS = Number(process.env.BANC_CACHE_ATTENTE_MS || 15 * 60 * 1000);
+
+// ⏱️ CE QUE LES MESURES COÛTENT UNE FOIS L'ATTENTE FINIE — mesuré, pas déduit.
+// Durées de l'étape entière sur les runs où elle a ABOUTI (API GitHub, 04/09) :
+// 421 s · 448 s · 680 s · 682 s · 861 s · 894 s. Les deux plus longues portent
+// déjà de l'attente ; le socle « §2 → §6 » est donc autour de 400-450 s.
+// ⭐ 10 min de réserve couvrent le pire socle observé avec ~30 % de marge.
+const RESERVE_MESURES_MS = Number(process.env.BANC_CACHE_RESERVE_MS || 10 * 60 * 1000);
+
+// 🧮 LE TIMEOUT DU JOB, DÉCLARÉ PAR LE WORKFLOW LUI-MÊME.
+// ⛔ PAS UNE COPIE DU CHIFFRE : `tests.yml` le passe en variable depuis la MÊME
+//    ligne qui le pose sur le job. Un chiffre recopié se désaccorde en silence —
+//    c'est exactement ce qui vient de coûter trois lots.
+// ⚠️ Absent en local : on ne prétend alors rien vérifier (INDÉCIDABLE, § 0 bis).
+const TIMEOUT_JOB_MIN = Number(process.env.BANC_CACHE_TIMEOUT_JOB_MIN || 0);
 
 /** Les zones dont la production n'a PAS le commit testé : on ne les mesure pas. */
 const ZONES_EN_RETARD = new Set();
@@ -443,6 +513,41 @@ async function buildServi(zone) {
   } catch { return null; }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 0 bis. LE BANC TIENT-IL DANS LE TEMPS QU'ON LUI DONNE ?   (lot 226)
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐⭐⭐ C'EST LE CONTRÔLE QUI MANQUAIT, ET IL AURAIT COÛTÉ TROIS LIGNES.
+// Un banc qui attend un système externe a DEUX budgets : le sien, et celui que
+// son hôte lui accorde. Personne ne comparait les deux. Ce § les compare, et
+// il le fait AVANT de commencer à attendre — un verdict rendu après la mort du
+// job n'est pas un verdict.
+// ⛔ IL NE RÈGLE RIEN TOUT SEUL : il refuse de commencer une attente qui ne
+//    peut pas finir, et il NOMME le chiffre à changer. Un banc qui s'ajuste
+//    tout seul au timeout masquerait exactement ce qu'on veut voir.
+if (TIMEOUT_JOB_MIN > 0) {
+  const besoinMs = ATTENTE_MAX_MS + RESERVE_MESURES_MS;
+  const disponibleMs = TIMEOUT_JOB_MIN * 60 * 1000;
+  // ⭐ 20 % de marge, et elle n'est pas décorative : les étapes AVANT celle-ci
+  //   (checkout, `npm ci`, build, `npm test`, `test:entetes`) mangent 2 à 4 min
+  //   du même budget de job. Mesuré le 04/09 : 15:28:21 → 15:30:18, soit 117 s
+  //   pour `veveprice` et 76 s pour `vevewiki`.
+  const marge = 1.2;
+  verifie('le budget de ce banc tient dans le timeout du job',
+    besoinMs * marge <= disponibleMs,
+    `attente ${Math.round(ATTENTE_MAX_MS / 60000)} min + mesures `
+    + `${Math.round(RESERVE_MESURES_MS / 60000)} min = ${Math.round(besoinMs / 60000)} min, `
+    + `+20 % de marge = ${Math.round(besoinMs * marge / 60000)} min, contre `
+    + `\`timeout-minutes: ${TIMEOUT_JOB_MIN}\`. `
+    + '⛔ Si ce contrôle rougit, le job sera TUÉ avant que ce banc rende son '
+    + 'verdict, et le run s\'affichera `cancelled` — pas `failure`. '
+    + '⇒ baisser `BANC_CACHE_ATTENTE_MS` ou monter `timeout-minutes` dans `tests.yml`.');
+} else {
+  // ⛔ « Je n'ai pas pu regarder » n'est pas « tout va bien ».
+  indecis('le budget de ce banc tient dans le timeout du job',
+    '`BANC_CACHE_TIMEOUT_JOB_MIN` absent — lancement local ou hors `tests.yml`. '
+    + 'Il n\'y a pas de timeout de job à comparer, donc rien n\'est vérifié ici.');
+}
+
 if (HORODATE_COMMIT && !BASE_TEST) {
   const tCommit = Date.parse(HORODATE_COMMIT);
   if (!Number.isFinite(tCommit)) {
@@ -452,18 +557,35 @@ if (HORODATE_COMMIT && !BASE_TEST) {
   } else {
     console.log(`\n1 bis. attendre que la production serve le commit testé ` +
       `(${HORODATE_COMMIT})`);
-    for (const zone of ZONES) {
-      const debut = Date.now();
+    console.log(`       budget GLOBAL ${Math.round(ATTENTE_MAX_MS / 1000)} s pour les `
+      + `${ZONES.length} zones, attendues EN PARALLÈLE (pas de `
+      + `${Math.round(ATTENTE_PAS_MS / 1000)} s)`);
+    // ⭐⭐ UNE SEULE ÉCHÉANCE POUR TOUT LE MONDE. C'est ce mot — « une seule » —
+    //   qui répare le défaut : tant que chaque zone possédait son compteur, le
+    //   coût total était le PRODUIT, jamais le maximum.
+    const debut = Date.now();
+    const echeance = debut + ATTENTE_MAX_MS;
+    // ⛔ `Promise.all` ET PAS UNE BOUCLE `for await` : deux zones qui se
+    //   déploient en même temps doivent s'attendre en même temps. En série,
+    //   la 2ᵉ commençait son attente là où la 1ʳᵉ avait fini la sienne —
+    //   c'est-à-dire au pire moment possible.
+    // ⚠️ Les verdicts sont COLLECTÉS puis imprimés dans l'ordre des zones :
+    //   une sortie qui change d'ordre d'un run à l'autre est illisible, et un
+    //   journal illisible est un journal qu'on cesse de lire.
+    const resultats = await Promise.all(ZONES.map(async (zone) => {
       let vu = null;
       let essai = 0;
       for (;;) {
         essai++;
         vu = await buildServi(zone);
         if (vu !== null && vu >= tCommit) break;
-        if (Date.now() - debut >= ATTENTE_MAX_MS) break;
-        await dodo(ATTENTE_PAS_MS);
+        const reste = echeance - Date.now();
+        if (reste <= 0) break;
+        await dodo(Math.min(ATTENTE_PAS_MS, reste));
       }
-      const attendu = Math.round((Date.now() - debut) / 1000);
+      return { zone, vu, essai, attendu: Math.round((Date.now() - debut) / 1000) };
+    }));
+    for (const { zone, vu, essai, attendu } of resultats) {
       if (vu !== null && vu >= tCommit) {
         verifie(`${zone.nom} sert le build du commit testé`, true,
           `build ${new Date(vu).toISOString()} · ${attendu} s d'attente, ${essai} essai(s)`);
@@ -477,13 +599,16 @@ if (HORODATE_COMMIT && !BASE_TEST) {
         //   et le jour où une page de compte fuit vraiment, personne ne regarde.
         // ⛔ CE N'EST PAS UN SILENCE : la zone est SAUTÉE, chaque contrôle non
         //   joué est compté comme non mesuré, et le banc le dit à la fin.
+        // ⭐ LOT 226 — et il le dit MAINTENANT, parce qu'il est encore en vie
+        //   pour le dire. C'était toute la panne.
         ZONES_EN_RETARD.add(zone.nom);
         indecis(`${zone.nom} sert le build du commit testé`,
-          `après ${attendu} s, la sonde annonce ` +
+          `après ${attendu} s (budget global ${Math.round(ATTENTE_MAX_MS / 1000)} s), la sonde annonce ` +
           `${vu === null ? 'RIEN de lisible' : new Date(vu).toISOString()} alors que le ` +
           `commit est de ${HORODATE_COMMIT}. ⇒ la production n'a pas encore ce code. ` +
           'Rien n\'est mesuré sur cette zone. ⭐ Si ça se répète à chaque fois, ' +
-          'regarder Coolify : ce n\'est plus de la lenteur.');
+          'ce n\'est plus de la lenteur : regarder si le BUILD de cette zone échoue ' +
+          '— c\'est ce qui est arrivé à vevewiki du 223 au 226.');
       }
     }
   }
@@ -569,6 +694,106 @@ if (zoneMembre && zoneSautee(zoneMembre, 'les routes privées')) {
 // un site qui n'en a pas — et le cache le diffuserait avant que quiconque le
 // remarque. Un contrôle qui ne regarde que ce qui existe ne voit jamais ce qui
 // APPARAÎT.
+// ═══════════════════════════════════════════════════════════════════════════
+// 2 bis. LES TEASERS PUBLICS — ouverts en FORME, muets en CHIFFRES  (lot 226)
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐⭐⭐ CE § MESURE LE CORPS, PAS SEULEMENT L'EN-TÊTE, ET C'EST TOUT SON OBJET.
+// Le 04/09, deux conversations de suite se sont trompées sur ces pages **dans
+// des directions opposées**, et les deux fois en s'arrêtant à l'en-tête :
+//   · l'une a crié à la fuite en lisant un code HTTP — le corps était vide de
+//     chiffres, c'était un teaser voulu ;
+//   · l'autre a conclu « ce sont des teasers » en lisant UN corps, et a
+//     généralisé aux trois autres — dont une qui servait 33 chiffres en
+//     anonyme, mise en cache `HIT` sur tout le bord.
+// ⭐⭐ *Un `curl` anonyme dit le code et l'en-tête ; il ne dit pas ce que le
+//    corps contient. Et lire le corps d'UNE page ne dit rien des trois autres.*
+// ⇒ Ce § lit les CINQ corps, à chaque run, et compte.
+//
+// ⛔ IL N'EST PAS DANS `npm test` — comme tout ce fichier, il a besoin du
+//    réseau. Le mettre dans la chaîne hors ligne le rendrait muet.
+console.log(`\n2 bis. ${ZONE_MEMBRE} — les teasers : ouverts en forme, muets en chiffres`);
+if (!zoneMembre) {
+  indecis('les teasers publics', 'la zone membre n\'est pas déclarée — rien à frapper.');
+} else if (zoneSautee(zoneMembre, 'les teasers publics')) {
+  // ⭐ le déploiement n'est pas arrivé : on ne juge pas la version précédente.
+} else {
+  for (const t of TEASERS_PUBLICS) {
+    const url = baseDe(zoneMembre) + t.chemin;
+    const r = await frappe(url);
+    if (!r.ok) {
+      indecis(`${t.chemin} — ${t.quoi}`, `injoignable : ${r.panne}`);
+      continue;
+    }
+    if (r.code !== 200) {
+      // ⛔ PAS UN ÉCART AUTOMATIQUE : un 302 ici veut dire que quelqu'un a
+      //    REFERMÉ la route. C'est peut-être voulu — mais alors sa place est
+      //    dans `PRIVEES`, pas ici, et il faut le dire plutôt que le deviner.
+      verifie(`${t.chemin} — répond 200 (la forme est ouverte)`, false,
+        `code ${r.code} — la route a été refermée sans quitter \`TEASERS_PUBLICS\`. `
+        + '⇒ soit rouvrir la route, soit la remettre dans `PRIVEES`.');
+      continue;
+    }
+
+    // ① UN SEUL `cache-control`, ET SANS CONTRADICTION.
+    // ⭐ `fetch` JOINT les en-têtes répétés par « , » : deux `cache-control`
+    //   arrivent ici en une seule chaîne. On ne peut donc pas les compter —
+    //   on cherche la CONTRADICTION, qui est ce qui nuit vraiment.
+    const entete = cc(r);
+    const contradictoire = /no-store|private/i.test(entete) && /s-maxage/i.test(entete);
+    verifie(`${t.chemin} — un seul \`cache-control\`, non contradictoire`,
+      !contradictoire,
+      contradictoire
+        ? `🔴 « ${entete} » — la page dit « cache-moi », nginx dit « ne me stocke pas ». `
+          + 'C\'est l\'intermédiaire qui choisit. ⇒ `nginx.server.conf` : le bloc des '
+          + 'sujets analytics ne doit poser AUCUN `Cache-Control`.'
+        : `« ${entete} »`);
+
+    // ② `vary: cookie` — sinon la version visiteur atterrit chez un membre.
+    verifie(`${t.chemin} — \`vary\` contient \`cookie\``,
+      /cookie/i.test(String(r.h?.vary || '')),
+      `« ${r.h?.vary || 'absent'} » — ⛔ sans lui, la version mise en cache pour un `
+      + 'visiteur est servie à un abonné : une dégradation muette et permanente.');
+
+    // ③ LE CORPS NE PORTE AUCUN CHIFFRE. Le contrôle qui compte.
+    // ⭐ On décape scripts et styles AVANT : un `<script>` porte des chiffres
+    //   qui ne sont pas des figures, et les compter ferait rougir ce banc sur
+    //   du JSON de configuration. *Compter ce qu'on montre, pas ce qu'on sert.*
+    // ⭐ ET ON DÉCAPE LES DATES AVANT DE COMPTER. Le pied de page porte
+    //   « Data updated on 04/09/2026. » : une date n'est pas une figure, et un
+    //   seuil relevé pour l'absorber laisserait passer deux vraies figures.
+    //   ⛔ Étendre CE motif si un format de date neuf apparaît — jamais le seuil.
+    const texte = r.corps
+      .replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/gi, ' ')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}/g, ' ')
+      .replace(/\d{4}-\d{2}-\d{2}/g, ' ')
+      .replace(/\s+/g, ' ');
+    const chiffres = texte.match(/(?<![\w.])\d[\d\s.,]{2,}(?![\w])/g) || [];
+    verifie(`${t.chemin} — aucun chiffre servi en anonyme`,
+      chiffres.length <= TEASER_CHIFFRES_MAX,
+      chiffres.length <= TEASER_CHIFFRES_MAX
+        ? `${chiffres.length} chiffre(s) hors dates (seuil ${TEASER_CHIFFRES_MAX})`
+        : `🔴 ${chiffres.length} chiffre(s) servis à un visiteur : ${chiffres.slice(0, 8).join(' · ')}`
+          + ' — ⇒ `AnalyticsSujet.astro` : une section a échappé à `ouvertModules`, '
+          + 'ou un identifiant est revenu dans `FIG_DEMO`.');
+
+    // ④ LE VERROU EST NOMMÉ. Une page vide ne convertit pas, elle fait partir.
+    // ⚠️ ON CHERCHE LE MOT DU VERROU DANS LE CORPS SERVI, pas dans le code :
+    //   ici il n'y a aucun commentaire à décaper, c'est du HTML rendu.
+    // 🔬🔴 PREMIÈRE ÉCRITURE : `/data-gate|gate-|class="gate/i`. Elle rendait
+    //   VERT sur une page où le verrou est bien là — mais pour la mauvaise
+    //   raison : le seul « gate » du corps était le mot **« navigateurs »**,
+    //   dans le pied de page. ⭐⭐ *Un motif trop lâche ne mesure pas ce qu'il
+    //   annonce, et il rend vert.* On vise donc l'attribut que `Gate.astro`
+    //   porte EXPRÈS pour être trouvé (`data-sceau`, posé le 01/08), et pas
+    //   une classe de mise en forme qui peut être renommée un mardi.
+    verifie(`${t.chemin} — le verrou est nommé (\`<Gate>\`)`,
+      /data-sceau=/i.test(r.corps),
+      '⛔ sinon la page est ouverte ET vide : le pire des deux. Preda, 04/09 : '
+      + '« tout doit pousser les gens à utiliser un compte ».');
+  }
+}
+
 console.log('\n3. les autres zones n\'ont pas d\'espace membre');
 for (const zone of ZONES.filter((z) => z.nom !== ZONE_MEMBRE)) {
   if (zoneSautee(zone, 'absence d\'espace membre')) continue;

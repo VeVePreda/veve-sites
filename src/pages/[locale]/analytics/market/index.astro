@@ -22,6 +22,7 @@ export const prerender = true;
 import AnalyticsSujet from '../../../../components/pages/AnalyticsSujet.astro';
 import { connecte } from '../../../../../engine/lib/access.mjs';
 
+import { comptesActifs } from '../../../../../engine/lib/features.mjs';
 export function getStaticPaths() {
   // ⭐ En mode server cette fonction n'est pas appelée ; en static elle rend
   // vide. Une seule forme, deux modes, aucune branche à maintenir.
@@ -36,6 +37,14 @@ const lang = Astro.params.locale;
 // redevient active, un mur oublié ici rendrait `/fr/analytics/market/` fermé
 // alors que `/analytics/market/` est ouvert — et personne ne le verrait, parce
 // que ces routes rendent ZÉRO page aujourd'hui.
+
+// 🔴🔴 LOT 226 — LA GARDE DE SITE. Tout est dit dans
+// `src/pages/analytics/catalogue/index.astro`, et ce fichier ne le redit pas :
+// le 223 a retiré la garde d'authentification, qui tenait AUSSI la garde de
+// site, et le build de vevewiki en est mort. ⛔ Ne pas la retirer « parce que
+// la page est publique » : publique ne veut pas dire présente sur les deux sites.
+if (!comptesActifs()) return Astro.redirect('/', 301);
+
 const membre = connecte(Astro.locals);
 Astro.response.headers.set('cache-control',
   membre ? 'private, no-store' : 'public, max-age=0, s-maxage=300');

@@ -178,7 +178,39 @@ const ex = lireExtremes();
 // abonnement ». ⚠️ Elle est RECOPIÉE d'un fichier à l'autre : c'est assumé,
 // parce que l'importer créerait une dépendance de la porte nue vers les
 // sujets, donc du public vers le réservé. `test:analytics` compare les deux.
-const FIG_DEMO = new Set(['catalogue-raretes', 'tirages-catalogue', 'comics-par-annee']);
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 LOT 226 — LES FIGURES LIBRES PASSENT À ZÉRO. ARBITRAGE DE PREDA, 04/09
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐ SA PHRASE, ET ELLE TRANCHE PLUS QUE LA QUESTION POSÉE : « je ne veux
+// presque rien de public, tout doit pousser les gens à utiliser un compte. »
+//
+// CE QUI A DÉCLENCHÉ LA QUESTION — MESURE DU 04/09 À 16 h, EN ANONYME, SUR LA
+// PRODUCTION, CORPS DÉCAPÉ DE SES BALISES :
+//   · `/analytics/chain/`     →  1 chiffre  (une année)      — vrai teaser
+//   · `/analytics/market/`    → 15 chiffres (8 382, des `1000.0` en série)
+//   · `/analytics/catalogue/` → **33 chiffres** (18 926, 4 681, 3 119, 3 204,
+//     3 332, 4 480, 18 808 …) — **et servie `cf-cache-status: HIT`**, donc
+//     recopiée sur tout le bord Cloudflare.
+//
+// ⭐⭐⭐ ET C'EST LA CORRECTION D'UNE CORRECTION. Le jalon du 225 avait
+// rétabli une vérité — « le corps de `/fr/analytics/chain/` ne porte aucun
+// chiffre, c'est un teaser, j'avais crié à la fuite sans lire le corps ». Vrai.
+// Mais il a généralisé cette lecture aux QUATRE sujets sans les lire.
+// *Lire le corps d'UNE page ne dit rien du corps des trois autres.* Un seul
+// cas reste un seul cas, même quand la leçon qu'on en tire est juste.
+//
+// ⛔ CE N'EST PAS UN RETOUR EN ARRIÈRE SUR L'ARBITRAGE ⑦ DU LOT 223. La FORME
+//    reste ouverte, et c'est tout l'intérêt : le titre du sujet, le nom des
+//    modules et le `<Gate>` restent visibles d'un visiteur et de Google. Ce qui
+//    se ferme, c'est la PROFONDEUR — exactement « ouvrir la forme, borner la
+//    profondeur », appliqué au chiffre plutôt qu'à la route.
+// ⭐ Un `Set` VIDE et pas une suppression du mécanisme : le jour où Preda veut
+//   rouvrir une figure précise, il en écrit l'identifiant ici et rien d'autre
+//   ne bouge. Retirer `figuresLibres` obligerait à réécrire le rendu.
+// 🔬 Le banc qui garde ceci est le § 7 de `test:cache` : il LIT le corps servi
+//   en anonyme sur les quatre sujets et compte les chiffres. ⛔ Il vit hors de
+//   `npm test` parce qu'il a besoin du réseau, comme tout ce fichier.
+const FIG_DEMO = new Set();
 
 // ⭐ LE PALIER OBSERVÉ, ET ICI IL EST RÉEL. Cette page est rendue à la
 // demande : `Astro.locals` porte la session, donc `franchit()` répond pour la
@@ -252,9 +284,26 @@ const chemin = `/analytics/${sujet}/`;
   {/* ═══ L'AMPLITUDE (Marché seulement) ═══ */}
   {S.amplitude && (
     <>
+      {/* 🔴🔴 LOT 226 — LE TABLEAU D'AMPLITUDE ÉTAIT LA SEULE SECTION DE CETTE
+          PAGE QUE **PERSONNE** NE GARDAIT. `figuresReservees` passait déjà par
+          `ouvertModules` ; celle-ci se rendait pour tout le monde, et c'est
+          elle qui servait les 15 chiffres de `/analytics/market/` en anonyme
+          — le rang, le nom de la pièce, et le rapport `×`.
+          ⭐⭐ ELLE A ÉCHAPPÉ À TROIS LECTURES parce qu'elle ne porte PAS de
+          montant : le lot 101 avait retiré les deux colonnes de prix, et
+          « aucun prix » a été lu comme « rien à garder ». Un rapport
+          d'amplitude, un rang et huit noms de pièces sont exactement ce qu'un
+          abonné paie. *Une donnée sans unité reste une donnée.*
+          ⛔ NE PAS remonter le badge `8 / 8 382` hors de la porte « pour
+             montrer qu'il y a quelque chose » : `<Gate>` le dit déjà, avec des
+             mots, et sans livrer le dénominateur. */}
       <div class="sect-t"><h2>{t(lang, 'analytics.amplitude')}</h2>
-        <span class="etiq">{extremes.length} / {eligibles.toLocaleString(nf)}</span></div>
+        {ouvertModules && (
+          <span class="etiq">{extremes.length} / {eligibles.toLocaleString(nf)}</span>)}</div>
       <p class="etiq">{t(lang, 'analytics.amplitudeWhat')}</p>
+      {!ouvertModules && (
+        <Gate lang={lang} gate="modules" total={figures.length} shown={figuresLibres.length} />)}
+      {ouvertModules && (<>
       <div class="tbl-hote"><table>
         <thead><tr>
           <th class="rang">#</th><th>{t(lang, 'movers.item')}</th>
@@ -279,6 +328,7 @@ const chemin = `/analytics/${sujet}/`;
       {ecartesPlafond > 0 && plafondAmpl > 0 && (
         <p class="etiq" style="margin-top:10px">{t(lang, 'analytics.excludedCap', { n: ecartesPlafond, p: plafondAmpl.toLocaleString(nf) })}</p>
       )}
+      </>)}
     </>
   )}
 
@@ -296,7 +346,25 @@ const chemin = `/analytics/${sujet}/`;
       demande, `franchit()` répond pour la vraie session — le contenu réservé
       n'est écrit dans la réponse que si la porte est franchie, et la réponse
       porte `no-store`. */}
-  {figuresReservees.length > 0 && (
+  {/* 🔴🔴🔴 LOT 226 — UNE PAGE OUVERTE QUI NE POUSSE VERS RIEN.
+      MESURÉ sur le serveur réel : `/analytics/chain/` rendait un corps de
+      **2 636 caractères, trois liens (dont deux vers `/analytics/`), AUCUN
+      verrou et AUCUN appel à l'offre**. Ni figure, ni cadenas, ni raison de
+      créer un compte. Cause : ce sujet n'a aucune `figure` déclarée — ses
+      modules vivent dans `/api/analytics/[module]` — donc la section réservée
+      ne se rendait pas, donc le `<Gate>` non plus.
+      ⭐⭐ *La condition portait sur ce qu'il y a À CACHER, pas sur ce qu'il y a
+         À DIRE.* Un sujet sans figure n'a rien à cacher : il a quand même
+         quelque chose à annoncer.
+      ⛔ C'est exactement le défaut que le § 9.4 de `test:analytics` nomme
+         depuis le 223 — « une page ouverte qui MASQUE ses figures serait un
+         tableau vide, et un tableau vide ne se signale pas » — sauf qu'ici la
+         page ne masquait rien : elle n'avait rien. Le contrôle regardait
+         `<Gate>` dans le CODE, pas sa présence dans la PAGE SERVIE.
+      ⭐ `!S.amplitude` : sur `/analytics/market/` le verrou est déjà posé
+         au-dessus, sur le tableau d'amplitude. En poser un second ne dirait
+         rien de plus et ferait deux cadenas dans un écran. */}
+  {(figuresReservees.length > 0 || (!ouvertModules && !S.amplitude)) && (
     <>
       <div class="sect-t sect-t--gd"><h2 class="mono-t">{t(lang, 'analytics.full')}</h2>
         <span class="etiq" style="color:var(--lock)">{figuresReservees.length}</span></div>

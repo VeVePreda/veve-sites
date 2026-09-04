@@ -234,8 +234,20 @@ export const PRIVEES = [
   //   PUBLIQUE (`public, max-age=0, must-revalidate`, mesuré le même jour). La
   //   famille qui les couvre pointe donc vers `/analytics/market/` — voir le
   //   commentaire de `FAMILLES_COMPTE`.
-  { chemin: '/analytics/market/', attendu: 'no-store', quoi: 'le sujet Marché, réservé aux membres' },
-  { chemin: '/fr/analytics/chain/', attendu: 'no-store', quoi: 'le sujet Chaîne en français (préfixe de langue + deux segments)' },
+  // 🔴🔴🔴 LOT 226 — LES QUATRE SUJETS ANALYTICS ONT QUITTÉ CETTE LISTE.
+  // Ils ne sont plus privés : le lot 223 les a ouverts (arbitrage ⑦), et le
+  // 226 leur a retiré tout chiffre en anonyme (arbitrage de Preda du 04/09 :
+  // « je ne veux presque rien de public »). Les y laisser faisait rougir ce
+  // banc sur des pages SAINES — la déclaration datait du 18/08, quand elles
+  // rendaient encore 302.
+  // ⭐⭐ ILS NE SONT PAS DEVENUS « PUBLICS » POUR AUTANT : une page publique
+  //   ordinaire est IDENTIQUE avec et sans session (c'est ce que le § 4 exige).
+  //   Celles-ci ne le sont pas — un membre y voit ses figures. C'est une
+  //   TROISIÈME nature, et elle a désormais sa liste : `TEASERS_PUBLICS`,
+  //   plus bas, avec son propre § dans `test:cache`.
+  // ⛔ NE PAS les remettre ici « par prudence » : deux listes qui réclament la
+  //   même adresse avec deux attentes contraires, c'est un banc qui ne peut
+  //   plus être vert.
 
   // — les routes d'API —
   { chemin: '/api/sante', attendu: 'no-store', quoi: 'la sonde' },
@@ -250,6 +262,62 @@ export const PRIVEES = [
 ];
 
 // ⛔ La zone qui porte l'espace membre. Une seule, et c'est gelé.
+// ═══════════════════════════════════════════════════════════════════════════
+// LES TEASERS PUBLICS — la troisième nature   (LOT 226)
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐⭐⭐ POURQUOI UNE TROISIÈME LISTE, ET PAS UNE DES DEUX AUTRES.
+//   · dans `PRIVEES`, on exige « jamais HIT » et « la réponse refuse le
+//     stockage » : faux ici, la version visiteur DOIT pouvoir être mise en
+//     cache, c'est ce qui rend l'ouverture utile plutôt que coûteuse ;
+//   · dans `PUBLIQUES_PAR_ZONE`, le § 4 exige « identique avec et sans
+//     session » : faux ici aussi, un membre y voit ses figures.
+//   Une page qui n'est ni l'un ni l'autre et qu'on range de force dans l'un
+//   des deux produit un banc rouge sur une page saine — c'est exactement ce
+//   qui est arrivé du 223 au 226, et ce qui a fait crier à la fuite.
+//   ⭐ *Quand deux catégories rougissent toutes les deux, c'est qu'il en
+//      manque une troisième.*
+//
+// CE QUE CE BANC EXIGE, ET CHAQUE POINT VIENT D'UNE MESURE DU 04/09 :
+//   ① la réponse anonyme ne porte QU'UN SEUL `cache-control`. Mesuré : elle en
+//      portait DEUX, contradictoires (`public, s-maxage=300` de la page et
+//      `private, no-store` qu'ajoutait nginx). `add_header` AJOUTE.
+//   ② elle porte `vary: cookie`. Sans lui, la version visiteur mise en cache
+//      serait servie à un membre : une dégradation muette et permanente.
+//   ③ **elle ne porte AUCUN chiffre.** Mesuré avant correction :
+//      `/analytics/catalogue/` en servait 33 (18 926, 4 681, 3 119…) et
+//      `/analytics/market/` 15, **et catalogue était servie `HIT`**, donc
+//      recopiée sur tout le bord. Après correction, mesuré sur le serveur
+//      réel : **1** — l'année du pied de page, et rien d'autre.
+//   ④ le verrou est NOMMÉ (`<Gate>`) : c'est lui qui pousse vers le compte.
+//      Une page vide ne convertit pas, elle fait partir.
+//
+// ⚠️ LE SEUIL EST À **ZÉRO**, ET IL A FALLU DEUX ÉCRITURES POUR L'OBTENIR.
+//   Première version : seuil à 2, « parce que le pied de page porte une date ».
+//   Mesuré ensuite : les deux seules occurrences des quatre pages étaient
+//   « Data updated on 04/09/2026. » — une DATE, pas une figure. Un seuil de 2
+//   posé pour absorber une date laissait donc passer **deux vraies figures**
+//   sans rougir, et il était collé au maximum : aucune marge.
+//   ⭐⭐ *Un seuil qui absorbe le bruit absorbe aussi le signal de même taille.*
+//   ⇒ On DÉCAPE les dates, et on exige ZÉRO. Le banc dit alors ce qu'il
+//     annonce : aucune figure ne part en anonyme.
+//   ⛔ Ne jamais remonter ce seuil pour « faire passer » un lot : si une date
+//     d'un format neuf apparaît, c'est le DÉCAPAGE qu'on étend, pas le seuil.
+//   ⚠️ Ce que ce décapage coûte, et il faut le savoir : une figure dont la
+//     valeur ressemblerait à une année (« 1963 ») ou à une date passerait
+//     inaperçue. C'est assumé — aucune des figures réservées n'a cette forme.
+export const TEASERS_PUBLICS = [
+  { chemin: '/analytics/catalogue/', quoi: 'le sujet Catalogue — teaser' },
+  { chemin: '/analytics/market/', quoi: 'le sujet Marché — teaser' },
+  { chemin: '/analytics/collections/', quoi: 'le sujet Collections — teaser' },
+  { chemin: '/analytics/chain/', quoi: 'le sujet Chaîne — teaser' },
+  // ⭐ La variante localisée : elle rend ZÉRO page en static, mais elle EXISTE
+  //   en mode serveur, et c'est ce mode qui tourne sur la zone membre.
+  { chemin: '/fr/analytics/chain/', quoi: 'le sujet Chaîne en français (préfixe + deux segments)' },
+];
+
+/** Le nombre de chiffres toléré dans le corps anonyme d'un teaser. Voir ci-dessus. */
+export const TEASER_CHIFFRES_MAX = 0;
+
 export const ZONE_MEMBRE = 'veveprice.com';
 
 // ⭐⭐ ET LE CONTRÔLE INVERSE, CELUI QUI NE COÛTE RIEN ET QUI DIT BEAUCOUP.
