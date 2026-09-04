@@ -17,7 +17,7 @@ import * as memoire from './memoire.mjs';
 //    `projeterCote()` pour que ce soit vrai par construction.
 import { deposerVignettes } from './vignettes.mjs';
 import { deposerRayonIndex } from './rayon_index.mjs';
-import { getCatalogue, getBaselines, getReleves, getFichesStackr, getOmiUsd, getVentes, streamPrices } from '../data/warehouse.mjs';
+import { getCatalogue, getBaselines, getReleves, getFichesStackr, getOmiUsd, getVentes, streamPrices, vuLe } from '../data/warehouse.mjs';
 // 💱 LOT 181 — le cours OMI → USD, déposé dans la réserve pour `/api/cote/lot`.
 //    Toute la règle (péremption, refus du zéro) vit dans le module ; ici il
 //    n'y a qu'un chargement et un dépôt.
@@ -584,6 +584,39 @@ async function construireDataset() {
     } catch (e) { console.log(`[adresses] slugs.json illisible (${e.message}) : on repart sans gel`); }
   }
 
+  // ═══════════════════════════════════════════════════════════════════════
+  // 🕰️🔴🔴 LOT 217 — LA CARTE DES OBSERVATIONS, ET SES DEUX SOURCES
+  // ═══════════════════════════════════════════════════════════════════════
+  // Elle répond à UNE question, et une seule : *jusqu'à quand sait-on que le
+  // prix n'a pas changé ?* C'est la seconde moitié de la courbe en escalier
+  // (Preda, 03/09 : « un prix inchangé est une donnée »).
+  //
+  // ① `releves.csv` — QUAND ON A REGARDÉ LE MARCHÉ. Précis, par pièce… mais
+  //    il dérive de `floor_state.json`, qui ne connaît que ce qui a été LISTÉ.
+  //    Mesuré le 04/09 : 3 003 fiches publiées n'y ont JAMAIS figuré. Étendre
+  //    ce collecteur n'y changerait rien — on ne relève pas le prix de ce que
+  //    personne ne vend.
+  // ② LE CATALOGUE — QUAND ON A REGARDÉ LE CATALOGUE. Une seule date pour
+  //    tout le fichier (son `Last-Modified`), mais elle couvre les 19 786
+  //    pièces, listées ou non.
+  //
+  // 🔴🔴🔴 ET LA ② NE VAUT QUE SI LES DEUX SOURCES DISENT LE MÊME PRIX.
+  // Mesuré le 04/09 sur les 3 359 fiches sans relevé : le `floor` du catalogue
+  // égale le dernier point de la courbe dans 81,5 % des cas, et EN DIFFÈRE
+  // dans 18,5 %. Sur ces 18,5 %, prolonger la courbe à plat jusqu'à la date du
+  // catalogue affirmerait « il valait encore 7,98 » alors que le catalogue
+  // qu'on vient de lire dit 2,56. ⇒ Le désaccord n'est pas une observation :
+  // c'est un point que `price_history` (mode `append`) aurait dû écrire et
+  // n'a pas écrit. On se tait, et la courbe s'arrête au dernier changement.
+  // ⭐ *Deux sources qui se contredisent ne s'additionnent pas : la plus
+  //   fraîche ne devient une observation de l'autre que si elles concordent.*
+  //
+  // ⚠️ `null` EN HORS-LIGNE, jamais « maintenant » : un échantillon n'a pas
+  //    été observé aujourd'hui. `vuLe()` s'en charge, on ne remplace rien ici.
+  const CAT_VU = vuLe('catalogue');
+  const observations = new Map();
+  let obsReleve = 0, obsCatalogue = 0, obsDesaccord = 0;
+
   // --- Candidats ----------------------------------------------------------
   const candidates = [];
   let refusesSeuil = 0;
@@ -592,6 +625,28 @@ async function construireDataset() {
     if (!uuid) continue;
     const a = agg.get(uuid);
     if (!a || a.n < MIN_POINTS) { refusesSeuil++; continue; }   // <<< SEUIL : pas de page creuse
+    // 🕰️ LOT 217 — l'observation de CETTE pièce, avant que `agg` soit libéré.
+    // ⭐ `a.tail` porte les tout derniers points, quel que soit leur âge :
+    //   c'est exactement le « dernier changement » auquel le catalogue doit
+    //   être comparé. ⛔ Ne pas prendre `publicHist` : il est ÉCHANTILLONNÉ
+    //   par seaux et son dernier point peut ne pas être le dernier connu.
+    {
+      const relSec = rel.get(uuid)?.sec;
+      let vu = (Number.isFinite(relSec) && relSec > 0) ? relSec : 0;
+      if (CAT_VU && a.tail.length) {
+        const dernier = a.tail[a.tail.length - 1];
+        const fCat = num(c.floor);
+        if (fCat !== null && Math.abs(fCat - Number(dernier.floor)) < 1e-9) {
+          if (CAT_VU > vu) { vu = CAT_VU; obsCatalogue++; }
+        } else if (fCat !== null) {
+          obsDesaccord++;
+        }
+      }
+      if (vu > 0) {
+        observations.set(uuid, vu);
+        if (Number.isFinite(relSec) && relSec === vu) obsReleve++;
+      }
+    }
     const byTs = (x, y) => String(x.ts).localeCompare(String(y.ts));
     const spread = [...a.buckets.values()].sort(byTs);
     const publicHist = spread.length >= 2 ? spread : [...a.tail].sort(byTs);
@@ -919,6 +974,16 @@ async function construireDataset() {
     item.score = scoreUtilite(item);
     candidates.push(item);
   }
+  // ⭐⭐ L'INSTRUMENT SE DÉCLARE, MÊME QUAND IL VA BIEN — comme `[entrepot]
+  //    releves`. `desaccord` est le SEUL endroit d'où l'on verra que
+  //    `price_history` (mode `append`) prend du retard sur le catalogue : ces
+  //    pièces perdent leur observation, donc la fin de leur courbe, et rien
+  //    d'autre ne le dirait. Une hausse de ce chiffre est une panne de
+  //    collecte, pas un défaut du site.
+  console.log(`[entrepot] observations : ${observations.size} uuid daté(s)`
+    + ` — ${obsReleve} par releves.csv, ${obsCatalogue} par le catalogue`
+    + ` (vu le ${CAT_VU ? new Date(CAT_VU * 1000).toISOString() : '—'}),`
+    + ` ${obsDesaccord} écarté(s) : le floor du catalogue contredit le dernier point`);
   agg.clear();                                           // on libere tout de suite
 
   // ⭐ NOM D'AFFICHAGE. Chez les comics, le nom recopie tres souvent la serie
@@ -1436,7 +1501,17 @@ async function construireDataset() {
   // ⚠️ Cet appel doit rester APRÈS le calcul de `items` : plus haut, la liste
   // des publiés n'existe pas encore, et un `fermer()` sans filtre garderait
   // tout — sans qu'aucune erreur ne le dise.
-  reserve.fermer(new Set(items.map((i) => i.uuid)));
+  // 🕰️ LOT 217 — LA DATE D'OBSERVATION PART AVEC LA RÉSERVE.
+  // `rel` porte, par uuid, le `ts_releve` le plus grand — c'est-à-dire QUAND
+  // ON A REGARDÉ, quel que soit le montant vu. C'est la seconde moitié de
+  // l'historique : `prices.csv.gz` dit quand le prix a CHANGÉ, `releves.csv`
+  // dit jusqu'à quand on sait qu'il n'a PAS changé.
+  // ⛔ ON NE PASSE PAS `rel` TEL QUEL. Il porte cinq horloges (`sec`,
+  // `stackrSec`, `stackrObsSec`, `veveSec`, plus un montant) et la réserve n'a
+  // besoin que d'une. Livrer l'objet entier laisserait un lot suivant choisir
+  // la mauvaise sans qu'aucun banc ne le voie — `stackrSec` n'avance QUE si un
+  // floor était fini, et daterait donc la VALEUR, pas l'observation.
+  reserve.fermer(new Set(items.map((i) => i.uuid)), observations);
 
   // 💰 LOT 210 — LES VENTES SUIVENT LA MEME REGLE QUE LA RESERVE DE PRIX :
   // elles s'ecrivent sur les uuid REELLEMENT PUBLIES, et pas avant. Garder

@@ -45,6 +45,8 @@ export const prerender = true;
 
 import { compteDeLaSession } from '../../../engine/lib/compte.mjs';
 import { poserPref, retirerPref } from '../../../engine/lib/prefs.mjs';
+// 🎨 LOT 217 — le thème rejoint la langue et le tableau de bord sous le compte.
+import { CLE_THEME, COOKIE_THEME, THEME_DUREE, themeValide } from '../../../engine/lib/theme.mjs';
 import {
   CLE_PREF, COOKIE, COOKIE_DUREE, PLAFOND,
   lireAgencement, ecrireAgencement, deplacer,
@@ -162,6 +164,47 @@ export async function POST({ request, cookies, redirect }) {
     //   chaque flèche recharge la page. Sans elle, ranger sept lignes demande
     //   sept remontées au clavier.
     return redirect('/compte/?m=tbok#tableau', 303);
+  }
+
+  // ═════════════════════════════════════════════════════════════════════════
+  // 🎨🔴🔴 LOT 217 — LE TROISIÈME BLOC : LE THÈME
+  // ═════════════════════════════════════════════════════════════════════════
+  // ⭐ Il est le seul à être posté par du SCRIPT et non par un formulaire :
+  //   le bouton `#bascule-theme` bascule d'abord l'affichage (instantané, sans
+  //   réseau), puis prévient le serveur. ⛔ L'inverse — attendre la réponse
+  //   pour peindre — mettrait un aller-retour entre le clic et la couleur, sur
+  //   le geste le plus immédiat du site.
+  // ⚠️ IL PORTE `poste=1` ET `bloc=theme` COMME LES DEUX AUTRES, et ce n'est
+  //   pas de la symétrie : sans `bloc`, un `fetch` de thème serait lu comme un
+  //   POST du bloc e-mails « case non cochée », donc comme un DÉSABONNEMENT.
+  //   C'est très exactement le défaut que le témoin du lot 202 a fermé, et il
+  //   se rouvrirait au premier bloc qui l'oublie.
+  if (bloc === 'theme') {
+    // ⛔ LISTE BLANCHE (`themeValide`), ET LE REFUS EST SILENCIEUX POUR LE
+    //   CLIENT MAIS BRUYANT DANS LE JOURNAL : une valeur inconnue ici ne peut
+    //   venir que d'un appel fabriqué, et on n'écrit rien.
+    const v = themeValide(f.get('theme'));
+    if (!v) return redirect('/compte/?m=err', 303);
+    try {
+      const r = poserPref(compte, CLE_THEME, v);
+      if (!r?.ok) return redirect('/compte/?m=err', 303);
+    } catch {
+      return redirect('/compte/?m=err', 303);
+    }
+    // 🔑 LA BASE EST LA VÉRITÉ, LE COOKIE EST LE PORTEUR — et il est posé ICI,
+    //   pas seulement à la connexion suivante : les 9 354 fiches pré-générées
+    //   ne peuvent lire que lui, et sans cette ligne le thème serait rangé,
+    //   exact, et sans effet jusqu'au prochain login. Le défaut le plus cher du
+    //   lot 202, à l'identique.
+    // ⚠️ `httpOnly: false` — le script anti-scintillement de `Base.astro` le
+    //   lit AVANT le premier octet de style. Un cookie caché du navigateur
+    //   ferait clignoter la page en clair puis en sombre. Ce cookie n'accorde
+    //   aucun droit : il décide d'une couleur de fond, pas d'un contenu.
+    cookies.set(COOKIE_THEME, v, {
+      path: '/', maxAge: THEME_DUREE, sameSite: 'lax', secure: true, httpOnly: false,
+    });
+    console.log(`[reglages] theme → ${v}`);
+    return redirect('/compte/?m=ok', 303);
   }
 
   const veutNews = String(f.get('news') ?? '') === '1';

@@ -43,7 +43,7 @@ const verifie = (titre, ok, detail = '') => {
 };
 const indecis = (titre, pourquoi) => console.log(`  ⏸️   ${titre} — INDÉCIDABLE : ${pourquoi}`);
 const fin = () => {
-  console.log('\n4. auto-contrôle');
+  console.log('\n5. auto-contrôle');
   if (lus < 5) { console.log(`  🔴 ce banc n'a inspecté que ${lus} élément(s) : il ne prouve rien.`); process.exit(2); }
   console.log(`  OK   ${lus} élément(s) inspecté(s)`);
   console.log(echecs ? `\n❌ ${echecs} echec(s)` : '\n✅ tout est vert');
@@ -478,5 +478,91 @@ const css = feuilles.join('\n');
 verifie('le thème habille `.plages button[data-verrou]` — et quelqu\'un l\'émet',
   /\.plages\s+button\[data-verrou\]/.test(css) && /data-verrou/.test(fiche.html),
   'règle ET émetteur présents — c\'est la paire, pas l\'un des deux');
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🕳️🔴🔴 4. LOT 217 — LE BANC QUI MANQUAIT : UNE FENÊTRE ANNONCÉE DOIT ÊTRE
+//              COUVERTE PAR LA DONNÉE
+// ═══════════════════════════════════════════════════════════════════════════
+// Preda, 03/09, après avoir mesuré deux fiches lui-même : « aucun palier ne
+// peut annoncer une fenêtre que la donnée ne couvre pas. »
+//
+// 🔴🔴🔴 CE QU'IL AURAIT ATTRAPÉ, ET PERSONNE NE L'A VU PENDANT UN MOIS.
+// Le manifeste vendait `3j` au palier d'entrée depuis le lot 132 (10/08).
+// Mesuré le 04/09 sur les 9 354 fiches RÉELLEMENT publiées : seules 3 625
+// d'entre elles (38,8 %) avaient deux points dans une fenêtre de trois jours.
+// ⭐ SIX FICHES SUR DIX RENDAIENT UN CADRE VIDE au palier qu'on vend le plus,
+// et TOUT était vert : le manifeste, la route, les boutons, le dessin. Chaque
+// fichier avait raison ; c'est la RENCONTRE entre la grille commerciale et la
+// densité de la donnée que personne n'interrogeait.
+//
+// ⭐⭐ POURQUOI LA MAJORITÉ, ET PAS UN SEUIL CHOISI. 80 % ou 95 % seraient mon
+// chiffre, donc une décision commerciale prise dans un banc — et un garde-fou
+// sous son seuil n'existe pas. La majorité stricte, elle, se déduit de ce que
+// la phrase VEUT DIRE : au-dessous de la moitié, « sept jours d'historique »
+// est faux pour le client MÉDIAN. Ce n'est pas un objectif de qualité, c'est
+// le point où l'annonce cesse d'être vraie.
+//
+// ⛔ ET IL NE PEUT PAS ÊTRE VERT SANS AVOIR MESURÉ. Sans `.reserve/`, il rend
+// INDÉCIDABLE — jamais « OK ». Un build hors-ligne (`WAREHOUSE_OFFLINE=1`) ne
+// produit aucune réserve, et un banc qui passerait au vert dans ce cas
+// vaudrait exactement zéro le jour où la couverture s'effondre en production.
+console.log('\n4. une fenêtre annoncée est-elle COUVERTE par la donnée ?');
+const DIR_RES = process.env.RESERVE_DIR || join(R, '.reserve/historique');
+const bornees = GRILLE.filter((pl) => Number.isFinite(pl.jours) && pl.jours > 0);
+if (!existsSync(DIR_RES)) {
+  indecis('la couverture des plages',
+    `aucune réserve en ${DIR_RES} — lancer ce banc APRÈS un build en ligne`);
+} else if (!bornees.length) {
+  console.log('  ⏸️   sans objet — aucune plage bornée en jours sur ce site.');
+} else {
+  const fichiers = readdirSync(DIR_RES).filter((n) => n.endsWith('.json'));
+  if (fichiers.length < 50) {
+    indecis('la couverture des plages',
+      `${fichiers.length} fiche(s) en réserve : trop peu pour conclure`);
+  } else {
+    // ⭐ ON REJOUE `tronquer()`, LA VRAIE, ET PAS UNE COPIE DE SA RÈGLE.
+    //   Réécrire ici « ancre − N jours » ferait de ce banc le second endroit
+    //   qui connaît le découpage : le jour où l'un des deux bouge, le banc
+    //   mesurerait sa propre idée de la fenêtre et resterait vert.
+    const { tronquer, ancre } = await import('../lib/reserve.mjs');
+    const couvre = new Map(bornees.map((pl) => [pl.cle, 0]));
+    for (const nom of fichiers) {
+      let serie;
+      try { serie = JSON.parse(readFileSync(join(DIR_RES, nom), 'utf8')); } catch { continue; }
+      for (const pl of bornees) {
+        const t = tronquer(serie, pl.jours);
+        // ⚠️ « COUVERTE » A DEUX MOITIÉS, ET IL FAUT LES DEUX.
+        //   ① LE DÉBUT — on sait à quel prix la pièce était au bord de la
+        //      fenêtre. C'est vrai si et seulement si `tronquer()` a pu
+        //      réinjecter le point d'ouverture, donc si son premier point est
+        //      DATÉ DU BORD. Une pièce apparue il y a trente jours ne peut pas
+        //      couvrir quatre-vingt-dix : son début de fenêtre est inconnu.
+        //   ② LA FIN — on sait jusqu'à quand cette connaissance court. Sans
+        //      `vu`, la courbe s'arrête au dernier changement : le tracé reste
+        //      honnête, mais il ne REMPLIT pas la fenêtre qu'on a vendue.
+        // ⛔ Tester seulement `p.length >= 1` (ma première version) revenait à
+        //    ne mesurer que `vu` : les quatre plages rendaient le MÊME
+        //    pourcentage, donc le banc ne regardait pas la fenêtre du tout.
+        //    *Un banc qui rend le même chiffre pour toutes ses questions n'en
+        //    pose qu'une.*
+        const bord = ancre(serie) - pl.jours * 86400;
+        if (Number.isFinite(Number(serie.vu)) && t.p.length >= 1 && t.p[0][0] === bord) {
+          couvre.set(pl.cle, couvre.get(pl.cle) + 1);
+        }
+      }
+    }
+    const n = fichiers.length;
+    for (const pl of bornees) {
+      const c = couvre.get(pl.cle);
+      const part = c / n;
+      lus++;
+      verifie(`la plage « ${pl.cle} » (${pl.jours} j, palier ${pl.tier}) est couverte pour la majorité des fiches`,
+        part > 0.5,
+        `${c} / ${n} fiches publiées — ${(part * 100).toFixed(1)} %`
+        + (part > 0.5 ? '' : `\n       ⛔ « ${pl.jours} jours d'historique » est FAUX pour le client médian.`
+          + `\n       ⇒ soit la plage sort du manifeste, soit le relevé s'étend (floor-watch).`));
+    }
+  }
+}
 
 fin();

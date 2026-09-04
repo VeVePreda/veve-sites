@@ -201,6 +201,19 @@ const pilote = moduleJs('cadran');
           </div>
         )}
       </div>
+      {/* 🔴🔴 LOT 217 — LE REFUS A ENFIN UN ENDROIT OU S'ECRIRE.
+          Preda, 03/09 : « cliquer un onglet cadenasse ne fait rien et ne dit
+          rien ». Le `return` muet vivait dans `cadran.js` depuis le lot 132,
+          et le libelle — `dash.locked`, « {palier} l'ouvre » — n'existait que
+          dans un `title`, donc au SURVOL, donc jamais sur un telephone.
+          ⭐ VIDE AU BUILD, ET C'EST LE POINT : il ne porte AUCUN texte tant
+          que personne n'a clique. Ecrire la phrase ici la mettrait dans le
+          HTML pre-genere des 9 354 fiches — servie aux robots, et le mot
+          « Members only » reviendrait par la porte que le lot 123 a fermee.
+          `cadran.js` la recopie depuis le `title` du bouton clique.
+          ⚠️ `role="status"` (poli), pas `alert` : c'est une reponse a un
+          geste, pas une urgence a interrompre la lecture. */}
+      <p class="graph-refus" data-refus role="status" hidden></p>
       <div data-svg></div>
       <div class="info-bulle" data-bulle hidden></div>
     </div>

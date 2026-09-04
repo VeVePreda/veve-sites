@@ -215,10 +215,36 @@ await cas(`palier SANS BORNE -> 200 et TOUS les points (aucune troncature)`, asy
   assert.equal(c.h.n, TOUS_PTS.length, `« ${illimite} » doit tout recevoir`);
 });
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 LOT 217 — CE BANC AVAIT RAISON, ET IL A CESSÉ D'ÊTRE PERTINENT
+// ═══════════════════════════════════════════════════════════════════════════
+// Sa propriété était : « TOUT ce qui est reçu est dans la fenêtre, et RIEN de
+// ce qui est hors fenêtre n'est reçu ». Elle est encore vraie — mais elle ne
+// décrit plus tout ce que la route doit faire.
+//
+// ⭐⭐⭐ CE QUE LE LOT 217 AJOUTE, ET POURQUOI CE N'EST PAS UNE FUITE.
+// Une courbe en escalier a besoin du NIVEAU AU DÉBUT de la fenêtre. Ce niveau
+// est porté par le dernier changement d'AVANT — que l'ancienne troncature
+// jetait. On le réinjecte, mais RECALÉ SUR LE BORD : sa date devient `seuil`.
+// ⇒ Aucun horodate hors fenêtre ne sort (le témoin inverse ci-dessous le
+//   vérifie toujours, et il vérifie donc maintenant quelque chose de NEUF :
+//   que le point réinjecté a bien perdu sa date d'origine).
+// ⇒ Et aucun montant nouveau ne sort : c'est un montant que le palier avait
+//   déjà le droit de connaître, puisqu'il gouverne le début de SA fenêtre.
+//
+// ⛔ CE QU'IL NE FAUT SURTOUT PAS FAIRE : desserrer l'égalité en `>=` pour
+//    « laisser passer un point de plus ». Ça rendrait le banc muet sur la
+//    seule chose qui compte — combien de points, et lesquels.
 for (const pal of PALIERS.filter((p) => profondeur({ palier: p }) > 0)) {
   const N = profondeur({ palier: pal });
-  const dedans = TOUS_PTS.filter((p) => p[0] >= FIN - N * 86400);
-  const dehors = TOUS_PTS.filter((p) => p[0] < FIN - N * 86400);
+  const SEUIL = FIN - N * 86400;
+  const dedans = TOUS_PTS.filter((p) => p[0] >= SEUIL);
+  const dehors = TOUS_PTS.filter((p) => p[0] < SEUIL);
+  // Le niveau à l'ouverture de la fenêtre : le dernier changement d'avant.
+  const avant = dehors.length ? dehors[dehors.length - 1] : null;
+  const attendus = avant === null
+    ? dedans.map((p) => p[0])
+    : [SEUIL, ...dedans.map((p) => p[0])];
   await cas(`« ${pal} » (${N} j) -> 200, et SEULEMENT les relevés de la fenêtre`, async () => {
     const r = await appel(A, { palier: pal });
     assert.equal(r.status, 200, 'un palier a qui la grille accorde une profondeur ne doit plus recevoir 403');
@@ -226,7 +252,9 @@ for (const pal of PALIERS.filter((p) => profondeur({ palier: p }) > 0)) {
     assert.equal(c.ok, true);
     assert.equal(c.profondeur, N, 'la réponse doit ANNONCER la profondeur servie');
     assert.equal(c.h.n, c.h.p.length, '`n` doit décrire ce qui est RÉELLEMENT servi');
-    assert.equal(c.h.n, dedans.length, `${dedans.length} relevé(s) dans la fenêtre de ${N} j`);
+    assert.equal(c.h.n, attendus.length,
+      `${attendus.length} relevé(s) attendus dans la fenêtre de ${N} j`
+      + (avant ? ' (dont le niveau à l\'ouverture, recalé sur le bord)' : ''));
     // ⛔⛔ LE TEMOIN INVERSE : aucun relevé HORS fenêtre ne doit passer.
     const recus = new Set(c.h.p.map((p) => p[0]));
     for (const p of dehors) {
@@ -236,9 +264,58 @@ for (const pal of PALIERS.filter((p) => profondeur({ palier: p }) > 0)) {
     }
     // ⭐ Et c'est bien un SUFFIXE : les DERNIERS relevés, pas les premiers. Une
     //   troncature qui garderait le debut rendrait un graphe faux, pas vide.
-    assert.deepEqual(c.h.p.map((p) => p[0]), dedans.map((p) => p[0]));
+    assert.deepEqual(c.h.p.map((p) => p[0]), attendus);
+    // ⭐⭐ LE POINT D'OUVERTURE PORTE LA DATE DU BORD ET LE MONTANT D'AVANT.
+    //   Les deux moitiés comptent : la date prouve qu'aucun horodate étranger
+    //   ne sort ; le montant prouve qu'on n'a pas fabriqué un prix. Vérifier
+    //   l'une sans l'autre laisserait passer un « 0 gems au bord », qui est
+    //   exactement le genre de zéro inventé qu'on ne rattrape jamais.
+    if (avant) {
+      assert.equal(c.h.p[0][0], SEUIL, 'le point d\'ouverture doit être daté du BORD de la fenêtre');
+      assert.deepEqual(c.h.p[0].slice(1), avant.slice(1),
+        'le point d\'ouverture doit porter le montant du dernier changement d\'avant — pas un autre');
+    }
   });
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🕰️🔴🔴 LOT 217 — L'ANCRAGE EST L'OBSERVATION, ET VOICI LE TÉMOIN INVERSE
+// ═══════════════════════════════════════════════════════════════════════════
+// La panne que Preda a mesurée le 03/09 : l'onglet disait « 3d », le graphe
+// traçait CINQ MOIS. Cause — la fenêtre était ancrée sur le dernier
+// CHANGEMENT de prix, or le fichier est append-on-change : sur une pièce
+// stable, le dernier changement est vieux de cinq mois.
+//
+// ⭐ CE BANC JOUE LES DEUX ÉTATS SUR LA MÊME SÉRIE : sans `vu` (ancien
+//   comportement, toujours correct quand on ne sait rien) et avec un `vu`
+//   POSTÉRIEUR au dernier point. Si les deux rendaient la même chose, `vu`
+//   ne serait pas lu — et c'est très exactement la panne qu'on répare :
+//   un champ écrit, transporté, et jamais utilisé.
+await cas('LOT 217 — `vu` déplace la fenêtre, et son absence la laisse au dernier point', async () => {
+  const { tronquer, ancre } = await import('../lib/reserve.mjs');
+  const J = 86400;
+  const serie = { u: A, n: 3, p: [[1000 * J, 100, 1], [1010 * J, 200, 2], [1020 * J, 300, 3]] };
+  assert.equal(ancre(serie), 1020 * J, 'sans `vu`, l\'ancre est le dernier point');
+  // Fenêtre de 7 j sans `vu` : elle part de 1013 j — seul le point de 1020 est
+  // dedans, plus le niveau d'ouverture recalé sur le bord.
+  const sans = tronquer(serie, 7);
+  assert.deepEqual(sans.p.map((p) => p[0]), [1013 * J, 1020 * J]);
+  assert.equal(sans.p[0][1], 200, 'le niveau à l\'ouverture est celui du changement d\'avant');
+
+  // Même série, observée 40 jours après le dernier changement.
+  const avecVu = { ...serie, vu: 1060 * J };
+  assert.equal(ancre(avecVu), 1060 * J, '`vu` postérieur au dernier point doit l\'emporter');
+  const avec = tronquer(avecVu, 7);
+  assert.deepEqual(avec.p.map((p) => p[0]), [1053 * J],
+    'la fenêtre de 7 j se pose APRÈS le dernier changement : un seul point, le niveau courant');
+  assert.equal(avec.p[0][1], 300, 'et ce niveau est le dernier prix connu — la ligne est PLATE');
+
+  // ⛔ TÉMOIN INVERSE DE L'HORLOGE : un `vu` ANTÉRIEUR au dernier changement
+  //    est incohérent (on aurait relevé avant d'avoir vu changer). Il ne doit
+  //    RIEN déplacer — sinon une horloge de travers raboterait des courbes.
+  assert.equal(ancre({ ...serie, vu: 1005 * J }), 1020 * J,
+    'un `vu` antérieur au dernier point ne doit pas raccourcir la courbe');
+});
 
 await cas(`palier SUFFISANT POUR LA PORTE (« ${EXIGE} ») -> 200`, async () => {
   const r = await appel(A, { palier: EXIGE });

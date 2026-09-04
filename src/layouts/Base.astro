@@ -614,11 +614,10 @@ const menuComplet = wikiNav
        script is:inline de src/ passent tous leur code en enfants bruts.
        La maison avait déjà la bonne forme, je ne l'avais pas suivie. */
     (function () {
-      try {
-        if (localStorage.getItem('veve-theme') === 'nuit') {
-          document.documentElement.setAttribute('data-theme', 'nuit');
-        }
-      } catch (e) { /* navigation privée : on reste en jour, sans bruit */ }
+      var c = document.cookie.match(/(?:^|;\s*)vp_theme=(jour|nuit)/);
+      var v = c ? c[1] : null;
+      if (!v) { try { v = localStorage.getItem('veve-theme'); } catch (e) { v = null; } }
+      if (v === 'nuit') document.documentElement.setAttribute('data-theme', 'nuit');
     })();
   </script>
 )}
@@ -1731,8 +1730,15 @@ const menuComplet = wikiNav
       poser(racine.getAttribute('data-theme') === 'nuit');
       b.addEventListener('click', function () {
         var nuit = racine.getAttribute('data-theme') !== 'nuit';
+        var v = nuit ? 'nuit' : 'jour';
         poser(nuit);
-        try { localStorage.setItem('veve-theme', nuit ? 'nuit' : 'jour'); } catch (e) {}
+        try { localStorage.setItem('veve-theme', v); } catch (e) {}
+        document.cookie = 'vp_theme=' + v + '; path=/; max-age=31536000; samesite=lax; secure';
+        if (!racine.hasAttribute('data-membre')) return;
+        var d = new FormData();
+        d.append('poste', '1'); d.append('bloc', 'theme'); d.append('theme', v);
+        fetch('/api/reglages', { method: 'POST', body: d, credentials: 'same-origin' })
+          .catch(function () {});
       });
     })();
   </script>

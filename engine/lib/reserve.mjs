@@ -139,13 +139,38 @@ function vider() {
  * triés par date, au format que la route sert tel quel.
  * @param {Set<string>|string[]} publies uuid ayant réellement une page.
  */
-export function fermer(publies) {
-  if (!actif) return { fichiers: 0, points: 0, octets: 0, ignores: 0, refuses: 0 };
+export function fermer(publies, observations) {
+  if (!actif) return { fichiers: 0, points: 0, octets: 0, ignores: 0, refuses: 0, vus: 0 };
   for (const [u, b] of tampons) if (b.length) appendFileSync(join(RESERVE_DIR, `${u}.csv`), b.join(''));
   tampons.clear(); poids = 0;
 
   const garder = publies instanceof Set ? publies : new Set(publies || []);
-  let fichiers = 0, points = 0, octets = 0, jetes = 0;
+  // ═══════════════════════════════════════════════════════════════════════
+  // 🔴🔴🔴 LOT 217 — `vu` : LA DATE D'OBSERVATION, ET C'EST LA MOITIÉ QUI
+  //                 MANQUAIT À L'HISTORIQUE.
+  // ═══════════════════════════════════════════════════════════════════════
+  // Preda, 03/09 : « un prix inchangé est une donnée ». Le fichier de prix
+  // est APPEND-ON-CHANGE : un point y est un *changement*, jamais un jour.
+  // Une pièce dont le floor n'a pas bougé depuis trois mois a donc DEUX
+  // points espacés de trois mois — et la courbe s'arrêtait au dernier
+  // changement, c'est-à-dire au milieu de nulle part.
+  //
+  // ⭐⭐⭐ CE QU'ON AJOUTE N'EST PAS UN PRIX, C'EST UNE DATE. `releves.csv`
+  // dit QUAND ON A REGARDÉ (`ts_releve`), indépendamment de ce qu'on a vu.
+  // Entre le dernier changement et cette date, le prix est CONNU : il est
+  // celui du dernier changement. La courbe peut donc se prolonger jusque-là,
+  // en escalier, sans inventer un seul relevé.
+  // ⛔ ET PAS JUSQU'À AUJOURD'HUI. Sans observation, on ne sait pas — un
+  // trait tiré jusqu'à `Date.now()` affirmerait « le prix n'a pas bougé »
+  // là où la source dit « je n'ai pas regardé ». C'est l'arbitrage de Preda,
+  // mot pour mot : « prolongée jusqu'à la dernière OBSERVATION ».
+  //
+  // ⚠️ `vu` EST OMIS, JAMAIS ÉCRIT À ZÉRO, quand la pièce n'a aucune
+  // observation datée (3 175 fiches publiées sur 9 354, mesuré le 04/09).
+  // Un `0` serait une date — le 01/01/1970 — et raboterait la courbe à rien.
+  // *« inconnu ≠ zéro », et ici le zéro est la valeur la plus chère.*
+  const vus = observations instanceof Map ? observations : new Map();
+  let fichiers = 0, points = 0, octets = 0, jetes = 0, dates = 0;
 
   for (const f of readdirSync(RESERVE_DIR)) {
     if (!f.endsWith('.csv')) continue;
@@ -167,7 +192,17 @@ export function fermer(publies) {
     points += pts.length;
     // Format servi TEL QUEL par la route : elle ne recalcule rien, elle ne
     // parse rien, elle vérifie un droit et renvoie des octets.
-    const json = JSON.stringify({ u, n: pts.length, p: pts });
+    // ⭐ `vu` ne descend JAMAIS sous le dernier point : une observation plus
+    //   ancienne que le dernier changement décrirait une horloge incohérente
+    //   (on aurait relevé un prix avant de l'avoir vu changer). Dans ce cas
+    //   le dernier point EST la dernière chose qu'on sait, et il fait foi.
+    const obs = Number(vus.get(u));
+    const dernier = pts.length ? pts[pts.length - 1][0] : 0;
+    const vu = (Number.isFinite(obs) && obs > dernier) ? Math.floor(obs) : null;
+    if (vu !== null) dates++;
+    const json = JSON.stringify(vu === null
+      ? { u, n: pts.length, p: pts }
+      : { u, n: pts.length, vu, p: pts });
     writeFileSync(join(RESERVE_DIR, `${u}.json`), json);
     rmSync(chemin, { force: true });
     octets += statSync(join(RESERVE_DIR, `${u}.json`)).size;
@@ -180,6 +215,14 @@ export function fermer(publies) {
   console.log(`[reserve] ${fichiers} fiche(s), ${points} relevé(s), `
     + `${(octets / 1048576).toFixed(1)} Mo — ${jetes} item(s) sans page écartés, `
     + `${vidages} vidage(s), ${ignores} relevé(s) au ts illisible, ${refuses} uuid refusé(s)`);
+  // ⭐⭐ LA COUVERTURE SE DIT TOUT HAUT, COMME CELLE DES RELEVÉS ET DES FICHES
+  // StackR. C'est le SEUL chiffre qui distingue « la courbe s'arrête au
+  // dernier changement parce que rien n'a bougé » de « elle s'arrête parce
+  // qu'on ne sait pas quand on a regardé ». Une chute ici — collecteur en
+  // panne, release renommée — sortirait un build parfaitement vert avec des
+  // courbes tronquées pour tout le monde.
+  console.log(`[reserve] observation datée : ${dates} fiche(s) sur ${fichiers}`
+    + ` — ${fichiers - dates} sans date d'observation (courbe arrêtée au dernier changement)`);
 
   // ⭐⭐ UN ZÉRO QUI S'EXPLIQUE N'EST PAS UN ZÉRO QUI ALERTE, ET L'INVERSE EST
   // VRAI AUSSI. `engine/data/sample/` identifie ses lignes par
@@ -203,7 +246,7 @@ export function fermer(publies) {
       + 'historique, et rien d\'autre ne le dira.');
   }
   actif = false;
-  return { fichiers, points, octets, ignores, refuses };
+  return { fichiers, points, octets, ignores, refuses, vus: dates };
 }
 
 export const estActive = () => actif;
@@ -235,12 +278,59 @@ export const estActive = () => actif;
 //
 // @param {{u:string,n:number,p:number[][]}} serie  la reserve, telle qu'ecrite
 // @param {number} jours  -1 = sans borne · 0 = rien · N = les N derniers jours
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 LOT 217 — DEUX CORRECTIONS, ET LA PREMIÈRE EST LA PANNE QUE PREDA A VUE
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// ① L'ANCRAGE PASSE DU DERNIER *CHANGEMENT* À LA DERNIÈRE *OBSERVATION*.
+//    L'ancien `fin = p[p.length-1][0]` datait la fenêtre sur le dernier
+//    changement de prix. Sur une pièce stable depuis cinq mois, « 3 jours »
+//    remontait donc à cinq mois en arrière — l'onglet disait « 3d » et le
+//    graphe traçait cinq mois. ⭐ Mesuré par Preda le 03/09 sur ASM #252, et
+//    sur Donny (13 jours). Ce n'était PAS un défaut de dessin : la fenêtre
+//    elle-même était fausse, et de plusieurs ordres de grandeur.
+//
+// ② ON GARDE LE POINT QUI PRÉCÈDE LA FENÊTRE, RECALÉ SUR SON BORD.
+//    `filter(pt >= seuil)` jetait le dernier changement d'AVANT la fenêtre —
+//    c'est-à-dire la seule chose qui dise à quel prix la pièce était au début
+//    de la fenêtre. Une courbe 7 jours commençait donc au premier changement
+//    OBSERVÉ dans les 7 jours, souvent le troisième ou le sixième.
+//    ⭐⭐⭐ UN PRIX INCHANGÉ EST UNE DONNÉE (arbitrage Preda, 03/09). On le
+//    réinjecte à `seuil` exactement : ce n'est pas un relevé inventé, c'est
+//    le MÊME relevé, lu à l'instant où la fenêtre s'ouvre. Le fichier étant
+//    append-on-change, ce prix est celui qui valait à cet instant — la source
+//    le garantit, on ne l'estime pas.
+//    ⛔ Ne pas le déplacer *dans* le tableau sans le recaler : un point à
+//    `fin - 40 jours` dans une fenêtre de 7 rendrait la fenêtre fausse dans
+//    l'autre sens, et le client la redessinerait à 40 jours.
+//
+// ⚠️ CE QUI N'A PAS CHANGÉ, ET DOIT NE PAS CHANGER : `cadran.js` applique la
+//    MÊME règle côté client quand on clique un onglet plus court. Deux règles
+//    différentes ici et là-bas se rattraperaient l'une l'autre et ne se
+//    verraient jamais. ⇒ MÊME ancrage (`vu` sinon dernier point), MÊME
+//    recalage du point d'avant. C'est un invariant, pas une coïncidence.
+//
+// @param {{u:string,n:number,vu?:number,p:number[][]}} serie  la reserve
+// @param {number} jours  -1 = sans borne · 0 = rien · N = les N derniers jours
+export function ancre(serie) {
+  const p = (serie && Array.isArray(serie.p)) ? serie.p : [];
+  const dernier = p.length ? p[p.length - 1][0] : 0;
+  const vu = Number(serie && serie.vu);
+  return (Number.isFinite(vu) && vu > dernier) ? vu : dernier;
+}
+
 export function tronquer(serie, jours) {
   const p = (serie && Array.isArray(serie.p)) ? serie.p : [];
   if (jours === -1) return { ...serie, p, n: p.length, tronque: false };
   if (!(jours > 0) || !p.length) return { ...serie, p: [], n: 0, tronque: true };
-  const fin = p[p.length - 1][0];
-  const seuil = fin - jours * 86400;
-  const vus = p.filter((pt) => pt[0] >= seuil);
+  const seuil = ancre(serie) - jours * 86400;
+  const dedans = p.filter((pt) => pt[0] >= seuil);
+  // Le dernier point STRICTEMENT avant la fenêtre : le niveau à l'ouverture.
+  let avant = null;
+  for (let i = p.length - 1; i >= 0; i--) { if (p[i][0] < seuil) { avant = p[i]; break; } }
+  // ⭐ `[seuil, ...avant.slice(1)]` — on recale la DATE, on ne touche pas au
+  //   montant ni au nombre d'offres. Recopier le point tel quel élargirait la
+  //   fenêtre ; en fabriquer un autre inventerait un prix.
+  const vus = avant === null ? dedans : [[seuil, ...avant.slice(1)], ...dedans];
   return { ...serie, p: vus, n: vus.length, tronque: vus.length < p.length };
 }

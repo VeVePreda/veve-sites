@@ -777,10 +777,18 @@ const _m = Astro.url.searchParams.get('m');
        existaient. La langue reste atteignable par le globe du menu (les liens
        ne quittent jamais le DOM, sinon Google perd les traductions) ; la
        bascule jour/nuit, elle, n'a plus qu'ici.
-       ⚠️ AUJOURD'HUI PERSONNE N'EST CONNECTÉ — aucun service d'identité n'est
-       branché. Réserver le bloc aux membres le rendrait donc invisible à tout
-       le monde, y compris à Preda. On le MONTRE, verrouillé, en le disant : un
-       réglage annoncé et fermé se comprend, un réglage absent se croit perdu. */
+       ⚠️ CE PARAGRAPHE DISAIT « AUJOURD'HUI PERSONNE N'EST CONNECTÉ — aucun
+       service d'identité n'est branché ». C'ÉTAIT VRAI LE 06/08, et ça a cessé
+       de l'être avec veveid et le palier `member` : le bloc est bien derrière
+       `connecte`, comme le montre la condition juste au-dessus. Un commentaire
+       qui décrit l'état d'avant se lit comme une décision — celui-ci
+       expliquait pourquoi montrer un bloc verrouillé qui, en réalité, ne l'est
+       plus. *Une note héritée est une observation DATÉE.*
+       🎨 LOT 217 — ET LES TROIS RÉGLAGES SUIVENT MAINTENANT LE COMPTE :
+       la langue (154-B), le tableau de bord (202) et le thème (217). La phrase
+       d'introduction (`account.settings.d`) a été corrigée dans les cinq
+       langues avec ce lot : elle promettait encore « le jour où le compte
+       existera ». */
     <>
       <div class="sect-t sect-t--gd"><h2>{t(lang, 'account.settings')}</h2></div>
       <section class="panneau champ" style="margin-bottom:var(--s5)">

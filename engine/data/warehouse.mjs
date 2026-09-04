@@ -313,11 +313,61 @@ export function parseCSV(text) {
     .map((r) => Object.fromEntries(header.map((h, idx) => [h, r[idx] ?? ''])));
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 🕰️🔴🔴 LOT 217 — `vuLe` : LA DATE À LAQUELLE ON A REGARDÉ, ET ELLE ÉTAIT
+//                  DÉJÀ DANS LA RÉPONSE
+// ═══════════════════════════════════════════════════════════════════════════
+// Preda, 03/09 : « un prix inchangé est une donnée » — encore faut-il savoir
+// JUSQU'À QUAND on sait qu'il n'a pas changé. `releves.csv` porte cette date,
+// mais pour 8 801 pièces seulement ; 3 003 fiches PUBLIÉES n'y sont pas, et
+// n'y seront jamais : `releves.csv` dérive de `floor_state.json`, qui ne
+// connaît que ce qui a été LISTÉ sur un marché. Une pièce que personne ne vend
+// n'a aucune ligne — et étendre ce collecteur ne changerait rien.
+//
+// ⭐⭐⭐ ET LA DATE MANQUANTE ÉTAIT DÉJÀ SUR LE FIL. Chaque téléchargement de
+// release GitHub rend un en-tête `Last-Modified` (mesuré le 04/09 :
+// « Thu, 03 Sep 2026 11:41:24 GMT » sur `catalogue.csv.gz`). Le catalogue est
+// rebâti chaque jour avec le `floor` de CHAQUE pièce : cet en-tête date donc
+// une observation de tout le catalogue, y compris des 19 786 pièces que
+// `floor_state.json` ignore.
+// ⇒ ZÉRO appel réseau de plus, ZÉRO fichier neuf, ZÉRO dépôt côté jetonveve.
+//   *On ne collecte rien : on cesse de jeter un en-tête qu'on recevait déjà.*
+//
+// ⛔ CE QUE CETTE DATE N'EST PAS : une observation de la COURBE. Elle date la
+//   lecture du CATALOGUE. Mesuré le 04/09 sur les 3 359 fiches sans relevé :
+//   le `floor` du catalogue égale le dernier point de la courbe dans 81,5 %
+//   des cas — et EN DIFFÈRE dans 18,5 %. Prolonger une courbe à plat jusqu'à
+//   cette date quand les deux sources ne disent pas le même prix affirmerait
+//   « il valait encore 7,98 » au moment même où le catalogue lu dit 2,56.
+//   ⇒ `dataset.mjs` n'emploie cette date QUE si les deux sources concordent.
+//     La règle vit là-bas, avec les deux valeurs ; ici on ne fait que la
+//     TRANSPORTER.
+// ⚠️ ELLE SUIT LA SOURCE RÉELLEMENT LUE. Si la release fraîche est injoignable
+//   et qu'on retombe sur `catalogue-prev`, la date est celle de la PRÉCÉDENTE
+//   — c'est correct, et c'est même tout l'intérêt : l'observation est
+//   réellement plus ancienne, et la courbe doit s'arrêter plus tôt.
+// ⛔ EN MODE HORS-LIGNE (`WAREHOUSE_OFFLINE=1`), elle vaut `null` et PAS
+//   « maintenant » : un échantillon n'a pas été observé aujourd'hui.
+const VU_LE = new Map();
+// La date du DERNIER téléchargement, en attente d'être attribuée à une source.
+// ⛔ Variable de module et non valeur de retour : `fetchTable` rend un tableau
+//    de lignes, et lui faire rendre un couple obligerait ses deux appelants à
+//    déballer — dont celui du secours N-1, qui n'en a pas l'usage.
+let DERNIERE_DATE = null;
+
+/** L'instant (epoch SECONDES) où la source a été observée, ou `null`.
+ *  ⛔ Jamais un repli sur l'heure courante — cf. le bloc ci-dessus. */
+export const vuLe = (name) => (VU_LE.has(name) ? VU_LE.get(name) : null);
+
 async function fetchTable(url) {
   const res = await fetch(url, { redirect: 'follow' });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  // ⭐ On le lit AVANT le corps : un `arrayBuffer()` qui échoue laisserait
+  //   sinon une date posée pour une table qu'on n'a pas.
+  const lm = Date.parse(res.headers.get('last-modified') || '');
   const buf = Buffer.from(await res.arrayBuffer());
   const text = url.endsWith('.gz') ? gunzipSync(buf).toString('utf8') : buf.toString('utf8');
+  DERNIERE_DATE = Number.isFinite(lm) ? Math.floor(lm / 1000) : null;
   return parseCSV(text);
 }
 
@@ -347,10 +397,17 @@ export async function load(name) {
     for (let i = 0; i < urls.length; i++) {
       const url = urls[i];
       try {
-        rows = await fetchTable(url);
-        if (rows.length) {
+        // ⚠️ LE NOM N'EST PASSÉ QUE SI LA TABLE EST RETENUE — sinon une
+        //    release fraîche mais VIDE poserait sa date, et la table servie
+        //    (le secours N-1) porterait la date de celle qu'on a rejetée.
+        //    *Une date se pose avec la donnée qu'elle décrit, jamais avant.*
+        const lues = await fetchTable(url);
+        if (lues.length) {
+          rows = lues;
           rangLu = i;
-          console.log(`[entrepot] ${name}: ${rows.length} lignes depuis ${url}`);
+          VU_LE.set(name, DERNIERE_DATE);
+          console.log(`[entrepot] ${name}: ${rows.length} lignes depuis ${url}`
+            + (DERNIERE_DATE ? ` — observé le ${new Date(DERNIERE_DATE * 1000).toISOString()}` : ''));
           break;
         }
       } catch (e) {

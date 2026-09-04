@@ -38,6 +38,7 @@ import { retourSur, COOKIE_RETOUR, RETOUR_DEFAUT } from '../../../engine/lib/ret
 import { compteDeLaSession } from '../../../engine/lib/compte.mjs';
 import { lirePref } from '../../../engine/lib/prefs.mjs';
 import { COOKIE_LANGUE, languesInterface } from '../../../engine/lib/i18n.mjs';
+import { CLE_THEME, COOKIE_THEME, THEME_DUREE, themeValide } from '../../../engine/lib/theme.mjs';
 import {
   CLE_PREF as TB_CLE, COOKIE as TB_COOKIE, COOKIE_DUREE as TB_DUREE,
   lireAgencement, ecrireAgencement,
@@ -220,6 +221,26 @@ export async function GET({ url, cookies, redirect }) {
       cookies.set(TB_COOKIE, ecrireAgencement(lireAgencement(range)), {
         path: '/', maxAge: TB_DUREE, sameSite: 'lax', secure: true, httpOnly: true,
       });
+
+      // ═══════════════════════════════════════════════════════════════════════
+      // 🎨 LOT 217 — LE THÈME SUIT LE COMPTE, ET C'EST LE TROISIÈME ET DERNIER.
+      //    Langue (154-B), tableau de bord (202), thème (217) : `/compte/`
+      //    disait « ils suivent ce navigateur » des trois. Ce n'est plus vrai
+      //    d'aucun, et la phrase change dans le même commit.
+      // ⭐⭐ IL N'EST POSÉ QUE S'IL EST RANGÉ, et c'est L'INVERSE du bloc
+      //    au-dessus. Un thème absent n'a pas de « défaut explicite » à
+      //    fabriquer : le site est clair, et poser `vp_theme=jour` sur un
+      //    compte qui n'a jamais touché au réglage écraserait le choix fait
+      //    dans CE navigateur (`localStorage`) par un choix que personne n'a
+      //    fait. *Un défaut posé comme une décision efface les vraies.*
+      // ⛔ Et on ne RETIRE pas le cookie quand la base est muette : la personne
+      //    a peut-être choisi dans ce navigateur avant d'avoir un compte.
+      const teinte = themeValide(lirePref(compte, CLE_THEME));
+      if (teinte) {
+        cookies.set(COOKIE_THEME, teinte, {
+          path: '/', maxAge: THEME_DUREE, sameSite: 'lax', secure: true, httpOnly: false,
+        });
+      }
     }
   } catch { /* ⭐ silence VOLONTAIRE — voir le paragraphe ci-dessus */ }
 

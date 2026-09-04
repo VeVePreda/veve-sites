@@ -217,6 +217,47 @@ dit(/cookies\.set\(COOKIE_LANGUE[\s\S]{0,240}?httpOnly:\s*false/.test(entrer),
   'le cookie de langue reste lisible par le navigateur',
   'HttpOnly le rendrait invisible à 55-langue.js, là où il sert le plus');
 
+// ── 2.2 bis 🎨 LOT 217 — LE THÈME : LE CIRCUIT, DANS SES QUATRE MAILLONS ──
+// ⭐⭐⭐ POURQUOI QUATRE ET PAS DEUX. La langue et le tableau de bord ont deux
+// bouts (écrire / reposer) parce qu'un FORMULAIRE les poste. Le thème est
+// posté par du SCRIPT, et le script vit dans un troisième fichier — celui-là
+// même qui, pendant onze lots, a porté une règle CSS sans émetteur. Le circuit
+// est donc : le bouton POSTE · la route RANGE · `/api/entrer` REPOSE · le
+// script anti-scintillement LIT. Manquer un seul maillon donne un réglage
+// enregistré, exact, et sans effet — la panne qui se croit une réussite.
+const base = sansCommentaires(lire(join(RACINE, 'src/layouts/Base.astro')));
+const regl = sansCommentaires(lire(join(RACINE, 'src/pages/api/reglages.js')));
+
+dit(/bloc=theme|append\('bloc',\s*'theme'\)/.test(base),
+  '① le bouton de thème POSTE, et il dit quel bloc parle',
+  'sans `bloc`, la route lirait ce POST comme un bloc e-mails « case décochée » — donc un DÉSABONNEMENT');
+dit(/data-membre/.test(base),
+  '① …et seulement pour quelqu’un de connecté',
+  'un POST anonyme ferait un aller-retour pour rien, sur le geste le plus fréquent du site');
+dit(/bloc === 'theme'/.test(regl) && /poserPref\(compte,\s*CLE_THEME/.test(regl),
+  '② la route RANGE le thème sous le compte');
+dit(/themeValide\(/.test(regl),
+  '② …derrière une liste blanche',
+  'cette valeur finit dans un `setAttribute(\'data-theme\', …)`, donc dans le DOM');
+dit(/cookies\.set\(COOKIE_THEME[\s\S]{0,240}?httpOnly:\s*false/.test(regl),
+  '② et le cookie porteur reste LISIBLE par le navigateur',
+  '🔴 même défaut que le cookie de langue : HttpOnly le rendrait invisible au script anti-scintillement');
+dit(/lirePref\(compte,\s*CLE_THEME\)/.test(entrer)
+    && /cookies\.set\(COOKIE_THEME/.test(entrer),
+  '③ /api/entrer REPOSE le thème du compte à la connexion',
+  'c’est ce qui le fait suivre sur un appareil neuf');
+// ⛔ LE MAILLON QUI MANQUAIT À TOUS LES AUTRES : LE LECTEUR.
+//   Une préférence rangée, transportée, et jamais lue est le défaut le plus
+//   courant de ce dépôt (`svgPublic`, `LES_PLAGES`, `.socle__fav`, `hist.denied`).
+//   ⭐ Et on exige que le cookie soit lu AVANT `localStorage` : l'inverse
+//   ferait gagner le choix du NAVIGATEUR sur celui du COMPTE, c'est-à-dire
+//   exactement l'inverse de ce que ce lot installe — en restant vert.
+const ordreLecture = base.indexOf('vp_theme');
+const ordreStockage = base.indexOf("localStorage.getItem('veve-theme')");
+dit(ordreLecture !== -1 && ordreStockage !== -1 && ordreLecture < ordreStockage,
+  '④ le script anti-scintillement LIT le cookie, et AVANT `localStorage`',
+  `cookie@${ordreLecture} doit précéder localStorage@${ordreStockage} — sinon le navigateur gagne sur le compte`);
+
 // ── 2.3 ⛔ ce que ce lot ne doit PAS avoir fait ────────────────────────────
 // ⭐ La conception tient à ce que le compte NE SOIT PAS résolu dans le
 //   middleware : ce serait un second aller-retour réseau sur chaque page rendue

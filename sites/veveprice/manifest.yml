@@ -375,10 +375,40 @@ access:
       # questions — « qui peut demander la profondeur » n'est pas « ce qui est
       # écrit dans le fichier statique ». Les confondre rouvrirait la fuite du
       # lot 101 en croyant fermer une porte.
+      # ═══════════════════════════════════════════════════════════════════
+      # 🔴🔴🔴 LOT 217 (04/09/2026) — LA GRILLE DESCEND D'UN CRAN, ET `3j` SORT
+      # ═══════════════════════════════════════════════════════════════════
+      # Preda, 03/09 : « il faut qu'on se débrouille pour avoir sur chaque
+      # item 7 j minimum d'historique, donc 7 j / 30 j / 90 j / Max ».
+      #
+      # ⭐⭐⭐ POURQUOI `3j` NE SE DÉFENDAIT PLUS, ET C'EST UNE MESURE.
+      # `prices.csv.gz` est append-on-change : un point est un *changement*,
+      # pas un jour. Mesuré le 04/09 sur les 9 354 fiches RÉELLEMENT PUBLIÉES
+      # (⛔ pas sur les 14 090 du fichier de prix — ma première mesure comptait
+      # la mauvaise population) : l'onglet « 3d » n'avait deux points que sur
+      # 3 625 fiches, soit 38,8 %. Le palier d'entrée montrait donc un cadre
+      # vide à six visiteurs sur dix. ⇒ Ce n'était pas un libellé à corriger,
+      # c'était une promesse que la donnée ne pouvait pas tenir.
+      #
+      # ⭐ CE QUI LA REND TENABLE : la courbe EN ESCALIER (lot 217), prolongée
+      # jusqu'à la dernière OBSERVATION (`vu`, cf. `reserve.mjs`). Un prix
+      # inchangé est une donnée. 7 j en escalier couvre 5 995 fiches (64,1 %)
+      # aujourd'hui, et ~100 % quand `floor-watch` relèvera toutes les pièces
+      # publiées — 3 175 fiches publiées n'ont AUCUNE observation datée.
+      #
+      # 🔴 ARBITRAGE PREDA DU 04/09 : « 7 j au Membre, tout descend d'un cran ».
+      # ⛔ CE N'EST PAS GRATUIT : Crevette était VENDU « sept jours d'historique ».
+      # Sa description descend donc à trente jours, et Langouste à quatre-vingt-dix,
+      # dans le même commit — sinon `/offre/` vend ce que le manifeste donne.
+      # ⚠️ L'ORDRE DU TABLEAU EST L'ORDRE AFFICHÉ.
+      # ⚠️ `jours: null` = sans borne. Ce n'est pas « inconnu » : c'est Max.
+      # ⛔ `public_days: 3` NE BOUGE PAS. Il gouverne une AUTRE question — ce
+      # que la page pré-générée contient, donc ce qu'un robot lit — et les
+      # confondre rouvrirait la fuite du lot 101 en croyant aligner deux
+      # chiffres qui n'ont jamais mesuré la même chose.
       plages:
-        - { cle: '3j',  jours: 3,    tier: member    }
-        - { cle: '7j',  jours: 7,    tier: crevette  }
-        - { cle: '30j', jours: 30,   tier: langouste }
+        - { cle: '7j',  jours: 7,    tier: member    }
+        - { cle: '30j', jours: 30,   tier: crevette  }
         - { cle: '90j', jours: 90,   tier: langouste }
         - { cle: 'max', jours: null, tier: whale     }
     # ═══════════════════════════════════════════════════════════════════════
@@ -713,11 +743,11 @@ offer:
       prix: 0
       alertes: 1
       d:
-        fr: "Trois jours d'historique, la page Market, les fiches complètes."
-        en: "Three days of history, the Market page, the full records."
-        es: "Tres días de historial, la página Market, las fichas completas."
-        de: "Drei Tage Historie, die Market-Seite, die vollständigen Blätter."
-        it: "Tre giorni di storico, la pagina Market, le schede complete."
+        fr: "Sept jours d'historique, la page Market, les fiches complètes."
+        en: "Seven days of history, the Market page, the full records."
+        es: "Siete días de historial, la página Market, las fichas completas."
+        de: "Sieben Tage Historie, die Market-Seite, die vollständigen Blätter."
+        it: "Sette giorni di storico, la pagina Market, le schede complete."
     - cle: crevette
       nom:
         fr: "Crevette"
@@ -728,11 +758,11 @@ offer:
       prix: 5
       alertes: 10
       d:
-        fr: "Sept jours d'historique, le prix plancher, les extrêmes."
-        en: "Seven days of history, the floor price, the extremes."
-        es: "Siete días de historial, el precio mínimo, los extremos."
-        de: "Sieben Tage Historie, der Bodenpreis, die Extreme."
-        it: "Sette giorni di storico, il prezzo minimo, gli estremi."
+        fr: "Trente jours d'historique, le prix plancher, les extrêmes."
+        en: "Thirty days of history, the floor price, the extremes."
+        es: "Treinta días de historial, el precio mínimo, los extremos."
+        de: "Dreißig Tage Historie, der Bodenpreis, die Extreme."
+        it: "Trenta giorni di storico, il prezzo minimo, gli estremi."
     - cle: langouste
       nom:
         fr: "Langouste"
@@ -743,11 +773,11 @@ offer:
       prix: 15
       alertes: 30
       d:
-        fr: "Trente et quatre-vingt-dix jours d'historique, et trente alertes."
-        en: "Thirty and ninety days of history, and thirty alerts."
-        es: "Treinta y noventa días de historial, y treinta alertas."
-        de: "Dreißig und neunzig Tage Historie, und dreißig Warnungen."
-        it: "Trenta e novanta giorni di storico, e trenta avvisi."
+        fr: "Quatre-vingt-dix jours d'historique, et trente alertes."
+        en: "Ninety days of history, and thirty alerts."
+        es: "Noventa días de historial, y treinta alertas."
+        de: "Neunzig Tage Historie, und dreißig Warnungen."
+        it: "Novanta giorni di storico, e trenta avvisi."
     - cle: whale
       nom:
         fr: "Whale"
