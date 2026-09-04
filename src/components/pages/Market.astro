@@ -171,6 +171,22 @@ const visibles = P.abr ? toutes : toutes.filter((i) => !i.floorEcarte);
 const F = facettes(visibles);
 const bornes = F.bornes;
 const rarete = Object.keys(RAR).filter((r) => F.rarete.has(r));
+// 🔑 LOT 219 — LES DEUX AXES QUI MANQUAIENT A CETTE TABLE.
+// `facettes()` les rend deja tries comme il faut : la LICENCE par nombre
+// (Marvel d'abord), la MARQUE par nom (elle se cherche). ⛔ Ne pas les
+// re-trier ici — ce serait une seconde decision sur un ordre deja mesure
+// (rayon.js l. 205, lot 133).
+// ⚠️ `slice` A UN ROLE, ET IL N'EST PAS COSMETIQUE : 1 511 marques emises en
+// puces, c'est ~90 Ko de HTML sur une page `no-store`, repayes a chaque visite.
+// On rend les 120 premieres et le champ de recherche fait le reste — c'est
+// exactement le geste du rayon, qui n'emet jamais ses 1 169 marques d'un coup.
+// ⛔ La LICENCE n'est PAS coupee : 97 valeurs tiennent, et couper la queue d'une
+// liste triee par NOMBRE reviendrait a masquer les licences rares — c'est-a-dire
+// celles qu'on cherche justement a la main.
+const PUCES_MARQUE_MAX = 120;
+const licences = F.licences;
+const marques = F.marques.slice(0, PUCES_MARQUE_MAX);
+const marquesReste = Math.max(0, F.marques.length - marques.length);
 const nbColl = F.nbColl;
 const nbComic = F.nbComic;
 
@@ -199,6 +215,10 @@ const COLONNES = [
   { c: 'rar',   l: t(lang, 'item.rarity') },
   { c: 'sup',   l: t(lang, 'item.supply') },
   { c: 'lst',   l: t(lang, 'item.listings') },
+  // 🎯 LOT 219 — LA TENSION. ⭐ Elle entre par CETTE liste et par elle seule :
+  // l'en-tete, la cellule et la case a cocher la lisent toutes les trois, donc
+  // on ne peut pas ajouter la colonne en oubliant son interrupteur.
+  { c: 'ten',   l: t(lang, 'movers.tension') },
   // 🔴 LOT 155-C ③ — LES EXTRÊMES. ⛔ AUCUNE COLLECTE : `atl`/`ath` sont dans
   // `CHAMPS_COTE`, donc déjà réinjectés par `lireCotes()` juste au-dessus
   // (`{...i, ...cotes[i.uuid]}`). Ils n'ont jamais manqué — ils n'étaient pas
@@ -488,6 +508,8 @@ const ILE_TUILES = JSON.stringify({
     <div class="f-onglets" role="group" aria-label={t(lang, 'movers.filters')}>
       <button type="button" class="f-b" data-g="place" aria-expanded="false" aria-controls="fp-place">{t(lang, 'movers.g.place')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevronU} /></button>
       <button type="button" class="f-b" data-g="type" aria-expanded="false" aria-controls="fp-type">{t(lang, 'movers.g.type')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevronU} /></button>
+      <button type="button" class="f-b" data-g="lic" aria-expanded="false" aria-controls="fp-lic">{t(lang, 'movers.g.licence')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevronU} /></button>
+      <button type="button" class="f-b" data-g="mar" aria-expanded="false" aria-controls="fp-mar">{t(lang, 'movers.g.marque')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevronU} /></button>
       <button type="button" class="f-b" data-g="prix" aria-expanded="false" aria-controls="fp-prix">{t(lang, 'movers.g.price')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevronU} /></button>
       <button type="button" class="f-b" data-g="mint" aria-expanded="false" aria-controls="fp-mint">{t(lang, 'movers.g.mint')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevronU} /></button>
       <button type="button" class="f-b" data-g="date" aria-expanded="false" aria-controls="fp-date">{t(lang, 'movers.g.date')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevronU} /></button>
@@ -498,7 +520,22 @@ const ILE_TUILES = JSON.stringify({
           n'aurait rien remis à zéro, il aurait annulé la saisie en cours. Le
           défaut aurait été invisible à la relecture du code et évident à
           l'usage. ⭐ Et comme le « voir plus », il marche sans JavaScript. */}
-      <a class="f-b" id="f-raz" href={Astro.url.pathname}>{t(lang, 'movers.reset')}</a>
+      {/* 🔑 LOT 219 — « TOUT EFFACER » N'APPARAIT QUE S'IL Y A QUELQUE CHOSE A
+          EFFACER (demande de l'audit). ⭐ La condition est celle du SERVEUR,
+          `aFiltre` (l. 195, `filtreActif(P)`), deja calculee plus haut dans ce
+          meme fichier — ⛔ on ne la rappelle pas : deux evaluations du meme
+          predicat sur la meme page sont deux occasions de diverger. Elle est
+          deja ecrite et deja eprouvee — ⛔ pas un test refait
+          en JavaScript, qui serait une seconde definition de « un filtre est
+          actif » et divergerait au premier axe ajoute. Ce lot en ajoute deux :
+          la demonstration est faite le jour meme.
+          ⚠️ `filtreActif` compte AUSSI la case « prix non retenus », qui elargit
+          au lieu de restreindre — c'est voulu, elle repond a « ce que tu vois
+          est-il le reglage par defaut du site ? ». Le bouton doit donc pouvoir
+          la ramener. */}
+      {aFiltre && (
+        <a class="f-b" id="f-raz" href={Astro.url.pathname}>{t(lang, 'movers.reset')}</a>
+      )}
     </div>
 
     {/* ─── PLACE ─── ⛔ StackR est VERROUILLÉ, pas absent : le critère existe,
@@ -522,6 +559,82 @@ const ILE_TUILES = JSON.stringify({
           </label>
         ))}
       </div>
+    </div>
+
+    {/* ═══════════════════════════════════════════════════════════════════
+        🔑 LOT 219 — LICENCE ET MARQUE, LE DEFAUT CENTRAL DE L'AUDIT DU 04/09.
+        ═══════════════════════════════════════════════════════════════════
+        « Les Marvel Secret Rare sous 50 $ » n'etait demandable a AUCUNE de nos
+        deux tables : `/collectibles/` connait Marvel mais pas les prix,
+        `/market/` connait les prix mais pas Marvel. Ce n'etait pas un filtre
+        manquant, c'etait un filtre range dans la table qui n'a pas les prix.
+        ⭐ La donnee etait sur l'item depuis toujours ; `maigrir()` la jetait.
+
+        ⭐⭐ LE COMPTEUR EST DANS L'ETIQUETTE, et c'est ce que le concurrent n'a
+        pas : « Marvel 503 » dit AVANT de cocher si la case vaut la peine. Une
+        liste de 1 511 marques sans compteur est une liste ou l'on ne sait pas
+        quoi cocher. Il est calcule sur la population ENTIERE, jamais sur la
+        selection — sinon Marvel aurait l'air de perdre 400 pieces a chaque
+        filtre pose ailleurs.
+
+        ⛔ AUCUN PRIX ICI. Une licence et une marque sont des axes de catalogue.
+        `rayon_index.mjs` l. 69 pose la ligne de partage ; ce lot ajoute deux
+        axes SANS prix a la table qui a les prix, il ne deplace aucun montant. */}
+    <div class="f-panneau" id="fp-lic" hidden>
+      <div class="f-panneau__t">{t(lang, 'movers.g.licence')}</div>
+      {/* ⭐ `data-cherche` : le meme geste que le rayon, ou Preda avait releve
+          que « le filtre Marque avait sa recherche, le filtre Licence non, a
+          vingt lignes de distance ». Les deux l'ont ici, par le meme ecouteur.
+          ⚠️ Elle ne filtre que l'AFFICHAGE des cases, jamais les lignes : une
+          case cochee qui disparait de la vue reste cochee — sinon taper trois
+          lettres effacerait la selection en cours. */}
+      <div class="champ champ--sm" style="width:220px;margin-bottom:8px">
+        <input type="search" data-cherche="fp-lic" placeholder={t(lang, 'movers.chercheDansListe')}
+               autocomplete="off" aria-label={t(lang, 'movers.chercheDansListe')} />
+      </div>
+      <p class="muted" data-vide hidden>{t(lang, 'movers.aucuneValeur')}</p>
+      <div class="cols-l" data-liste>
+        {licences.map(([v, n]) => (
+          <label class="puce" data-b={v.toLowerCase()}>
+            <input type="checkbox" name="f-lic" value={v} checked={P.lic.includes(v)} /> {v}
+            <span class="etiq" style="opacity:.65;margin-left:5px">{n.toLocaleString(nf)}</span>
+          </label>
+        ))}
+      </div>
+    </div>
+
+    <div class="f-panneau" id="fp-mar" hidden>
+      <div class="f-panneau__t">{t(lang, 'movers.g.marque')}</div>
+      <div class="champ champ--sm" style="width:220px;margin-bottom:8px">
+        <input type="search" data-cherche="fp-mar" placeholder={t(lang, 'movers.chercheDansListe')}
+               autocomplete="off" aria-label={t(lang, 'movers.chercheDansListe')} />
+      </div>
+      <p class="muted" data-vide hidden>{t(lang, 'movers.aucuneValeur')}</p>
+      <div class="cols-l" data-liste>
+        {marques.map(([v, n]) => (
+          <label class="puce" data-b={v.toLowerCase()}>
+            <input type="checkbox" name="f-mar" value={v} checked={P.mar.includes(v)} /> {v}
+            <span class="etiq" style="opacity:.65;margin-left:5px">{n.toLocaleString(nf)}</span>
+          </label>
+        ))}
+        {/* ⭐⭐ LA COUPE SE DIT, ELLE NE SE SUBIT PAS. Sans cette phrase, une
+            marque absente de la liste se lit comme « on ne l'a pas » — deux
+            causes opposees derriere un seul silence, la faute que ce projet paie
+            le plus souvent. ⛔ Et elle ne s'affiche QUE s'il y a un reste. */}
+        {marquesReste > 0 && (
+          <p class="muted" style="width:100%;margin:6px 0 0">
+            {t(lang, 'movers.marquesReste', { n: marquesReste.toLocaleString(nf) })}
+          </p>
+        )}
+      </div>
+      {/* 🔴 LES MARQUES COCHEES QUI SONT HORS DE LA TRANCHE RENDUE VOYAGENT
+          QUAND MEME. Sans ce bloc, filtrer sur une marque rare puis recharger la
+          page perdrait le filtre EN SILENCE : le champ n'existerait plus dans le
+          formulaire, donc le GET ne le renverrait pas. L'URL dirait une chose,
+          la table en montrerait une autre. */}
+      {P.mar.filter((v) => !marques.some(([m]) => m === v)).map((v) => (
+        <input type="hidden" name="f-mar" value={v} />
+      ))}
     </div>
 
     {/* ─── PRIX & VALEUR ─── */}
@@ -728,6 +841,7 @@ const ILE_TUILES = JSON.stringify({
         <th scope="col" class="c-3" data-col="rar">{t(lang, 'item.rarity')}</th>
         <th scope="col" class="n c-4" data-col="sup">{t(lang, 'item.supply')}</th>
         <th scope="col" class="n c-4" data-col="lst">{t(lang, 'item.listings')}</th>
+        <th scope="col" class="n c-4" data-col="ten" title={t(lang, 'movers.tensionAide')}>{t(lang, 'movers.tension')}</th>
         <th scope="col" class="n">{t(lang, 'movers.floor')}</th>
         <th scope="col" class="n c-5" data-col="atl">{t(lang, 'item.atl')}</th>
         <th scope="col" class="n c-5" data-col="ath">{t(lang, 'item.ath')}</th>
@@ -748,6 +862,7 @@ const ILE_TUILES = JSON.stringify({
             data-sup={i.tirage ? String(i.tirage) : ''}
             data-lst={i.listings === null || i.listings === undefined ? '' : String(i.listings)}
             data-mcp={parMcp(i) === null ? '' : parMcp(i).toFixed(3)}
+            data-ten={i.tension === null || i.tension === undefined ? '' : String(i.tension)}
             data-date={jour(i)}>
           {/* ⚠️ `alt=""` ET C'EST DÉLIBÉRÉ : le nom de la pièce est dans la
               cellule suivante, à 40 px de là. Une alternative qui le répéterait
@@ -864,6 +979,21 @@ const ILE_TUILES = JSON.stringify({
               ? <span class="m2__b muted">{i.offresStackr.toLocaleString(nf)}</span>
               : <span class="m2__b muted" data-attente>—</span>}
           </span></td>
+          {/* 🎯 LOT 219 — LA TENSION, ET LE TIRET QUAND ELLE N'EXISTE PAS.
+              ⛔ PAS DE `?? 0` : une piece sans tirage ou sans circulation connue
+              n'est pas « la moins tendue du catalogue », elle est HORS MESURE.
+              Un zero la ferait descendre en bas d'un classement qu'elle ne
+              devrait pas rejoindre — et le tri, lui, la mettrait en tete du
+              croissant. C'est la meme faute que le plancher a 0 du lot 218,
+              deux jours plus tard et dans une autre colonne.
+              ⭐ Le tiret NU est ici la bonne convention, pas le cadenas de
+              <Cote> : cette note n'est pas reservee, elle est INCONNUE. Deux
+              causes opposees ne partagent pas un signe. */}
+          <td class="n c-4" data-col="ten">{
+            i.tension === null || i.tension === undefined
+              ? <span class="muted">—</span>
+              : i.tension
+          }</td>
 
           {/* PLANCHER — gems chez VeVe, OMI chez StackR */}
           {/* ⭐ `data-prix` — 11 o par ligne, et il achète une CERTITUDE :
@@ -1474,6 +1604,20 @@ const ILE_TUILES = JSON.stringify({
         [].slice.call(f.querySelectorAll('input[name="f-rar"]:checked')).forEach(function (c) {
           jeton(c.value, function () { c.checked = false; });
         });
+        // 🔑 LOT 219 — les jetons de licence et de marque. ⭐ Le meme geste que
+        // la rarete, sur les memes selecteurs : un jeton qui se retire vide la
+        // case et renvoie le formulaire.
+        // ⛔ `input[name=...]` SANS `:checked` pour les caches : une marque
+        // cochee hors de la tranche rendue vit dans un `<input type="hidden">`,
+        // qui n'a pas d'etat coche. La retirer, c'est retirer le champ lui-meme,
+        // sinon le jeton disparaitrait de l'ecran et le filtre resterait dans
+        // l'URL — le desaccord exact que les jetons existent pour empecher.
+        ['f-lic', 'f-mar'].forEach(function (nom) {
+          [].slice.call(f.querySelectorAll('input[name="' + nom + '"]')).forEach(function (c) {
+            if (c.type === 'hidden') { jeton(c.value, function () { c.parentNode.removeChild(c); }); return; }
+            if (c.checked) jeton(c.value, function () { c.checked = false; });
+          });
+        });
         var v = f.querySelector('input[name="f-var"]:checked');
         if (v && v.value) {
           jeton(v.value === 'up' ? '\u25B2' : '\u25BC', function () {
@@ -1510,6 +1654,13 @@ const ILE_TUILES = JSON.stringify({
         var par = {
           place: 0,
           type: f.querySelectorAll('input[name="f-rar"]:checked').length,
+          // 🔑 LOT 219 — ⛔ SANS `:checked`, PUIS ON COMPTE : les marques hors
+          // tranche sont des champs caches, jamais « coches ». Un compteur qui
+          // ne verrait que le coche afficherait « 0 » sur un groupe qui filtre
+          // — le panneau replie redevenant le filtre qu'on a oublie d'avoir mis.
+          lic: f.querySelectorAll('input[name="f-lic"]:checked').length,
+          mar: [].slice.call(f.querySelectorAll('input[name="f-mar"]'))
+                 .filter(function (c) { return c.type === 'hidden' || c.checked; }).length,
           // 🔴 LOT 193 — la case compte AUSSI dans le pastillage du groupe
           // « Prix & valeur ». ⛔ L'omettre ferait exactement ce que ce
           // compteur existe pour empêcher : un réglage posé dans un panneau
@@ -1567,6 +1718,39 @@ const ILE_TUILES = JSON.stringify({
       });
 
       // ═══════════════════════════════════════════════════════════════════
+      //  🔑 LOT 219 — LA LOUPE SUR LES PUCES (licence et marque)
+      // ═══════════════════════════════════════════════════════════════════
+      // ⭐ UN SEUL ECOUTEUR POUR LES DEUX PANNEAUX, et c'est la correction que
+      // Preda avait demandee sur le rayon : « le filtre Marque de /sets/ avait sa
+      // recherche, le filtre Licence non, a vingt lignes de distance ». Deux
+      // scripts pour le meme geste divergent toujours.
+      // ⚠️ ELLE NE FILTRE QUE L'AFFICHAGE DES CASES, JAMAIS LES LIGNES. Une case
+      // cochee qui sort de la vue reste cochee : sinon taper trois lettres
+      // effacerait la selection en cours, et le tableau changerait sous les
+      // doigts de quelqu'un qui croit chercher une case.
+      // ⛔ `data-b` PORTE DEJA LE NOM EN MINUSCULES, pose par le serveur. Le
+      // recalculer ici (`textContent.toLowerCase()`) lirait AUSSI le compteur —
+      // « marvel 503 » — et « 50 » trouverait Marvel. Le serveur a mis la valeur
+      // au bon endroit ; on la lit.
+      function cribler(champ) {
+        var pan = document.getElementById(champ.getAttribute('data-cherche'));
+        if (!pan) return;
+        var q2 = champ.value.trim().toLowerCase();
+        var vus = 0;
+        [].slice.call(pan.querySelectorAll('.puce')).forEach(function (lab) {
+          var v = lab.getAttribute('data-b') || '';
+          var ok = !q2 || v.indexOf(q2) !== -1;
+          lab.hidden = !ok;
+          if (ok) vus++;
+        });
+        // ⭐ ET LE VIDE SE DIT. Une liste qui se vide sans un mot ressemble a une
+        //   panne du panneau ; `data-vide` porte la phrase, traduite par le
+        //   serveur, et n'apparait que quand elle est vraie.
+        var vide = pan.querySelector('[data-vide]');
+        if (vide) vide.hidden = vus !== 0;
+      }
+
+      // ═══════════════════════════════════════════════════════════════════
       //  ⑥ LE BRANCHEMENT — et il distingue ce qui coûte de ce qui ne coûte pas
       // ═══════════════════════════════════════════════════════════════════
       // 🔴 UN SEUL GESTE NE DOIT PARTIR QU'UNE FOIS. Un `<select>` émet `input`
@@ -1576,6 +1760,19 @@ const ILE_TUILES = JSON.stringify({
       f.addEventListener('input', function (e) {
         var t2 = e.target;
         if (!t2 || t2.name === 'f-col') return;
+        // 🔴🔴 LOT 219 — LA RECHERCHE DANS UNE LISTE DE PUCES N'EST PAS UN FILTRE,
+        // ET SANS CETTE LIGNE ELLE AURAIT RECHARGE LA PAGE A CHAQUE LETTRE.
+        // Le champ vit DANS le formulaire (il doit etre a cote de ses puces) et
+        // il est de type `search` : il tombait donc pile dans la condition
+        // ci-dessous. Trois lettres tapees dans « chercher une marque » auraient
+        // envoye trois requetes, perdu le focus, et referme le panneau.
+        // ⭐ Il n'a deliberement AUCUN `name` : il ne doit rien laisser dans
+        // l'URL — ce n'est pas un critere, c'est une loupe sur des cases.
+        // ⛔ Ne jamais lui en donner un « pour retenir la recherche » : l'etat
+        // de `/market/` vit dans l'URL, et un parametre qui ne filtre rien y
+        // ferait croire a un filtre actif — jusqu'au jeton qu'on ne peut pas
+        // retirer.
+        if (t2.hasAttribute('data-cherche')) { cribler(t2); return; }
         if (t2.tagName === 'INPUT' && /^(search|number|date|text)$/.test(t2.type)) envoyerPlusTard();
       });
       f.addEventListener('change', function (e) {

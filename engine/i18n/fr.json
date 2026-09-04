@@ -621,5 +621,12 @@
   "corner.profil": "Profil dominant",
   "corner.mcap": "Capitalisation",
   "corner.repartition": "Détention la plus courante",
-  "corner.absent": "Aucune donnée de détention collectée pour cette pièce."
+  "corner.absent": "Aucune donnée de détention collectée pour cette pièce.",
+  "movers.g.licence": "Licence",
+  "movers.g.marque": "Marque",
+  "movers.chercheDansListe": "Chercher dans cette liste",
+  "movers.aucuneValeur": "Aucune correspondance dans cette liste.",
+  "movers.marquesReste": "{n} marques de plus — utilisez la recherche ci-dessus pour les trouver.",
+  "movers.tension": "Tension",
+  "movers.tensionAide": "Un rang calculé de 0 à 100, sans aucun prix : la part du tirage réellement en circulation, puis le plus petit tirage d’abord, puis la part brûlée. 100 = le tirage est sorti. Elle ne dit pas si la pièce est une bonne affaire."
 }

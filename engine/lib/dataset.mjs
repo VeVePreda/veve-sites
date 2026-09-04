@@ -9,6 +9,9 @@ import { readFileSync, existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { projeter as projeterCote, deposerMarche, CHAMPS_COTE } from './cote.mjs';
+// 🎯 LOT 219 — LA NOTE DE TENSION, SANS AUCUN PRIX. Voir tension.mjs : c'est
+// ce choix qui la rend publiable sur la fiche au lieu de la mettre sous cadenas.
+import { poserTension } from './tension.mjs';
 // 🖥️ LA SONDE MEMOIRE DU BUILD (lot 171). Elle N'OBSERVE QUE — voir memoire.mjs.
 import * as memoire from './memoire.mjs';
 // 🖼️ LOT 154-A — l'index « uuid → couverture », lu par `/favoris/` à la demande
@@ -1470,6 +1473,25 @@ async function construireDataset() {
   // comptait : depuis le lot 155-C ce nombre n'est plus ce que la page rend,
   // c'est ce que le filtre du serveur peut voir. Un journal qui garde l'ancien
   // mot ferait chercher une troncature qui n'existe plus.
+  // 🎯 LOT 219 — LA TENSION SE POSE ICI, ET L'ENDROIT EST LE SUJET.
+  // ⭐ SUR `items`, LA POPULATION PUBLIEE ENTIERE, et AVANT `projeterCote()` —
+  //   comme l'ordre par defaut vingt lignes plus haut, et pour la meme raison :
+  //   c'est le seul moment ou l'on voit tout le monde. Un rang calcule plus tard,
+  //   sur une tranche ou sur une selection, dirait « plus tendue que 87 % des 20
+  //   lignes affichees » — une phrase qui a l'air d'une mesure.
+  // ⛔ Elle ne lit AUCUN champ de cote : `tirage`, `circulationStackr` et
+  //   `bruleesStackr` survivent tous les trois a la projection. Elle serait donc
+  //   calculable apres — et ce serait quand meme faux, parce que `items` n'est
+  //   plus la population complete a ce moment-la. *Le bon moment n'est pas
+  //   dicte par ce qui est encore lisible, mais par ce qui est encore entier.*
+  const tension = poserTension(items);
+  // ⭐⭐ L'INSTRUMENT SE DECLARE, MEME QUAND IL VA BIEN. « 0 notee » ne peut
+  //   arriver que si `fiches_stackr` cesse de joindre — un fichier renomme, un
+  //   schema change — et cela ressemblerait sinon a un build normal avec une
+  //   colonne vide. Le chiffre le dit tout haut, dans le meme journal que le reste.
+  console.log(`[tension] ${tension.notees} fiche(s) notee(s) · ${tension.sansMesure} sans mesure `
+    + `(tirage ou circulation inconnus)`
+    + (tension.notees === 0 ? ' 🔴 AUCUNE — la colonne Tension sortira vide' : ''));
   console.log(`[marche] ${marcheTotal} fiche(s) avec un plancher · ${marche.length} projetee(s) (aucun plafond depuis le lot 155-C)`);
   if (marcheTotal === 0) {
     console.log('[marche] ATTENTION AUCUNE fiche avec plancher : la page /market/ sortira vide. '

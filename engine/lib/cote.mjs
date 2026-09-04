@@ -623,9 +623,50 @@ function resumerPourLeTableauDeBord(ds) {
 // ⛔ ET LE METTRE DANS LA COTE LE RENDRAIT INUTILISABLE LA OU IL SERT : les
 //    modules publics d'`/analytics/` doivent pouvoir ecarter une piece farceuse
 //    de leurs classements, et ils ne voient jamais la cote.
+// 🔑🔴 LOT 219 — `brand` ET `licensor` ENTRENT ICI, ET C'EST TOUT LE LOT.
+// ═══════════════════════════════════════════════════════════════════════════
+// Le defaut central de l'audit du 04/09 : « les Marvel Secret Rare sous 50 $ »
+// n'etait demandable a AUCUNE de nos deux tables. `/collectibles/` connait
+// Marvel (503), Disney (243), Star Wars (217) — avec recherche ET compteur par
+// valeur, ce que le concurrent n'a pas — mais ignore les prix. `/market/`
+// connait les prix et ignore Marvel.
+// ⭐⭐⭐ CE N'ETAIT PAS UN FILTRE MANQUANT : c'etait un filtre range dans la
+// table qui ne porte pas les prix. `brand` et `licensor` sont sur l'item depuis
+// toujours (`dataset.mjs` l. 707-708) — c'est `maigrir()`, ci-dessous, qui les
+// jetait. Comme `corner_full` au lot 218 : la donnee etait payee, elle n'etait
+// pas montree.
+//
+// 💰 LE COUT, MESURE AVANT D'ECRIRE (04/09, sur les 9 354 lignes publiees) :
+//   · en clair, deux chaines par ligne .......... 534 Ko  (+11,3 %)
+//   · en dictionnaire indexe, facon rayon_index . 149 Ko  (+3,2 %)
+// ⇒ **ON PREND LE CLAIR**, et le chiffre qui tranche n'est pas la taille :
+// `rayon_index.mjs` indexe parce que son fichier est **SERVI AU CLIENT** — 385 Ko
+// y sont 385 Ko sur la ligne de chaque visiteur. `marche.json` ne quitte jamais
+// le serveur : il est lu une fois par un processus qui pique deja a 2 013 Mo, ou
+// 385 Ko ne se mesurent pas. *Le meme poids n'a pas le meme prix selon qu'il
+// traverse le reseau ou non.*
+// ⛔ Et l'index ferait courir un risque nomme dans `rayon_index.mjs` l. 102 :
+// « il rendrait des marques a la place des licences — SANS ERREUR ». On ne paie
+// pas ce risque pour un gain qu'aucun visiteur ne ressent.
+//
+// 🔐 AUCUN PRIX N'ENTRE : une licence et une marque sont des axes de CATALOGUE.
+// `rayon_index.mjs` l. 69 pose deja la ligne de partage — « les axes de prix
+// restent sur `/market/`, derriere la porte ». Ce lot ajoute deux axes SANS prix
+// a la table qui a les prix ; il ne deplace aucun montant.
 export const CHAMPS_MARCHE = ['uuid', 'name', 'series', 'type', 'rarity',
                               'tirage', 'path', 'image', 'releaseDate', 'ed',
-                              'offresStackr', 'veveMarketUrl', 'floorEcarte'];
+                              'offresStackr', 'veveMarketUrl', 'floorEcarte',
+                              'brand', 'licensor',
+                              // 🎯 LOT 219 — LA NOTE DE TENSION. ⭐ ELLE N'EST PAS UN CHAMP DE
+                              // COTE, et c'est le resultat de l'arbitrage du 04/09 : batie sans
+                              // aucun prix (tirage, circulation, brulures), elle ne permet de
+                              // reconstituer aucun montant. Elle traverse donc `maigrir()` ET
+                              // s'affiche en clair sur la fiche PUBLIQUE.
+                              // ⛔ Le jour ou quelqu'un voudra y melanger un ecart au plancher,
+                              // elle devra changer de camp : entrer dans `CHAMPS_COTE`, sortir de
+                              // la fiche publique, et `test:fuite` devra la surveiller. C'est un
+                              // seul mot dans `tension.mjs` qui tient cette frontiere.
+                              'tension'];
 
 /** Ne garde que les champs de `CHAMPS_MARCHE`. ⛔ Une clé absente de la fiche
  *  n'est PAS écrite : `{image: undefined}` deviendrait `"image":null` dans le

@@ -621,5 +621,12 @@
   "corner.profil": "Profilo dominante",
   "corner.mcap": "Capitalizzazione",
   "corner.repartition": "Detenzione più comune",
-  "corner.absent": "Nessun dato di detenzione raccolto per questo pezzo."
+  "corner.absent": "Nessun dato di detenzione raccolto per questo pezzo.",
+  "movers.g.licence": "Licenza",
+  "movers.g.marque": "Marca",
+  "movers.chercheDansListe": "Cerca in questa lista",
+  "movers.aucuneValeur": "Nessuna corrispondenza in questa lista.",
+  "movers.marquesReste": "{n} marche in più — usa la ricerca qui sopra per trovarle.",
+  "movers.tension": "Tensione",
+  "movers.tensionAide": "Un rango calcolato da 0 a 100, senza alcun prezzo: la quota della tiratura realmente in circolazione, poi la tiratura più piccola per prima, poi la quota bruciata. 100 = la tiratura è esaurita. Non dice se il pezzo sia un buon acquisto."
 }

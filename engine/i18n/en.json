@@ -621,5 +621,12 @@
   "corner.profil": "Dominant profile",
   "corner.mcap": "Market cap",
   "corner.repartition": "Most common holding",
-  "corner.absent": "No holder data collected for this piece yet."
+  "corner.absent": "No holder data collected for this piece yet.",
+  "movers.g.licence": "Licence",
+  "movers.g.marque": "Brand",
+  "movers.chercheDansListe": "Search this list",
+  "movers.aucuneValeur": "No match in this list.",
+  "movers.marquesReste": "{n} more brands — use the search above to find them.",
+  "movers.tension": "Tension",
+  "movers.tensionAide": "A calculated rank from 0 to 100, no price involved: the share of the print run actually in circulation, then the smallest run first, then the burnt share. 100 = the run is out. It does not say whether the piece is a good buy."
 }

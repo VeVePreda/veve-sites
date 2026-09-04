@@ -621,5 +621,12 @@
   "corner.profil": "Perfil dominante",
   "corner.mcap": "Capitalización",
   "corner.repartition": "Tenencia más común",
-  "corner.absent": "Aún no hay datos de tenencia para esta pieza."
+  "corner.absent": "Aún no hay datos de tenencia para esta pieza.",
+  "movers.g.licence": "Licencia",
+  "movers.g.marque": "Marca",
+  "movers.chercheDansListe": "Buscar en esta lista",
+  "movers.aucuneValeur": "Sin coincidencias en esta lista.",
+  "movers.marquesReste": "{n} marcas más — utilice la búsqueda de arriba para encontrarlas.",
+  "movers.tension": "Tensión",
+  "movers.tensionAide": "Un rango calculado de 0 a 100, sin ningún precio: la parte de la tirada realmente en circulación, luego la tirada más pequeña primero, luego la parte quemada. 100 = la tirada se ha agotado. No indica si la pieza es una buena compra."
 }

@@ -67,6 +67,29 @@ const root = siteUrl();
 const path = item.path;
 const url = `${root}${localize(lang, path)}`;
 const nf = numberLocale[lang] || 'en-GB';
+// 🏪 LOT 219 — « ENCORE DISPONIBLE », CALCULÉ ICI ET RENDU PLUS BAS.
+// ⚠️ LE DÉNOMINATEUR EST LE TIRAGE DU CATALOGUE, PAS `stackr.issued` — le lot
+// 218 s'était trompé de champ. Mesure du 04/09 sur `fiches_stackr.csv`
+// (19 796 lignes) : `issued == in_circulation + editions_burnt` n'est vrai que
+// 24,5 % du temps, et `issued` vaut moins de 90 % du tirage annoncé sur 81,5 %
+// des pièces. Exemple : Vampirella Armageddon #7, tirage 1 000, `issued` 400,
+// `in_circulation` 15 — l'ancienne formule affichait « 385 / 400 (96 %) »,
+// la bonne réponse est « 985 / 1 000 ».
+// ⭐ FORME RETENUE, MESURÉE : `tirage - in_circulation` rend **0 résultat
+// négatif sur 19 650 pièces** (p10 40 % · médiane 98 % · p90 100 % restants ;
+// 1 252 épuisées, 512 intactes).
+// ⛔ `!= null` ET PAS UN TEST DE VÉRITÉ : une circulation de 0 est un FAIT
+// (« aucun exemplaire n'est sorti »), et c'est même le cas des 512 pièces
+// intactes. Le confondre avec « pas encore collecté » est précisément ce que
+// `test:affichage` §① empêche.
+// ⛔ Et la garde `tirage >= circulation` reste : une donnée en retard peut faire
+// dépasser un tirage annoncé, et « -12 encore disponibles » ne s'affiche pas.
+const dispoNette = (() => {
+  const tg = item.tirage;
+  const ci = item.circulationStackr;
+  if (!(tg > 0) || ci == null || tg < ci) return null;
+  return { tirage: tg, reste: tg - ci, pct: Math.round(((tg - ci) / tg) * 1000) / 10 };
+})();
 const df = dateLocale[lang] || 'en-GB';
 // 🔴 LOT 101 — DEUX COURBES, ET LE MANIFESTE CHOISIT.
 // Cote fermee : `item.courbe` est deja normalisee 0..1000 par `cote.mjs`, il
@@ -887,13 +910,91 @@ const mcpJour = mcpPoints(item.rarity, item.type);
               les DEUX sont connus : un `|| 0` ferait dire « tout est vendu » a
               une fiche dont on ignore le tirage emis. *Inconnu n'est pas zero*
               — c'est la meme faute que le plancher a 0 que ce lot repare. */}
-          {item.emisesStackr > 0 && item.circulationStackr !== null && (
+          {/* 🔴🔴🔴 LOT 219 — LE DENOMINATEUR DU LOT 218 ETAIT FAUX SUR 81,5 %
+              DES PIECES, ET C'EST MOI QUI L'AI ECRIT LA VEILLE.
+              ═══════════════════════════════════════════════════════════════
+              Le 218 calculait « encore disponible » = `issued - in_circulation`,
+              sur la premisse que `issued` est le tirage. MESURE LE 04/09 sur
+              `fiches_stackr.csv` (19 796 lignes) : la relation
+              `issued == in_circulation + editions_burnt` n'est vraie que
+              **24,5 %** du temps, et `stackr.issued` vaut moins de 90 % du
+              tirage annonce sur **16 125 pieces (81,5 %)**.
+              Exemple : Vampirella Armageddon #7 — tirage catalogue **1 000**,
+              `issued` **400**, `in_circulation` **15**. L'ancienne formule
+              affichait « 385 / 400 (96 %) » ; le bon chiffre est **985 / 1 000**.
+
+              ⭐⭐⭐ CE QUE `in_circulation` EST VRAIMENT : le nombre
+              d'exemplaires OBSERVES en circulation — il colle a
+              `corner.circulating` (7 500 / 7 485 sur Batman #100, 15 / 14 sur
+              Vampirella). `issued`, lui, est ce que StackR a vu emettre : un
+              chiffre PARTIEL, pas un tirage.
+              ⇒ **Le denominateur est `item.tirage`, celui du catalogue.**
+              MESURE DE LA FORME RETENUE : `tirage - in_circulation` rend
+              **0 resultat negatif sur 19 650** pieces (p10 40 % · mediane 98 %
+              · p90 100 % restants ; 1 252 epuisees, 512 intactes).
+
+              ⛔ ET LA LECON N'EST PAS « J'AI PRIS LE MAUVAIS CHAMP » : c'est
+              que j'ai lu trois noms de colonnes et cru comprendre leur relation
+              SANS LA MESURER. `issued`, `in_circulation`, `editions_burnt` se
+              lisent comme une soustraction evidente. Elle est fausse trois fois
+              sur quatre. *Un nom de champ n'est pas un contrat, et trois noms
+              cotes a cote ne forment pas une equation.*
+              ⚠️ Le 218 etait DEJA DEPOSE quand la mesure est tombee. */}
+          {/* 🔬 LOT 219 — CETTE CONDITION A ÉTÉ RÉÉCRITE PARCE QU'UN BANC A MORDU,
+              ET C'EST LE BANC QUI AVAIT RAISON. La première forme comparait le
+              tirage à la circulation, si bien que le nom du champ se retrouvait
+              suivi de l'opérateur ET — exactement le motif que `test:affichage`
+              §① traque :
+              « un test de vérité efface le zéro ». Ici ce `&&` fermait une
+              COMPARAISON, pas un test de vérité, et le code était juste.
+              ⭐⭐⭐ ON NE DESSERRE PAS LE BANC POUR AUTANT. Son motif est
+              volontairement large parce que la faute qu'il empêche est chère
+              (« plus personne ne vend cette pièce » devenant « pas encore
+              collecté », sur les pièces qui comptent le plus). L'affiner pour
+              laisser passer CE cas rouvrirait la porte à tous les autres.
+              *Quand un banc trop large a raison sur le fond, c'est le code qui
+              se déplace.* ⇒ `dispoNette` porte le calcul, le gabarit ne fait que
+              le rendre — et il se lit mieux.
+              ✍️ ⛔ ET CE COMMENTAIRE NE CITE PLUS LA FORME FAUTIVE : écrite en
+              toutes lettres, elle était relue par le banc comme du code, et il
+              rougissait sur la ligne qui explique pourquoi il avait rougi.
+              **8ᵉ occurrence** de « on décrit la syntaxe, on ne l'écrit jamais ».
+              Un banc qui lit le source ne fait pas la différence entre un exemple
+              et une instruction. */}
+          {dispoNette !== null && (
             <div class="mur__eq">{t(lang, 'item.available')} : {
-              (item.emisesStackr - item.circulationStackr).toLocaleString(nf)
-            } / {item.emisesStackr.toLocaleString(nf)}{' '}
-            <span class="muted">({Math.round(
-              ((item.emisesStackr - item.circulationStackr) / item.emisesStackr) * 1000
-            ) / 10} %)</span></div>
+              dispoNette.reste.toLocaleString(nf)
+            } / {dispoNette.tirage.toLocaleString(nf)}{' '}
+            <span class="muted">({dispoNette.pct} %)</span></div>
+          )}
+          {/* ═══════════════════════════════════════════════════════════════
+              🎯 LOT 219 — LA NOTE DE TENSION (arbitrage ④ du 04/09).
+              ═══════════════════════════════════════════════════════════════
+              ⭐⭐⭐ ELLE EST EN CLAIR SUR UNE FICHE PUBLIQUE, ET C'EST LE
+              RESULTAT DE L'ARBITRAGE, PAS UN OUBLI. Preda voulait « un score
+              calcule, pas editorial », en colonne triable ET en note sur la
+              fiche. La fiche etant publique, un score dependant du plancher
+              aurait du entrer dans `CHAMPS_COTE` et se serait affiche sous un
+              cadenas sur les 9 354 fiches — l'inverse de la demande. Bati sans
+              aucun prix (tirage, circulation, brulures), il vit ici en clair.
+              ⛔ Le jour ou l'on voudra y melanger un ecart au plancher, ce bloc
+              devra devenir un <Cote>. Voir l'en-tete de `engine/lib/tension.mjs`.
+
+              ⚠️ ELLE DIT « TENDU », JAMAIS « BONNE AFFAIRE ». Le libelle porte
+              le mot tension et la phrase d'aide dit la formule : sans cela, un
+              nombre sur 100 a cote d'un prix se lit comme une recommandation
+              d'achat. ⛔ Ne jamais la renommer « note », « valeur » ni
+              « potentiel » — ces trois mots promettent ce qu'elle ne mesure pas.
+
+              📅 ET ELLE PORTE SA DATE, comme les figures de `/analytics/` : un
+              RANG n'est pas une constante, il est relatif a la population
+              publiee le jour du build. *Ce sont nos figures datees et signees
+              qui font notre serieux ; une note sans date ne l'aurait pas.* */}
+          {item.tension !== null && item.tension !== undefined && (
+            <div class="mur__eq" title={t(lang, 'movers.tensionAide')}>
+              {t(lang, 'movers.tension')} : <strong>{item.tension}</strong>/100
+              {updatedAt && <span class="muted"> · {dateSeule(updatedAt, lang)}</span>}
+            </div>
           )}
           {/* ⭐⭐ `mur__eq` EST REUTILISEE TELLE QUELLE : zero octet de CSS
               ajoute, donc zero pression sur le cliquet de 4 096 o — servi

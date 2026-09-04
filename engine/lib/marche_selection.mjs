@@ -92,7 +92,11 @@ export const RENDU_MAX = 500;
 // accroche ses libellés traduits ; le banc y accroche sa boucle. Deux listes
 // recopiées, c'est le défaut « deux menus, deux vérités » du 03/08.
 // ⚠️ `defaut: null` N'EST PAS UN OUBLI — voir `ORDRE` plus bas.
-export const TRIS = ['defaut', 'ch-desc', 'floor-desc', 'floor-asc', 'sup-asc', 'mcp-asc', 'nom-asc'];
+// 🎯 LOT 219 — `ten-desc` : « les plus tendues d'abord ». ⭐ UN SEUL SENS, et
+// c'est un choix : « les moins tendues » n'est pas une question qu'on se pose —
+// ce serait un tri qui remonte ce dont personne ne veut. Un tri qu'on ajoute
+// « pour la symetrie » est une ligne de plus dans un menu deja long.
+export const TRIS = ['defaut', 'ch-desc', 'ten-desc', 'floor-desc', 'floor-asc', 'sup-asc', 'mcp-asc', 'nom-asc'];
 export const TRI_DEFAUT = 'defaut';
 
 // ⭐ Les axes de filtre, avec leur nom de champ TEL QU'IL EST DÉJÀ ÉCRIT dans
@@ -102,7 +106,15 @@ export const TRI_DEFAUT = 'defaut';
 export const CHAMPS = ['f-c', 'f-q', 'f-tri', 'f-rar', 'f-var', 'f-pmin', 'f-pmax',
                        'f-mcp', 'f-smin', 'f-smax', 'f-lmin', 'f-d1', 'f-d2', 'f-n',
                        // 🔴 LOT 193 — la seule case qui ELARGIT au lieu de restreindre.
-                       'f-abr'];
+                       'f-abr',
+                       // 🔑 LOT 219 — LES DEUX AXES QUI MANQUAIENT A CETTE TABLE.
+                       // Cases a cocher, donc `getAll`, donc repetees dans l'URL —
+                       // comme `f-rar`. ⛔ Ne pas les nommer `f-b`/`f-l` : `f-b` est
+                       // deja la CLASSE des boutons de groupe de la barre, et un
+                       // `input[name="f-b"]` a cote d'un `.f-b` rend les selecteurs
+                       // du pilote ambigus a la lecture. `f-mar` et `f-lic` sont sans
+                       // collision dans le depot (verifie avant d'ecrire).
+                       'f-mar', 'f-lic'];
 
 /** Un nombre, ou `null` — ⛔ jamais `0` par défaut : « pas de borne » et
  *  « borne à zéro » sont deux choses différentes, et les confondre ferait
@@ -133,6 +145,16 @@ export function lireParams(sp) {
     q: un('f-q').trim().toLowerCase(),
     // ⭐ `getAll` : les raretés sont des cases à cocher, elles arrivent répétées.
     rar: sp ? sp.getAll('f-rar').filter(Boolean) : [],
+    // 🔑 LOT 219 — MARQUE ET LICENCE, EN VALEURS BRUTES ET NON EN INDEX.
+    // ⭐ `/market/` filtre au SERVEUR : la valeur brute est ce que la fiche
+    //   porte, donc la comparaison est directe et l'URL est LISIBLE
+    //   (`?f-lic=Marvel` plutot que `?f-lic=37`). Le rayon, lui, indexe parce
+    //   que son index part chez le client — deux mecaniques, deux raisons.
+    // ⛔ Un index ici casserait a la premiere recollecte qui reordonne le
+    //   dictionnaire : toutes les adresses partagees pointeraient vers une
+    //   AUTRE licence, sans erreur et sans page morte.
+    mar: sp ? sp.getAll('f-mar').filter(Boolean) : [],
+    lic: sp ? sp.getAll('f-lic').filter(Boolean) : [],
     vari: ['up', 'down'].includes(un('f-var')) ? un('f-var') : '',
     pmin: nb(un('f-pmin')), pmax: nb(un('f-pmax')),
     mcp: nb(un('f-mcp')),
@@ -167,7 +189,7 @@ export function filtreActif(p) {
   //   avec la case cochee, non. L'omettre laisserait une page qui montre des
   //   prix farceurs sans qu'aucun jeton ne dise pourquoi, et sans que le bouton
   //   « tout effacer » ne la ramene — le pire des deux mondes.
-  return !!(p.corpus || p.q || p.rar.length || p.vari
+  return !!(p.corpus || p.q || p.rar.length || p.mar.length || p.lic.length || p.vari
     || p.pmin !== null || p.pmax !== null || p.mcp !== null
     || p.smin !== null || p.smax !== null || p.lmin !== null || p.d1 || p.d2
     || p.abr);
@@ -188,8 +210,19 @@ export function filtreActif(p) {
 export function facettes(population) {
   const floors = [], tirages = [], dates = [];
   const rarete = new Set();
+  // 🔑 LOT 219 — LE COMPTEUR PAR VALEUR, COMME SUR `/collectibles/`.
+  // ⭐⭐ C'est ce que le concurrent n'a PAS sur son screener, et qu'on avait
+  // deja d'un cote du site : « Marvel 503 » dit, avant de cocher, si la case
+  // vaut la peine. Une liste de 1 511 marques sans compteur est une liste ou
+  // l'on ne sait pas quoi cocher.
+  // ⛔ SUR LA POPULATION ENTIERE, pas sur la tranche ni sur la selection — voir
+  // l'en-tete de cette fonction : un compteur qui retrecit a chaque filtre
+  // ferait croire que Marvel a perdu 400 pieces.
+  const marques = new Map(), licences = new Map();
   let coll = 0;
   for (const i of population) {
+    if (i.brand) marques.set(i.brand, (marques.get(i.brand) || 0) + 1);
+    if (i.licensor) licences.set(i.licensor, (licences.get(i.licensor) || 0) + 1);
     const f = nb(i.floor); if (f !== null) floors.push(f);
     const tg = nb(i.tirage); if (tg !== null && tg > 0) tirages.push(tg);
     const d = jourISO(i.releaseDate); if (d) dates.push(d);
@@ -197,8 +230,19 @@ export function facettes(population) {
     if (i.type === 'collectible') coll++;
   }
   dates.sort();
+  // ⭐⭐⭐ LA LICENCE SE TRIE PAR NOMBRE, LA MARQUE PAR NOM — C'EST UNE MESURE,
+  // PAS UN GOUT, et elle n'est pas de ce lot : `rayon.js` l. 205 la porte depuis
+  // le lot 133. « Marvel porte l'essentiel des titres ; un ordre alphabetique
+  // mettrait ABLAZE Publishing en tete et enterrerait Marvel au milieu. La
+  // marque, elle, se cherche par son nom. » 97 licences, 1 511 marques : les
+  // deux listes n'ont pas le meme usage, donc pas le meme ordre.
+  // ⛔ On ne redecide pas ici ce qui a deja ete mesure ailleurs — on le suit.
+  const parNombre = (a, b) => (b[1] - a[1]) || a[0].localeCompare(b[0]);
+  const parNom = (a, b) => a[0].localeCompare(b[0]);
   return {
     rarete,
+    licences: [...licences.entries()].sort(parNombre),
+    marques: [...marques.entries()].sort(parNom),
     nbColl: coll,
     nbComic: population.length - coll,
     bornes: {
@@ -231,12 +275,27 @@ function garde(i, p) {
   if (!p.abr && i.floorEcarte) return false;
   if (p.corpus && i.type !== p.corpus) return false;
   if (p.rar.length && !p.rar.includes(i.rarity)) return false;
+  // 🔑 LOT 219 — ⛔ COMPARAISON EXACTE, SUR LA VALEUR TELLE QUE LE CATALOGUE
+  //   L'ECRIT. Les puces sont rendues par le serveur A PARTIR DE CETTE MEME
+  //   POPULATION (voir `facettes`), donc une valeur cochee existe forcement.
+  //   Normaliser ici (minuscules, accents) creerait une SECONDE verite sur ce
+  //   qu'est « la meme marque », et elle divergerait de celle des puces.
+  if (p.mar.length && !p.mar.includes(i.brand)) return false;
+  if (p.lic.length && !p.lic.includes(i.licensor)) return false;
   // ⭐ LA RECHERCHE PORTE SUR LE NOM **ET** LA SÉRIE : un collectionneur tape
   //   « spider-man » en pensant à la série autant qu'au titre de la pièce.
   if (p.q) {
     const n = String(i.name || '').toLowerCase();
     const s = String(i.series || '').toLowerCase();
-    if (!n.includes(p.q) && !s.includes(p.q)) return false;
+    // 🔑 LOT 219 — ET SUR LA MARQUE ET LA LICENCE. Demande de l'audit : taper
+    //   « marvel » dans la recherche d'une table de PRIX ne rendait rien, parce
+    //   que le mot n'est ni dans le nom de la piece ni dans celui de la serie.
+    //   ⭐ La recherche cherche desormais dans les quatre axes textuels que la
+    //   ligne porte — et elle ne peut pas en chercher un cinquieme : c'est
+    //   exactement ce que `CHAMPS_MARCHE` decide.
+    const b = String(i.brand || '').toLowerCase();
+    const l = String(i.licensor || '').toLowerCase();
+    if (!n.includes(p.q) && !s.includes(p.q) && !b.includes(p.q) && !l.includes(p.q)) return false;
   }
   if (p.vari) {
     const c = nb(i.change7d);
@@ -298,6 +357,10 @@ const cmpNum = (get, sens) => (a, b) => {
 const ORDRE = {
   defaut: null,
   'ch-desc': cmpNum((i) => i.change7d, -1),
+  // ⭐ `cmpNum` MET LES INCONNUS AU BOUT DANS LES DEUX SENS — c'est deja sa
+  //   regle, et elle vaut ici mot pour mot : une piece sans tension mesurable ne
+  //   doit pas ouvrir le classement « les plus tendues ».
+  'ten-desc': cmpNum((i) => i.tension, -1),
   'floor-desc': cmpNum((i) => i.floor, -1),
   'floor-asc': cmpNum((i) => i.floor, 1),
   'sup-asc': cmpNum((i) => i.tirage, 1),
