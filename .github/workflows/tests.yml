@@ -73,7 +73,33 @@ concurrency:
 jobs:
   bancs:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    # ═════════════════════════════════════════════════════════════════════════
+    # ⏱️🔴🔴 LOT 226 — 25 MIN NE POUVAIT PAS CONTENIR CE JOB, ET C'EST NOUS QUI
+    # PRODUISIONS LES `cancelled`, PAS GITHUB.
+    # ═════════════════════════════════════════════════════════════════════════
+    # `test:cache` § 1 bis attend que la production serve le commit teste. Son
+    # budget etait de 30 min **PAR ZONE**, et il y a DEUX zones attendues l'une
+    # apres l'autre : 60 min de budget dans un job de 25. Des que la 2e zone
+    # trainait, le job etait TUE (SIGTERM, `exit 143`) et le run s'affichait
+    # `cancelled`. Trois jalons ont lu ce mot comme un caprice de GitHub et ont
+    # reclame un rejeu, sans jamais ouvrir `/actions/runs/<id>/jobs`.
+    #
+    # MESURE, RUN `33889605654`, job `bancs (veveprice)` :
+    #   15:28:21 job demarre · 15:30:18 l'etape cache demarre (117 s d'etapes
+    #   avant elle) · 15:42:24 zone 1 OK en 725 s · puis SILENCE · 15:58:25
+    #   `exit 143`, exactement 30 min apres le debut du job.
+    #
+    # ⭐ LE CHIFFRE VIENT D'UN CALCUL, PAS D'UN GESTE :
+    #     attente globale 15 min + reserve de mesures 10 min = 25 min
+    #     + 20 % de marge                                     = 30 min
+    #     + les etapes d'avant (2 a 4 min mesurees)           = ~34 min
+    #   ⇒ 35. ⛔ Le changer SANS changer `BANC_CACHE_ATTENTE_MS` (ou l'inverse)
+    #     fait rougir le § 0 bis de `test:cache`, et c'est voulu.
+    # ⭐⭐ Ce nombre est ecrit DEUX FOIS (ici, et passe au banc plus bas). L'etape
+    #   « Le timeout annonce au banc est-il celui du job ? » relit CE fichier et
+    #   refuse qu'ils divergent — parce qu'un chiffre qui vit a deux endroits
+    #   finit toujours par n'etre juste qu'a un seul.
+    timeout-minutes: 35
     # ═════════════════════════════════════════════════════════════════════════
     # 🔴🔴 LOT 102 (07/08/2026) — CE WORKFLOW NE TESTAIT QU'UN SEUL SITE, ET
     # DANS LE MAUVAIS MODE. Mesure, pas soupçon :
@@ -435,6 +461,39 @@ jobs:
       # ⭐ `github.event.head_commit.timestamp` est vide sur `workflow_dispatch`
       #   — c'est voulu : un lancement a la main n'a aucun deploiement en vol.
       #   C'est exactement le choix que fait deja `purge-cache.yml`.
+      # ═══════════════════════════════════════════════════════════════════
+      # 🧮 LOT 226 — LE BANC DOIT CONNAITRE LE TEMPS QU'ON LUI DONNE
+      # ═══════════════════════════════════════════════════════════════════
+      # ⭐⭐⭐ `test:cache` § 0 bis compare SON budget d'attente au timeout du
+      # job. Sans cette etape il n'a rien a comparer et rend INDECIDABLE —
+      # ce qui est le bon verdict, mais pas celui qu'on veut en CI.
+      # ⛔ ET CETTE ETAPE NE RECOPIE PAS LE CHIFFRE : elle le RELIT dans ce
+      #   fichier meme. Un `timeout-minutes` change ici sans rien d'autre est
+      #   donc pris en compte tout seul ; un `sed` qui ne trouve plus rien
+      #   arrete le job au lieu d'exporter un zero silencieux.
+      # ⚠️ `head -1` : le premier `timeout-minutes` du fichier est celui du
+      #   job `bancs`. Celui de l'etape `npm audit` (2 min) vient apres. Si
+      #   quelqu'un ajoute un job avant, ce `sed` prend le mauvais — d'ou le
+      #   controle de plage juste en dessous, qui refuse un 2.
+      - name: Le timeout annonce au banc est-il celui du job ?
+        if: always()
+        run: |
+          set -eu
+          T=$(sed -n 's/^[[:space:]]*timeout-minutes:[[:space:]]*\([0-9][0-9]*\).*/\1/p' \
+              .github/workflows/tests.yml | head -1)
+          if [ -z "${T:-}" ]; then
+            echo "⛔ aucun \`timeout-minutes\` lisible dans tests.yml — le banc ne peut"
+            echo "   pas verifier son budget, et on ne le laisse pas croire qu'il l'a fait."
+            exit 1
+          fi
+          if [ "$T" -lt 10 ]; then
+            echo "⛔ \`timeout-minutes: $T\` : c'est le timeout d'une ETAPE, pas celui du"
+            echo "   job \`bancs\`. Quelqu'un a ajoute un job ou une etape AVANT lui."
+            exit 1
+          fi
+          echo "timeout du job bancs = $T min"
+          echo "BANC_CACHE_TIMEOUT_JOB_MIN=$T" >> "$GITHUB_ENV"
+
       - name: Le cache ne sert-il aucune page privee ?
         if: always()
         env:
