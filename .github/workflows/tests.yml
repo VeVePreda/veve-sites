@@ -135,7 +135,47 @@ jobs:
       #    sa raison d'etre. La reparation habituelle est `npm audit fix`, qui
       #    ne touche que `package-lock.json` ; toute correction du lock oblige
       #    a rejouer la chaine complete du Dockerfile avant de deposer.
+      # ═══════════════════════════════════════════════════════════════════════
+      # 🔴🔴🔴 LOT 222 — SON NOM DISAIT « CONSTAT, PAS BARRAGE » ET LE YAML
+      #                  N'EN DISAIT RIEN. CINQ RUNS TOMBES POUR UN 503.
+      # ═══════════════════════════════════════════════════════════════════════
+      # MESURE, log du run 33852650545 (04/09/2026, 08 h 16 UTC) :
+      #     npm warn audit 503 Service Unavailable
+      #       - POST https://registry.npmjs.org/-/npm/v1/security/audits/quick
+      #     npm error audit endpoint returned an error
+      #     ##[error]Process completed with exit code 1.
+      # ⏱️ Sept minutes exactement entre le debut de l'etape et l'echec
+      # (08:16:50 -> 08:23:50) : `npm audit` reessaie longtemps avant d'abandonner.
+      #
+      # ⭐⭐⭐ CE N'EST PAS UNE VULNERABILITE. Mesure faite dans le bac a sable
+      # le meme jour, sur le meme `package-lock.json`, avec la commande EXACTE
+      # de cette etape : **« found 0 vulnerabilities », code de sortie 0**.
+      # C'est le REGISTRE qui etait indisponible — une panne d'un service tiers,
+      # transformee en echec de code par une etape qui promettait le contraire.
+      #
+      # ⭐⭐ ET LES BANCS AVAIENT TOURNE. Le meme log porte « chaine test :
+      # 48 banc(s) » puis « ✅ tout est vert », DEUX FOIS. Le job etait donc
+      # rouge, l'alerte Discord annoncait « le prochain build part sur du code
+      # non garde »… et le code etait garde, par 48 bancs verts.
+      # *Une alerte qui dit l'inverse de ce que son propre run montre coute
+      # exactement le temps qu'elle pretendait faire gagner.*
+      #
+      # ⛔ ON NE SUPPRIME PAS L'ETAPE, ON LA REND CONFORME A SON NOM.
+      # `continue-on-error: true` la laisse VISIBLE et marquee en echec dans
+      # l'interface — le constat reste lisible — sans faire tomber le job ni
+      # partir en alerte. C'est mot pour mot ce que « constat, pas barrage »
+      # voulait dire depuis le premier jour.
+      # ⛔ Et surtout PAS un `|| true` dans le `run:` : il rendrait l'etape VERTE,
+      # donc effacerait le constat au lieu de le desarmer. La difference entre
+      # les deux tient en une question — *veut-on ne plus etre bloque, ou ne plus
+      # savoir ?*
+      #
+      # ⏱️ `timeout-minutes: 2` : sans lui, chaque panne du registre coute sept
+      # minutes de runner, sur DEUX sites, a CHAQUE depot. Le plafond ne change
+      # rien quand le service repond (l'appel prend quelques secondes).
       - name: Alertes de securite des dependances (constat, pas barrage)
+        continue-on-error: true
+        timeout-minutes: 2
         run: npm audit --audit-level=high
 
       # `test:slugs`, `test:nginx` et `test:indexnow` sont en Python.
@@ -422,6 +462,18 @@ jobs:
           # lui, deux echecs produisent deux alertes rigoureusement identiques,
           # et on ne sait pas laquelle relire. Une alerte qu'on ne sait pas
           # attribuer coute le temps qu'elle pretendait faire gagner.
-          payload=$(printf '{"content":"🔴 **veve-sites / %s** : les bancs sont tombés sur `main`.\\nLe prochain build part sur du code non gardé.\\n%s"}' "${{ matrix.site }}" "$run_url")
+          # 🔴 LOT 222 — L'ALERTE N'AFFIRME PLUS CE QU'ELLE N'A PAS MESURE.
+          # Le 04/09, elle a annonce cinq fois « le prochain build part sur du
+          # code non garde » alors que le meme run portait « 48 banc(s) » et
+          # « ✅ tout est vert » : l'echec venait d'une etape de CONSTAT qui
+          # n'avait pas pu joindre le registre npm. ⭐⭐ Une alerte lit le
+          # verdict du JOB ; elle ne sait pas QUELLE etape est tombee. Elle doit
+          # donc dire ce qu'elle sait — « un job est rouge, va voir » — et non
+          # deduire une consequence qu'elle n'a pas constatee.
+          # ⚠️ Avec `continue-on-error` pose plus haut, ce message ne part
+          # desormais que sur un vrai banc rouge. Les deux correctifs se
+          # tiennent : l'un tarit la fausse alerte, l'autre l'empeche de mentir
+          # le jour ou elle repartira pour une autre raison.
+          payload=$(printf '{"content":"🔴 **veve-sites / %s** : le job de bancs est ROUGE sur `main`.\\n⚠️ Lire QUELLE etape est tombee avant de conclure — une etape de constat qui echoue ne veut pas dire que les bancs sont tombes.\\n%s"}' "${{ matrix.site }}" "$run_url")
           curl -sS -X POST -H 'Content-Type: application/json' \
                -d "$payload" "${DISCORD_ALERTE_TECH_WEBHOOK}" || true
