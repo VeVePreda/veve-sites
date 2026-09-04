@@ -135,8 +135,39 @@ const routes = [...bloc.matchAll(/'pages\/(?:\[locale\]\/)?([a-z-]+)\//g)].map((
 const API_A_SON_BLOC = /location\s+\^~\s+\/api\//.test(nginxBrut);
 const segments = [...new Set(routes)].filter((s) => s !== 'api');
 const nginx = nginxBrut;
-const mLoc = nginx.match(/location\s+~\s+\^\/\(\[a-z\]\[a-z-\]\*\/\)\?\(([^)]+)\)\//);
-const servis = mLoc ? mLoc[1].split('|') : [];
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 LOT 226 — CE BANC NE LISAIT QU'UN SEUL BLOC `location`, ET IL A BLOQUÉ
+// UN DÉPLOIEMENT
+// ═══════════════════════════════════════════════════════════════════════════
+// Il faisait `nginx.match(...)` — **au singulier**. Il prenait donc le PREMIER
+// bloc `location ~ ^/([a-z][a-z-]*/)?(…)/` du fichier et n'en lisait pas
+// d'autre. Tant qu'il n'y en avait qu'un, c'était juste. Le lot 226 en a ajouté
+// un second, dédié aux sujets `/analytics/…` (pour que nginx cesse d'y AJOUTER
+// un `Cache-Control` qui contredisait celui de la page) — et ce banc a conclu
+// « 🔴 analytics — nginx ne les demandera JAMAIS à Node ». **Faux : nginx les
+// sert, par l'autre bloc.** Le build Coolify est mort là-dessus à 17 h 09.
+//
+// ⭐⭐⭐ *Une régularité vue sur un seul cas est une coïncidence.* « Il n'y a
+// qu'un bloc » n'était pas une propriété du fichier, c'était l'état du fichier
+// ce jour-là. Un `match` au singulier l'a gravée dans l'instrument.
+// ⛔ ET LE DÉFAUT EST DU CÔTÉ DE L'INSTRUMENT, PAS DU CODE : on corrige le
+//    banc, jamais le code pour lui plaire — même règle que l'exclusion de
+//    `api` juste au-dessus, qui dit déjà exactement ça.
+//
+// ⭐ DEUX FORMES DE BLOC, ET ON LES LIT TOUTES LES DEUX :
+//     ^/([a-z][a-z-]*/)?(compte|favoris|…)/        ⇒ segments = l'alternance
+//     ^/([a-z][a-z-]*/)?analytics/(market|…)/      ⇒ segment  = le PRÉFIXE
+//   `ROUTES_COMPTE` raisonne au PREMIER segment d'adresse (`analytics`), donc
+//   c'est le préfixe littéral qui répond ici, pas les sujets qu'il contient.
+// ⚠️ Le préfixe est capturé tel qu'il est écrit, sans sa barre finale. Un bloc
+//   à deux segments littéraux (`a/b/(…)`) donnerait `a` — ce qui reste la
+//   bonne réponse à la question posée : « nginx demandera-t-il cette famille
+//   à Node ? »
+const RE_LOC = /location\s+~\s+\^\/\(\[a-z\]\[a-z-\]\*\/\)\?([a-z][a-z-]*\/)?\(([^)]+)\)\//g;
+const blocs = [...nginx.matchAll(RE_LOC)];
+const servis = [...new Set(blocs.flatMap(
+  (m) => (m[1] ? [m[1].replace(/\/$/, '')] : m[2].split('|')),
+))];
 
 if (!segments.length || !servis.length) {
   indecis('la comparaison ROUTES_COMPTE ↔ nginx', 'une des deux listes est illisible');
@@ -145,7 +176,19 @@ if (!segments.length || !servis.length) {
   verifie('⛔ chaque route de compte a sa règle nginx',
     orphelines.length === 0,
     orphelines.length ? `🔴 ${orphelines.join(' · ')} — nginx ne les demandera JAMAIS à Node (404 sur build vert)`
-      : `${segments.length} segment(s) : ${segments.join(' · ')}`);
+      : `${segments.length} segment(s) : ${segments.join(' · ')}`
+        + ` — ${blocs.length} bloc(s) \`location ~\` lu(s), qui servent : ${servis.join(' · ')}`);
+  // 🔬 LE TÉMOIN DU DISPOSITIF. Sans lui, un jour où la regex cesse de mordre,
+  //   `servis` serait VIDE, `orphelines` vaudrait TOUT, et on lirait ça comme
+  //   « nginx ne sert plus rien » au lieu de « mon motif ne trouve plus rien ».
+  //   ⭐ Ce banc a déjà l'`indecis` ci-dessus pour le cas zéro ; ceci dit
+  //   COMBIEN de blocs il a vus, pour qu'un passage de 2 à 1 se remarque.
+  verifie('…et ce banc a lu PLUS D\'UN bloc `location ~`',
+    blocs.length >= 2,
+    blocs.length >= 2
+      ? `${blocs.length} blocs — le second est celui des sujets analytics (lot 226)`
+      : `🟠 ${blocs.length} bloc(s) : soit nginx a été refondu, soit ce motif a cessé de mordre. `
+        + '⛔ Ne pas assouplir le motif sans avoir OUVERT `nginx.server.conf`.');
   verifie('…et l\'exclusion de `api` repose sur un bloc nginx qui EXISTE',
     API_A_SON_BLOC, API_A_SON_BLOC ? 'location ^~ /api/ présent'
       : '🔴 `api` est exclu du contrôle et n\'a plus de règle : angle mort total');

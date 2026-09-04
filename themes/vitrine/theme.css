@@ -218,6 +218,53 @@ nav.main a{font-family:var(--font-heading);font-size:14px;font-weight:500;color:
   border-radius:var(--r-full);transition:color var(--d-fast),background var(--d-fast)}
 nav.main a:hover, nav.main a:focus-visible{color:var(--text);background:var(--vp-survol);text-decoration:none}
 nav.main a[aria-current]{color:var(--primary);background:color-mix(in srgb,var(--primary) 12%,transparent)}
+/* ═══════════════════════════════════════════════════════════════════════════
+   💶 LOT 226 — « TARIFS » RESSORT DU MENU
+   ═══════════════════════════════════════════════════════════════════════════
+   Demande de Preda, 04/09 : « renommer Les Paliers en Tarifs avec un bouton
+   qui ressort du menu ». Le drapeau vient du manifeste (`bouton: true`), le
+   gabarit pose la classe, et TOUT le contraste se joue ici.
+
+   ⭐ ÉCRIT JUSTE SOUS `nav.main a`, ET C'EST VOULU : ces règles héritent de la
+   famille, elles ne la remplacent pas (même police, même taille, même
+   `padding`, donc même hauteur de ligne dans la barre). Un CTA qui change la
+   hauteur de son voisin décale toute la barre d'en-tête.
+   ⛔ ON NE RÉEMPLOIE PAS `.btn` : cette famille porte son propre `padding`,
+      son `border-radius` et sa hauteur, calibrés pour un corps de page. Posée
+      dans une barre de 14 px elle la fait grandir — et `.btn--principal` est
+      déjà repeint par `.h-cta` trente lignes plus bas, ce qui aurait fait
+      deux définitions concurrentes pour un même bouton.
+   🔴 LE CONTRASTE VIENT DE `--cyan`/`--nuit`, PAS DE `--sect-*`. Les variables
+      de section sont REDÉFINIES par section : le même bouton passait de 4,6:1
+      sur l'accueil à 2,3:1 sur une fiche collectible. C'est la panne écrite
+      trois cents lignes plus bas, à `.h-cta .btn--principal` — on n'allait pas
+      la refabriquer ici.
+   ⚠️ `[aria-current]` reste PLUS SPÉCIFIQUE que ces deux règles : sur
+      `/offre/` elle-même, le bouton reprend la teinte « page courante ». Voulu :
+      un appel à l'action qui insiste sur la page où l'on est déjà est du bruit. */
+/* 🔴 DEUXIÈME ÉCRITURE, ET C'EST UNE MESURE QUI L'A IMPOSÉE. La première
+   peignait le même dégradé plein `--cyan → --cyan-fonce` que
+   `.h-cta .btn--principal`. Rendu sur le serveur réel, l'en-tête servait alors
+   DEUX boutons pleins identiques à 30 px l'un de l'autre : « Tarifs » et
+   « S'inscrire ». ⭐⭐ *Deux appels à l'action de même poids n'en font pas
+   deux : ils en font zéro.* L'inscription est l'action qui compte — les tarifs
+   sont l'étape d'AVANT.
+   ⇒ Contour plutôt que remplissage : « Tarifs » ressort nettement des liens
+   nus (qui n'ont ni bordure ni couleur d'accent) et reste sous « S'inscrire »
+   dans la hiérarchie. La demande de Preda — « un bouton qui ressort du menu » —
+   porte sur le MENU, pas sur la barre entière.
+   ⚠️ `--cyan` EN TEXTE SUR `--bg`, pas l'inverse : c'est le sens qui garde le
+   contraste quand `--sect-*` change de section (la panne écrite à
+   `.h-cta .btn--principal`, trois cents lignes plus bas). */
+nav.main a.nav__cta, .deplie__m a.nav__cta{
+  color:var(--cyan);
+  border:1px solid var(--cyan);
+  font-weight:600}
+nav.main a.nav__cta:hover, nav.main a.nav__cta:focus-visible,
+.deplie__m a.nav__cta:hover, .deplie__m a.nav__cta:focus-visible{
+  color:var(--nuit);
+  background:linear-gradient(100deg,var(--cyan),var(--cyan-fonce));
+  border-color:transparent}
 /* 🔴🔴 `margin-top:var(--s8)` RETIRÉ LE 06/08/2026 — 88 px de vide en bas de
    CHAQUE page, signalés plusieurs fois par Preda.
    ⭐⭐⭐ LA CORRECTION ÉTAIT DÉJÀ ÉCRITE, ET ELLE NE S'APPLIQUAIT PAS.

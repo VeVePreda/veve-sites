@@ -448,8 +448,14 @@ const menuComplet = wikiNav
       //    1040 px, c'est-à-dire sur téléphone.
       //    ⛔ Ce n'est pas une fuite (ces pages redirigent qui n'a pas de
       //    session), c'est une PROMESSE : on proposait une porte fermée.
+      // 🔴 LOT 226 — `bouton` VOYAGE AVEC `membre`, ET POUR LA MÊME RAISON
+      //    QU'AU LOT 123. Ce `.map()` ne recopie que ce qu'on lui nomme : un
+      //    drapeau oublié ici produit un CTA qui ressort sur écran large et
+      //    redevient un lien nu sous 1040 px — c'est-à-dire sur téléphone,
+      //    où ce tiroir est le SEUL menu. « Corrigé sur un site ≠ corrigé »,
+      //    version largeurs d'écran, et ce fichier l'a déjà payé une fois.
       .map((e) => ({ href: e.href === '/' ? localize(lang, '/') : localize(lang, e.href),
-                     label: t(lang, e.cle), membre: e.membre }))
+                     label: t(lang, e.cle), membre: e.membre, bouton: e.bouton }))
       // 🔴 `aUneSession` ET NON `tiers.length > 1` (06/08/2026, demande de Preda).
       // La condition disait « ce site A des comptes », pas « cette personne EN a
       // un ». Elle affichait donc « Mon compte » à des visiteurs qui n'en ont
@@ -978,9 +984,18 @@ const menuComplet = wikiNav
               pas. ⛔ Le cacher du DOM aurait coûté l'inverse : Google ne
               suivrait plus le lien, et un membre au cookie expiré ne verrait
               plus la page pour laquelle il paie. */}
+          {/* 💶 LOT 226 — L'ENTRÉE « TARIFS » RESSORT. Demande de Preda du
+              04/09. ⭐ `bouton` vient du MANIFESTE, pas d'un test sur la clé :
+              écrire ici `e.cle === 'nav.offer'` aurait rendu ce fichier
+              porteur d'une décision commerciale, sur les 15 sites que ce même
+              `Base.astro` sert. Le manifeste décide, le gabarit habille.
+              ⛔ La classe ne change RIEN d'autre : même balise, même place
+              dans l'ordre, même `localize`. Un CTA qui déplace son entrée
+              casse la mémoire de position des gens qui reviennent. */}
           {navManifeste.map((e) => (
             (e.cle !== 'nav.blog' || blogDansCetteLangue) &&
               <a href={e.href === '/' ? localize(lang, '/') : localize(lang, e.href)}
+                 class={e.bouton ? 'nav__cta' : undefined}
                  data-membre={e.membre ? '' : undefined}
                  hidden={e.membre || undefined}>{t(lang, e.cle)}</a>
           ))}
@@ -1439,7 +1454,8 @@ const menuComplet = wikiNav
         fait rougir `test:entete` (« le script précède les règles »). Les
         explications vivent au-dessus de la balise, jamais dedans. */}
     {menuComplet.map((e) => (
-      <a href={e.href} data-membre={e.membre ? '' : undefined} hidden={e.membre || undefined}>{e.label}</a>
+      <a href={e.href} class={e.bouton ? 'nav__cta' : undefined}
+         data-membre={e.membre ? '' : undefined} hidden={e.membre || undefined}>{e.label}</a>
     ))}
   </div>
 {/* ═══════════════════════════════════════════════════════════════════════

@@ -47,6 +47,37 @@ const ds = await dataset();
 // page qui ne montre plus un seul chiffre.
 const MODULES = ['modules', 'extremes', 'price_history', 'alerts', 'wallet_watch'];
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴 LOT 226 — LE CLASSEUR ET MINT HUNTER ARRIVENT ICI, DEPUIS LE MENU
+// ═══════════════════════════════════════════════════════════════════════════
+// Demande de Preda, 04/09 : « classeur et mint hunter ne doivent pas être dans
+// le menu, ils doivent être rangés dans la page Analytics ». Leurs deux entrées
+// quittent `nav:` du manifeste dans le même lot.
+//
+// ⛔⛔ ILS SONT ÉCRITS ICI **AVANT** D'ÊTRE RETIRÉS DU MENU, et pas l'inverse.
+//    Une page produite qui n'a plus aucun lien entrant est une page morte au
+//    sens de `test:pages` — « produite ≠ atteignable », et le dépôt l'a déjà
+//    payé. Couper d'abord, ranger ensuite, aurait laissé une fenêtre où ces
+//    deux pages n'existaient plus pour personne.
+//
+// ⭐ CE NE SONT PAS DES `MODULES`, ET ILS N'Y ENTRENT PAS. La grille du bas
+//   liste ce qu'un PALIER ouvre — des capacités, sans adresse. Ces deux-là
+//   sont des pages où l'on TAPE quelque chose (une adresse de portefeuille, un
+//   identifiant de pièce) et où l'on obtient une réponse. D'où une section à
+//   part, `analytics.apps` (« Chercher vous-même »), et son libellé qui ne
+//   ressemble volontairement pas à `analytics.tools` (« Les outils ») : deux
+//   sections voisines qui portent le même nom, c'est une des deux qu'on ne
+//   modifiera plus jamais par peur de se tromper.
+//
+// ⭐ LES LIBELLÉS SONT DES CLÉS QUI EXISTENT DÉJÀ dans les cinq dictionnaires
+//   (`nav.binder`, `nav.mint` pour le nom ; `binder.desc`, `mint.desc` pour la
+//   ligne). ⛔ Ne pas écrire de texte en clair ici : ce composant sert cinq
+//   langues, et `test:cles` ne dirait le contraire qu'après un build.
+const OUTILS = [
+  { href: '/classeur/',    nom: 'nav.binder', desc: 'binder.desc' },
+  { href: '/mint-hunter/', nom: 'nav.mint',   desc: 'mint.desc' },
+];
+
 // ⭐ LE PALIER OBSERVÉ, pas celui de la porte. Au build il vaut toujours
 // `visitor` — et c'est ce qui rend cette page identique pour Google et pour un
 // visiteur anonyme, donc indexable sans mensonge.
@@ -278,6 +309,32 @@ const unites = (c) => [
               carte occupait la seule ligne qui pouvait porter une information
               qui distingue les sujets. */}
           <span class="etiq" style="color:var(--lock)">{unites(CONTENU[s])}</span>
+        </span>
+      </div>
+    ))}
+  </div>
+
+  {/* ═══ CHERCHER VOUS-MÊME — LOT 226 ═══
+      📄 Le POURQUOI est dans le frontmatter, à `OUTILS`.
+      ⚠️ ON RÉUTILISE `.modules` / `.module`, comme les sujets juste au-dessus.
+      Le lot 214 a déjà écrit pourquoi : inventer une classe de carte pour deux
+      boîtes ajouterait une règle CSS servie sur 3 097 pages, et une grille
+      neuve dont personne n'aurait plafonné les enfants.
+      ⭐ LE LIEN PORTE LE NOM, PAS TOUTE LA CARTE — `.module` n'est pas un
+      `<a>`, et en faire un exigerait une règle qu'aucun des trois thèmes ne
+      porte. Même raison, mot pour mot, que les cartes de sujet.
+      ⭐ Le cadenas est DIT : ces deux pages redirigent un visiteur sans
+      session. Annoncer la porte AVANT le clic vaut mieux qu'une redirection
+      qu'on subit — c'est ce que Preda appelle « pousser vers le compte ». */}
+  <div class="sect-t sect-t--gd"><h2 class="mono-t">{t(lang, 'analytics.apps')}</h2>
+    <span class="etiq">{OUTILS.length}</span></div>
+  <div class="modules">
+    {OUTILS.map((o) => (
+      <div class="module">
+        <span class="module__c">
+          <span class="module__n"><a href={localize(lang, o.href)}>{t(lang, o.nom)}</a></span>
+          <span class="module__d">{t(lang, o.desc)}</span>
+          <span class="etiq" style="color:var(--lock)" data-anonyme>{t(lang, 'analytics.membersOnly')}</span>
         </span>
       </div>
     ))}

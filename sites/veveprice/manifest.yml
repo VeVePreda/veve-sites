@@ -616,17 +616,33 @@ nav:
   # ⚠️ `/alertes/reglages/` N'ENTRE PAS AU MENU, ET C'EST L'ARBITRAGE ② : on
   # vient VOIR le feed ; on règle rarement, et on y arrive depuis le feed.
   - { cle: nav.alerts,    href: /alertes/,    pret: true, membre: true }
-  # 📒 LOT 224 — LE CLASSEUR ENTRE AU MENU, ET DERRIÈRE LE MUR EN MÊME TEMPS.
-  # `membre: true` masque le lien aux anonymes ET les deux routes passent dans
-  # ROUTES_COMPTE : le lien ET la porte, jamais l'un sans l'autre. ⛔ Masquer
-  # le lien sans fermer la route serait un AFFICHAGE, pas une porte.
-  # ⚠️ DEUX ENTRÉES ET PAS UNE, contrairement à `/alertes/reglages/` qui reste
-  # hors menu : ce ne sont pas une page et son réglage, ce sont DEUX produits.
-  # On cherche un portefeuille OU un numéro, jamais l'un depuis l'autre.
-  - { cle: nav.binder,    href: /classeur/,   pret: true, membre: true }
-  - { cle: nav.mint,      href: /mint-hunter/, pret: true, membre: true }
+  # 📒 LOT 224 — LE CLASSEUR ENTRAIT AU MENU. 🔴 LOT 226 — IL EN SORT, AVEC
+  # MINT HUNTER. Demande de Preda du 04/09 : « classeur et mint hunter ne
+  # doivent pas être dans le menu, ils doivent être rangés dans la page
+  # Analytics ». Les deux cartes vivent désormais dans `Analytics.astro`,
+  # section « Chercher vous-même » (`analytics.apps`).
+  #
+  # ⛔⛔ SEUL LE LIEN PART. LES DEUX ROUTES RESTENT DANS `ROUTES_COMPTE`, et
+  #    c'est non négociable : `membre: true` n'était qu'un AFFICHAGE, la porte
+  #    est ailleurs. Retirer l'entrée d'ici ne ferme ni n'ouvre rien — et si
+  #    quelqu'un croyait le contraire, il retirerait la route en même temps.
+  # ⭐⭐ ET IL FALLAIT UN AUTRE CHEMIN AVANT DE COUPER CELUI-CI. Une page
+  #    produite qui n'est plus atteignable est une page morte au sens de
+  #    `test:pages` — même famille que « produite ≠ atteignable ». Les deux
+  #    cartes d'`/analytics/` sont ce chemin, et elles existent AVANT que ces
+  #    deux lignes disparaissent. ⛔ Ne pas remettre ces entrées « pour être
+  #    sûr » : deux chemins vers la même page, c'est deux libellés qui
+  #    divergeront.
   - { cle: nav.vault,     href: /vault/,      pret: false }   # ⏳ demande un compte
-  - { cle: nav.offer,     href: /offre/,      pret: true  }
+  # 💶 LOT 226 — « TARIFS », ET C'EST UN BOUTON. Preda, 04/09 : « il faudra
+  # renommer Les Paliers en Tarifs avec un bouton qui ressort du menu ».
+  # ⭐ `bouton: true` est un drapeau de PRÉSENTATION, lu par `Base.astro` : il
+  #   ne change ni l'adresse, ni la porte, ni l'ordre. Une seule entrée peut le
+  #   porter — un menu où tout ressort est un menu où rien ne ressort.
+  # ⛔ Le libellé N'EST PAS ÉCRIT ICI : `nav.offer` vit dans les cinq
+  #   dictionnaires. Écrire « Tarifs » dans ce fichier le figerait en français
+  #   sur les cinq langues — c'est la panne que `nav:` a été créé pour éviter.
+  - { cle: nav.offer,     href: /offre/,      pret: true, bouton: true }
 
 editorial:
   # ═══════════════════════════════════════════════════════════════════════════
