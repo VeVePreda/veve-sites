@@ -1266,6 +1266,42 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
    Market.astro et CollectionPage.astro. Le bloc en aurait hérité
    `display:inline-grid; width:16px; height:16px; background:var(--down)`, et
    personne ne l'aurait vu avant une capture. */
+/* ═══ .cl-* — LE CLASSEUR ET MINT HUNTER, DEUX PAGES JUMELLES ═══════════════
+   🔴🔴 LOT 225 — CES RÈGLES VIVAIENT DANS LE `<style>` DE `Classeur.astro`, ET
+   UN COMMENTAIRE DE `MintHunter.astro` AFFIRMAIT QU'ELLES ÉTAIENT PARTAGÉES.
+   Elles ne l'étaient pas : Astro PORTÉE ses `<style>` de composant, donc les
+   règles ne s'appliquaient qu'aux éléments de `Classeur.astro`. Mint Hunter
+   portait les mêmes NOMS de classe et AUCUNE règle.
+   🔬 MESURÉ LE 04/09 SUR LA PAGE SERVIE, à 375 px : `.cl-w` y calculait
+   `overflow-x: visible` (contre `auto` sur le classeur), la table faisait
+   450 px dans un cadre de 343, et `main.wrap` — qui est en `overflow-x: clip`
+   — avalait le dépassement SANS BARRE DE DÉFILEMENT. La colonne « Listed »
+   occupait x=402→466 pour une fenêtre de 375 : invisible ET inatteignable.
+   ⭐⭐ LA PAGE NE DÉFILAIT MÊME PAS : `scrollWidth === clientWidth === 375`.
+   Aucun symptôme visible — juste une colonne absente. C'est pour ça qu'aucune
+   capture rapide ne l'aurait montrée, et qu'aucun banc ne l'a vue.
+   ⛔ NE PAS LES RAMENER DANS UN COMPOSANT. Une famille employée par DEUX
+   gabarits vit dans le thème — c'est déjà la règle de `.veille` juste au-dessus.
+   ⚠️ `test:opacite` compte le CSS mort : il voyait `.cl-*` employées des deux
+   côtés et se taisait. Un nom présent des deux côtés ne dit RIEN de la règle
+   qui l'atteint — *« là ? » n'est pas « gagne ? », qui n'est pas « visible ? »*. */
+.cl-f{display:flex;gap:var(--s3);align-items:flex-end;flex-wrap:wrap;margin:0 0 var(--s4)}
+.cl-l{display:block;font-size:12.5px;color:var(--text-2);margin-bottom:4px}
+.cl-i{flex:1 1 22rem;min-width:0;font-family:var(--tech);font-size:13px; padding:9px var(--s3);border:1px solid var(--rule);border-radius:var(--r-md); background:var(--surface);color:var(--text)}
+.cl-b{flex:0 0 auto;padding:9px var(--s4);border:1px solid var(--rule); border-radius:var(--r-md);background:var(--surface-2);color:var(--text); font-weight:600;cursor:pointer}
+/* ⚠️ LE TABLEAU DOIT DÉFILER DANS SON PROPRE CADRE — et `main.wrap` étant en
+   `overflow-x: clip`, sans `auto` ici la colonne de droite n'est pas « hors
+   écran » : elle est INATTEIGNABLE. */
+.cl-w{overflow-x:auto;border:1px solid var(--rule);border-radius:var(--r-md)}
+.cl-t{width:100%;border-collapse:collapse;font-size:13px}
+.cl-t th,.cl-t td{padding:8px var(--s3);text-align:left;border-bottom:1px solid var(--rule)}
+.cl-t th{font-size:12px;color:var(--text-2);font-weight:600}
+.cl-t tr:last-child td{border-bottom:0}
+/* ⚠️ LA 2ᵉ COLONNE, ET LES DEUX PAGES N'Y METTENT PAS LA MÊME CHOSE : le
+   classeur y met un NUMÉRO d'édition (d'où les chiffres tabulaires, qui les
+   alignent), Mint Hunter une ADRESSE — qui porte déjà `.mh-a`. La règle est
+   juste dans les deux cas ; elle est écrite ici pour le classeur. */
+.cl-t td:nth-child(2){font-family:var(--tech);font-variant-numeric:tabular-nums}
 .veille{display:grid;gap:var(--s2)}
 .veille__b{display:inline-flex;align-items:center;justify-content:center;gap:7px; min-height:var(--tap-min);padding:0 13px;border-radius:var(--r-full); border:1px solid var(--rule-2);background:var(--surface);color:var(--text-2); font-family:var(--geo);font-size:var(--t-sm);font-weight:500;cursor:pointer; transition:all var(--d-fast)}
 .veille__b:hover{border-color:var(--sect-a);color:var(--text)}

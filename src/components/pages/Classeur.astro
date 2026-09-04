@@ -84,22 +84,15 @@ const { lang } = Astro.props;
 <script defer src={pilote.href}></script>
 
 <style>
-  .cl-f { display: flex; gap: var(--s3); align-items: flex-end; flex-wrap: wrap;
-          margin: 0 0 var(--s4); }
-  .cl-l { display: block; font-size: 12.5px; color: var(--text-2); margin-bottom: 4px; }
-  .cl-i { flex: 1 1 22rem; min-width: 0; font-family: var(--tech); font-size: 13px;
-          padding: 9px var(--s3); border: 1px solid var(--rule); border-radius: var(--r-md);
-          background: var(--surface); color: var(--text); }
-  .cl-b { flex: 0 0 auto; padding: 9px var(--s4); border: 1px solid var(--rule);
-          border-radius: var(--r-md); background: var(--surface-2); color: var(--text);
-          font-weight: 600; cursor: pointer; }
-  /* ⚠️ LE TABLEAU DOIT DÉFILER DANS SON PROPRE CADRE. Un portefeuille peut
-     tenir plusieurs milliers de lignes : sans ce conteneur, c'est la PAGE qui
-     défile horizontalement à 390 px, et la maquette de Preda ne le fait pas. */
-  .cl-w { overflow-x: auto; border: 1px solid var(--rule); border-radius: var(--r-md); }
-  .cl-t { width: 100%; border-collapse: collapse; font-size: 13px; }
-  .cl-t th, .cl-t td { padding: 8px var(--s3); text-align: left; border-bottom: 1px solid var(--rule); }
-  .cl-t th { font-size: 12px; color: var(--text-2); font-weight: 600; }
-  .cl-t td:nth-child(2) { font-family: var(--tech); font-variant-numeric: tabular-nums; }
-  .cl-t tr:last-child td { border-bottom: 0; }
+  /* 🔴🔴 LOT 225 — LES RÈGLES `.cl-*` ONT DÉMÉNAGÉ DANS `themes/vitrine/theme.css`.
+     Elles étaient ici, dans un `<style>` de composant — donc PORTÉES à ce
+     fichier — pendant que `MintHunter.astro` portait un commentaire affirmant
+     « les classes `.cl-*` sont partagées avec Classeur.astro, et c'est voulu ».
+     L'intention était écrite ; le mécanisme n'existait pas. Mint Hunter avait
+     les NOMS et aucune règle : à 375 px, sa colonne « Listed » sortait du cadre
+     et `main.wrap` (`overflow-x: clip`) l'avalait sans barre de défilement.
+     ⛔ NE PAS LES RAPATRIER ICI. Une famille employée par deux gabarits vit
+        dans le thème — comme `.veille`. Le détail de la mesure y est écrit.
+     ⭐ Ce `<style>` ne doit plus contenir que ce qui est PROPRE au classeur.
+        Aujourd'hui : rien. Un bloc vide se lit mieux qu'un bloc qui ment. */
 </style>

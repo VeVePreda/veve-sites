@@ -140,6 +140,34 @@ export const PRIVEES = [
   //   chemin commence par /alertes/ » ne couvre PAS `/fr/alertes/`.
   { chemin: '/alertes/', attendu: 'no-store', quoi: 'le feed des alertes du membre' },
   { chemin: '/alertes/reglages/', attendu: 'no-store', quoi: 'les configurations d\'alertes du membre' },
+  // 📒🔴🔴 LOT 225 — LES DEUX PAGES DU CLASSEUR (lot 224). Le lot qui les a
+  //   livrées ne les a PAS déclarées ici, et son jalon affirmait pourtant que
+  //   « les 8 endroits d'une route privée neuve » avaient tous été traversés.
+  //   C'est `test:cache` § 1 qui l'a dit, en CI, dans le run que je prenais
+  //   pour « à rejouer » : *4 route(s) SANS COUVERTURE*.
+  // 🔴🔴🔴 ET CE N'EST PAS RESTÉ THÉORIQUE — MESURÉ EN PRODUCTION LE 04/09 À
+  //   16 h 30 UTC, exactement le défaut du 24/08 sur `/acces/` :
+  //     `/classeur/`     → **200**, `cf-cache-status: HIT`, `age: 933`
+  //     `/mint-hunter/`  → **200**, `cf-cache-status: HIT`
+  //   …en ANONYME, alors que la réponse dit `private, no-store` et que la page
+  //   rendait **302** deux heures plus tôt. Le bord avait mis de côté la
+  //   version rendue pour un MEMBRE (j'avais ouvert la page connecté pour la
+  //   contrôler) et la servait à qui passait.
+  // ⭐ CE QUI NE FUIT PAS, ET IL FAUT LE DIRE AUSSI : aucun inventaire. Les
+  //   données arrivent de `/api/classeur/*`, qui rend **401** sans session, et
+  //   le gabarit porte les DEUX états (`connexion` et `deconnexion`) qu'un
+  //   pilote bascule chez le visiteur. Ce qui est franchi, c'est la PORTE —
+  //   le 302 — pas la donnée. ⛔ Ne pas raconter l'un pour l'autre.
+  // ⇒ LE NEUVIÈME ENDROIT EST CLOUDFLARE, ET IL N'EST TOUJOURS PAS DANS CE
+  //   DÉPÔT : ce banc le dira, et il le dira APRÈS le déploiement.
+  { chemin: '/classeur/', attendu: 'no-store', quoi: 'le classeur du membre' },
+  { chemin: '/mint-hunter/', attendu: 'no-store', quoi: 'Mint Hunter, réservé aux membres' },
+  // ⚠️ DEUX LANGUES DIFFÉRENTES, ET C'EST LA MÊME RAISON QU'AUX TROIS FAMILLES
+  //   PLUS BAS : si les deux pointaient vers `/fr/…`, « j'ai testé une langue »
+  //   se lirait « les langues sont couvertes ». Mesurées le 04/09 : `/es/classeur/`
+  //   et `/de/mint-hunter/` rendent toutes deux **302 + `private, no-store`**.
+  { chemin: '/es/classeur/', attendu: 'no-store', quoi: 'le classeur, préfixe de langue' },
+  { chemin: '/de/mint-hunter/', attendu: 'no-store', quoi: 'Mint Hunter, préfixe de langue' },
   // ⭐ Ces deux-là rendent 200, pas 302 — elles sont donc les plus exposées :
   //   une réponse 200 est ce qu'un cache aime mettre de côté, et elles lisent
   //   `Accept-Language`, donc elles diffèrent d'un visiteur à l'autre.
@@ -252,6 +280,15 @@ export const FAMILLES_COMPTE = [
   //   vivante pour rien.
   { source: 'pages/alertes/', couvertPar: '/alertes/' },
   { source: 'pages/api/', couvertPar: '/api/sante' },
+  // 📒 LOT 225 — LES QUATRE FAMILLES QUE LE LOT 224 A OUBLIÉES ICI.
+  // ⛔ PAS DE FAMILLE COMMUNE `pages/` NI DE MOTIF ÉLARGI : le banc rattache
+  //   par PRÉFIXE, et « réparer » ce rouge en élargissant aurait rendu muette
+  //   la seule mesure qui ait attrapé le défaut. C'est écrit deux fois dans ce
+  //   fichier ; ça méritait de l'être une troisième.
+  { source: 'pages/classeur/', couvertPar: '/classeur/' },
+  { source: 'pages/mint-hunter/', couvertPar: '/mint-hunter/' },
+  { source: 'pages/[locale]/classeur/', couvertPar: '/es/classeur/' },
+  { source: 'pages/[locale]/mint-hunter/', couvertPar: '/de/mint-hunter/' },
   // ⭐ Les trois familles que la première version de ce fichier avait oubliées.
   //   Chacune est réclamée par une adresse dans une langue DIFFÉRENTE : si les
   //   trois pointaient vers `/fr/…`, on ne saurait rien des trois autres

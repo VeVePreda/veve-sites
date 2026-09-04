@@ -82,10 +82,16 @@ const { lang } = Astro.props;
 <script defer src={pilote.href}></script>
 
 <style>
-  /* ⚠️ LES CLASSES `.cl-*` SONT PARTAGÉES AVEC `Classeur.astro`, ET C'EST
-     VOULU : deux pages jumelles, un seul jeu de règles. ⛔ Ne pas les
-     renommer d'un côté seulement — `test:opacite` compte le CSS mort, il
-     verrait la moitié orpheline, pas la moitié cassée. */
+  /* 🔴🔴 LOT 225 — CE COMMENTAIRE DISAIT « LES CLASSES `.cl-*` SONT PARTAGÉES
+     AVEC `Classeur.astro`, ET C'EST VOULU ». C'était vrai des NOMS et faux des
+     RÈGLES : elles vivaient dans le `<style>` de l'autre composant, qu'Astro
+     porte à son seul fichier. Cette page avait donc les classes et AUCUN style
+     — mesuré le 04/09 sur la page servie, à 375 px : colonne « Listed » à
+     x=402→466 pour une fenêtre de 375, avalée par `main.wrap` en
+     `overflow-x: clip`, sans barre de défilement et sans symptôme.
+     ⇒ Elles vivent maintenant dans `themes/vitrine/theme.css`, où le partage
+       EXISTE. ⛔ Ne pas les redéclarer ici : ce serait refaire la panne à
+       l'envers. `test:familles` (nouveau) tient cet invariant. */
   .mh-vide { color: var(--muted); font-style: italic; }
   .mh-a { font-family: var(--tech); font-size: 12px; word-break: break-all; }
 </style>

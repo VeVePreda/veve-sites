@@ -6,8 +6,27 @@
 //     npm run test:classeur          (aucune dépendance au réseau réel)
 //
 // ⭐⭐ IL SERT SON PROPRE FICHIER SUR UN PORT LOCAL, et c'est ce qui le rend
-// jouable dans le Dockerfile (`WAREHOUSE_OFFLINE` n'est PAS posé ici : on veut
-// exercer le chemin `fetch` + gunzip, celui de la production, pas le repli).
+// jouable dans le Dockerfile : on veut exercer le chemin `fetch` + gunzip,
+// celui de la production, pas le repli.
+//
+// 🔴🔴 LOT 225 — CE BANC A PLANTÉ EN CI, ET C'EST CET EN-TÊTE QUI L'AVAIT
+// ANNONCÉ SANS LE SAVOIR. Il écrivait « `WAREHOUSE_OFFLINE` n'est PAS posé
+// ici ». C'était une INTENTION, jamais une mesure — et elle était fausse :
+//   · `tests.yml` pose `WAREHOUSE_OFFLINE: 1` sur TOUT le job, les 49 bancs
+//     compris ;
+//   · `engine/data/warehouse.mjs` l. 13 le lit AU CHARGEMENT DU MODULE
+//     (`const OFFLINE = process.env.WAREHOUSE_OFFLINE === '1'`) ;
+//   · `streamLedger` sort alors par le repli échantillon SANS JAMAIS REGARDER
+//     `LEDGER_URL` — le serveur local de ce fichier n'a reçu aucune requête.
+// ⇒ 0 ligne lue, aucun index écrit, et le § 1 tombait sur un `readdirSync`
+//   d'un dossier jamais créé : un `ENOENT` nu, à la place d'un verdict.
+// ⭐⭐ LA LEÇON N'EST PAS LA VARIABLE, C'EST L'ÉTAT : ce banc ne passait que
+// dans le bac à sable, c'est-à-dire dans le SEUL endroit où cette variable est
+// absente — donc dans le seul état où il pouvait marcher, et c'est là que je
+// l'ai jugé. *Un banc se juge aussi sur l'ÉTAT dans lequel on le joue.*
+// ⛔ ET UN COMMENTAIRE QUI AFFIRME UN ÉTAT EST UNE PRÉTENTION, PAS UNE
+//   DOCUMENTATION : trois commentaires du lot 224 affirmaient un mécanisme,
+//   deux étaient faux (celui-ci, et « les classes `.cl-*` sont partagées »).
 // ⛔ NE PAS le brancher sur la vraie release : 264 Mo à chaque build, et un
 // banc qui dépend d'un fichier qu'on ne maîtrise pas devient rouge le jour où
 // l'amont bouge — pour une raison qui n'est pas la sienne.
@@ -21,6 +40,17 @@ import { gzipSync } from 'node:zlib';
 import { mkdtempSync, readFileSync, readdirSync, existsSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+
+// 🔴🔴 ON EFFACE LA VARIABLE AVANT LE PREMIER IMPORT DE `warehouse.mjs`.
+// ⭐ C'est possible UNIQUEMENT parce que `classeur.mjs` est chargé plus bas en
+//   `await import(...)` : un `import` statique en tête de fichier serait résolu
+//   AVANT cette ligne, `OFFLINE` serait déjà figé à `true`, et ce geste
+//   n'aurait aucun effet — en ayant l'air d'en avoir un.
+// ⛔ Ne pas le remplacer par `process.env.WAREHOUSE_OFFLINE = '0'` « pour être
+//   explicite » : la comparaison est `=== '1'`, les deux marchent, mais
+//   `delete` dit ce qu'on veut — que ce banc n'a pas d'avis sur l'entrepôt,
+//   pas qu'il en est en ligne.
+delete process.env.WAREHOUSE_OFFLINE;
 
 let echecs = 0;
 const dit = (ok, quoi, detail = '') => {
@@ -78,6 +108,28 @@ const r = await ecrire(new Set([U1, U2]));
 serveur.close();
 
 console.log('\n📒 LE CLASSEUR\n');
+
+// ── §0 — LE BANC A-T-IL SEULEMENT LU QUELQUE CHOSE ? ────────────────────────
+// 🔴🔴 CE § EXISTE PARCE QUE SON ABSENCE A COÛTÉ UN LOT. Sans lui, un `ecrire()`
+// qui ne lit RIEN — repli hors ligne, serveur muet, `LEDGER_URL` ignorée — ne
+// produit aucun dossier, et le § 1 part en `ENOENT` sur `wallets/`. Un plantage
+// de Node n'est pas un verdict : il n'attribue rien, il ne se compte pas dans
+// `echecs`, et il fait accuser le § 1 d'un défaut qui est en amont de lui.
+// ⭐⭐ *Le premier terme d'un banc doit être « mon instrument a-t-il mordu ? ».*
+// ⛔ Ne pas le fondre dans le § 1 : c'est justement parce qu'il est SÉPARÉ
+//    qu'il nomme la panne au bon étage.
+console.log('§0 — le grand livre d\'essai a bien été lu');
+dit(r.off !== true, 'le classeur ne s\'est pas éteint tout seul',
+    r.off ? `motif « ${r.motif} » — LEDGER_URL a-t-elle été ignorée ? (WAREHOUSE_OFFLINE)` : 'écrit');
+dit(r.lues === 6, 'les 6 lignes du jeu d\'essai sont arrivées jusqu\'au module',
+    `${r.lues} ligne(s) lue(s) au lieu de 6`);
+// ⛔ SI L'INSTRUMENT N'A PAS MORDU, ON S'ARRÊTE ICI. Poursuivre ferait rendre
+//    aux §§ 1-6 des verdicts sur un dossier vide : ils seraient rouges, mais
+//    pour la mauvaise raison, et on corrigerait le mauvais fichier.
+if (r.off === true || r.lues !== 6) {
+  console.log('\n❌ test:classeur — l\'instrument n\'a rien lu, les §§ suivants ne sont pas jouables.');
+  process.exit(1);
+}
 
 // ── §1 — LE DÉCOUPAGE EST SUR `h[2:4]`, ET IL SÉPARE CE QU'IL DOIT ──────────
 // 🔴 LE § LE PLUS IMPORTANT DU FICHIER : c'est la faute qui a été commise dans
