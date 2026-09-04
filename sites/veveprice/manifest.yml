@@ -616,6 +616,15 @@ nav:
   # ⚠️ `/alertes/reglages/` N'ENTRE PAS AU MENU, ET C'EST L'ARBITRAGE ② : on
   # vient VOIR le feed ; on règle rarement, et on y arrive depuis le feed.
   - { cle: nav.alerts,    href: /alertes/,    pret: true, membre: true }
+  # 📒 LOT 224 — LE CLASSEUR ENTRE AU MENU, ET DERRIÈRE LE MUR EN MÊME TEMPS.
+  # `membre: true` masque le lien aux anonymes ET les deux routes passent dans
+  # ROUTES_COMPTE : le lien ET la porte, jamais l'un sans l'autre. ⛔ Masquer
+  # le lien sans fermer la route serait un AFFICHAGE, pas une porte.
+  # ⚠️ DEUX ENTRÉES ET PAS UNE, contrairement à `/alertes/reglages/` qui reste
+  # hors menu : ce ne sont pas une page et son réglage, ce sont DEUX produits.
+  # On cherche un portefeuille OU un numéro, jamais l'un depuis l'autre.
+  - { cle: nav.binder,    href: /classeur/,   pret: true, membre: true }
+  - { cle: nav.mint,      href: /mint-hunter/, pret: true, membre: true }
   - { cle: nav.vault,     href: /vault/,      pret: false }   # ⏳ demande un compte
   - { cle: nav.offer,     href: /offre/,      pret: true  }
 

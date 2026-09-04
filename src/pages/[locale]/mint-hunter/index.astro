@@ -1,0 +1,36 @@
+---
+// ⚠️ VeVePreda/veve-sites — src/pages/[locale]/mint-hunter/index.astro  (NEUF — lot 224)
+// 📒 La variante par langue. Même mur, mêmes raisons : tout est dit dans
+// `src/pages/mint-hunter/index.astro`, et ce fichier ne le redit pas.
+//
+// ⛔⛔ `getStaticPaths()` EST OBLIGATOIRE ET IL REND UNE LISTE VIDE EN STATIC.
+// Astro : « GetStaticPathsRequired » sur toute route dynamique pré-générée.
+// ⭐ Et la réponse honnête EST « aucun » : en mode static il n'y a pas de
+// serveur, donc pas de session — une page réservée n'y a pas de sens.
+// ⛔ NE PAS y remettre les langues « pour que ça marche aussi en static » : ça
+// écrirait dans `dist/` un fichier par langue répondant 200 à tout le monde,
+// c'est-à-dire exactement la porte qu'on vient de poser.
+// ⭐⭐ ET ELLE RESTE OBLIGATOIRE MÊME EN RENDANT ZÉRO PAGE (`active: [en]`) :
+// c'est la panne du lot 128. Le jour où une langue redevient active, cette
+// route existe déjà et elle est fermée.
+export const prerender = true;
+
+import MintHunter from '../../../components/pages/MintHunter.astro';
+import { connecte } from '../../../../engine/lib/access.mjs';
+
+export function getStaticPaths() {
+  // ⭐ En mode server cette fonction n'est pas appelée ; en static elle rend
+  // vide. Une seule forme, deux modes, aucune branche à maintenir.
+  return [];
+}
+
+const lang = Astro.params.locale;
+
+if (!connecte(Astro.locals)) {
+  return Astro.redirect(`/connexion/?suite=%2F${encodeURIComponent(lang)}%2Fmint-hunter%2F`, 302);
+}
+
+Astro.response.headers.set('cache-control', 'private, no-store');
+Astro.response.headers.set('vary', 'cookie');
+---
+<MintHunter lang={lang} />

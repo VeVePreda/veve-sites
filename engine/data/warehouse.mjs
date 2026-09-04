@@ -238,6 +238,60 @@ const SOURCES = {
     prev: base('analytics-derived-prev', 'meta_ledger.csv'),
     sample: 'meta_ledger.csv',
   },
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // 📒 LE GRAND LIVRE COMPLET — lot 224, 04/09/2026
+  // ════════════════════════════════════════════════════════════════════════════
+  // Écrit par `step_ledger()` de `scraper/ledger_derived.py` (jetonveve) et
+  // publié par le GLOB `gh release upload analytics-derived derived/*` — il n'y
+  // a donc AUCUN workflow à ajouter en amont, et c'est mesuré, pas supposé.
+  //
+  // Schéma relevé sur le fichier PUBLIÉ le 04/09, sur les 12 466 996 lignes,
+  // pas sur un échantillon : `veve_uuid,edition,holder,listed`, 4 colonnes sur
+  // 100 % des lignes, **déjà trié par `(veve_uuid, edition)`** — 0 rupture.
+  // C'est ce tri qui autorise l'écriture séquentielle de `classeur.mjs` : le
+  // perdre ferait rouvrir des poignées déjà fermées, EN SILENCE. ⚠️ Le banc
+  // `test:classeur` §1 le vérifie à chaque build ; ne pas l'y retirer.
+  //
+  // 🔴🔴 `holder` VAUT LITTÉRALEMENT DEUX GUILLEMETS QUAND LA PIÈCE N'EST
+  // DÉTENUE PAR PERSONNE — la chaîne `""`, longueur 2, PAS la chaîne vide.
+  // Mesuré le 04/09 : le champ ne prend QUE deux longueurs sur 12 466 996
+  // lignes, 42 (une adresse) ou 2 (ces guillemets), 1 825 547 fois, soit
+  // 14,64 %. `split(',')` ne dé-quote pas, donc :
+  //     ⛔ `!holder` → FAUX          ⛔ `holder === ''` → FAUX
+  //     ✅ `holder === '""'` → VRAI
+  // Ces deux tests ont été écrits et ont rendu 0 — deux tours de suite, par
+  // deux personnes différentes. ⭐⭐ *Un champ « vide » se mesure par la
+  // DISTRIBUTION de ses valeurs, jamais par le test qu'on croit juste.*
+  // ⇒ la constante `NON_DETENUE` de `engine/lib/classeur.mjs` est la SEULE
+  // définition de ce vide dans le dépôt. Deux divergent un jour.
+  //
+  // 🧮 ET CE VIDE EST UN STATUT, PAS UNE ABSENCE : 1 825 547 = burned
+  // 1 393 823 + stock 431 723 au `meta_ledger`, à UNE unité près sur 1,8
+  // million. ⚠️ Mais l'identité dit ce que le champ VAUT, jamais ce qu'il
+  // DISTINGUE : brûlée contre stock n'est PAS reconstituable ici, et
+  // `ledger_statuts.csv` n'a que des totaux. ⇒ arbitrage Preda du 04/09 :
+  // affichées, INDISTINCTES, sous « non détenue ». ⛔ Ne pas rouvrir sans un
+  // SECOND fichier en amont.
+  //
+  // ⛔ PAS DE `prev`, ET C'EST DÉLIBÉRÉ. `analytics-derived-prev` existe (les
+  // six dérivés au-dessus s'en servent), mais ce fichier-ci pèse 264 Mo : un
+  // repli le reteléchargerait intégralement après un premier échec, doublant
+  // le coût du build pour un classeur qui n'est pas le socle du site.
+  // ⭐ `classeur.mjs` traite l'absence comme `ventes.mjs` traite la sienne :
+  // le classeur n'est pas écrit, les deux pages le disent, le build vit.
+  //
+  // ⛔ PAS DE `sample` NON PLUS, ET C'EST LA MÊME RAISON QUE `omiUsd` À
+  // L'ENVERS. Hors ligne, il n'y a pas de grand livre à inventer : un
+  // échantillon ferait juger aux bancs une condition qui n'existe pas en
+  // production. ⚠️ Le champ est déclaré (chaîne valide) et le fichier n'existe
+  // pas — `existsSync` rend faux et la lecture rend 0 proprement, là où
+  // `undefined` ferait lever un TypeError à `join()` qui accuserait le
+  // chargeur d'un défaut qui n'est pas le sien.
+  ledger: {
+    url: process.env.LEDGER_URL || base('analytics-derived', 'ledger_full.csv.gz'),
+    sample: 'ledger_full.csv',
+  },
 };
 
 // ===========================================================================
@@ -491,7 +545,33 @@ import { createReadStream } from 'node:fs';
 import { Readable } from 'node:stream';
 import { createInterface } from 'node:readline';
 
-async function consumeStream(stream, onRow) {
+// ⭐ L'INDEX DES COLONNES DES PRIX — sorti du corps de `consumeStream` au lot
+// 224, sans changer une virgule de ce qu'il calcule. Il y était ÉCRIT EN DUR,
+// ce qui rendait la fonction inutilisable pour toute autre source : le grand
+// livre n'a ni `ts`, ni `floor`, ni `listings`, et serait sorti avec quatre
+// `-1` sans qu'une seule erreur ne se produise.
+// ⚠️ Le défaut par défaut : `consumeStream` appelé sans `faireIdx` se comporte
+// EXACTEMENT comme avant. C'est ce qui rend ce changement sûr pour les prix,
+// qui sont, eux, le socle du site.
+const IDX_PRIX = (h) => ({
+  uuid: h.indexOf('veve_uuid') >= 0 ? h.indexOf('veve_uuid') : h.indexOf('uuid'),
+  ts: h.indexOf('ts_utc') >= 0 ? h.indexOf('ts_utc') : h.indexOf('ts'),
+  floor: h.indexOf('floor'),
+  listings: h.indexOf('listings'),
+});
+
+// 📒 L'index du grand livre. ⚠️ Repérage par NOM, jamais par position —
+// règle dure du projet, payée par un montant affiché « 15636,0 % » le jour où
+// une colonne s'était insérée. Quatre colonnes seulement, donc quatre
+// occasions de la commettre, mais la règle ne dépend pas du nombre.
+const IDX_LEDGER = (h) => ({
+  uuid: h.indexOf('veve_uuid'),
+  edition: h.indexOf('edition'),
+  holder: h.indexOf('holder'),
+  listed: h.indexOf('listed'),
+});
+
+async function consumeStream(stream, onRow, faireIdx = IDX_PRIX) {
   const rl = createInterface({ input: stream, crlfDelay: Infinity });
   let idx = null;
   let n = 0;
@@ -499,13 +579,7 @@ async function consumeStream(stream, onRow) {
     if (!line) continue;
     const cols = line.split(',');
     if (idx === null) {
-      const h = cols.map((c) => c.trim());
-      idx = {
-        uuid: h.indexOf('veve_uuid') >= 0 ? h.indexOf('veve_uuid') : h.indexOf('uuid'),
-        ts: h.indexOf('ts_utc') >= 0 ? h.indexOf('ts_utc') : h.indexOf('ts'),
-        floor: h.indexOf('floor'),
-        listings: h.indexOf('listings'),
-      };
+      idx = faireIdx(cols.map((c) => c.trim()));
       continue;
     }
     onRow(cols, idx);
@@ -552,6 +626,57 @@ export async function streamPrices(onRow) {
     return n;
   }
   console.warn('[entrepot] prix : aucune source disponible');
+  return 0;
+}
+
+// 📒 LE GRAND LIVRE, LU EN FLUX — lot 224
+// ⭐ MÊME DISPOSITIF QUE `streamPrices`, ET C'EST TOUT L'INTÉRÊT : 264 Mo ne
+// tiennent pas plus en mémoire que les prix, et le remède est déjà écrit et
+// éprouvé juste au-dessus. On l'appelle, on ne le réinvente pas.
+//
+// ⛔ IL N'A NI REPLI NI ÉCHANTILLON, contrairement à `streamPrices`, et les
+// deux raisons sont dans le bloc de `SOURCES.ledger`. Conséquence directe :
+// **ce flux rend 0 au lieu de lever**, dans les trois cas où il n'a rien à
+// lire (hors ligne, source absente, source illisible). C'est l'appelant qui
+// décide ce que « 0 » veut dire — et `classeur.mjs` le dit à voix haute.
+//
+// 🔴 POURQUOI PAS `throw` COMME `streamPrices` LE FAIT POUR LES PRIX. Les prix
+// sont le socle : un site sans prix n'est pas ce site, et l'interruption est
+// la bonne réponse. Le classeur est un ajout de plus, derrière une porte
+// membre : interrompre le déploiement des 9 354 fiches publiques parce qu'une
+// release de 264 Mo a mis trop longtemps serait échanger un service qui marche
+// contre un service qui n'existait pas hier.
+// ⚠️ ET LE SILENCE N'EST PAS LE PRIX À PAYER POUR ÇA : l'échec CRIE ici
+// (`console.warn` + annotation GitHub), exactement comme `chargerFacultatif`.
+export async function streamLedger(onRow) {
+  const src = SOURCES.ledger;
+  if (!OFFLINE) {
+    try {
+      const res = await fetch(src.url, { redirect: 'follow' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      let stream = Readable.fromWeb(res.body);
+      if (src.url.endsWith('.gz')) stream = stream.pipe(createGunzip());
+      const n = await consumeStream(stream, onRow, IDX_LEDGER);
+      console.log(`[entrepot] grand livre : ${n} lignes lues EN FLUX depuis ${src.url}`);
+      return n;
+    } catch (e) {
+      console.warn(`[entrepot] grand livre : echec ${src.url} (${e.message}) — le classeur ne sera pas ecrit.`);
+      console.warn('::warning title=Grand livre injoignable::Le classeur et Mint Hunter repondront « indisponible ».');
+      return 0;
+    }
+  }
+  // ⚠️ HORS LIGNE, IL N'Y A PAS DE GRAND LIVRE, ET C'EST UN ÉTAT NORMAL, PAS
+  // UNE PANNE. `SOURCES.ledger.sample` désigne un fichier qui N'EXISTE PAS
+  // exprès (voir son bloc) : `existsSync` rend faux et on sort à 0 sans bruit
+  // d'alarme. C'est la même soupape que `reserve.mjs` et `ventes.mjs`, et
+  // c'est ce qui laisse le build du Dockerfile (`WAREHOUSE_OFFLINE=1`) vert.
+  const p = join(SAMPLE_DIR, src.sample);
+  if (existsSync(p)) {
+    const n = await consumeStream(createReadStream(p), onRow, IDX_LEDGER);
+    console.log(`[entrepot] grand livre : ECHANTILLON local (${n} lignes, en flux)`);
+    return n;
+  }
+  console.log('[entrepot] grand livre : HORS LIGNE et sans echantillon — 0 ligne, etat attendu.');
   return 0;
 }
 

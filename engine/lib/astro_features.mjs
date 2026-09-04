@@ -215,6 +215,18 @@ const ZONES = [
   { nom: 'comptes', actif: comptesActifs,
     prefixes: ['/acces/', '/inscription/', '/compte/', '/connexion/', '/favoris/', '/dashboard/',
                '/alertes/', '/alertes/reglages/',
+               // 📒🔔 LOT 224 — `/classeur/` ET `/mint-hunter/`.
+               // ⭐⭐ CE FICHIER EST EN RETARD D'UN LOT UNE FOIS SUR DEUX (44,
+               // 104, 157-B, 215-B) : une route privée neuve déclare son
+               // préfixe ici, sinon vevewiki sert un TALON 200 vers une page
+               // qui n'existe pas chez lui — mesuré à 418 o pour `/favoris/`
+               // et 430 o pour `/dashboard/` le 11/08. Deux pages fantômes de
+               // plus qui envoient un visiteur nulle part, sur un site dont il
+               // est GELÉ qu'il n'aura jamais d'espace membre.
+               // ⭐ Le garde-fou d'origine tient : ces pages ne sont effacées
+               // QUE parce qu'elles émettent un TALON. Si l'une devenait une
+               // vraie page, l'intégration refuserait d'y toucher et le dirait.
+               '/classeur/', '/mint-hunter/',
                '/analytics/',
                '/analytics/market/', '/analytics/catalogue/',
                '/analytics/collections/', '/analytics/chain/'] },

@@ -41,6 +41,8 @@ import { jourISO } from './vitrine.mjs';   // 🔴 LOT 113 — JJ/MM/AAAA, jamai
 // interdit une seconde construction du jeu de données, précisément pour ça.
 import * as reserve from './reserve.mjs';
 import * as ventes from './ventes.mjs';
+import * as classeur from './classeur.mjs';
+import { comptesActifs } from './features.mjs';
 
 const ROOT = process.env.PROJECT_ROOT || process.cwd();
 const DAY = 86400000;
@@ -1671,6 +1673,35 @@ async function construireDataset() {
   // l'autre, les deux reserves cessent de decrire le meme site — et rien ne
   // le dirait.
   const nVentes = ventes.ecrire(lignesVentes, new Set(items.map((i) => i.uuid))).comptes;
+
+  // 📒 LOT 224 — LE CLASSEUR SUIT LA MEME REGLE, ET IL EST ICI POUR LA RAISON
+  // QUE LE COMMENTAIRE CI-DESSUS VIENT D'ECRIRE : **meme `Set`, meme moment**.
+  // Le poser dans une integration `astro:build:done` aurait marche — et aurait
+  // ouvert un SECOND canal pour la liste des uuid publies. Le jour ou l'un des
+  // deux bouge sans l'autre, les reserves cessent de decrire le meme site, et
+  // rien ne le dit. ⛔ Une integration ne peut d'ailleurs PAS rappeler
+  // `dataset()` pour l'obtenir : le Dockerfile documente la panne du lot 104,
+  // ou un banc l'a fait et a vide `.reserve/cote/` de 1 201 fichiers a 0.
+  //
+  // ⚠️ `comptesActifs()` ET PAS `RENDERING`. C'est le manifeste qui decide si
+  // un site a des membres — vevewiki n'en aura jamais (arbitrage du 03/08), et
+  // ses pages de classeur sont deja effacees par la zone `comptes` de
+  // `astro_features.mjs`. Ecrire l'index la-bas coûterait ~325 Mo d'image pour
+  // des fichiers que personne ne peut demander. Meme regle que
+  // `reserve.ouvrir()` vingt lignes plus haut : le manifeste decide, le code
+  // obeit.
+  //
+  // 🔴 IL EST `await`E, ET ÇA COÛTE ~46 s MESUREES (dont ~18 s de
+  // telechargement) sur un deploiement de 9 min 16, soit **+8,3 %**. Le chiffre
+  // est ici parce qu'il doit se relire : le jalon du 04/09 avait mesure la
+  // LECTURE seule (19,6 s, +3,6 %) et conclu que le lot tenait — l'ECRITURE
+  // coûte plus cher que la lecture, et personne ne l'avait mesuree.
+  // ⭐⭐ *Une mesure de debit ne dit rien d'un volume, ni d'un temps d'ecriture.*
+  if (comptesActifs()) {
+    await classeur.ecrire(new Set(items.map((i) => i.uuid)));
+  } else {
+    console.log('[classeur] site sans comptes (manifeste) — aucun index ecrit.');
+  }
   // 🔢 LOT 211 — LE COMPTE REJOINT L'OBJET PUBLIC, ET IL EST LE SEUL A LE FAIRE.
   // ⭐⭐⭐ SANS LUI, LA FICHE NE PEUT PAS SE TAIRE. Le gabarit n'a aucun moyen
   // de savoir si une piece a des ventes : la donnee est dans `.reserve/`, et

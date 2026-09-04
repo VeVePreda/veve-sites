@@ -1,0 +1,57 @@
+---
+// ⚠️ VeVePreda/veve-sites — src/pages/mint-hunter/index.astro  (NEUF — lot 224)
+// 📒 LE CLASSEUR — la porte. Tout le raisonnement vit dans
+// `src/components/pages/MintHunter.astro` ; ce fichier ne le redit pas.
+//
+// ⛔⛔ `prerender = true` EN LITTÉRAL, ET C'EST VOULU — même dispositif que les
+// trente autres routes de compte. Un `false` littéral fait échouer le build en
+// mode static (NoAdapterInstalled) et casserait vevewiki ; une EXPRESSION n'est
+// pas évaluée par Astro, qui retombe silencieusement sur `true` — la panne du
+// lot 24, quatre fois payée. C'est `engine/lib/astro_routes_compte.mjs` qui
+// bascule cette route à la demande.
+// 🔴 L'OUBLIER LÀ-BAS NE CASSE RIEN ICI : la page resterait pré-générée, la
+// redirection ci-dessous serait évaluée UNE fois au build (au niveau visiteur,
+// donc toujours vraie) et figée dans un fichier — une page qui redirige tout le
+// monde, membres compris. `test:routes` compte les routes basculées.
+// ⭐ ET CETTE PAGE-CI NE PEUT PAS DEVENIR UNE FUITE, contrairement à
+// `/market/` : elle ne porte AUCUNE donnée. Tout arrive de
+// `/api/classeur/`, qui lit la session. Pré-générée, elle serait un
+// formulaire mort, pas un montant servi en clair.
+export const prerender = true;
+
+import MintHunter from '../../components/pages/MintHunter.astro';
+import { locales, COOKIE_LANGUE, languesInterface } from '../../../engine/lib/i18n.mjs';
+import { connecte } from '../../../engine/lib/access.mjs';
+
+// 🌍 LOT 123 — CETTE PAGE AUSSI LIT LA PRÉFÉRENCE DE LANGUE. Rendue à la
+// demande et réservée, elle peut servir des libellés traduits sans URL
+// supplémentaire et sans risque de cache partagé. ⛔ L'oublier produit le
+// défaut signalé par Preda AU MILIEU du parcours : français sur /compte/, puis
+// retour à l'anglais dès la page suivante.
+const { def } = locales();
+const _l = Astro.cookies.get(COOKIE_LANGUE)?.value;
+const lang = (_l && languesInterface().includes(_l)) ? _l : def;
+
+// ═══ LE MUR ═══════════════════════════════════════════════════════════════
+// ⭐ `connecte()` SEUL, PAS `franchit()`, et c'est un arbitrage de Preda du
+// 04/09 : les deux vues du classeur sont réservées aux MEMBRES, sans palier.
+// « Qui es-tu » n'est pas « à quoi as-tu droit » — les confondre produit les
+// élévations de privilège, dans un sens comme dans l'autre.
+// ⛔ LE COOKIE D'AFFICHAGE N'ENTRE PAS DANS CETTE DÉCISION, et son nom n'est
+// même pas écrit ici : `test:session` refuse qu'il apparaisse dans un fichier
+// qui touche à un droit. Le seul juge est la session serveur.
+if (!connecte(Astro.locals)) {
+  // ⭐ 302 et pas 401 : ce n'est pas une erreur, c'est une porte. Et l'adresse
+  // de retour voyage, sinon on renvoie à l'accueil quelqu'un qui allait
+  // justement se connecter pour l'ouvrir.
+  return Astro.redirect('/connexion/?suite=%2Fmint-hunter%2F', 302);
+}
+
+// ⚠️ OBLIGATOIRE, ET PAS DÉCORATIF. Cloudflare est devant ce site : sans ces
+// en-têtes, un cache intermédiaire peut servir la page d'un membre à un
+// visiteur. ⚠️ Et ça ne suffit pas — le bord décide EN DERNIER : l'exclusion
+// de cette route côté Cloudflare est un point de la liste de Preda.
+Astro.response.headers.set('cache-control', 'private, no-store');
+Astro.response.headers.set('vary', 'cookie');
+---
+<MintHunter lang={lang} />

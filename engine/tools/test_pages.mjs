@@ -78,6 +78,12 @@ const ROUTES = [
   //   DEMANDE). ⛔ Une route qui n'est demandée par aucun banc n'est vérifiée
   //   qu'en production, par le premier visiteur — c'est le 503 du lot 123.
   { p: '/dashboard/', quoi: 'le tableau de bord' },
+  // 📒 LOT 224 — LA SIXIÈME PLACE DES DEUX PAGES DU CLASSEUR.
+  // ⛔ L'oublier ici ne casse rien et ne se voit pas : personne ne demande la
+  //    page avant le premier visiteur, et un 500 au premier rendu partirait en
+  //    production sans qu'un seul banc ne rougisse. C'est la panne du lot 123.
+  { p: '/classeur/', quoi: 'l\'inventaire du classeur' },
+  { p: '/mint-hunter/', quoi: 'Mint Hunter' },
   // 📊 LOT 157 — LA TROISIÈME PLACE DES QUATRE SUJETS D'ANALYTICS. Les deux
   //   autres : `astro_routes_compte.mjs` (Node les REND) et
   //   `nginx.server.conf` (nginx les DEMANDE).
@@ -224,7 +230,7 @@ if (pret) {
     let langues = ['en'];
     try { langues = languesInterface(); } catch { /* repli sur la seule sûre */ }
 
-    const PORTES = ['/favoris/', '/dashboard/', '/compte/', '/alertes/'];
+    const PORTES = ['/favoris/', '/dashboard/', '/compte/', '/alertes/', '/classeur/', '/mint-hunter/'];
     let morts = [];
     let suivis = 0;
     const vu = new Set();
@@ -305,7 +311,7 @@ if (pret) {
     // le vert le plus dangereux qui soit.
     {
       const { langueUiDansEntete } = await import('../lib/i18n.mjs');
-      const MEMBRE = ['/compte/', '/market/', '/favoris/', '/dashboard/', '/alertes/'];
+      const MEMBRE = ['/compte/', '/market/', '/favoris/', '/dashboard/', '/alertes/', '/classeur/', '/mint-hunter/'];
       if (!langueUiDansEntete()) {
         // ⭐ SANS OBJET, et on l'imprime. vevewiki n'a pas de sélecteur
         //   d'interface : « aucun sur les pages membre » y serait vrai pour

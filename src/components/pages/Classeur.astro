@@ -1,0 +1,105 @@
+---
+// ⚠️ VeVePreda/veve-sites — src/components/pages/Classeur.astro  (NEUF — lot 224)
+// ═══════════════════════════════════════════════════════════════════════════
+// L'INVENTAIRE D'UN PORTEFEUILLE — on tape une adresse, on voit ce qu'elle tient
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// ⚖️ ARBITRAGES PREDA DU 04/09 — ⛔ NE PAS LES ROUVRIR :
+//   · inventaire COMPLET : aucun portefeuille n'est refusé, aucun plafond ;
+//   · porte MEMBRE (`connecte()`), pas de palier ;
+//   · les pièces sans fiche publiée RESTENT affichées, sans lien.
+//
+// ⛔⛔ AUCUN PRIX SUR CETTE PAGE, ET CE N'EST PAS UNE PRÉCAUTION : le grand
+// livre n'en porte pas. `ledger_full.csv.gz` a quatre colonnes —
+// `veve_uuid, edition, holder, listed` — et `listed` est un BOOLÉEN, pas un
+// montant. Le mur du lot 101 n'est donc pas seulement respecté ici : il n'est
+// jamais approché. ⚠️ Le jour où quelqu'un voudra afficher le plancher à côté
+// de chaque ligne, il devra passer par `/api/cote/lot`, et ce sera un AUTRE
+// lot, avec le mur à retenir.
+//
+// ⚠️ LA PAGE NE REND AUCUNE DONNÉE AU SERVEUR, ET C'EST DÉLIBÉRÉ. L'entrée est
+// une adresse tapée par la personne : il n'y a rien à rendre avant qu'elle
+// l'ait tapée. ⇒ le HTML est un formulaire, le pilote appelle
+// `/api/classeur/wallet`, et rien de réservé n'existe dans la page tant que la
+// session n'a pas été lue par la route d'API. C'est la forme la plus sûre :
+// même pré-générée par erreur, cette page ne porterait RIEN.
+import Base from '../../layouts/Base.astro';
+import { moduleJs } from '../../../engine/lib/socle_js.mjs';
+import { t, localize } from '../../../engine/lib/i18n.mjs';
+
+const pilote = moduleJs('classeur');
+const { lang } = Astro.props;
+---
+<Base sect="general" lang={lang} path="/classeur/" noindex={true}
+      title={t(lang, 'binder.title')} description={t(lang, 'binder.desc')}
+      crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') },
+               { name: t(lang, 'binder.title') }]}>
+
+  <div class="sect-t sect-t--gd"><h1 class="mono-t">{t(lang, 'binder.title')}</h1></div>
+  <p class="etiq">{t(lang, 'binder.desc')}</p>
+
+  {/* ⏰ LA FRAÎCHEUR EST OBLIGATOIRE, ET ELLE VA JUSQU'À HUIT JOURS.
+      `analytics.yml` court après `ledger-writer.yml` (cron hebdomadaire, jeudi
+      22 h UTC) : la donnée servie a entre 1 et 8 jours. ⛔ Ne pas l'arrondir à
+      « hier » — *une fraîcheur qu'on n'affiche pas devient un reproche*, et
+      celle-ci est trop large pour qu'un membre la devine seul. Le chiffre
+      exact arrive du méta, par le pilote. */}
+  <p class="etiq" id="cl-fresh" data-on={t(lang, 'binder.fresh.on')}>{t(lang, 'binder.fresh')}</p>
+
+  <form class="cl-f" id="cl-form" autocomplete="off">
+    <label class="cl-l" for="cl-a">{t(lang, 'binder.form')}</label>
+    {/* ⚠️ `inputmode` ET PAS `type="number"` : une adresse est hexadécimale.
+        `spellcheck=false` évite le soulignement rouge sur 42 caractères. */}
+    <input class="cl-i" id="cl-a" name="adresse" type="text" spellcheck="false"
+           placeholder={t(lang, 'binder.placeholder')} maxlength="42" required />
+    <button class="cl-b" type="submit">{t(lang, 'binder.go')}</button>
+  </form>
+
+  {/* ⭐ TROIS SORTIES QUI NE SE CONFONDENT PAS, et c'est la règle que
+      `/api/favoris` et `/favoris/` tiennent déjà :
+        · une liste           → on sait, et on montre ;
+        · une liste VIDE      → on sait, ce portefeuille ne tient rien ;
+        · `hs`                → on NE SAIT PAS (réserve absente, service muet).
+      ⛔ Rendre « rien » sur une panne afficherait un inventaire vide à
+      quelqu'un qui détient trois cents pièces. « Je ne sais pas » n'emprunte
+      jamais la sortie de « rien à signaler ». */}
+  <p class="filtres-mur" id="cl-hs" hidden>{t(lang, 'binder.hs')}</p>
+  <p class="filtres-mur" id="cl-bad" hidden>{t(lang, 'binder.bad')}</p>
+  <p class="filtres-mur" id="cl-none" hidden>{t(lang, 'binder.none')}</p>
+  {/* ⭐ LES LIBELLÉS QUE LE PILOTE ÉCRIT VOYAGENT EN `data-`, ILS NE SONT
+      PAS EN DUR DANS LE JS. Un fichier de socle est servi UNE fois pour
+      les cinq langues (empreinte de contenu) : y écrire « oui » le
+      figerait en français pour tout le monde, et `test:cles` ne le
+      verrait pas — il lit le HTML, pas le JavaScript. */}
+  <div id="cl-out" hidden data-yes={t(lang, 'binder.yes')} data-no={t(lang, 'binder.no')} data-nopage={t(lang, 'binder.nopage')}>
+    <p class="etiq" id="cl-count" data-tpl={t(lang, 'binder.count')}></p>
+    <div class="cl-w"><table class="cl-t"><thead><tr>
+      <th>{t(lang, 'binder.col.piece')}</th>
+      <th>{t(lang, 'binder.col.edition')}</th>
+      <th>{t(lang, 'binder.col.listed')}</th>
+    </tr></thead><tbody id="cl-body"></tbody></table></div>
+  </div>
+</Base>
+
+<script defer src={pilote.href}></script>
+
+<style>
+  .cl-f { display: flex; gap: var(--s3); align-items: flex-end; flex-wrap: wrap;
+          margin: 0 0 var(--s4); }
+  .cl-l { display: block; font-size: 12.5px; color: var(--text-2); margin-bottom: 4px; }
+  .cl-i { flex: 1 1 22rem; min-width: 0; font-family: var(--tech); font-size: 13px;
+          padding: 9px var(--s3); border: 1px solid var(--rule); border-radius: var(--r-md);
+          background: var(--surface); color: var(--text); }
+  .cl-b { flex: 0 0 auto; padding: 9px var(--s4); border: 1px solid var(--rule);
+          border-radius: var(--r-md); background: var(--surface-2); color: var(--text);
+          font-weight: 600; cursor: pointer; }
+  /* ⚠️ LE TABLEAU DOIT DÉFILER DANS SON PROPRE CADRE. Un portefeuille peut
+     tenir plusieurs milliers de lignes : sans ce conteneur, c'est la PAGE qui
+     défile horizontalement à 390 px, et la maquette de Preda ne le fait pas. */
+  .cl-w { overflow-x: auto; border: 1px solid var(--rule); border-radius: var(--r-md); }
+  .cl-t { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .cl-t th, .cl-t td { padding: 8px var(--s3); text-align: left; border-bottom: 1px solid var(--rule); }
+  .cl-t th { font-size: 12px; color: var(--text-2); font-weight: 600; }
+  .cl-t td:nth-child(2) { font-family: var(--tech); font-variant-numeric: tabular-nums; }
+  .cl-t tr:last-child td { border-bottom: 0; }
+</style>

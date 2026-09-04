@@ -232,6 +232,36 @@ const ROUTES_COMPTE = [
   //    endroits, pas sept — c'est précisément la raison pour laquelle l'écran
   //    d'achat vit dans `/compte/` et non dans une page `/caisse/` neuve.
   'pages/api/caisse.js',
+  // ═════════════════════════════════════════════════════════════════════════
+  // 📒 LOT 224 (04/09/2026) — LE CLASSEUR : L'INVENTAIRE ET MINT HUNTER
+  // ═════════════════════════════════════════════════════════════════════════
+  // ⚖️ Arbitrage Preda du 04/09 : les DEUX vues sont réservées aux MEMBRES,
+  // porte `connecte()`, sans palier. ⇒ le lot traverse cette liste QUATRE fois
+  // pour les pages, plus une pour la route d'API.
+  //
+  // ⭐ CELLES-CI SONT DE LA FAMILLE QUI DEVIENT MUETTE, PAS DE CELLE DE
+  // `/market/`, et il faut le dire parce que les deux ne coûtent pas pareil.
+  // Oubliées ici, ces pages seraient PRÉ-GÉNÉRÉES : la redirection écrite dans
+  // le fichier serait évaluée UNE fois au build, au niveau visiteur, donc
+  // toujours vraie, et figée. Résultat : deux pages qui redirigent TOUT LE
+  // MONDE, membres compris, sur un build parfaitement vert. Panne du lot 24.
+  // ⭐⭐ ET ELLES NE PEUVENT PAS DEVENIR UNE FUITE : elles ne portent AUCUNE
+  // donnée. Le HTML est un formulaire ; tout arrive de `/api/classeur/`, qui
+  // lit la session. C'est délibéré — voir l'en-tête de `classeur.js`.
+  'pages/classeur/index.astro',
+  'pages/[locale]/classeur/index.astro',
+  'pages/mint-hunter/index.astro',
+  'pages/[locale]/mint-hunter/index.astro',
+  // 📒 ET LA ROUTE D'API — DIXIÈME FOIS QU'ON ÉCRIT CETTE PHRASE, et elle
+  // reste vraie : cette liste est ÉCRITE À LA MAIN. Une route `/api/` qui n'y
+  // figure pas est PRÉ-GÉNÉRÉE EN SILENCE — un fichier figé rendant la MÊME
+  // réponse à tout le monde, donc ici « pas de session » à un membre
+  // parfaitement connecté, sur un build vert.
+  // ✅ ET C'EST LE SEUL DEUXIÈME ENDROIT : `nginx.server.conf` porte déjà
+  //    `location ^~ /api/`, générique, et `cache_attendu.mjs` couvre la
+  //    famille `pages/api/`. Pour une route d'API, DEUX endroits — jamais
+  //    huit, et c'est vrai dès qu'on est SOUS `/api/`, faux dès qu'on en sort.
+  'pages/api/classeur/[vue].js',
   'pages/dashboard/index.astro',
   'pages/[locale]/dashboard/index.astro',
   // ═════════════════════════════════════════════════════════════════════════

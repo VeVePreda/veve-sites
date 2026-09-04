@@ -1,0 +1,91 @@
+---
+// ⚠️ VeVePreda/veve-sites — src/components/pages/MintHunter.astro  (NEUF — lot 224)
+// ═══════════════════════════════════════════════════════════════════════════
+// MINT HUNTER — qui détient quel NUMÉRO d'une pièce
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// ⚖️ ARBITRAGES PREDA DU 04/09 — ⛔ NE PAS LES ROUVRIR :
+//   · TOUS les numéros — ni « seulement les bas mints », ni « seulement les
+//     éditions en vente » ;
+//   · porte MEMBRE (`connecte()`), pas de palier ;
+//   · les 14,64 % de numéros que personne ne détient sont AFFICHÉS et
+//     INDISTINCTS, sous « non détenue ».
+//
+// 🔴🔴 « NON DÉTENUE » NE VEUT PAS DIRE « BRÛLÉE », ET LE GABARIT NE DOIT
+// JAMAIS L'ÉCRIRE. Mesuré le 04/09 : les 1 825 547 numéros sans détenteur
+// valent, à UNE unité près sur 1,8 million, `burned` (1 393 823) + `stock`
+// (431 723) du `meta_ledger`. L'identité dit donc ce que le champ VAUT — mais
+// pas ce qu'il DISTINGUE : rien dans `ledger_full.csv.gz` ne sépare une pièce
+// détruite d'une pièce en réserve, et `ledger_statuts.csv` n'a que des totaux.
+// ⇒ écrire « brûlée » ici serait inventer, sur les trois quarts des cas par
+// chance et sur le dernier quart à tort. ⛔ Il faudrait un SECOND fichier en
+// amont, et ce sera un autre lot.
+//
+// ⛔⛔ AUCUN PRIX. `listed` est un BOOLÉEN (« il existe une offre »), jamais un
+// montant : le grand livre n'en porte pas. Un cardinal n'est pas une cote —
+// c'est déjà la règle de `item.listings`, public depuis le lot 43.
+import Base from '../../layouts/Base.astro';
+import { moduleJs } from '../../../engine/lib/socle_js.mjs';
+import { t, localize } from '../../../engine/lib/i18n.mjs';
+
+// ⭐ LE MÊME MODULE QUE `/classeur/`, ET C'EST VOULU : deux pages jumelles,
+// un seul fichier de socle, donc une seule empreinte à servir. Chaque bloc
+// de `classeur.js` commence par son filtre d'existence — motif de
+// `alertes.js`. ⛔ Un `moduleJs('mint')` séparé aurait dupliqué le pilote de
+// fraîcheur dans deux fichiers, et ils auraient divergé.
+const pilote = moduleJs('classeur');
+const { lang } = Astro.props;
+---
+<Base sect="general" lang={lang} path="/mint-hunter/" noindex={true}
+      title={t(lang, 'mint.title')} description={t(lang, 'mint.desc')}
+      crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') },
+               { name: t(lang, 'mint.title') }]}>
+
+  <div class="sect-t sect-t--gd"><h1 class="mono-t">{t(lang, 'mint.title')}</h1></div>
+  <p class="etiq">{t(lang, 'mint.desc')}</p>
+  <p class="etiq" id="mh-fresh" data-on={t(lang, 'binder.fresh.on')}>{t(lang, 'binder.fresh')}</p>
+
+  <form class="cl-f" id="mh-form" autocomplete="off">
+    <label class="cl-l" for="mh-u">{t(lang, 'mint.form')}</label>
+    <input class="cl-i" id="mh-u" name="uuid" type="text" spellcheck="false"
+           placeholder={t(lang, 'mint.placeholder')} maxlength="64" required />
+    <button class="cl-b" type="submit">{t(lang, 'mint.go')}</button>
+  </form>
+
+  {/* ⭐ QUATRE SORTIES, ET LA TROISIÈME EST LA PLUS FACILE À PERDRE :
+        · une liste            → on sait, et on montre ;
+        · `absent`             → la pièce EXISTE au grand livre mais n'a pas de
+          fiche publiée. 9 354 fiches pour 19 485 pièces au livre : c'est le
+          cas d'UNE PIÈCE SUR DEUX, un état normal, pas une panne ;
+        · `hs`                 → on NE SAIT PAS (réserve non écrite) ;
+        · `bad`                → ce n'est pas un identifiant.
+      ⛔ Les fondre ferait dire « indisponible » à la moitié des demandes
+      légitimes, et personne ne saurait que le site va bien. */}
+  <p class="filtres-mur" id="mh-hs" hidden>{t(lang, 'mint.hs')}</p>
+  <p class="filtres-mur" id="mh-bad" hidden>{t(lang, 'mint.bad')}</p>
+  <p class="filtres-mur" id="mh-absent" hidden>{t(lang, 'mint.absent')}</p>
+  {/* ⭐ LES LIBELLÉS QUE LE PILOTE ÉCRIT VOYAGENT EN `data-`, ILS NE SONT
+      PAS EN DUR DANS LE JS. Un fichier de socle est servi UNE fois pour
+      les cinq langues (empreinte de contenu) : y écrire « oui » le
+      figerait en français pour tout le monde, et `test:cles` ne le
+      verrait pas — il lit le HTML, pas le JavaScript. */}
+  <div id="mh-out" hidden data-yes={t(lang, 'binder.yes')} data-no={t(lang, 'binder.no')} data-unheld={t(lang, 'mint.unheld')}>
+    <p class="etiq" id="mh-count" data-tpl={t(lang, 'mint.count')}></p>
+    <div class="cl-w"><table class="cl-t"><thead><tr>
+      <th>{t(lang, 'mint.col.edition')}</th>
+      <th>{t(lang, 'mint.col.holder')}</th>
+      <th>{t(lang, 'mint.col.listed')}</th>
+    </tr></thead><tbody id="mh-body"></tbody></table></div>
+  </div>
+</Base>
+
+<script defer src={pilote.href}></script>
+
+<style>
+  /* ⚠️ LES CLASSES `.cl-*` SONT PARTAGÉES AVEC `Classeur.astro`, ET C'EST
+     VOULU : deux pages jumelles, un seul jeu de règles. ⛔ Ne pas les
+     renommer d'un côté seulement — `test:opacite` compte le CSS mort, il
+     verrait la moitié orpheline, pas la moitié cassée. */
+  .mh-vide { color: var(--muted); font-style: italic; }
+  .mh-a { font-family: var(--tech); font-size: 12px; word-break: break-all; }
+</style>
