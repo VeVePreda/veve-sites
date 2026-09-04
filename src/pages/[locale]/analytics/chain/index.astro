@@ -30,11 +30,16 @@ export function getStaticPaths() {
 
 const lang = Astro.params.locale;
 
-if (!connecte(Astro.locals)) {
-  return Astro.redirect(`/connexion/?suite=%2F${encodeURIComponent(lang)}%2Fanalytics%2Fchain%2F`, 302);
-}
-
-Astro.response.headers.set('cache-control', 'private, no-store');
+// 🔴 LOT 223 — MÊME OUVERTURE QUE LA ROUTE SANS LANGUE, MÊMES RAISONS : tout
+// est dit dans `src/pages/analytics/<sujet>/index.astro`, et ce fichier ne le
+// redit pas. ⛔ Ne pas laisser ces quatre-là en arrière : le jour où une langue
+// redevient active, un mur oublié ici rendrait `/fr/analytics/market/` fermé
+// alors que `/analytics/market/` est ouvert — et personne ne le verrait, parce
+// que ces routes rendent ZÉRO page aujourd'hui.
+const membre = connecte(Astro.locals);
+Astro.response.headers.set('cache-control',
+  membre ? 'private, no-store' : 'public, max-age=0, s-maxage=300');
 Astro.response.headers.set('vary', 'cookie');
+
 ---
-<AnalyticsSujet lang={lang} sujet="chain" />
+<AnalyticsSujet lang={lang} sujet="chain" membre={membre} />

@@ -864,16 +864,50 @@ console.log('\n10. le plancher écarté (lot 193) ?');
     ['Amazing Fantasy',              8888,        0,        592,         8799,     false],
     ['Marvel Comics',                5900,        0,        645,         4999.99,  false],
     ['The Amazing Spider-Man',       10000,       0,        521,         5300,     false],
-    ['Maserati MC12 (3 offres)',     50000,       3,        213,         1500,     false],
-    ['une pièce ordinaire',          42,          9,        300,         40,       false],
+    // 🔴🔴 LOT 223 — CETTE LIGNE A CHANGÉ D'ATTENDU, ET C'EST LE LOT ENTIER.
+    // Elle valait `false` parce que la règle SORTAIT sur `offres > 2` avant
+    // d'avoir regardé la médiane. 50 000 $ contre une médiane de 1 500 $ sur
+    // 213 relevés, c'est ×33 : le passé de la pièce la CONTREDIT, et trois
+    // annonces ne sont pas un marché. ⇒ elle est désormais écartée.
+    // ⚠️ CE QUE CE CHANGEMENT COÛTE, ET IL FAUT LE DIRE : une pièce qui a
+    //   RÉELLEMENT fait ×33 est écartée elle aussi. Elle n'est pas perdue —
+    //   la case « prix non retenus » la ramène (contrôlé plus bas dans ce
+    //   même banc), et la fiche porte déjà la mention « prix non
+    //   représentatif ». *On préfère signaler un prix vrai que servir un
+    //   prix faux.*
+    ['Maserati MC12 (3 offres, ×33)', 50000,      3,        213,         1500,     true ],
+    // ⭐ LE CAS DU LOT 223, ISOLÉ : ce qui passait par la porte des offres.
+    ['Battle of Jakku, 30 offres',    9999999,    30,       34,          44.5,     true ],
+    // ⭐ LE CONTRE-CAS QUI BORNE LE CORRECTIF — sans lui, « écarte plus »
+    //   ressemblerait à « écarte mieux ». Carnet fourni, pas d'historique
+    //   pour la contredire : `muet` NE MORD PAS, la pièce est servie.
+    ['neuve et chère, 30 offres',     6000,       30,       1,           6000,     false],
+    ['une pièce ordinaire',           42,         9,        300,         40,       false],
   ];
   let mal = [];
   for (const [nom, floor, listings, totalPoints, prixMedian, attendu] of CAS) {
     const rendu = planchierEcarte({ floor, listings, totalPoints, prixMedian }, S);
     if (rendu !== attendu) mal.push(`${nom} → ${rendu} (attendu ${attendu})`);
   }
-  verifie('la règle tranche les 9 cas réels du 25/08 comme mesuré',
-    mal.length === 0, mal.length ? `🔴 ${mal.join(' · ')}` : `${CAS.length} cas, dont 4 écartés et 5 gardés`);
+  verifie('la règle tranche les cas réels (25/08, révisés au 223) comme mesuré',
+    mal.length === 0, mal.length ? `🔴 ${mal.join(' · ')}` : `${CAS.length} cas jugés`);
+
+  // ═══ LOT 223 — LES DEUX MOTIFS SE JUGENT SÉPARÉMENT ═══════════════════════
+  // ⭐⭐⭐ CE CONTRÔLE EST LE SEUL QUI MEURT SI ON REFUSIONNE LES DEUX TESTS.
+  // La version d'avant sortait sur `offres > 2` pour LES DEUX motifs. Si
+  // quelqu'un remet un jour cette sortie en tête, les lignes du tableau
+  // ci-dessus rougiraient aussi — mais celle-ci dit POURQUOI en une phrase,
+  // et c'est ce qui évite de « réparer » le banc au lieu du code.
+  // 🔬 JUGÉ EN INJECTANT LE MAUVAIS CODE : remettre `if (offres > seuils.offres)
+  //   return false;` en tête du module fait tomber les deux moitiés.
+  verifie('⛔ « son passé la CONTREDIT » ne dépend PAS du carnet d\'offres',
+    planchierEcarte({ floor: 9999999, listings: 0,  totalPoints: 34, prixMedian: 44.5 }, S) === true
+    && planchierEcarte({ floor: 9999999, listings: 99, totalPoints: 34, prixMedian: 44.5 }, S) === true,
+    '×224 000 est faux avec 0 annonce comme avec 99');
+  verifie('⛔ « son passé ne peut PAS la défendre » en dépend, lui, et le garde',
+    planchierEcarte({ floor: 9e6, listings: 1,  totalPoints: 1, prixMedian: 9e6 }, S) === true
+    && planchierEcarte({ floor: 9e6, listings: 99, totalPoints: 1, prixMedian: 9e6 }, S) === false,
+    'sans historique, un carnet fourni est le seul indice qu\'un prix est porté');
 
   // ⛔ LE CAS QUI M'A COÛTÉ UNE ITÉRATION, ISOLÉ POUR QU'IL NE SE REPERDE PAS.
   //   Une pièce à relevé unique a une médiane ÉGALE à son floor : son écart

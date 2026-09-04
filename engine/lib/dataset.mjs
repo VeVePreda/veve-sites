@@ -660,6 +660,10 @@ async function construireDataset() {
   const CAT_VU = vuLe('catalogue');
   const observations = new Map();
   let obsReleve = 0, obsCatalogue = 0, obsDesaccord = 0;
+  // 🔬 LOT 223 — la MOITIÉ FINE du désaccord (≤ 5 % d'écart relatif). Voir le
+  //   § qui accompagne la ligne de journal, plus bas : sans elle, un seul
+  //   nombre porte deux phénomènes de nature différente.
+  let obsDesaccordFin = 0;
 
   // --- Candidats ----------------------------------------------------------
   const candidates = [];
@@ -684,6 +688,11 @@ async function construireDataset() {
           if (CAT_VU > vu) { vu = CAT_VU; obsCatalogue++; }
         } else if (fCat !== null) {
           obsDesaccord++;
+          // 🔬 LOT 223 — L'AMPLITUDE DU DÉSACCORD, PARCE QUE LE COMPTE SEUL A
+          //   FAIT CONCLURE FAUX PENDANT SIX LOTS. Voir le § du journal.
+          const fCourbe = Number(dernier.floor);
+          const ref = Math.max(Math.abs(fCat), Math.abs(fCourbe));
+          if (ref > 0 && Math.abs(fCat - fCourbe) / ref <= 0.05) obsDesaccordFin++;
         }
       }
       if (vu > 0) {
@@ -1028,15 +1037,47 @@ async function construireDataset() {
     candidates.push(item);
   }
   // ⭐⭐ L'INSTRUMENT SE DÉCLARE, MÊME QUAND IL VA BIEN — comme `[entrepot]
-  //    releves`. `desaccord` est le SEUL endroit d'où l'on verra que
-  //    `price_history` (mode `append`) prend du retard sur le catalogue : ces
-  //    pièces perdent leur observation, donc la fin de leur courbe, et rien
-  //    d'autre ne le dirait. Une hausse de ce chiffre est une panne de
-  //    collecte, pas un défaut du site.
+  //    releves`.
+  //
+  // ═══════════════════════════════════════════════════════════════════════
+  // 🔴🔴🔴 LOT 223 — CE COMPTEUR A FAIT CONCLURE FAUX PENDANT SIX LOTS
+  // ═══════════════════════════════════════════════════════════════════════
+  // ⛔⛔ CE QUE CE COMMENTAIRE DISAIT, ET QUI ÉTAIT FAUX : « `desaccord` est le
+  //   SEUL endroit d'où l'on verra que `price_history` (mode `append`) prend du
+  //   retard sur le catalogue. Une hausse de ce chiffre est une panne de
+  //   collecte, pas un défaut du site. » Trois notes de reprise l'ont recopié,
+  //   et un chantier entier a été cadré dessus.
+  //
+  // 🔬 MESURÉ LE 04/09 SUR LES DEUX FICHIERS RÉELLEMENT PUBLIÉS :
+  //   · `catalogue.csv.gz` → `Last-Modified: 2026-09-03T11:41:24Z`
+  //   · `prices.csv.gz`    → `Last-Modified: 2026-09-03T11:42:08Z`
+  //   **Une minute d'écart.** `price-history.yml` TÉLÉCHARGE le catalogue pour
+  //   écrire ses points : les deux fichiers descendent de la même moisson.
+  //   ⇒ *Il n'y a aucun retard de l'un sur l'autre, et il ne peut pas y en
+  //     avoir.* Et le fichier de prix est trié : sur 14 090 items, ZÉRO où la
+  //     dernière ligne diffère du point le plus récent.
+  //
+  // ⇒ CE QUE LE CHIFFRE MESURE VRAIMENT : deux sources qui ont observé le
+  //   marché à deux INSTANTS différents et n'ont pas vu le même prix. C'est
+  //   normal sur un marché vivant, et la règle de trois lignes plus haut est
+  //   la bonne — *la plus fraîche ne devient une observation de l'autre que si
+  //   elles concordent* : **la COURBE fait foi sur la valeur, le catalogue ne
+  //   fait que prolonger la DATE quand il la confirme.** Rien à réparer là.
+  //
+  // ⭐⭐ CE QUI MANQUAIT, C'EST L'ÉCHELLE. Distribution mesurée le 04/09 sur
+  //   les 11 702 pièces comparables : 8 260 concordent · 69 à un centime ·
+  //   331 sous 5 % · **3 111 avec un écart réel** (médiane 3,50 $). Un compte
+  //   unique mélangeait « 7,98 contre 8,00 » et « 44 contre 9 999 999 ».
+  //   ⛔ Et il n'y a AUCUN bruit de représentation : rien entre 1e-9 et un
+  //     centime. La comparaison stricte est donc juste — j'ai failli poser une
+  //     tolérance d'arrondi contre un phénomène qui n'existe pas.
+  //     *Une classe nommée « arrondi » dans une note n'est pas un arrondi.*
   console.log(`[entrepot] observations : ${observations.size} uuid daté(s)`
     + ` — ${obsReleve} par releves.csv, ${obsCatalogue} par le catalogue`
     + ` (vu le ${CAT_VU ? new Date(CAT_VU * 1000).toISOString() : '—'}),`
-    + ` ${obsDesaccord} écarté(s) : le floor du catalogue contredit le dernier point`);
+    + ` ${obsDesaccord} sans date : les deux sources ne voient pas le meme prix`
+    + ` (dont ${obsDesaccordFin} a moins de 5 % d'ecart — le marche a bouge ;`
+    + ` ${obsDesaccord - obsDesaccordFin} au-dela). ⛔ Ce n'est PAS une panne de collecte.`);
   agg.clear();                                           // on libere tout de suite
 
   // ⭐ NOM D'AFFICHAGE. Chez les comics, le nom recopie tres souvent la serie
@@ -1554,10 +1595,47 @@ async function construireDataset() {
   //   tient : aucun montant ne sort d'ici.
   const candidatsEcart = items.filter((i) => Number(i.floor) > ECART_PRIX).length;
   console.log(`[vitrine] planchers ecartes du marche : ${ecartes} sur ${items.length} `
-    + `(> ${ECART_PRIX} avec <= ${ECART_OFFRES} offre(s), et moins de ${ECART_POINTS} releves `
-    + `ou plus de ${FACTEUR_ABERRANT}x leur mediane) — reaffichables par la case « ${'prix non retenus'} »`
+    + `(> ${ECART_PRIX} avec <= ${ECART_OFFRES} offre(s) SI son passe ne peut pas la defendre, `
+    + `ou plus de ${FACTEUR_ABERRANT}x sa mediane DANS TOUS LES CAS) — reaffichables par la case « ${'prix non retenus'} »`
     + ` · ${candidatsEcart} piece(s) EXAMINEE(S) (plancher > ${ECART_PRIX})`
     + `${candidatsEcart && !ecartes ? ' 🔴 EXAMINEES SANS AUCUNE RETENUE — la regle ne mord plus' : ''}`);
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // 🔬🔴 LOT 223 — LES PIECES QUI PASSENT SONT **NOMMEES**, ET SEULEMENT ICI
+  // ═══════════════════════════════════════════════════════════════════════
+  // Le lot 214 avait donne un SECOND CHIFFRE (`candidats`) pour distinguer
+  // « la collecte s'est nettoyee » de « la regle ne mord plus ». Il a servi :
+  // le 04/09 il disait `47 / 75`, donc 28 pieces au-dessus du seuil ETAIENT
+  // SERVIES. Mais un compte ne dit pas SI ces 28 sont de vraies pieces cheres
+  // ou des valeurs-sentinelles — et c'est la seule question qui decide s'il
+  // faut toucher a la regle. *Un nombre dit qu'il se passe quelque chose ; il
+  // ne dit jamais quoi.*
+  //
+  // ⛔⛔ CETTE LISTE NE MONTE PAS AU TEMOIN, ET LA RAISON N'EST PAS TECHNIQUE.
+  // `/api/sante` est PUBLIC. Les COMPTES qui y vivent ne disent rien d'une
+  // piece en particulier — c'est ce que dit le § du lot 214 juste au-dessus,
+  // et c'est vrai. Une LISTE NOMMEE, elle, affirme « ces pieces-la valent plus
+  // de 5 000 $ » : c'est une cote, formulee par son seuil au lieu de son
+  // montant. Le mur du lot 101 ne connait pas cette nuance, et il a raison.
+  // ⇒ Le journal du build est le seul lecteur legitime.
+  // ⚠️ ET IL A UN DEFAUT CONNU, QU'ON ASSUME PLUTOT QUE DE LE TAIRE : le
+  //   journal Coolify se tronque (lot 196). Cette ligne est donc lisible dans
+  //   le bac a sable et incertaine en production. C'est acceptable ICI parce
+  //   qu'elle sert a AUDITER la regle, pas a surveiller la prod — la
+  //   surveillance, ce sont les deux compteurs de `/api/sante`, qui restent.
+  // ⛔ Ne pas la « reparer » en la deplacant vers le temoin : ce serait
+  //   echanger une fuite contre un confort de lecture.
+  if (candidatsEcart > ecartes) {
+    const passent = items
+      .filter((i) => Number(i.floor) > ECART_PRIX && !i.floorEcarte)
+      .sort((a, b) => Number(b.floor) - Number(a.floor));
+    console.log(`[vitrine] ${passent.length} piece(s) au-dessus du seuil SERVIE(S) — nommees pour audit :`);
+    for (const i of passent) {
+      const med = Number(i.prixMedian);
+      const x = Number.isFinite(med) && med > 0 ? `x${(Number(i.floor) / med).toFixed(1)}` : 'mediane inutilisable';
+      console.log(`  · ${i.name} [${i.rarity || '?'}] — ${i.listings ?? '?'} offre(s), ${i.totalPoints ?? '?'} releve(s), ${x} sa mediane`);
+    }
+  }
   if (comicsSansRarete) console.log(`[adresses] ATTENTION ${comicsSansRarete} comics sans rarete : adresse basee sur le nom de couverture, ou l'identifiant court s'il n'y a rien de distinctif`);
   if (collisionsComics) console.log(`[adresses] ${collisionsComics} comics en collision de rarete : nom de couverture ajoute a l'adresse`);
   for (const t of TYPES) {

@@ -671,6 +671,88 @@ if (!existsSync(FEUILLE)) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// §9 — LOT 223 : LES QUATRE SUJETS SONT OUVERTS, ET RIEN N'A FUI AVEC EUX
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴 CE §9 EXISTE PARCE QUE LE BANC ANTI-FUITE NE PEUT PAS VOIR CES PAGES.
+// `test:fuite` balaie `dist/` ; les quatre sujets sont rendus À LA DEMANDE et
+// n'y écrivent AUCUN fichier. Il serait donc resté vert quoi qu'il arrive à ces
+// quatre pages — vert, juste, et aveugle. *Un mur à deux épaisseurs dont les
+// deux épaisseurs regardent au même endroit n'en fait qu'une.*
+//
+// ⚠️ ET C'EST LA MOITIÉ QUI COMPTE : ce lot vient de RETIRER leur mur de route.
+// Avant lui, une fuite dans ces pages était sans conséquence (personne n'y
+// entrait sans session). Depuis, chaque octet qu'elles rendent est public.
+{
+  console.log('\n§9 — les quatre sujets ouverts (lot 223)');
+  const SUJETS = ['market', 'catalogue', 'collections', 'chain'];
+  const src = (p) => { try { return readFileSync(join(RACINE, p), 'utf8'); } catch { return null; } };
+
+  // ── 9.1 le mur de route a bien disparu, des HUIT routes ────────────────
+  // ⛔ LES QUATRE `[locale]/` COMPTENT AUTANT QUE LES QUATRE AUTRES. Elles
+  //   rendent zéro page aujourd'hui (`active: [en]`), donc aucune mesure de
+  //   production ne les verra jamais — c'est exactement le profil d'un oubli
+  //   qui dort jusqu'au jour où une langue s'active. Le §  les lit en SOURCE
+  //   parce que c'est le seul endroit où elles existent.
+  const chemins = [
+    ...SUJETS.map((s) => `src/pages/analytics/${s}/index.astro`),
+    ...SUJETS.map((s) => `src/pages/[locale]/analytics/${s}/index.astro`),
+  ];
+  const illisibles = chemins.filter((p) => src(p) === null);
+  if (illisibles.length) {
+    indecidable('§9.1 les huit routes de sujet',
+      `${illisibles.length} fichier(s) illisible(s) : ${illisibles.join(', ')}`);
+  } else {
+    const murs = chemins.filter((p) => /Astro\.redirect\(\s*[`'"]\/connexion\//.test(src(p)));
+    dit(murs.length === 0, '§9.1 aucune des 8 routes de sujet ne redirige vers /connexion/',
+        murs.length ? `🔴 mur encore posé : ${murs.join(', ')}` : '8/8 ouvertes');
+
+    // ── 9.2 l'en-tête de cache a DEUX branches, et `vary` est dans les deux ─
+    // 🔴 LE SEUL ENDROIT DE CE LOT QUI PEUT ENCORE NUIRE. Une réponse de membre
+    //   mise en cache serait une fuite ; une réponse de visiteur servie à un
+    //   membre serait une dégradation muette. `vary: cookie` est ce qui sépare
+    //   les deux, et il doit rester même sur la branche publique — c'est
+    //   justement là qu'on serait tenté de l'enlever.
+    const sansVary = chemins.filter((p) => {
+      const t = src(p);
+      return !/no-store/.test(t) || !/s-maxage/.test(t) || !/'vary',\s*'cookie'/.test(t);
+    });
+    dit(sansVary.length === 0,
+        '§9.2 les 8 routes ont les DEUX branches de cache et gardent `vary: cookie`',
+        sansVary.length ? `🔴 incomplet : ${sansVary.join(', ')}` : 'membre no-store · visiteur s-maxage · vary partout');
+
+    // ── 9.3 `noindex` suit la session, sinon le lot ne sert à rien ──────────
+    // ⭐⭐ SANS CE CONTRÔLE, LE LOT POURRAIT ÊTRE ENTIÈREMENT ANNULÉ PAR UN
+    //   SEUL `true` REMIS. Quatre pages ouvertes et non indexables, c'est le
+    //   risque de cache sans le gain de visibilité : le pire des deux.
+    const comp = src('src/components/pages/AnalyticsSujet.astro');
+    if (comp === null) indecidable('§9.3 `noindex`', 'AnalyticsSujet.astro illisible');
+    else dit(/noindex=\{membre\}/.test(comp) && /membre\s*=\s*false\s*\}\s*=\s*Astro\.props/.test(comp),
+        '§9.3 `noindex` suit la session (et vaut `false` si la route l\'oublie)',
+        /noindex=\{true\}/.test(comp) ? '🔴 `noindex={true}` encore en dur' : 'noindex={membre}');
+
+    // ── 9.4 le verrou est NOMMÉ, il ne fait pas disparaître la section ──────
+    // ⛔ C'est la moitié « borner la PROFONDEUR » de l'arbitrage ⑦. Une page
+    //   ouverte qui se contenterait de MASQUER ses figures réservées serait un
+    //   tableau vide — et *un tableau vide ne se signale pas*.
+    if (comp !== null) {
+      // 🔬🔴 CE MOTIF A ÉTÉ RESSERRÉ APRÈS UNE INJECTION QUI N'A PAS MORDU.
+      // Première écriture : `/<Gate\b/`. J'ai supprimé le vrai appel — le banc
+      // est resté VERT. Cause : le commentaire situé six lignes au-dessus de
+      // l'appel écrit lui aussi « `<Gate>` d'abord, le contenu ensuite ». Le
+      // banc lisait la PROSE qui décrit le dispositif au lieu du dispositif.
+      // ⭐⭐ *Un banc branché sur un nom trouve d'abord l'endroit où ce nom est
+      //   EXPLIQUÉ.* On exige donc la forme exécutée : la branche « sinon » du
+      //   ternaire, avec son `gate`. ⛔ Ne pas la relâcher pour « faire passer »
+      //   un jour où le gabarit bouge : c'est ce contrôle-là qui a un sens.
+      const appelReel = /:\s*<Gate\s+lang=\{lang\}\s+gate="modules"/.test(comp);
+      dit(appelReel && /ouvertModules\s*\n?\s*\?/.test(comp),
+          '§9.4 la section réservée rend `<Gate>` au lieu de disparaître',
+          appelReel ? 'le verrou se nomme dans le contrôle' : '🔴 l\'appel réel a disparu (la prose ne compte pas)');
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 console.log(`\n${ko === 0 ? '✅' : '❌'} ${ko} écart(s)`
   + (indecidables ? ` · ⏸️ ${indecidables} indécidable(s) — ce banc veut un build`  : ''));
 // ⛔ UN INDÉCIDABLE NE FAIT PAS ÉCHOUER, ET IL NE FAIT PAS SEMBLANT DE PASSER.

@@ -32,26 +32,41 @@ const { def } = locales();
 const _l = Astro.cookies.get(COOKIE_LANGUE)?.value;
 const lang = (_l && languesInterface().includes(_l)) ? _l : def;
 
-// ═══ LE MUR ═══════════════════════════════════════════════════════════════
-// ⭐ `connecte()` SEUL, PAS `franchit()`, et la différence est le produit.
-// Preda a dit « réservées aux membres », pas « réservées aux abonnés ». Le
-// palier fin reste DANS la page : les figures pro gardent `gate="modules"` et
-// chaque module du grand livre garde la sienne dans `/api/analytics/[module]`.
-// ⛔ Exiger un palier ICI ajouterait un mur que personne n'a demandé, et il
-// masquerait ce qu'on essaie justement de vendre.
-if (!connecte(Astro.locals)) {
-  // ⭐ 302 et pas 401 : ce n'est pas une erreur, c'est une porte. Et l'adresse
-  // de retour voyage, sinon on renvoie à l'accueil quelqu'un qui allait
-  // justement se connecter pour lire ce sujet.
-  return Astro.redirect('/connexion/?suite=%2Fanalytics%2Fcollections%2F', 302);
-}
+// ═══ LOT 223 — LA PORTE S'EST DÉPLACÉE DE LA ROUTE VERS LES CONTRÔLES ═══
+// ⭐⭐⭐ ARBITRAGE ⑦ DE PREDA, TRANCHÉ LE 04/09 : « ouvrir la FORME, borner la
+// PROFONDEUR ». Cette route redirigeait tout visiteur non connecté en 302 vers
+// `/connexion/` — mesuré le 04/09 sur les QUATRE sujets, pas trois. Le sujet
+// entier était invisible : ni au lecteur qui hésite, ni à Google.
+//
+// 🔑 CE QUI REND LE RETRAIT SÛR, ET IL FAUT LE LIRE AVANT DE TOUCHER À CECI :
+// `AnalyticsSujet.astro` porte DÉJÀ, et depuis le lot 157, tout le dispositif
+// de palier fin — `FIG_DEMO` sépare les figures libres des réservées,
+// `franchit('modules', Astro.locals)` répond pour la VRAIE session (la page est
+// rendue à la demande), `<Gate>` NOMME le verrou au lieu de faire disparaître
+// la section, et chaque module du grand livre garde sa propre porte dans
+// `/api/analytics/[module]`. Le mur de route était une SECONDE porte posée
+// par-dessus une première qui suffisait.
+// ⛔ NE PAS remettre `connecte()` ici « pour être sûr » : ce serait refermer la
+//   page entière et rendre muet tout ce dispositif — c'est-à-dire revenir
+//   exactement à ce que ce lot corrige.
+// ⛔ `/market/` (la table) N'EST PAS CONCERNÉE : Preda a maintenu le 04/09 son
+//   arbitrage du 07/08 (« pas visible en public »). Elle garde son mur.
 
-// ⚠️ OBLIGATOIRE, ET PAS DÉCORATIF. Cloudflare est devant ce site : sans cet
-// en-tête, un cache intermédiaire peut servir la page d'un membre à un
-// visiteur. ⛔ Et c'est d'autant plus vrai ici que le contenu réservé est écrit
-// dans la RÉPONSE (la page n'est plus pré-générée) : `no-store` est ce qui
-// remplace la garantie qu'offrait `dist/`.
-Astro.response.headers.set('cache-control', 'private, no-store');
+// ⚠️ L'EN-TÊTE DE CACHE DÉPEND DÉSORMAIS DE LA SESSION, ET C'EST LE SEUL
+// ENDROIT DE CE FICHIER QUI PEUT ENCORE FUIRE. Cloudflare est devant ce site.
+//   · MEMBRE  : la réponse contient les figures réservées ⇒ `private, no-store`,
+//               exactement comme avant. Cette version n'entre JAMAIS en cache.
+//   · VISITEUR: la réponse ne contient que ce que `FIG_DEMO` autorise ⇒ elle
+//               peut être mise en cache, et elle doit l'être : c'est ce qui
+//               rend l'ouverture utile plutôt que coûteuse.
+// 🔴 `vary: cookie` RESTE DANS LES DEUX CAS. Sans lui, la version visiteur
+//   mise en cache serait servie à un membre — une dégradation, pas une fuite,
+//   mais une dégradation invisible et permanente. ⛔ Ne pas l'enlever « parce
+//   que la page est publique maintenant » : c'est justement là qu'il sert.
+const membre = connecte(Astro.locals);
+Astro.response.headers.set('cache-control',
+  membre ? 'private, no-store' : 'public, max-age=0, s-maxage=300');
 Astro.response.headers.set('vary', 'cookie');
+
 ---
-<AnalyticsSujet lang={lang} sujet="collections" />
+<AnalyticsSujet lang={lang} sujet="collections" membre={membre} />

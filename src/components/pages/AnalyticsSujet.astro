@@ -50,7 +50,14 @@ import { franchit } from '../../../engine/lib/access.mjs';
 import { lireExtremes } from '../../../engine/lib/extremes.mjs';
 import { t, localize, numberLocale } from '../../../engine/lib/i18n.mjs';
 
-const { lang, sujet } = Astro.props;
+// 🔴 LOT 223 — `membre` VIENT DE LA ROUTE, ET IL NE SERT QU'À `noindex`.
+// ⛔ Il ne commande AUCUN contenu : le palier fin reste `franchit()`, plus bas,
+//   qui relit la session lui-même. Deux sources pour un même droit finissent
+//   par diverger, et c'est toujours la plus permissive qui gagne en silence.
+// ⭐ `false` par défaut : un appelant qui l'oublie obtient la page PUBLIQUE
+//   indexable, jamais un `undefined` qui vaudrait « pas de noindex » par
+//   accident. Ici les deux coïncident — et c'est voulu, pas une chance.
+const { lang, sujet, membre = false } = Astro.props;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // LES QUATRE SUJETS — LA SEULE SOURCE QUI DIT CE QUI VA OÙ
@@ -214,11 +221,21 @@ const titre = t(lang, S.cle);
 // barre n'est servie par aucune règle.
 const chemin = `/analytics/${sujet}/`;
 ---
-{/* ⛔ `noindex` EST OBLIGATOIRE ET IL N'EST PAS LA PORTE. La porte est le
-    `connecte()` de la route ; ceci évite seulement qu'un lien partagé fasse
-    indexer une redirection. Les confondre est la faute du lot 118 : masquer
-    un affichage n'a jamais fermé un accès. */}
-<Base sect="analytics" lang={lang} path={chemin} noindex={true}
+{/* ⛔ `noindex` N'EST PAS LA PORTE, ET IL NE L'A JAMAIS ÉTÉ. Les confondre est
+    la faute du lot 118 : masquer un affichage n'a jamais fermé un accès.
+    🔴🔴 LOT 223 — ET C'EST POUR ÇA QU'IL DEVIENT CONDITIONNEL. Le commentaire
+    d'avant disait sa propre raison : « ceci évite seulement qu'un lien partagé
+    fasse indexer une REDIRECTION ». La redirection a disparu avec le mur de
+    route ⇒ la raison a disparu avec elle. *Une note qui cite sa raison permet
+    de voir quand cette raison cesse d'exister — celle-ci l'a permis.*
+    ⭐⭐ ET SANS CE CHANGEMENT, TOUT LE LOT NE SERVAIT À RIEN : ouvrir quatre
+    pages en gardant `noindex` aurait produit exactement zéro gain SEO, pour un
+    risque de cache tout à fait réel. *Une porte ouverte sur une pièce que
+    personne n'a le droit de voir n'est pas une ouverture.*
+    ⚠️ La version MEMBRE reste `noindex` : elle contient les figures réservées,
+    et elle est en `no-store`. Googlebot n'a pas de cookie — il ne verra jamais
+    que la version publique, et c'est exactement ce qu'on veut indexer. */}
+<Base sect="analytics" lang={lang} path={chemin} noindex={membre}
       title={titre} description={t(lang, S.desc)} updatedAt={ex.updatedAt}
       crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') },
                { name: t(lang, 'analytics.title'), url: localize(lang, '/analytics/') },
