@@ -720,6 +720,61 @@ if (!existsSync(PILOTE)) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// 4 ter. LOT 220 — CHAQUE CLÉ DE TRI A SON LIBELLÉ, ET UN BANC LE TIENT
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 CE CONTRÔLE EXISTE PARCE QUE LE DÉFAUT EST DÉJÀ PARTI EN PRODUCTION.
+// Le lot 219 a ajouté la clé `ten-desc` à `TRIS` (`marche_selection.mjs`) et a
+// oublié son libellé dans `LIB_TRI` (`Market.astro`). La table rendait donc
+// `undefined` pour cette clé, `t()` le recopie tel quel, et le menu de tri
+// affichait le mot **undefined** à un abonné.
+//
+// ⭐⭐⭐ ET LE FICHIER ANNONÇAIT LE PIÈGE — DANS L'AUTRE SENS. Son commentaire
+// dit : « une liste recopiée ici proposerait un jour un tri que le serveur ne
+// connaît pas ». C'est l'inverse qui s'est produit : un tri que le serveur
+// connaît et que le gabarit ne sait pas nommer. *Une mise en garde protège le
+// sens qu'elle énonce, pas le sens inverse* — et c'est pourquoi ce banc vérifie
+// les DEUX directions, pas seulement celle qui a mordu.
+//
+// ⛔ ON NE FUSIONNE PAS LES DEUX LISTES POUR AUTANT : les clés vivent avec le
+// code qui trie, les libellés avec le code qui affiche, et c'est juste. Ce qu'il
+// fallait, ce n'est pas une liste de moins — c'est un banc de plus.
+console.log('\n4 ter. les tris : une clé, un libellé');
+{
+  const { TRIS: CLES } = await import('../lib/marche_selection.mjs');
+  const src = readFileSync(join(R, 'src', 'components', 'pages', 'Market.astro'), 'utf8');
+  // La table telle qu'elle est écrite, entre son ouverture et sa fermeture.
+  const bloc = (src.match(/const LIB_TRI = \{([\s\S]*?)\n\};/) || [])[1] || '';
+  // ⛔ On lit les clés DÉCLARÉES, pas le résultat d'une évaluation : ce banc ne
+  //    monte pas de DOM et ne rend pas la page. Une clé entre guillemets simples
+  //    ou nue, les deux formes existent dans le fichier.
+  const libelles = new Set((bloc.match(/^\s*'?([a-zA-Z0-9-]+)'?\s*:/gm) || [])
+    .map((l) => l.replace(/[\s':]/g, '')));
+  lus++;
+
+  const orphelines = CLES.filter((k) => !libelles.has(k));
+  verifie(`les ${CLES.length} clés de tri ont toutes un libellé`,
+    orphelines.length === 0,
+    orphelines.length ? `🔴 sans libellé : ${orphelines.join(', ')} — le menu afficherait « undefined »` : '');
+
+  // ⭐ L'AUTRE SENS, celui que le commentaire d'origine annonçait : un libellé
+  //   pour un tri que le serveur ne connaît pas. Il ne casse rien à l'écran,
+  //   mais il propose une option qui retombera en silence sur le tri par défaut
+  //   — « le <select> l'affiche, le serveur retombe, et personne ne sait
+  //   pourquoi l'ordre ne change pas ».
+  const fantomes = [...libelles].filter((k) => !CLES.includes(k));
+  verifie('aucun libellé ne nomme un tri que le serveur ignore',
+    fantomes.length === 0,
+    fantomes.length ? `🔴 en trop : ${fantomes.join(', ')} — l'option retomberait sur le tri par défaut` : '');
+
+  // 🔬 ET LE BANC SE JUGE : sans clés lues, les deux contrôles ci-dessus
+  //    seraient VERTS en n'ayant rien comparé. *Un terme à zéro doit être
+  //    atteignable pour que le vert veuille dire quelque chose.*
+  verifie('…et ce banc a bien lu les deux listes',
+    CLES.length > 0 && libelles.size > 0,
+    `${CLES.length} clé(s) côté serveur · ${libelles.size} libellé(s) côté gabarit`);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // 5. AUTO-CONTRÔLE — le banc a-t-il vraiment regardé quelque chose ?
 // ═══════════════════════════════════════════════════════════════════════════
 console.log('\n5. auto-contrôle');

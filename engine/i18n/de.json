@@ -628,5 +628,18 @@
   "movers.aucuneValeur": "Keine Treffer in dieser Liste.",
   "movers.marquesReste": "{n} weitere Marken — nutzen Sie die Suche oben, um sie zu finden.",
   "movers.tension": "Spannung",
-  "movers.tensionAide": "Ein berechneter Rang von 0 bis 100, ohne jeden Preis: der Anteil der Auflage, der tatsächlich im Umlauf ist, dann die kleinste Auflage zuerst, dann der verbrannte Anteil. 100 = die Auflage ist vergriffen. Er sagt nicht, ob das Stück ein guter Kauf ist."
+  "movers.tensionAide": "Ein berechneter Rang von 0 bis 100, ohne jeden Preis: der Anteil der Auflage, der tatsächlich im Umlauf ist, dann die kleinste Auflage zuerst, dann der verbrannte Anteil. 100 = die Auflage ist vergriffen. Er sagt nicht, ob das Stück ein guter Kauf ist.",
+  "movers.sort.tension": "Spannung ↓",
+  "movers.sort.omcpAsc": "OMI/MCP ↑",
+  "movers.vue.essentiel": "Das Wesentliche",
+  "movers.vue.prix": "Die Preise",
+  "movers.vue.offre": "Das Angebot",
+  "movers.vue.tout": "Alles",
+  "movers.colsFin": "Spalten einzeln einstellen",
+  "movers.vueTxt.essentiel": "Nur Seltenheit, Spannung und Links — die kürzeste Ansicht über die {n} von Ihrem Filter behaltenen Stücke.",
+  "movers.vueTxt.prix": "Alles, was einen Betrag trägt. {n} der {t} angezeigten Zeilen haben derzeit eine Notierung; die übrigen zeigen einen Strich.",
+  "movers.vueTxt.offre": "Auflage, Angebote und Spannung — kein Preis. {n} der {t} angezeigten Zeilen haben eine messbare Spannung.",
+  "movers.vueTxt.tout": "Alle {n} Spalten. Die breiteste Ansicht, und die einzige, die auf einem Telefon seitlich scrollt.",
+  "movers.compo": "{c} Comics · {o} Sammlerstücke · {l} Lizenzen",
+  "movers.compoRar": "überwiegend {r} ({n} %)"
 }

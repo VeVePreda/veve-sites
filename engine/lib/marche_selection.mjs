@@ -63,6 +63,32 @@ export const parMcp = (i) => {
   return i.floor / m;
 };
 
+/**
+ * 🔑 LOT 220 — L'OMI/MCP, LE DERNIER MORCEAU DE LA DEMANDE `f` DU 14/08.
+ * ═══════════════════════════════════════════════════════════════════════════
+ * ⭐⭐ IL N'A JAMAIS MANQUÉ DE DONNÉE. `Market.astro` l. 807 le disait déjà :
+ * « le plancher StackR et l'OMI/MCP restent à faire — non par manque de donnée,
+ * mais parce que `floorStackr` est dans `CHAMPS_COTE` et passe donc par
+ * <Cote> ». Or sur CETTE page les cotes sont réinjectées côté serveur (l. 139),
+ * donc le montant est là quand le droit est là — et absent sinon, sans qu'on
+ * ait rien à masquer.
+ *
+ * ⛔⛔ ET IL NE SE CONVERTIT PAS EN DOLLARS. `floorStackr` est en **OMI**,
+ * `floor` en **gems** : deux MARCHÉS, rapport non constant (médiane 4 423,
+ * p10 2 273, p90 8 520 sur 1 306 items communs — mesure du lot 144). Les deux
+ * colonnes vivent donc côte à côte et ne se comparent pas ; les additionner ou
+ * les rapporter inventerait un chiffre.
+ *
+ * ⚠️ Même avertissement que `parMcp` : le plancher est un prix DEMANDÉ, donc
+ * ce ratio est un PLAFOND de rendement, pas un rendement observé.
+ */
+export const parMcpOmi = (i) => {
+  const m = mcpPoints(i.rarity, i.type);
+  if (!m || m <= 0) return null;
+  if (i.floorStackr === null || i.floorStackr === undefined) return null;
+  return i.floorStackr / m;
+};
+
 // ⭐ 20 ET NON 50 (demande de Preda, 01/08). Ce n'est toujours PAS une
 // pagination par adresses : `/market/` est réservée, `no-store`, absente du
 // sitemap et redirige l'anonyme — un paramètre de requête n'y crée aucune URL
@@ -96,7 +122,11 @@ export const RENDU_MAX = 500;
 // c'est un choix : « les moins tendues » n'est pas une question qu'on se pose —
 // ce serait un tri qui remonte ce dont personne ne veut. Un tri qu'on ajoute
 // « pour la symetrie » est une ligne de plus dans un menu deja long.
-export const TRIS = ['defaut', 'ch-desc', 'ten-desc', 'floor-desc', 'floor-asc', 'sup-asc', 'mcp-asc', 'nom-asc'];
+// 🔑 LOT 220 — `omcp-asc` rejoint `mcp-asc`. ⭐ DEUX TRIS ET PAS UN : ils
+// portent sur deux marchés dont le rapport n'est pas constant, donc l'un ne
+// classe pas comme l'autre. Un seul tri « par MCP » aurait forcé à choisir un
+// marché en silence.
+export const TRIS = ['defaut', 'ch-desc', 'ten-desc', 'floor-desc', 'floor-asc', 'sup-asc', 'mcp-asc', 'omcp-asc', 'nom-asc'];
 export const TRI_DEFAUT = 'defaut';
 
 // ⭐ Les axes de filtre, avec leur nom de champ TEL QU'IL EST DÉJÀ ÉCRIT dans
@@ -365,6 +395,7 @@ const ORDRE = {
   'floor-asc': cmpNum((i) => i.floor, 1),
   'sup-asc': cmpNum((i) => i.tirage, 1),
   'mcp-asc': cmpNum(parMcp, 1),
+  'omcp-asc': cmpNum(parMcpOmi, 1),
   'nom-asc': (a, b) => String(a.name || '').localeCompare(String(b.name || '')),
 };
 
@@ -392,7 +423,37 @@ export function selectionMarche(population, p) {
   //    processus : muter l'ordre contaminerait la visite suivante, et le défaut
   //    n'apparaîtrait qu'au deuxième visiteur.
   const triees = cmp ? retenues.slice().sort(cmp) : retenues;
+
+  // 🔑 LOT 220 — LA COMPOSITION DE CE QUI EST RETENU, PAS SON SEUL VOLUME.
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Demande de l'audit du 04/09 : « une ligne de résultat qui décrit la
+  // COMPOSITION, pas le volume ». « 440 pièces » ne dit pas si ce sont 440
+  // comics d'une seule série ou 440 objets de douze licences — et c'est cette
+  // seconde information qui dit au visiteur si son filtre a mordu au bon endroit.
+  // ⭐ SUR LES RETENUES, JAMAIS SUR LA TRANCHE : la tranche en montre 20, et une
+  // composition calculée dessus décrirait l'échantillon en le faisant passer
+  // pour le tout. Même règle que les facettes et que la tension.
+  // ⛔ Trois chiffres, pas douze : une ligne de résultat qui devient un tableau
+  // cesse d'être lue.
+  const compo = { coll: 0, comic: 0, licences: new Set(), rarete: new Map() };
+  for (const i of triees) {
+    if (i.type === 'collectible') compo.coll++; else compo.comic++;
+    if (i.licensor) compo.licences.add(i.licensor);
+    if (i.rarity) compo.rarete.set(i.rarity, (compo.rarete.get(i.rarity) || 0) + 1);
+  }
+  // ⚠️ `null` ET PAS UNE CHAÎNE VIDE quand il n'y a rien : le gabarit doit
+  //    pouvoir NE PAS écrire la phrase, pas écrire une phrase vide.
+  let rarDom = null, rarDomN = 0;
+  for (const [r, n] of compo.rarete) if (n > rarDomN) { rarDom = r; rarDomN = n; }
+
   return {
+    composition: {
+      collectibles: compo.coll,
+      comics: compo.comic,
+      licences: compo.licences.size,
+      rareteDominante: rarDom,
+      rareteDominanteN: rarDomN,
+    },
     lignes: triees.slice(0, p.n),
     // ⭐ TROIS NOMBRES, ET ILS NE DISENT PAS LA MÊME CHOSE :
     //   `rendues`  ce que le HTML porte · `retenues` ce que le filtre garde ·

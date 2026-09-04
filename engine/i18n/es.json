@@ -628,5 +628,18 @@
   "movers.aucuneValeur": "Sin coincidencias en esta lista.",
   "movers.marquesReste": "{n} marcas más — utilice la búsqueda de arriba para encontrarlas.",
   "movers.tension": "Tensión",
-  "movers.tensionAide": "Un rango calculado de 0 a 100, sin ningún precio: la parte de la tirada realmente en circulación, luego la tirada más pequeña primero, luego la parte quemada. 100 = la tirada se ha agotado. No indica si la pieza es una buena compra."
+  "movers.tensionAide": "Un rango calculado de 0 a 100, sin ningún precio: la parte de la tirada realmente en circulación, luego la tirada más pequeña primero, luego la parte quemada. 100 = la tirada se ha agotado. No indica si la pieza es una buena compra.",
+  "movers.sort.tension": "Tensión ↓",
+  "movers.sort.omcpAsc": "OMI/MCP ↑",
+  "movers.vue.essentiel": "Lo esencial",
+  "movers.vue.prix": "Los precios",
+  "movers.vue.offre": "La oferta",
+  "movers.vue.tout": "Todo",
+  "movers.colsFin": "Ajustar las columnas una por una",
+  "movers.vueTxt.essentiel": "Solo rareza, tensión y enlaces — la lectura más corta sobre las {n} piezas retenidas por su filtro.",
+  "movers.vueTxt.prix": "Todo lo que lleva un importe. {n} de las {t} filas mostradas tienen cotización ahora mismo; las demás muestran un guion.",
+  "movers.vueTxt.offre": "Tirada, anuncios y tensión — ningún precio. {n} de las {t} filas mostradas tienen una tensión medible.",
+  "movers.vueTxt.tout": "Las {n} columnas. La vista más ancha, y la única que se desplaza lateralmente en un teléfono.",
+  "movers.compo": "{c} cómics · {o} coleccionables · {l} licencias",
+  "movers.compoRar": "sobre todo {r} ({n} %)"
 }

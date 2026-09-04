@@ -628,5 +628,18 @@
   "movers.aucuneValeur": "No match in this list.",
   "movers.marquesReste": "{n} more brands — use the search above to find them.",
   "movers.tension": "Tension",
-  "movers.tensionAide": "A calculated rank from 0 to 100, no price involved: the share of the print run actually in circulation, then the smallest run first, then the burnt share. 100 = the run is out. It does not say whether the piece is a good buy."
+  "movers.tensionAide": "A calculated rank from 0 to 100, no price involved: the share of the print run actually in circulation, then the smallest run first, then the burnt share. 100 = the run is out. It does not say whether the piece is a good buy.",
+  "movers.sort.tension": "Tension ↓",
+  "movers.sort.omcpAsc": "OMI/MCP ↑",
+  "movers.vue.essentiel": "Essentials",
+  "movers.vue.prix": "Prices",
+  "movers.vue.offre": "Supply",
+  "movers.vue.tout": "Everything",
+  "movers.colsFin": "Fine-tune the columns",
+  "movers.vueTxt.essentiel": "Rarity, tension and links only — the shortest read across the {n} pieces your filter kept.",
+  "movers.vueTxt.prix": "Everything that carries an amount. {n} of the {t} rows shown have a quote right now; the others show a dash.",
+  "movers.vueTxt.offre": "Print run, listings and tension — no price at all. {n} of the {t} rows shown have a measurable tension.",
+  "movers.vueTxt.tout": "All {n} columns. Widest view, and the one that scrolls sideways on a phone.",
+  "movers.compo": "{c} comics · {o} collectibles · {l} licences",
+  "movers.compoRar": "mostly {r} ({n} %)"
 }

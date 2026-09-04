@@ -33,7 +33,7 @@ import { rar, forme, delta, gemsM, omiM, RAR, mcpPoints, sparklineNormalisee, jo
 // ça s'éprouve sans DOM, sans build et dans les DEUX corpus. Ici, ça ne
 // s'éprouverait qu'en servant la page — c'est-à-dire jamais, puisque
 // `test:pages` reçoit un 302 sur `/market/` et n'atteint pas le rendu.
-import { lireParams, selectionMarche, facettes, parMcp, filtreActif,
+import { lireParams, selectionMarche, facettes, parMcp, parMcpOmi, filtreActif,
          PAR_PAGE, RENDU_MAX, TRIS as TRIS_CLES } from '../../../engine/lib/marche_selection.mjs';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -248,6 +248,21 @@ const LIB_TRI = {
   'floor-asc': 'movers.sort.floorAsc',
   'sup-asc': 'movers.sort.supplyAsc',
   'mcp-asc': 'movers.sort.mcpAsc',
+  // 🔴🔴 LOT 220 — CES DEUX LIGNES REPARENT UN DEFAUT DU LOT 219, DEJA DEPOSE.
+  // Le 219 a ajoute la cle de tri `ten-desc` dans `TRIS` (marche_selection.mjs)
+  // et a OUBLIE son libelle ici. La table rendait `undefined` pour cette cle,
+  // `t()` le recopie tel quel, et le menu de tri affichait le mot **undefined**
+  // a un abonne.
+  // ⭐⭐⭐ ET LE COMMENTAIRE DE `LIB_TRI`, DIX LIGNES PLUS HAUT, ANNONCAIT CE
+  // PIEGE — dans l'AUTRE sens : « une liste recopiee ici proposerait un jour un
+  // tri que le serveur ne connait pas ». C'est l'inverse qui est arrive : un tri
+  // que le serveur connait et que le gabarit ne sait pas nommer. *Une mise en
+  // garde protege le sens qu'elle enonce, pas le sens inverse.*
+  // ⇒ Deux listes restent deux listes, donc `test:tableau` porte desormais un
+  //   controle qui exige un libelle pour CHAQUE cle de `TRIS` : un banc, pas
+  //   une discipline.
+  'ten-desc': 'movers.sort.tension',
+  'omcp-asc': 'movers.sort.omcpAsc',
   'nom-asc': 'movers.sort.nameAsc',
 };
 const TRIS = TRIS_CLES.map((v) => ({ v, l: t(lang, LIB_TRI[v]) }));
@@ -269,6 +284,48 @@ const VUE = Astro.url.searchParams.get('f-vue') === 'tui' ? 'tui' : 'tbl';
 const colsExpl = Astro.url.searchParams.get('f-cx') === '1';
 const COLS_VUES = colsExpl ? Astro.url.searchParams.getAll('f-col') : null;
 const colVue = (c) => (COLS_VUES === null ? true : COLS_VUES.includes(c));
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔑 LOT 220 — QUATRE VUES PRÉRÉGLÉES À LA PLACE DE HUIT CASES À COCHER
+// ═══════════════════════════════════════════════════════════════════════════
+// Demande de l'audit du 04/09 : « remplacer les 8 cases Columns par 4 vues
+// préréglées + une phrase d'explication qui change avec la vue ». Huit cases
+// posent huit questions au visiteur ; quatre vues lui en posent une seule, et
+// c'est la bonne : *que veux-tu regarder ?*
+//
+// ⛔ LES CASES NE DISPARAISSENT PAS, ELLES PASSENT DERRIÈRE. C'est la
+// divulgation progressive que l'audit relève chez le concurrent (« pour le seul
+// contrôle rare ») : la vue règle le cas courant, les cases restent pour qui
+// veut composer. Les retirer aurait été une perte de contrôle déguisée en
+// simplification — et elles sont déjà lues par le pilote, le thème et l'URL.
+//
+// ⭐⭐ CHAQUE VUE PORTE SA PHRASE, ET LA PHRASE PORTE UN CHIFFRE. C'est le seul
+// détail de présentation que l'audit note comme « notre ton, écrit chez eux » :
+// une explication qui donne le nombre justifiant le choix, au lieu d'un libellé
+// qui se contente de nommer. Les chiffres ci-dessous sont MESURÉS sur la
+// population courante, jamais écrits en dur — sur une page servie sans droit,
+// `avecCote` tombe à zéro et la phrase le dit au lieu de promettre des prix.
+//
+// ⛔ ET ELLES SE DÉCLARENT ICI, À CÔTÉ DE `COLONNES`, POUR LA RAISON QUI A FAIT
+// ÉCRIRE `COLONNES` : une liste de colonnes recopiée ailleurs diverge. Une vue
+// qui nommerait une colonne inexistante ne cocherait rien, en silence — donc
+// `test:tableau` §4 quater exige que chaque colonne citée existe.
+// ⛔ LES CLÉS SONT ÉCRITES EN TOUTES LETTRES, JAMAIS COMPOSÉES. Une clé bâtie
+//    à la volée à partir du nom de la vue serait invisible pour `test:cles`,
+//    qui ratisse les clés LITTÉRALES du source : une traduction manquante
+//    passerait le banc et sortirait en anglais dans les cinq langues. C'est la
+//    même famille que la panne P30 — sauf qu'ici c'est le banc qu'on aveugle.
+const VUES_COLS = [
+  { v: 'essentiel', l: t(lang, 'movers.vue.essentiel'), cols: ['rar', 'ten', 'liens'] },
+  { v: 'prix',      l: t(lang, 'movers.vue.prix'),      cols: ['rar', 'atl', 'ath', 'c7', 'mcp', 'liens'] },
+  { v: 'offre',     l: t(lang, 'movers.vue.offre'),     cols: ['rar', 'sup', 'lst', 'ten', 'liens'] },
+  { v: 'tout',      l: t(lang, 'movers.vue.tout'),      cols: COLONNES.map((c) => c.c) },
+];
+// ⭐ Les chiffres des phrases, mesurés sur ce qui est réellement retenu.
+// ⚠️ `SEL.retenues` et non `toutes.length` : la phrase parle de ce que le
+//    visiteur a sous les yeux, pas du catalogue.
+const nAvecTension = SEL.lignes.filter((i) => i.tension !== null && i.tension !== undefined).length;
+const nAvecCote = SEL.lignes.filter((i) => i.floor !== null && i.floor !== undefined).length;
 
 const jour = (i) => jourISO(i.releaseDate);
 const chevron = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
@@ -701,12 +758,37 @@ const ILE_TUILES = JSON.stringify({
     {/* ─── COLONNES ─── ⭐ La liste vient de `COLONNES`, la même que le tableau. */}
     <div class="f-panneau" id="fp-cols" hidden>
       <div class="f-panneau__t">{t(lang, 'movers.g.cols')}</div>
-      <div class="cols-l">
-        {COLONNES.map((c) => (
-          <label class="puce"><input type="checkbox" name="f-col" value={c.c} checked={colVue(c.c)} /> {c.l}</label>
+      {/* ⭐ LES QUATRE VUES D'ABORD, LES CASES ENSUITE. L'ordre EST le message :
+          ce qu'on lit en premier est ce qu'on est censé régler en premier. */}
+      <div class="cols-l" data-vues>
+        {VUES_COLS.map((v) => (
+          <button type="button" class="f-b" data-vue-cols={v.v}
+                  data-cols={v.cols.join(' ')} aria-pressed="false">{v.l}</button>
         ))}
       </div>
-      <p class="etiq" style="margin:10px 0 0;color:var(--muted)">{t(lang, 'movers.colsHint')}</p>
+      {/* ⭐⭐ LA PHRASE QUI CHANGE AVEC LA VUE, ET QUI PORTE UN CHIFFRE.
+          ⛔ Elle est rendue par le SERVEUR pour les quatre vues, cachée sauf
+          une : le pilote bascule un attribut, il n'écrit aucun texte. Un pilote
+          qui composerait ces phrases aurait besoin d'une table de traduction à
+          lui — la panne P30 du lot 139, et `test:cles` ne lit pas le JS.
+          ⚠️ Les nombres viennent de la sélection courante : sans droit sur les
+          cotes, `nAvecCote` vaut 0 et la vue « prix » le dit, au lieu de
+          promettre des colonnes qui rendront des tirets. */}
+      <p class="etiq" style="margin:10px 0 0;color:var(--muted)" data-vue-txt="essentiel">{t(lang, 'movers.vueTxt.essentiel', { n: SEL.retenues.toLocaleString(nf) })}</p>
+      <p class="etiq" style="margin:10px 0 0;color:var(--muted)" data-vue-txt="prix" hidden>{t(lang, 'movers.vueTxt.prix', { n: nAvecCote.toLocaleString(nf), t: SEL.rendues.toLocaleString(nf) })}</p>
+      <p class="etiq" style="margin:10px 0 0;color:var(--muted)" data-vue-txt="offre" hidden>{t(lang, 'movers.vueTxt.offre', { n: nAvecTension.toLocaleString(nf), t: SEL.rendues.toLocaleString(nf) })}</p>
+      <p class="etiq" style="margin:10px 0 0;color:var(--muted)" data-vue-txt="tout" hidden>{t(lang, 'movers.vueTxt.tout', { n: String(COLONNES.length) })}</p>
+      {/* Le réglage fin, pour qui veut composer. ⛔ Toujours atteignable : une
+          divulgation progressive cache un contrôle rare, elle ne le supprime pas. */}
+      <details style="margin-top:12px">
+        <summary class="etiq" style="cursor:pointer;color:var(--muted)">{t(lang, 'movers.colsFin')}</summary>
+        <div class="cols-l" style="margin-top:8px">
+          {COLONNES.map((c) => (
+            <label class="puce"><input type="checkbox" name="f-col" value={c.c} checked={colVue(c.c)} /> {c.l}</label>
+          ))}
+        </div>
+        <p class="etiq" style="margin:10px 0 0;color:var(--muted)">{t(lang, 'movers.colsHint')}</p>
+      </details>
     </div>
 
     {/* ⭐ Sans cette ligne, on ne sait jamais si un filtre a mordu ou si le
@@ -748,6 +830,36 @@ const ILE_TUILES = JSON.stringify({
         ? t(lang, 'movers.showing', { a: SEL.rendues.toLocaleString(nf), b: SEL.retenues.toLocaleString(nf), c: SEL.totalVisible.toLocaleString(nf) })
         : t(lang, 'movers.capped', { a: SEL.rendues.toLocaleString(nf), b: SEL.totalVisible.toLocaleString(nf) })}
     </p>
+    {/* ═══════════════════════════════════════════════════════════════════════
+        🔑 LOT 220 — CE QUE LE FILTRE A RETENU, PAS SEULEMENT COMBIEN.
+        ═══════════════════════════════════════════════════════════════════════
+        Demande de l'audit du 04/09. « 440 pièces » ne dit pas si ce sont 440
+        comics d'une seule série ou 440 objets de douze licences — et c'est cette
+        seconde information qui dit si le filtre a mordu au bon endroit.
+        ⭐ Calculée sur les RETENUES (`marche_selection.mjs`), jamais sur les 20
+        de la tranche : une composition lue sur l'échantillon le décrirait en le
+        faisant passer pour le tout.
+        ⛔ ELLE NE S'AFFICHE QUE SI ELLE APPREND QUELQUE CHOSE : sans filtre
+        actif elle redirait le catalogue, que le compteur juste au-dessus vient
+        d'annoncer. Une ligne qui répète la précédente n'ajoute pas de
+        l'information, elle en retire — on cesse de lire les deux.
+        ⚠️ `rareteDominante` peut être `null` (zéro résultat) : la phrase de
+        rareté est alors omise, pas rendue vide. */}
+    {aFiltre && SEL.retenues > 0 && (
+      <p class="etiq" style="color:var(--muted);margin-top:-4px">
+        {t(lang, 'movers.compo', {
+          c: SEL.composition.comics.toLocaleString(nf),
+          o: SEL.composition.collectibles.toLocaleString(nf),
+          l: SEL.composition.licences.toLocaleString(nf),
+        })}
+        {SEL.composition.rareteDominante && RAR[SEL.composition.rareteDominante] && (
+          <> · {t(lang, 'movers.compoRar', {
+            r: RAR[SEL.composition.rareteDominante].l,
+            n: Math.round((SEL.composition.rareteDominanteN / SEL.retenues) * 100).toString(),
+          })}</>
+        )}
+      </p>
+    )}
   </form>
 
   {/* ⛔ LE TITRE INTERMÉDIAIRE A ÉTÉ RETIRÉ (demande de Preda, 05/08). Il
@@ -1006,7 +1118,22 @@ const ILE_TUILES = JSON.stringify({
           <td class="n" data-prix><span class="m2">
             <span class="m2__a"><span class="num"><Fragment set:html={gemsU} /> {money(i.floor)}</span>
               {i.listings <= 1 && <span class="alerte" title={t(lang, 'item.outlier')}>!</span>}</span>
-            <span class="m2__b muted" data-attente><Fragment set:html={omiM()} /> —</span>
+            {/* 🔑 LOT 220 — LE PLANCHER STACKR REMPLACE SON TIRET « EN ATTENTE ».
+                ⭐⭐ ET LE `data-attente` PART AVEC LUI SUR LES DEUX LIGNES, C'EST
+                TOUT L'ENJEU : il voulait dire « pas encore collecte », ce qui
+                etait vrai en aout et faux depuis le lot 190 (`stackr_fiches.py`
+                publie `fiches_stackr.csv`). Le laisser sur une colonne desormais
+                remplie ferait dire a l'infobulle l'INVERSE de ce que la cellule
+                montre — et c'est precisement la confusion que `data-attente`
+                existait pour lever. Un tiret qui reste veut dire « aucun plancher
+                StackR pour cette piece » ou « votre palier ne l'ouvre pas ».
+                🔐 `floorStackr` est dans `CHAMPS_COTE` : il n'arrive ici que par
+                la reinjection de la l. 139, apres que la route a reconnu une
+                session. Sans droit, `cotes` est vide et la cellule rend un tiret
+                — rien a masquer, il n'y a rien a masquer. */}
+            {i.floorStackr === null || i.floorStackr === undefined
+              ? <span class="m2__b muted">—</span>
+              : <span class="m2__b num"><Fragment set:html={omiM()} /> {money(i.floorStackr)}</span>}
           </span></td>
 
           {/* 🔴🔴 LOT 155-C ③ — PLUS-BAS / PLUS-HAUT HISTORIQUES.
@@ -1065,7 +1192,16 @@ const ILE_TUILES = JSON.stringify({
               : <span class="m2__a num" title={noteMcp}>
                   <Fragment set:html={gemsU} /> {money(parMcp(i))}
                 </span>}
-            <span class="m2__b muted" data-attente><Fragment set:html={omiM()} /> —</span>
+            {/* 🔑 LOT 220 — L'OMI/MCP REMPLACE UN TIRET « EN ATTENTE ».
+                ⛔⛔ IL NE SE COMPARE PAS A LA LIGNE DU DESSUS : gems et OMI sont
+                deux MARCHES, rapport non constant (mediane 4 423, p10 2 273,
+                p90 8 520 sur 1 306 items communs, mesure du lot 144). Ils
+                cohabitent, ils ne s'additionnent ni ne se convertissent. */}
+            {parMcpOmi(i) === null
+              ? <span class="m2__b muted">—</span>
+              : <span class="m2__b num" title={noteMcp}>
+                  <Fragment set:html={omiM()} /> {money(parMcpOmi(i))}
+                </span>}
           </span></td>
 
           {/* LIENS — LOT 68 : DEUX BOUTONS SUR UNE SEULE LIGNE, SÉPARÉS PAR UNE
@@ -1490,6 +1626,40 @@ const ILE_TUILES = JSON.stringify({
       // faire passer par le serveur serait payer un aller-retour pour rien.
       // Elles voyagent quand même dans l'URL — mais en PASSAGERS du prochain
       // filtre, pas en déclencheurs.
+      // ═══════════════════════════════════════════════════════════════════
+      //  🔑 LOT 220 — LES QUATRE VUES DE COLONNES
+      // ═══════════════════════════════════════════════════════════════════
+      // ⭐ ELLES NE FONT QUE COCHER DES CASES. Aucune seconde source de vérité :
+      // la vue pose l'état des `f-col`, puis appelle `colonnes()`, qui reste le
+      // SEUL code qui peint. Une vue qui aurait peint elle-même aurait été la
+      // sixième occurrence de « deux fabriques pour un même rendu ».
+      // ⛔ ET AUCUN ALLER-RETOUR : les colonnes ne partent jamais au serveur
+      // (elles se peignent sur place, l. « Les colonnes ne partent JAMAIS »).
+      // Une vue qui rechargerait la page pour masquer une colonne paierait
+      // 4,7 Mo de projection pour un geste d'affichage.
+      // ⚠️ `aria-pressed` ET PAS une classe : l'état d'un bouton bascule doit
+      // être dans l'arbre d'accessibilité, pas seulement dans le thème — c'est
+      // la leçon du lot qui a découvert que le chevron ne s'allumait pas.
+      function poserVue(btn) {
+        var voulues = (btn.getAttribute('data-cols') || '').split(' ').filter(Boolean);
+        [].slice.call(f.querySelectorAll('input[name="f-col"]')).forEach(function (c) {
+          c.checked = voulues.indexOf(c.value) !== -1;
+        });
+        [].slice.call(f.querySelectorAll('[data-vue-cols]')).forEach(function (b) {
+          b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
+        });
+        // ⭐ La phrase est DÉJÀ RENDUE par le serveur, dans les cinq langues et
+        //   avec ses chiffres. On bascule un attribut ; on n'écrit pas un mot.
+        var nom = btn.getAttribute('data-vue-cols');
+        [].slice.call(f.querySelectorAll('[data-vue-txt]')).forEach(function (pp) {
+          pp.hidden = pp.getAttribute('data-vue-txt') !== nom;
+        });
+        colonnes();
+      }
+      [].slice.call(f.querySelectorAll('[data-vue-cols]')).forEach(function (b) {
+        b.addEventListener('click', function () { poserVue(b); });
+      });
+
       function colonnes() {
         var actives = [].slice.call(f.querySelectorAll('input[name="f-col"]:checked'))
           .map(function (c) { return c.value; });

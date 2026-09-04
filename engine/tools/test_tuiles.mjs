@@ -1027,7 +1027,30 @@ if (leve) fin(1);
       `${surPage - dansCorps} hors tableau (plafond ${PLAFOND_HORS_TABLEAU})`);
     const cells = [...document.querySelectorAll('#vue-tbl [data-attente]')];
     const nus = cells.filter((e) => e.getAttribute('title') !== declare);
-    verifie('② le pilote le repose sur CHAQUE cellule en attente', cells.length > 0 && nus.length === 0,
+    // ═══════════════════════════════════════════════════════════════════════
+    // 🔴🔴 LOT 220 — « AUCUNE CELLULE » N'EST PLUS UN ÉCHEC, C'EST UN VERDICT.
+    // ═══════════════════════════════════════════════════════════════════════
+    // Ce contrôle exigeait `cells.length > 0`, et il avait raison de le faire :
+    // sans cellule, il serait passé au vert en n'ayant rien comparé — la
+    // contre-épreuve du banc, pas un détail.
+    // ⭐⭐⭐ MAIS SA CONDITION A DISPARU POUR UNE BONNE RAISON. Le lot 220 a
+    // rempli les deux dernières colonnes « en attente » du tableau (le plancher
+    // StackR et l'OMI/MCP, annoncés « à faire » depuis août). Il n'y a donc plus
+    // de cellule en attente à surveiller — et rougir là-dessus ferait échouer un
+    // banc parce que le site s'est amélioré.
+    // ⇒ **SANS OBJET**, imprimé en toutes lettres. C'est le 4ᵉ verdict de la
+    // maison (conforme · écart · indécidable · sans objet), et c'est exactement
+    // la forme que `test_fuite_prix.mjs` §6 emploie pour son panneau de seuil.
+    // ⛔ ET LE CONTRÔLE NE DEVIENT PAS INOFFENSIF : dès qu'une cellule en attente
+    // réapparaît — une colonne neuve, une source qui retombe en panne — elle doit
+    // porter le libellé, et `nus.length` la fait rougir. Le banc dort ; il n'est
+    // pas désarmé.
+    if (cells.length === 0) {
+      console.log('  ..  ② aucune cellule en attente dans le tableau — SANS OBJET.'
+        + ' Le lot 220 a rempli le plancher StackR et l\'OMI/MCP ; il ne reste rien à'
+        + ' étiqueter. ⚠️ ANORMAL si une colonne vient d\'être ajoutée sans donnée.');
+    } else
+    verifie('② le pilote le repose sur CHAQUE cellule en attente', nus.length === 0,
       cells.length === 0 ? '🔴 aucune cellule `data-attente` — le banc ne mesure rien'
         : (nus.length ? `🔴 ${nus.length}/${cells.length} cellule(s) sans libellé`
           : `${cells.length} cellule(s) servies par le pilote`));

@@ -628,5 +628,18 @@
   "movers.aucuneValeur": "Aucune correspondance dans cette liste.",
   "movers.marquesReste": "{n} marques de plus — utilisez la recherche ci-dessus pour les trouver.",
   "movers.tension": "Tension",
-  "movers.tensionAide": "Un rang calculé de 0 à 100, sans aucun prix : la part du tirage réellement en circulation, puis le plus petit tirage d’abord, puis la part brûlée. 100 = le tirage est sorti. Elle ne dit pas si la pièce est une bonne affaire."
+  "movers.tensionAide": "Un rang calculé de 0 à 100, sans aucun prix : la part du tirage réellement en circulation, puis le plus petit tirage d’abord, puis la part brûlée. 100 = le tirage est sorti. Elle ne dit pas si la pièce est une bonne affaire.",
+  "movers.sort.tension": "Tension ↓",
+  "movers.sort.omcpAsc": "OMI/MCP ↑",
+  "movers.vue.essentiel": "L’essentiel",
+  "movers.vue.prix": "Les prix",
+  "movers.vue.offre": "L’offre",
+  "movers.vue.tout": "Tout",
+  "movers.colsFin": "Régler les colonnes une par une",
+  "movers.vueTxt.essentiel": "Rareté, tension et liens seulement — la lecture la plus courte sur les {n} pièces retenues par votre filtre.",
+  "movers.vueTxt.prix": "Tout ce qui porte un montant. {n} des {t} lignes affichées ont une cote en ce moment ; les autres montrent un tiret.",
+  "movers.vueTxt.offre": "Tirage, annonces et tension — aucun prix. {n} des {t} lignes affichées ont une tension mesurable.",
+  "movers.vueTxt.tout": "Les {n} colonnes. La vue la plus large, et la seule qui défile latéralement sur un téléphone.",
+  "movers.compo": "{c} comics · {o} collectibles · {l} licences",
+  "movers.compoRar": "surtout {r} ({n} %)"
 }
