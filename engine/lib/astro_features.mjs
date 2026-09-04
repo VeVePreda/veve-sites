@@ -181,8 +181,40 @@ const ZONES = [
   //   ⚠️ `test:cache` § 2, lui, ne savait lire qu'UN segment — son motif a dû
   //   être élargi dans le même lot, sinon il aurait déclaré ces adresses « non
   //   éteintes » alors qu'elles le sont.
+  // ═════════════════════════════════════════════════════════════════════════
+  // 🔔🔴🔴 LOT 221 — `/alertes/` ET `/alertes/reglages/` REJOIGNENT LA ZONE.
+  // ═════════════════════════════════════════════════════════════════════════
+  // ⭐⭐⭐ **QUATRIÈME FOIS QUE CE TABLEAU EST EN RETARD D'UN LOT**, et le
+  // fichier le disait déjà deux fois au-dessus : le 44, puis le 104, puis le
+  // 157-B. Le lot 215-B a ajouté les alertes aux routes privées sans venir ici.
+  //
+  // MESURÉ SUR LA PRODUCTION LE 04/09/2026 :
+  //   · `vevewiki.com/alertes/`          → **200**, 418 o, meta refresh + noindex
+  //   · `vevewiki.com/alertes/reglages/` → **200**, 482 o, idem
+  //   Deux TALONS qui redirigent vers `/connexion/`… qui est un **404** sur ce
+  //   site. Profil identique, au décompte d'octets près, à `/favoris/` et
+  //   `/dashboard/` au lot 136. ⇒ Deux pages fantômes de plus qui envoient un
+  //   visiteur nulle part, sur un site dont il est GELÉ qu'il n'aura jamais
+  //   d'espace membre.
+  //
+  // ⭐⭐ ET LE REMÈDE DU LOT 136 A FONCTIONNÉ : ce n'est pas un humain qui a vu
+  // le défaut, c'est le §1 de `test:cache` — celui-là même que le 136 a écrit
+  // « pour rougir à la prochaine omission ». Il rougit sur `main` depuis le
+  // **03/09 à 06 h 51 UTC** (dernier run vert : 02/09 17 h 37), et l'alerte
+  // Discord que Preda reçoit à chaque dépôt est la sienne.
+  // *Une phrase se relit ; un banc se déclenche.* Il s'est déclenché une
+  // troisième fois, et il a fallu quatre jours pour le lire.
+  // ⚠️ Ce n'est donc PAS un rouge causé par les lots 218-220 : il leur est
+  //   antérieur, et il vise l'AUTRE site.
+  //
+  // ⚠️ Le garde-fou d'origine tient : ces deux pages ne sont effacées QUE parce
+  //   qu'elles émettent un TALON — vérifié ci-dessus. Si l'une devenait une
+  //   vraie page, l'intégration refuserait d'y toucher et le dirait tout haut.
+  // ⭐ `/alertes/reglages/` est un préfixe à DEUX segments : la boucle sait les
+  //   lire depuis le lot 157-B, et le motif du §1 de `test:cache` aussi.
   { nom: 'comptes', actif: comptesActifs,
     prefixes: ['/acces/', '/inscription/', '/compte/', '/connexion/', '/favoris/', '/dashboard/',
+               '/alertes/', '/alertes/reglages/',
                '/analytics/',
                '/analytics/market/', '/analytics/catalogue/',
                '/analytics/collections/', '/analytics/chain/'] },

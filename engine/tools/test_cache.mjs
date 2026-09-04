@@ -44,6 +44,12 @@ import {
   PRIVEES, ZONE_MEMBRE, ABSENTES_HORS_MEMBRE, FAMILLES_COMPTE,
   PUBLIQUES_PAR_ZONE, VARY_TOLERES, SONDE, META_BUILD,
 } from '../lib/cache_attendu.mjs';
+// 🔴 LOT 221 — LA LISTE DES LANGUES SE LIT, ELLE NE SE RECOPIE PAS.
+// Le filtre du §1 portait `fr|es|de|en` en dur ; le site en parle cinq, et
+// `/it/alertes/` se retrouvait accusé d'être une page non éteinte alors qu'il
+// est la version italienne d'une adresse déjà comptée. *Une liste recopiée dans
+// un banc est une seconde vérité, et elle vieillit sans que personne la relise.*
+import { languesInterface } from '../lib/i18n.mjs';
 
 const ICI = dirname(fileURLToPath(import.meta.url));
 
@@ -271,7 +277,22 @@ verifie(`${PRIVEES.length} route(s) privée(s) déclarée(s)`, PRIVEES.length >=
     // jamais émises comme fichiers : elles n'ont rien à éteindre).
     const pagesDeCompte = PRIVEES
       .map((p) => p.chemin)
-      .filter((c) => !c.startsWith('/api/') && !/^\/(fr|es|de|en)\//.test(c));
+      // 🔴🔴 LOT 221 — CE FILTRE OUBLIAIT L'ITALIEN, ET IL ACCUSAIT UNE PAGE
+      // QUI N'EXISTE PAS. Le motif écrit en dur listait `fr|es|de|en` : le site
+      // en porte CINQ. `/it/alertes/` passait donc le filtre et se retrouvait
+      // dans les « non éteintes » — alors qu'il est la version italienne d'une
+      // adresse déjà comptée, et qu'il rend 404 en production.
+      // ⭐⭐⭐ LE BANC AVAIT RAISON SUR LE FOND (les alertes n'étaient pas dans
+      // la zone) ET TORT SUR UN TIERS DE SON GRIEF. Un instrument juste qui
+      // nomme mal ce qu'il a trouvé fait chercher au mauvais endroit — et ici,
+      // il faisait chercher une page italienne inexistante.
+      // ⛔ ET ON NE RALLONGE PAS LA LISTE : on la LIT. Une liste de langues
+      // recopiée dans un banc est une seconde vérité, et c'est exactement
+      // pourquoi celle-ci avait vieilli sans que personne ne le voie. La source
+      // est `languesInterface()`, le seul endroit qui sait combien de langues le
+      // site parle.
+      .filter((c) => !c.startsWith('/api/')
+        && !new RegExp(`^/(${languesInterface().join('|')})/`).test(c));
     const nonEteintes = pagesDeCompte.filter((c) => !prefixes.has(c));
     verifie('toute page de compte est ÉTEINTE sur un site sans espace membre',
       nonEteintes.length === 0,
