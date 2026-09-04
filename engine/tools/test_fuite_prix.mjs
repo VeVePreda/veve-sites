@@ -388,6 +388,109 @@ dit(sousDist === 0, '.reserve/ n\'apparait pas sous dist/',
   }
 }
 
+// ── 7. LOT 218 — LE PANNEAU DE DETENTION EST SERVI VIDE ─────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 CE BANC NE COUVRAIT QUE `.reserve/cote/`, ET IL SERAIT RESTE VERT.
+// Le lot 218 pose sur CHAQUE fiche un panneau de detention rempli par une route
+// gardee. Les cinq champs de la cote n'y apparaissent pas — le corner ne porte
+// aucun prix — donc les §1 a §5 n'ont rien a y voir : ils auraient dit « aucune
+// fuite » d'un bloc qu'ils ne regardent pas.
+// ⭐⭐⭐ *Un banc peut etre vert parce qu'il ne surveille rien.* Le §6 avait
+// ouvert la breche pour le panneau de seuil ; celle-ci la ferme pour le corner,
+// et par une forme qui vaudra pour le bloc suivant.
+//
+// ⛔ LISTE BLANCHE, JAMAIS NOIRE. On n'enumere pas les attributs interdits — on
+// enumere les DEUX seuls autorises (`data-corner`, qui porte un uuid public, et
+// `data-verrouille`, qui n'a pas de valeur), plus la famille `data-l-*` qui ne
+// porte que des mots traduits. Tout `data-` neuf fait donc rougir ce banc PAR
+// DEFAUT, y compris celui qu'un futur lot ajouterait de bonne foi pour
+// « eviter un aller-retour ». Une liste noire aurait laisse passer exactement
+// celui-la, parce qu'on ne le connait pas encore.
+//
+// ⭐ ET IL A UNE REPONSE DANS LES TROIS ETATS : rempli / vide / SANS OBJET.
+// Sur vevewiki il n'y a ni compte ni fiche a panneau : on l'imprime au lieu de
+// sortir vert. Un banc muet quand sa condition n'arrive pas est un instrument ;
+// un banc muet quand elle arrive est un interrupteur.
+{
+  const fiches = [];
+  const empiler = (d) => {
+    for (const e of readdirSync(d, { withFileTypes: true })) {
+      const c = join(d, e.name);
+      if (e.isDirectory()) empiler(c);
+      else if (e.name.endsWith('.html')) fiches.push(c);
+    }
+  };
+  try { empiler(RACINE); } catch { /* dist absent : deja traite plus haut */ }
+
+  const AUTORISES = new Set(['data-corner', 'data-verrouille']);
+  // 🔬 LOT 218 — CE BANC S'EST ATTRAPE LUI-MEME, ET LA LECON VAUT PLUS QUE LE
+  // CORRECTIF. Ecrit avec `data-corner` et `data-verrouille` pour seuls
+  // autorises, il etait VERT juste apres le build et ROUGE apres
+  // `npm run marquer:i18n` : l'etape de marquage pose `data-i18n-attr` sur
+  // l'hote, et la liste blanche ne la connaissait pas.
+  // ⭐⭐⭐ ROUGE POUR UNE BONNE RAISON DE FORME, FAUSSE SUR LE FOND — et il ne
+  // l'a montre qu'a l'etape suivante de la chaine. *Un banc juge ce qu'il
+  // observe AU MOMENT ou il l'observe* : celui-ci doit valoir avant ET apres
+  // le marquage, sinon son verdict depend de l'ordre des commandes.
+  // ⛔ ET LA PORTE RESTE ETROITE : `data-i18n-attr` ne porte qu'une carte
+  // « attribut:cle », c'est-a-dire des NOMS DE CLES, jamais des valeurs — le
+  // controle juste en dessous l'exige au lieu de le croire. Sans lui, on aurait
+  // ouvert une famille entiere d'attributs sur la foi de son prefixe.
+  // ⭐ Et sa presence est un SIGNE DE BON FONCTIONNEMENT : c'est elle qui rend
+  // le panneau traduisible cote client. Sans elle il resterait anglais dans les
+  // cinq langues — la panne P30 du lot 139, que `data-l-*` existe pour eviter.
+  const CARTE_I18N = /^([a-z0-9-]+:[a-z0-9_.]+)(\s+[a-z0-9-]+:[a-z0-9_.]+)*$/;
+  let avecPanneau = 0;
+  const fautifs = [];
+  for (const f of fiches) {
+    const html = readFileSync(f, 'utf8');
+    if (!html.includes('data-corner=')) continue;
+    avecPanneau++;
+    const nom = f.slice(RACINE.length);
+
+    // ① l'hote ne porte que des attributs de la liste blanche
+    const ouvrante = html.match(/<div[^>]*\sdata-corner=[^>]*>/);
+    if (ouvrante) {
+      const attrs = ouvrante[0].match(/\sdata-[a-z0-9-]+/g) || [];
+      for (const a of attrs) {
+        const n = a.trim();
+        if (AUTORISES.has(n) || n.startsWith('data-l-')) continue;
+        if (n.startsWith('data-i18n')) {
+          // On ne fait pas confiance au prefixe : on lit la valeur. Une carte
+          // de traduction ne contient que des paires « attribut:cle ». Un
+          // montant, une date ou un uuid n'y passeraient pas.
+          const v = (ouvrante[0].match(new RegExp(n + '="([^"]*)"')) || [])[1];
+          if (v === undefined || CARTE_I18N.test(v.trim())) continue;
+          fautifs.push(`${nom} : ${n} ne porte pas une carte de cles « ${v.slice(0, 40)} »`);
+          continue;
+        }
+        fautifs.push(`${nom} : attribut hors liste blanche « ${n} »`);
+      }
+    }
+
+    // ② le corps et l'etat partent VIDES — c'est le pilote qui y ecrit, a
+    //    l'execution, apres une route qui lit la session.
+    for (const [cle, motif] of [
+      ['data-corner-corps', /<div[^>]*data-corner-corps[^>]*>([\s\S]*?)<\/div>/],
+      ['data-corner-etat',  /<p[^>]*data-corner-etat[^>]*>([\s\S]*?)<\/p>/],
+    ]) {
+      const m = html.match(motif);
+      if (m && m[1].trim() !== '') {
+        fautifs.push(`${nom} : ${cle} non vide « ${m[1].trim().slice(0, 40)} »`);
+      }
+    }
+  }
+
+  if (!avecPanneau) {
+    console.log(`  ..  aucun panneau de detention dans dist/ (${process.env.SITE}) : `
+      + 'attendu sur vevewiki, ANORMAL sur veveprice.');
+  } else {
+    dit(fautifs.length === 0,
+      `les ${avecPanneau} panneau(x) de detention servis partent VIDES`,
+      fautifs.length ? `🔴 ${fautifs.slice(0, 3).join(' · ')}` : null);
+  }
+}
+
 console.log(ko === 0 ? '\n✅ aucune fuite de cote dans dist/\n' : `\n🔴 ${ko} controle(s) en echec\n`);
 // ═══════════════════════════════════════════════════════════════════════════
 //  🔴🔴🔴 LOT 112 — LES POURCENTAGES SONT DES PRIX, ET CE BANC NE LES VOYAIT PAS

@@ -1,0 +1,87 @@
+---
+// ⚠️ VeVePreda/veve-sites — src/components/Corner.astro   (FICHIER NEUF — lot 218)
+// ═══════════════════════════════════════════════════════════════════════════
+// LE COIN DE LA PIÈCE — qui la détient, et à quel point c'est concentré.
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// ⭐⭐⭐ CE LOT N'AJOUTE AUCUNE DONNÉE. IL AJOUTE UN APPEL.
+// `corner_full.csv.gz` porte 114 colonnes sur 19 213 pièces. Il est lu au build
+// (`getCorner()`, engine/data/warehouse.mjs l. 591), découpé par pièce dans
+// `.reserve/analytics/corner/<uuid>.json` (engine/lib/reserve_analytics.mjs
+// l. 105), et servi par une route qui existe et qui garde son palier
+// (`/api/analytics/corner?uuid=`, porte « modules »). Il ne manquait que
+// l'appel : `Item.astro` ne montait que Cadran, Cote, Gate et BarreAcces.
+// *On payait la collecte, le stockage, le découpage et la route d'une donnée
+// que personne ne pouvait voir.*
+//
+// 📐 COUVERTURE MESURÉE LE 04/09/2026 — et c'est elle qui décide de la forme :
+//   · corner_full ............................. 19 213 pièces
+//   · uuid suivis en prix ..................... 14 090
+//   · suivis QUI ONT un corner ................ 13 988 — **99,3 %**
+//   · suivis sans corner ...................... 102
+// ⭐ 99,3 %, DONC LE BLOC S'ÉMET TOUJOURS et le pilote écrit l'absence sur les
+// 0,7 %. ⛔ C'est l'inverse de l'arbitrage du tableau des ventes (lot 211), et
+// pour une raison chiffrée, pas par goût : là-bas la couverture est de 34 %,
+// donc un bloc émis sur toutes les fiches aurait posé un cadenas sur deux
+// fiches sur trois — *un cadenas qui ment est pire qu'un tiret nu*. Ici il
+// serait juste 99,3 fois sur 100. **La règle n'a pas changé, le chiffre si.**
+//
+// 🔐 AUCUN MONTANT NE PEUT ENTRER ICI, ET CE N'EST PAS UNE PRÉCAUTION.
+// `corner_full` ne porte aucun prix : des comptes de détenteurs, un Gini, des
+// pourcentages d'offre, des personas. Le seul chiffre de ce panneau qui touche
+// à l'argent est la capitalisation (plancher × tirage) — elle n'est PAS ici :
+// elle se calcule dans le pilote, à partir du plancher que `/api/cote/` rend à
+// qui a une session. Le HTML pré-généré des 9 354 fiches part donc VIDE, comme
+// le tableau des ventes et pour la même raison.
+// ⛔ NE JAMAIS pré-remplir un `data-*` de ce bloc « pour éviter un aller-retour » :
+// ce serait la fuite du lot 101 par une porte neuve, et `test:fuite` §7 — écrit
+// dans ce même lot — est ce qui l'empêche de passer inaperçue.
+//
+// 🔑 `data-l-*` PORTE TOUS LES MOTS. `corner.js` est du JS de socle : il n'a
+// aucun accès aux dictionnaires, et `test:cles_i18n` ne lit pas le JS. Un
+// libellé en dur rendrait le panneau français dans les cinq langues sans
+// qu'aucun banc ne le voie — la panne P30 du lot 139, déjà payée une fois.
+import { t } from '../../engine/lib/i18n.mjs';
+
+const { lang, uuid } = Astro.props;
+---
+{/* ⭐ ZÉRO OCTET DE CSS AJOUTÉ. `.verrou`, `.verrou__fond`, `.verrou__voile`,
+    `.verrou__in`, `.verrou__t`, `.verrou__d`, `.cadenas`, `.tbl-hote`, `.stats`,
+    `.stat`, `.etiq` et `.stat__v` existent tous. Le cliquet de la feuille est
+    de 4 096 o et elle est servie 3 097 fois : une classe neuve ici coûterait
+    plus cher que ce qu'elle affiche. */}
+<div class="verrou" data-corner={uuid} data-verrouille
+     data-l-titre={t(lang, 'corner.titre')}
+     data-l-holders={t(lang, 'corner.holders')}
+     data-l-gini={t(lang, 'corner.gini')}
+     data-l-top1={t(lang, 'corner.top1')}
+     data-l-top10={t(lang, 'corner.top10')}
+     data-l-dormante={t(lang, 'corner.dormante')}
+     data-l-persona={t(lang, 'corner.persona')}
+     data-l-profil={t(lang, 'corner.profil')}
+     data-l-mcap={t(lang, 'corner.mcap')}
+     data-l-repartition={t(lang, 'corner.repartition')}
+     data-l-absent={t(lang, 'corner.absent')}>
+  <div class="tbl-hote verrou__fond" data-corner-fond>
+    {/* ⛔ VIDE, ET LA TRAME AUSSI. Le tableau des ventes a une trame de
+        cellules vides parce qu'il lui faut une hauteur sous le voile ; ici les
+        `.stat` arrivent d'un coup et le bloc n'a pas de hauteur à réserver.
+        ⭐ Un `hidden` plutôt qu'un style : les trois thèmes honorent l'attribut
+        depuis le lot 19, et un attribut se teste sans lire de CSS. */}
+    <div class="stats" data-corner-corps hidden></div>
+    <p class="muted" data-corner-etat role="status"></p>
+  </div>
+  {/* Le voile du refus. ⭐ Il porte le mot, pas la donnée : ce qui est écrit
+      ici part dans le HTML des 9 354 fiches, donc il ne doit jamais rien dire
+      d'une pièce en particulier. */}
+  <div class="verrou__voile" data-corner-voile>
+    <div class="verrou__in">
+      <span class="cadenas" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+             stroke-linecap="round"><rect x="5" y="11" width="14" height="9" rx="1.8"/><path d="M8.2 11V8.6a3.8 3.8 0 0 1 7.6 0V11"/></svg>
+      </span>
+      <p class="verrou__t">{t(lang, 'corner.titre')}</p>
+      <p class="verrou__d">{t(lang, 'corner.teasing')}</p>
+    </div>
+  </div>
+</div>

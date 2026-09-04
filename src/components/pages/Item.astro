@@ -20,6 +20,10 @@ import { rar, forme, delta, gemsM, RAR, omiM, mcpPoints, mentionEdition, dateSeu
 import { franchit, porte, acces } from '../../../engine/lib/access.mjs';
 import { coteFermee as coteEstFermee } from '../../../engine/lib/cote.mjs';
 import BarreAcces from '../BarreAcces.astro';
+// 🔑 LOT 218 — LE PANNEAU DE DETENTION. Voir l'en-tete de Corner.astro : la
+// donnee etait deja collectee, deja lue au build, deja decoupee par piece et
+// deja servie par une route gardee. Il manquait cette ligne et son montage.
+import Corner from '../Corner.astro';
 
 // 🔴🔴🔴 LOT 132 — `const LES_PLAGES = plages();` A ÉTÉ RETIRÉ D'ICI, ET SON
 // HISTOIRE VAUT PLUS QUE SA SUPPRESSION.
@@ -867,6 +871,30 @@ const mcpJour = mcpPoints(item.rarity, item.type);
             ? <Cote lang={lang} uuid={item.uuid} champ="floor" />
             : money(item.floor)}<span class="mur__u">gems</span></div>
           <div class="mur__eq">{item.listings ?? '—'} {t(lang, 'item.listings')}</div>
+          {/* ═══════════════════════════════════════════════════════════════
+              🏪 LOT 218 — « ENCORE DISPONIBLE EN BOUTIQUE : N / M ».
+              ═══════════════════════════════════════════════════════════════
+              Preda, 04/09 : le champ « Available » de la fiche est VIDE alors
+              que `issued`, `in_circulation` et `editions_burnt` sont dans
+              `fiches_stackr` et deja indexes (`dataset.mjs` l. 840-842).
+              Le concurrent en fait une de ses lignes les plus lues.
+
+              ⭐ AUCUN PRIX ICI, DONC AUCUN VERROU : ces trois champs ne sont
+              PAS dans `CHAMPS_COTE`. Un tirage et un nombre d'exemplaires
+              brules sont des FAITS de rarete, pas des montants — ils restent
+              publics, comme `item.listings` juste au-dessus.
+              ⛔ Le reste vaut `emises - circulation`, et il ne s'affiche que si
+              les DEUX sont connus : un `|| 0` ferait dire « tout est vendu » a
+              une fiche dont on ignore le tirage emis. *Inconnu n'est pas zero*
+              — c'est la meme faute que le plancher a 0 que ce lot repare. */}
+          {item.emisesStackr > 0 && item.circulationStackr !== null && (
+            <div class="mur__eq">{t(lang, 'item.available')} : {
+              (item.emisesStackr - item.circulationStackr).toLocaleString(nf)
+            } / {item.emisesStackr.toLocaleString(nf)}{' '}
+            <span class="muted">({Math.round(
+              ((item.emisesStackr - item.circulationStackr) / item.emisesStackr) * 1000
+            ) / 10} %)</span></div>
+          )}
           {/* ⭐⭐ `mur__eq` EST REUTILISEE TELLE QUELLE : zero octet de CSS
               ajoute, donc zero pression sur le cliquet de 4 096 o — servi
               3 097 fois. Une classe neuve ici aurait coute plus cher que ce
@@ -1369,6 +1397,33 @@ const mcpJour = mcpPoints(item.rarity, item.type);
       </div>
     </div>
   )}
+  {/* ═══════════════════════════════════════════════════════════════════════
+      🔑 LOT 218 — LE COIN DE LA PIECE : QUI LA DETIENT.
+      ═══════════════════════════════════════════════════════════════════════
+      ⭐⭐⭐ AUCUNE SOURCE NEUVE, AUCUN QUOTA, AUCUN DEPOT DE COLLECTE.
+      `corner_full.csv.gz` (114 colonnes, 19 213 pieces) etait deja lu par
+      `getCorner()`, deja decoupe dans `.reserve/analytics/corner/<uuid>.json`,
+      et deja servi par `/api/analytics/corner` derriere la porte « modules ».
+      Ce lot ajoute l'APPEL, pas la donnee.
+
+      ⛔ IL S'EMET SUR TOUTES LES FICHES, ET LE CHIFFRE LE JUSTIFIE : 99,3 %
+      des pieces suivies ont un corner (13 988 sur 14 090, mesure du 04/09).
+      C'est l'inverse du tableau des ventes juste au-dessus, dont la couverture
+      est de 34 % — la, un bloc systematique aurait pose un cadenas sur deux
+      fiches sur trois. *Meme regle, chiffre different, forme opposee.*
+      Les 0,7 % restants ne font pas disparaitre le bloc : le pilote y ecrit
+      l'absence, parce qu'un panneau qui s'evapore se lit comme une panne.
+
+      🔐 IL PART VIDE. Le seul chiffre d'argent du panneau — la capitalisation,
+      plancher x offre en circulation — n'est ni dans `corner_full` ni dans ce
+      HTML : le pilote le calcule avec un plancher rendu par `/api/cote/`, donc
+      pour une session. `test:fuite` §7, ecrit dans ce meme lot, verifie que
+      l'hote servi reste vide. */}
+  <Corner lang={lang} uuid={item.uuid} />
+  {/* Meme regle que les deux pilotes ci-dessous : le script voyage avec son
+      hote. Ici l'hote est inconditionnel, donc le script l'est aussi. */}
+  <script defer src={moduleJs('corner').href}></script>
+
   {/* ⭐ LE PILOTE N'EST EMIS QUE SI LE BLOC L'EST. Un `<script>` inconditionnel
       partirait sur les 8 840 fiches pour ne rien trouver a remplir sur 68 %
       d'entre elles — et `socle_js.mjs` refuse par construction un module qui

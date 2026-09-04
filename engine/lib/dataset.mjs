@@ -56,6 +56,47 @@ const num = (v) => { const n = Number(String(v).replace(',', '.')); return Numbe
 // Comme num(), mais 0 et les valeurs negatives comptent pour « inconnu ».
 const pos = (v) => { const n = num(v); return n && n > 0 ? n : null; };
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 LOT 218 — `num('')` REND **0**, ET C'EST UN PRIX FAUX SERVI 2 162 FOIS
+// ═══════════════════════════════════════════════════════════════════════════
+// Preda, 04/09 : « 0 GEMS · 16 Listings » sur `#100 Todd McFarlane Batman -
+// Blue & Yellow Variant ». Seize annonces et un plancher a zero ne peuvent pas
+// etre vrais ensemble — et c'etait la seule chose visible d'un defaut general.
+//
+// LA CAUSE, EN UN CARACTERE. `Number('')` vaut **0** en JavaScript, pas NaN.
+// Donc `num('')` passe `Number.isFinite` et rend `0` au lieu de `null` — le
+// `??` de la ligne du plancher ne se declenche JAMAIS, et le repli sur le
+// dernier point de la courbe, qui existe et qui est bon, n'est jamais emprunte.
+//
+// MESURE DU 04/09/2026, sur `catalogue.csv.gz` (19 786 lignes) et
+// `prices.csv.gz` (2 385 311 releves) :
+//   · floor VIDE au catalogue ................ 2 392 fiches (12,1 %)
+//   · dont `listings > 0` — la contradiction .. 2 162 fiches SERVIES
+//   · floor litteral `0` ..................... 91, toutes a `listings = 0`
+//   · reparables par le repli ................ 2 388 sur 2 392 (99,8 %)
+//   · sans historique, donc « — » ............ 4, et elles n'ont pas de page
+//     (moins de deux points : `continue` plus bas)
+//   · relevés a floor VIDE dans prices ....... **0** ⇒ le repli est SAIN
+// Exemples de ce que le correctif rend au lieu de « 0 gems » : Janie - Blue
+// Metallic 599 · Namor - Avengers 2018 2 500 · Gekido #1 999.
+//
+// ⭐⭐⭐ LA LECON EST DEJA ECRITE DIX LIGNES PLUS BAS, ET LE CODE NE SE
+// L'APPLIQUAIT PAS : « un catalogue qui renvoie 0 veut dire je ne sais pas,
+// pas zero ». Elle avait ete tiree pour `ath`/`atl` — qui utilisent `pos()` —
+// et jamais reportee sur `floor` ni `listings`, qui sont pourtant les deux
+// champs que la fiche montre en grand. *Une lecon rangee a cote du champ
+// qu'elle ne protege pas ressemble a une lecon appliquee.*
+//
+// ⛔ ET LES DEUX CHAMPS NE SE TRAITENT PAS PAREIL, C'EST TOUT L'ENJEU :
+//   · `floor`    : un plancher de 0 gems n'existe pas ⇒ `pos()`, 0 = inconnu.
+//   · `listings` : 0 annonce est un FAIT, et le fait le plus courant ⇒ il faut
+//     distinguer le VIDE (inconnu) du ZERO (mesure). C'est `numRenseigne`.
+// Les confondre remplacerait une donnee fausse par une donnee absente.
+const numRenseigne = (v) => {
+  const s = String(v ?? '').trim();
+  return s === '' ? null : num(s);
+};
+
 function pctChange(hist, days, o) {
   if (hist.length < o.minPoints) return null;
   const last = hist[hist.length - 1];
@@ -666,8 +707,12 @@ async function construireDataset() {
       brand: c.brand || '',
       licensor: c.licensor || '',
       releaseDate: c.release_date || '',
-      tirage: num(c.tirage),
-      storePrice: num(c.store_price),
+      // 🔴 LOT 218 — LE MEME DEFAUT, PLUS DISCRET. Un tirage vide devenait
+      // « 0 exemplaire » et un prix boutique vide « 0 $ » : deux affirmations,
+      // la ou il n'y avait pas de mesure. Le market cap du panneau de la piece
+      // (floor x tirage) aurait multiplie par ce zero.
+      tirage: numRenseigne(c.tirage),
+      storePrice: numRenseigne(c.store_price),
       // 🖼️ LE VISUEL. ⚠️ On ASSAINIT au lieu de faire confiance : une URL qui
       // vient d'un Sheet est une donnee d'entree comme une autre. Sans ce
       // filtre, une cellule contenant `javascript:` ou `data:text/html`
@@ -748,8 +793,13 @@ async function construireDataset() {
         // OBSERVÉE. Une seule question à Preda valait mieux que ce raisonnement.
         return `https://www.veve.me/collectibles/en/market/${rayon}/${id}`;
       })(),
-      floor: num(c.floor) ?? publicHist[publicHist.length - 1].floor,
-      listings: num(c.listings) ?? publicHist[publicHist.length - 1].listings,
+      // 🔴 LOT 218 — `pos()` ET `numRenseigne()`, PAS `num()`. Voir le bloc de
+      // `numRenseigne` en tete de fichier : `num('')` rend 0, donc ces deux
+      // lignes ne repliaient jamais. ⭐ `publicHist` a AU MOINS DEUX POINTS ici
+      // (le `continue` du seuil est plus haut), donc l'index ne peut pas rendre
+      // `undefined` — le repli est sur, et il est bon 2 388 fois sur 2 392.
+      floor: pos(c.floor) ?? publicHist[publicHist.length - 1].floor,
+      listings: numRenseigne(c.listings) ?? publicHist[publicHist.length - 1].listings,
       // Un catalogue qui renvoie 0 veut dire « je ne sais pas », pas « zero ».
       // `??` ne rattrape PAS un 0 : la fiche affichait « plus haut historique : 0 »
       // juste au-dessus d'un prix a 42 000 milliards.
