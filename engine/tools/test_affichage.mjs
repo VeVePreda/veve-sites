@@ -747,6 +747,151 @@ if (!pageMenu) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// 3 septies. « TARIFS » — LE POIDS D'UN BOUTON DÉPEND DE L'ÉTAT DE SESSION
+// ═══════════════════════════════════════════════════════════════════════════
+// 🗣️ ARBITRAGE DE PREDA, 05/09/2026 : « identique à S'inscrire c'est parfait
+// une fois la personne connectée ; en public laisse-le comme avant. »
+//
+// ⭐⭐⭐ POURQUOI CE § EXISTE. Ce bouton a été repeint TROIS FOIS en deux jours
+// — plein, puis contour, puis dépendant de l'état — et les deux premières fois
+// la décision ne vivait que dans un commentaire de feuille de style. *Une
+// décision de design sans banc ne survit pas à trois lots* : celle-ci en a déjà
+// coûté deux. Le § ne juge pas le goût, il tient l'INVARIANT que le goût sert :
+// **un seul appel à l'action de plein poids dans la barre, dans CHACUN des deux
+// états.**
+//
+// ⛔ IL LIT `cssNu`, LA FEUILLE DÉCAPÉE DE SES COMMENTAIRES — et c'est
+// obligatoire ici : le commentaire qui précède ces règles DÉCRIT le dégradé
+// qu'il retire de l'état anonyme. Un contrôle branché sur le texte brut y
+// trouverait la prose qui parle du défaut et rougirait sur l'explication.
+// C'est la cinquième fois que ce projet paie ce piège.
+{
+  console.log('\n3 septies. « Tarifs » : un poids par état de session');
+
+  // ⭐ `matchAll`, ET UN TÉMOIN DU NOMBRE LU. Un `match` au singulier grave
+  //   « il n'y en a qu'un » dans l'instrument : le jour où une règle est
+  //   ajoutée, le banc continue de n'en lire qu'une et son vert ne dit plus
+  //   rien. Le compte est affiché pour que « mon motif ne mord plus » ne se
+  //   lise jamais « le code ne sert plus ».
+  const regles = [...cssNu.matchAll(/([^{}]*\ba\.nav__cta\b[^{}]*)\{([^}]*)\}/g)]
+    .map((m) => ({ sel: m[1].trim().replace(/\s+/g, ' '), corps: m[2] }));
+
+  const plein = (c) => /background\s*:\s*linear-gradient/.test(c);
+  const etat  = (s) => /\[data-membre\]/.test(s);
+  const survol = (s) => /:hover|:focus/.test(s);
+
+  //   ⚠️ LE TÉMOIN COMPTE LES DEUX ÉTAGES, et il a déjà mordu : écrit d'abord
+  //   sur le seul thème avec un seuil à deux règles, il est passé au rouge le
+  //   jour où la règle d'état a rejoint l'en-tête — en accusant le bouton alors
+  //   que c'était le RANGEMENT qui avait changé. *Un témoin qui compte à un
+  //   seul endroit mesure aussi l'endroit, pas seulement la chose.*
+  const enTete = (lire('src/layouts/Base.astro')
+    .match(/<style is:inline>[\s\S]*?<\/style>/g) || []).join('\n');
+  const reglesEnTete = [...enTete.matchAll(/([^{}]*\ba\.nav__cta\b[^{}]*)\{([^}]*)\}/g)];
+  verifie('les règles du bouton sont lisibles aux deux étages',
+    regles.length >= 1 && reglesEnTete.length >= 1,
+    `${regles.length} dans le thème · ${reglesEnTete.length} en ligne dans l'en-tête`);
+
+  if (regles.length) {
+    // ① ÉTAT ANONYME — aucune règle inconditionnelle ne doit peindre le plein.
+    //   « Comme avant » se mesure : ni dégradé, ni couleur d'accent posée sur
+    //   le texte, ni bordure visible. Une bordure TRANSPARENTE est permise et
+    //   même voulue : elle réserve la boîte pour que la barre ne saute pas
+    //   quand le script pose l'état de session.
+    const nues = regles.filter((r) => !etat(r.sel) && !survol(r.sel));
+    const nuesPeintes = nues.filter((r) => plein(r.corps) || /(^|;)\s*color\s*:/.test(r.corps)
+      || /border\s*:[^;]*var\(/.test(r.corps));
+    verifie('① anonyme : « Tarifs » reste un lien de menu ordinaire',
+      nuesPeintes.length === 0,
+      nuesPeintes.length
+        ? `🔴 ${nuesPeintes.length} règle(s) le peignent hors de tout état : ${nuesPeintes.map((r) => r.sel).join(' · ')}`
+        : `${nues.length} règle(s) inconditionnelle(s), aucune ne pose de teinte`);
+
+    // ② ÉTAT CONNECTÉ — le plein, celui que l'inscription portait à sa place.
+    //   ⛔ ET ON LE CHERCHE DANS L'EN-TÊTE, PAS DANS LA FEUILLE. `test:feuille`
+    //   § 1 interdit l'attribut d'état dans la feuille externe : elle arrive
+    //   parfois APRÈS la première peinture, et le bouton clignoterait « de
+    //   temps en temps » — un défaut qu'on ne sait alors plus reproduire.
+    //   ⭐ Ce banc a été écrit en cherchant d'abord dans la feuille, et c'est
+    //   `test:feuille` qui l'a corrigé. *Chercher un usage, jamais un nom :
+    //   l'usage est « ce qui peint avant la première peinture ».*
+    const enLigne = (lire('src/layouts/Base.astro')
+      .match(/<style is:inline>[\s\S]*?<\/style>/g) || []).join('\n');
+    const pleinesEnLigne = [...enLigne.matchAll(/([^{}]*\ba\.nav__cta\b[^{}]*)\{([^}]*)\}/g)]
+      .filter((m) => etat(m[1]) && plein(m[2]));
+    verifie('② connecté : il prend le plein, comme « S\'inscrire » avant lui',
+      pleinesEnLigne.length >= 1,
+      pleinesEnLigne.length
+        ? `${pleinesEnLigne.length} règle(s) d'état, en ligne dans l'en-tête`
+        : '🔴 aucune règle d\'état ne le peint là où elle arriverait avant la peinture');
+
+    // ②bis LA CONTRE-PARTIE, ET ELLE EST À L'AUTRE BOUT. La feuille externe ne
+    //   doit porter AUCUNE règle d'état pour ce bouton. `test:feuille` le dit
+    //   déjà pour la feuille SERVIE ; ici on le dit de la SOURCE, pour que le
+    //   rouge tombe sur le fichier qu'on vient d'éditer plutôt que trente
+    //   secondes plus tard sur un artefact.
+    verifie('②bis la feuille du thème ne porte aucune règle d\'état pour ce bouton',
+      regles.filter((r) => etat(r.sel)).length === 0,
+      'les règles d\'état vivent en ligne, avec leurs sœurs anti-clignotement');
+
+    // ③ LA BOÎTE NE BOUGE PAS D'UN ÉTAT À L'AUTRE.
+    //   ⚠️ Ça ne se voit PAS sur une capture : le décalage n'existe qu'à
+    //   l'instant où le script pose l'attribut, et seulement pour quelqu'un de
+    //   connecté. C'est exactement le genre de défaut qu'un banc attrape et
+    //   qu'un œil ne rattrape jamais.
+    verifie('③ la bordure est réservée dans les deux états (la barre ne saute pas)',
+      nues.some((r) => /border\s*:\s*1px\s+solid\s+transparent/.test(r.corps)),
+      'une bordure transparente garde la boîte à la même hauteur');
+  }
+
+  // ④ L'INVARIANT, ET IL SE JOUE À DEUX FICHIERS. Le second appel de la barre
+  //    (`.h-cta`, qui porte l'inscription) doit DISPARAÎTRE à l'état connecté,
+  //    sinon « Tarifs » plein lui fait de nouveau concurrence et on retombe
+  //    dans « deux appels de même poids n'en font aucun ».
+  //    ⭐ La règle qui le retire vit dans le gabarit, pas dans le thème : un §
+  //    qui n'aurait ouvert que la feuille aurait conclu juste sur la moitié du
+  //    mécanisme. *Chercher un usage, jamais un nom.*
+  const gabarit = lire('src/layouts/Base.astro');
+  verifie('④ à l\'état connecté, l\'appel anonyme est retiré — un seul plein dans la barre',
+    /html\[data-membre\]\s*\[data-anonyme\]\s*\{\s*display:\s*none/.test(gabarit),
+    'la règle qui retire l\'appel anonyme est bien celle du gabarit');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 3 septies bis. CONTRE-ÉPREUVE DU § PRÉCÉDENT — il rougit sur le mauvais code
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐⭐⭐ UN TERME À ZÉRO DOIT ÊTRE ATTEIGNABLE. Le §3 septies ① compte des
+// règles fautives et en trouve zéro. Zéro parce qu'il n'y en a pas, ou zéro
+// parce que le motif ne mord sur rien ? On lui rejoue donc les DEUX écritures
+// précédentes de ce bouton — celles qui ont réellement existé — et il doit
+// désigner chacune. ⛔ Et un témoin vert va avec : un banc qui rougit sur tout
+// ne vaut pas mieux qu'un banc qui verdit sur tout.
+{
+  console.log('\n3 septies bis. contre-épreuve (feuilles fabriquées)');
+  const fautives = (cssFab) => {
+    const rs = [...cssFab.matchAll(/([^{}]*\ba\.nav__cta\b[^{}]*)\{([^}]*)\}/g)]
+      .map((m) => ({ sel: m[1].trim(), corps: m[2] }));
+    return rs.filter((r) => !/\[data-membre\]/.test(r.sel) && !/:hover|:focus/.test(r.sel)
+      && (/background\s*:\s*linear-gradient/.test(r.corps)
+        || /(^|;)\s*color\s*:/.test(r.corps)
+        || /border\s*:[^;]*var\(/.test(r.corps))).length;
+  };
+  const essais = [
+    ['la 1ʳᵉ écriture — le plein inconditionnel (deux boutons identiques)',
+      'nav.main a.nav__cta{background:linear-gradient(100deg,var(--cyan),var(--cyan-fonce));color:var(--nuit)}', true],
+    ['la 2ᵉ écriture — le contour inconditionnel (le compromis de trop)',
+      'nav.main a.nav__cta{color:var(--cyan);border:1px solid var(--cyan);font-weight:600}', true],
+    ['témoin vert — l\'écriture retenue (la feuille ne garde que la boîte)',
+      'nav.main a.nav__cta{border:1px solid transparent}', false],
+  ];
+  for (const [nom, cssFab, doitMordre] of essais) {
+    const n = fautives(cssFab);
+    verifie(nom, doitMordre ? n > 0 : n === 0,
+      doitMordre ? `${n} règle(s) désignée(s)` : `${n} — rien à signaler, c'est voulu`);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // 3 quinquies. LA CONTRE-ÉPREUVE — le balayage rougit-il quand il DOIT rougir ?
 // ═══════════════════════════════════════════════════════════════════════════
 // ⭐⭐⭐ CE § N'OUVRE NI `dist/` NI LE THÈME, ET C'EST LE POINT. Le §3 bis est

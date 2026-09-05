@@ -256,15 +256,55 @@ nav.main a[aria-current]{color:var(--primary);background:color-mix(in srgb,var(-
    ⚠️ `--cyan` EN TEXTE SUR `--bg`, pas l'inverse : c'est le sens qui garde le
    contraste quand `--sect-*` change de section (la panne écrite à
    `.h-cta .btn--principal`, trois cents lignes plus bas). */
+/* 🔴🔴 TROISIEME ECRITURE — 05/09/2026, ET C'EST PREDA QUI A TRANCHE.
+   « Identique a S'inscrire c'est parfait une fois la personne connectee ;
+   en public laisse-le comme avant. »
+
+   ⭐⭐⭐ CE QUE LES DEUX ECRITURES PRECEDENTES ONT MANQUE, ET C'EST LA LECON.
+   La premiere peignait un plein, la seconde un contour, et les deux cherchaient
+   LE bon poids — un seul, valable partout. Or le conflit qu'elles arbitraient
+   n'existe que dans UN des deux etats de la page : l'appel a l'inscription est
+   retire du HTML des que la personne est connectee. Une fois seul dans la
+   barre, ce bouton n'a plus de rival a menager, et le compromis du contour
+   n'achete plus rien — il coute.
+   ⭐ *Un conflit de hierarchie visuelle peut n'exister que dans un seul etat.
+   Chercher un poids unique, c'est repondre a la mauvaise question.*
+
+   LES DEUX ETATS, ET RIEN ENTRE LES DEUX :
+   · anonyme — un lien de menu ordinaire, exactement comme avant le lot 226.
+     Ni bordure visible ni teinte d'accent : l'appel fort de la barre est
+     l'inscription, et il est SEUL. C'est la regle « deux appels de meme poids
+     en font zero », tenue en retirant le second au lieu de l'affaiblir.
+   · connecte — le plein, calque sur celui que l'inscription portait a cette
+     place : le degrade d'accent, le texte sombre par-dessus.
+
+   ⚠️ LA BORDURE TRANSPARENTE RESTE DECLAREE DANS LES DEUX ETATS, et ce n'est
+   pas un residu : elle reserve sa boite. Sans elle, la barre se decalerait de
+   deux pixels au moment ou le script pose l'etat de session — un mouvement
+   qu'on ne voit qu'une fois connecte, donc jamais pendant qu'on developpe.
+
+   ⛔ L'ETAT SE LIT SUR LA RACINE DU DOCUMENT, JAMAIS DANS LE HTML DE L'ENTREE.
+   Le gabarit emet la MEME balise sur toutes les pages — c'est ce qui les garde
+   cachables, et c'est la discipline que le gabarit repete a chaque entree de
+   menu. Un rendu conditionnel ici referait la panne du lot 123 : un menu qui
+   change d'aspect selon que la page est pre-generee ou rendue a la demande,
+   pour la meme personne, dans la meme session.
+   🔴🔴 ET LES REGLES D'ETAT NE SONT PAS ICI — ELLES SONT EN LIGNE DANS
+   L'EN-TETE, AVEC LEURS SOEURS. J'avais commence par les ecrire dans cette
+   feuille « pour ranger », en invoquant le cliquet d'octets par page. Mesure
+   faite : le pire bloc en ligne pese 1 999 o pour un seuil de 8 192, et
+   `test:feuille` § 1 INTERDIT l'attribut d'etat dans la feuille externe — elle
+   arriverait parfois apres la premiere peinture, et le clignotement
+   reviendrait « de temps en temps », c'est-a-dire sans qu'on sache le
+   reproduire. ⭐⭐ *Un banc a refute mon rangement, et ma justification etait
+   une premisse que je n'avais pas mesuree.*
+   ⇒ Ne reste ici que ce qui vaut dans LES DEUX etats : la boite reservee.
+   ⚠️ Le contraste reste porte par les variables d'accent et de nuit, jamais
+   par les variables de section — c'est la panne de contraste deja ecrite deux
+   fois dans ce fichier. */
 nav.main a.nav__cta, .deplie__m a.nav__cta{
-  color:var(--cyan);
-  border:1px solid var(--cyan);
-  font-weight:600}
-nav.main a.nav__cta:hover, nav.main a.nav__cta:focus-visible,
-.deplie__m a.nav__cta:hover, .deplie__m a.nav__cta:focus-visible{
-  color:var(--nuit);
-  background:linear-gradient(100deg,var(--cyan),var(--cyan-fonce));
-  border-color:transparent}
+  border:1px solid transparent}
+
 /* 🔴🔴 `margin-top:var(--s8)` RETIRÉ LE 06/08/2026 — 88 px de vide en bas de
    CHAQUE page, signalés plusieurs fois par Preda.
    ⭐⭐⭐ LA CORRECTION ÉTAIT DÉJÀ ÉCRITE, ET ELLE NE S'APPLIQUAIT PAS.
