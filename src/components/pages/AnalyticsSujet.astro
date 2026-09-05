@@ -106,7 +106,11 @@ const SUJETS = {
     desc: 'analytics.collections.d',
     amplitude: false,
     figures: ['licences-par-annee', 'licences-pionnieres', 'licences-poids-catalogue'],
-    led: [{ id: 'corner', cible: 'corner_top' }],
+    // 🏆 LOT 228 — LE RENDEMENT MCP DES SETS (demande `f` de Preda, 05/09).
+    // ⭐ ICI ET PAS DANS `market` : ce classement porte sur des SETS, et
+    // `/analytics/collections/` est le sujet des collections. Le mettre sous
+    // `market` l'aurait rangé avec les variations de prix, dont il ne parle pas.
+    led: [{ id: 'corner', cible: 'corner_top' }, { id: 'sets', cible: 'sets_mcp' }],
   },
   chain: {
     cle: 'analytics.chain',
@@ -442,6 +446,10 @@ const chemin = `/analytics/${sujet}/`;
     holders: t(lang, 'led.holders'), item: t(lang, 'led.item'), on: t(lang, 'led.on'),
     pScore: t(lang, 'led.profils.score'), pAct: t(lang, 'led.profils.activite'),
     pTaille: t(lang, 'led.profils.taille'),
+    // 🏆 LOT 228 — les libellés du rendement des sets.
+    sSet: t(lang, 'led.sets.set'), sSize: t(lang, 'led.sets.size'),
+    sCost: t(lang, 'led.sets.cost'), sPts: t(lang, 'led.sets.pts'),
+    sRatio: t(lang, 'led.sets.ratio'), sNote: t(lang, 'led.sets.note'),
   },
 }}>
 (function () {
@@ -533,6 +541,36 @@ const chemin = `/analytics/${sujet}/`;
           (d.lignes || []).map(function (r) {
             return ['<b>' + ech(r.name) + '</b>', ech(r.gini), num(r.holders),
               ech(r.top1_pct) + ' %', ech(r.top10_pct) + ' %'];
+          }));
+    },
+    // ═════════════════════════════════════════════════════════════════════
+    // 🏆 LOT 228 — LE RENDEMENT MCP DES SETS
+    // ═════════════════════════════════════════════════════════════════════
+    // ⛔ AUCUNE CLASSE NOUVELLE : `tbl-hote`, `table`, `etiq`, `muted` sont
+    // deja servies. Un rework du design est en cours ailleurs ; un bloc qui
+    // n'invente rien sera emporte avec le reste au lieu de le contredire.
+    // ⭐⭐ L'ETIQUETTE EST AU-DESSUS DU TABLEAU, PAS EN NOTE DE BAS DE PAGE.
+    // Elle dit ce que le chiffre N'EST PAS — one-off exclu, points arretes
+    // apres 7 jours d'inactivite, plancher = prix DEMANDE, classement NON
+    // personnalise. Un rendement publie sans ces quatre phrases promet un
+    // revenu qu'on ne tient pas.
+    // ⚠️ Le tri vient du SERVEUR (`gpm-asc` par defaut, six tris disponibles
+    // sur la route). Aucun selecteur ici : ce serait un ajout visuel, et il
+    // appartient au rework.
+    sets: function (d) {
+      var n = (d.sets || []).length;
+      return '<p class="etiq">' + ech(L.on) + ' ' + num(d.total)
+        + (d.classables != null ? ' · ' + num(d.classables) + ' ' + ech(L.sRatio) : '')
+        + (d.tronque ? ' · ' + num(n) : '') + '</p>'
+        + '<p class="muted" style="max-width:70ch">' + ech(L.sNote) + '</p>'
+        + tab([L.sSet, L.sSize, L.sCost, L.sPts, L.sRatio],
+          (d.sets || []).map(function (r) {
+            // ⛔ UN TIRET, JAMAIS UN ZERO. `cout` et `gemsParMcp` valent `null`
+            // des qu'un plancher manque ou qu'une piece echappe au bareme :
+            // ecrire « 0 » dirait « ce set est gratuit ».
+            var tiret = function (v) { return v == null ? '—' : num(Math.round(v * 100) / 100); };
+            return ['<b>' + ech(r.nom) + '</b>', num(r.taille),
+              tiret(r.cout), tiret(r.points), tiret(r.gemsParMcp)];
           }));
     },
   };

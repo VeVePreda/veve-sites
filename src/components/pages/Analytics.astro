@@ -208,7 +208,12 @@ const DESC = { market: 'analytics.market.d', catalogue: 'analytics.catalog.d',
 const CONTENU = {
   market:      { fig: 0, mod: 1, rang: true  },
   catalogue:   { fig: 5, mod: 0, rang: false },
-  collections: { fig: 3, mod: 1, rang: false },
+  // 🏆 LOT 228 — `mod` passe de 1 a 2 : le rendement MCP des sets rejoint la
+  // cornerisation. ⭐ C'est `test:analytics` § 4 bis qui l'a exige, en rougissant
+  // sur « annonce mod 1 — reel mod 2 » : la porte promettait moins que ce
+  // qu'elle garde. *Un fichier depose n'est pas branche, et la troisieme liste
+  // ne se met pas a jour toute seule.*
+  collections: { fig: 3, mod: 2, rang: false },
   chain:       { fig: 0, mod: 3, rang: false },
 };
 

@@ -47,7 +47,47 @@ const series = [
   // Comics SANS rarete renseignee : l'adresse doit retomber sur le nom.
   { name: 'Zombie Hunter Spider-Man #1', brand: 'Marvel', licensor: 'Disney', kind: 'Comic', sansRarete: true },
 ];
-const rarities = ['Common', 'Uncommon', 'Rare', 'Ultra Rare', 'Secret Rare'];
+// 🔴🔴🔴 LOT 228 — LES CLÉS DU BARÈME, PAS LEURS LIBELLÉS.
+// MESURÉ le 05/09/2026 sur le catalogue RÉEL (archive du 18/07, 18 961 lignes) :
+//   COMMON 4 686 · SECRET_RARE 4 500 · ULTRA_RARE 3 335 · RARE 3 207 ·
+//   UNCOMMON 3 122 · ARTIST_PROOF 110   — et `SECRET RARE` × 1, avec une ESPACE.
+// Ce sont EXACTEMENT les clés de la table `MCP` de `vitrine.mjs`. Cet
+// échantillon écrivait les LIBELLÉS (« Ultra Rare »), que `mcpPoints()` ne
+// connaît pas : elle rendait donc `undefined` sur **100 % des pièces hors
+// ligne**.
+//
+// ⭐⭐⭐ ET C'EST LA CONSÉQUENCE QUI COMPTE, PAS LA COQUILLE : tout ce qui
+// dépend du barème — la colonne `$/MCP` de `/market/`, les tris `mcp-asc` et
+// `omcp-asc` (lot 220), le rendement des sets (lot 228) — était mesuré par les
+// bancs SUR DU VIDE. Ils ne mentaient pas : ils ne mordaient sur rien, et un
+// banc qui ne mord sur rien ressemble trait pour trait à un banc qui passe.
+// *Un jeu d'essai qui ne ressemble pas au réel rend les bancs verts pour la
+// mauvaise raison.*
+//
+// ⛔ LES LIBELLÉS NE DISPARAISSENT PAS DE L'AFFICHAGE : `RAR[clé].l` les rend
+//   (`ULTRA_RARE` → « Ultra Rare »), exactement comme en production. Ce
+//   changement RAPPROCHE l'échantillon du réel, il ne l'appauvrit pas.
+//
+// 🔴🔴🔴 ET LA TROUVAILLE QUI DÉPASSE CETTE LIGNE — MESURÉE LE 05/09/2026 :
+//   **CE GÉNÉRATEUR NE PRODUIT PLUS LE CSV QUI EST COMMITTÉ À CÔTÉ DE LUI.**
+//   Rejoué TEL QUEL, sans une modification, il rend un `catalogue.csv` qui
+//   diffère du fichier du dépôt sur **13 colonnes / 90 lignes** : `uuid` 89,
+//   `floor` 89, `ath` 89, `atl` 89, `listings` 89, `image` 88, `veve_url` 89,
+//   `atl_date` 87, `edition_type` 79, `ath_date` 90, `rarity` 29, `name` 12,
+//   `series` 12 — plus `prices.csv` et `prices_baselines.csv` entiers.
+//   ⇒ Le CSV et son générateur ont DIVERGÉ. `node engine/data/gen-sample.mjs`
+//   ne régénère donc pas le jeu d'essai : il le REMPLACE par un autre.
+//   ⭐⭐⭐ Et `test:entrepot` le prouve dans l'autre sens : il exige que
+//   l'échantillon porte des libellés rugueux (apostrophes, esperluettes,
+//   accents, largeur zéro U+200B) que la sortie actuelle du générateur ne
+//   contient PLUS. **Le banc protège le CSV contre son propre générateur.**
+//   ⇒ C'est pourquoi la colonne `rarity` du CSV a été réécrite EN PLACE
+//   (81 cellules, `Ultra Rare` → `ULTRA_RARE`), et surtout PAS régénérée.
+//   Diff vérifié : **une seule colonne touchée**, 90 lignes intactes par
+//   ailleurs. Cette liste-ci est mise d'accord avec le CSV, pas l'inverse.
+//   ⚠️ Remettre les deux en accord est un chantier à part, avec sa propre
+//   mesure : régénérer casse aujourd'hui `test:entrepot`, et le banc a raison.
+const rarities = ['COMMON', 'UNCOMMON', 'RARE', 'ULTRA_RARE', 'SECRET_RARE'];
 const couvertures = ['Alex Ross Main Cover', 'Adi Granov Main Cover', 'Bill Sienkiewicz Original Main Cover', 'Todd McFarlane Variant'];
 const heroes = ['Spider-Man','Iron Man','Batman','Superman','Wolverine','Thor','Flash','Hulk','Venom','Mega Man','Ryu','Groot','Loki','Joker','Storm','Vision','Rocket','Gamora','Zangief','Doctor Strange'];
 

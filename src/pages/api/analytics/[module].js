@@ -21,6 +21,8 @@ export const prerender = true;
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { ANALYTICS_DIR } from '../../../../engine/lib/reserve_analytics.mjs';
+import { SETS_MCP_FICHIER, TRIS_SETS, TRI_SETS_DEFAUT, classerSets }
+  from '../../../../engine/lib/sets_mcp.mjs';
 import { franchit, porte } from '../../../../engine/lib/access.mjs';
 
 const ENTETES = {
@@ -61,6 +63,32 @@ const MODULES = {
   // à sa cause donne un ordre que plus rien ne justifie.
   profils:     { fichier: 'profils.json',     gate: 'modules' },
   meta:        { fichier: 'meta.json',        gate: 'modules' },
+  // 🏆 LOT 228 — LE RENDEMENT MCP DES SETS (demande `f`).
+  // ⚠️ `chemin` ET NON `fichier` : ce dépôt-ci vit à la RACINE de `.reserve/`,
+  // pas dans `analytics/`, parce qu'il est écrit par `dataset()` et que
+  // `reserve_analytics.ecrire()` supprime son dossier APRÈS. La route doit
+  // donc savoir lire les deux emplacements — d'où les deux clés, et jamais un
+  // `..` dans `fichier` : la liste blanche perdrait tout son sens.
+  // 🔴 `modules`, comme ses voisins sans adresse de wallet. ⛔ Ce module porte
+  // en revanche des PRIX agrégés — c'est le premier de cette route à le faire,
+  // et c'est ce qui interdit qu'il descende jamais à `visitor`.
+  sets_mcp:    { chemin: SETS_MCP_FICHIER,    gate: 'modules', tranche: true },
+};
+
+// ⭐ LE PLAFOND DE CE QU'UNE RÉPONSE REND. Même raison que `RENDU_MAX` de
+// `marche_selection.mjs` : 5 154 sets pèsent ~1 Mo, cette route est
+// `private, no-store`, donc **chaque octet est repayé à chaque visite**. Le
+// filtre voit tout le corpus ; c'est le RENDU qui est coupé.
+// ⛔ Et `n` vient de l'URL : quelqu'un écrira `?n=99999`.
+const SETS_MAX = 200;
+const SETS_DEFAUT = 50;
+
+/** Un entier borné — `Number('abc')` rend `NaN` et `?n=-5` rendrait une
+ *  tranche vide sur une page qui a l'air de marcher. */
+const entierBorne = (v, defaut, min, max) => {
+  const n = Math.trunc(Number(v));
+  if (!Number.isFinite(n)) return defaut;
+  return Math.min(max, Math.max(min, n));
 };
 
 // La fiche de cornérisation d'une pièce : `/api/analytics/corner?uuid=…`
@@ -94,14 +122,37 @@ export async function GET({ params, request, locals }) {
     return refus(estIdentifie(locals) ? 403 : 401, 'palier');
   }
 
-  const f = join(ANALYTICS_DIR, mod.fichier);
+  const f = mod.chemin || join(ANALYTICS_DIR, mod.fichier);
   if (!existsSync(f)) {
     // ⚠️ 503 ET PAS 404 : le module EXISTE, c'est la réserve qui n'a pas été
     // écrite (entrepôt injoignable au build). Un 404 enverrait chercher une
     // faute de frappe dans l'URL.
     return refus(503, 'reserve');
   }
-  return new Response(readFileSync(f, 'utf8'), { status: 200, headers: ENTETES });
+  const brut = readFileSync(f, 'utf8');
+  if (!mod.tranche) return new Response(brut, { status: 200, headers: ENTETES });
+
+  // ── LE TRI ET LA TRANCHE, AU SERVEUR ──────────────────────────────────────
+  // ⭐⭐ LE TRI PORTE SUR LE CORPUS ENTIER, LA COUPE VIENT APRÈS. L'inverse —
+  // couper puis trier — rendrait « les 50 premiers du fichier, triés », c'est-
+  // à-dire un classement qui a l'air juste et qui ne l'est pas. C'est la règle
+  // du lot 68, et elle vaut ici mot pour mot.
+  const sp = new URL(request.url).searchParams;
+  const tri = TRIS_SETS.includes(sp.get('tri') || '') ? sp.get('tri') : TRI_SETS_DEFAUT;
+  const n = entierBorne(sp.get('n'), SETS_DEFAUT, 1, SETS_MAX);
+  const charge = JSON.parse(brut);
+  const tous = Array.isArray(charge.sets) ? charge.sets : [];
+  const classes = classerSets(tous, tri);
+  return new Response(JSON.stringify({
+    ...charge,
+    tri,
+    // ⭐ LE DÉNOMINATEUR VOYAGE AVEC LA TRANCHE. `total` et `classables`
+    //   viennent du fichier ; `rendus` dit ce que CETTE réponse contient. Sans
+    //   les trois, « 50 sets » se lit « le catalogue fait 50 sets ».
+    rendus: Math.min(n, classes.length),
+    tronque: classes.length > n,
+    sets: classes.slice(0, n),
+  }), { status: 200, headers: ENTETES });
 }
 
 // ⭐ « Identifié » et « autorisé » sont deux questions. Les confondre produit

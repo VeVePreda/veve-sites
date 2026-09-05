@@ -89,6 +89,59 @@ verifie('⛔ zéro caractère de contrôle dans les pages servies',
     : `🔴 ${sales.length} page(s) portent encore ␑␒␓ : \`outils/marquer_i18n.mjs\` n'a pas tourné, `
       + `ou il a tourné APRÈS la précompression. Ex. ${sales.slice(0, 3).map((f) => f.replace(RACINE, '')).join(', ')}`);
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 LOT 228 — LE MÊME CONTRÔLE, MAIS À TRAVERS L'ÉCHAPPEMENT JSON
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐⭐⭐ CE BANC ÉTAIT VERT SUR UN SITE QUI PORTAIT LE DÉFAUT, ET POUR LA RAISON
+// LA PLUS BANALE QUI SOIT : il cherche le CARACTÈRE ␑, et `JSON.stringify`
+// écrit `\u0011`. Le motif du §1 ci-dessus ne pouvait donc PAS mordre dans un
+// `<script type="application/ld+json">` — pas une fois, jamais.
+// ⇒ MESURE DU 05/09/2026 sur un `dist/` réel de `vevewiki` :
+//   **362 valeurs polluées, sur 277 des 283 pages**, toutes des `ListItem.name`,
+//   dont `\u0011home.crumb\u0012Home\u0013` servi 111 fois à Google.
+// ⭐⭐ *Un banc branché sur une valeur ne voit pas la couche qui la réécrit.*
+//   C'est la même famille que « un banc qui cherche un nom trouve la prose qui
+//   en parle » — sauf qu'ici, c'est la SORTIE qui a changé de forme.
+// ⛔ ET LE FIL VISIBLE ÉTAIT PROPRE : les gabarits appellent `nu()`. Aucune
+//   inspection à l'œil n'aurait pu le voir.
+console.log('\n1 suite. ni dans les données structurées, où elles sont ÉCHAPPÉES');
+const LD = /<script type="application\/ld\+json">([\s\S]*?)<\/script>/g;
+// ⭐ LES DEUX FORMES, ET C'EST TOUT L'INTÉRÊT : la brute (si un jour elle
+//   passe) ET l'échappée (celle qui passait vraiment). Chercher une seule des
+//   deux, c'est refaire le trou dans l'autre sens.
+const ECHAPPEE = /\\u001[123]/i;
+let blocsLd = 0, ldSales = [];
+for (const f of pages) {
+  const h = readFileSync(f, 'utf8');
+  for (const m of h.matchAll(LD)) {
+    blocsLd++;
+    if (ECHAPPEE.test(m[1]) || SENTINELLES.test(m[1])) { ldSales.push(f); break; }
+  }
+}
+// 🔬 LE TÉMOIN DU DISPOSITIF, AVANT LE VERDICT. Sans blocs de données
+// structurées à lire, « zéro pollué » ne dit rien — c'est un banc muet qui
+// ressemble à un succès, et ce dépôt les paie cher.
+if (blocsLd === 0) {
+  indecis('les données structurées', 'aucun bloc ld+json dans dist/ — rien à mesurer, ce n\'est PAS « conforme »');
+} else {
+  verifie('⛔ zéro sentinelle ÉCHAPPÉE dans les données structurées servies',
+    ldSales.length === 0,
+    ldSales.length === 0
+      ? `${blocsLd} bloc(s) ld+json propres — la garde est dans \`jsonld()\` (seo.mjs), le point unique d'émission`
+      : `🔴 ${ldSales.length} page(s) servent \\u0011…\\u0013 à un moteur. Ex. ${ldSales.slice(0, 3).map((f) => f.replace(RACINE, '')).join(', ')}`);
+}
+
+// ⭐ ET LA GARDE SE VÉRIFIE AUSSI À LA SOURCE : un `dist/` peut être propre
+//   parce que le marquage n'a pas tourné. Les deux contrôles ensemble
+//   distinguent « la garde marche » de « il n'y avait rien à garder ».
+{
+  const SEO = readFileSync(join(ROOT, 'engine', 'lib', 'seo.mjs'), 'utf8');
+  const ligne = (SEO.match(/export const jsonld = [^\n]*/) || [''])[0];
+  verifie('🔑 `jsonld()` décape les chaînes AU MOMENT de sérialiser — un seul endroit pour toutes les fabriques',
+    /JSON\.stringify\(o,\s*\(_,\s*v\)\s*=>/.test(ligne) && /nu\(v\)/.test(ligne),
+    ligne ? ligne.slice(0, 120) + '…' : 'export const jsonld introuvable');
+}
+
 // 🔴🔴🔴 LOT 130 — `data-i18n="` ET PAS `data-i18n`, ET ÇA A RENDU LA CI ROUGE
 // SUR LES DEUX SITES.
 // Le script d'échange de `Base.astro` contient LUI-MÊME les chaînes

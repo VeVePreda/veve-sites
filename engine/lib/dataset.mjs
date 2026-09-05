@@ -19,6 +19,7 @@ import * as memoire from './memoire.mjs';
 //    il ne copie que des champs déjà publics, et il est déposé APRÈS
 //    `projeterCote()` pour que ce soit vrai par construction.
 import { deposerVignettes } from './vignettes.mjs';
+import { deposerSetsMcp } from './sets_mcp.mjs';
 import { deposerRayonIndex } from './rayon_index.mjs';
 import { getCatalogue, getBaselines, getReleves, getFichesStackr, getOmiUsd, getVentes, streamPrices, vuLe } from '../data/warehouse.mjs';
 // 💱 LOT 181 — le cours OMI → USD, déposé dans la réserve pour `/api/cote/lot`.
@@ -1772,6 +1773,20 @@ async function construireDataset() {
   //   ou les valeurs changent. Meme raison, meme place — `change7d` part avec
   //   la cote a la ligne suivante.
   const empreinteMarche = sceller([...movers.up, ...movers.down].map((i) => [i.path, i.change7d]));
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // 🏆 LOT 228 — LE RENDEMENT MCP DES SETS, DÉPOSÉ **PENDANT QUE LES PRIX
+  //              EXISTENT** (demande `f` de Preda, 05/09/2026)
+  // ═══════════════════════════════════════════════════════════════════════
+  // 🔴🔴 ICI, ET SURTOUT PAS PLUS BAS. Le coût d'un set est la SOMME des
+  // planchers de ses pièces ; sous `projeterCote()` cette somme vaudrait 0 sur
+  // les 5 154 sets, `cout` retomberait à `null` partout, et la page servirait
+  // un tableau vide sans qu'une seule ligne du journal ne rougisse.
+  // ⭐ Même place et même raison que `empreinteCote` juste au-dessus : les
+  // deux ont besoin du prix, les deux meurent en silence un cran plus bas.
+  // ⛔ Le fichier va à la RACINE de `.reserve/`, pas dans `analytics/` : ce
+  // dossier-là est supprimé à `astro:build:done`, donc APRÈS nous.
+  deposerSetsMcp(collections);
 
   const cote = projeterCote(items);
   memoire.jalon(`projeterCote fait (${items.length} fiches publiees)`);

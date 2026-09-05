@@ -1,7 +1,37 @@
 // Donnees structurees JSON-LD.
 import { coteFermee } from './cote.mjs';
 import { nu } from './i18n.mjs';
-export const jsonld = (o) => `<script type="application/ld+json">${JSON.stringify(o).replace(/</g, '\\u003c')}</script>`;
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 LOT 228 — LES SENTINELLES D'I18N NE DOIVENT PAS SORTIR D'ICI
+// ═══════════════════════════════════════════════════════════════════════════
+// MESURE DU 05/09/2026, sur le `dist/` d'un build reel de `vevewiki` :
+//   **362 valeurs polluees dans le JSON-LD, sur 277 pages sur 283.**
+//   Toutes des `ListItem.name`, et le maillon d'accueil en tete :
+//     `\u0011home.crumb\u0012Home\u0013` .... 111×
+//     `\u0011home.crumb\u0012Accueil\u0013` .. 56×   (+ es, de, it)
+//     `\u0011blog.title\u0012Articles\u0013` .. 32×
+//   Le fil VISIBLE, lui, est propre : les gabarits appellent `nu()`. C'est la
+//   SORTIE STRUCTUREE, et elle seule, qui servait a Google un nom de maillon
+//   commencant par un caractere de controle et portant la CLE i18n en clair.
+//
+// ⭐⭐⭐ ET LE DEFAUT ETAIT VISIBLE DEPUIS TOUJOURS SANS ETRE VU, PARCE QU'IL
+// SE CACHE DERRIERE SON PROPRE ECHAPPEMENT. Un `grep` du caractere \x11 dans
+// les fichiers HTML rend **ZERO** : `JSON.stringify` l'ecrit `\u0011`. Ma
+// premiere sonde a donc conclu « conforme » — sur une page qui portait le
+// defaut. *On ne mesure pas une valeur a travers la couche qui la reecrit.*
+//
+// ⭐⭐ LE DECAPAGE EST ICI ET NULLE PART AILLEURS, ET C'EST LE POINT.
+// `breadcrumbLd` n'etait pas le seul emetteur — `itemListLd` produit les memes
+// `ListItem`. Corriger la fabrique aurait ferme UN robinet et laisse l'autre,
+// plus toutes les fabriques futures. `jsonld()` est le POINT UNIQUE par lequel
+// passent toutes les donnees structurees du reseau : c'est la seule place ou
+// la garde ne peut pas etre contournee par oubli.
+// ⭐ Un `replacer` de `JSON.stringify`, et pas une copie prealable de l'objet :
+//   il visite deja chaque valeur, il n'alloue rien de plus, et il attrape les
+//   chaines a n'importe quelle profondeur.
+// ⚠️ `nu()` sur une chaine sans sentinelle est l'IDENTITE — cette garde ne
+//   peut donc rien abimer, meme sur les valeurs qui viennent du catalogue.
+export const jsonld = (o) => `<script type="application/ld+json">${JSON.stringify(o, (_, v) => (typeof v === 'string' ? nu(v) : v)).replace(/</g, '\\u003c')}</script>`;
 
 // =============================================================================
 //  TITRE DE PAGE — budget de 60 caracteres, applique A LA RACINE
