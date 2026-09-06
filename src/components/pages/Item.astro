@@ -494,7 +494,17 @@ const enAttente = t(lang, 'data.notCollected');
 // ⭐ `!= null` et jamais un test de vérité : `0` est la valeur la plus
 // intéressante de cette ligne, un `? :` l'effacerait sur les pièces qui comptent.
 const vuStackr = item.vuStackrLe || null;
-const aucuneOffreStackr = item.offresStackr === 0;
+// 🕐🔴🔴🔴 CORRECTIF DU 06/09, 2ᵉ PASSE — LE PRÉDICAT VIENT DU DATASET.
+//   `item.offresStackr === 0` était FAUX ici : il ignorait la CHRONOLOGIE. Sur
+//   **127 fiches publiées**, `releves.csv` porte un prix StackR POSTÉRIEUR au
+//   « 0 offre » de `fiches_stackr.csv` — la fiche annonçait « aucune offre en
+//   vente · vérifié le 04/09 » quand un prix avait été vu le 05/09.
+//   49 d'entre elles ont fait rougir `test:fraicheur` (le pied dépassait ses
+//   murs) et **cassé le déploiement** ; les 78 autres mentaient en silence.
+//   ⭐⭐ `stackrSansOffre` est calculé UNE fois, dans `dataset.mjs`, à côté des
+//   deux horloges qu'il compare. ⛔ Ne pas le recalculer ici : c'est en le
+//   recalculant que les deux formules avaient divergé.
+const aucuneOffreStackr = item.stackrSansOffre === true;
 // ⏱️ LA DATE QUE LE MUR AFFICHE — celle du PRIX s'il y a des offres, celle du
 //    REGARD sinon. ⛔ Pas de `||` inversé : sur une fiche sans offre,
 //    `releveStackrLe` peut exister (un prix relevé un jour passé) et serait

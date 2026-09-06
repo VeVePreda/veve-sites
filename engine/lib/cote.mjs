@@ -129,7 +129,10 @@ export const CHAMPS_FRAICHEUR = ['releveLe', 'releveSource', 'derniereVariation'
   //   ⛔ C'est ce champ qui décide si une fiche dit « aucune offre en vente »
   //   ou « pas encore collecté » — s'il partait derrière le mur, les 3 646
   //   fiches que ce lot corrige se remettraient à mentir, et en silence.
-  'releveVeveLe', 'releveStackrLe', 'vuStackrLe', 'releveStackrAffiche'];
+  'releveVeveLe', 'releveStackrLe', 'vuStackrLe', 'releveStackrAffiche',
+  // 🕐 LOT G (2ᵉ passe) — le prédicat « aucune offre » est un FAIT DATÉ, pas un
+  //   montant : il reste public, comme les dates qui l'entourent.
+  'stackrSansOffre'];
 
 // ⛔⛔ UN INVARIANT, PAS UN COMMENTAIRE. Le jour ou quelqu'un ajoutera
 // `releveLe` a `CHAMPS_COTE` — de bonne foi, « c'est lie a un prix » — ce

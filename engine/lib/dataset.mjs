@@ -890,11 +890,54 @@ async function construireDataset() {
       //   Il nomme ce que le GABARIT affiche, pour que le pied puisse s'aligner
       //   dessus sans le recalculer — deux endroits qui décident d'une même
       //   date, c'est la contradiction qu'on vient de payer.
+      // ═══════════════════════════════════════════════════════════════════════
+      // 🕐🔴🔴🔴 « AUCUNE OFFRE » EST UN FAIT **DATÉ** — CORRECTIF DU 06/09, 2ᵉ PASSE
+      // ═══════════════════════════════════════════════════════════════════════
+      // 🔴 CE QUI A CASSÉ LE DÉPLOIEMENT `6930559` : `test:fraicheur` a rougi sur
+      // **49 fiches où le pied dépassait ses deux murs**. Mon bac à sable était
+      // VERT — son échantillon de 90 fiches ne contient pas ce cas. La CI, elle,
+      // juge un `dist/` bâti EN LIGNE sur 9 354 fiches.
+      // ⭐⭐⭐ *L'échantillon hors ligne n'écrit pas la même forme que le réel* —
+      // → [[regle-echantillon-hors-ligne-angle-mort]], et cette fois il a coûté
+      // un déploiement.
+      //
+      // LA CAUSE, MESURÉE SUR LES DEUX SOURCES (exemple `6241489d`) :
+      //   · `releves.csv`      : source=stackr, **2026-09-05**, floor 635 593 OMI
+      //   · `fiches_stackr.csv`: **2026-09-04**, offres_en_cours = **0**
+      // Les deux sources se contredisent, et **la plus récente est celle qui voit
+      // un prix**. Ma règle « `offres === 0` ⇒ aucune offre » comparait deux faits
+      // SANS COMPARER LEURS DATES : la fiche annonçait « aucune offre en vente,
+      // vérifié le 04/09 » alors qu'un prix avait été relevé le 05/09.
+      // ⭐⭐ C'est exactement la faute des DEUX HORLOGES que le lot 146 a déjà
+      // payée un mur plus loin, et que ce lot croyait justement corriger.
+      //
+      // ⇒ « AUCUNE OFFRE » NE VAUT QUE SI LE REGARD EST AU MOINS AUSSI RÉCENT QUE
+      //   LE DERNIER PRIX VU. Sinon le prix, plus frais, a le dernier mot.
+      // 📏 MESURÉ SUR LES 9 354 FICHES PUBLIÉES : **127 fiches** avaient un prix
+      //   POSTÉRIEUR à leur « 0 offre ». 49 faisaient rougir le pied ; **les 78
+      //   autres mentaient en silence** — aucun banc ne les voyait.
+      // ⛔ Ne pas « assouplir » `test:fraicheur` : il disait vrai, et il a trouvé
+      //   un défaut plus large que celui qu'il signalait.
+      stackrSansOffre: (() => {
+        const offres = fst.get(uuid)?.offres;
+        if (offres !== 0) return false;
+        const prix = rel.get(uuid)?.stackrObsSec;
+        const regard = fst.get(uuid)?.sec;
+        // ⚠️ `>` ET NON `>=` : à égalité de date, le comptage d'offres est la
+        //   mesure la plus précise (il dit ZÉRO explicitement), le relevé de prix
+        //   ne dit que « il y en avait un ce jour-là ».
+        return !(Number.isFinite(prix) && Number.isFinite(regard) && prix > regard);
+      })(),
+      // ⭐ LA DATE QUE LE MUR AFFICHE — elle suit le prédicat ci-dessus, jamais
+      //   `offres === 0` en direct : deux endroits qui décident du même état
+      //   finissent par en décider deux.
       releveStackrAffiche: (() => {
         const offres = fst.get(uuid)?.offres;
         const prix = rel.get(uuid)?.stackrObsSec;
         const regard = fst.get(uuid)?.sec;
-        const sec = offres === 0
+        const sansOffre = offres === 0
+          && !(Number.isFinite(prix) && Number.isFinite(regard) && prix > regard);
+        const sec = sansOffre
           ? (Number.isFinite(regard) ? regard : prix)
           : (Number.isFinite(prix) ? prix : regard);
         return Number.isFinite(sec) ? jourDeReleve(sec) : null;
@@ -907,8 +950,10 @@ async function construireDataset() {
         const offres = fst.get(uuid)?.offres;
         const prix = rel.get(uuid)?.stackrObsSec ?? -Infinity;
         const regard = fst.get(uuid)?.sec ?? -Infinity;
-        const st = offres === 0 ? (Number.isFinite(regard) ? regard : prix)
-                                : (Number.isFinite(prix) ? prix : regard);
+        const sansOffre = offres === 0
+          && !(Number.isFinite(prix) && Number.isFinite(regard) && prix > regard);
+        const st = sansOffre ? (Number.isFinite(regard) ? regard : prix)
+                             : (Number.isFinite(prix) ? prix : regard);
         const m = Math.max(veve, st, rel.has(uuid) ? rel.get(uuid).sec : -Infinity);
         return Number.isFinite(m) ? jourDeReleve(m) : null;
       })(),
