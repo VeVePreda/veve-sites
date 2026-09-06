@@ -21,7 +21,7 @@ import * as memoire from './memoire.mjs';
 import { deposerVignettes } from './vignettes.mjs';
 import { deposerSetsMcp } from './sets_mcp.mjs';
 import { deposerRayonIndex } from './rayon_index.mjs';
-import { getCatalogue, getBaselines, getReleves, getFichesStackr, getOmiUsd, getVentes, streamPrices, vuLe } from '../data/warehouse.mjs';
+import { getCatalogue, getBaselines, getReleves, getFichesStackr, getOmiUsd, getVentes, getExtremesStackr, streamPrices, vuLe } from '../data/warehouse.mjs';
 // 💱 LOT 181 — le cours OMI → USD, déposé dans la réserve pour `/api/cote/lot`.
 //    Toute la règle (péremption, refus du zéro) vit dans le module ; ici il
 //    n'y a qu'un chargement et un dépôt.
@@ -337,6 +337,49 @@ function quotasDuManifeste(pub) {
 // « J'ai regarde » et « il y avait un prix » sont deux faits distincts, et un
 // releve sans montant reste un releve. D'ou `stackrObsSec`, qui date
 // l'OBSERVATION et ne regarde pas le montant.
+/**
+ * 📉📈 LOT H — L'INDEX DES EXTRÊMES StackR, `{uuid -> {atl, atlSec, ath, athSec}}`.
+ *
+ * ⭐ IL EST ÉCRIT À CÔTÉ DE `indexerReleves` ET EXPORTÉ COMME LUI : les deux
+ * lisent un CSV de la même release, et le banc doit pouvoir les exercer sans
+ * réseau ni build. Une fonction cachée dans le corps de `dataset()` ne serait
+ * exerçable que par un build entier — c'est-à-dire, hors ligne, sur 90 fiches
+ * qui ne portent pas forcément le cas.
+ *
+ * ⛔ CHAQUE EXTRÊME EST INDÉPENDANT DE L'AUTRE, et c'est la raison d'être de la
+ * forme retenue. `ath` naît vide avec ce lot : une pièce peut très bien avoir
+ * un plus-bas vieux de six mois et aucun plus-haut. Un objet unique
+ * `{valeur, date}` par pièce aurait forcé à choisir lequel des deux existe.
+ *
+ * ⛔ `null` ET JAMAIS `0` : un prix à zéro n'est pas un extrême, c'est une
+ * ligne abîmée. Le collecteur filtre déjà, on ne lui fait pas confiance pour
+ * autant — un CSV se relit toujours comme une source étrangère.
+ */
+export function indexerExtremesStackr(lignes) {
+  const par = new Map();
+  let ignorees = 0;
+  const nb = (v) => {
+    const n = Number(v);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  };
+  for (const r of lignes || []) {
+    const u = r.veve_uuid || r.uuid;
+    if (!u) { ignorees++; continue; }
+    const atl = nb(r.atl); const atlSec = nb(r.atl_ts);
+    const ath = nb(r.ath); const athSec = nb(r.ath_ts);
+    // ⚠️ UNE VALEUR SANS SA DATE EST REFUSÉE, et pas rendue « sans date ».
+    // Le mur StackR dit « vu le … » : un montant qu'on ne sait pas dater y
+    // apparaîtrait sous une date empruntée à autre chose. C'est la faute des
+    // DEUX HORLOGES du lot 146, celle qui a cassé la CI au lot G.
+    const a = atl !== null && atlSec !== null ? { v: atl, sec: atlSec } : null;
+    const h = ath !== null && athSec !== null ? { v: ath, sec: athSec } : null;
+    if (!a && !h) { ignorees++; continue; }
+    par.set(u, { atl: a ? a.v : null, atlSec: a ? a.sec : null,
+                 ath: h ? h.v : null, athSec: h ? h.sec : null });
+  }
+  return { par, ignorees };
+}
+
 export function indexerReleves(releves) {
   const par = new Map();
   let ignorees = 0;
@@ -532,8 +575,12 @@ async function construireDataset() {
   // 💰 LOT 210 — les ventes entrent dans le MEME `Promise.all`, pour la raison
   //    exacte des deux sources au-dessus : un `await` a lui ajouterait un
   //    aller-retour reseau complet sur le chemin critique du build.
-  const [cat, baselines, releves, tauxLignes, fichesSt, lignesVentes] = await Promise.all([
-    getCatalogue(), getBaselines(), getReleves(), getOmiUsd(), getFichesStackr(), getVentes()]);
+  // 📉📈 LOT H — les extrêmes StackR entrent dans le MÊME `Promise.all`, pour
+  //    la raison exacte des trois sources au-dessus : un `await` à lui
+  //    ajouterait un aller-retour réseau complet sur le chemin critique.
+  const [cat, baselines, releves, tauxLignes, fichesSt, lignesVentes, extSt] = await Promise.all([
+    getCatalogue(), getBaselines(), getReleves(), getOmiUsd(), getFichesStackr(), getVentes(),
+    getExtremesStackr()]);
   memoire.jalon(`catalogue (${cat.length}) + baselines (${baselines.length}) + releves (${releves.length}) lus`);
 
   // --- Agregation EN FLUX -------------------------------------------------
@@ -596,6 +643,7 @@ async function construireDataset() {
   for (const b of baselines) bl.set(b.veve_uuid || b.uuid, b);
 
   const { par: rel, ignorees: relIgnores } = indexerReleves(releves);
+  const { par: extS } = indexerExtremesStackr(extSt);
   const { par: fst, ignorees: fstIgnores } = indexerFichesStackr(fichesSt);
   // ⭐⭐ L'INSTRUMENT SE DECLARE, MEME QUAND IL VA BIEN. Un `0` sur cette ligne
   // est la seule trace, dans 3 000 lignes de log, de la difference entre « la
@@ -1006,6 +1054,27 @@ async function construireDataset() {
       // et `vfloors` sont deux MARCHES (rapport median 4 423, p10 2 273,
       // p90 8 520). Le taux OMI horodate n'est stocke nulle part.
       floorStackr: rel.get(uuid)?.stackr ?? null,
+      // ═══════════════════════════════════════════════════════════════════════
+      // 📉📈 LOT H — LE PLUS-BAS ET LE PLUS-HAUT StackR
+      // ═══════════════════════════════════════════════════════════════════════
+      // 🔒 DEUX PRIX : ils sont dans `CHAMPS_COTE`, donc ils n'atteignent
+      // jamais le HTML public. 💵 EN DOLLARS, au cours du moment de
+      // l'observation — ⛔ contrairement à `floorStackr` juste au-dessus, qui
+      // est en OMI. Les deux unités cohabitent dans cet objet et il ne faut
+      // JAMAIS les additionner : c'est le collecteur qui a converti, à un
+      // cours qu'on ne connaît plus.
+      // ⚠️ `ath` SERA `null` PARTOUT PENDANT DES JOURS : la mémoire du
+      // plus-haut naît avec ce lot. Ce n'est pas une panne, et le gabarit doit
+      // le rendre comme un silence, pas comme un tiret « en attente » qui
+      // promettrait une collecte déjà faite.
+      atlStackr: extS.get(uuid)?.atl ?? null,
+      athStackr: extS.get(uuid)?.ath ?? null,
+      // 📅 LES DATES RESTENT PUBLIQUES — voir `CHAMPS_COTE` : « on a regardé le
+      // 3 septembre » ne dit aucun prix. Même ligne de partage que `vuStackrLe`.
+      atlStackrLe: Number.isFinite(extS.get(uuid)?.atlSec)
+        ? jourDeReleve(extS.get(uuid).atlSec) : null,
+      athStackrLe: Number.isFinite(extS.get(uuid)?.athSec)
+        ? jourDeReleve(extS.get(uuid).athSec) : null,
       // ═══════════════════════════════════════════════════════════════════════
       // 🛰️ LOT 190 — CE QUE STACKR SAIT ET QUE NOUS N'AVIONS PAS
       // ═══════════════════════════════════════════════════════════════════════

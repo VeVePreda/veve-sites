@@ -70,6 +70,33 @@ const SOURCES = {
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // 📉📈 LES EXTRÊMES StackR — lot H, 06/09/2026
+  // ═══════════════════════════════════════════════════════════════════════════
+  // `veve_uuid, atl, atl_ts, ath, ath_ts, unite` — le plus-bas et le plus-haut
+  // prix StackR OBSERVÉS EN DIRECT, en DOLLARS, chacun avec sa date.
+  //
+  // 🔴🔴 CE N'ÉTAIT PAS UNE COLLECTE À LANCER, C'ÉTAIT UN PONT À POSER.
+  // `floor_watch.py` mémorise `atl_stackr` depuis des mois — 7 059 pièces
+  // mesurées dans `floor_state.json` le 06/09 — parce que `detect_atl_stackr`
+  // écrit le plus-bas AVANT de regarder si le canal d'alerte est allumé. Rien
+  // ne le publiait. ⭐⭐⭐ Deuxième fois en deux jours qu'un « il manque une
+  // collecte » se révèle être « il manque un pont » (cf. le pouls 24 h).
+  //
+  // ⚠️ LES DEUX COLONNES N'ONT PAS LE MÊME ÂGE. `atl` arrive plein dès le
+  // premier run ; `ath` naît avec ce lot et sera VIDE pendant des jours. Le
+  // gabarit doit donc traiter « pas encore observé » comme un état normal — et
+  // c'est pour ça que le CSV porte une date PAR extrême et pas une seule.
+  //
+  // 💵 EN DOLLARS, au cours DU MOMENT DE L'OBSERVATION (`usd = pr * omi` chez
+  // le collecteur). ⛔ Ce n'est pas une traversée de marché : on ne déduit
+  // aucun plancher VeVe de ces chiffres, et on ne les compare pas à `floor`.
+  extremesStackr: {
+    url: process.env.EXTREMES_STACKR_URL
+      || base('etat-floor-watch', 'extremes_stackr.csv'),
+    sample: 'extremes_stackr.csv',
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // 💱 LE COURS OMI → USD — lot 181, 24/08/2026
   // ═══════════════════════════════════════════════════════════════════════════
   // Deux lignes, ~40 octets : `omi_usd, ts_utc`. Écrit par `floor-watch.yml`
@@ -687,6 +714,11 @@ export const getBaselines = () => load('baselines');
 // remplacera par `load('releves')` « pour faire comme les autres », il aura
 // devant les yeux la seule ligne qui explique pourquoi ce n'en est pas un.
 export const getReleves = () => chargerFacultatif('releves');
+// 📉📈 LOT H — facultatif comme `releves`, et pour la même raison : tant que le
+// dépôt `jetonveve` n'a pas tourné avec le pont, le fichier n'existe pas dans
+// la release. ⭐ `chargerFacultatif` rend `[]`, le site sert la colonne sans sa
+// seconde ligne, et RIEN ne casse. Une absence n'est pas une panne.
+export const getExtremesStackr = () => chargerFacultatif('extremesStackr');
 // 🛰️ FACULTATIF, ET C'EST LA BONNE FORME. Si la release `etat-fiches-stackr`
 //   disparaît ou tarde, la fiche perd ses chiffres StackR et rien d'autre —
 //   ⛔ le build ne doit pas mourir pour un enrichissement. Voir le bloc de

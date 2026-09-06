@@ -42,6 +42,8 @@ import { lireParams, selectionMarche, facettes, parMcp, parMcpOmi, filtreActif,
 // les colonnes et les tuiles. `rail.js` ne touche qu'à la forme, et il est le
 // MÊME fichier que sur les rayons — trois pages, une seule feuille à tenir.
 import { moduleJs } from '../../../engine/lib/socle_js.mjs';
+// 🔑 LOT H ⑤ — le cours OMI/USD du jour, pour la seconde ligne de `$/MCP`.
+import { lireTaux, convertirOmi } from '../../../engine/lib/taux_omi.mjs';
 // 🔴🔴🔴 `formeBarre` ET SURTOUT PAS `forme` — LE NOM ÉTAIT DÉJÀ PRIS.
 // `vitrine.mjs` exporte une fonction `forme()` (l. 31), que ce fichier appelle
 // pour dessiner les pastilles de rareté. Ma première version l'a écrasée avec
@@ -127,6 +129,47 @@ const mcpDe = (r, type) => {
 // ⚠️ Le raisonnement (les trois refus, le « plafond de rendement ») est parti
 // avec la fonction : il n'est pas perdu, il est là où le code est.
 const noteMcp = t(lang, 'movers.perMcpNote');
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴 LOT H ⑤ — LA SECONDE LIGNE DE `$/MCP` PASSE EN DOLLARS
+// ═══════════════════════════════════════════════════════════════════════════
+// 🗣️ PREDA, 06/09 : « dans la colonne $/MCP la ligne omi doit etre en $ ».
+//
+// 🔴🔴 ET ÇA DÉMENT LE COMMENTAIRE DU LOT 220, DIX LIGNES SOUS LA CELLULE.
+// Il écrivait : « ⛔⛔ gems et OMI sont deux MARCHÉS, rapport non constant
+// (médiane 4 423, p10 2 273, p90 8 520 sur 1 306 items) — ils cohabitent, ils
+// ne s'additionnent ni ne SE CONVERTISSENT ».
+// ⭐⭐⭐ IL CONFOND DEUX OPÉRATIONS, ET UNE SEULE EST INTERDITE :
+//   ① déduire un plancher VeVe d'un plancher StackR — INTERDIT, et c'est ce
+//      que les p10/p90 mesurent : deux marchés, rapport non constant ;
+//   ② convertir un montant en OMI vers des dollars AU COURS DE L'OMI — une
+//      conversion de DEVISE, qui ne traverse aucun marché.
+// L'en-tête de `taux_omi.mjs` pose déjà la distinction mot pour mot (« on ne
+// traverse toujours pas d'un marché à l'autre »), et la FICHE fait déjà ② en
+// production depuis le lot 181-A. Le tableau était le seul endroit resté en OMI.
+//
+// ⛔ ON NE CONVERTIT PAS LA LIGNE DU HAUT. Elle est en gems ≈ $, elle l'a
+//    toujours été. Les deux lignes deviennent donc lisibles dans la MÊME unité
+//    — ce que Preda demande — sans que l'une soit dérivée de l'autre.
+// ⚠️ `lireTaux()` REND `null` AU-DELÀ DE 24 h, et alors on retombe sur l'OMI :
+//    un cours périmé sur un actif volatil est « un chiffre faux qui a l'air
+//    juste » (son propre commentaire). ⭐ Le repli n'est pas un demi-échec :
+//    l'OMI, lui, reste vrai — c'est la conversion qui est indisponible.
+// 🔑 Un seul appel pour toute la page : `lireTaux` lit un fichier sur disque, et
+//    le faire par ligne serait 20 lectures pour un nombre unique.
+const tauxOmi = lireTaux(Math.floor(Date.now() / 1000));
+// `≈ $%s` et l'aide « Approximate: … two separate observations » EXISTENT DÉJÀ
+// dans les cinq dictionnaires (`item.floorStackrUsd` / `…Aide`, posés par la
+// fiche). ⛔ Ne pas en écrire de nouvelles : deux clés pour une phrase, ce sont
+// deux traductions à tenir d'accord.
+const modeleUsd = t(lang, 'item.floorStackrUsd');
+const aideUsd = t(lang, 'item.floorStackrUsdAide');
+// ⭐ LA RÈGLE EST DANS `taux_omi.mjs`, PAS ICI : cette page rend 302 à
+// l'anonyme, donc aucun banc ne lit son HTML — une multiplication écrite dans
+// la cellule ne serait exercée par rien. Ici on ne fait plus que l'HABILLER.
+const enDollars = (omi) => {
+  const usd = convertirOmi(omi, tauxOmi);
+  return usd === null ? null : modeleUsd.replace('%s', money(usd));
+};
 
 // Le même libellé pour tous les tirets en attente : une seule phrase à
 // traduire, et surtout une seule à corriger le jour où elle change.
@@ -494,6 +537,64 @@ function sprite(id, html) {
 const cleRar = (r) => (RAR[r] ? r : 'COMMON');
 const gemsU = sprite('s-gems', gemsM());
 const chevronU = sprite('s-chevron', chevron);
+// ═══════════════════════════════════════════════════════════════════════════
+// 🎨 LOT H ⑪ — UNE PETITE ICÔNE PAR GROUPE DE FILTRES
+// ═══════════════════════════════════════════════════════════════════════════
+// 🗣️ PREDA, 06/09 : « les filtres devraient avoir une petite icone pour les
+//    différencier ». Il précise le ⑦ du même lot, qui avait traité la question
+//    par la TYPOGRAPHIE (capitales espacées en fonte technique) : c'était
+//    nécessaire — huit titres et leurs cases se ressemblaient — et insuffisant,
+//    parce que huit étiquettes de même forme restent huit étiquettes de même
+//    forme. ⭐ *Distinguer un rang n'est pas distinguer des voisins.*
+//
+// ⛔ ELLES PASSENT PAR `sprite()`, COMME TOUT LE RESTE. Huit `<svg>` inscrits
+//    en clair dans huit boutons, c'est huit tracés servis ; ici ce sont huit
+//    `<symbol>` posés une fois et huit `<use>`. La mécanique existe et son
+//    commentaire, quarante lignes plus haut, dit pourquoi.
+// ⛔ AUCUN EMOJI, AUCUNE POLICE D'ICÔNES : le thème stylise `.f-b svg`
+//    (12 px, `stroke:currentColor`, `fill:none`), donc une icône prend la
+//    couleur de son bouton — y compris le `--sect-a` du groupe ouvert, et y
+//    compris le teint de section qui change d'un rayon à l'autre. Un emoji
+//    aurait sa couleur à lui, insensible à tout ça.
+// ⚠️ ELLE EST LE PREMIER ENFANT, LE CHEVRON RESTE LE DERNIER : le thème écrit
+//    `.f-b[aria-expanded="true"] svg:last-child{transform:rotate(180deg)}`.
+//    Une icône ajoutée APRÈS le chevron ferait pivoter l'icône et laisserait le
+//    chevron droit — le genre de défaut qu'on ne relit pas, qu'on voit.
+// ⭐ Les tracés sont dans la grammaire des autres : `viewBox 0 0 24 24`, un
+//    seul `<path>`, pas de `fill`, pas de `stroke-width` local.
+const ICONES = {
+  // Marketplace — une devanture : un auvent posé sur deux murs.
+  place: 'M3 9h18M4 9V6h16v3M5 9v10h14V9',
+  // Type & rareté — l'étoile, la même géométrie que la pastille SECRET_RARE.
+  type: 'm12 3 2.6 5.5 6 .8-4.4 4.2 1.1 6-5.3-2.9-5.3 2.9 1.1-6L3.4 9.3l6-.8Z',
+  // Licence — un sceau : un disque et son ruban.
+  lic: 'M12 3a5.5 5.5 0 1 1 0 11 5.5 5.5 0 0 1 0-11ZM8.5 13.4 7 21l5-2.4 5 2.4-1.5-7.6',
+  // Marque — un marque-page.
+  mar: 'M6 3h12v18l-6-4.5L6 21Z',
+  // Prix — une étiquette percée.
+  prix: 'M3 12V4h8l9 9-8 8-9-9Zm4.5-4.5h.01',
+  // Mint & tirage — des feuillets empilés (le tirage est un nombre d'exemplaires).
+  mint: 'M12 3 3 7.5l9 4.5 9-4.5Zm-9 9 9 4.5 9-4.5m-18 4.5 9 4.5 9-4.5',
+  // Date — un calendrier.
+  date: 'M4 6h16v15H4Zm0 5h16M8 3v4m8-4v4',
+  // Colonnes — trois colonnes, ce que le groupe règle.
+  cols: 'M4 4h16v16H4Zm5.5 0v16m5 -16v16',
+};
+// 🔴🔴 ELLES SE PRÉ-CALCULENT **ICI**, PAS À L'APPEL DANS LE GABARIT — et ce
+// n'est pas un raffinement, c'est la condition pour qu'elles s'affichent.
+// `sprite()` fait DEUX choses : il enregistre le `<symbol>` dans `SPRITE`, et
+// il rend un `<use href="#…">`. Or le bloc `<svg>` qui porte les `<symbol>` est
+// ÉCRIT AVANT les boutons de filtre. Une `ico()` appelée depuis le balisage
+// enregistre donc son symbole APRÈS que le sprite a été rendu : les huit `<use>`
+// pointent vers du vide, et un `<use>` orphelin **ne lève rien — il rend un
+// TROU**. Mesuré : `test:tuiles` §2 a rougi sur mes huit références, « 103
+// occurrences rendraient un trou », et c'est exactement ce que le commentaire
+// de `gemsU` / `chevronU` annonçait dix lignes plus haut.
+// ⭐⭐ *Un helper qui a un EFFET DE BORD ne peut pas être appelé au moment qui
+// arrange la lecture : il doit être appelé au moment qu'exige son effet.*
+const ICONES_U = Object.fromEntries(Object.keys(ICONES).map((c) => [c,
+  sprite(`s-i-${c}`, `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${ICONES[c]}"/></svg>`)]));
+const ico = (cle) => ICONES_U[cle];
 const formeU = new Map();
 const rarU = new Map();
 for (const i of lignes) {
@@ -716,11 +817,18 @@ const ILE_TUILES = JSON.stringify({
         <label class="sr-only" for="f-q">{t(lang, 'search.placeholder')}</label>
         <input type="search" id="f-q" name="f-q" value={P.q} placeholder={t(lang, 'search.placeholder')} autocomplete="off" />
       </div>
-      <span class="sep-v"></span>
-      <div class="seg-p" role="group" aria-label={t(lang, 'movers.view')}>
-        <button type="button" class="v-b" data-vue="tbl" aria-pressed={VUE === 'tbl' ? 'true' : 'false'}>{t(lang, 'movers.table')}</button>
-        <button type="button" class="v-b" data-vue="tui" aria-pressed={VUE === 'tui' ? 'true' : 'false'}>{t(lang, 'movers.tiles')}</button>
-      </div>
+      {/* 🔀 LOT H ⑫ — LE CHOIX DE VUE A QUITTÉ CE FORMULAIRE.
+          🗣️ Preda, 06/09 : « l'affichage table ou tuile n'est pas très logique
+          qu'il soit dans les filtres ». Il a raison, et le gabarit le disait
+          déjà sans en tirer la conséquence : le bloc ② de l'en-tête classe la
+          vue et les colonnes comme « de l'AFFICHAGE PUR », qui « ne change RIEN
+          à la sélection ». Un contrôle qui ne filtre rien n'a rien à faire dans
+          la barre des filtres.
+          ⇒ Il est remonté au-dessus du tableau, avec le compteur de résultats —
+          voir `.barre-res`. ⛔ Le champ caché `f-vue` RESTE ici : c'est lui qui
+          fait voyager la vue à la soumission, et il doit être dans le
+          formulaire pour partir avec. Le bouton n'a jamais eu besoin d'y être :
+          il écrit dans ce champ, il ne se soumet pas. */}
       {/* ⭐ LE TRI EST UN `<select>`, PAS SIX BOUTONS. Six ordres possibles en
           boutons segmentés débordent sur tout écran sous 1 200 px, et un tri
           n'est pas un état qu'on compare du regard — c'est un choix unique. */}
@@ -735,7 +843,7 @@ const ILE_TUILES = JSON.stringify({
     {/* Un bouton par GROUPE, un seul panneau ouvert à la fois. */}
     <div class="f-onglets" role="group" aria-label={t(lang, 'movers.filters')}>
       <div class="rail-g">
-        <button type="button" class="f-b" data-g="place" aria-expanded="false" aria-controls="fp-place">{t(lang, 'movers.g.place')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevronU} /></button>
+        <button type="button" class="f-b" data-g="place" aria-expanded="false" aria-controls="fp-place"><Fragment set:html={ico('place')} />{t(lang, 'movers.g.place')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevronU} /></button>
         <div class="f-panneau" id="fp-place" hidden>
           <div class="f-panneau__t">{t(lang, 'movers.g.place')}</div>
           <div class="cols-l">
@@ -745,7 +853,7 @@ const ILE_TUILES = JSON.stringify({
         </div>
       </div>
       <div class="rail-g">
-        <button type="button" class="f-b" data-g="type" aria-expanded="false" aria-controls="fp-type">{t(lang, 'movers.g.type')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevronU} /></button>
+        <button type="button" class="f-b" data-g="type" aria-expanded="false" aria-controls="fp-type"><Fragment set:html={ico('type')} />{t(lang, 'movers.g.type')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevronU} /></button>
         <div class="f-panneau" id="fp-type" hidden>
           <div class="f-panneau__t">{t(lang, 'item.rarity')}</div>
           <div class="cols-l">
@@ -759,7 +867,7 @@ const ILE_TUILES = JSON.stringify({
         </div>
       </div>
       <div class="rail-g">
-        <button type="button" class="f-b" data-g="lic" aria-expanded="false" aria-controls="fp-lic">{t(lang, 'movers.g.licence')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevronU} /></button>
+        <button type="button" class="f-b" data-g="lic" aria-expanded="false" aria-controls="fp-lic"><Fragment set:html={ico('lic')} />{t(lang, 'movers.g.licence')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevronU} /></button>
         <div class="f-panneau" id="fp-lic" hidden>
           <div class="f-panneau__t">{t(lang, 'movers.g.licence')}</div>
           {/* ⭐ `data-cherche` : le meme geste que le rayon, ou Preda avait releve
@@ -784,7 +892,7 @@ const ILE_TUILES = JSON.stringify({
         </div>
       </div>
       <div class="rail-g">
-        <button type="button" class="f-b" data-g="mar" aria-expanded="false" aria-controls="fp-mar">{t(lang, 'movers.g.marque')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevronU} /></button>
+        <button type="button" class="f-b" data-g="mar" aria-expanded="false" aria-controls="fp-mar"><Fragment set:html={ico('mar')} />{t(lang, 'movers.g.marque')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevronU} /></button>
         <div class="f-panneau" id="fp-mar" hidden>
           <div class="f-panneau__t">{t(lang, 'movers.g.marque')}</div>
           <div class="champ champ--sm" style="width:220px;margin-bottom:8px">
@@ -820,7 +928,7 @@ const ILE_TUILES = JSON.stringify({
         </div>
       </div>
       <div class="rail-g">
-        <button type="button" class="f-b" data-g="prix" aria-expanded="false" aria-controls="fp-prix">{t(lang, 'movers.g.price')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevronU} /></button>
+        <button type="button" class="f-b" data-g="prix" aria-expanded="false" aria-controls="fp-prix"><Fragment set:html={ico('prix')} />{t(lang, 'movers.g.price')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevronU} /></button>
         <div class="f-panneau" id="fp-prix" hidden>
           <div class="f-panneau__t">{t(lang, 'movers.g.price')}</div>
           <div class="tiroir__c">
@@ -856,7 +964,7 @@ const ILE_TUILES = JSON.stringify({
         </div>
       </div>
       <div class="rail-g">
-        <button type="button" class="f-b" data-g="mint" aria-expanded="false" aria-controls="fp-mint">{t(lang, 'movers.g.mint')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevronU} /></button>
+        <button type="button" class="f-b" data-g="mint" aria-expanded="false" aria-controls="fp-mint"><Fragment set:html={ico('mint')} />{t(lang, 'movers.g.mint')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevronU} /></button>
         <div class="f-panneau" id="fp-mint" hidden>
           <div class="f-panneau__t">{t(lang, 'movers.g.mint')}</div>
           <div class="tiroir__c">
@@ -870,7 +978,7 @@ const ILE_TUILES = JSON.stringify({
         </div>
       </div>
       <div class="rail-g">
-        <button type="button" class="f-b" data-g="date" aria-expanded="false" aria-controls="fp-date">{t(lang, 'movers.g.date')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevronU} /></button>
+        <button type="button" class="f-b" data-g="date" aria-expanded="false" aria-controls="fp-date"><Fragment set:html={ico('date')} />{t(lang, 'movers.g.date')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevronU} /></button>
         <div class="f-panneau" id="fp-date" hidden>
           <div class="f-panneau__t">{t(lang, 'movers.g.date')}</div>
           <div class="tiroir__c">
@@ -882,7 +990,7 @@ const ILE_TUILES = JSON.stringify({
         </div>
       </div>
       <div class="rail-g">
-        <button type="button" class="f-b" data-g="cols" aria-expanded="false" aria-controls="fp-cols">{t(lang, 'movers.g.cols')}<Fragment set:html={chevronU} /></button>
+        <button type="button" class="f-b" data-g="cols" aria-expanded="false" aria-controls="fp-cols"><Fragment set:html={ico('cols')} />{t(lang, 'movers.g.cols')}<Fragment set:html={chevronU} /></button>
         <div class="f-panneau" id="fp-cols" hidden>
           <div class="f-panneau__t">{t(lang, 'movers.g.cols')}</div>
           {/* ⭐ LES QUATRE VUES D'ABORD, LES CASES ENSUITE. L'ordre EST le message :
@@ -1012,11 +1120,6 @@ const ILE_TUILES = JSON.stringify({
         le compte impair et rend le banc rouge sur un gabarit qui compile.
         ⇒ RÈGLE, en trois exemplaires payés d'affilée : dans un commentaire de
         gabarit, on DÉCRIT la syntaxe, on ne l'ÉCRIT jamais. */}
-    <p class="etiq" id="cpt" role="status">
-      {aFiltre
-        ? t(lang, 'movers.showing', { a: SEL.rendues.toLocaleString(nf), b: SEL.retenues.toLocaleString(nf), c: SEL.totalVisible.toLocaleString(nf) })
-        : t(lang, 'movers.capped', { a: SEL.rendues.toLocaleString(nf), b: SEL.totalVisible.toLocaleString(nf) })}
-    </p>
     {/* ═══════════════════════════════════════════════════════════════════════
         🔑 LOT 220 — CE QUE LE FILTRE A RETENU, PAS SEULEMENT COMBIEN.
         ═══════════════════════════════════════════════════════════════════════
@@ -1080,6 +1183,27 @@ const ILE_TUILES = JSON.stringify({
       `localStorage` — donc le tableau s'affichait puis disparaissait au profit
       des tuiles, à chaque chargement. */}
   <div class="avec-rail__c">
+  {/* ═══ 🔀 LOT H ⑫ — LA BARRE DES RÉSULTATS ═══════════════════════════════
+      Ce que le filtre a retenu, à gauche ; comment on le regarde, à droite.
+      Les deux parlent du RÉSULTAT, pas de la question qu'on lui pose — c'est
+      ce qui les met ici plutôt que dans le rail.
+      ⭐ Le compteur descend avec le bouton, et ce n'est pas un déménagement de
+      confort : posé en bas du rail, il annonçait le nombre de lignes À 700 px
+      DU TABLEAU, hors du champ de vision de ce qu'il compte.
+      ⛔ `role="status"` SUIT LE NŒUD : il fait annoncer le nouveau compte aux
+      lecteurs d'écran quand le serveur re-rend la page. Le déplacer sans lui
+      aurait rendu le changement muet. */}
+  <div class="barre-res">
+    <p class="etiq" id="cpt" role="status">
+      {aFiltre
+        ? t(lang, 'movers.showing', { a: SEL.rendues.toLocaleString(nf), b: SEL.retenues.toLocaleString(nf), c: SEL.totalVisible.toLocaleString(nf) })
+        : t(lang, 'movers.capped', { a: SEL.rendues.toLocaleString(nf), b: SEL.totalVisible.toLocaleString(nf) })}
+    </p>
+    <div class="seg-p" role="group" aria-label={t(lang, 'movers.view')}>
+      <button type="button" class="v-b" data-vue="tbl" aria-pressed={VUE === 'tbl' ? 'true' : 'false'}>{t(lang, 'movers.table')}</button>
+      <button type="button" class="v-b" data-vue="tui" aria-pressed={VUE === 'tui' ? 'true' : 'false'}>{t(lang, 'movers.tiles')}</button>
+    </div>
+  </div>
   <div id="vue-tbl" class="tbl-hote" data-attente-txt={attente} hidden={VUE !== 'tbl'}>
     <table id="resultats" tabindex="-1">
       {/* ═══════════════════════════════════════════════════════════════════
@@ -1362,10 +1486,52 @@ const ILE_TUILES = JSON.stringify({
               `data-attente` ici : une pièce sans historique de prix n'attend
               rien, elle n'a pas d'extrêmes — et un cadenas mentirait deux fois
               (cf. `Extremes.astro`, la décision de Preda du 11/08). */}
-          <td class="n c-5" data-col="atl" hidden={!colVue('atl')} data-ext="atl">
-            <span class="num"><Fragment set:html={gemsU} /> {money(i.atl)}</span></td>
-          <td class="n c-5" data-col="ath" hidden={!colVue('ath')} data-ext="ath">
-            <span class="num"><Fragment set:html={gemsU} /> {money(i.ath)}</span></td>
+          {/* ═══ 📉📈 LOT H ⑥ — LA SECONDE LIGNE StackR ═══════════════════════
+              🗣️ Preda, 06/09 : « il manque également dans les colonnes ATL et
+              ATH la ligne stackr ». Ces deux colonnes étaient les seules du
+              tableau à n'avoir qu'une ligne là où `Listings` et `$/MCP` en ont
+              deux — VeVe au-dessus, StackR en dessous.
+
+              🔴🔴 ET J'AI D'ABORD RÉPONDU À PREDA QUE C'ÉTAIT UNE COLLECTE À
+              LANCER. C'était FAUX. `floor_watch.py` mémorise `atl_stackr`
+              depuis des mois — 7 059 pièces mesurées dans `floor_state.json` —
+              parce qu'il écrit le plus-bas AVANT de tester si le canal
+              d'alerte est allumé. Personne ne le publiait : il manquait un
+              PONT, pas une collecte. ⭐⭐⭐ *Deuxième fois en deux jours* (le
+              pouls 24 h avait le même diagnostic). ⇒ AVANT de chiffrer une
+              collecte, ouvrir l'état du collecteur et regarder ce qu'il garde.
+
+              💵 EN DOLLARS, ET PAS EN OMI, contrairement au plancher StackR de
+              la fiche. Le collecteur convertit AU MOMENT DE L'OBSERVATION
+              (`usd = pr * omi`) : un plus-bas de mars converti au cours
+              d'aujourd'hui serait un chiffre faux qui a l'air juste.
+              ⛔ Et ça ne se compare pas à la ligne du dessus : gems VeVe et
+              dollars StackR sont deux marchés, on les montre, on ne les
+              soustrait pas.
+
+              ⚠️ `ath` SERA VIDE PENDANT DES JOURS et c'est normal : la mémoire
+              du plus-haut naît avec ce lot, celle du plus-bas a des mois.
+              D'où `data-attente` — le même dispositif que la seconde ligne de
+              `Listings`, qui dit « pas encore collecté » et non « zéro ».
+
+              ⭐ LE `.num` DE VeVe RESTE LE PREMIER, ET C'EST LOAD-BEARING :
+              `batirTuiles()` lit `[data-ext="atl"] .num` avec `querySelector`,
+              qui rend le PREMIER du document. La tuile continue donc de cloner
+              l'extrême VeVe, sans une ligne de pilote à changer. Inverser
+              l'ordre des deux lignes changerait silencieusement ce que la
+              tuile affiche. */}
+          <td class="n c-5" data-col="atl" hidden={!colVue('atl')} data-ext="atl"><span class="m2">
+            <span class="m2__a num"><Fragment set:html={gemsU} /> {money(i.atl)}</span>
+            {i.atlStackr === null || i.atlStackr === undefined
+              ? <span class="m2__b muted" data-attente>—</span>
+              : <span class="m2__b num" title={i.atlStackrLe ? `StackR · ${i.atlStackrLe}` : 'StackR'}>${money(i.atlStackr)}</span>}
+          </span></td>
+          <td class="n c-5" data-col="ath" hidden={!colVue('ath')} data-ext="ath"><span class="m2">
+            <span class="m2__a num"><Fragment set:html={gemsU} /> {money(i.ath)}</span>
+            {i.athStackr === null || i.athStackr === undefined
+              ? <span class="m2__b muted" data-attente>—</span>
+              : <span class="m2__b num" title={i.athStackrLe ? `StackR · ${i.athStackrLe}` : 'StackR'}>${money(i.athStackr)}</span>}
+          </span></td>
 
           {/* 🔴 LOT 205 — LA COLONNE « VAR. 24 H » EST RETIRÉE, PAS MASQUÉE.
               Mesuré le 26/08 : « — » sur TOUTES les lignes, par construction —
@@ -1413,9 +1579,13 @@ const ILE_TUILES = JSON.stringify({
                 cohabitent, ils ne s'additionnent ni ne se convertissent. */}
             {parMcpOmi(i) === null
               ? <span class="m2__b muted">—</span>
-              : <span class="m2__b num" title={noteMcp}>
-                  <Fragment set:html={omiM()} /> {money(parMcpOmi(i))}
-                </span>}
+              : enDollars(parMcpOmi(i)) !== null
+                ? <span class="m2__b num" title={`${aideUsd} — ${noteMcp}`}>
+                    <Fragment set:html={omiM()} /> {enDollars(parMcpOmi(i))}
+                  </span>
+                : <span class="m2__b num" title={noteMcp}>
+                    <Fragment set:html={omiM()} /> {money(parMcpOmi(i))}
+                  </span>}
           </span></td>
 
           {/* LIENS — LOT 68 : DEUX BOUTONS SUR UNE SEULE LIGNE, SÉPARÉS PAR UNE
@@ -2124,9 +2294,9 @@ const ILE_TUILES = JSON.stringify({
           envoyer();
         });
       });
-      [].slice.call(f.querySelectorAll('.v-b')).forEach(function (b) {
+      [].slice.call(document.querySelectorAll('.v-b')).forEach(function (b) {
         b.addEventListener('click', function () {
-          [].slice.call(f.querySelectorAll('.v-b')).forEach(function (o) {
+          [].slice.call(document.querySelectorAll('.v-b')).forEach(function (o) {
             o.setAttribute('aria-pressed', o === b ? 'true' : 'false');
           });
           peindreVue(b.dataset.vue);

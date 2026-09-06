@@ -3442,7 +3442,16 @@ body[data-tiroir]::after{ opacity:1; pointer-events:auto; }
    catalogue, qui est public. Le mur du prix reste entier. */
 .bandeau{padding:10px 16px 12px;display:flex;align-items:baseline;gap:10px;
   flex-wrap:wrap;border-bottom:1px solid var(--rule);
-  background:linear-gradient(180deg,color-mix(in srgb,var(--sect-a) 8%,var(--nuit)),var(--nuit))}
+  /* 🔴 LOT H ⑪ — « la lumière rouge devrait être latérale » (Preda, 06/09).
+     C'était un `180deg` : la lueur tombait du haut, en bandeau uniforme.
+     ⭐ `150deg … 58%` n'est pas une valeur inventée : c'est CELLE DE LA
+     MAQUETTE v4, prise sur son `.hero-ed` — la seule surface où elle avait
+     déjà tranché la question de la lumière. On reprend son angle et son point
+     d'arrêt plutôt que d'en choisir de nouveaux à l'œil.
+     ⛔ La couleur reste `--sect-a`, jamais un rouge écrit en dur : elle est
+     REDÉFINIE PAR SECTION (règle du 05/09), donc le bandeau prend le teint de
+     son rayon tout seul. */
+  background:linear-gradient(150deg,color-mix(in srgb,var(--sect-a) 12%,var(--nuit)) 0%,var(--nuit) 58%)}
 .bandeau h1{font-size:22px;letter-spacing:-.03em;font-weight:700;margin:0;
   text-transform:uppercase}
 .bandeau__c{font-family:var(--tech);font-size:12px;color:var(--sect-a)}
@@ -3454,7 +3463,31 @@ body[data-tiroir]::after{ opacity:1; pointer-events:auto; }
 @media (min-width:821px){
   .bandeau{align-items:flex-end;gap:16px;padding:10px 32px 0;min-height:80px}
   .bandeau>*{margin-bottom:12px}
-  .bandeau h1{font-size:28px;text-transform:none;margin:0 0 12px}
+  /* 🔴🔴 LOT H ⑩ — « FLOORA NE SE TROUVE PAS SUR LA LIGNE » (Preda, 06/09).
+     ⭐⭐⭐ CE N'EST PAS UN CHOIX À REPRENDRE, C'EST UNE LIGNE PERDUE AU PORTAGE.
+     La maquette v4 l'écrit mot pour mot, avec son commentaire :
+         .hero-pc > *{margin-bottom:12px}     — « tout le monde respire… »
+         .hero-pc > .perche{margin-bottom:0}  — « …sauf Floora : elle touche le filet »
+     (commentaires de la maquette recopiés SANS leurs délimiteurs : un `*` suivi
+      d'un `/` refermerait CE commentaire-ci — les commentaires CSS ne
+      s'imbriquent pas, et la feuille entière partirait en vrac après ce point.)
+     La première ligne a été portée, la seconde non. MESURÉ sur la page servie
+     le 06/09 à 1440×900 : `.perche` finit à 413,5 et le filet du bandeau à
+     426,5 — **13 px de vide**, exactement le `margin-bottom:12px` hérité (plus
+     l'arrondi). La mascotte flottait au-dessus du trait au lieu d'y être posée,
+     et c'est toute la raison d'être de l'`align-items:flex-end` deux lignes
+     plus haut, dont le commentaire promet « la mascotte SUR le filet ».
+     ⭐⭐ *Quand une règle en exige une seconde pour tenir sa promesse, porter
+     la première seule ne fait pas la moitié du travail : ça écrit une promesse
+     que rien ne tient.* */
+  .bandeau>.perche{margin-bottom:0}
+  /* 🔤 LOT H ⑪ — « le titre de la page n'est pas assez gros » (Preda, 06/09).
+     28 px pour un H1 de page, quand la fiche et l'éditorial montent à 62-66 px
+     dans la maquette. ⛔ On ne va PAS à 62 : le bandeau-outil n'est pas le hero
+     éditorial, il coiffe un tableau et doit lui laisser la vedette. 38 px est
+     le cran au-dessus qui reste un OUTIL — et il tient dans le `min-height:80`
+     existant, mesuré, sans repousser le contenu. */
+  .bandeau h1{font-size:38px;text-transform:none;margin:0 0 10px;line-height:1.05}
   .bandeau__a{margin-bottom:12px}
 }
 
@@ -3491,12 +3524,31 @@ body[data-tiroir]::after{ opacity:1; pointer-events:auto; }
    liste occupe toute la largeur. La grille n'existe qu'en PC. `minmax(0,1fr)`
    et pas `1fr` : sans le `0`, une ligne de tableau large pousse la colonne et
    le rail se fait écraser — c'est le piège classique de la grille CSS. */
-.avec-rail{display:block}
+/* 🔴 LOT H ⑪ — « le tableau est trop collé à la ligne » (Preda, 06/09).
+   MESURÉ sur la page servie : le filet du bandeau finit à 426,5 et `.avec-rail`
+   commence à 426 — **zéro pixel**. Le tableau touchait le trait qui le sépare
+   du titre, donc le trait ne séparait plus rien.
+   ⭐ La marge est posée sur `.avec-rail` et pas sur le bandeau : le bandeau
+   coiffe des pages qui n'ont pas de rail, et leur ajouter un vide en bas
+   déplacerait le défaut ailleurs plutôt que de le corriger ici. */
+.avec-rail{display:block;margin-top:var(--s5)}
 /* ⚠️ `min-width:0` sur la colonne de contenu, TOUJOURS. Une cellule de grille
    a `min-width:auto` par défaut : un tableau large ou un nom non coupé la fait
    grandir, et c'est le RAIL qui rétrécit — le symptôme est un rail à 180 px
    qu'aucune règle ne demande. */
 .avec-rail__c{min-width:0}
+/* 🔀 LOT H ⑫ — LA BARRE DES RÉSULTATS, au-dessus du tableau.
+   ⭐ `flex-wrap` et `gap` : sous 1 041 px le rail devient une feuille et cette
+   barre reste, seule, au-dessus de la liste — elle doit tenir à 375 px, où le
+   compteur et le segment ne cohabitent plus sur une ligne. */
+.barre-res{display:flex;align-items:center;justify-content:space-between;gap:var(--s3);
+  flex-wrap:wrap;margin:0 0 var(--s3)}
+.barre-res #cpt{margin:0;color:var(--muted)}
+/* ⛔ Le segment ne s'étire PAS ici, contrairement à celui du rail : il a la
+   largeur de ses deux mots. `.seg-p{width:100%}` du bloc PC vise le rail — on
+   le neutralise pour ce nœud-ci, et pour lui seul. */
+.barre-res .seg-p{width:auto;flex:0 0 auto}
+.barre-res .seg-p button{flex:0 0 auto;padding:0 15px}
 
 /* ── LE MUR DE L'ANONYME ────────────────────────────────────────────────────
    Arbitrage de Preda du 06/09 : il voit les six axes EXISTER, il n'en voit
@@ -3661,6 +3713,11 @@ body[data-tiroir]::after{ opacity:1; pointer-events:auto; }
      déjà `aria-expanded` sur le bouton ; on décore donc le bouton ET le panneau
      qui le suit, ce que le sélecteur d'adjacence fait sans rien deviner. */
   .f-b[aria-expanded="true"]{background:transparent;border-color:transparent;color:var(--sect-a)}
+  /* 🎨 LOT H ⑪ — l'icône du groupe : 14 px, un peu plus que le chevron (12),
+     et un filet d'air avant le mot. ⛔ `flex:0 0 auto` : sans lui, un titre
+     long la comprimerait — une icône écrasée est pire qu'une icône absente. */
+  .f-b svg:first-child{width:14px;height:14px;flex:0 0 auto;margin-right:2px;opacity:.85}
+  .f-b[aria-expanded="true"] svg:first-child{opacity:1}
   .f-b .cpt-f{margin-left:auto}
   .f-b--reset{margin-top:14px;justify-content:center;border:1px solid var(--rule-2); border-radius:var(--r-full);color:var(--muted); font-family:var(--geo);font-size:12.5px;text-transform:none;letter-spacing:0;font-weight:600}
   .f-panneau{margin:0 0 12px;padding:0;background:transparent;border:0;border-radius:0}

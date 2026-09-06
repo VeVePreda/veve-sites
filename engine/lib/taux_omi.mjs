@@ -84,6 +84,42 @@ export function deposerTaux(taux) {
 /** Le cours servi par la route, ou `null`.
  *  @param maintenant epoch SECONDES (injectable : un banc ne doit pas
  *         dépendre de l'heure de la machine qui le joue). */
+/** 🔴🔴 LOT H ⑤ — UN MONTANT EN OMI, RENDU EN DOLLARS, OU `null`.
+ *
+ *  ⭐⭐⭐ POURQUOI CETTE FONCTION EXISTE PLUTÔT QU'UNE MULTIPLICATION EN LIGNE
+ *  DANS LE GABARIT. `/market/` est rendue à la demande et rend 302 à l'anonyme :
+ *  aucun banc du dépôt ne peut lire son HTML. Une multiplication écrite dans la
+ *  cellule ne serait donc exercée par RIEN — et hors ligne `_taux_omi.json`
+ *  n'existe pas, donc même un banc qui rendrait la page tomberait sur le repli
+ *  et repartirait vert sans avoir converti quoi que ce soit.
+ *  ⇒ La règle sort du gabarit pour devenir une fonction pure, et le banc lui
+ *  FABRIQUE son cours. C'est la leçon du lot G, appliquée avant la panne :
+ *  *quand la population mesurée n'atteint pas le cas, la fabriquer.*
+ *
+ *  ⛔ CE N'EST PAS UNE TRAVERSÉE DE MARCHÉ. On ne déduit pas un plancher VeVe
+ *  d'un plancher StackR (interdit, et c'est ce que mesurent les p10/p90 du lot
+ *  144) : on convertit une DEVISE au cours du jour, ce que l'en-tête de ce
+ *  module autorise explicitement et que la fiche fait déjà en production.
+ *
+ *  ⚠️ `null` SE PROPAGE, `0` MENT. Un cours absent, périmé, ou un montant
+ *  inconnu rendent `null` — jamais 0, qui s'afficherait « ≈ $0.00 » sous une
+ *  pièce cotée et aurait l'air d'un prix.
+ *
+ *  @param montantOmi un montant en OMI, ou `null`
+ *  @param taux       la sortie de `lireTaux()` : `{ omiUsd, ts }` ou `null`
+ */
+export function convertirOmi(montantOmi, taux) {
+  if (montantOmi === null || montantOmi === undefined) return null;
+  const m = Number(montantOmi);
+  if (!isFinite(m)) return null;
+  if (!taux) return null;
+  const c = Number(taux.omiUsd);
+  // ⛔ Le même triple garde-fou que `lireCsv` : `Number('')` vaut 0,
+  //    `Number('abc')` vaut NaN, et un cours négatif n'existe pas.
+  if (!isFinite(c) || c <= 0) return null;
+  return m * c;
+}
+
 export function lireTaux(maintenant) {
   const chemin = join(COTE_DIR, TAUX_FICHIER);
   if (!existsSync(chemin)) return null;

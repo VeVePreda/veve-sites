@@ -100,6 +100,13 @@ export const CHAMPS_COTE = [
   // sont deux MARCHES, rapport non constant (mediane 4 423, p10 2 273,
   // p90 8 520 sur 1 306 items communs). Une conversion inventerait un chiffre.
   'floorStackr',
+  // 📉📈 LOT H — LES EXTRÊMES StackR SONT DES PRIX, DONC ILS PASSENT PAR ICI.
+  // Même raisonnement que `floorStackr` six lignes plus haut, et il n'y a pas
+  // plus à hésiter : un plus-bas est un montant exact sur une pièce nommée.
+  // ⚠️ Leurs DATES (`atlStackrLe`, `athStackrLe`) restent PUBLIQUES et ne sont
+  // pas listées ici : « on a regardé le 3 septembre » ne dit aucun prix, et
+  // c'est exactement la ligne de partage que `vuStackrLe` a déjà tracée.
+  'atlStackr', 'athStackr',
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -676,7 +683,17 @@ export const CHAMPS_MARCHE = ['uuid', 'name', 'series', 'type', 'rarity',
                               // elle devra changer de camp : entrer dans `CHAMPS_COTE`, sortir de
                               // la fiche publique, et `test:fuite` devra la surveiller. C'est un
                               // seul mot dans `tension.mjs` qui tient cette frontiere.
-                              'tension'];
+                              'tension',
+                              // 📅 LOT H — LES DATES DES EXTRÊMES StackR SONT
+                              // PUBLIQUES, leurs VALEURS ne le sont pas (elles
+                              // vivent dans `CHAMPS_COTE`). « Vu le 3 septembre »
+                              // ne dit aucun montant — même ligne de partage que
+                              // `vuStackrLe` sur la fiche. ⛔ Sans ces deux clés
+                              // ici, `maigrir()` les jetterait et le `title` de
+                              // la cellule dirait « StackR » tout court : la
+                              // valeur serait servie sans sa date, c'est-à-dire
+                              // la faute des DEUX HORLOGES du lot 146.
+                              'atlStackrLe', 'athStackrLe'];
 
 /** Ne garde que les champs de `CHAMPS_MARCHE`. ⛔ Une clé absente de la fiche
  *  n'est PAS écrite : `{image: undefined}` deviendrait `"image":null` dans le

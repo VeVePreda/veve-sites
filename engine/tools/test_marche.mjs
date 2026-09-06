@@ -765,6 +765,68 @@ console.log('\n8. la sélection serveur (marche_selection.mjs) ?');
 // des `null`, un ex æquo, un négatif et un zéro. Zéro et `null` doivent se
 // classer DIFFÉREMMENT — c'est la faute que `cmpNum` existe pour empêcher, et
 // la seule façon de le prouver est d'avoir les deux dans la même colonne.
+// ═══════════════════════════════════════════════════════════════════════════
+// 📉📈 LOT H ⑥ — LES EXTRÊMES StackR : L'INDEX, ET CE QU'IL REFUSE
+// ═══════════════════════════════════════════════════════════════════════════
+// La seconde ligne des colonnes ATL/ATH vient de `extremes_stackr.csv`, un
+// fichier écrit par `floor-watch.yml` depuis une mémoire que `floor_watch.py`
+// tient depuis des mois sans que personne la publie.
+//
+// ⛔ CE BANC NE LIT PAS L'ÉCHANTILLON POUR JUGER : il fabrique ses lignes.
+// L'échantillon SERT (il porte les trois populations : les deux extrêmes, le
+// plus-bas seul, l'absence) et c'est le build qui l'exerce ; mais les cas
+// ABÎMÉS — un prix sans date, un zéro, un texte — ne peuvent pas vivre dans un
+// échantillon qu'on veut par ailleurs réaliste. On les écrit ici.
+//
+// 🔴🔴 LE CAS QUI COMPTE LE PLUS EST « UNE VALEUR SANS SA DATE ». Le mur
+// StackR affiche « vu le … » : un montant qu'on ne sait pas dater y
+// apparaîtrait sous la date d'autre chose. C'est la faute des DEUX HORLOGES du
+// lot 146 — celle qui a cassé la CI au lot G, deux heures avant ce lot-ci.
+console.log('\n8 ter. les extrêmes StackR : l\'index refuse-t-il ce qu\'il doit refuser ?');
+{
+  const DS = await import('../lib/dataset.mjs');
+  const cas = [
+    ['les deux extrêmes, datés', { veve_uuid: 'a', atl: '8.94', atl_ts: '1787339935', ath: '120.5', ath_ts: '1788700000' },
+      { atl: 8.94, ath: 120.5 }],
+    ['le plus-bas SEUL (le cas des premières semaines)', { veve_uuid: 'b', atl: '1.25', atl_ts: '1787000000', ath: '', ath_ts: '' },
+      { atl: 1.25, ath: null }],
+    ['le plus-haut seul', { veve_uuid: 'c', atl: '', atl_ts: '', ath: '42', ath_ts: '1788700000' },
+      { atl: null, ath: 42 }],
+    ['⛔ une valeur SANS sa date', { veve_uuid: 'd', atl: '5', atl_ts: '', ath: '', ath_ts: '' }, null],
+    ['⛔ une date SANS sa valeur', { veve_uuid: 'e', atl: '', atl_ts: '1787000000', ath: '', ath_ts: '' }, null],
+    ['⛔ un prix à zéro', { veve_uuid: 'f', atl: '0', atl_ts: '1787000000', ath: '', ath_ts: '' }, null],
+    ['⛔ un prix négatif', { veve_uuid: 'g', atl: '-3', atl_ts: '1787000000', ath: '', ath_ts: '' }, null],
+    ['⛔ un prix illisible', { veve_uuid: 'h', atl: 'abc', atl_ts: '1787000000', ath: '', ath_ts: '' }, null],
+    ['⛔ une date à zéro', { veve_uuid: 'i', atl: '5', atl_ts: '0', ath: '', ath_ts: '' }, null],
+    ['⛔ pas d\'uuid', { veve_uuid: '', atl: '5', atl_ts: '1787000000', ath: '', ath_ts: '' }, null],
+  ];
+  const { par, ignorees } = DS.indexerExtremesStackr(cas.map((c) => c[1]));
+  const rates = cas.filter(([, l, att]) => {
+    const e = par.get(l.veve_uuid);
+    if (att === null) return e !== undefined;
+    return !e || e.atl !== att.atl || e.ath !== att.ath;
+  }).map(([n]) => n);
+  verifie('l\'index garde les trois formes valides et refuse les sept autres',
+    rates.length === 0 && par.size === 3,
+    rates.length ? `🔴 échoue sur : ${rates.join(' · ')}`
+      : `${par.size} pièce(s) retenue(s) sur ${cas.length} lignes, ${ignorees} ignorée(s)`);
+
+  // ⭐⭐ ET LA DATE VOYAGE AVEC SA VALEUR, jamais l'une sans l'autre.
+  const a = par.get('a'); const b = par.get('b');
+  verifie('chaque extrême porte SA date, et l\'absent n\'en emprunte pas',
+    a.atlSec === 1787339935 && a.athSec === 1788700000
+      && b.atl === 1.25 && b.ath === null && b.athSec === null,
+    `a: ${a.atlSec}/${a.athSec} · b: plus-haut=${b.ath} date=${b.athSec}`);
+
+  // ⛔ CONTRE-ÉPREUVE : une source vide n'est pas une panne — le pont peut
+  //    n'avoir pas encore tourné chez `jetonveve`, et le site doit servir.
+  const vide = DS.indexerExtremesStackr([]);
+  const nul = DS.indexerExtremesStackr(null);
+  verifie('⛔ une source ABSENTE rend un index vide, pas une erreur',
+    vide.par.size === 0 && nul.par.size === 0,
+    'le site sert la colonne sans sa seconde ligne — une absence n\'est pas une panne');
+}
+
 console.log('\n8 bis. les 22 tris ordonnent-ils vraiment, dans le sens annoncé ?');
 {
   const SEL2 = await import('../lib/marche_selection.mjs');

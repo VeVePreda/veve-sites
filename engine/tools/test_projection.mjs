@@ -481,6 +481,50 @@ console.log('\n6. le cours OMI → USD : déposé, relu, employé ?');
   verifie('un horodate en avance passe (⛔ pas de `Math.abs` sur l\'âge)',
     avance !== null, avance ? '+25 h accepté' : 'REFUSÉ');
 
+  // --- b bis) 🔴🔴 LOT H ⑤ — LA CONVERSION ELLE-MÊME, SUR UN COURS FABRIQUÉ
+  // ⭐⭐⭐ POURQUOI ICI ET PAS DANS UN BANC DE PAGE. La seconde ligne de
+  // `$/MCP` passe en dollars, et `/market/` rend 302 à l'anonyme : aucun banc
+  // du dépôt ne lit son HTML. Pire — hors ligne `_taux_omi.json` N'EXISTE PAS,
+  // donc même un banc qui rendrait la page tomberait sur le repli en OMI et
+  // repartirait VERT sans avoir converti un seul montant.
+  // ⇒ La règle a été sortie du gabarit (`convertirOmi`) précisément pour être
+  //   exerçable, et le cours est FABRIQUÉ ici. C'est la leçon du lot G posée
+  //   AVANT la panne : *quand la population mesurée n'atteint pas le cas, on
+  //   fabrique le cas — on n'attend pas qu'il arrive.*
+  // ⛔ CHAQUE CAS D'ABSENCE DOIT RENDRE `null`, JAMAIS 0 : « ≈ $0.00 » sous une
+  //   pièce cotée est une valeur PLAUSIBLE pour une absence, et c'est le défaut
+  //   de famille de ce dépôt.
+  const TX = { omiUsd: 0.004, ts: N };
+  const casConv = [
+    ['un montant et un cours', 250000, TX, 1000],
+    ['⛔ sans cours (fichier absent ou périmé)', 250000, null, null],
+    ['⛔ montant inconnu', null, TX, null],
+    ['⛔ montant indéfini', undefined, TX, null],
+    ['⛔ cours à zéro', 250000, { omiUsd: 0, ts: N }, null],
+    ['⛔ cours négatif', 250000, { omiUsd: -1, ts: N }, null],
+    ['⛔ cours illisible', 250000, { omiUsd: 'abc', ts: N }, null],
+    ['⛔ montant illisible', 'abc', TX, null],
+    ['un montant à zéro reste zéro (0 € ≠ inconnu)', 0, TX, 0],
+  ];
+  const convKo = casConv.filter(([, m, tx, att]) => {
+    const r = T.convertirOmi(m, tx);
+    return att === null ? r !== null : Math.abs(r - att) > 1e-9;
+  }).map(([n]) => n);
+  verifie('`convertirOmi` : une absence sort par `null`, jamais par 0',
+    convKo.length === 0,
+    convKo.length ? `🔴 échoue sur : ${convKo.join(' · ')}` : `${casConv.length} cas, cours fabriqué`);
+
+  // ⭐⭐ ET LA CONVERSION PASSE PAR `lireTaux`, DONC PAR LA PÉREMPTION. Un
+  // cours de plus de 24 h ne doit pas produire de dollars : c'est la même
+  // décision que le mur muet, prise une seule fois, dix lignes plus haut.
+  T.deposerTaux({ omiUsd: 0.004, ts: N - T.PEREMPTION_S - 60 });
+  const perime = T.convertirOmi(250000, T.lireTaux(N));
+  T.deposerTaux({ omiUsd: 0.004, ts: N });
+  const valide = T.convertirOmi(250000, T.lireTaux(N));
+  verifie('⛔ un cours périmé ne convertit RIEN (le tableau retombe en OMI)',
+    perime === null && valide === 1000,
+    `24 h 01 → ${perime === null ? 'muet' : `🔴 ${perime}`} · frais → ${valide}`);
+
   // --- c) 🔴🔴 L'ORDRE DU DÉPÔT, ET C'EST LE CONTRÔLE QUI COMPTE ----------
   // `projeter()` VIDE `COTE_DIR` (cote.mjs : `for (…) rmSync(f)`), exprès, pour
   // qu'une cote de la veille ne soit jamais servie pour un prix du jour. Un
