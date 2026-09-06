@@ -1361,7 +1361,20 @@ console.log('\n4. « voir plus » emporte-t-il la VUE et les COLONNES ? (lot 201
       //    `monterDOM`) : on retire donc l'ATTRIBUT, pas seulement la
       //    propriété — sinon le pilote relirait une case encore cochée et le
       //    contrôle serait vert pour la mauvaise raison.
-      const victime = cases[0];
+      // 🔴🔴 LOT H — CE BANC COMPTAIT `cases.length - 1`, ET IL AVAIT RAISON
+      // TANT QUE TOUTES LES CASES ÉTAIENT COCHÉES AU DÉPART. Depuis ce lot,
+      // deux colonnes (`ten`, `c7`) sont DÉCOCHÉES par défaut : la soustraction
+      // attendait 8 et l'URL en portait 6 — le banc rougissait sur un site qui
+      // marche.
+      // ⭐⭐ ON NE L'ASSOUPLIT PAS, ON LUI APPREND CE QU'IL MESURE VRAIMENT :
+      // « l'URL emporte EXACTEMENT les cases cochées ». Cette formulation-là est
+      // vraie quel que soit le défaut, donc elle ne se périmera pas au prochain
+      // arbitrage — et elle mord toujours, puisqu'elle compare deux ensembles
+      // et pas deux nombres écrits d'avance.
+      // ⭐⭐⭐ *Un banc qui code le défaut du jour dans son arithmétique juge le
+      // défaut, pas le mécanisme.*
+      const cocheesAvant = cases.filter((c) => c.hasAttribute('checked')).map((c) => c.value);
+      const victime = cases.find((c) => c.hasAttribute('checked')) || cases[0];
       victime.removeAttribute('checked');
       victime.checked = false;
       victime.dispatchEvent(new window.Event('change', { bubbles: true }));
@@ -1372,11 +1385,16 @@ console.log('\n4. « voir plus » emporte-t-il la VUE et les COLONNES ? (lot 201
         /[?&]f-cx=1(&|$)/.test(apresCols),
         /[?&]f-cx=1(&|$)/.test(apresCols) ? apresCols
           : '🔴 sans ce témoin, tout décocher est indiscernable d\'une première visite');
-      verifie('…et la colonne décochée n\'y est PLUS',
-        !emportees.includes(victime.value) && emportees.length === cases.length - 1,
-        !emportees.includes(victime.value)
-          ? `${emportees.length} colonne(s) emportée(s) sur ${cases.length}, « ${victime.value} » retirée`
-          : `🔴 « ${victime.value} » voyage encore : la tranche suivante la ferait revenir`);
+      const attendues = cocheesAvant.filter((v) => v !== victime.value);
+      const memeEnsemble = attendues.length === emportees.length
+        && attendues.every((v) => emportees.includes(v));
+      verifie('…et l\'URL emporte EXACTEMENT les cases cochées, décochée retirée',
+        !emportees.includes(victime.value) && memeEnsemble,
+        !emportees.includes(victime.value) && memeEnsemble
+          ? `${emportees.length} colonne(s) emportée(s) sur ${cases.length} commutables, « ${victime.value} » retirée`
+          : (emportees.includes(victime.value)
+            ? `🔴 « ${victime.value} » voyage encore : la tranche suivante la ferait revenir`
+            : `🔴 attendu [${attendues.join(' ')}], emporté [${emportees.join(' ')}]`));
       verifie('…et la vue n\'a pas été perdue en chemin',
         /[?&]f-vue=tui(&|$)/.test(apresCols),
         /[?&]f-vue=tui(&|$)/.test(apresCols) ? 'vue et colonnes voyagent ensemble'

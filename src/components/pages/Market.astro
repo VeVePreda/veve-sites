@@ -286,8 +286,75 @@ const LIB_TRI = {
   'ten-desc': 'movers.sort.tension',
   'omcp-asc': 'movers.sort.omcpAsc',
   'nom-asc': 'movers.sort.nameAsc',
+  // ─── LOT H ⑨ — les sens neufs, nommés par leur COLONNE + une flèche.
+  'ch-asc':   { k: 'movers.7d',      sens: 'asc'  },
+  'ten-asc':  { k: 'movers.tension', sens: 'asc'  },
+  'sup-desc': { k: 'item.supply',    sens: 'desc' },
+  'lst-asc':  { k: 'item.listings',  sens: 'asc'  },
+  'lst-desc': { k: 'item.listings',  sens: 'desc' },
+  'atl-asc':  { k: 'item.atl',       sens: 'asc'  },
+  'atl-desc': { k: 'item.atl',       sens: 'desc' },
+  'ath-asc':  { k: 'item.ath',       sens: 'asc'  },
+  'ath-desc': { k: 'item.ath',       sens: 'desc' },
+  'rar-asc':  { k: 'item.rarity',    sens: 'asc'  },
+  'rar-desc': { k: 'item.rarity',    sens: 'desc' },
+  'mcp-desc': { k: 'movers.perMcp',  sens: 'desc' },
+  'nom-desc': { k: 'movers.item',    sens: 'desc' },
 };
-const TRIS = TRIS_CLES.map((v) => ({ v, l: t(lang, LIB_TRI[v]) }));
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴 LOT H ⑨ — LES TREIZE SENS NEUFS N'INVENTENT AUCUNE CLÉ DE TRADUCTION
+// ═══════════════════════════════════════════════════════════════════════════
+// Le problème posé : `TRIS` passe de 9 à 22 clés, et chacune doit être nommée
+// dans le menu, dans les cinq langues. Écrire treize clés i18n neuves aurait
+// été treize entrées × cinq dictionnaires pour dire treize fois « la même
+// colonne, dans l'autre sens ».
+// ⭐⭐ CE QU'ON FAIT : on RÉUTILISE le libellé de la colonne — `item.listings`,
+// `item.atl`… — qui est déjà traduit, déjà littéral dans ce fichier, donc déjà
+// vu par `test:cles`, et on lui accole une FLÈCHE. Une flèche n'a pas de
+// langue. ⛔ On n'écrit surtout pas « croissant » / « ascending » : ce serait
+// le mot de plus qu'il aurait fallu traduire.
+// ⚠️ LES NEUF LIBELLÉS D'ORIGINE NE BOUGENT PAS. « Biggest 7-day drop » dit
+// quelque chose que « 7 d ↓ » ne dit pas ; on ne remplace pas une phrase juste
+// par une formule parce qu'une formule est plus systématique.
+const FL_ASC = ' ↑';
+const FL_DESC = ' ↓';
+const libTri = (v) => {
+  const d = LIB_TRI[v];
+  if (typeof d === 'string') return t(lang, d);
+  return t(lang, d.k) + (d.sens === 'asc' ? FL_ASC : FL_DESC);
+};
+const TRIS = TRIS_CLES.map((v) => ({ v, l: libTri(v) }));
+
+// ═══ LES EN-TÊTES QUI TRIENT ═══════════════════════════════════════════════
+// ⭐⭐⭐ CE SONT DES LIENS, PAS DES BOUTONS DE FORMULAIRE, ET C'EST MESURÉ, PAS
+// PRÉFÉRÉ. Un `<button type="submit" form="filtres" name="f-tri">` aurait
+// semblé plus direct — mais le formulaire contient DÉJÀ un `<select
+// name="f-tri">` : à la soumission, les DEUX partent, l'URL porte `f-tri` deux
+// fois, et `lireParams()` lit `sp.get()`, c'est-à-dire LE PREMIER — le
+// `<select>`, qui est plus haut dans le document. Le clic sur l'en-tête
+// n'aurait rien changé, en silence, et le défaut n'aurait été visible qu'en
+// lisant l'URL. ⭐ *Deux contrôles d'un même `name` dans un même formulaire ne
+// se remplacent pas : ils s'additionnent, et le second ne compte pas.*
+// ⇒ Un lien porte l'adresse ENTIÈRE, il marche sans JavaScript, et il est ce
+//   qu'il prétend être : « la même liste, dans un autre ordre ».
+// ⚠️ L'adresse est DÉRIVÉE de la requête en cours, comme `urlSuite` : les
+//   treize filtres voyagent sans être recopiés.
+// ⭐ `f-n` EST REMIS À SA VALEUR DE DÉPART : après un « voir plus » à 200
+//   lignes, changer d'ordre en gardant 200 ferait un aller-retour de 4,7 Mo
+//   pour une question qui se pose sur la première tranche.
+const urlTri = (cle) => {
+  const u = new URL(Astro.url);
+  u.searchParams.set('f-tri', cle);
+  u.searchParams.delete('f-n');
+  return `${u.pathname}${u.search}#resultats`;
+};
+// 🗣️ PREDA, 06/09 : « si je click sur listing sa range par plus petit listing
+//    et si je reclick sa met les plus gros ». ⇒ premier clic = CROISSANT.
+const triSuivant = (base) => (P.tri === `${base}-asc` ? `${base}-desc` : `${base}-asc`);
+// `aria-sort` porte l'état à l'arbre d'accessibilité — la flèche visible seule
+// ne dit rien à qui n'a pas d'écran, et c'est l'attribut prévu pour ça.
+const sensTri = (base) => (P.tri === `${base}-asc` ? 'ascending' : P.tri === `${base}-desc` ? 'descending' : 'none');
+const flecheTri = (base) => (P.tri === `${base}-asc` ? FL_ASC : P.tri === `${base}-desc` ? FL_DESC : '');
 
 // ═══ CE QUI EST DE L'AFFICHAGE PUR RESTE ICI ═══════════════════════════════
 // ⭐ La vue (tableau/tuiles) et les colonnes masquées ne changent RIEN à la
@@ -305,7 +372,34 @@ const VUE = Astro.url.searchParams.get('f-vue') === 'tui' ? 'tui' : 'tbl';
 //   est le bon repli.
 const colsExpl = Astro.url.searchParams.get('f-cx') === '1';
 const COLS_VUES = colsExpl ? Astro.url.searchParams.getAll('f-col') : null;
-const colVue = (c) => (COLS_VUES === null ? true : COLS_VUES.includes(c));
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴 LOT H — LE DÉFAUT N'EST PLUS « TOUTES LES COLONNES », C'EST UN JEU QUI TIENT
+// ═══════════════════════════════════════════════════════════════════════════
+// MESURÉ SUR LA PAGE SERVIE (06/09, 1440×900, connecté) : le tableau fait
+// 1 326,5 px dans un hôte de 1 103 — 223,5 px hors cadre à l'ouverture, dont
+// `$/MCP` et `Links` en entier. ⚠️ ET IL DÉFILE : `.tbl-hote` est en
+// `overflow-x:auto`, `scrollLeft` va jusqu'à 221,8, la barre fait 17 px. La
+// note qui disait « clippé sans recours » était FAUSSE — `main.wrap` clippe la
+// page, pas l'hôte du tableau. On corrige donc un défaut de PREMIÈRE VUE, pas
+// une donnée inatteignable.
+//
+// 🗣️ ARBITRAGE DE PREDA, 06/09 : masquer Tension et 7 D, abréger la rareté,
+// mettre des icônes aux liens.
+// 📏 MESURÉ, dans cet ordre : Tension + 7 D seules → 1 195,1 (92,1 encore
+// dehors) ; plafonner « Collectible » à 200 px ne rend RIEN (le tableau est
+// déjà à sa largeur mini — seule une colonne RETIRÉE l'aide) ; Tension + 7 D
+// **avec** la rareté abrégée et les liens en icônes → **1 103,3 pour 1 103**.
+// ⭐ D'où une bonne nouvelle à dire : `Listings`, que l'arbitrage proposait de
+// sacrifier aussi, N'A PAS BESOIN de partir. On garde la donnée.
+//
+// ⛔ NI `ten` NI `c7` NE SONT SUPPRIMÉES : elles restent dans `COLONNES`, donc
+// dans les cases à cocher, dans la vue « Tout » et dans la vue « Offre ». Ce
+// lot change un DÉFAUT, pas un catalogue de colonnes.
+// ⭐⭐ Et le défaut se dit ICI, en une liste, pas en `hidden` recopié dans neuf
+// cellules : `colVue()` reste le point unique où l'on demande « cette colonne
+// est-elle montrée ? », comme il l'était déjà pour les cases.
+const COLS_HORS_DEFAUT = ['ten', 'c7'];
+const colVue = (c) => (COLS_VUES === null ? !COLS_HORS_DEFAUT.includes(c) : COLS_VUES.includes(c));
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 🔑 LOT 220 — QUATRE VUES PRÉRÉGLÉES À LA PLACE DE HUIT CASES À COCHER
@@ -405,7 +499,12 @@ const rarU = new Map();
 for (const i of lignes) {
   const c = cleRar(i.rarity);
   if (!formeU.has(c)) formeU.set(c, sprite(`s-r-${c}`, forme(i.rarity)));
-  if (!rarU.has(c)) rarU.set(c, sprite(`s-r-${c}`, rar(i.rarity)));
+  // 🔤 LOT H — ABRÉGÉ, et abrégé ICI SEULEMENT. `rarU` n'est lu qu'à un endroit :
+  // la cellule « Rarity » du tableau (une seule `rarU.get` dans ce fichier). La
+  // liste à cocher des raretés, elle, lit `formeU` + `RAR[r].l` et garde donc
+  // les noms entiers — c'est un choix, pas un oubli : on abrège une colonne
+  // qu'on relit vingt fois par écran, pas une case qu'on lit une fois.
+  if (!rarU.has(c)) rarU.set(c, sprite(`s-r-${c}`, rar(i.rarity, { abrege: true })));
 }
 // Le losange du socle sans couverture : c'est FORMES.ULTRA_RARE. On l'enregistre
 // explicitement — la vue tuiles le bâtit dans le navigateur et doit pouvoir le
@@ -802,7 +901,7 @@ const ILE_TUILES = JSON.stringify({
               ⚠️ Les nombres viennent de la sélection courante : sans droit sur les
               cotes, `nAvecCote` vaut 0 et la vue « prix » le dit, au lieu de
               promettre des colonnes qui rendront des tirets. */}
-          <p class="etiq" style="margin:10px 0 0;color:var(--muted)" data-vue-txt="essentiel">{t(lang, 'movers.vueTxt.essentiel', { n: SEL.retenues.toLocaleString(nf) })}</p>
+          <p class="etiq" style="margin:10px 0 0;color:var(--muted)" data-vue-txt="essentiel" hidden>{t(lang, 'movers.vueTxt.essentiel', { n: SEL.retenues.toLocaleString(nf) })}</p>
           <p class="etiq" style="margin:10px 0 0;color:var(--muted)" data-vue-txt="prix" hidden>{t(lang, 'movers.vueTxt.prix', { n: nAvecCote.toLocaleString(nf), t: SEL.rendues.toLocaleString(nf) })}</p>
           <p class="etiq" style="margin:10px 0 0;color:var(--muted)" data-vue-txt="offre" hidden>{t(lang, 'movers.vueTxt.offre', { n: nAvecTension.toLocaleString(nf), t: SEL.rendues.toLocaleString(nf) })}</p>
           <p class="etiq" style="margin:10px 0 0;color:var(--muted)" data-vue-txt="tout" hidden>{t(lang, 'movers.vueTxt.tout', { n: String(COLONNES.length) })}</p>
@@ -1045,17 +1144,27 @@ const ILE_TUILES = JSON.stringify({
             sur un classement par variation. Sur un catalogue trié par date, un
             numéro d'ordre est un chiffre qui a l'air d'être une donnée. */}
         <th scope="col" class="rang"><span class="sr-only">{t(lang, 'item.cover')}</span></th>
-        <th scope="col" class="tri">{t(lang, 'movers.item')}</th>
-        <th scope="col" class="c-3" data-col="rar">{t(lang, 'item.rarity')}</th>
-        <th scope="col" class="n c-4" data-col="sup">{t(lang, 'item.supply')}</th>
-        <th scope="col" class="n c-4" data-col="lst">{t(lang, 'item.listings')}</th>
-        <th scope="col" class="n c-4" data-col="ten" title={t(lang, 'movers.tensionAide')}>{t(lang, 'movers.tension')}</th>
-        <th scope="col" class="n">{t(lang, 'movers.floor')}</th>
-        <th scope="col" class="n c-5" data-col="atl">{t(lang, 'item.atl')}</th>
-        <th scope="col" class="n c-5" data-col="ath">{t(lang, 'item.ath')}</th>
-        <th scope="col" class="c-2 col-courbe" data-col="c7">{t(lang, 'movers.7d')}</th>
-        <th scope="col" class="n c-5" data-col="mcp">{t(lang, 'movers.perMcp')}</th>
-        <th scope="col" class="c-4" data-col="liens">{t(lang, 'movers.links')}</th>
+        <th scope="col" class="tri" aria-sort={sensTri('nom')}><a class="th-tri" href={urlTri(triSuivant('nom'))}>{t(lang, 'movers.item')}<span class="th-tri__f" aria-hidden="true">{flecheTri('nom')}</span></a></th>
+        {/* 🔴 LOT H — LE `hidden` EST POSÉ PAR LE SERVEUR, PAS SEULEMENT PAR LE
+            PILOTE. `colonnes()` (plus bas) peint déjà l'état au chargement,
+            mais il peint APRÈS : sans ce `hidden`-ci, la page servie montre un
+            tableau de 1 326 px qui se rétracte à 1 103 quand le script passe.
+            ⭐⭐ Et surtout, SANS JavaScript le pilote ne passe jamais : le
+            défaut ne vaudrait alors que pour ceux qui exécutent du script,
+            c'est-à-dire pas pour le repli que cette page tient à garder.
+            ⛔ On n'OMET pas la cellule : `colonnes()` la rallume en décochant
+            une case, sans aller-retour serveur. Un `<td>` absent devrait être
+            refabriqué — et ce serait une deuxième fabrique. */}
+        <th scope="col" class="c-3" data-col="rar" hidden={!colVue('rar')} aria-sort={sensTri('rar')}><a class="th-tri" href={urlTri(triSuivant('rar'))}>{t(lang, 'item.rarity')}<span class="th-tri__f" aria-hidden="true">{flecheTri('rar')}</span></a></th>
+        <th scope="col" class="n c-4" data-col="sup" hidden={!colVue('sup')} aria-sort={sensTri('sup')}><a class="th-tri" href={urlTri(triSuivant('sup'))}>{t(lang, 'item.supply')}<span class="th-tri__f" aria-hidden="true">{flecheTri('sup')}</span></a></th>
+        <th scope="col" class="n c-4" data-col="lst" hidden={!colVue('lst')} aria-sort={sensTri('lst')}><a class="th-tri" href={urlTri(triSuivant('lst'))}>{t(lang, 'item.listings')}<span class="th-tri__f" aria-hidden="true">{flecheTri('lst')}</span></a></th>
+        <th scope="col" class="n c-4" data-col="ten" hidden={!colVue('ten')} title={t(lang, 'movers.tensionAide')} aria-sort={sensTri('ten')}><a class="th-tri" href={urlTri(triSuivant('ten'))}>{t(lang, 'movers.tension')}<span class="th-tri__f" aria-hidden="true">{flecheTri('ten')}</span></a></th>
+        <th scope="col" class="n" aria-sort={sensTri('floor')}><a class="th-tri" href={urlTri(triSuivant('floor'))}>{t(lang, 'movers.floor')}<span class="th-tri__f" aria-hidden="true">{flecheTri('floor')}</span></a></th>
+        <th scope="col" class="n c-5" data-col="atl" hidden={!colVue('atl')} aria-sort={sensTri('atl')}><a class="th-tri" href={urlTri(triSuivant('atl'))}>{t(lang, 'item.atl')}<span class="th-tri__f" aria-hidden="true">{flecheTri('atl')}</span></a></th>
+        <th scope="col" class="n c-5" data-col="ath" hidden={!colVue('ath')} aria-sort={sensTri('ath')}><a class="th-tri" href={urlTri(triSuivant('ath'))}>{t(lang, 'item.ath')}<span class="th-tri__f" aria-hidden="true">{flecheTri('ath')}</span></a></th>
+        <th scope="col" class="c-2 col-courbe" data-col="c7" hidden={!colVue('c7')} aria-sort={sensTri('ch')}><a class="th-tri" href={urlTri(triSuivant('ch'))}>{t(lang, 'movers.7d')}<span class="th-tri__f" aria-hidden="true">{flecheTri('ch')}</span></a></th>
+        <th scope="col" class="n c-5" data-col="mcp" hidden={!colVue('mcp')} aria-sort={sensTri('mcp')}><a class="th-tri" href={urlTri(triSuivant('mcp'))}>{t(lang, 'movers.perMcp')}<span class="th-tri__f" aria-hidden="true">{flecheTri('mcp')}</span></a></th>
+        <th scope="col" class="c-4" data-col="liens" hidden={!colVue('liens')}>{t(lang, 'movers.links')}</th>
       </tr></thead>
       <tbody>{lignes.map((i, k) => (
         <tr data-type={i.type} data-rar={i.rarity} data-n={i.name.toLowerCase()}
@@ -1164,14 +1273,14 @@ const ILE_TUILES = JSON.stringify({
 
           {/* RARETÉ — ligne 1 : le symbole et le nom. ligne 2 : la valeur MCP.
               ⭐ Le MCP vient du barème VeVe, il est RÉEL, pas collecté. */}
-          <td class="c-3" data-col="rar"><span class="m2">
+          <td class="c-3" data-col="rar" hidden={!colVue('rar')}><span class="m2">
             <span class="m2__a"><Fragment set:html={rarU.get(cleRar(i.rarity))} /></span>
             <span class="m2__b num">{mcpDe(i.rarity, i.type)}</span>
           </span></td>
 
           {/* SUPPLY — propriété de la PIÈCE, pas d'un marché : une seule
               valeur, pas de seconde ligne inventée pour faire joli. */}
-          <td class="n c-4 muted" data-col="sup">{i.tirage ? i.tirage.toLocaleString(nf) : '—'}</td>
+          <td class="n c-4 muted" data-col="sup" hidden={!colVue('sup')}>{i.tirage ? i.tirage.toLocaleString(nf) : '—'}</td>
 
           {/* LISTINGS — VeVe puis StackR
               🛰️ LOT 190 — LA SECONDE LIGNE N'EST PLUS EN ATTENTE. Le commentaire
@@ -1190,7 +1299,7 @@ const ILE_TUILES = JSON.stringify({
               tiret `data-attente` quand on ne sait pas, et `0` quand c'est zéro.
               ⭐ `data-attente` disparaît AVEC le tiret : le garder sur un
               chiffre promettrait une collecte déjà faite. */}
-          <td class="n c-4" data-col="lst"><span class="m2">
+          <td class="n c-4" data-col="lst" hidden={!colVue('lst')}><span class="m2">
             <span class="m2__a muted">{i.listings ?? '—'}</span>
             {i.offresStackr != null
               ? <span class="m2__b muted">{i.offresStackr.toLocaleString(nf)}</span>
@@ -1206,7 +1315,7 @@ const ILE_TUILES = JSON.stringify({
               ⭐ Le tiret NU est ici la bonne convention, pas le cadenas de
               <Cote> : cette note n'est pas reservee, elle est INCONNUE. Deux
               causes opposees ne partagent pas un signe. */}
-          <td class="n c-4" data-col="ten">{
+          <td class="n c-4" data-col="ten" hidden={!colVue('ten')}>{
             i.tension === null || i.tension === undefined
               ? <span class="muted">—</span>
               : i.tension
@@ -1253,9 +1362,9 @@ const ILE_TUILES = JSON.stringify({
               `data-attente` ici : une pièce sans historique de prix n'attend
               rien, elle n'a pas d'extrêmes — et un cadenas mentirait deux fois
               (cf. `Extremes.astro`, la décision de Preda du 11/08). */}
-          <td class="n c-5" data-col="atl" data-ext="atl">
+          <td class="n c-5" data-col="atl" hidden={!colVue('atl')} data-ext="atl">
             <span class="num"><Fragment set:html={gemsU} /> {money(i.atl)}</span></td>
-          <td class="n c-5" data-col="ath" data-ext="ath">
+          <td class="n c-5" data-col="ath" hidden={!colVue('ath')} data-ext="ath">
             <span class="num"><Fragment set:html={gemsU} /> {money(i.ath)}</span></td>
 
           {/* 🔴 LOT 205 — LA COLONNE « VAR. 24 H » EST RETIRÉE, PAS MASQUÉE.
@@ -1275,7 +1384,7 @@ const ILE_TUILES = JSON.stringify({
               une ligne plate AFFIRME une stabilité qu'on n'a pas observée.
               ⭐ Le `title` porte le chiffre que la colonne de pourcentage
               rendait : l'information change de place, elle ne disparaît pas. */}
-          <td class="c-2 col-courbe" data-col="c7"
+          <td class="c-2 col-courbe" data-col="c7" hidden={!colVue('c7')}
               title={i.change7d === null || i.change7d === undefined
                 ? t(lang, 'movers.trend7')
                 : `${t(lang, 'movers.trend7')} : ${i.change7d > 0 ? '+' : ''}${i.change7d.toFixed(1)} %`}>
@@ -1291,7 +1400,7 @@ const ILE_TUILES = JSON.stringify({
               ⭐ Les deux tirets de cette cellule ne disent PAS la même chose :
               celui du haut (sans `data-attente`) veut dire « le barème ne
               connaît pas cette rareté », celui du bas « pas encore collecté ». */}
-          <td class="n c-5" data-col="mcp"><span class="m2">
+          <td class="n c-5" data-col="mcp" hidden={!colVue('mcp')}><span class="m2">
             {parMcp(i) === null
               ? <span class="m2__a muted">—</span>
               : <span class="m2__a num" title={noteMcp}>
@@ -1353,15 +1462,40 @@ const ILE_TUILES = JSON.stringify({
               ⭐ Le `<span>` grisé RESTE partout ailleurs — même dispositif que
               la fiche : un bouton qui se voit, ne se clique pas, et dit
               pourquoi. Le jour où la donnée arrive, il devient `<a>`. */}
-          <td class="c-4" data-col="liens">
+          {/* 🔗 LOT H — LES DEUX SORTIES PASSENT EN PASTILLES.
+              🗣️ Preda, 06/09 : « essaye de mettre des icônes pour le links ».
+              📏 MESURÉ : « VeVe ↗ / StackR ↗ » demandait 179 px de colonne ; en
+              pastilles, la colonne tombe à ~64 et c'est ce qui, avec la rareté
+              abrégée, fait tenir le tableau dans 1 103 px SANS sacrifier
+              `Listings`.
+              ⛔ PAS DE LOGO. On n'invente pas la marque d'autrui, et un logo
+              redessiné de mémoire est faux au pixel près le jour où on le
+              compare. Une lettre-monogramme dit la destination sans prétendre
+              être l'emblème de personne.
+              ⭐⭐ LE NOM RESTE ENTIER POUR QUI NE VOIT PAS : `aria-label` porte
+              « VeVe » / « StackR », et `title` le rend au survol. Une icône qui
+              perd son nom accessible n'est pas une icône, c'est une perte.
+              ⚠️ `data-attente` est CONSERVÉ tel quel : le gris « je n'ai pas la
+              donnée » est un état du site, pas une décoration de cette
+              colonne — c'est le même dispositif que sur la fiche.
+              🔴🔴 ET LA PASTILLE EN ATTENTE N'A PAS DE `title`, ALORS QUE LA
+              PASTILLE ACTIVE EN A UN. Ce n'est pas une inégalité : le pilote
+              (l. « le repose sur chaque data-attente ») écrit
+              « Not collected yet » dans le `title` de TOUT `[data-attente]` qui
+              n'en porte pas. Un `title="VeVe"` posé ici le désarme en silence —
+              mesuré : `test:tuiles` §2 rougit à 40 cellules sur 51, et la
+              raison du gris disparaît de l'écran. ⭐⭐ *Poser un attribut qu'un
+              autre code utilise comme TÉMOIN D'ABSENCE, c'est éteindre ce
+              code.* Le nom de la destination reste porté par `aria-label`, qui
+              n'est le témoin de personne. */}
+          <td class="c-4" data-col="liens" hidden={!colVue('liens')}>
             <span class="liens-2">
               {i.veveMarketUrl
-                ? <a class="lien-b" href={i.veveMarketUrl} target="_blank" rel="noopener">VeVe ↗</a>
-                : <span class="lien-b" data-attente>VeVe</span>}
-              <span class="liens-2__sep" aria-hidden="true">/</span>
+                ? <a class="lien-i" href={i.veveMarketUrl} target="_blank" rel="noopener" title="VeVe" aria-label="VeVe">V</a>
+                : <span class="lien-i" data-attente aria-label="VeVe">V</span>}
               {i.offresStackr != null && urlStackR(i.uuid, i.type)
-                ? <a class="lien-b" href={urlStackR(i.uuid, i.type)} target="_blank" rel="noopener">StackR ↗</a>
-                : <span class="lien-b" data-attente>StackR</span>}
+                ? <a class="lien-i" href={urlStackR(i.uuid, i.type)} target="_blank" rel="noopener" title="StackR" aria-label="StackR">S</a>
+                : <span class="lien-i" data-attente aria-label="StackR">S</span>}
             </span>
           </td>
         </tr>

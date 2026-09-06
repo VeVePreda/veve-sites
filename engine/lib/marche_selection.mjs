@@ -42,7 +42,7 @@
 // permet à `test:marche` de l'éprouver **sans build et sans DOM**, dans les
 // DEUX corpus (hors réseau : 48 sets ; vraies données : 8 840).
 
-import { jourISO, mcpPoints } from './vitrine.mjs';
+import { jourISO, mcpPoints, RAR } from './vitrine.mjs';
 
 /**
  * ⭐⭐ GEMS PAR POINT MCP — **DÉPLACÉE ICI DEPUIS `Market.astro` (l. 94)**, et
@@ -126,7 +126,38 @@ export const RENDU_MAX = 500;
 // portent sur deux marchés dont le rapport n'est pas constant, donc l'un ne
 // classe pas comme l'autre. Un seul tri « par MCP » aurait forcé à choisir un
 // marché en silence.
-export const TRIS = ['defaut', 'ch-desc', 'ten-desc', 'floor-desc', 'floor-asc', 'sup-asc', 'mcp-asc', 'omcp-asc', 'nom-asc'];
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴 LOT H ⑨ — CHAQUE COLONNE TRIABLE A DÉSORMAIS SES DEUX SENS
+// ═══════════════════════════════════════════════════════════════════════════
+// 🗣️ PREDA, 06/09 : « il faut aussi pouvoir trier par colonne, si je click sur
+//    listing sa range par plus petit listing et si je reclick sa met les plus
+//    gros listing, meme logique pr le reste ».
+//
+// ⭐⭐ CE QUE ÇA CHANGE, ET CE QUE ÇA NE CHANGE PAS. Le tri reste ENTIÈREMENT
+// au serveur : l'en-tête de colonne n'est pas un bouton qui retrie le DOM, c'est
+// un `<button type="submit" name="f-tri">` qui pose la clé que ce module connaît
+// déjà. Un tri au client trierait la TRANCHE affichée (20 lignes) et non la
+// sélection (9 354) — il aurait l'air de marcher et mentirait dès la 21ᵉ.
+//
+// 🔴🔴 ET ÇA DÉMENT UNE NOTE DE CE FICHIER, ÉCRITE QUATORZE LIGNES PLUS HAUT.
+// Le lot 219 y écrivait : « UN SEUL SENS, et c'est un choix : "les moins
+// tendues" n'est pas une question qu'on se pose — un tri qu'on ajoute pour la
+// symétrie est une ligne de plus dans un menu déjà long ». L'argument était bon
+// POUR UN MENU. Il ne tient plus dès que le tri se demande EN CLIQUANT SUR LA
+// COLONNE : là, le second sens n'est pas une entrée de plus à lire, c'est le
+// second clic — il ne coûte rien à personne, et son absence se remarque tout de
+// suite (« pourquoi cette colonne-là ne se retourne pas ? »).
+// ⭐⭐⭐ *Un argument d'ergonomie est attaché au GESTE qu'il juge. Changer le
+// geste ne le contredit pas : il le rend hors sujet.*
+//
+// ⛔ `omcp-asc` GARDE SON SENS UNIQUE, et c'est délibéré : il n'a pas de
+// colonne à lui (il classe la SECONDE ligne de `$/MCP`), donc aucun en-tête ne
+// peut le retourner. Le menu reste sa seule porte.
+export const TRIS = ['defaut', 'ch-desc', 'ch-asc', 'ten-desc', 'ten-asc',
+                     'floor-desc', 'floor-asc', 'sup-asc', 'sup-desc',
+                     'lst-asc', 'lst-desc', 'atl-asc', 'atl-desc',
+                     'ath-asc', 'ath-desc', 'rar-asc', 'rar-desc',
+                     'mcp-asc', 'mcp-desc', 'omcp-asc', 'nom-asc', 'nom-desc'];
 export const TRI_DEFAUT = 'defaut';
 
 // ⭐ Les axes de filtre, avec leur nom de champ TEL QU'IL EST DÉJÀ ÉCRIT dans
@@ -384,6 +415,13 @@ const cmpNum = (get, sens) => (a, b) => {
   return sens * (x - y);
 };
 
+// 🔤 LOT H ⑨ — le rang d'une rareté dans `RAR`, ou `null` si elle n'y est pas.
+const CLES_RAR = Object.keys(RAR);
+const rangRarete = (i) => {
+  const k = CLES_RAR.indexOf(i.rarity);
+  return k === -1 ? null : k;
+};
+
 const ORDRE = {
   defaut: null,
   'ch-desc': cmpNum((i) => i.change7d, -1),
@@ -397,6 +435,36 @@ const ORDRE = {
   'mcp-asc': cmpNum(parMcp, 1),
   'omcp-asc': cmpNum(parMcpOmi, 1),
   'nom-asc': (a, b) => String(a.name || '').localeCompare(String(b.name || '')),
+  // ─── LOT H ⑨ — LES SENS QUI MANQUAIENT, ET LES TROIS COLONNES QUI N'AVAIENT
+  //     AUCUN TRI (`lst`, `atl`, `ath`, plus la rareté).
+  // ⭐ TOUS PASSENT PAR `cmpNum`, DONC TOUS METTENT LES INCONNUS AU BOUT — dans
+  //   les deux sens, comme sa règle le dit depuis le lot 218. C'est ce qui
+  //   empêche « le plus petit nombre d'offres » de commencer par les pièces
+  //   dont on ne sait rien : elles ne sont pas « à zéro offre », elles sont
+  //   hors mesure, et le tableau les marque déjà `data-attente`.
+  'ch-asc': cmpNum((i) => i.change7d, 1),
+  'ten-asc': cmpNum((i) => i.tension, 1),
+  'sup-desc': cmpNum((i) => i.tirage, -1),
+  'lst-asc': cmpNum((i) => i.listings, 1),
+  'lst-desc': cmpNum((i) => i.listings, -1),
+  'atl-asc': cmpNum((i) => i.atl, 1),
+  'atl-desc': cmpNum((i) => i.atl, -1),
+  'ath-asc': cmpNum((i) => i.ath, 1),
+  'ath-desc': cmpNum((i) => i.ath, -1),
+  'mcp-desc': cmpNum(parMcp, -1),
+  'nom-desc': (a, b) => String(b.name || '').localeCompare(String(a.name || '')),
+  // 🔤 LA RARETÉ SE TRIE PAR RANG, PAS PAR ALPHABET. « Common, Rare, Secret
+  //   Rare, Ultra Rare, Uncommon » est l'ordre du dictionnaire et ne veut rien
+  //   dire ; l'ordre qui compte est celui de la rareté croissante.
+  //   ⭐⭐ ET LE RANG EST L'ORDRE DE `RAR`, importé, pas recopié : `RAR` est
+  //   déjà la source unique des noms, des classes et (depuis ce lot) des
+  //   abrégés. Une seconde liste d'ordre ici divergerait le jour où une rareté
+  //   s'ajoute — et `PALIERS` de `access.mjs` porte, dix mètres plus loin, la
+  //   mise en garde exacte : « l'ORDRE est la seule chose qui compte ».
+  //   ⚠️ Une rareté inconnue va au bout, comme un nombre inconnu : `-1` de
+  //   `indexOf` deviendrait le PREMIER rang en croissant, donc `null`.
+  'rar-asc': cmpNum(rangRarete, 1),
+  'rar-desc': cmpNum(rangRarete, -1),
 };
 
 /**

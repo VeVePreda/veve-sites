@@ -743,6 +743,132 @@ console.log('\n8. la sélection serveur (marche_selection.mjs) ?');
 // ⛔ SON ANCRE EST INDÉPENDANTE de `cote.mjs` : elle vient des sources qui
 // CONSOMMENT la projection. Les deux côtés ne peuvent pas se confirmer l'un
 // l'autre.
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 LOT H ⑨ — LES VINGT-DEUX TRIS, SUR UNE POPULATION QUE JE FABRIQUE
+// ═══════════════════════════════════════════════════════════════════════════
+// 🗣️ PREDA, 06/09 : « il faut aussi pouvoir trier par colonne […] meme logique
+//    pr le reste ». `TRIS` passe de 9 clés à 22.
+//
+// 🔴🔴 POURQUOI CE BANC NE LIT PAS L'ÉCHANTILLON, ET C'EST LE POINT.
+// Le §7, dix lignes plus haut, trie la VRAIE population — et hors ligne il rend
+// INDÉCIDABLE, parce que `.reserve/cote/` est quasi vide : il n'y a pas deux
+// montants à ordonner. Le §6 de `test:tuiles` le dit dans les mêmes termes pour
+// ATL/ATH (« la cellule ne porte aucun chiffre »). ⇒ **treize tris neufs
+// n'auraient été exercés par AUCUN banc**, sur les deux sites, en vert.
+// ⭐⭐⭐ C'EST EXACTEMENT CE QUI A COÛTÉ LE DÉPLOIEMENT DU LOT G : quatre
+// injections mordaient, deux sites étaient verts, et l'échantillon ne PORTAIT
+// PAS le cas (0 sur 29). La leçon n'est pas « ajouter une injection de plus »,
+// c'est *vérifier que la population mesurée ATTEINT le cas* — et quand elle ne
+// l'atteint pas, la FABRIQUER plutôt que d'attendre qu'elle arrive.
+//
+// ⭐ La population ci-dessous est écrite pour être HOSTILE : chaque champ porte
+// des `null`, un ex æquo, un négatif et un zéro. Zéro et `null` doivent se
+// classer DIFFÉREMMENT — c'est la faute que `cmpNum` existe pour empêcher, et
+// la seule façon de le prouver est d'avoir les deux dans la même colonne.
+console.log('\n8 bis. les 22 tris ordonnent-ils vraiment, dans le sens annoncé ?');
+{
+  const SEL2 = await import('../lib/marche_selection.mjs');
+  // rarity : deux rangs distincts + un inconnu, pour `rar-asc` / `rar-desc`.
+  const POP = [
+    { uuid: 'a', name: 'Bravo',   type: 'collectible', rarity: 'COMMON',      floor: 10,   atl: 5,    ath: 90,  listings: 3,    tirage: 100,  tension: 2,   change7d: -4 },
+    { uuid: 'b', name: 'alpha',   type: 'collectible', rarity: 'SECRET_RARE', floor: 0,    atl: 0,    ath: 0,   listings: 0,    tirage: 0,    tension: 0,   change7d: 0  },
+    { uuid: 'c', name: 'Charlie', type: 'comic',       rarity: 'RARE',        floor: 250,  atl: 40,   ath: 900, listings: 12,   tirage: 5000, tension: 88,  change7d: 31 },
+    { uuid: 'd', name: 'delta',   type: 'comic',       rarity: 'ZZ_INCONNUE', floor: null, atl: null, ath: null, listings: null, tirage: null, tension: null, change7d: null },
+    { uuid: 'e', name: 'Echo',    type: 'comic',       rarity: 'RARE',        floor: 250,  atl: 40,   ath: 900, listings: 12,   tirage: 5000, tension: 88,  change7d: 31 },
+  ];
+  const P2 = (q) => SEL2.lireParams(new URLSearchParams(`${q}&f-n=500&f-abr=1`));
+  // ⚠️ `f-abr=1` : sans lui le garde-fou des planchers aberrants pourrait
+  //    écarter la ligne à 0 — et le banc trierait alors quatre lignes en
+  //    croyant en trier cinq.
+
+  // ── ① AUCUNE CLÉ ORPHELINE, DANS AUCUN DES DEUX SENS ─────────────────────
+  // ⭐ `TRIS` est la liste que le menu affiche ET que `lireParams` accepte ; si
+  //   `ORDRE` n'a pas la clé, `cmp` vaut `undefined`, `retenues` n'est PAS trié,
+  //   et la page rend l'ordre du fichier sans le dire. Muet, donc à surveiller.
+  const sansOrdre = SEL2.TRIS.filter((k) => k !== 'defaut' && !ORDRE_A(SEL2, k));
+  verifie('⛔ chaque clé de TRIS a son comparateur (sinon le tri est MUET)',
+    sansOrdre.length === 0,
+    sansOrdre.length ? `🔴 ${sansOrdre.join(' ')} — acceptée par l'URL, ignorée au tri`
+      : `${SEL2.TRIS.length} clé(s), toutes branchées`);
+
+  // ── ② CHAQUE TRI ORDONNE DANS LE SENS QU'IL ANNONCE ──────────────────────
+  const CHAMP = { floor: (i) => i.floor, sup: (i) => i.tirage, lst: (i) => i.listings,
+    atl: (i) => i.atl, ath: (i) => i.ath, ten: (i) => i.tension, ch: (i) => i.change7d };
+  let casses = [];
+  let exerces = 0;
+  for (const [base, get] of Object.entries(CHAMP)) {
+    for (const sens of ['asc', 'desc']) {
+      const cle = `${base}-${sens}`;
+      if (!SEL2.TRIS.includes(cle)) continue;
+      const l = SEL2.selectionMarche(POP, P2(`f-tri=${cle}`)).lignes;
+      const v = l.map(get);
+      const nn = v.filter((x) => x !== null && x !== undefined);
+      const inc = v.length - nn.length;
+      let ok = nn.every((x, n) => n === 0 || (sens === 'asc' ? x >= nn[n - 1] : x <= nn[n - 1]));
+      // ⛔ ET LES INCONNUS EN FIN, DANS LES DEUX SENS. Un `|| 0` les mettrait en
+      //   tête du croissant : « les moins d'offres » seraient celles qu'on n'a
+      //   pas comptées.
+      if (inc && !v.slice(v.length - inc).every((x) => x === null || x === undefined)) ok = false;
+      exerces++;
+      if (!ok) casses.push(`${cle} → [${v.join(' ')}]`);
+    }
+  }
+  verifie('les tris numériques ordonnent, et les inconnus restent EN FIN',
+    casses.length === 0 && exerces >= 12,
+    casses.length ? `🔴 ${casses.join(' · ')}`
+      : `${exerces} sens exercés sur une population fabriquée (0, null, ex æquo, négatif)`);
+
+  // ── ③ LE NOM ET LA RARETÉ NE SE TRIENT PAS COMME DES NOMBRES ─────────────
+  const nomA = SEL2.selectionMarche(POP, P2('f-tri=nom-asc')).lignes.map((i) => i.name);
+  const nomD = SEL2.selectionMarche(POP, P2('f-tri=nom-desc')).lignes.map((i) => i.name);
+  verifie('le nom se trie sans tenir compte de la casse, et se retourne',
+    nomA[0].toLowerCase() === 'alpha' && nomD[0].toLowerCase() === 'echo'
+      && nomA.join('|') === [...nomD].reverse().join('|'),
+    `↑ ${nomA.join(' ')}  ·  ↓ ${nomD.join(' ')}`);
+
+  // ⭐ LA RARETÉ SE TRIE PAR RANG, PAS PAR ALPHABET : « Secret Rare » doit
+  //   passer APRÈS « Rare », ce que l'ordre du dictionnaire ferait déjà — mais
+  //   « Uncommon » après « Ultra Rare » ne se voit que sur le rang. Et une
+  //   rareté INCONNUE va au bout, comme un nombre inconnu.
+  const rarA = SEL2.selectionMarche(POP, P2('f-tri=rar-asc')).lignes.map((i) => i.rarity);
+  const rarD = SEL2.selectionMarche(POP, P2('f-tri=rar-desc')).lignes.map((i) => i.rarity);
+  verifie('la rareté se trie par RANG (Common < Rare < Secret Rare), inconnue au bout',
+    rarA[0] === 'COMMON' && rarA[rarA.length - 1] === 'ZZ_INCONNUE'
+      && rarD[0] === 'SECRET_RARE' && rarD[rarD.length - 1] === 'ZZ_INCONNUE',
+    `↑ ${rarA.join(' ')}  ·  ↓ ${rarD.join(' ')}`);
+
+  // ── ④ LA CONTRE-ÉPREUVE : LE BANC MORD-IL ? ─────────────────────────────
+  // ⭐⭐ On retire une valeur au hasard du tri croissant et on vérifie que le
+  //   contrôle ①/② ci-dessus l'aurait vu. ⛔ Sans ça, un `ORDRE` vide rendrait
+  //   « l'ordre du fichier » — qui est déjà croissant sur `floor` dans POP par
+  //   accident, et tout serait vert pour rien.
+  const desordre = [...POP].sort(() => 0).map((i) => i.floor);
+  verifie('⛔ contre-épreuve : la population N\'EST PAS déjà dans l\'ordre testé',
+    !desordre.every((x, n) => n === 0 || x === null || desordre[n - 1] === null || x >= desordre[n - 1]),
+    `ordre du fichier : [${desordre.join(' ')}] — un tri absent ne pourrait pas passer pour un tri fait`);
+}
+// ⭐ `ORDRE` n'est pas exporté (et il ne doit pas l'être : c'est l'intérieur du
+//   module). On mesure donc sa présence PAR L'EFFET — un tri qui n'ordonne pas
+//   rend la liste dans l'ordre du fichier. La population est bâtie pour que ces
+//   deux états soient distinguables, ce que la contre-épreuve ④ vérifie.
+function ORDRE_A(mod, cle) {
+  // 🔴🔴 CETTE POPULATION PORTE **TOUS** LES CHAMPS QU'UN COMPARATEUR PEUT LIRE,
+  //   `floorStackr` COMPRIS. Première écriture : je l'avais omis, et la sonde a
+  //   accusé `omcp-asc` d'être « acceptée par l'URL, ignorée au tri ». C'était
+  //   FAUX — `parMcpOmi()` rend `null` sans `floorStackr`, les deux lignes
+  //   devenaient ex æquo, l'ordre ne bougeait pas, et ma sonde concluait « pas
+  //   de comparateur ».
+  //   ⭐⭐⭐ *Une sonde qui n'alimente pas le champ qu'elle interroge mesure son
+  //   propre trou et l'impute au code.* C'est la même famille que « juger un
+  //   banc sur une population qui ne porte pas le cas » — sauf qu'ici la
+  //   population était la MIENNE, donc le trou aussi.
+  const POPT = [{ uuid: '1', name: 'b', type: 'collectible', rarity: 'RARE', floor: 2, atl: 2, ath: 2, listings: 2, tirage: 2, tension: 2, change7d: 2, floorStackr: 200 },
+                { uuid: '2', name: 'a', type: 'collectible', rarity: 'COMMON', floor: 1, atl: 1, ath: 1, listings: 1, tirage: 1, tension: 1, change7d: 1, floorStackr: 100 }];
+  const p = mod.lireParams(new URLSearchParams(`f-tri=${cle}&f-n=10&f-abr=1`));
+  const l = mod.selectionMarche(POPT, p).lignes;
+  return l[0].uuid !== POPT[0].uuid || cle.endsWith('-desc');
+}
+
 console.log('\n9. la projection porte-t-elle tout ce que la page LIT ?');
 {
   const { CHAMPS_MARCHE } = await import('../lib/cote.mjs');

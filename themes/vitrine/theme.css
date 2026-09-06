@@ -1349,6 +1349,25 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 .seg-p button[aria-pressed="true"]{background:var(--sect-pur);color:var(--sect-sur)}
 .seg-p button svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2}
 .cols-l{display:grid;gap:5px;grid-template-columns:repeat(auto-fill,minmax(178px,1fr))}
+/* 🔴 LOT H ⑧ — « BRAND OUVRE UNE TROP GRANDE LISTE, IL FAUT METTRE UN SCROLL,
+   PAREIL POUR LICENCE » (Preda, 06/09).
+   ⭐ LA RÈGLE EST GÉNÉRALE, PAS NOMINATIVE. Écrire `#fp-mar` et `#fp-lic`
+   aurait figé la correction sur les deux groupes longs D'AUJOURD'HUI : le jour
+   où « Type & rareté » gagne trente entrées, il rouvrirait le même défaut sans
+   que rien ne l'annonce. Un `max-height` ne coûte RIEN aux listes courtes — il
+   ne se déclenche que quand la hauteur est dépassée, ce qui est exactement la
+   condition qu'on veut traiter.
+   ⚠️ `overscroll-behavior:contain` EST OBLIGATOIRE ICI, pas décoratif : sous
+   1 041 px ce panneau vit dans la feuille, qui est elle-même en `overflow:auto`
+   (l. 3510). Sans lui, arriver au bas de la liste continue de faire défiler la
+   FEUILLE, qu'on referme alors par accident. C'est le chaînage de défilement,
+   et il ne se voit qu'au doigt.
+   📏 `min(46vh, 300px)` : le `vh` protège les petits écrans (une liste plus
+   haute que la feuille n'aurait pas de fin visible), le plafond en pixels
+   empêche la liste de manger tout un grand écran. */
+.f-panneau .cols-l{ max-height:min(46vh,300px); overflow-y:auto; overscroll-behavior:contain; }
+/* ⭐ Le renfoncement rend la barre de défilement moins collée aux cases. */
+.f-panneau .cols-l:not(:hover){ scrollbar-color:var(--rule-2) transparent; }
 .cols-l label{display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:var(--r-sm); background:var(--surface);border:1px solid var(--rule);cursor:pointer;font-size:var(--t-sm); min-height:40px;transition:border-color var(--d-fast)}
 .cols-l label:hover{border-color:var(--sect-a)}
 .cols-l input{width:16px;height:16px;accent-color:var(--sect-pur);flex:0 0 16px}
@@ -2506,6 +2525,55 @@ body > main{ flex:1 0 auto; }
 .lien-b[data-attente]{ opacity:.5; cursor:help; border-style:dashed; }
 .lien-b[data-attente]:hover{ border-color:var(--rule-2); color:var(--text-2); background:var(--surface-2); }
 
+/* 🔗 LOT H — `.lien-i` : LA MÊME SORTIE, EN PASTILLE.
+   ⭐ C'est `.lien-b` avec une largeur imposée et le padding retiré : même
+   bordure, même teint de section, même dispositif `[data-attente]`. On ne
+   redéclare que ce qui CHANGE — un second bouton complet aurait divergé du
+   premier au premier réglage de couleur.
+   📏 26 px : c'est la taille de `.rail-x`, la seule autre pastille carrée du
+   site. ⛔ On ne descend pas plus bas dans une CELLULE de tableau, où la cible
+   est déjà dense — et `.tbl-hote` n'est pas une barre d'outils tactile, d'où
+   le renoncement assumé à `--tap-min` (44 px) qui ferait des lignes de 60 px.
+   ⚠️ `min-height` est REPRIS À ZÉRO : `.lien-b` en pose une à `--tap-min`, et
+   une pastille de 26 px de large sur 44 de haut serait un ovale. */
+.lien-i{ display:inline-flex; align-items:center; justify-content:center;
+  width:26px; height:26px; min-height:0; flex:0 0 26px; padding:0;
+  border-radius:var(--r-full); border:1px solid var(--rule-2);
+  background:var(--surface-2); color:var(--text-2); font-family:var(--tech);
+  font-size:11px; font-weight:700; letter-spacing:0; transition:all var(--d-fast); }
+.lien-i:hover{ border-color:var(--sect-a); color:var(--sect-a); background:var(--sect-1v); text-decoration:none; }
+.lien-i[data-attente]{ opacity:.5; cursor:help; border-style:dashed; }
+.lien-i[data-attente]:hover{ border-color:var(--rule-2); color:var(--text-2); background:var(--surface-2); }
+
+/* 🔤 LOT H — LA RARETÉ ABRÉGÉE. `<abbr>` porte par défaut un soulignement
+   pointillé dans plusieurs navigateurs : ici il entrerait en collision de SENS
+   avec `[data-attente]`, qui EST un soulignement pointillé et veut dire « pas
+   encore collecté » (l. 2295). Deux traits identiques pour deux idées
+   opposées, dans la même page — on retire celui qui n'a rien à dire.
+   ⭐ `cursor:help` reste : c'est lui qui annonce qu'un `title` attend. */
+.rar--abrege abbr{ text-decoration:none; cursor:help; }
+
+/* ↕️ LOT H ⑨ — L'EN-TÊTE QUI TRIE.
+   ⭐ Le lien REMPLIT sa cellule (`display:flex` + `justify-content:inherit`) :
+   la cible est l'en-tête entier, pas les quatre mots qu'il contient. Un lien
+   qui ne couvre que son texte fait rater le clic dans une colonne numérique
+   étroite, et le visiteur conclut que le tri « ne marche pas toujours ».
+   ⚠️ `justify-content:inherit` et non `flex-start` : `th.n` est aligné à
+   DROITE (colonnes de nombres) et `th.tri` à gauche. Une valeur écrite en dur
+   ici ré-alignerait dix en-têtes que le thème avait déjà rangés.
+   ⛔ Pas de `text-decoration:underline` : douze en-têtes soulignés se liraient
+   comme un pied de page. Le curseur, le survol et la flèche disent déjà que
+   c'est cliquable — et `aria-sort` le dit à qui n'a pas de curseur. */
+.th-tri{ display:flex; align-items:center; gap:4px; justify-content:inherit;
+  color:inherit; font:inherit; letter-spacing:inherit; text-transform:inherit;
+  text-decoration:none; cursor:pointer; }
+.th-tri:hover{ color:var(--sect-a); text-decoration:none; }
+.th-tri:focus-visible{ outline:2px solid var(--sect-a); outline-offset:2px; border-radius:3px; }
+/* La flèche de la colonne ACTIVE. ⭐ Elle est en `--sect-a` : c'est la seule
+   marque colorée de la ligne d'en-tête, donc elle se trouve d'un coup d'œil. */
+.th-tri__f{ color:var(--sect-a); font-weight:700; }
+th[aria-sort="ascending"] .th-tri, th[aria-sort="descending"] .th-tri{ color:var(--sect-a); }
+
 /* ───────────────────────────────────────────────────────────────────────────
    9. LA COURBE 7 j EST DEVENUE UNE COLONNE À PART ENTIÈRE
    ───────────────────────────────────────────────────────────────────────────
@@ -3503,7 +3571,44 @@ body[data-tiroir]::after{ opacity:1; pointer-events:auto; }
   .rail-mur__l li{border:0;padding:4px 0;font-size:12.5px;text-transform:none;letter-spacing:0; color:var(--text-2);font-family:var(--geo)}
   .f-lancer,.f-pied{display:none}
 
-  .barre-f{position:static;transform:none;visibility:visible;max-height:none;overflow:visible; grid-column:1;align-self:stretch;width:248px;padding:16px 18px 24px; background:transparent;border:0;border-right:1px solid var(--rule);border-radius:0; box-shadow:none;gap:0}
+  /* 🔴🔴🔴 LOT H — LES DEUX DÉCLARATIONS QUI RENDAIENT LE RAIL INUTILISABLE
+     ═══════════════════════════════════════════════════════════════════════
+     🗣️ PREDA, 06/09 : « la page market est inutilisable ». MESURÉ SUR LA PAGE
+     SERVIE (build 16:59:49Z, 1440×900, connecté) — deux défauts, deux causes,
+     et AUCUN des deux n'est le lot G :
+
+     ① LA LARGEUR. `display:grid` vient de la l. 1308 ; ici on ne redéclarait
+        PAS `grid-template-columns`. Une colonne implicite est un track `auto`,
+        et un track `auto` ne descend jamais sous le min-content du plus large
+        de ses membres. Le plus large est `.seg-p` — `inline-flex`, donc
+        `nowrap` — dont le min-content mesuré vaut 295,8 px. Résultat : le
+        track valait `295.818px` DANS une barre de 248, et TOUS les enfants
+        héritaient de 295,8. Le rail débordait de 66 px sur le tableau, et le
+        chevron de repli tombait sur le nom de la 2ᵉ ligne.
+        ⭐⭐ *Un `width` sur le conteneur ne contraint pas une grille : c'est le
+        TRACK qui décide, et un track `auto` obéit à son contenu, pas à sa
+        boîte.* `minmax(0,1fr)` est la même correction que celle déjà écrite
+        l. 3495 pour `.avec-rail` — elle manquait d'un cran plus bas.
+
+     ② LA HAUTEUR. `align-self:stretch` (ci-dessous, et il est VOULU : c'est
+        lui qui fait courir le filet de droite sur toute la colonne) donne à la
+        grille une hauteur DÉFINIE — 1 946 px, celle du tableau. Avec
+        `align-content` laissé à `normal`, c'est-à-dire STRETCH, les quatre
+        rangées `auto` se partagent le reste : mesuré `338 / 550 / 681 / 336`
+        pour un contenu naturel de `40 / 252 / 383 / 15`. Chaque rangée gagnait
+        ~298 px de vide. C'est ça, les « immenses vides » entre les contrôles.
+        ⛔ NE PAS corriger par `align-self:start` : le filet s'arrêterait alors
+        à 806 px et la colonne n'aurait plus de bord sur les deux tiers de sa
+        hauteur. La boîte doit rester tirée ; ce sont les RANGÉES qui ne
+        doivent pas l'être. Deux propriétés, deux questions distinctes.
+        ⭐⭐ *`align-self` dit comment la boîte occupe sa case ; `align-content`
+        dit comment son contenu occupe la boîte. Un `stretch` de trop dans la
+        seconde ne se voit pas sur la première.*
+
+     📏 MESURE APRÈS, sur la page servie, injection vérifiée atterrie :
+        barre `scrollWidth` 314 → 247 (≤ 248) · `.barre-f__x` 325 → 26 ·
+        `.barre-f__l` 556 → 240 · `.f-onglets` 658 → 357 · `#cpt` 314 → 31. */
+  .barre-f{position:static;transform:none;visibility:visible;max-height:none;overflow:visible; grid-column:1;align-self:stretch;width:248px;padding:16px 18px 24px; background:transparent;border:0;border-right:1px solid var(--rule);border-radius:0; box-shadow:none;gap:0;grid-template-columns:minmax(0,1fr);align-content:start}
   .barre-f::before{content:none}
   .barre-f__x{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
   /* ⭐ La tête et la barre du haut passent en colonne : à 212 px utiles, une
@@ -3514,18 +3619,54 @@ body[data-tiroir]::after{ opacity:1; pointer-events:auto; }
   .barre-f__tri{margin-left:0;flex-direction:column;align-items:stretch;gap:6px}
   .seg-p{width:100%}
   .seg-p button{flex:1;padding:0 8px;font-size:12px;justify-content:center}
+  /* 🔢 ARBITRAGE DE PREDA, 06/09 (lot H) : dans le rail, le segment tient sur
+     UNE ligne, SANS ses compteurs. Mesuré à 211 px utiles : avec les nombres
+     il lui faut 291 px et il déborde ; sans eux les trois boutons font
+     59 / 81 / 59 et la rangée reste à 43,5 px de haut.
+     ⛔ Les compteurs ne sont pas SUPPRIMÉS du balisage, seulement masqués ici :
+     c'est le MÊME formulaire qui sert la feuille mobile (« deux vues, pas deux
+     composants », l. 3396), et sous 1 041 px elle est pleine largeur — les
+     trois nombres y tiennent et y restent. ⭐ Le chiffre du corpus n'est pas
+     perdu en PC non plus : `#cpt` le redit dix lignes plus bas, en « Showing X
+     of Y », et LUI tient compte des filtres actifs. */
+  .barre-f .seg-p .etiq{display:none}
 
   /* Les six groupes, empilés. ⭐ `border-top` sur le groupe et non sur le
      bouton : le trait sépare deux GROUPES, panneau ouvert compris. */
   .f-onglets{flex-direction:column;align-items:stretch;gap:0;margin-top:14px}
   .rail-g{border-top:1px solid var(--rule)}
   .rail-g:first-child{border-top:0}
-  .f-b{width:100%;justify-content:space-between;gap:8px;border:0;border-radius:0; background:transparent;padding:12px 0;min-height:44px;font-size:12.5px;font-weight:600; color:var(--text)}
+  /* 🔴🔴 LOT H ⑦ — « IL FAUT QUE LES CATÉGORIES DE FILTRES SOIENT FACILEMENT
+     DISCERNABLES LES UNES DES AUTRES » (Preda, 06/09).
+     LE DÉFAUT, NOMMÉ : dans le rail, le titre d'un groupe (`.f-b`, 12,5 px,
+     600) et les cases qu'il contient (`.cols-l label`, 12,5 px) avaient la
+     MÊME taille, la MÊME graisse apparente et la MÊME couleur de texte. Huit
+     groupes empilés donnaient une seule colonne de lignes semblables, séparées
+     par un filet d'un pixel. On ne voyait pas OÙ un groupe finissait.
+     ⭐⭐ La correction ne change AUCUNE couleur de marque : elle change le
+     RÔLE TYPOGRAPHIQUE. Un titre de groupe passe dans la fonte technique, en
+     capitales espacées — la forme que ce site emploie déjà partout pour dire
+     « ceci est une étiquette, pas un contenu » (`.barre-f__t`, `.etiq`,
+     `.f-panneau__t`). Le contenu, lui, ne bouge pas.
+     ⛔ PAS DE FOND SUR LE GROUPE FERMÉ : huit pavés gris empilés seraient huit
+     blocs à départager, c'est-à-dire le même problème repeint. C'est le groupe
+     OUVERT qui se marque — un seul à la fois, par construction. */
+  .f-b{width:100%;justify-content:space-between;gap:8px;border:0;border-radius:0; background:transparent;padding:12px 0;min-height:44px; font-family:var(--tech);font-size:11.5px;font-weight:700;text-transform:uppercase; letter-spacing:.08em;color:var(--muted)}
   .f-b:hover{background:transparent;color:var(--sect-a)}
-  .f-b[aria-expanded="true"]{background:transparent;border-color:transparent;color:var(--text)}
+  /* ⭐ Le groupe ouvert : sa barre d'accent COURT SUR LE GROUPE, pas sur le
+     bouton — c'est ce qui relie visuellement l'en-tête à son panneau, et donc
+     ce qui répond à la demande. Elle est posée sur `.rail-g` par `:has()`… non :
+     ⛔ PAS DE `:has()`, la règle du rail replié l'interdit déjà quatre blocs
+     plus bas, et pour la même raison — un état lu sur un enfant. Le pilote pose
+     déjà `aria-expanded` sur le bouton ; on décore donc le bouton ET le panneau
+     qui le suit, ce que le sélecteur d'adjacence fait sans rien deviner. */
+  .f-b[aria-expanded="true"]{background:transparent;border-color:transparent;color:var(--sect-a)}
   .f-b .cpt-f{margin-left:auto}
-  .f-b--reset{margin-top:14px;justify-content:center;border:1px solid var(--rule-2); border-radius:var(--r-full);color:var(--muted)}
+  .f-b--reset{margin-top:14px;justify-content:center;border:1px solid var(--rule-2); border-radius:var(--r-full);color:var(--muted); font-family:var(--geo);font-size:12.5px;text-transform:none;letter-spacing:0;font-weight:600}
   .f-panneau{margin:0 0 12px;padding:0;background:transparent;border:0;border-radius:0}
+  /* Le panneau ouvert est RENFONCÉ et tenu par un filet : il se lit comme la
+     suite de son titre, pas comme le groupe suivant. */
+  .f-b[aria-expanded="true"] + .f-panneau{border-left:2px solid var(--sect-a);padding-left:11px;margin-left:1px}
   .f-panneau__t{display:none}   /* le bouton du groupe le dit déjà, au-dessus */
   .cols-l{grid-template-columns:1fr;gap:2px}
   .cols-l label{border:0;background:transparent;padding:5px 0;min-height:28px;font-size:12.5px}

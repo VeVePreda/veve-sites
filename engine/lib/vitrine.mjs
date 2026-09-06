@@ -14,13 +14,22 @@
 // c'est le vocabulaire du thème. Émettre `rarity.toLowerCase()` produisait
 // `rar--secret_rare`, qui n'existe dans aucune feuille — les six couleurs de
 // rareté étaient donc absentes du site depuis le début.
+// 🔤 LOT H — `a` EST L'ABRÉGÉ, ET IL VIT ICI, AVEC LE NOM QU'IL ABRÈGE.
+// Demande de Preda (06/09) : dans le tableau du Marché, la colonne « Rarity »
+// n'affiche que les initiales. ⛔ Ce n'est PAS un calcul : « Ultra Rare » et
+// « Uncommon » commencent tous deux par « U », et un abrégé bâti à la volée
+// (initiales des mots, trois premières lettres…) donnerait « UR » et « UN » un
+// jour, « U » et « U » le lendemain. Six valeurs, six abrégés écrits.
+// ⭐ Et ils sont DANS `RAR`, pas dans une seconde table : c'est la leçon payée
+// par `LIB_TRI` au lot 220 — deux listes qui décrivent le même ensemble
+// divergent, et la divergence sort en production sous forme de `undefined`.
 export const RAR = {
-  COMMON:       { cl: 'rar--common',   l: 'Common' },
-  UNCOMMON:     { cl: 'rar--uncommon', l: 'Uncommon' },
-  RARE:         { cl: 'rar--rare',     l: 'Rare' },
-  ULTRA_RARE:   { cl: 'rar--ultra',    l: 'Ultra Rare' },
-  SECRET_RARE:  { cl: 'rar--secret',   l: 'Secret Rare' },
-  ARTIST_PROOF: { cl: 'rar--proof',    l: 'Artist Proof' },
+  COMMON:       { cl: 'rar--common',   l: 'Common',       a: 'C'  },
+  UNCOMMON:     { cl: 'rar--uncommon', l: 'Uncommon',     a: 'UC' },
+  RARE:         { cl: 'rar--rare',     l: 'Rare',         a: 'R'  },
+  ULTRA_RARE:   { cl: 'rar--ultra',    l: 'Ultra Rare',   a: 'UR' },
+  SECRET_RARE:  { cl: 'rar--secret',   l: 'Secret Rare',  a: 'SR' },
+  ARTIST_PROOF: { cl: 'rar--proof',    l: 'Artist Proof', a: 'AP' },
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -172,11 +181,25 @@ export const forme = (r, t) =>
 // élégance : AUCUNE couleur de rareté VeVe ne passe 4,5:1 en texte sur ces
 // gris (le rouge secret plafonne à 1,96:1). La séparation est forcée par la
 // mesure — et c'est d'ailleurs ce que VeVe fait lui-même.
+// 🔤 `o.abrege` — LOT H. La forme abrégée n'est pas « le même rendu en plus
+// petit » : le NOM ACCESSIBLE doit rester entier, sinon un lecteur d'écran
+// annonce « S R » et la colonne devient illisible pour qui ne voit pas la
+// couleur ni la géométrie. ⇒ `role="img"` + `aria-label` portent le nom
+// complet, et `<abbr title>` le rend au survol. ⭐⭐ *Raccourcir ce qui se voit
+// n'autorise pas à raccourcir ce qui s'entend.*
+// ⛔ `role="img"` et pas un `aria-label` posé sur un `<span>` nu : sur un
+// élément sans rôle, `aria-label` n'est pas garanti d'être exposé — c'est la
+// même famille de piège que `<span data-i18n>` dans un `<desc>` (05/09).
 export function rar(r, o) {
   o = o || {};
   const x = RAR[r] || RAR.COMMON;
+  const corps = o.abrege
+    ? `<abbr title="${x.l}">${x.a}</abbr>`
+    : x.l;
+  const acc = o.abrege ? ` role="img" aria-label="${x.l}"` : '';
   return `<span class="rar ${x.cl}${o.pilule ? ' rar--pilule' : ''}`
-    + `${o.blanc ? ' rar--sur-blanc' : ''}">${forme(r, o.g ? 'g' : '')}${x.l}</span>`;
+    + `${o.blanc ? ' rar--sur-blanc' : ''}${o.abrege ? ' rar--abrege' : ''}"${acc}>`
+    + `${forme(r, o.g ? 'g' : '')}${corps}</span>`;
 }
 export const pli = (r, t) =>
   `<span class="${(RAR[r] || RAR.COMMON).cl}" style="display:inline-flex">${forme(r, t)}</span>`;
