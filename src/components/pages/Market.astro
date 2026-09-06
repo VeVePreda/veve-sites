@@ -27,6 +27,8 @@
 import Base from '../../layouts/Base.astro';
 import BarreAcces from '../BarreAcces.astro';
 import BandeauOutil from '../BandeauOutil.astro';
+// 🎭 LOT H — l'état vide de Floora. ⛔ Une seule fabrique : voir son en-tête.
+import EtatVide from '../EtatVide.astro';
 import { t, localize, numberLocale } from '../../../engine/lib/i18n.mjs';
 import { rar, forme, delta, gemsM, omiM, RAR, mcpPoints, sparklineNormalisee, jourISO, urlStackR, serieUtile } from '../../../engine/lib/vitrine.mjs';
 import { sourcesImage, ONERROR_REPLI } from '../../../engine/lib/image_cdn.mjs';
@@ -1205,6 +1207,7 @@ const ILE_TUILES = JSON.stringify({
     </div>
   </div>
   <div id="vue-tbl" class="tbl-hote" data-attente-txt={attente} hidden={VUE !== 'tbl'}>
+    {lignes.length > 0 && (
     <table id="resultats" tabindex="-1">
       {/* ═══════════════════════════════════════════════════════════════════
           LE MARCHÉ À DEUX LIGNES — demande Preda du 03/08/2026 (lot 43)
@@ -1671,6 +1674,27 @@ const ILE_TUILES = JSON.stringify({
         </tr>
       ))}</tbody>
     </table>
+    )}
+    {/* ═══ 🎭 LOT H — « AUCUN RÉSULTAT » A ENFIN UN ÉCRAN ═══════════════════
+        📏 MESURÉ : `/market/` n'avait AUCUNE branche pour la sélection vide.
+        Un filtre qui ne retient rien rendait un `<thead>` seul, au-dessus d'un
+        `<tbody>` sans une ligne — un tableau qui a l'air cassé plutôt qu'un
+        tableau qui répond « rien ne correspond ». Et la pose `perplexe`
+        attendait dans `POSE_DE` depuis le 04/09, avec ses deux phrases
+        traduites en cinq langues, sans être posée nulle part.
+        ⭐ L'ÉTAT VIDE EST **DANS** `#vue-tbl`, PAS À LA PLACE. Le pilote
+        bascule les deux hôtes par leur `hidden` (`#vue-tbl` / `#vue-tui`) :
+        supprimer l'hôte le laisserait chercher un nœud absent. On ne change
+        que son CONTENU — le `<table>` n'est plus rendu, l'hôte reste.
+        ⛔ ET `id="resultats"` SUIT LE CONTENU. Le lien d'évitement en haut de
+        page (« aller aux résultats ») pointe dessus, et `urlSuite` le met dans
+        l'ancre : posé sur une table qui n'existe pas, il enverrait le lecteur
+        au clavier nulle part. Il passe donc sur le message — qui EST le
+        résultat quand il n'y en a pas. */}
+    {lignes.length === 0 && (
+      <EtatVide usage="filtre-vide" cleTitre="floora.vide.filtre.t"
+                cleDesc="floora.vide.filtre.d" lang={lang} id="resultats" />
+    )}
   </div>
 
   {/* ⛔ LA MENTION « TOP 200 SUR N » A DISPARU, ET C'EST LE LOT : il n'y a plus

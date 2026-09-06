@@ -35,6 +35,8 @@ import Base from '../../layouts/Base.astro';
 import { dataset } from '../../../engine/lib/dataset.mjs';
 import { franchit, porte, acces } from '../../../engine/lib/access.mjs';
 import { t, localize, numberLocale } from '../../../engine/lib/i18n.mjs';
+// 🎭 LOT H — le bandeau-outil, avec la perche `analytics`.
+import BandeauOutil from '../BandeauOutil.astro';
 
 const { lang } = Astro.props;
 const ds = await dataset();
@@ -229,9 +231,21 @@ const unites = (c) => [
       description={t(lang, 'desc.analytics')}
       crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') }, { name: t(lang, 'analytics.title') }]}>
 
+  {/* 🎭 LOT H — LA PERCHE `analytics` ÉTAIT DÉCLARÉE ET N'EXISTAIT NULLE PART.
+      `POSE_DE.analytics = 'emerveille'` et sa bulle `floora.analytics` sont
+      posées dans les cinq dictionnaires depuis le 04/09 ; cette page gardait
+      un `<h1>` nu, quand `/market/`, `/collections/` et `/sets/` avaient déjà
+      leur bandeau-outil.
+      ⭐ Ce n'est donc pas un ajout de décor, c'est la MISE AU MÊME PATRON de la
+      quatrième page-outil du site : même bandeau, même perche, même hauteur de
+      176. Une page-outil qui n'a pas la tête des trois autres se lit comme une
+      page d'un autre site.
+      ⛔ `mono-t` RESTE sur le `<h1>` — `BandeauOutil` le porte lui-même, et
+      `test:titres` / `test:entete` s'y branchent. */}
   <p class="etiq etiq--bleu tete-p__st">// {t(lang, 'analytics.title')}</p>
-  <h1 class="mono-t">{t(lang, 'analytics.title')}</h1>
-  <p class="respire" style="max-width:56ch">{t(lang, 'desc.analytics')}</p>
+  <BandeauOutil titre={t(lang, 'analytics.title')}
+                aide={t(lang, 'desc.analytics')}
+                perche="analytics" lang={lang} />
 
   {/* ═══ CE QUE CETTE PAGE EST, ET CE QU'ELLE N'EST PAS ═══
       ⭐⭐ LE BANDEAU DE DÉMONSTRATION EST RETIRÉ, PAS RÉÉCRIT. Il disait « les

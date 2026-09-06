@@ -25,6 +25,8 @@ import BarreAcces from '../BarreAcces.astro';
 // donnee etait deja collectee, deja lue au build, deja decoupee par piece et
 // deja servie par une route gardee. Il manquait cette ligne et son montage.
 import Corner from '../Corner.astro';
+// 🎭 LOT H — la perche `fiche` (pose `serieux`), posee sous les deux murs.
+import { floora } from '../../../engine/lib/floora.mjs';
 
 // 🔴🔴🔴 LOT 132 — `const LES_PLAGES = plages();` A ÉTÉ RETIRÉ D'ICI, ET SON
 // HISTOIRE VAUT PLUS QUE SA SUPPRESSION.
@@ -541,6 +543,9 @@ const replidropStackr = aucuneOffreStackr && item.storePrice != null && item.sto
   ? item.storePrice : null;
 const pasCollecte = t(lang, 'data.notCollected');
 const mcpJour = mcpPoints(item.rarity, item.type);
+// ⭐ 176 comme les trois autres perches : la table du livrable reserve les
+// 208 aux ETATS VIDES, qui occupent une page entiere.
+const fPerche = floora('fiche', 176);
 ---
 {/* 🔴🔴 LOT 144 — `fraicheurDonnee` EST CE QUI FAIT BASCULER LE PIED.
     `updatedAt` reste passe : il nourrit toujours `<meta name="build-time">`,
@@ -1505,6 +1510,41 @@ const mcpJour = mcpPoints(item.rarity, item.type);
                 : t(lang, 'data.notCollected')}</span>
           </div>
         </div>
+      </div>
+
+      {/* ═══ 🎭 LOT H — LA PERCHE DE LA FICHE, SOUS LES DEUX MURS ═══════════
+          `POSE_DE.fiche = 'serieux'` et sa bulle `floora.item` existent depuis
+          le 04/09, traduites dans les cinq langues, et n'avaient jamais été
+          posées. Leur texte dit : « deux planchers, deux places de marché —
+          VeVe se paie en gems, StackR en OMI ». C'est exactement ce que les
+          deux murs qu'on vient de fermer montrent sans l'expliquer.
+          ⭐⭐ ELLE EST **SOUS** LES MURS, PAS DANS LE BANDEAU. Les trois autres
+          perches coiffent une page-outil et disent ce qu'on va y faire ; celle-ci
+          répond à une question que le lecteur se pose APRÈS avoir vu deux
+          nombres dans deux unités. Une explication placée avant la chose
+          qu'elle explique n'est pas lue.
+          ⛔ AUCUNE CLASSE NEUVE, ET AUCUN CHIFFRE : `.perche` / `.bulle` sont
+          celles de `BandeauOutil`, et la bulle ne porte JAMAIS de valeur
+          mesurée — `test:floora` §5 le verifie. Elle explique comment lire, le
+          site dit quoi lire.
+          ⚠️ Le balisage est ecrit ici plutot que dans un composant partage :
+          `BandeauOutil` est l'autre porteur, et DEUX emplois ne font pas encore
+          un motif. Au troisieme, on extrait un `Perche.astro` — pas avant, et
+          ce commentaire est la pour qu'on s'en souvienne. */}
+      {/* ⭐ L'ORDRE EST CELUI DE `BandeauOutil` : l'image, puis la bulle.
+          `.perche` est un `flex` en `align-items:flex-end` — inverser les deux
+          retournerait la pointe de la bulle (`border-radius … 2px` en bas à
+          gauche) contre le vide au lieu de la mascotte.
+          🔴 `nu(t(…))` ET PAS `t(…)` : sous `I18N_MARQUAGE=1` la chaîne porte
+          des marqueurs, et `set:html` d'une valeur marquée sert LA CLÉ au
+          visiteur en production. C'est le défaut du 06/09, déjà payé. */}
+      <div class="perche perche--fiche">
+        <span class="perche__img">
+          <img src={fPerche.src} alt={t(lang, fPerche.cle)}
+               width={fPerche.width} height={fPerche.height}
+               loading="lazy" decoding="async" />
+        </span>
+        <p class="bulle" set:html={nu(t(lang, 'floora.item'))}></p>
       </div>
 
       {/* ═══ LA JAUGE ═══

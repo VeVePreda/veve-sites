@@ -3788,6 +3788,31 @@ body[data-tiroir]::after{ opacity:1; pointer-events:auto; }
    du bloc PC (l. 3338) la colle au filet. Les deux étaient déjà écrits — la
    perche s'y assoit sans rien déplacer. */
 .perche{margin-left:auto;display:flex;align-items:flex-end;gap:10px;max-width:min(52%,420px)}
+/* 🎭 LOT H — LA PERCHE DE LA FICHE. ⭐ Elle n'est PAS dans un bandeau : elle
+   vit sous les deux murs, donc elle a besoin de son propre espace au-dessus,
+   que le bandeau donnait par son `padding`. ⛔ Et elle NE PREND PAS toute la
+   largeur : `max-width` reste hérité, sinon la bulle s'étirerait sur 900 px et
+   cesserait de ressembler à ce qu'elle est — une phrase dite à côté. */
+.perche--fiche{margin-top:var(--s5);margin-bottom:var(--s3)}
+/* 🎭 LOT H — LA CARTE À MESSAGE DES ALERTES (« motif Alertes » du livrable).
+   ⭐ 52 px d'image, la taille que la table donne au format 96. ⛔ Ce n'est PAS
+   un `.etat` : celui-ci occupe une page vide et centre tout ; celle-ci coiffe
+   une liste et se lit de gauche à droite. Deux situations, deux formes — les
+   confondre aurait donné un état vide au-dessus d'un contenu. */
+.avis-f{display:flex;align-items:center;gap:var(--s4);margin:0 0 var(--s4);
+  padding:12px 14px;border:1px solid var(--rule-2);border-radius:var(--r-lg);
+  background:var(--surface)}
+.avis-f__i{display:block;height:52px;width:auto;flex:0 0 auto}
+.avis-f__t{margin:0;font-weight:600;font-size:var(--t-md)}
+.avis-f__d{margin:2px 0 0;color:var(--text-2);font-size:var(--t-sm);line-height:1.5}
+@media (max-width:520px){ .avis-f{gap:var(--s3);padding:10px} }
+@media (max-width:900px){
+  /* ⛔ SOUS 900 px, LA FICHE PASSE EN UNE COLONNE et la perche mangerait la
+     moitié de l'écran pour une phrase. Même arbitrage que les perches de
+     bandeau (« pas de mascotte sur mobile »), pris ici avec le seuil de la
+     fiche et pas avec celui du bandeau : c'est CETTE mise en page qui casse. */
+  .perche--fiche{display:none}
+}
 .perche__img{display:block;flex:0 0 auto;line-height:0}
 .perche__img img{display:block;height:auto}
 /* ⭐ La bulle ne porte JAMAIS de chiffre mesuré (`test:floora` §5). Elle

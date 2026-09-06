@@ -36,9 +36,12 @@
 // « rien ne s'est déclenché ». Afficher « aucune alerte » à quelqu'un dont la
 // base est injoignable est une affirmation fausse.
 import Base from '../../layouts/Base.astro';
+// 🎭 LOT H — l'état vide de Floora. ⛔ Une seule fabrique : voir son en-tête.
+import EtatVide from '../EtatVide.astro';
 import { moduleJs } from '../../../engine/lib/socle_js.mjs';
 import { t, localize, numberLocale } from '../../../engine/lib/i18n.mjs';
 import { sourcesImage, ONERROR_REPLI } from '../../../engine/lib/image_cdn.mjs';
+import { floora } from '../../../engine/lib/floora.mjs';
 
 const pilote = moduleJs('alertes');
 
@@ -75,6 +78,8 @@ const fmt = new Intl.DateTimeFormat(nf, {
 });
 const quandTexte = (s) => fmt.format(new Date(Number(s) * 1000));
 const quandIso = (s) => new Date(Number(s) * 1000).toISOString();
+// 🎭 LOT H — la pose `choc` en 96 : le « motif Alertes » du livrable.
+const fAlerte = floora('alerte', 96);
 ---
 
 <Base sect="general" lang={lang} path="/alertes/" noindex={true}
@@ -98,13 +103,44 @@ const quandIso = (s) => new Date(Number(s) * 1000).toISOString();
     ? <p class="filtres-mur">{t(lang, 'alerts.hs')}</p>
     : lignes.length === 0
       ? (
-        <p class="filtres-mur" id="al-vide">
-          {surveillees > 0
-            ? t(lang, 'alerts.empty', { n: surveillees })
-            : t(lang, 'alerts.empty.none')}
-        </p>
+        /* 🎭 LOT H — « alertes armées, rien à signaler » : la pose `attente`,
+           assignée et traduite depuis le 04/09, n'avait jamais été posée.
+           🔴🔴 ET ELLE NE VAUT QUE POUR UN DES DEUX VIDES. « Vous surveillez
+           trois pièces, aucune n'a bougé » et « vous ne surveillez rien » sont
+           deux états DIFFÉRENTS : le premier est un calme, le second un
+           réglage qui manque. Floora attend — elle ne peut pas attendre ce que
+           personne ne lui a demandé de guetter. ⇒ La pose ne sort que si
+           `surveillees > 0` ; l'autre garde son mur, qui invite à régler.
+           ⭐⭐ *Un état vide n'est pas UN état : c'est autant d'états qu'il y a
+           de raisons d'être vide.* */
+        surveillees > 0
+          ? <EtatVide usage="alertes-armees" cleTitre="floora.attente.t"
+                      cleDesc="floora.attente.d" lang={lang} id="al-vide" />
+          : <p class="filtres-mur" id="al-vide">{t(lang, 'alerts.empty.none')}</p>
       )
       : (
+        <>
+        {/* ═══ 🎭 LOT H — LA CARTE « UN SEUIL A ÉTÉ FRANCHI » ═════════════════
+            `POSE_DE.alerte = 'choc'` et ses deux phrases (`floora.alerte.t/.d`)
+            étaient livrées et traduites depuis le 04/09, et posées nulle part.
+            ⭐ LE FORMAT EST LE 96 (52 px affichés), PAS LE 208. La table du
+            livrable réserve le 96 au « motif Alertes » : ici Floora accompagne
+            une LISTE, elle ne remplit pas une page vide. Un 208 au-dessus d'un
+            fil de trois lignes prendrait plus de place que la réponse.
+            ⭐⭐ ET SA PHRASE DIT CE QUE LE FIL NE DIT PAS : « les seuils sont
+            vérifiés à chaque reconstruction du site, pas en continu ». C'est la
+            question que pose quiconque voit une alerte datée d'hier — et y
+            répondre ici évite de la voir arriver par courriel.
+            ⛔ Elle n'apparaît QUE s'il y a quelque chose à annoncer : au-dessus
+            d'un fil vide, « un seuil a été franchi » serait faux. */}
+        <div class="avis-f">
+          <img class="avis-f__i" src={fAlerte.src} alt={t(lang, fAlerte.cle)}
+               width={fAlerte.width} height={fAlerte.height} loading="lazy" decoding="async" />
+          <div>
+            <p class="avis-f__t">{t(lang, 'floora.alerte.t')}</p>
+            <p class="avis-f__d">{t(lang, 'floora.alerte.d')}</p>
+          </div>
+        </div>
         <ul class="feed" id="al-feed">
           {lignes.map((l) => (
             <li class={`feed__e feed__e--${l.sens}`}>
@@ -140,6 +176,7 @@ const quandIso = (s) => new Date(Number(s) * 1000).toISOString();
             </li>
           ))}
         </ul>
+        </>
       )}
 
   <p class="etiq">{t(lang, 'alerts.retention', { n: retention })}</p>

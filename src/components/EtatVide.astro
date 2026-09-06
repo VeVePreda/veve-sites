@@ -1,0 +1,79 @@
+---
+// ⚠️ VeVePreda/veve-sites · CHEMIN : src/components/EtatVide.astro
+//
+// ═══════════════════════════════════════════════════════════════════════════
+// 🎭 LOT H — L'ÉTAT VIDE, AVEC FLOORA, ET UNE SEULE FABRIQUE
+// ═══════════════════════════════════════════════════════════════════════════
+// 📏 MESURÉ LE 06/09/2026, ET C'EST CE QUI A FAIT CE COMPOSANT :
+//    sur les SEIZE poses livrées le 04/09 — 45 fichiers, 561 Ko, traduites
+//    dans les cinq langues — **QUINZE NE SONT SERVIES NULLE PART**. Seules
+//    `404`, `500` et les trois perches de `BandeauOutil` sont posées.
+//    ⭐⭐ Ce n'est pas un manque de matière, c'est un manque de POSE : la
+//    table `POSE_DE` de `floora.mjs` déclare `filtre-vide`, `favoris-vides`,
+//    `alertes-armees`, `fiche`, `alerte` et `analytics`, et le dictionnaire
+//    porte déjà leurs titres et leurs phrases. Tout était prêt sauf le geste.
+//
+// ⛔ POURQUOI UN COMPOSANT ET PAS TROIS BLOCS RECOPIÉS. `404.astro` écrit son
+//    `.etat` à la main ; `500.astro` aussi. Deux copies, et le lot en ajoutait
+//    trois — cinq blocs identiques dont l'un gagnerait un jour une correction
+//    que les quatre autres n'auraient pas. C'est le motif « une fabrique de
+//    plus » que ce dépôt a déjà payé QUATRE fois (lots 127, 131, 132, 155-A).
+//    ⚠️ `404.astro` et `500.astro` ne sont PAS convertis dans ce lot : ils
+//    portent un `<h1>` (leur `.etat` EST le titre de la page) et un jeu de
+//    liens qui leur est propre. Les convertir demande de trancher ce que
+//    devient ce `<h1>`, et ce n'est pas la question de ce lot. ⇒ Ils restent
+//    la référence, ce composant en est la forme réutilisable, et le jour où
+//    on les convertit c'est ICI qu'on ajoute un `titreH1`.
+//
+// 🔤 LE TEXTE VIENT DU DICTIONNAIRE, LA POSE VIENT DE `floora()`. Le gabarit
+//    appelant ne choisit NI l'image NI les mots : il nomme un USAGE, et les
+//    deux tables fermées (`POSE_DE`, le dictionnaire) répondent. C'est la
+//    règle du livrable — *les poses sont assignées* — et c'est ce qui empêche
+//    deux pages d'expliquer la même chose de deux façons.
+//
+// ⚠️ `loading="lazy"` ET PAS `eager`, contrairement à la 404. Sur la 404
+//    l'image EST le contenu de la page ; ici l'état vide est un cas parmi
+//    d'autres d'une page qui a déjà son en-tête et sa barre. La retarder ne
+//    coûte rien à ce qu'on est venu lire.
+// ⚠️ `width`/`height` sont les dimensions d'AFFICHAGE, calculées par
+//    `floora()` depuis les dimensions MESURÉES du fichier : elles réservent la
+//    place avant que la feuille n'arrive. ⛔ Les seize poses n'ont pas le même
+//    rapport (loupe 254×208, panique 216×208) — une largeur en dur en
+//    écraserait la moitié.
+import { floora } from '../../engine/lib/floora.mjs';
+import { t } from '../../engine/lib/i18n.mjs';
+
+interface Props {
+  /** Une clé de `POSE_DE` — ⛔ JAMAIS une pose. `floora()` lève sur un usage
+   *  inconnu, et c'est voulu : un état vide sans image vaut mieux qu'un état
+   *  vide avec « celle qui va bien ». */
+  usage: string;
+  /** La clé i18n du titre (ex. `floora.vide.favoris.t`). */
+  cleTitre: string;
+  /** La clé i18n de la phrase (ex. `floora.vide.favoris.d`). */
+  cleDesc: string;
+  lang: string;
+  /** ⭐ REPRIS TEL QUEL par les pages qui en avaient un : les pilotes
+   *  (`favoris.js`) basculent le `hidden` de ce nœud PAR SON ID. Le perdre en
+   *  changeant de balise casserait un pilote sans qu'aucun banc de forme le
+   *  voie. */
+  id?: string | null;
+  hidden?: boolean;
+  /** 96 · 176 · 208. ⛔ Il n'y a pas de 384 : le sujet des fichiers détourés
+   *  mesure 148 à 248 px, et agrandir de plus de 15 % floute. */
+  taille?: number;
+}
+
+const { usage, cleTitre, cleDesc, lang, id = null, hidden = false, taille = 208 } = Astro.props;
+const f = floora(usage, taille);
+---
+<div class="etat" id={id} hidden={hidden}>
+  <img class="etat__f" src={f.src} alt={t(lang, f.cle)}
+       width={f.width} height={f.height} loading="lazy" decoding="async" />
+  <h2 class="etat__t">{t(lang, cleTitre)}</h2>
+  <p class="etat__d">{t(lang, cleDesc)}</p>
+  {/* ⭐ Le `slot` porte les ACTIONS, pas du texte : « voir ce qui a bougé »,
+      « relâcher un filtre ». Une page qui n'en a pas ne rend rien de plus —
+      `.etat__l` n'existe que si quelqu'un l'écrit. */}
+  <slot />
+</div>

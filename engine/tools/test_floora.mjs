@@ -103,6 +103,45 @@ dire(fautifs.length === 0,
     ? `${GABARITS.length} fichier(s) de \`src/\` lus : la pose vient toujours de \`POSE_DE\``
     : `🔴 ${fautifs.length} endroit(s) nomment une pose en dur :\n       ${fautifs.slice(0, 4).join('\n       ')}`);
 
+// ═══════════════════════════════════════════════════════════════════════════
+// §1 bis — CHAQUE USAGE DÉCLARÉ EST-IL RÉELLEMENT SERVI ?
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 CE CONTRÔLE NAÎT D'UNE MESURE, PAS D'UNE PRÉCAUTION. Le 06/09/2026,
+// sur les SEIZE poses livrées le 04/09 — 45 fichiers, 561 Ko, traduites dans
+// les cinq langues — **QUINZE N'ÉTAIENT SERVIES NULLE PART**. Seules `404`,
+// `500` et les trois perches de `BandeauOutil` étaient posées. Le dépôt
+// portait le poids, la revue avait validé les tables, et personne ne l'a vu :
+// tous les bancs regardaient si une pose SERVIE était bien choisie, aucun ne
+// demandait si une pose DÉCLARÉE était servie.
+//
+// ⭐⭐⭐ *Le §1 vérifie que ce qu'on sert vient de la table. Celui-ci vérifie
+// que ce que la table promet arrive quelque part. Ce sont deux questions, et
+// la seconde ne se déduit pas de la première.*
+//
+// ⛔ IL NE COMPTE PAS LES FICHIERS, IL COMPTE LES APPELS. Un `.webp` présent
+// dans `public/` ne prouve rien : c'est justement l'état qu'on vient de
+// mesurer. Ce qui prouve, c'est `floora('<usage>')` ou `perche="<usage>"` ou
+// `usage="<usage>"` écrit dans un gabarit.
+console.log('\n§1 bis — chaque usage déclaré est-il servi quelque part ?');
+{
+  const USAGES = Object.keys(POSE_DE);
+  const tout = GABARITS.map((p) => readFileSync(p, 'utf8')).join('\n');
+  // 🧰 LE MOTIF EST ANCRÉ AUX DEUX BOUTS, ET C'EST UNE CORRECTION PAYÉE.
+  // Premier jet : le guillemet fermant était optionnel. `usage="alertes-armees"`
+  // matchait donc pour l'usage `alerte`, et le banc a déclaré posé un écran qui
+  // ne l'était pas. ⭐⭐ *Un motif qui accepte un PRÉFIXE ne mesure pas ce qu'il
+  // nomme : il mesure tout ce qui commence pareil.*
+  const servis = USAGES.filter((u) => new RegExp(
+    `floora\\(\\s*(['"\`])${u}\\1|(?:perche|usage)=\\{?\\s*(['"\`])${u}\\2`
+  ).test(tout));
+  const orphelins = USAGES.filter((u) => !servis.includes(u));
+  dire(orphelins.length === 0,
+    orphelins.length === 0
+      ? `${USAGES.length} usage(s) déclaré(s), tous posés dans \`src/\``
+      : `🔴 ${orphelins.length} usage(s) déclaré(s) et JAMAIS posé(s) : ${orphelins.join(' · ')}\n`
+        + '       — le fichier est livré, la phrase est traduite, et l\'écran ne la montre pas');
+}
+
 // ═══ §2 — LES TAILLES SONT FERMÉES ════════════════════════════════════════
 console.log('\n§2 — la table des tailles refuse ce qui n\'existe pas');
 

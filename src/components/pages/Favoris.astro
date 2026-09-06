@@ -55,6 +55,8 @@
 //    refermer sur `/market/`. Une prop, pas un jumeau.
 import Base from '../../layouts/Base.astro';
 import Carte from '../Carte.astro';
+// 🎭 LOT H — l'état vide de Floora. ⛔ Une seule fabrique : voir son en-tête.
+import EtatVide from '../EtatVide.astro';
 import { moduleJs } from '../../../engine/lib/socle_js.mjs';
 const pilote = moduleJs('favoris');
 import { t, localize, numberLocale } from '../../../engine/lib/i18n.mjs';
@@ -83,7 +85,18 @@ const nf = numberLocale[lang] || 'en-GB';
   {indisponible
     ? <p class="filtres-mur">{t(lang, 'fav.hs')}</p>
     : items.length === 0
-      ? <p class="filtres-mur" id="fav-vide">{t(lang, 'fav.empty')}</p>
+      ? (
+        /* 🎭 LOT H — « favoris vides » : la pose `coeur`, assignée dans
+           `POSE_DE` et traduite dans les cinq langues depuis le 04/09, n'avait
+           jamais été posée. ⛔ `fav.empty` N'EST PAS PERDU pour autant : la
+           phrase du dictionnaire Floora dit la MÊME chose en deux temps (un
+           titre, une conduite à tenir), et c'est elle qui a été écrite POUR cet
+           écran-ci. La clé `fav.empty` reste employée par la copie masquée
+           ci-dessous, celle que le pilote révèle quand on retire le dernier
+           favori sans recharger. */
+        <EtatVide usage="favoris-vides" cleTitre="floora.vide.favoris.t"
+                  cleDesc="floora.vide.favoris.d" lang={lang} id="fav-vide" />
+      )
       : (
         <>
         {/* ⭐ `.grille` ET `<Carte>`, LE MÊME COUPLE QUE L'ACCUEIL ET
@@ -106,7 +119,14 @@ const nf = numberLocale[lang] || 'en-GB';
               : <Carte item={it} lang={lang} href={undefined} nf={nf} i={k} cote={false} />
           ))}
         </div>
-        <p class="filtres-mur" id="fav-vide" hidden>{t(lang, 'fav.empty')}</p>
+        {/* ⭐ LA MÊME CHOSE, MASQUÉE : c'est ce nœud que `favoris.js` révèle
+            quand on retire la dernière tuile sans recharger la page. Les deux
+            branches doivent dire la même chose — sinon vider sa liste d'un clic
+            n'affiche pas ce qu'affiche un rechargement, et personne ne
+            comprend pourquoi. ⛔ L'`id` est LOAD-BEARING : le pilote bascule
+            ce nœud par son identifiant (`favoris.js` l. 92). */}
+        <EtatVide usage="favoris-vides" cleTitre="floora.vide.favoris.t"
+                  cleDesc="floora.vide.favoris.d" lang={lang} id="fav-vide" hidden={true} />
         </>
       )}
 </Base>
