@@ -465,7 +465,11 @@ const chemin = `/analytics/${sujet}/`;
     return isFinite(n) ? n.toLocaleString() : ech(v);
   };
   var tab = function (entetes, lignes) {
-    return '<div class="tbl-hote"><table><thead><tr>'
+    // 📏 06/09 — BORNE ET ATTEIGNABLE AU CLAVIER, POUR TOUS LES MODULES.
+    // `tab()` est le POINT UNIQUE par lequel passent les tableaux d'analytics :
+    // corriger ici ferme le sujet pour les modules a venir aussi. Corriger le
+    // seul module des sets aurait laisse le prochain rouvrir le meme trou.
+    return '<div class="tbl-hote tbl-hote--borne" tabindex="0"><table><thead><tr>'
       + entetes.map(function (h) { return '<th scope="col">' + ech(h) + '</th>'; }).join('')
       + '</tr></thead><tbody>'
       + lignes.map(function (l) {

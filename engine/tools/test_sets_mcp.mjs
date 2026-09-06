@@ -196,6 +196,126 @@ for (const lg of ['en', 'fr', 'es', 'de', 'it']) {
     `${note.length} car.`);
 }
 
+
+// ── ⑩ LA ROUTE, EXÉCUTÉE POUR DE VRAI ─────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 CE BLOC EXISTE PARCE QUE TOUT LE RESTE DE CE BANC ÉTAIT VERT PENDANT
+// QUE LA PRODUCTION SERVAIT **1 SET SUR 3 194**. Le module pur était juste, le
+// dépôt était au bon endroit, les cinq langues disaient la vérité — et la
+// ROUTE, elle, n'avait jamais été appelée par personne.
+//
+// ⭐⭐ ET UN BANC QUI LIT LE TEXTE DE LA ROUTE NE L'AURAIT PAS VU NON PLUS : le
+// fichier DIT `SETS_DEFAUT = 50`, en toutes lettres, et c'est lisible et faux.
+// `searchParams.get()` rend `null` pour un paramètre absent, `Number(null)`
+// vaut 0, `Number.isFinite(0)` est vrai — le défaut était INATTEIGNABLE.
+// ⇒ **seul un banc qui EXÉCUTE pouvait mordre.** C'est le patron de
+// `test_reserve.mjs`, qui importe `/api/historique/[uuid]` et l'appelle.
+//
+// 🧪 IL TOURNE DANS UN SOUS-PROCESSUS, et c'est délibéré : `SETS_MCP_FICHIER`
+// est figé à l'import de `sets_mcp.mjs`, déjà chargé en tête de ce banc. Poser
+// `RESERVE_SETS_MCP` ici n'aurait plus aucun effet, et écrire dans la vraie
+// `.reserve/` polluerait les bancs qui suivent. Un process neuf coûte 0,2 s et
+// ne laisse rien derrière lui.
+//
+// 🔬 JUGÉ EN LUI INJECTANT LE MAUVAIS CODE (05/09/2026) : garde-fou retiré de
+// `entierBorne` ⇒ ROUGE sur « absent » et sur les trois vides ; `trim()` retiré
+// ⇒ ROUGE sur la seule ligne des espaces ; plafond ignoré ⇒ ROUGE sur 99999.
+console.log('\n⑩ la route /api/analytics/sets_mcp — EXÉCUTÉE, pas relue');
+{
+  const { execFileSync } = await import('node:child_process');
+  const { writeFileSync, mkdtempSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+
+  // ⭐ LA CHARGE D'ESSAI DOIT ÊTRE PLUS GRANDE QUE LE PLAFOND. Avec 60 sets,
+  //   « sans n » et « n=99999 » rendraient le même nombre : le banc serait vert
+  //   sans distinguer le défaut du plafond. On en met franchement plus.
+  const boite = mkdtempSync(join(tmpdir(), 'banc-sets-'));
+  const reserve = join(boite, 'sets_mcp.json');
+  const faux = { calcule: new Date().toISOString(), total: 500, classables: 500,
+    personnalise: false, baremeSetMax: SET_POINTS_MAX,
+    sets: Array.from({ length: 500 }, (_, i) => ({
+      slug: 's' + i, nom: 'Set ' + i, marque: 'M', licence: 'L', taille: 1,
+      cout: i + 1, couvert: 1, bonusSet: 1, pointsPieces: 1, sansBareme: 0,
+      points: 2, gemsParMcp: (i + 1) / 2 })) };
+  writeFileSync(reserve, JSON.stringify(faux), 'utf8');
+
+  // ⛔ PAS DE TEMPLATE LITTÉRAL DANS CE CODE INJECTÉ : il traverse un argument
+  //    de ligne de commande, et un `$` y aurait deux lecteurs.
+  const CODE = [
+    "import { pathToFileURL } from 'node:url';",
+    "import { join } from 'node:path';",
+    "const R = process.env.PROJECT_ROOT;",
+    "const url = (f) => pathToFileURL(join(R, f)).href;",
+    "const route = await import(url('src/pages/api/analytics/[module].js'));",
+    "const acces = await import(url('engine/lib/access.mjs'));",
+    // ⭐⭐ LE PALIER SE LIT DANS LE MANIFESTE, IL NE S'ÉCRIT PAS ICI. vevewiki
+    //    déclare un seul palier : la porte y est INACTIVE et tout le monde
+    //    franchit. Un banc qui coderait `member` en dur casserait le build de
+    //    l'autre site sur un moteur parfaitement sain — c'est déjà arrivé le
+    //    02/08 avec `test_reserve`, et c'est écrit là-bas en toutes lettres.
+    "const P = acces.porte('modules');",
+    "const locals = P.actif ? { palier: P.tier } : {};",
+    "const appel = async (q) => {",
+    "  const r = await route.GET({ params: { module: 'sets_mcp' },",
+    "    request: new Request('https://banc.test/api/analytics/sets_mcp' + q), locals });",
+    "  const t = await r.text();",
+    "  let j = null; try { j = JSON.parse(t); } catch (e) { j = null; }",
+    "  return { status: r.status, rendus: j && j.rendus,",
+    "           lignes: j && Array.isArray(j.sets) ? j.sets.length : null,",
+    "           tri: j && j.tri, corps: t.slice(0, 120) };",
+    "};",
+    "const out = { defaut: route.SETS_DEFAUT, max: route.SETS_MAX, porte: P.actif ? P.tier : 'inactive' };",
+    "for (const q of ['', '?n=', '?n=%20%20', '?n=10', '?n=abc', '?n=-5', '?n=99999'])",
+    "  out[q === '' ? 'absent' : q] = await appel(q);",
+    "console.log(JSON.stringify(out));",
+  ].join('\n');
+
+  let R = null; let erreur = '';
+  try {
+    const brut = execFileSync(process.execPath, ['--input-type=module', '-e', CODE],
+      { cwd: ROOT, encoding: 'utf8', timeout: 30000,
+        env: { ...process.env, PROJECT_ROOT: ROOT, RESERVE_SETS_MCP: reserve } });
+    R = JSON.parse(brut.trim().split('\n').pop());
+  } catch (e) {
+    erreur = String(e.stderr || e.message).split('\n').slice(-4).join(' | ');
+  }
+
+  // 🔴 UN BANC QUI N'A RIEN PU INSPECTER N'A RIEN PROUVÉ. S'il n'a pas tourné,
+  //    il rougit — il ne se tait pas.
+  verifie('la route se charge et répond', R !== null, erreur || `porte : ${R && R.porte}`);
+
+  if (R) {
+    verifie('elle rend 200 au palier que le manifeste exige',
+      R.absent.status === 200, `status ${R.absent.status} — ${R.absent.corps}`);
+
+    // ⭐⭐⭐ LE CONTRÔLE QUI AURAIT ÉVITÉ LE DÉFAUT. `rendus` est comparé à la
+    //   constante EXPORTÉE par la route, jamais à un 50 recopié ici.
+    verifie('🎯 SANS `n`, elle rend LE DÉFAUT — pas 1, pas 0',
+      R.absent.rendus === R.defaut && R.absent.lignes === R.defaut,
+      `rendus=${R.absent.rendus} lignes=${R.absent.lignes} · défaut déclaré=${R.defaut}`);
+
+    // 🕳️ Les trois façons d'écrire « rien », qui valent toutes 0 une fois
+    //    converties. La troisième (des espaces) est la seule que `trim()` sauve.
+    for (const [q, nom] of [['?n=', '`n` présent mais VIDE'], ['?n=%20%20', '`n` fait de deux ESPACES'],
+                            ['?n=abc', '`n` illisible']]) {
+      verifie(`${nom} ⇒ le défaut, jamais 1`,
+        R[q] && R[q].rendus === R.defaut, `rendus=${R[q] && R[q].rendus}`);
+    }
+
+    verifie('une valeur explicite est respectée (`n=10`)',
+      R['?n=10'].rendus === 10, `rendus=${R['?n=10'].rendus}`);
+    verifie('un `n` négatif ne rend pas une tranche vide (il est remonté au minimum)',
+      R['?n=-5'].rendus >= 1, `rendus=${R['?n=-5'].rendus}`);
+    // ⭐ Le plafond protège une route `private, no-store` : chaque octet est
+    //   repayé à chaque visite. Il doit mordre AVANT que la charge parte.
+    verifie('un `n` démesuré est PLAFONNÉ au maximum déclaré',
+      R['?n=99999'].rendus === R.max && R['?n=99999'].lignes === R.max,
+      `rendus=${R['?n=99999'].rendus} · plafond déclaré=${R.max}`);
+    verifie('le défaut déclaré est strictement sous le plafond — sinon rien ne distingue les deux',
+      R.defaut < R.max, `${R.defaut} < ${R.max}`);
+  }
+}
+
 console.log(ko === 0 ? '\n✅ SETS MCP — tout est conforme\n'
                      : `\n❌ SETS MCP — ${ko} contrôle(s) en échec\n`);
 process.exit(ko === 0 ? 0 : 1);

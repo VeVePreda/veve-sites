@@ -80,12 +80,39 @@ const MODULES = {
 // `private, no-store`, donc **chaque octet est repayé à chaque visite**. Le
 // filtre voit tout le corpus ; c'est le RENDU qui est coupé.
 // ⛔ Et `n` vient de l'URL : quelqu'un écrira `?n=99999`.
-const SETS_MAX = 200;
-const SETS_DEFAUT = 50;
+// ⭐⭐ EXPORTÉES POUR LE BANC — il ne doit JAMAIS recopier ces deux
+// nombres : un banc qui code un réglage en dur devient faux le jour où le
+// réglage change, et personne ne le voit. Astro ignore les exports qu'il ne
+// connaît pas ; seuls `GET`, `prerender` et `getStaticPaths` lui parlent.
+export const SETS_MAX = 200;
+export const SETS_DEFAUT = 50;
 
 /** Un entier borné — `Number('abc')` rend `NaN` et `?n=-5` rendrait une
- *  tranche vide sur une page qui a l'air de marcher. */
+ *  tranche vide sur une page qui a l'air de marcher.
+ *
+ *  🔴🔴 MESURÉ EN PRODUCTION LE 05/09/2026 — CETTE ROUTE SERVAIT **1 SET SUR
+ *  3 194**, et `SETS_DEFAUT` était du code mort depuis son premier jour.
+ *  `searchParams.get()` rend `null` quand le paramètre est ABSENT ; `Number`
+ *  d'un `null` vaut **0**, pas `NaN` ; `Number.isFinite` d'un zéro est **vrai**.
+ *  Le repli sur `defaut` n'était donc pas mort : il était INATTEIGNABLE — et le
+ *  zéro remontait à `min`, ici 1. Le gabarit appelle la route sans `n`, donc
+ *  c'est le chemin NORMAL qui était cassé, jamais un cas limite.
+ *
+ *  ⭐⭐ ET LE MÊME CODE VA BIEN DANS `marche_selection.mjs` (`entier`) — PAR
+ *  COÏNCIDENCE, PAS PAR SÛRETÉ : il y est appelé avec `min === defaut ===
+ *  PAR_PAGE`, donc le zéro remonte pile sur le défaut. Le garde-fou n'y sert pas
+ *  davantage ; il ne s'y VOIT pas.
+ *  ⇒ **quand `min` vaut le défaut, la branche « défaut » n'est jamais mesurée.**
+ *  Pour la juger, on appelle SANS le paramètre — pas avec une valeur bidon.
+ *  ⛔ `/market/` n'est PAS corrigé ici : il n'a aucun défaut observable, et
+ *  l'élargissement appartient à son propre lot. La dette est nommée, pas payée.
+ *
+ *  🔑 La bonne écriture existait déjà à neuf lignes de l'autre : `nb()`, dans ce
+ *  même `marche_selection.mjs`, tranche AVANT la conversion. On fait pareil.
+ *  ⚠️ Et on décape les blancs : une chaîne d'espaces se convertit en zéro elle
+ *  aussi, et `?n=` suivi d'un espace n'est pas une demande de « une ligne ». */
 const entierBorne = (v, defaut, min, max) => {
+  if (v === null || v === undefined || String(v).trim() === '') return defaut;
   const n = Math.trunc(Number(v));
   if (!Number.isFinite(n)) return defaut;
   return Math.min(max, Math.max(min, n));

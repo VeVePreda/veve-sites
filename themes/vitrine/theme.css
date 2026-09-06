@@ -930,6 +930,19 @@ h3{font-size:var(--t-lg)}
 .stat__v{font-family:var(--tech);font-size:var(--t-xl);font-weight:700;font-variant-numeric:tabular-nums; margin-top:5px;line-height:1.1;display:flex;align-items:baseline;gap:5px;flex-wrap:wrap;letter-spacing:-.02em}
 .stat--bleu{border-color:color-mix(in srgb,var(--sect-pur) 40%,transparent);background:var(--sect-1v)}
 .tbl-hote{background:var(--surface);border:1px solid var(--rule);border-radius:var(--r-lg);overflow-x:auto;overflow-y:hidden;box-shadow:var(--sh-1)}
+/* 📏 06/09/2026 — LA HAUTEUR BORNEE DES TABLEAUX D'ANALYTICS.
+   Le correctif du defaut `n` rend enfin 50 sets au lieu d'UN. Mesure sur la
+   production avant correctif : ligne 38 px, le tableau voisin fait 814 px pour
+   20 lignes, la page 3 040 px. A 50 lignes le bloc passerait a ~1 940 px et la
+   page a ~4 900 px — +62 %, pour un seul module.
+   ⭐ 814 px N'EST PAS UN CHIFFRE ROND : c'est la hauteur MESUREE du tableau
+   voisin. Les deux modules de la page finissent donc a la meme taille, et le
+   voisin ne bouge pas d'un pixel — il etait deja exactement a cette hauteur.
+   ⚠️ `.tbl-hote` etait DEJA une zone defilante (`overflow-x:auto`) sans etre
+   atteignable au clavier. `tabindex="0"` est pose dans `tab()` : il repare ce
+   manque-la aussi, pas seulement le defilement vertical qu'on ajoute ici. */
+.tbl-hote--borne{max-height:814px;overflow-y:auto;overscroll-behavior:contain}
+.tbl-hote--borne thead th{position:sticky;top:0;z-index:2}
 table{width:100%;border-collapse:collapse;font-size:var(--t-sm)}
 thead th{text-align:left;padding:11px 15px;background:var(--surface-2);font-family:var(--tech); font-size:var(--t-xs);text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:500; border-bottom:1px solid var(--rule);white-space:nowrap}
 thead th.tri{cursor:pointer;user-select:none;transition:color var(--d-fast)}
@@ -1196,7 +1209,17 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 .btn svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2.2;flex:0 0 15px}
 .champ{display:grid;gap:6px}
 .champ input,.champ select,.champ textarea{width:100%;min-height:var(--tap);padding:11px 14px; background:var(--surface-2);border:1px solid var(--rule-int);color:var(--text);font:inherit; font-size:var(--t-md);border-radius:var(--r-md);transition:border-color var(--d-fast),box-shadow var(--d-fast)}
-.champ input:focus,.champ select:focus{border-color:var(--sect-a);outline:none;box-shadow:0 0 0 3px var(--sect-1v)}
+/* 🎯 06/09/2026 — `outline:none` RETIRE. Il tuait le contour sur TOUS les
+   champs du site : l'anneau qui restait (`--sect-1v`, un aplat a 15 %) mesure
+   1,25:1 contre les 9,23:1 du contour de section. La regle globale
+   `:focus-visible` (plus haut dans cette feuille) etait ecrite, correcte, et
+   annulee ici par une declaration plus specifique.
+   ⚠️ Le brief annoncait la l. 1112 : c'est `.verrou__voile`. On cherche
+   l'USAGE, jamais le NUMERO DE LIGNE — il avait bouge de 87 lignes.
+   ⭐ L'anneau doux RESTE au pointeur : il n'a jamais ete le probleme. Ce qui
+   manquait, c'est le contour au CLAVIER, et lui seul. */
+.champ input:focus,.champ select:focus{border-color:var(--sect-a);box-shadow:0 0 0 3px var(--sect-1v)}
+.champ input:focus-visible,.champ select:focus-visible{outline:var(--foc-proche,2px) solid var(--sect-a);outline-offset:2px}
 .champ input::placeholder{color:var(--muted)}
 /* ═══════════════════════════════════════════════════════════════════════════
    🔴🔴🔴 LOT 204 — UNE CASE À COCHER N'EST PAS UN CHAMP DE SAISIE
@@ -1343,8 +1366,17 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 .avertis b{color:var(--down);font-weight:600}
 .avertis svg{width:17px;height:17px;flex:0 0 17px;margin-top:2px;stroke:var(--down);fill:none;stroke-width:1.9}
 .alerte{display:inline-grid;place-items:center;width:16px;height:16px;border-radius:var(--r-full); background:var(--down);color:#1A1A1A;font-family:var(--tech);font-size:10px;font-weight:700; vertical-align:middle;margin-left:5px;cursor:help;line-height:1}
-.fiche{display:grid;gap:var(--s6);grid-template-columns:minmax(0,300px) minmax(0,1fr);align-items:start}
-.fiche__viz{position:sticky;top:88px;display:grid;gap:var(--s4)}
+/* 🗺️ 06/09/2026 — LA FICHE PASSE AUX ZONES NOMMEES.
+   Sur PC RIEN NE BOUGE : `viz` tient les deux rangees a gauche, `id` puis
+   `txt` s'empilent a droite, et `row-gap:var(--s3)` reproduit au pixel l'ecart
+   qui vivait A L'INTERIEUR de `.fiche__txt` (meme jeton). La colonne n'a pas
+   de row-gap visible : `viz` traverse les deux rangees.
+   ⭐ `column-gap` et `row-gap` sont separes exactement pour ca : un `gap`
+   unique aurait impose `--s6` entre le titre et la description, et deplace le
+   PC que Preda a valide. */
+.fiche{display:grid;column-gap:var(--s6);row-gap:var(--s3);grid-template-columns:minmax(0,300px) minmax(0,1fr);grid-template-areas:"viz id" "viz txt";align-items:start}
+.fiche__viz{grid-area:viz;position:sticky;top:88px;display:grid;gap:var(--s4)}
+.fiche__id{grid-area:id;display:flex;flex-direction:column;gap:var(--s3);min-width:0}
 .fiche__socle{border-radius:var(--r-lg);overflow:hidden;border:1px solid var(--rule);box-shadow:var(--sh-2)}
 
 /* 🔔 LOT 215-B — « SURVEILLER CE PRIX », sous le cœur de la fiche.
@@ -1744,7 +1776,11 @@ dl.fiche-tbl + dl.fiche-tbl{border-top:1px solid var(--rule);padding-top:2px}
 @keyframes trace{from{stroke-dashoffset:var(--len,2600)}to{stroke-dashoffset:0}}
 @media (max-width:560px){ .extremes{grid-template-columns:1fr} }
 @supports not (backdrop-filter:blur(1px)){ .verrou__prof{display:none} }
-@media (max-width:900px){ .fiche{grid-template-columns:1fr;gap:var(--s5)} }
+/* 📱 SOUS 900 px — L'IDENTITE PASSE DEVANT LE VISUEL.
+   Mesure du 06/09 sur la production, a 375 px : le `<h1>` etait a 1 278 px,
+   sous les 1 131 px de `.fiche__viz`. L'ordre des zones le remonte en tete
+   sans toucher au code du gabarit ni au rendu PC. */
+@media (max-width:900px){ .fiche{grid-template-columns:1fr;grid-template-areas:"id" "viz" "txt";column-gap:0;row-gap:var(--s5)} }
 @media (max-width:900px){ .fiche__viz{position:static;max-width:250px;margin:0 auto} }
 @media (max-width:700px){ .murs{grid-template-columns:1fr;gap:var(--s5)} .murs__sep{display:none} }
 @media (max-width:560px){ .jauge__l{grid-template-columns:1fr 1fr;gap:var(--s3)} .jauge__e--c{grid-column:1/-1;order:3;justify-items:center;padding-top:8px;border-top:1px solid var(--rule)} }
@@ -1876,7 +1912,7 @@ dl.fiche-tbl + dl.fiche-tbl{border-top:1px solid var(--rule);padding-top:2px}
    visuel n'existe pour cette pièce. Elle doit se lire comme un choix. */
 .socle__gemme{display:grid;place-items:center;width:46%;color:var(--vp-rule-2)}
 .socle__gemme svg{width:100%;height:auto}
-.fiche__txt{display:flex;flex-direction:column;gap:var(--s3);min-width:0}
+.fiche__txt{grid-area:txt;display:flex;flex-direction:column;gap:var(--s3);min-width:0}
 
 /* ─── Le Marché : le bouton de vue ───────────────────────────────────────── */
 .v-b{display:inline-flex;align-items:center;gap:6px;min-height:var(--tap-min);

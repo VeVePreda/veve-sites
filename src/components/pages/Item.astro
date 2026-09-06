@@ -820,7 +820,23 @@ const mcpJour = mcpPoints(item.rarity, item.type);
       )}
     </div>
 
-    <div class="fiche__txt">
+    {/* ═══ L'IDENTITE DE LA PIECE — SORTIE DE `.fiche__txt` LE 06/09/2026 ═══
+        🔴 MESURE SUR LA PRODUCTION, a 375 px : le `<h1>` etait a 1 278 px, soit
+        1,4 ecran de telephone sous le haut de la fiche. `.fiche` passe en UNE
+        colonne sous 900 px et ses enfants s'empilent dans l'ordre du CODE :
+        `.fiche__viz` mesure 1 131 px (visuel + identite), et le nom de la piece
+        n'arrivait qu'apres. On descendait plus d'un ecran avant de savoir ce
+        qu'on regardait.
+        ⛔ LA CORRECTION EVIDENTE EST LA MAUVAISE : un `order` aurait inverse les
+        deux blocs ENTIERS, donc les 1 101 px de description seraient passes
+        DEVANT le visuel. Il fallait sortir le seul couple nom + serie.
+        ⭐ C'est le motif du lot 132, qui a descendu le bouton favori dans
+        `.fiche__viz` pour la meme raison : sous 900 px, l'ordre du code EST
+        l'ordre a l'ecran.
+        ⚠️ UN SEUL `<h1>` : il est DEPLACE, jamais duplique. Une copie cachee
+        par media query aurait servi deux titres au moteur et casse le critere
+        1.3.1 de l'audit. */}
+    <div class="fiche__id">
       {/* 📕 Le TITRE DE L'OEUVRE, pas celui de la collection. Voir `titreOeuvre`
           dans le frontmatter : repli sur `item.name`, toujours. */}
       <h1 class="mono-t">{titreOeuvre}</h1>
@@ -835,6 +851,9 @@ const mcpJour = mcpPoints(item.rarity, item.type);
       <p class="respire">
         {colSlug && <a class="tag" href={localize(lang, `/collection/${colSlug}/`)}>{item.series}</a>}
       </p>
+    </div>
+
+    <div class="fiche__txt">
 
       {/* 📝 LA DESCRIPTION. Elle est dans les onglets froids du Sheet depuis
           toujours et ne traversait pas `catalog_export.py` — troisieme fois
