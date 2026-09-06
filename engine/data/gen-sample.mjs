@@ -203,7 +203,28 @@ for (let i = 0; i < N; i++) {
   //   n'ont pas d'`image_url` (`ARCHIVE_HEADER` jette 14 des 25 champs). Un
   //   échantillon où toutes les images existent laisserait passer un gabarit
   //   qui plante ou qui réserve un cadre vide quand elle manque.
-  const image = (semence % 6 === 0) ? '' : `https://exemple.invalid/i/${uuid}.jpg`;
+  // 🔴🔴🔴 RELOOKING 2 — L'ÉCHANTILLON PORTE MAINTENANT LA **FORME DU CDN**.
+  //
+  // Il écrivait `https://exemple.invalid/i/<uuid>.jpg`. C'est une URL valide,
+  // et c'est précisément le piège déjà payé au lot du barème MCP : *l'échantillon
+  // n'écrit pas la même forme que le réel*, donc un banc branché sur la vraie
+  // forme mord sur du VIDE et reste **vert pour une mauvaise raison**.
+  // Ici, `image_cdn.mjs` ne réécrit QUE `d11unjture0ske.cloudfront.net` : avec
+  // l'ancienne forme, aucun `test:images` n'aurait jamais rien vu.
+  //
+  // Les trois variantes et leurs proportions sont MESURÉES le 06/09/2026 sur
+  // 131 images de production : `webpFull.webp` (collectibles surtout),
+  // `full.jpeg` et `full.webp` (comics). ⭐ Et une pièce sur onze garde une URL
+  // ÉTRANGÈRE au CDN — c'est le chemin « on ne touche à rien », qui doit rester
+  // emprunté : *un chemin jamais emprunté n'est pas sûr, il est non mesuré.*
+  const FAMILLE = estComic ? 'comic_cover' : 'collectible_type_image';
+  const SUFFIXES = ['webpFull.webp', 'full.jpeg', 'full.webp'];
+  const image = (semence % 6 === 0)
+    ? ''
+    : (semence % 11 === 0)
+      ? `https://exemple.invalid/i/${uuid}.jpg`
+      : `https://d11unjture0ske.cloudfront.net/${FAMILLE}.${uuid}.`
+        + `${uuid.split('').reverse().join('')}.${SUFFIXES[semence % 3]}`;
   // ═══════════════════════════════════════════════════════════════════════
   // 🔴🔴🔴 LOT 193 — UNE PIÈCE SUR 23 PORTE UNE ANNONCE FANTAISISTE
   // ═══════════════════════════════════════════════════════════════════════

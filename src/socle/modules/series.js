@@ -231,15 +231,43 @@ var G = document.getElementById('s-grille');
     var pile = document.createElement('span');
     pile.className = 'col-carte__pile';
     pile.setAttribute('aria-hidden', 'true');
-    (ix.val(l, 'c') || []).forEach(function (u) {
+    var replis = ix.val(l, 'cr') || [];
+    (ix.val(l, 'c') || []).forEach(function (u, rang) {
       var socle = document.createElement('span');
       socle.className = 'socle';
       if (u) {
         var img = document.createElement('img');
-        img.className = 'socle__net ok';
+        // ⭐ `pile__v` : le MÊME marqueur d'usage que `CarteSet.astro`. Sans lui,
+        // les cartes bâties par le pilote sortiraient du champ de `test:images`
+        // §2 — la seconde fabrique redevient invisible au banc.
+        img.className = 'socle__net pile__v ok';
         // ⭐ LE PRÉFIXE EST RECOLLÉ, PAS DEVINÉ : le producteur ne factorise que
         // les adresses qui le portent, et stocke les autres ENTIÈRES.
-        img.src = (String(u).indexOf('http') === 0 ? '' : (ix.charge.cdn || '')) + u;
+        var colle = function (v) {
+          return (String(v).indexOf('http') === 0 ? '' : (ix.charge.cdn || '')) + v;
+        };
+        img.src = colle(u);
+        // 🖼️ RELOOKING 2 — LE REPLI VOYAGE AVEC L'ADRESSE.
+        // `c` porte la VIGNETTE (c'est ce que le serveur rend, et `test:series`
+        // §2 le vérifie adresse par adresse) ; `cr` porte l'original. Une
+        // vignette sur soixante n'existe pas sur le CDN — mesuré le 06/09.
+        // ⛔ Le geste est le MÊME que `ONERROR_REPLI` (engine/lib/image_cdn.mjs),
+        //    réécrit ici parce que ce fichier part au navigateur en clair et
+        //    n'importe rien du moteur. `test:images` §4 compare les deux.
+        var repli = replis[rang] ? colle(replis[rang]) : '';
+        if (repli) {
+          img.setAttribute('data-repli', repli);
+          img.onerror = function () {
+            if (this.dataset.repli) {
+              this.removeAttribute('srcset');
+              this.src = this.dataset.repli;
+              this.removeAttribute('data-repli');
+              return;
+            }
+            var s = this.closest('.socle');
+            if (s) s.classList.add('socle--casse');
+          };
+        }
         img.alt = ''; img.width = 400; img.height = 600;
         img.loading = 'lazy'; img.decoding = 'async';
         socle.appendChild(img);

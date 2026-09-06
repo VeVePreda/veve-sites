@@ -28,6 +28,7 @@ import Base from '../../layouts/Base.astro';
 import BarreAcces from '../BarreAcces.astro';
 import { t, localize, numberLocale } from '../../../engine/lib/i18n.mjs';
 import { rar, forme, delta, gemsM, omiM, RAR, mcpPoints, sparklineNormalisee, jourISO, urlStackR, serieUtile } from '../../../engine/lib/vitrine.mjs';
+import { sourcesImage, ONERROR_REPLI } from '../../../engine/lib/image_cdn.mjs';
 // 🔴🔴🔴 LOT 155-C — LA SÉLECTION EST SORTIE D'ICI. Filtrer, trier et
 // trancher 8 840 fiches est du calcul, pas du balisage : dans un module pur
 // ça s'éprouve sans DOM, sans build et dans les DEUX corpus. Ici, ça ne
@@ -988,7 +989,16 @@ const ILE_TUILES = JSON.stringify({
               une case grise ressemble à une image qui n'a pas chargé. */}
           <td class="rang vign">
             {i.image
-              ? <img class="vign__i" src={i.image} alt="" width="48" height="72" loading="lazy" decoding="async" />
+              ? (() => {
+                  /* 🖼️ RELOOKING 2 — 48 px, ET C'EST LE CSS QUI LE DIT
+                     (`theme.css`, `.vign__i{width:48px}`), pas cet attribut.
+                     ⭐ 48 × 2 = 96 ≤ 132 : la vignette du CDN reste NETTE même
+                     sur un écran à double densité, donc pas de `srcset`. */
+                  const v = sourcesImage(i.image, 48);
+                  return <img class="vign__i" src={v.src} data-repli={v.repli} alt=""
+                              width="48" height="72" loading="lazy" decoding="async"
+                              onerror={ONERROR_REPLI} />;
+                })()
               : <span class="vign__v forme" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#s-r-ULTRA_RARE"/></svg></span>}
           </td>
           <td><a class="tbl-obj" href={localize(lang, i.path)}>

@@ -1,0 +1,40 @@
+---
+// ⚠️ VeVePreda/veve-sites — src/pages/500.astro   (FICHIER NEUF — relooking 2)
+// ═══════════════════════════════════════════════════════════════════════════
+// LA PAGE QUE LE SITE SERT QUAND IL NE PEUT PLUS SE SERVIR LUI-MEME
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// 🔴🔴🔴 ELLE DOIT ETRE PRE-GENEREE, ET C'EST TOUTE SA CONTRAINTE.
+// Une 500 rendue A LA DEMANDE serait servie par le processus qui vient de
+// tomber : elle tomberait avec lui, et nginx retomberait sur SA page blanche.
+// ⇒ Aucun `prerender = false` ici, aucun appel a `dataset()`, aucune route de
+//   compte, aucun chiffre. Ce fichier ne doit dependre de RIEN.
+//
+// ⚠️ ET LE FICHIER SEUL NE SUFFIT PAS — meme lecon que la 404, payee au lot 34 :
+// nginx doit la DESIGNER (`error_page 500 502 503 504 /500.html;`), dans
+// `nginx.conf` ET `nginx.server.conf`. `test:nginx` verifie les deux.
+//
+// 🌱 POSE `panique`, ASSIGNEE PAR `floora.mjs` — pas choisie a l'ambiance.
+// ⛔ AUCUNE BULLE NE PORTE DE VALEUR MESUREE : sur une page d'erreur, un chiffre
+//    serait au mieux perime, au pire faux, et personne ne pourrait le verifier.
+//    Le texte dit ce qui est INTACT (le releve) et ce qui ne l'est pas (la page).
+import Base from '../layouts/Base.astro';
+import { locales, t, localize } from '../../engine/lib/i18n.mjs';
+import { floora } from '../../engine/lib/floora.mjs';
+const lang = locales().def;
+const f = floora('500');
+---
+{/* `altPaths={{}}` : comme la 404, nginx n'en designe qu'UNE. */}
+<Base lang={lang} path="/500.html" altPaths={{}} title={t(lang, 'floora.500.t')} description={t(lang, 'floora.500.d')} noindex={true}>
+  <div class="etat">
+    <img class="etat__f" src={f.src} alt={t(lang, f.cle)}
+         width={f.width} height={f.height} loading="eager" decoding="async" />
+    <h1 class="etat__t">{t(lang, 'floora.500.t')}</h1>
+    <p class="etat__d">{t(lang, 'floora.500.d')}</p>
+    {/* ⛔ UN SEUL LIEN, ET IL VA A L'ACCUEIL. Proposer les rayons ici serait
+        proposer des pages servies par le meme processus tombe : on enverrait le
+        visiteur sur une deuxieme erreur. L'accueil est la page la plus simple
+        du site, c'est celle qui a le plus de chances de repondre. */}
+    <p class="etat__l"><a class="btn btn--principal" href={localize(lang, '/')}>{t(lang, 'home.crumb')}</a></p>
+  </div>
+</Base>

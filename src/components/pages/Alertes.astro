@@ -38,6 +38,7 @@
 import Base from '../../layouts/Base.astro';
 import { moduleJs } from '../../../engine/lib/socle_js.mjs';
 import { t, localize, numberLocale } from '../../../engine/lib/i18n.mjs';
+import { sourcesImage, ONERROR_REPLI } from '../../../engine/lib/image_cdn.mjs';
 
 const pilote = moduleJs('alertes');
 
@@ -111,7 +112,13 @@ const quandIso = (s) => new Date(Number(s) * 1000).toISOString();
                   `/favoris/`. ⛔ Cet index a une liste FERMÉE de six champs,
                   aucun n'est un montant — voir `vignettes.mjs`. */}
               {l.image
-                ? <img class="feed__v" src={l.image} alt="" loading="lazy" width="44" height="58" />
+                ? (() => {
+                    /* 🖼️ RELOOKING 2 — 44 px. 44 × 2 = 88 ≤ 132 : net partout. */
+                    const v = sourcesImage(l.image, 44);
+                    return <img class="feed__v" src={v.src} data-repli={v.repli} alt=""
+                                loading="lazy" width="44" height="58"
+                                onerror={ONERROR_REPLI} />;
+                  })()
                 : <span class="feed__v feed__v--vide" aria-hidden="true"></span>}
               <span class="feed__c">
                 {l.path

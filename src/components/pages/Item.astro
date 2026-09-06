@@ -15,6 +15,7 @@ import { productLd, breadcrumbLd, couperMilieu } from '../../../engine/lib/seo.m
 import { manifest, siteUrl } from '../../../engine/lib/manifest.mjs';
 import { DESC_MIN, DESC_MAX } from '../../../engine/lib/editorial_pages.mjs';
 import { t, localize, numberLocale, dateLocale, nu } from '../../../engine/lib/i18n.mjs';
+import { grandeImage, ONERROR_REPLI } from '../../../engine/lib/image_cdn.mjs';
 import { postsForItem } from '../../../engine/lib/blog.mjs';
 import { rar, forme, delta, gemsM, RAR, omiM, mcpPoints, mentionEdition, dateSeule, urlStackR } from '../../../engine/lib/vitrine.mjs';
 import { franchit, porte, acces } from '../../../engine/lib/access.mjs';
@@ -436,12 +437,25 @@ const mcpJour = mcpPoints(item.rarity, item.type);
               ⚠️ `ok` est en dur et c'est voulu : le fondu au chargement
               demanderait du JS, et une image qui depend de JS pour devenir
               visible ne s'affiche pas du tout s'il echoue. */}
-            <img class="socle__fond ok" src={item.image} alt="" aria-hidden="true"
+            {/* 🖼️ RELOOKING 2 — MÊME TAILLE, MEILLEURE COMPRESSION.
+                Ici la vignette du CDN (132 ou 239 px) serait TROP PETITE : la
+                fiche montre l'image en grand, c'est son sujet. Mais 32 des 60
+                couvertures de comics mesurées le 06/09 arrivent en `.full.jpeg`
+                à **1 579 550 o de moyenne**, alors que le même fichier existe
+                en `.webpFull.webp` à **509 799 o** — 29 fois sur 32. **3,1×**,
+                sans toucher à un pixel. Les 3 manquants retombent par
+                `data-repli`, et seulement ensuite le socle se marque cassé.
+                ⚠️ UNE SEULE URL POUR LES DEUX <img> : c'est déjà le contrat du
+                fond diffus et de l'image nette — une requête, un cache. */}
+            <img class="socle__fond ok" src={grandeImage(item.image).src}
+                   data-repli={grandeImage(item.image).repli}
+                   alt="" aria-hidden="true" onerror={ONERROR_REPLI}
                    width="400" height="500" loading="eager" decoding="async" />
               <span class="socle__voile" aria-hidden="true"></span>
-              <img class="socle__net ok" src={item.image} alt={item.name}
+              <img class="socle__net ok" src={grandeImage(item.image).src}
+                   data-repli={grandeImage(item.image).repli} alt={item.name}
                    width="400" height="500" loading="eager" fetchpriority="high" decoding="async"
-                   onerror="this.closest('.socle').classList.add('socle--casse')" />
+                   onerror={ONERROR_REPLI} />
             </>
           ) : (
             <>

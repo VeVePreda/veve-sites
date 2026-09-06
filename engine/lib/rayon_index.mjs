@@ -163,7 +163,24 @@ const COLS_PIECE = ['n', 'se', 'p', 'u', 'r', 'e', 'b', 'l', 'a', 't'];
 //   est stockée ENTIÈRE — `dataset.mjs` n'accepte que du `https://`, il
 //   n'impose pas un hébergeur, et fabriquer un préfixe qu'une adresse ne suit
 //   pas rendrait une image cassée sans le dire.
-const COLS_SET = ['n', 'p', 'b', 'l', 'a', 't', 'ty', 'nv', 'c'];
+// 🖼️ RELOOKING 2 — `cr` REJOINT `c`, ET CE N'EST PAS UN CONFORT.
+// `c` porte désormais l'adresse de la **vignette** (voir plus bas), parce que
+// c'est celle que le serveur rend. Mais la vignette manque une fois sur
+// soixante sur le CDN — mesuré le 06/09 : 129 règles justes sur 131. Sans le
+// repli, une carte BÂTIE par le pilote afficherait un cadre cassé là où la
+// carte RENDUE par le serveur, elle, retomberait sur l'original.
+// ⛔ Et le repli ne se DÉDUIT PAS de la vignette : `.thumbnail.jpeg` vient
+// aussi bien de `.webpFull.webp` que de `.full.jpeg`. L'inverse est ambigu, il
+// faut donc le transporter.
+const COLS_SET = ['n', 'p', 'b', 'l', 'a', 't', 'ty', 'nv', 'c', 'cr'];
+
+/** 🖼️ La largeur à laquelle `.col-carte__pile` dessine ses trois vignettes.
+ *  ⭐ 66 px, MESURÉ sur `/collections/` le 06/09 — la carte fait 216 px
+ *  (`theme.css` l. 1503), moins 11 px de marge de chaque côté et 3 px d'écart,
+ *  divisé par trois. ⛔ Cette constante et celle de `CarteSet.astro` disent la
+ *  MÊME chose : si l'une bouge, `test:series` §2 rougit, parce qu'il compare
+ *  précisément les deux fabriques. C'est voulu — c'est le seul garde-fou. */
+const LARGEUR_PILE = 66;
 
 /** Le préfixe factorisé des couvertures. ⭐ Il se MESURE sur les adresses du
  *  build, il ne se déclare pas : un hébergeur écrit en dur ici deviendrait faux
@@ -238,7 +255,16 @@ export function indexRayon(ds, corpus) {
     // qu'on découvre ligne par ligne : il faut avoir vu la dernière adresse
     // pour savoir ce que la première a en commun avec elle.
     const piles = cols.map((c) => pileSet(c));
-    const cdn = prefixeCommun(piles.flat().map((i) => i.image).filter(Boolean));
+    // 🖼️ RELOOKING 2 — LES DEUX FAMILLES D'ADRESSES ENTRENT DANS LE PRÉFIXE.
+    // Le préfixe se mesure sur ce qu'on va ÉCRIRE, pas sur ce qu'on a lu : `c`
+    // porte des `…thumbnail.jpeg` et `cr` des `…full.jpeg`. Les mesurer sur les
+    // seules adresses d'origine donnerait un préfixe que la moitié des valeurs
+    // écrites ne portent pas — et `slice()` ne couperait rien, en silence.
+    const _vig = (u) => sourcesImage(u, LARGEUR_PILE);
+    const _toutes = piles.flat().map((i) => i.image).filter(Boolean)
+      .flatMap((u) => { const v = _vig(u); return v.repli ? [v.src, v.repli] : [v.src]; });
+    const cdn = prefixeCommun(_toutes);
+    const court = (u) => (cdn && u.startsWith(cdn) ? u.slice(cdn.length) : u);
     const lignes = cols.map((c, k) => {
       // ⚠️ CHAQUE AXE EST DÉRIVÉ DES PIÈCES DU SET, JAMAIS DÉCLARÉ SUR LE SET —
       // c'est le raisonnement du lot 68, repris ici parce que la source est la
@@ -260,9 +286,16 @@ export function indexRayon(ds, corpus) {
         nomCoupe.tronque ? nomCoupe.vu : 0,
         // ⭐ LA PILE : l'adresse, ou `0` pour le repère gris. ⛔ `0` et JAMAIS
         // une chaîne vide : `src=""` recharge la PAGE COURANTE (lot 131).
-        piles[k].map((i) => (i.image
-          ? (cdn && i.image.startsWith(cdn) ? i.image.slice(cdn.length) : i.image)
-          : 0)),
+        // 🖼️ RELOOKING 2 — L'INDEX DÉPOSE CE QUE LE SERVEUR REND, PAS LA SOURCE.
+        // `test:series` §2 met les deux fabriques côte à côte et compare les
+        // adresses UNE À UNE. Transformer côté serveur sans transformer ici
+        // faisait exactement le défaut que ce banc existe pour attraper : le
+        // pilote aurait bâti des cartes en pleine résolution sous des cartes
+        // servies en vignette. ⭐ Il a rougi au premier build. *Un fichier
+        // déposé n'est pas branché — rejouer les bancs voisins.*
+        piles[k].map((i) => (i.image ? court(_vig(i.image).src) : 0)),
+        piles[k].map((i) => { const v = i.image ? _vig(i.image) : null;
+          return v && v.repli ? court(v.repli) : 0; }),
       ];
     });
     return charge('sets', '/collection/', COLS_SET, dic, lignes, { cdn });
@@ -383,6 +416,7 @@ function charge(corpus, prefixe, cols, dic, lignes, extra = {}) {
 
 import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
+import { sourcesImage } from './image_cdn.mjs';
 
 // ⭐ `PROJECT_ROOT || cwd()` — LA LIGNE EXACTE DE `cote.mjs` l. 61 ET DE
 //   `vignettes.mjs`. ⛔ Pas `import.meta.url` : Astro **bundle** ce module dans

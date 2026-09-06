@@ -3263,3 +3263,39 @@ body[data-tiroir]::after{ opacity:1; pointer-events:auto; }
   display:block; max-width:34ch;
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   🌱 L'ÉTAT VIDE — RELOOKING 2 (06/09/2026)
+   ═══════════════════════════════════════════════════════════════════════════
+   Écrit pour le 404 et le 500, et écrit UNE FOIS parce que les états vides qui
+   suivent (filtre sans résultat, favoris vides, alertes armées) sont la même
+   forme avec un autre texte et une autre pose. Une seconde règle pour la même
+   forme, c'est deux endroits à corriger au prochain lot.
+
+   ⛔ FLOORA N'EST PAS DANS UNE CARTE, et c'est une règle du brief, pas un goût :
+   `.etat` n'a ni fond, ni bordure, ni ombre. Elle vit sur le fond de la page.
+
+   📐 `--floora-h:104px` est la hauteur d'AFFICHAGE que `floora.mjs` calcule
+   (fichier de 208 px, servi à densité 2). ⚠️ Elle est écrite ICI **et** dans les
+   attributs `width`/`height` de la balise : les attributs réservent la place
+   avant que la feuille n'arrive, la règle tient la mise en page ensuite. Les
+   deux disent le même nombre — `test:floora` §3 le vérifie.
+
+   ⭐ `width:auto` : les deux poses n'ont pas le même rapport (loupe 254×208,
+   panique 216×208). Une largeur fixe en écraserait une des deux. */
+.etat{
+  display:grid; justify-items:center; text-align:center;
+  gap:var(--s4); max-width:52ch; margin:var(--s7) auto var(--s6);
+  padding:0 var(--s4);
+}
+.etat__f{ display:block; height:104px; width:auto; }
+.etat__t{ font-size:var(--t-2xl); margin:0; }
+.etat__d{ color:var(--text-2); font-size:var(--t-lg); line-height:1.68; margin:0; max-width:46ch; }
+.etat__l{ display:flex; flex-wrap:wrap; gap:var(--s2); justify-content:center; margin-top:var(--s2); }
+
+/* ⚠️ Sous 520 px, la marge du haut mange un tiers de l'écran pour rien : sur un
+   téléphone, l'état vide EST la page, il n'a pas besoin qu'on l'annonce. */
+@media (max-width:520px){
+  .etat{ margin-top:var(--s5); gap:var(--s3); }
+  .etat__f{ height:88px; }
+}

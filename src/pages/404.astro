@@ -6,21 +6,40 @@
 //    (nginx.conf ET nginx.server.conf). Le fichier seul ne suffit pas.
 // `noindex` : une 404 ne doit jamais entrer dans l'index, et le sitemap
 // l'ignore deja (il ne liste que les routes connues).
+//
+// 🌱 RELOOKING 2 (06/09/2026) — FLOORA ENTRE ICI, ET SEULEMENT ICI POUR L'INSTANT.
+// Le brief : c'est « la seule page où la mascotte ne coûte rien ». Elle est vraie :
+// la 404 est pre-generee, elle ne porte aucun chiffre, et personne n'y vient
+// pour lire une donnee. Une mascotte sur une page de prix aurait a se justifier ;
+// ici elle a juste a etre accueillante.
+// ⛔ LA POSE N'EST PAS CHOISIE : `floora('404')` la rend. Voir engine/lib/floora.mjs.
 import Base from '../layouts/Base.astro';
 import { locales, t, localize } from '../../engine/lib/i18n.mjs';
 import { activeSections, sectionMeta } from '../../engine/lib/editorial_pages.mjs';
 import { blogEnabled } from '../../engine/lib/blog.mjs';
+import { floora } from '../../engine/lib/floora.mjs';
 const lang = locales().def;
 const liens = activeSections().map((s) => sectionMeta(s, lang));
 if (blogEnabled()) liens.push({ section: 'blog', path: '/blog/', title: t(lang, 'blog.title') });
+const f = floora('404');
 ---
 {/* `altPaths={{}}` : il n'existe qu'UNE 404 (nginx n'en designe qu'une).
     Sans ca, le gabarit annonce un /fr/404.html qui n'est jamais construit —
     un hreflang vers le vide, et un lien mort dans le selecteur de langue. */}
 <Base lang={lang} path="/404.html" altPaths={{}} title={t(lang, 'notfound.title')} description={t(lang, 'notfound.desc')} noindex={true}>
-  <h1>{t(lang, 'notfound.title')}</h1>
-  <p class="lead">{t(lang, 'notfound.desc')}</p>
-  <p><a href={localize(lang, '/')}>{t(lang, 'home.crumb')}</a></p>
+  <div class="etat">
+    {/* ⭐ `width`/`height` sont les dimensions d'AFFICHAGE, calculees par
+        `floora()` a partir des dimensions MESUREES du fichier : elles reservent
+        la place avant que la feuille n'arrive. `loading="eager"` parce que
+        cette image EST le contenu de la page — la retarder n'economise rien.
+        ⛔ L'`alt` passe par le dictionnaire : il porte « Floora » dans les cinq
+        langues, et un texte en dur serait anglais partout. */}
+    <img class="etat__f" src={f.src} alt={t(lang, f.cle)}
+         width={f.width} height={f.height} loading="eager" decoding="async" />
+    <h1 class="etat__t">{t(lang, 'floora.404.t')}</h1>
+    <p class="etat__d">{t(lang, 'floora.404.d')}</p>
+    <p class="etat__l"><a class="btn btn--principal" href={localize(lang, '/')}>{t(lang, 'home.crumb')}</a></p>
+  </div>
   {liens.length > 0 && (
     <div class="grid">
       {liens.map((l) => (

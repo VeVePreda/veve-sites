@@ -1,4 +1,5 @@
 ---
+import { sourcesImage, ONERROR_REPLI } from '../../engine/lib/image_cdn.mjs';
 // ⚠️ VeVePreda/veve-sites — src/components/CarteSet.astro   (FICHIER NEUF — lot 131)
 // ═══════════════════════════════════════════════════════════════════════════
 // LA CARTE D'UN SET, ÉCRITE UNE FOIS, RENDUE PARTOUT
@@ -100,8 +101,23 @@ const vignettes = pileSet(col, pile);
     {vignettes.map((i) => (
       <span class="socle">
         {i.image ? (
-          <img class="socle__net ok" src={i.image} alt="" width="400" height="600"
-               loading="lazy" decoding="async" />
+          /* 🖼️ RELOOKING 2 — 66 px, et ce n'est PAS un chiffre choisi : la carte
+             fait 216 px (`theme.css` l. 1503), la pile en montre TROIS avec
+             11 px de marge et 3 px d'écart — mesuré à 66 px sur `/collections/`
+             le 06/09. 66 × 2 = 132 ≤ 132 : net au pixel près à densité 2. */
+          (() => {
+            const v = sourcesImage(i.image, 66);
+            /* ⭐ `pile__v` EN PLUS DE `socle__net`, ET C'EST UN MARQUEUR D'USAGE.
+               `socle__net` habille AUSSI la grande image de la fiche, où la
+               pleine résolution est légitime : un banc branché sur ce nom-là
+               accuserait la fiche d'être trop lourde. Il a d'ailleurs commencé
+               par le faire — 28 faux rouges au premier tour. `pile__v` ne
+               désigne que les trois vignettes de 66 px d'une carte de set.
+               ⛔ AUCUNE RÈGLE CSS NE LE VISE : il ne change pas un pixel. */
+            return <img class="socle__net pile__v ok" src={v.src} data-repli={v.repli}
+                        alt="" width="400" height="600"
+                        loading="lazy" decoding="async" onerror={ONERROR_REPLI} />;
+          })()
         ) : (
           <span class="forme forme--xl" style="--c-a:var(--rule-2)">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
