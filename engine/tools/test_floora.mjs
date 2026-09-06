@@ -211,6 +211,63 @@ else {
     `${bulles} clé(s) \`floora.*\` au total — le § a de quoi mordre dans chaque langue`);
 }
 
+// ═══ §5 bis — AUCUNE BULLE NE SERT SA PROPRE CLÉ ══════════════════════════
+// 🔴🔴🔴 CE PARAGRAPHE EXISTE PARCE QUE LA PANNE A ÉTÉ SERVIE, LE 06/09.
+// La bulle de `/sets/` sortait, mot pour mot :
+//     « floora.setsA set has no single price but … »
+// Cause : `set:html={t(…)}` était le PREMIER du dépôt. Sous `I18N_MARQUAGE=1`
+// — que le Dockerfile pose, donc en PRODUCTION — `t()` entoure le texte de
+// sentinelles, et `outils/marquer_i18n.mjs` ne sait les convertir en
+// `span data-i18n` que sur du texte SIMPLE. La valeur contenant du balisage,
+// il a retiré les sentinelles et laissé la CLÉ dans la phrase.
+// ⭐⭐ ET AUCUN BANC N'AURAIT MORDU : `test:i18n` cherche les sentinelles
+// SURVIVANTES, il n'en restait aucune. Le défaut n'est visible qu'en LISANT le
+// texte servi. *Un contrôle qui cherche des restes ne voit pas une substitution
+// qui a « réussi » au mauvais endroit.*
+// ⛔ Il se juge sur `dist/`, donc APRÈS le build ET après `marquer:i18n` :
+// avant le marquage, la clé n'est pas encore là.
+console.log('\n§5 bis — aucune bulle ne sert sa propre clé');
+{
+  const D = join(R, 'dist');
+  if (!existsSync(D)) noter('INDÉCIDABLE : pas de `dist/` — ce contrôle se juge après le build');
+  else {
+    const html = [];
+    const marche = (d) => { for (const e of readdirSync(d, { withFileTypes: true })) {
+      const q = join(d, e.name);
+      if (e.isDirectory()) marche(q); else if (e.name.endsWith('.html')) html.push(q);
+    } };
+    marche(D);
+    const fautives = [];
+    let vues = 0;
+    for (const f of html) {
+      const t0 = readFileSync(f, 'utf8');
+      for (const m of t0.matchAll(/<p class="bulle"[^>]*>([\s\S]{0,80})/g)) {
+        vues++;
+        // ⭐ On cherche une CLÉ EN TÊTE DE PHRASE — `floora.sets` collé au
+        // texte. ⛔ Pas « la chaîne floora apparaît » : le mot « Floora » est
+        // dans l'`alt` de toutes les images, et le contrôle serait rouge
+        // partout pour une raison qui n'a rien à voir.
+        if (/^\s*[a-z][a-z0-9]*(\.[a-z0-9]+)+/.test(m[1])) {
+          fautives.push(`${f.replace(R, '')} → « ${m[1].slice(0, 40)}… »`);
+        }
+      }
+    }
+    if (!vues) noter('SANS OBJET : aucune bulle servie dans `dist/`');
+    else {
+      dire(fautives.length === 0, fautives.length === 0
+        ? `${vues} bulle(s) servie(s), aucune ne commence par une clé i18n`
+        : `🔴 ${fautives.length} bulle(s) servent leur clé :\n       ` + fautives.slice(0, 3).join('\n       '));
+      // ⭐⭐ L'AUTO-CONTRÔLE — sans lui, un motif trop strict rendrait ce
+      // paragraphe vert pour toujours, et personne ne le saurait.
+      const motif = /^\s*[a-z][a-z0-9]*(\.[a-z0-9]+)+/;
+      dire(motif.test('floora.setsA set has no single price'),
+        '…et le motif reconnaît bien la phrase qui a été SERVIE le 06/09 (auto-contrôle)');
+      dire(!motif.test('A set has no single price but <b>a range</b>'),
+        '…et il laisse passer une bulle saine (auto-contrôle)');
+    }
+  }
+}
+
 // ═══ §6 — L'ALT PORTE SON NOM, DANS TOUTES LES LANGUES ════════════════════
 console.log('\n§6 — chaque `alt` dit « Floora »');
 

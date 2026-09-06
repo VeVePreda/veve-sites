@@ -8,6 +8,7 @@ import { t, localize, numberLocale, nu } from '../../../engine/lib/i18n.mjs';
 import { rar, gemsM } from '../../../engine/lib/vitrine.mjs';
 import { coteFermee as coteEstFermee } from '../../../engine/lib/cote.mjs';
 import Cote from '../Cote.astro';
+import BandeauOutil from '../BandeauOutil.astro';
 
 const { lang, col, updatedAt } = Astro.props;
 const root = siteUrl();
@@ -67,8 +68,9 @@ const titreCollection = [...nu(brutCollection)].length <= TITLE_BUDGET
       description={t(lang, 'desc.collection', { name: col.name, n: col.items.length })} ld={ld} updatedAt={updatedAt}
       crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') }, { name: t(lang, 'collections.title'), url: localize(lang, '/collections/') }, { name: col.name }]}>
   <div class="h-page">
-    <div><h1 class="mono-t">{col.name}</h1>
-      <p class="respire muted">{items.length} {t(lang, 'collection.tracked')}.</p></div>
+    <BandeauOutil titre={col.name}
+                  compte={`${items.length} ${t(lang, 'collection.tracked')}`}
+                perche="collections" lang={lang} />
   </div>
   {/* ⭐ Les trois chiffres de la série, au format `stats` de la maquette. */}
   <div class="stats">

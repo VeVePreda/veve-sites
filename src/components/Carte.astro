@@ -20,6 +20,7 @@ import Cote from './Cote.astro';
 //   budgets de coupe quittent le gabarit (ils y seraient devenus 4 seuils).
 import Extremes from './Extremes.astro';
 import { nomItem } from '../../engine/lib/vignette.mjs';
+import { imageCarte, ONERROR_REPLI } from '../../engine/lib/image_cdn.mjs';
 
 // 🔴🔴 LOT 139 — `ed` PASSE À `true` PAR DÉFAUT, ET C'EST LA CORRECTION.
 // Mesuré en prod le 11/08 : `ed` n'était passé QUE par `Home.astro:391` — une
@@ -59,6 +60,18 @@ const money = (v) => (v === null || v === undefined ? '—' : v.toLocaleString(n
 // ⚠️ `--i` porte le rang dans la grille : le thème s'en sert pour décaler
 // l'apparition. Sans lui, les cartes surgissent toutes en même temps — et une
 // apparition simultanée n'est pas une animation, c'est un clignotement.
+
+// ⭐ UNE SEULE DÉCISION D'IMAGE PAR CARTE, prise au point unique. Les deux
+// <img> la partagent : même URL, donc même requête et même cache — c'est la
+// propriété que le balisage avait déjà, et la vignette ne doit pas la casser.
+// 🔴 Avant ce lot, cette carte servait `item.image` BRUT : ni vignette, ni même
+// compression. Elle n'importait pas ce module du tout. Mesuré en production :
+// 2 000 px servis pour 174 à 207 px dessinés, sur 3 195 pages de collection.
+const imgC = imageCarte(item.image);
+// ⚠️ CHANGEMENT ASSUMÉ : le fond diffus n'avait AUCUN `onerror`. Il porte
+// désormais le même que l'image nette. Comme les deux partagent l'URL, elles
+// échouent ensemble — le gestionnaire commun ne peut donc pas marquer le socle
+// cassé pour un fond qui aurait échoué seul.
 ---
 {/* ═══════════════════════════════════════════════════════════════════════
     ❤️ LOT 126 — LE CŒUR ARRIVE SUR LES CARTES, ET IL EST DEHORS DU LIEN
@@ -89,12 +102,13 @@ const money = (v) => (v === null || v === undefined ? '—' : v.toLocaleString(n
       <>
         {/* Deux <img>, UNE SEULE URL : même requête, même cache. Le fond diffus
             remplit le cadre, l'image nette se pose dessus. */}
-        <img class="socle__fond ok" src={item.image} alt="" aria-hidden="true"
-             width="400" height="600" loading="lazy" decoding="async" />
+        <img class="socle__fond ok" src={imgC.src} alt="" aria-hidden="true"
+             data-repli={imgC.repli} width="400" height="600"
+             loading="lazy" decoding="async" onerror={ONERROR_REPLI} />
         <span class="socle__voile"></span>
-        <img class="socle__net ok" src={item.image} alt={item.name}
-             width="400" height="600" loading="lazy" decoding="async"
-             onerror="this.closest('.socle').classList.add('socle--casse')" />
+        <img class="socle__net ok" src={imgC.src} alt={item.name}
+             data-repli={imgC.repli} width="400" height="600"
+             loading="lazy" decoding="async" onerror={ONERROR_REPLI} />
       </>
     ) : (
       <>

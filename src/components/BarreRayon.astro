@@ -77,22 +77,84 @@ const ONGLETS = [
   { g: 'marque', l: t(lang, 'sets.brand'), puces: 'b', recherche: true },
   { g: 'rarete', l: t(lang, 'item.rarity'), puces: 'r' },
   { g: 'edition', l: t(lang, 'rayon.edition'), puces: 'e' },
-  { g: 'annee', l: t(lang, 'sets.year') },
-  { g: 'tirage', l: t(lang, 'item.supply') },
+  // 🆕 LOT D — `bornes` remplace les DEUX panneaux qui étaient écrits à la main
+  // sous la boucle. Ce n'est pas un embellissement : dans le rail, chaque
+  // panneau doit suivre SON bouton dans le DOM (un accordéon vertical), et deux
+  // panneaux écrits en dehors de la boucle ne pouvaient pas y être placés.
+  // ⭐ Les quatre champs gardent leurs `id` (`r-a1`, `r-a2`, `r-t1`, `r-t2`) :
+  // le pilote les lit par identifiant, il ne voit pas ce déplacement.
+  { g: 'annee', l: t(lang, 'sets.year'), bornes: ['r-a1', 'r-a2'], lib: ['sets.yearFrom', 'sets.yearTo'] },
+  { g: 'tirage', l: t(lang, 'item.supply'), bornes: ['r-t1', 'r-t2'], lib: ['movers.supplyMin', 'movers.supplyMax'] },
 ];
 ---
-{/* ⭐ LE MUR, ET IL DIT CE QU'IL FAUT FAIRE. Un formulaire simplement absent
-    laisse croire que la page n'a pas de filtre ; une phrase dit qu'il existe et
-    à quelle condition. Même clé que `/sets/` : une seule phrase à traduire, et
-    surtout une seule à corriger le jour où elle change. */}
-<p class="etiq filtres-mur" data-anonyme>{t(lang, 'sets.filtersLocked')}</p>
+{/* ═══════════════════════════════════════════════════════════════════════
+    🆕 LOT D — LA BARRE DEVIENT UN RAIL (PC) ET UNE FEUILLE (MOBILE)
+    ═══════════════════════════════════════════════════════════════════════
+    ⭐⭐⭐ CE QUI NE CHANGE PAS, ET C'EST LE CŒUR DU LOT : les crochets que le
+    pilote lit. `.f-b[data-g]`, `#rp-<g>`, `.cpt-f`, `.cols-l[data-puces]`,
+    `#r-q`, `#r-tri`, `#r-a1/a2`, `#r-t1/t2`, `#r-actifs`, `#r-cpt` sont
+    IDENTIQUES. `rayon.js` (634 lignes) n'a pas à savoir que la forme a changé.
+    ⛔ Réécrire le pilote pour une question de mise en page aurait été le
+    chemin cher : la forme est un problème de CSS et de PLACE dans le DOM.
+
+    🔴 CE QUI CHANGE DANS LE DOM, ET POURQUOI IL FALLAIT LE CHANGER :
+    chaque panneau suit désormais SON bouton, dans un `.rail-g`. Avant, les six
+    panneaux vivaient à la queue du formulaire — une disposition qui n'a de sens
+    que pour une barre horizontale, où le panneau s'ouvre en dessous de TOUT.
+    Dans un rail vertical, un panneau qui s'ouvre à 400 px de son bouton ne se
+    rattache à rien. ⭐ Et c'est le DOM qui doit porter ce lien, pas le CSS :
+    `order` déplacerait l'affichage sans déplacer le parcours au clavier ni
+    l'ordre de lecture d'un lecteur d'écran.
+
+    📐 LES DEUX VUES, ET ELLES SONT UN SEUL BALISAGE (leçon du bandeau-outil du
+    06/09 : `.hero-ap`/`.hero-pc` sont deux VUES, pas deux composants). Émettre
+    un rail ET une feuille ferait deux formulaires, donc deux `#f-rayon`, donc
+    des identifiants en double et un pilote qui n'en trouve qu'un. */}
+
+{/* ⭐ LE MUR, ET IL DIT MAINTENANT CE QU'ON GAGNE, PAS SEULEMENT CE QU'ON N'A
+    PAS. Arbitrage de Preda du 06/09 : « le rail, noms visibles, chiffres
+    cachés ». Un visiteur non connecté voit les SIX axes exister — Rareté,
+    Tirage, Licence, Marque, Édition, Année — et comprend ce que le compte
+    ouvre. Avant, il lisait une phrase et devait deviner.
+    ⛔⛔ ET AUCUN CHIFFRE N'ENTRE ICI. Pas de compteur par option, pas de
+    nombre de licences : Preda, 06/09 — « ouvrir la FORME, fermer tout
+    CHIFFRE ». Les noms des axes ne sont pas une donnée du catalogue, ce sont
+    les rubriques du site. ⭐ Le compte par option, lui, est calculé par le
+    pilote depuis l'index, et le pilote n'existe pas pour un anonyme.
+    ⚠️ `aria-hidden` n'est PAS posé : ces noms sont du contenu lisible, et un
+    lecteur d'écran doit pouvoir les annoncer comme le fait un œil. */}
+<div class="rail-mur" data-anonyme>
+  <p class="etiq filtres-mur">{t(lang, 'sets.filtersLocked')}</p>
+  <ul class="rail-mur__l">
+    {ONGLETS.map((o) => (<li>{o.l}</li>))}
+  </ul>
+</div>
+
+{/* 🆕 LE DÉCLENCHEUR DE LA FEUILLE — mobile uniquement, et il est DANS le flux.
+    ⛔ Pas un bouton flottant : il doit pousser la liste vers le bas de sa
+    propre hauteur, sinon il recouvre la première tuile. Mesuré en production le
+    06/09 à 375 px : la barre actuelle occupe 314,6 px et repousse la première
+    ligne du rayon à 595,8 px. Ce bouton fait 38 px. C'est le lot.
+    ⭐ `data-membre hidden` comme le formulaire : même forme que le lot 115,
+    donc même règle CSS, donc aucune règle neuve pour le montrer au membre.
+    ⚠️ `aria-controls` pointe le FORMULAIRE, pas une enveloppe : c'est bien lui
+    que le bouton ouvre. `aria-expanded` est tenu par le pilote de la feuille. */}
+<div class="f-lancer" data-membre hidden>
+  <button type="button" class="btn f-ouvrir" aria-controls="f-rayon" aria-expanded="false">
+    {t(lang, 'movers.filters')}<span class="f-armes" hidden>0</span>
+  </button>
+</div>
 
 {/* ⚠️ TOUT CE QUE LE PILOTE NE PEUT PAS DEVINER PASSE PAR UN `data-`, ET RIEN
     D'AUTRE. Un libellé écrit dans `src/socle/modules/rayon.js` serait servi en
     ANGLAIS aux cinq langues, et `test:cles` ne le verrait jamais : il lit les
     appels à `t()`, pas les littéraux d'un fichier `.js`. C'est la faute la plus
-    discrète de ce dépôt — elle passe la revue et elle passe le build. */}
-<form class="barre-f" id="f-rayon" role="search" data-membre hidden
+    discrète de ce dépôt — elle passe la revue et elle passe le build.
+    🆕 `data-rail` dit au pilote que les panneaux ne s'excluent plus : dans un
+    rail, on ouvre Rareté ET Tirage en même temps — c'est ce que la maquette
+    montre, et c'est ce qu'un accordéon vertical permet sans se serrer. Une
+    barre horizontale, elle, n'a de place que pour un panneau ouvert. */}
+<form class="barre-f" id="f-rayon" role="search" data-membre hidden data-rail
       data-corpus={corpus} data-index={`/rayon-index/${corpus}.json`} data-pas={String(pas)}
       data-chargement={t(lang, 'rayon.loading')} data-echec={t(lang, 'rayon.indexFail')}
       data-sansfiche={t(lang, 'rayon.sansfiche')} data-titrecote={t(lang, 'cote.reserve')}
@@ -105,23 +167,35 @@ const ONGLETS = [
       n'est posé QUE dans le Dockerfile (l. 273). `outils/marquer_i18n.mjs`
       cherche alors la fin de la balise pour y écrire `data-i18n-attr` : les `>`
       et les `&quot;` du SVG l'ont désynchronisé, et il a inséré son attribut
-      **AU MILIEU** de la valeur de `data-cadenas` :
-          data-cadenas="<svg … stroke-linecap=&quot;round&quot;
-                        data-i18n-attr="data-chargement:…"><rect …/></svg>"
+      **AU MILIEU** de la valeur de `data-cadenas`.
       ⇒ `data-cadenas` se fermait trop tôt, le `<rect>` fuyait dans la soupe
-      d'attributs, et l'`aria-label` juste après sortait
-      `aria-label="<span data-i18n=…>Filters</span>"`.
+      d'attributs, et l'`aria-label` juste après sortait cassé.
       ⭐⭐⭐ ET RIEN N'AURAIT ROUGI : `test:i18n` ne cherche que les sentinelles
       SURVIVANTES, il n'y en avait aucune. La panne n'existe que dans la
       condition de production, et mon premier build de ce lot ne l'avait pas.
-      → `pieges-environnement` : `RENDERING`, `RECETTE` et `I18N_MARQUAGE=1`.
       ⛔ Et on ne recopie PAS le SVG dans `rayon.js` : ce serait une seconde
-      source du même glyphe. Un `<template>` n'est pas rendu, ne coûte aucun
-      nœud peint, et reste UNE seule source — celle du serveur. */}
+      source du même glyphe. */}
   <template id="r-cadenas" set:html={cadenas}></template>
-  <div class="barre-f__l">
-    <span class="barre-f__t">{t(lang, 'movers.filters')}</span>
 
+  {/* 🆕 LA TÊTE DU RAIL — titre et bouton de repli. Elle n'existe qu'en PC (le
+      CSS la retire en feuille, où le titre est porté par la poignée).
+      ⭐ LE REPLI EST UN VRAI BESOIN MESURÉ, pas une coquetterie : la maquette
+      note « rail replié = 52 px, donc 216 px rendus à la liste ». Sur un
+      tableau de douze colonnes, 216 px sont deux colonnes de plus.
+      ⛔ `aria-expanded` sur CE bouton décrit le RAIL, pas un panneau — d'où un
+      `data-repli` distinct que le pilote de rail lit : confondre les deux
+      ferait annoncer « replié » par un bouton de groupe. */}
+  <div class="barre-f__x">
+    <span class="barre-f__t">{t(lang, 'movers.filters')}</span>
+    <button type="button" class="rail-x" data-repli aria-expanded="true"
+            aria-controls="f-rayon" title={t(lang, 'movers.filters')}>
+      <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor"
+           stroke-width="2.2" stroke-linecap="round"><path d="m14 6-6 6 6 6"/></svg>
+      <span class="sr-only">{t(lang, 'movers.filters')}</span>
+    </button>
+  </div>
+
+  <div class="barre-f__l">
     {/* ⭐⭐ « AVEC UNE FICHE » EST LE PREMIER FILTRE, ET C'EST UNE MESURE QUI LE
         MET LÀ : seuls 8 840 des 19 532 lignes du catalogue ont une page, et
         2,4 % des comics en avaient au lot 113. Un collectionneur qui cherche à
@@ -136,14 +210,14 @@ const ONGLETS = [
     </div>
 
     <span class="sep-v"></span>
-    <div class="champ champ--sm" style="flex:1;min-width:180px;max-width:280px">
+    <div class="champ champ--sm barre-f__q">
       <label class="sr-only" for="r-q">{t(lang, 'rayon.search')}</label>
       <input type="search" id="r-q" placeholder={t(lang, 'rayon.search')} autocomplete="off" />
     </div>
 
     <div class="barre-f__tri">
       <label for="r-tri">{t(lang, 'movers.sortBy')}</label>
-      <div class="champ champ--sm" style="width:200px">
+      <div class="champ champ--sm barre-f__trich">
         {/* 🔴 LE PREMIER TRI EST CELUI DU SERVEUR, ET IL DOIT L'ÊTRE.
             `Rayon.astro` trie « ce qui a une fiche d'abord, puis série, puis
             nom ». Si le tri par défaut de ce sélecteur était autre chose, la
@@ -161,74 +235,73 @@ const ONGLETS = [
     </div>
   </div>
 
+  {/* 🔴🔴 UN GROUPE = UN BOUTON + SON PANNEAU, DANS LE MÊME PARENT.
+      C'est le seul changement de structure du lot, et il porte tout le rail :
+      six `.rail-g` empilés forment l'accordéon vertical de la maquette.
+      ⭐ `.f-onglets` GARDE SON NOM ET SON RÔLE — c'est le groupe des axes. En
+      barre horizontale il enroulait des pastilles ; en rail il empile des
+      groupes. Le renommer aurait cassé `test:familles` et le CSS servi pour
+      décrire la même chose autrement. */}
   <div class="f-onglets" role="group" aria-label={t(lang, 'movers.filters')}>
     {ONGLETS.map((o) => (
-      <button type="button" class="f-b" data-g={o.g} aria-expanded="false" aria-controls={`rp-${o.g}`}>
-        {o.l}<span class="cpt-f" hidden>0</span><Fragment set:html={chevron} />
-      </button>
+      <div class="rail-g">
+        <button type="button" class="f-b" data-g={o.g} aria-expanded="false" aria-controls={`rp-${o.g}`}>
+          {o.l}<span class="cpt-f" hidden>0</span><Fragment set:html={chevron} />
+        </button>
+
+        {/* 🔴🔴 LES PANNEAUX SORTENT VIDES, ET C'EST LE LIVRABLE, PAS UN RESTE.
+            Les puces sont construites par le pilote depuis l'index, au premier
+            clic. Un panneau servi plein coûterait ses octets sur les 839 pages
+            du rayon, y compris à qui ne peut pas l'ouvrir. */}
+        <div class="f-panneau" id={`rp-${o.g}`} hidden>
+          <div class="f-panneau__t">{o.l}</div>
+
+          {o.recherche && (
+            <>
+              {/* ⭐ LA RECHERCHE DANS LE FILTRE LICENCE — demande de Preda, et le
+                  modèle existait déjà à vingt lignes de là (`#s-bq`, filtre
+                  Marque, lot 115b). Avec 93 licences, une liste de cases se
+                  parcourt à l'œil ligne par ligne.
+                  ⭐ ELLE NE FILTRE QUE L'AFFICHAGE DES CASES, jamais les lignes.
+                  ⚠️ `name` ABSENT, délibérément : sans `name`, le champ ne part
+                  pas avec le formulaire, et le bouton `reset` ne le vide pas. */}
+              <label class="sr-only" for={`rq-${o.g}`}>
+                {o.g === 'licence' ? t(lang, 'rayon.licSearch') : t(lang, 'sets.brandSearch')}
+              </label>
+              <input type="search" id={`rq-${o.g}`} class="champ-f" autocomplete="off" data-cherche={o.g}
+                     placeholder={o.g === 'licence' ? t(lang, 'rayon.licSearch') : t(lang, 'sets.brandSearch')} />
+            </>
+          )}
+
+          {o.puces && <div class="cols-l" data-puces={o.puces}></div>}
+          {o.recherche && <p class="etiq" data-vide={o.g} hidden>{t(lang, 'sets.brandNone')}</p>}
+
+          {/* ⚠️ DEUX BORNES SANS `placeholder` GRAVÉ. Un « ex. 1 000 » écrit en
+              dur se périme le jour où le catalogue bouge, en silence, et
+              personne ne relit un placeholder. Le pilote les remplit depuis
+              l'index — donc depuis le corpus réel. */}
+          {o.bornes && (
+            <div class="tiroir__c">
+              <div class="champ champ--sm rail-borne">
+                <label class="etiq" for={o.bornes[0]}>{t(lang, o.lib[0])}</label>
+                <input id={o.bornes[0]} type="number" min={o.g === 'tirage' ? '0' : undefined} step="1" />
+              </div>
+              <div class="champ champ--sm rail-borne">
+                <label class="etiq" for={o.bornes[1]}>{t(lang, o.lib[1])}</label>
+                <input id={o.bornes[1]} type="number" min={o.g === 'tirage' ? '0' : undefined} step="1" />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     ))}
-    <button type="reset" class="f-b">{t(lang, 'movers.reset')}</button>
-  </div>
 
-  {/* 🔴🔴 LES PANNEAUX SORTENT VIDES, ET C'EST LE LIVRABLE, PAS UN RESTE.
-      Voir l'en-tête : les puces sont construites par le pilote depuis l'index,
-      au premier clic. Un panneau servi plein coûterait ses octets sur les 839
-      pages du rayon, y compris à qui ne peut pas l'ouvrir.
-      ⚠️ `data-puces` porte la clé du dictionnaire de l'index — c'est le même
-      attribut que `/sets/` depuis le lot 143, et le champ de recherche cherche
-      le même `data-b` sur les étiquettes. Un second nom d'attribut aurait
-      demandé un second script pour le même geste. */}
-  {ONGLETS.filter((o) => o.puces).map((o) => (
-    <div class="f-panneau" id={`rp-${o.g}`} hidden>
-      <div class="f-panneau__t">{o.l}</div>
-      {o.recherche && (
-        <>
-          {/* ⭐ LA RECHERCHE DANS LE FILTRE LICENCE — demande de Preda, et le
-              modèle existait déjà à vingt lignes de là (`#s-bq`, filtre Marque,
-              lot 115b). Avec 93 licences, une liste de cases se parcourt à
-              l'œil ligne par ligne : chercher « Marvel » demande de le trouver,
-              pas de le taper.
-              ⭐ ELLE NE FILTRE QUE L'AFFICHAGE DES CASES, jamais les lignes. Une
-              case décochée reste décochée quand elle réapparaît — sinon taper
-              trois lettres effacerait la sélection en cours, et personne ne
-              comprendrait pourquoi la liste a bougé.
-              ⚠️ `name` ABSENT, délibérément : sans `name`, le champ ne part pas
-              avec le formulaire, et le bouton `reset` du groupe ne le vide pas —
-              on remet les cases à zéro, pas la recherche. */}
-          <label class="sr-only" for={`rq-${o.g}`}>
-            {o.g === 'licence' ? t(lang, 'rayon.licSearch') : t(lang, 'sets.brandSearch')}
-          </label>
-          <input type="search" id={`rq-${o.g}`} class="champ-f" autocomplete="off" data-cherche={o.g}
-                 placeholder={o.g === 'licence' ? t(lang, 'rayon.licSearch') : t(lang, 'sets.brandSearch')} />
-        </>
-      )}
-      <div class="cols-l" data-puces={o.puces}></div>
-      {o.recherche && <p class="etiq" data-vide={o.g} hidden>{t(lang, 'sets.brandNone')}</p>}
-    </div>
-  ))}
-
-  {/* ⚠️ DEUX BORNES SANS `placeholder` GRAVÉ. Un « ex. 1 000 » écrit en dur se
-      périme le jour où le catalogue bouge, en silence, et personne ne relit un
-      placeholder. Le pilote les remplit depuis l'index — donc depuis le corpus
-      réel, comme `bornes` le fait au serveur sur `/market/`. */}
-  <div class="f-panneau" id="rp-annee" hidden>
-    <div class="f-panneau__t">{t(lang, 'sets.year')}</div>
-    <div class="tiroir__c">
-      <div class="champ champ--sm" style="width:150px"><label class="etiq" for="r-a1">{t(lang, 'sets.yearFrom')}</label>
-        <input id="r-a1" type="number" step="1" /></div>
-      <div class="champ champ--sm" style="width:150px"><label class="etiq" for="r-a2">{t(lang, 'sets.yearTo')}</label>
-        <input id="r-a2" type="number" step="1" /></div>
-    </div>
-  </div>
-
-  <div class="f-panneau" id="rp-tirage" hidden>
-    <div class="f-panneau__t">{t(lang, 'item.supply')}</div>
-    <div class="tiroir__c">
-      <div class="champ champ--sm" style="width:150px"><label class="etiq" for="r-t1">{t(lang, 'movers.supplyMin')}</label>
-        <input id="r-t1" type="number" min="0" step="1" /></div>
-      <div class="champ champ--sm" style="width:150px"><label class="etiq" for="r-t2">{t(lang, 'movers.supplyMax')}</label>
-        <input id="r-t2" type="number" min="0" step="1" /></div>
-    </div>
+    {/* ⭐ LE `reset` RESTE DANS LE GROUPE DES AXES, ET IL RESTE UN `<button
+        type="reset">` : c'est le navigateur qui vide les champs, pas une
+        boucle du pilote. Le jour où un champ s'ajoute, il est vidé sans qu'on
+        y pense. ⚠️ Il ne porte PAS `data-g` : ce n'est pas un axe, et le pilote
+        ne le compte pas parmi les groupes. */}
+    <button type="reset" class="f-b f-b--reset">{t(lang, 'movers.reset')}</button>
   </div>
 
   {/* ⛔ `#r-cpt` SORT VIDE, ET SURTOUT PAS AVEC « chargement… ». Le pilote ne
@@ -239,6 +312,21 @@ const ONGLETS = [
       mensonge servi par défaut.* Le libellé voyage dans `data-chargement`. */}
   <div class="actifs" id="r-actifs" aria-live="polite"></div>
   <p class="etiq" id="r-cpt" role="status"></p>
+
+  {/* 🆕 LE PIED DE LA FEUILLE — mobile uniquement (le CSS le retire en rail).
+      ⭐⭐ IL NE PORTE AUCUN NOMBRE ÉCRIT PAR LE SERVEUR. La maquette dit « Voir
+      les 41 résultats » ; ce 41 est le compte des lignes RETENUES, que seul le
+      pilote connaît. Le serveur écrit le libellé avec un `{n}` et le pilote
+      substitue — c'est déjà la convention de `t()` dans ce dépôt (`{n}`, et
+      jamais `${n}`, piège payé au lot 171).
+      ⛔ Servir « Voir les 0 résultats » en attendant serait un chiffre faux
+      pendant le temps où personne n'a encore filtré. */}
+  <div class="f-pied">
+    <button type="button" class="btn btn--pri f-voir" data-modele={t(lang, 'rayon.voirN', { n: '{n}' })}>
+      {t(lang, 'movers.filters')}
+    </button>
+  </div>
 </form>
+
 
 <p class="respire" id="r-vide" hidden>{t(lang, 'movers.empty')}</p>

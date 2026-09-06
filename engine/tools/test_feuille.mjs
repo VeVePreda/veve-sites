@@ -191,9 +191,36 @@ dit(dedans.length === 1,
 // externe, donc parfois après la première peinture : le clignotement
 // reviendrait « de temps en temps » — pire qu'à chaque fois, parce qu'on
 // cesserait de savoir le reproduire.
-dit(!/html\[data-membre\]/.test(texteFeuilleBrut),
+// 🔴🔴 06/09 — CE CONTRÔLE LISAIT LA PROSE, ET IL A ROUGI SUR UN COMMENTAIRE.
+// Le bloc du rail (LOT D) EXPLIQUE en commentaire pourquoi il ne s'appuie pas
+// sur `gap` : parce que `html[data-membre] form[data-membre][hidden]` force un
+// `display:block`. Citer la règle a suffi à faire rougir le banc, alors
+// qu'aucune règle n'avait été ajoutée à la feuille.
+// ⭐⭐ *Un banc branché sur un NOM trouve la prose ; il faut le brancher sur un
+// USAGE.* C'est une règle déjà payée dans ce dépôt, et `test_membre.mjs` porte
+// déjà la fonction qu'il faut (« un contrôle lit aussi les commentaires »,
+// leçon payée trois fois).
+// ⛔ ET ON NE RETIRE PAS LE COMMENTAIRE POUR FAIRE PASSER LE BANC : ce serait
+// effacer l'explication d'une contrainte réelle pour satisfaire un instrument
+// mal réglé. C'est l'instrument qu'on règle.
+// ⚠️ Le décapage se fait sur les commentaires CSS `/* … */` UNIQUEMENT. Une
+// feuille n'a pas de `//` : un `//` y apparaît dans les `url(https://…)`, et
+// décaper là-dessus mangerait la moitié des lignes.
+const feuilleSansProse = texteFeuilleBrut.replace(/\/\*[\s\S]*?\*\//g, ' ');
+dit(!/html\[data-membre\]/.test(feuilleSansProse),
   'les règles anti-clignotement ne sont PAS dans la feuille externe',
   'dans la feuille, elles arriveraient parfois après la première peinture');
+
+// ⭐⭐⭐ L'AUTO-CONTRÔLE, ET IL EST LE PRIX DU DÉCAPAGE. Décaper, c'est retirer
+// du texte au banc : il faut donc prouver, dans le même souffle, qu'il mord
+// encore sur ce qu'il protège. Sans ça, un décapage trop large rendrait ce
+// contrôle vert POUR TOUJOURS, et personne ne le saurait.
+dit(/html\[data-membre\]/.test('a{b:c}html[data-membre] x{display:none}'.replace(/\/\*[\s\S]*?\*\//g, ' ')),
+  '…et le décapage laisse passer une VRAIE règle (auto-contrôle)',
+  'le décapage a mangé autre chose que des commentaires');
+dit(!/html\[data-membre\]/.test('/* html[data-membre] cité en prose */a{b:c}'.replace(/\/\*[\s\S]*?\*\//g, ' ')),
+  '…et il retire bien la citation en commentaire (auto-contrôle)',
+  'le commentaire survit au décapage');
 
 // ── 2. TOUTES LES PAGES LA RÉFÉRENCENT, AUCUNE NE RÉINLINE ────────────────
 const pages = [];

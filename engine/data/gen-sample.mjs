@@ -273,7 +273,7 @@ for (let i = 0; i < N; i++) {
 //    le même ordre : un en-tête plus long que ses lignes décale TOUT ce qui
 //    suit, silencieusement, et `warehouse.mjs` associera des valeurs à des noms
 //    voisins sans qu'aucune erreur ne soit levée.
-writeFileSync(join(OUT, 'catalogue.csv'), 'uuid,kind,name,edition_type,rarity,release_date,series,brand,licensor,tirage,store_price,floor,listings,ath,atl,ath_date,atl_date,image,veve_url,description,season,start_year\n' + cat.join('\n') + '\n');
+writeFileSync(join(OUT, 'catalogue.csv'), 'uuid,kind,name,edition_type,rarity,release_date,series,brand,licensor,tirage,store_price,floor,listings,ath,atl,ath_date,atl_date,image,veve_url,description,season,start_year,veve_comic_name\n' + cat.join('\n') + '\n');
 writeFileSync(join(OUT, 'prices.csv'), 'veve_uuid,ts_utc,floor,listings\n' + prices.join('\n') + '\n');
 // ⚠️ EN-TETE REEL de prices_baselines, copie de scraper/price_baseline.py.
 // Mon en-tete invente (p50, p95 sans prefixe) a produit un defaut MUET : le

@@ -26,6 +26,7 @@
 // et lui manque vraiment.
 import Base from '../../layouts/Base.astro';
 import BarreAcces from '../BarreAcces.astro';
+import BandeauOutil from '../BandeauOutil.astro';
 import { t, localize, numberLocale } from '../../../engine/lib/i18n.mjs';
 import { rar, forme, delta, gemsM, omiM, RAR, mcpPoints, sparklineNormalisee, jourISO, urlStackR, serieUtile } from '../../../engine/lib/vitrine.mjs';
 import { sourcesImage, ONERROR_REPLI } from '../../../engine/lib/image_cdn.mjs';
@@ -36,6 +37,26 @@ import { sourcesImage, ONERROR_REPLI } from '../../../engine/lib/image_cdn.mjs';
 // `test:pages` reçoit un 302 sur `/market/` et n'atteint pas le rendu.
 import { lireParams, selectionMarche, facettes, parMcp, parMcpOmi, filtreActif,
          PAR_PAGE, RENDU_MAX, TRIS as TRIS_CLES } from '../../../engine/lib/marche_selection.mjs';
+// 🆕 LOT D — la forme de la barre (rail en PC, feuille en mobile). ⭐ Ce n'est
+// PAS le pilote de cette page : le script en ligne plus bas garde le filtrage,
+// les colonnes et les tuiles. `rail.js` ne touche qu'à la forme, et il est le
+// MÊME fichier que sur les rayons — trois pages, une seule feuille à tenir.
+import { moduleJs } from '../../../engine/lib/socle_js.mjs';
+// 🔴🔴🔴 `formeBarre` ET SURTOUT PAS `forme` — LE NOM ÉTAIT DÉJÀ PRIS.
+// `vitrine.mjs` exporte une fonction `forme()` (l. 31), que ce fichier appelle
+// pour dessiner les pastilles de rareté. Ma première version l'a écrasée avec
+// l'objet du module, et le rendu est mort sur `TypeError: forme is not a
+// function`. ⛔⛔ ET LE BUILD EST RESTÉ VERT : `/market/` est `prerender =
+// false`, donc le build ne l'EXÉCUTE jamais — il compile un gabarit qu'il ne
+// rend pas. La panne n'apparaît qu'au premier vrai rendu, c'est-à-dire dans
+// `test:tuiles`, qui lance un serveur… et le serveur MEURT, si bien que le
+// banc ne dit pas « écart » mais s'écroule sur un socket fermé.
+// ⭐⭐⭐ *Un build vert ne dit rien d'une page qu'il ne rend pas.* J'ai d'abord
+// accusé `moduleJs` d'être inutilisable en rendu à la demande — c'était faux :
+// `Base.astro`, `Dashboard`, `Favoris`, `Classeur` l'importent tous. Il a
+// fallu lancer le serveur À LA MAIN, avec une fausse porte veveid, pour LIRE
+// le message au lieu de le deviner.
+const formeBarre = moduleJs('rail');
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 🔴🔴 LOT 104 (07/08/2026) — LA PAGE REVIENT, RÉSERVÉE AUX COMPTES
@@ -458,9 +479,15 @@ const ILE_TUILES = JSON.stringify({
       la couleur rouge pour son market ». Le référentiel est révisé, pas la
       page ; et la baisse comme Secret Rare restent rouges ici, assumé
       (« on ne change rien »). ⛔ Ne pas re-proposer l'orange. */}
+  {/* ⭐ LE SUR-TITRE RESTE, ET IL RESTE DEHORS. Je l'avais supprimé en posant
+      le bandeau : `test:marche` l'a rendu rouge, et il avait raison — **9 pages
+      de tête portent `tete-p__st`**, c'est un invariant du site, pas une
+      décoration de cette page-ci. Le bandeau coiffe le TITRE et son compte ;
+      il n'avale pas un motif partagé par sept autres pages. */}
   <p class="etiq etiq--bleu tete-p__st">// {t(lang, 'movers.title')}</p>
-  <h1 class="mono-t">{t(lang, 'movers.title')}</h1>
-  <p class="respire">{t(lang, 'desc.movers', { n: ds.itemsTotal.toLocaleString(nf) })}</p>
+  <BandeauOutil titre={t(lang, 'movers.title')}
+                aide={t(lang, 'desc.movers', { n: ds.itemsTotal.toLocaleString(nf) })}
+                perche="market" lang={lang} />
 
   {/* ═══════════════════════════════════════════════════════════════════════
       LA BARRE DE FILTRES — portée de la maquette, groupe par groupe
@@ -493,7 +520,26 @@ const ILE_TUILES = JSON.stringify({
       page ; sur une page publique elle serait fausse.
       ⭐ `action` explicite : sans lui, un formulaire GET soumis depuis une URL
       déjà paramétrée reconduit… ses propres paramètres en double. */}
-  <form class="barre-f" id="filtres" role="search" method="get" action={Astro.url.pathname}
+  {/* 🆕 LOT D — LA MÊME ENVELOPPE QUE LES RAYONS ET QUE `/sets/`.
+      ⛔ PAS DE MUR D'ANONYME ICI, ET CE N'EST PAS UN OUBLI : `/market/` est
+      RÉSERVÉE en entier — `no-store`, hors sitemap, elle redirige le visiteur
+      sans compte vers la connexion. Un mur « les filtres ouvrent avec un
+      compte » y serait une phrase que personne ne peut lire. ⭐ *On ne recopie
+      pas un motif là où sa raison d'être n'existe pas.*
+      🔴 ET LE PIED DE LA FEUILLE N'EST PAS LE MÊME QU'AILLEURS. Sur un rayon,
+      filtrer est instantané (le pilote repeint) : « Voir les N résultats »
+      ferme la feuille sur un travail déjà fait. Ici le filtrage est SERVEUR,
+      en GET : tant qu'on n'a pas soumis, rien n'a bougé, et le nombre de
+      retenues de la prochaine page n'existe nulle part. Le pied est donc un
+      VRAI bouton d'envoi. ⛔ Lui donner le libellé des rayons aurait été le
+      même mot pour deux gestes différents — le pire des deux mondes. */}
+  <div class="avec-rail">
+  <div class="f-lancer" data-membre hidden>
+    <button type="button" class="btn f-ouvrir" aria-controls="filtres" aria-expanded="false">
+      {t(lang, 'movers.filters')}<span class="f-armes" hidden>0</span>
+    </button>
+  </div>
+  <form class="barre-f" id="filtres" role="search" method="get" action={Astro.url.pathname} data-rail
         aria-label={t(lang, 'movers.filters')}>
     {/* ⭐ LES TROIS TÉMOINS. Ils ne sont pas des filtres : ils portent ce que
         des boutons (et non des champs) décident. Sans eux, le corpus et la vue
@@ -502,6 +548,15 @@ const ILE_TUILES = JSON.stringify({
         règle du 01/08 : quelqu'un qui a déplié 200 lignes puis restreint à une
         rareté ne doit pas garder un « 200 / 12 » absurde. Le « voir plus » est
         un LIEN qui porte sa propre valeur — il ne passe pas par ce champ. */}
+    <div class="barre-f__x">
+      <span class="barre-f__t">{t(lang, 'movers.filters')}</span>
+      <button type="button" class="rail-x" data-repli aria-expanded="true"
+              aria-controls="filtres" title={t(lang, 'movers.filters')}>
+        <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor"
+             stroke-width="2.2" stroke-linecap="round"><path d="m14 6-6 6 6 6"/></svg>
+        <span class="sr-only">{t(lang, 'movers.filters')}</span>
+      </button>
+    </div>
     <input type="hidden" name="f-c" id="f-c" value={P.corpus} />
     <input type="hidden" name="f-vue" id="f-vue" value={VUE} />
     <input type="hidden" name="f-cx" id="f-cx" value={colsExpl ? '1' : ''} />
@@ -564,14 +619,190 @@ const ILE_TUILES = JSON.stringify({
 
     {/* Un bouton par GROUPE, un seul panneau ouvert à la fois. */}
     <div class="f-onglets" role="group" aria-label={t(lang, 'movers.filters')}>
-      <button type="button" class="f-b" data-g="place" aria-expanded="false" aria-controls="fp-place">{t(lang, 'movers.g.place')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevronU} /></button>
-      <button type="button" class="f-b" data-g="type" aria-expanded="false" aria-controls="fp-type">{t(lang, 'movers.g.type')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevronU} /></button>
-      <button type="button" class="f-b" data-g="lic" aria-expanded="false" aria-controls="fp-lic">{t(lang, 'movers.g.licence')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevronU} /></button>
-      <button type="button" class="f-b" data-g="mar" aria-expanded="false" aria-controls="fp-mar">{t(lang, 'movers.g.marque')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevronU} /></button>
-      <button type="button" class="f-b" data-g="prix" aria-expanded="false" aria-controls="fp-prix">{t(lang, 'movers.g.price')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevronU} /></button>
-      <button type="button" class="f-b" data-g="mint" aria-expanded="false" aria-controls="fp-mint">{t(lang, 'movers.g.mint')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevronU} /></button>
-      <button type="button" class="f-b" data-g="date" aria-expanded="false" aria-controls="fp-date">{t(lang, 'movers.g.date')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevronU} /></button>
-      <button type="button" class="f-b" data-g="cols" aria-expanded="false" aria-controls="fp-cols">{t(lang, 'movers.g.cols')}<Fragment set:html={chevronU} /></button>
+      <div class="rail-g">
+        <button type="button" class="f-b" data-g="place" aria-expanded="false" aria-controls="fp-place">{t(lang, 'movers.g.place')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevronU} /></button>
+        <div class="f-panneau" id="fp-place" hidden>
+          <div class="f-panneau__t">{t(lang, 'movers.g.place')}</div>
+          <div class="cols-l">
+            <label class="puce"><input type="checkbox" name="f-place" value="veve" checked /> VeVe</label>
+            <label class="puce" data-verrou title={attente}><input type="checkbox" disabled /> StackR — {attente}</label>
+          </div>
+        </div>
+      </div>
+      <div class="rail-g">
+        <button type="button" class="f-b" data-g="type" aria-expanded="false" aria-controls="fp-type">{t(lang, 'movers.g.type')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevronU} /></button>
+        <div class="f-panneau" id="fp-type" hidden>
+          <div class="f-panneau__t">{t(lang, 'item.rarity')}</div>
+          <div class="cols-l">
+            {rarete.map((r) => (
+              <label class={`puce puce--rar ${RAR[r].cl}`}>
+                <input type="checkbox" name="f-rar" value={r} checked={P.rar.includes(r)} />
+                <Fragment set:html={formeU.get(cleRar(r)) ?? forme(r)} />{RAR[r].l}
+              </label>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div class="rail-g">
+        <button type="button" class="f-b" data-g="lic" aria-expanded="false" aria-controls="fp-lic">{t(lang, 'movers.g.licence')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevronU} /></button>
+        <div class="f-panneau" id="fp-lic" hidden>
+          <div class="f-panneau__t">{t(lang, 'movers.g.licence')}</div>
+          {/* ⭐ `data-cherche` : le meme geste que le rayon, ou Preda avait releve
+              que « le filtre Marque avait sa recherche, le filtre Licence non, a
+              vingt lignes de distance ». Les deux l'ont ici, par le meme ecouteur.
+              ⚠️ Elle ne filtre que l'AFFICHAGE des cases, jamais les lignes : une
+              case cochee qui disparait de la vue reste cochee — sinon taper trois
+              lettres effacerait la selection en cours. */}
+          <div class="champ champ--sm" style="width:220px;margin-bottom:8px">
+            <input type="search" data-cherche="fp-lic" placeholder={t(lang, 'movers.chercheDansListe')}
+                   autocomplete="off" aria-label={t(lang, 'movers.chercheDansListe')} />
+          </div>
+          <p class="muted" data-vide hidden>{t(lang, 'movers.aucuneValeur')}</p>
+          <div class="cols-l" data-liste>
+            {licences.map(([v, n]) => (
+              <label class="puce" data-b={v.toLowerCase()}>
+                <input type="checkbox" name="f-lic" value={v} checked={P.lic.includes(v)} /> {v}
+                <span class="etiq" style="opacity:.65;margin-left:5px">{n.toLocaleString(nf)}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div class="rail-g">
+        <button type="button" class="f-b" data-g="mar" aria-expanded="false" aria-controls="fp-mar">{t(lang, 'movers.g.marque')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevronU} /></button>
+        <div class="f-panneau" id="fp-mar" hidden>
+          <div class="f-panneau__t">{t(lang, 'movers.g.marque')}</div>
+          <div class="champ champ--sm" style="width:220px;margin-bottom:8px">
+            <input type="search" data-cherche="fp-mar" placeholder={t(lang, 'movers.chercheDansListe')}
+                   autocomplete="off" aria-label={t(lang, 'movers.chercheDansListe')} />
+          </div>
+          <p class="muted" data-vide hidden>{t(lang, 'movers.aucuneValeur')}</p>
+          <div class="cols-l" data-liste>
+            {marques.map(([v, n]) => (
+              <label class="puce" data-b={v.toLowerCase()}>
+                <input type="checkbox" name="f-mar" value={v} checked={P.mar.includes(v)} /> {v}
+                <span class="etiq" style="opacity:.65;margin-left:5px">{n.toLocaleString(nf)}</span>
+              </label>
+            ))}
+            {/* ⭐⭐ LA COUPE SE DIT, ELLE NE SE SUBIT PAS. Sans cette phrase, une
+                marque absente de la liste se lit comme « on ne l'a pas » — deux
+                causes opposees derriere un seul silence, la faute que ce projet paie
+                le plus souvent. ⛔ Et elle ne s'affiche QUE s'il y a un reste. */}
+            {marquesReste > 0 && (
+              <p class="muted" style="width:100%;margin:6px 0 0">
+                {t(lang, 'movers.marquesReste', { n: marquesReste.toLocaleString(nf) })}
+              </p>
+            )}
+          </div>
+          {/* 🔴 LES MARQUES COCHEES QUI SONT HORS DE LA TRANCHE RENDUE VOYAGENT
+              QUAND MEME. Sans ce bloc, filtrer sur une marque rare puis recharger la
+              page perdrait le filtre EN SILENCE : le champ n'existerait plus dans le
+              formulaire, donc le GET ne le renverrait pas. L'URL dirait une chose,
+              la table en montrerait une autre. */}
+          {P.mar.filter((v) => !marques.some(([m]) => m === v)).map((v) => (
+            <input type="hidden" name="f-mar" value={v} />
+          ))}
+        </div>
+      </div>
+      <div class="rail-g">
+        <button type="button" class="f-b" data-g="prix" aria-expanded="false" aria-controls="fp-prix">{t(lang, 'movers.g.price')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevronU} /></button>
+        <div class="f-panneau" id="fp-prix" hidden>
+          <div class="f-panneau__t">{t(lang, 'movers.g.price')}</div>
+          <div class="tiroir__c">
+            <div class="champ champ--sm" style="width:150px"><label class="etiq" for="f-pmin">{t(lang, 'movers.floorMin')}</label>
+              <input id="f-pmin" name="f-pmin" type="number" min="0" step="any" value={P.pmin ?? ''} placeholder={String(bornes.floorMin)} /></div>
+            <div class="champ champ--sm" style="width:150px"><label class="etiq" for="f-pmax">{t(lang, 'movers.floorMax')}</label>
+              <input id="f-pmax" name="f-pmax" type="number" min="0" step="any" value={P.pmax ?? ''} placeholder={String(bornes.floorMax)} /></div>
+            <div class="champ champ--sm" style="width:150px"><label class="etiq" for="f-mcp">{t(lang, 'movers.mcpMax')}</label>
+              <input id="f-mcp" name="f-mcp" type="number" min="0" step="any" value={P.mcp ?? ''} placeholder="∞" /></div>
+          </div>
+          <div class="cols-l" style="margin-top:12px">
+            <label class="puce"><input type="radio" name="f-var" value="" checked={P.vari === ''} /> {t(lang, 'movers.all')}</label>
+            <label class="puce"><input type="radio" name="f-var" value="up" checked={P.vari === 'up'} /> ▲ {t(lang, 'movers.up')}</label>
+            <label class="puce"><input type="radio" name="f-var" value="down" checked={P.vari === 'down'} /> ▼ {t(lang, 'movers.down')}</label>
+          </div>
+          {/* 🔴🔴 LOT 193 — LA CASE QUI RAMÈNE LES PRIX ÉCARTÉS (Preda, 25/08).
+              ⭐ ELLE EST DANS « PRIX & VALEUR », ET PAS DANS « COLONNES » : ce
+              n'est pas un réglage d'affichage, c'est un réglage de CORPUS. Elle
+              change quelles pièces existent pour cette page, comme « Collectibles
+              / Comics » — et personne ne cherche un corpus dans un menu de colonnes.
+              ⛔ `value="1"` ET RIEN D'AUTRE : une case non cochée n'est pas
+              envoyée, donc l'absence du paramètre EST le réglage par défaut du
+              site. C'est ce qui permet à une adresse partagée sans `f-abr` de
+              montrer exactement ce que tout le monde voit.
+              ⚠️ Le libellé dit ce qu'on RAMÈNE, pas ce qu'on cache : « afficher les
+              prix non retenus » se comprend sans avoir lu la règle ; « masquer les
+              aberrations » obligerait à savoir ce qu'est une aberration pour
+              deviner ce que la case décoche. */}
+          <div class="cols-l" style="margin-top:12px">
+            <label class="puce"><input type="checkbox" name="f-abr" value="1" checked={P.abr} /> {t(lang, 'movers.showOutliers')}</label>
+          </div>
+          <p class="etiq" style="margin:8px 0 0;color:var(--muted)">{t(lang, 'movers.outliersHint')}</p>
+        </div>
+      </div>
+      <div class="rail-g">
+        <button type="button" class="f-b" data-g="mint" aria-expanded="false" aria-controls="fp-mint">{t(lang, 'movers.g.mint')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevronU} /></button>
+        <div class="f-panneau" id="fp-mint" hidden>
+          <div class="f-panneau__t">{t(lang, 'movers.g.mint')}</div>
+          <div class="tiroir__c">
+            <div class="champ champ--sm" style="width:150px"><label class="etiq" for="f-smin">{t(lang, 'movers.supplyMin')}</label>
+              <input id="f-smin" name="f-smin" type="number" min="0" step="1" value={P.smin ?? ''} placeholder={String(bornes.tirageMin)} /></div>
+            <div class="champ champ--sm" style="width:150px"><label class="etiq" for="f-smax">{t(lang, 'movers.supplyMax')}</label>
+              <input id="f-smax" name="f-smax" type="number" min="0" step="1" value={P.smax ?? ''} placeholder={String(bornes.tirageMax)} /></div>
+            <div class="champ champ--sm" style="width:150px"><label class="etiq" for="f-lmin">{t(lang, 'movers.listingsMin')}</label>
+              <input id="f-lmin" name="f-lmin" type="number" min="0" step="1" value={P.lmin ?? ''} placeholder="0" /></div>
+          </div>
+        </div>
+      </div>
+      <div class="rail-g">
+        <button type="button" class="f-b" data-g="date" aria-expanded="false" aria-controls="fp-date">{t(lang, 'movers.g.date')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevronU} /></button>
+        <div class="f-panneau" id="fp-date" hidden>
+          <div class="f-panneau__t">{t(lang, 'movers.g.date')}</div>
+          <div class="tiroir__c">
+            <div class="champ champ--sm" style="width:180px"><label class="etiq" for="f-d1">{t(lang, 'movers.after')}</label>
+              <input id="f-d1" name="f-d1" type="date" value={P.d1} min={bornes.dateMin} max={bornes.dateMax} /></div>
+            <div class="champ champ--sm" style="width:180px"><label class="etiq" for="f-d2">{t(lang, 'movers.before')}</label>
+              <input id="f-d2" name="f-d2" type="date" value={P.d2} min={bornes.dateMin} max={bornes.dateMax} /></div>
+          </div>
+        </div>
+      </div>
+      <div class="rail-g">
+        <button type="button" class="f-b" data-g="cols" aria-expanded="false" aria-controls="fp-cols">{t(lang, 'movers.g.cols')}<Fragment set:html={chevronU} /></button>
+        <div class="f-panneau" id="fp-cols" hidden>
+          <div class="f-panneau__t">{t(lang, 'movers.g.cols')}</div>
+          {/* ⭐ LES QUATRE VUES D'ABORD, LES CASES ENSUITE. L'ordre EST le message :
+              ce qu'on lit en premier est ce qu'on est censé régler en premier. */}
+          <div class="cols-l" data-vues>
+            {VUES_COLS.map((v) => (
+              <button type="button" class="f-b" data-vue-cols={v.v}
+                      data-cols={v.cols.join(' ')} aria-pressed="false">{v.l}</button>
+            ))}
+          </div>
+          {/* ⭐⭐ LA PHRASE QUI CHANGE AVEC LA VUE, ET QUI PORTE UN CHIFFRE.
+              ⛔ Elle est rendue par le SERVEUR pour les quatre vues, cachée sauf
+              une : le pilote bascule un attribut, il n'écrit aucun texte. Un pilote
+              qui composerait ces phrases aurait besoin d'une table de traduction à
+              lui — la panne P30 du lot 139, et `test:cles` ne lit pas le JS.
+              ⚠️ Les nombres viennent de la sélection courante : sans droit sur les
+              cotes, `nAvecCote` vaut 0 et la vue « prix » le dit, au lieu de
+              promettre des colonnes qui rendront des tirets. */}
+          <p class="etiq" style="margin:10px 0 0;color:var(--muted)" data-vue-txt="essentiel">{t(lang, 'movers.vueTxt.essentiel', { n: SEL.retenues.toLocaleString(nf) })}</p>
+          <p class="etiq" style="margin:10px 0 0;color:var(--muted)" data-vue-txt="prix" hidden>{t(lang, 'movers.vueTxt.prix', { n: nAvecCote.toLocaleString(nf), t: SEL.rendues.toLocaleString(nf) })}</p>
+          <p class="etiq" style="margin:10px 0 0;color:var(--muted)" data-vue-txt="offre" hidden>{t(lang, 'movers.vueTxt.offre', { n: nAvecTension.toLocaleString(nf), t: SEL.rendues.toLocaleString(nf) })}</p>
+          <p class="etiq" style="margin:10px 0 0;color:var(--muted)" data-vue-txt="tout" hidden>{t(lang, 'movers.vueTxt.tout', { n: String(COLONNES.length) })}</p>
+          {/* Le réglage fin, pour qui veut composer. ⛔ Toujours atteignable : une
+              divulgation progressive cache un contrôle rare, elle ne le supprime pas. */}
+          <details style="margin-top:12px">
+            <summary class="etiq" style="cursor:pointer;color:var(--muted)">{t(lang, 'movers.colsFin')}</summary>
+            <div class="cols-l" style="margin-top:8px">
+              {COLONNES.map((c) => (
+                <label class="puce"><input type="checkbox" name="f-col" value={c.c} checked={colVue(c.c)} /> {c.l}</label>
+              ))}
+            </div>
+            <p class="etiq" style="margin:10px 0 0;color:var(--muted)">{t(lang, 'movers.colsHint')}</p>
+          </details>
+        </div>
+      </div>
       {/* ⭐ « RAZ » EST UN LIEN VERS LA PAGE NUE, PLUS UN `type="reset"`.
           Un reset HTML rend aux champs leur valeur INITIALE — or depuis ce lot
           la valeur initiale EST l'état filtré rendu par le serveur : le bouton
@@ -598,26 +829,8 @@ const ILE_TUILES = JSON.stringify({
 
     {/* ─── PLACE ─── ⛔ StackR est VERROUILLÉ, pas absent : le critère existe,
         c'est sa donnée qui manque. Une case retirée dirait le contraire. */}
-    <div class="f-panneau" id="fp-place" hidden>
-      <div class="f-panneau__t">{t(lang, 'movers.g.place')}</div>
-      <div class="cols-l">
-        <label class="puce"><input type="checkbox" name="f-place" value="veve" checked /> VeVe</label>
-        <label class="puce" data-verrou title={attente}><input type="checkbox" disabled /> StackR — {attente}</label>
-      </div>
-    </div>
 
     {/* ─── TYPE & RARETÉ ─── les raretés dans l'ORDRE CANONIQUE DE VEVE. */}
-    <div class="f-panneau" id="fp-type" hidden>
-      <div class="f-panneau__t">{t(lang, 'item.rarity')}</div>
-      <div class="cols-l">
-        {rarete.map((r) => (
-          <label class={`puce puce--rar ${RAR[r].cl}`}>
-            <input type="checkbox" name="f-rar" value={r} checked={P.rar.includes(r)} />
-            <Fragment set:html={formeU.get(cleRar(r)) ?? forme(r)} />{RAR[r].l}
-          </label>
-        ))}
-      </div>
-    </div>
 
     {/* ═══════════════════════════════════════════════════════════════════
         🔑 LOT 219 — LICENCE ET MARQUE, LE DEFAUT CENTRAL DE L'AUDIT DU 04/09.
@@ -638,159 +851,17 @@ const ILE_TUILES = JSON.stringify({
         ⛔ AUCUN PRIX ICI. Une licence et une marque sont des axes de catalogue.
         `rayon_index.mjs` l. 69 pose la ligne de partage ; ce lot ajoute deux
         axes SANS prix a la table qui a les prix, il ne deplace aucun montant. */}
-    <div class="f-panneau" id="fp-lic" hidden>
-      <div class="f-panneau__t">{t(lang, 'movers.g.licence')}</div>
-      {/* ⭐ `data-cherche` : le meme geste que le rayon, ou Preda avait releve
-          que « le filtre Marque avait sa recherche, le filtre Licence non, a
-          vingt lignes de distance ». Les deux l'ont ici, par le meme ecouteur.
-          ⚠️ Elle ne filtre que l'AFFICHAGE des cases, jamais les lignes : une
-          case cochee qui disparait de la vue reste cochee — sinon taper trois
-          lettres effacerait la selection en cours. */}
-      <div class="champ champ--sm" style="width:220px;margin-bottom:8px">
-        <input type="search" data-cherche="fp-lic" placeholder={t(lang, 'movers.chercheDansListe')}
-               autocomplete="off" aria-label={t(lang, 'movers.chercheDansListe')} />
-      </div>
-      <p class="muted" data-vide hidden>{t(lang, 'movers.aucuneValeur')}</p>
-      <div class="cols-l" data-liste>
-        {licences.map(([v, n]) => (
-          <label class="puce" data-b={v.toLowerCase()}>
-            <input type="checkbox" name="f-lic" value={v} checked={P.lic.includes(v)} /> {v}
-            <span class="etiq" style="opacity:.65;margin-left:5px">{n.toLocaleString(nf)}</span>
-          </label>
-        ))}
-      </div>
-    </div>
 
-    <div class="f-panneau" id="fp-mar" hidden>
-      <div class="f-panneau__t">{t(lang, 'movers.g.marque')}</div>
-      <div class="champ champ--sm" style="width:220px;margin-bottom:8px">
-        <input type="search" data-cherche="fp-mar" placeholder={t(lang, 'movers.chercheDansListe')}
-               autocomplete="off" aria-label={t(lang, 'movers.chercheDansListe')} />
-      </div>
-      <p class="muted" data-vide hidden>{t(lang, 'movers.aucuneValeur')}</p>
-      <div class="cols-l" data-liste>
-        {marques.map(([v, n]) => (
-          <label class="puce" data-b={v.toLowerCase()}>
-            <input type="checkbox" name="f-mar" value={v} checked={P.mar.includes(v)} /> {v}
-            <span class="etiq" style="opacity:.65;margin-left:5px">{n.toLocaleString(nf)}</span>
-          </label>
-        ))}
-        {/* ⭐⭐ LA COUPE SE DIT, ELLE NE SE SUBIT PAS. Sans cette phrase, une
-            marque absente de la liste se lit comme « on ne l'a pas » — deux
-            causes opposees derriere un seul silence, la faute que ce projet paie
-            le plus souvent. ⛔ Et elle ne s'affiche QUE s'il y a un reste. */}
-        {marquesReste > 0 && (
-          <p class="muted" style="width:100%;margin:6px 0 0">
-            {t(lang, 'movers.marquesReste', { n: marquesReste.toLocaleString(nf) })}
-          </p>
-        )}
-      </div>
-      {/* 🔴 LES MARQUES COCHEES QUI SONT HORS DE LA TRANCHE RENDUE VOYAGENT
-          QUAND MEME. Sans ce bloc, filtrer sur une marque rare puis recharger la
-          page perdrait le filtre EN SILENCE : le champ n'existerait plus dans le
-          formulaire, donc le GET ne le renverrait pas. L'URL dirait une chose,
-          la table en montrerait une autre. */}
-      {P.mar.filter((v) => !marques.some(([m]) => m === v)).map((v) => (
-        <input type="hidden" name="f-mar" value={v} />
-      ))}
-    </div>
 
     {/* ─── PRIX & VALEUR ─── */}
-    <div class="f-panneau" id="fp-prix" hidden>
-      <div class="f-panneau__t">{t(lang, 'movers.g.price')}</div>
-      <div class="tiroir__c">
-        <div class="champ champ--sm" style="width:150px"><label class="etiq" for="f-pmin">{t(lang, 'movers.floorMin')}</label>
-          <input id="f-pmin" name="f-pmin" type="number" min="0" step="any" value={P.pmin ?? ''} placeholder={String(bornes.floorMin)} /></div>
-        <div class="champ champ--sm" style="width:150px"><label class="etiq" for="f-pmax">{t(lang, 'movers.floorMax')}</label>
-          <input id="f-pmax" name="f-pmax" type="number" min="0" step="any" value={P.pmax ?? ''} placeholder={String(bornes.floorMax)} /></div>
-        <div class="champ champ--sm" style="width:150px"><label class="etiq" for="f-mcp">{t(lang, 'movers.mcpMax')}</label>
-          <input id="f-mcp" name="f-mcp" type="number" min="0" step="any" value={P.mcp ?? ''} placeholder="∞" /></div>
-      </div>
-      <div class="cols-l" style="margin-top:12px">
-        <label class="puce"><input type="radio" name="f-var" value="" checked={P.vari === ''} /> {t(lang, 'movers.all')}</label>
-        <label class="puce"><input type="radio" name="f-var" value="up" checked={P.vari === 'up'} /> ▲ {t(lang, 'movers.up')}</label>
-        <label class="puce"><input type="radio" name="f-var" value="down" checked={P.vari === 'down'} /> ▼ {t(lang, 'movers.down')}</label>
-      </div>
-      {/* 🔴🔴 LOT 193 — LA CASE QUI RAMÈNE LES PRIX ÉCARTÉS (Preda, 25/08).
-          ⭐ ELLE EST DANS « PRIX & VALEUR », ET PAS DANS « COLONNES » : ce
-          n'est pas un réglage d'affichage, c'est un réglage de CORPUS. Elle
-          change quelles pièces existent pour cette page, comme « Collectibles
-          / Comics » — et personne ne cherche un corpus dans un menu de colonnes.
-          ⛔ `value="1"` ET RIEN D'AUTRE : une case non cochée n'est pas
-          envoyée, donc l'absence du paramètre EST le réglage par défaut du
-          site. C'est ce qui permet à une adresse partagée sans `f-abr` de
-          montrer exactement ce que tout le monde voit.
-          ⚠️ Le libellé dit ce qu'on RAMÈNE, pas ce qu'on cache : « afficher les
-          prix non retenus » se comprend sans avoir lu la règle ; « masquer les
-          aberrations » obligerait à savoir ce qu'est une aberration pour
-          deviner ce que la case décoche. */}
-      <div class="cols-l" style="margin-top:12px">
-        <label class="puce"><input type="checkbox" name="f-abr" value="1" checked={P.abr} /> {t(lang, 'movers.showOutliers')}</label>
-      </div>
-      <p class="etiq" style="margin:8px 0 0;color:var(--muted)">{t(lang, 'movers.outliersHint')}</p>
-    </div>
 
     {/* ─── TIRAGE & OFFRES ─── ⚠️ « mint % » de la maquette n'est PAS ici :
         aucun champ du moteur ne le porte. On ne met pas de curseur sur du vide. */}
-    <div class="f-panneau" id="fp-mint" hidden>
-      <div class="f-panneau__t">{t(lang, 'movers.g.mint')}</div>
-      <div class="tiroir__c">
-        <div class="champ champ--sm" style="width:150px"><label class="etiq" for="f-smin">{t(lang, 'movers.supplyMin')}</label>
-          <input id="f-smin" name="f-smin" type="number" min="0" step="1" value={P.smin ?? ''} placeholder={String(bornes.tirageMin)} /></div>
-        <div class="champ champ--sm" style="width:150px"><label class="etiq" for="f-smax">{t(lang, 'movers.supplyMax')}</label>
-          <input id="f-smax" name="f-smax" type="number" min="0" step="1" value={P.smax ?? ''} placeholder={String(bornes.tirageMax)} /></div>
-        <div class="champ champ--sm" style="width:150px"><label class="etiq" for="f-lmin">{t(lang, 'movers.listingsMin')}</label>
-          <input id="f-lmin" name="f-lmin" type="number" min="0" step="1" value={P.lmin ?? ''} placeholder="0" /></div>
-      </div>
-    </div>
 
     {/* ─── DATES ─── sur `releaseDate`. Une fiche SANS date n'est jamais
         écartée par une borne : l'absence n'est pas une valeur. */}
-    <div class="f-panneau" id="fp-date" hidden>
-      <div class="f-panneau__t">{t(lang, 'movers.g.date')}</div>
-      <div class="tiroir__c">
-        <div class="champ champ--sm" style="width:180px"><label class="etiq" for="f-d1">{t(lang, 'movers.after')}</label>
-          <input id="f-d1" name="f-d1" type="date" value={P.d1} min={bornes.dateMin} max={bornes.dateMax} /></div>
-        <div class="champ champ--sm" style="width:180px"><label class="etiq" for="f-d2">{t(lang, 'movers.before')}</label>
-          <input id="f-d2" name="f-d2" type="date" value={P.d2} min={bornes.dateMin} max={bornes.dateMax} /></div>
-      </div>
-    </div>
 
     {/* ─── COLONNES ─── ⭐ La liste vient de `COLONNES`, la même que le tableau. */}
-    <div class="f-panneau" id="fp-cols" hidden>
-      <div class="f-panneau__t">{t(lang, 'movers.g.cols')}</div>
-      {/* ⭐ LES QUATRE VUES D'ABORD, LES CASES ENSUITE. L'ordre EST le message :
-          ce qu'on lit en premier est ce qu'on est censé régler en premier. */}
-      <div class="cols-l" data-vues>
-        {VUES_COLS.map((v) => (
-          <button type="button" class="f-b" data-vue-cols={v.v}
-                  data-cols={v.cols.join(' ')} aria-pressed="false">{v.l}</button>
-        ))}
-      </div>
-      {/* ⭐⭐ LA PHRASE QUI CHANGE AVEC LA VUE, ET QUI PORTE UN CHIFFRE.
-          ⛔ Elle est rendue par le SERVEUR pour les quatre vues, cachée sauf
-          une : le pilote bascule un attribut, il n'écrit aucun texte. Un pilote
-          qui composerait ces phrases aurait besoin d'une table de traduction à
-          lui — la panne P30 du lot 139, et `test:cles` ne lit pas le JS.
-          ⚠️ Les nombres viennent de la sélection courante : sans droit sur les
-          cotes, `nAvecCote` vaut 0 et la vue « prix » le dit, au lieu de
-          promettre des colonnes qui rendront des tirets. */}
-      <p class="etiq" style="margin:10px 0 0;color:var(--muted)" data-vue-txt="essentiel">{t(lang, 'movers.vueTxt.essentiel', { n: SEL.retenues.toLocaleString(nf) })}</p>
-      <p class="etiq" style="margin:10px 0 0;color:var(--muted)" data-vue-txt="prix" hidden>{t(lang, 'movers.vueTxt.prix', { n: nAvecCote.toLocaleString(nf), t: SEL.rendues.toLocaleString(nf) })}</p>
-      <p class="etiq" style="margin:10px 0 0;color:var(--muted)" data-vue-txt="offre" hidden>{t(lang, 'movers.vueTxt.offre', { n: nAvecTension.toLocaleString(nf), t: SEL.rendues.toLocaleString(nf) })}</p>
-      <p class="etiq" style="margin:10px 0 0;color:var(--muted)" data-vue-txt="tout" hidden>{t(lang, 'movers.vueTxt.tout', { n: String(COLONNES.length) })}</p>
-      {/* Le réglage fin, pour qui veut composer. ⛔ Toujours atteignable : une
-          divulgation progressive cache un contrôle rare, elle ne le supprime pas. */}
-      <details style="margin-top:12px">
-        <summary class="etiq" style="cursor:pointer;color:var(--muted)">{t(lang, 'movers.colsFin')}</summary>
-        <div class="cols-l" style="margin-top:8px">
-          {COLONNES.map((c) => (
-            <label class="puce"><input type="checkbox" name="f-col" value={c.c} checked={colVue(c.c)} /> {c.l}</label>
-          ))}
-        </div>
-        <p class="etiq" style="margin:10px 0 0;color:var(--muted)">{t(lang, 'movers.colsHint')}</p>
-      </details>
-    </div>
 
     {/* ⭐ Sans cette ligne, on ne sait jamais si un filtre a mordu ou si le
         résultat est vide par erreur. `aria-live` : un compteur muet ne sert
@@ -861,6 +932,13 @@ const ILE_TUILES = JSON.stringify({
         )}
       </p>
     )}
+    {/* 🆕 Le pied de la feuille — mobile seulement, retiré par le CSS en rail.
+        ⭐ `type="submit"` : ici, valider VEUT dire quelque chose. Le formulaire
+        part en GET, la page revient filtrée. C'est le seul des trois pieds du
+        site qui soumet — et c'est écrit au-dessus pourquoi. */}
+    <div class="f-pied">
+      <button type="submit" class="btn btn--pri f-voir">{t(lang, 'movers.filters')}</button>
+    </div>
   </form>
 
   {/* ⛔ LE TITRE INTERMÉDIAIRE A ÉTÉ RETIRÉ (demande de Preda, 05/08). Il
@@ -886,6 +964,7 @@ const ILE_TUILES = JSON.stringify({
       premier octet. Avant ce lot, le pilote la restituait depuis
       `localStorage` — donc le tableau s'affichait puis disparaissait au profit
       des tuiles, à chaque chargement. */}
+  <div class="avec-rail__c">
   <div id="vue-tbl" class="tbl-hote" data-attente-txt={attente} hidden={VUE !== 'tbl'}>
     <table id="resultats" tabindex="-1">
       {/* ═══════════════════════════════════════════════════════════════════
@@ -1349,6 +1428,13 @@ const ILE_TUILES = JSON.stringify({
       d'un comptage de nœuds visibles. `hidden` reste dans le balisage : c'est
       l'attribut, et non une classe, que le thème respecte partout ailleurs. */}
   <p class="respire" id="vide" hidden={SEL.retenues !== 0}>{t(lang, 'movers.empty')}</p>
+  </div>
+  </div>
+  {/* ⚡ LA FORME DE LA BARRE — même module que les rayons et que `/sets/`.
+      ⭐ Il ne connaît aucun identifiant de page : il prend la première
+      `.barre-f` de son enveloppe. Trois pages, trois façons de filtrer, une
+      seule façon d'ouvrir une feuille. */}
+  <script defer src={formeBarre.href}></script>
 
   {/* ═══════════════════════════════════════════════════════════════════════
       🔴🔴🔴 LOT 155-C ③ — CE QUE LE PILOTE FAIT DE NEUF, ET POURQUOI

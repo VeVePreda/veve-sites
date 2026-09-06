@@ -90,11 +90,11 @@ export const CORPUS = ['comics', 'collectibles', 'sets'];
 // de 800 octets pour un index qui en pèse un million.
 // ⭐ *Quand deux fabriques doivent montrer la même chose, on transporte le
 // résultat, pas la recette.*
-import { rar, mentionEdition, RAR } from './vitrine.mjs';
+import { rar, mentionEdition, forme, RAR } from './vitrine.mjs';
 // 🔴 LOT 155-B — `nomSet` ET `pileSet` S'IMPORTENT, ILS NE SE REFONT PAS.
 // Voir le bloc de `COLS_SET` : l'index dépose le nom COUPÉ et les vignettes
 // CHOISIES, parce que le pilote ne peut redériver ni l'un ni l'autre.
-import { nomSet, pileSet } from './vignette.mjs';
+import { nomItem, nomSet, pileSet } from './vignette.mjs';
 
 // ⭐⭐ L'ORDRE DES CASES EST UN CONTRAT AVEC LE PILOTE, ET IL VOYAGE AVEC LA
 // CHARGE (`cols`). Le jour où une colonne s'ajoute au milieu, le pilote lit
@@ -122,7 +122,75 @@ import { nomSet, pileSet } from './vignette.mjs';
 //     qui disparaît sans le dire.*
 // ⭐ `0` pour une ligne sans fiche : pas de fiche, pas de cote, pas d'uuid à
 // porter. 10 692 lignes sur 19 532 coûtent donc un octet.
-const COLS_PIECE = ['n', 'se', 'p', 'u', 'r', 'e', 'b', 'l', 'a', 't'];
+// 🖼️🔴🔴 LOT E — `c` ET `cr` REJOIGNENT LES PIÈCES, ET C'EST LA MÊME DÉCISION
+// QUE POUR LES SETS AU 155-B, PRISE POUR LA MÊME RAISON ET AU MÊME PRIX.
+// Les rayons passent en TUILES (brief, étape 4 ; Preda a confirmé le 06/09
+// « tuiles partout »). Une tuile MONTRE une couverture ⇒ le pilote qui rebâtit
+// la liste filtrée doit pouvoir en émettre une, sinon c'est
+// `regle-seconde-fabrique-ne-montre-que-sa-source`, **CINQUIÈME occurrence** :
+// les 20 lignes du serveur auraient leur image et toutes les suivantes non.
+//
+// 📏 CE QUE ÇA COÛTE, MESURÉ LE 06/09 SUR LES INDEX DE PRODUCTION (⛔ pas
+//    estimé : 12 849 vraies adresses de `/rayon-index/sets.json`, gzip -6) :
+//        **27,7 o gzip par adresse**, préfixe CDN déjà factorisé.
+//    ⇒ comics    288 689 → ~1,02 Mo gzip · collectibles 144 196 → ~241 Ko.
+//
+// ⭐⭐ ET C'EST LA FORME ENTIÈRE QUI EST ÉCRITE, PAS UNE FORME COMPACTE — c'est
+// un ARBITRAGE DE PREDA (06/09), pris sur une mesure qui a renversé la mienne.
+// J'avais proposé de ne pas réécrire l'uuid déjà porté par la colonne `u`
+// (vérifié : le premier uuid de l'adresse EST `u`, **6 376 fois sur 6 425**).
+// Mesuré sur la VRAIE population, ce mécanisme ne gagne que **14 % sur les
+// comics** — parce que **9 563 comics qui ont une image n'ont pas de fiche**,
+// donc `u` vaut 0 et l'uuid doit être écrit quand même. Ma première mesure,
+// faite sur les sets où `u` est toujours connu, annonçait 55 % : *une mesure
+// prise sur une population n'est pas une mesure de l'autre.*
+// ⛔ 103 Ko ne paient pas deux dictionnaires, une colonne conditionnelle et un
+// décodeur dans le pilote — c'est le seuil que ce fichier a lui-même posé deux
+// fois plus haut, et il vaut ici comme il valait là.
+//
+// ⚠️ QUI PAIE, ET QUAND — vérifié dans `rayon.js` avant de décider : `charger()`
+// n'est appelé que par un CLIC sur un panneau de filtre (l. 589 et 608), jamais
+// au chargement de la page. Un visiteur qui parcourt le rayon en tuiles paie
+// **zéro octet** : ses 20 tuiles viennent du serveur. `/rayon-index/sets.json`
+// pèse déjà 432 Ko dans exactement les mêmes conditions.
+//
+// 🔑 L'ADRESSE ÉCRITE EST CELLE QUE LE SERVEUR REND — `imageCarte()`, le point
+// unique, jamais `r.image` brute. C'est la leçon du RELOOKING 2, payée par le
+// banc `test:series` §2 qui compare les deux fabriques adresse par adresse :
+// transformer d'un côté sans transformer de l'autre bâtissait des tuiles en
+// pleine résolution sous des tuiles servies en vignette.
+// ⛔ Et `cr` n'est PAS déductible de `c` : `.thumbnail.jpeg` vient aussi bien de
+// `.webpFull.webp` que de `.full.jpeg`. Il se transporte.
+// 🔤🔴🔴🔴 `nv` REJOINT LES PIÈCES — UN DÉFAUT QUI DORMAIT DEPUIS LE LOT 155-B,
+// TROUVÉ PAR LE BANC QUI EXÉCUTE LE PILOTE (`test:rayon` § ⑧), PAS PAR UN ŒIL.
+// `Rayon.astro` n'affiche pas `r.name` : il affiche `nomItem(r.name).vu`, coupé
+// par `couperMots()`. Le pilote, lui, écrivait `ligneVal(l, 'n')` — le nom
+// ENTIER. Les 20 lignes du serveur étaient donc coupées et toutes les lignes
+// filtrées ne l'étaient pas.
+// 📏 MESURÉ LE 06/09 SUR LES INDEX DE PRODUCTION (⛔ pas sur l'échantillon) :
+//     comics       **15 375 / 17 134 noms coupés — 89,7 %**
+//     collectibles  **1 312 /  2 776 — 47,3 %**
+// ⇒ ce n'était pas un cas limite : c'était la QUASI-TOTALITÉ des lignes.
+// ⭐⭐ ET PERSONNE NE POUVAIT LE VOIR. `.rayon__n` porte `text-overflow:
+// ellipsis` : en vue LISTE, le CSS coupait de son côté, à une largeur que le
+// serveur ne connaît pas, et les deux rendus se ressemblaient assez pour que
+// l'écart passe. La vue TUILES le rend visible — `-webkit-line-clamp:2` sur une
+// hauteur FIXE de 2,56em — mais le défaut, lui, était déjà servi.
+// *Un défaut que la mise en page masque n'est pas un défaut absent ; c'est un
+// défaut qu'aucun regard ne peut trouver.*
+// 💰 CE QUE ÇA COÛTE, MESURÉ SUR LES 17 134 VRAIS NOMS : **+9 784 o gzip**
+//    (comics, 3,5 %) et **+4 861 o** (collectibles). ⛔ `0` quand le nom n'est
+//    PAS coupé : on ne paie que ceux qui le sont — la règle de `COLS_SET`.
+// ⚠️ `n` RESTE LE NOM COMPLET : c'est lui que le gabarit pose en `title`, et un
+//    nom coupé sans moyen de lire l'entier est une perte d'information.
+// ⚠️⚠️ L'ORDRE DES CASES EST UN CONTRAT, ET JE VIENS DE LE ROMPRE EN L'ÉCRIVANT.
+// `nv` est produit à la fin de `corps[]`, donc AVANT `c` et `cr` qui sont
+// ajoutés après coup — le déclarer en dernier ici faisait lire `nv` par `c`,
+// `c` par `cr` et `cr` par `nv`. Résultat servi : **toutes** les tuiles du
+// pilote en losange, avec un index parfaitement rempli. ⭐ Le § ⑧ l'a dit au
+// premier essai, en une ligne : « pilote losange · serveur <adresse> ».
+// *Une liste de noms et une liste de valeurs qui se croisent ne lèvent rien.*
+const COLS_PIECE = ['n', 'se', 'p', 'u', 'r', 'e', 'b', 'l', 'a', 't', 'nv', 'c', 'cr'];
 // 🔴🔴🔴 LOT 155-B — `nv` ET `c` REJOIGNENT LES SETS, ET C'EST LA MÊME DÉCISION
 // QUE L'UUID CI-DESSUS, PRISE POUR LA MÊME RAISON.
 // `/sets/` rendait ses 3 113 cartes dans une seule page — **3 391 892 o bruts,
@@ -305,7 +373,7 @@ export function indexRayon(ds, corpus) {
   const type = corpus === 'comics' ? 'comic' : 'collectible';
   const prefixe = `/${corpus}/`;
   const dic = { se: dictionnaire(), r: dictionnaire(), e: dictionnaire(), b: dictionnaire(), l: dictionnaire() };
-  const lignes = (ds.rayon || [])
+  const brutes = (ds.rayon || [])
     .filter((r) => (r.type === 'comic') === (type === 'comic'))
     // 🔴🔴 LE MÊME ORDRE QUE `Rayon.astro`, ET CE N'EST PAS UN DÉTAIL : ce que la
     // barre rend quand aucun filtre n'est actif doit être ce que le serveur
@@ -313,7 +381,11 @@ export function indexRayon(ds, corpus) {
     // de la barre sans avoir rien demandé — un défaut qu'on met une heure à
     // reproduire parce qu'il n'a l'air d'être rien.
     .sort((a, b) => (a.path ? 0 : 1) - (b.path ? 0 : 1)
-      || (a.series || '').localeCompare(b.series || '') || a.name.localeCompare(b.name))
+      || (a.series || '').localeCompare(b.series || '') || a.name.localeCompare(b.name));
+  // ⭐ LE CORPS DE LA LIGNE, SANS LES IMAGES — elles s'ajoutent après, quand le
+  //   préfixe commun est connu. `brutes` est figé : `corps[k]` et `brutes[k]`
+  //   parlent de la MÊME pièce, et c'est ce qui permet de les recoller.
+  const corps = brutes
     .map((r) => [
       r.name || '',
       dic.se.idx(r.series),
@@ -341,8 +413,39 @@ export function indexRayon(ds, corpus) {
       dic.l.idx(r.licensor),
       annee(r.releaseDate),
       r.tirage || 0,
+      // ⭐ LE NOM COUPÉ, ET SEULEMENT S'IL EST COUPÉ — voir le bloc de
+      //   `COLS_PIECE`. Le pilote ne peut pas redériver `couperMots()` : le
+      //   résultat n'est PAS un préfixe, et réécrire la règle en JavaScript
+      //   client serait la énième « même règle dans deux langages ».
+      (() => { const x = nomItem(r.name || ''); return x.tronque ? x.vu : 0; })(),
     ]);
-  return charge(corpus, prefixe, COLS_PIECE, dic, lignes);
+
+// 🖼️ LOT E — LES ADRESSES D'IMAGES, ET LE PRÉFIXE SE MESURE SUR CE QU'ON ÉCRIT.
+// ⭐ Le tri et le filtre sont FIGÉS AVANT (`brutes`), parce qu'un préfixe commun
+// ne se découvre pas ligne par ligne : il faut avoir vu la dernière adresse pour
+// savoir ce que la première a en commun avec elle. C'est le geste exact de la
+// branche `sets`, l. ~245, et il est ici pour la même raison.
+// ⛔ LES DEUX FAMILLES ENTRENT DANS LA MESURE — `c` porte des `…thumbnail.*` et
+// `cr` des `…full.*`. Mesurer sur les seules adresses d'origine donnerait un
+// préfixe que la moitié des valeurs écrites ne portent pas, et `court()` ne
+// couperait rien, en silence. La branche `sets` a payé cette leçon le 06/09.
+const _img = (r) => (r.image ? imageCarte(r.image) : null);
+const _toutes = brutes.map(_img).filter(Boolean)
+  .flatMap((v) => (v.repli ? [v.src, v.repli] : [v.src])).filter(Boolean);
+const cdn = prefixeCommun(_toutes);
+const court = (u) => (cdn && u.startsWith(cdn) ? u.slice(cdn.length) : u);
+
+const lignes = brutes.map((r, k) => {
+  const v = _img(r);
+  return [
+    ...corps[k],
+    // ⭐ `0` ET JAMAIS UNE CHAÎNE VIDE : `src=""` recharge la PAGE COURANTE
+    //   (lot 131), et la tuile bâtie par le pilote la porterait 20 fois.
+    v && v.src ? court(v.src) : 0,
+    v && v.repli ? court(v.repli) : 0,
+  ];
+});
+  return charge(corpus, prefixe, COLS_PIECE, dic, lignes, cdn ? { cdn } : {});
 }
 
 function charge(corpus, prefixe, cols, dic, lignes, extra = {}) {
@@ -369,6 +472,24 @@ function charge(corpus, prefixe, cols, dic, lignes, extra = {}) {
       h: rar(code, { blanc: true }),
     }]));
   }
+  // 🖼️🔴 LOT E — LE LOSANGE DU SOCLE SANS COUVERTURE VOYAGE AVEC LA CHARGE.
+  // Une tuile sans image montre le losange `FORMES.ULTRA_RARE` — le contrat du
+  // Marché, repris tel quel. ⛔ MAIS `/market/` le référence par `<use
+  // href="#s-r-ULTRA_RARE">`, et son `sprite()` est LOCAL à `Market.astro` :
+  // écrire le même `<use>` dans un rayon donnerait une référence MORTE, qui ne
+  // lève rien, ne casse rien, et ne dessine rien. `test:tuiles` §2 existe
+  // précisément pour ça.
+  // ⭐⭐ Et le pilote ne peut pas appeler `forme()` — c'est du code de build.
+  // ⇒ MÊME GESTE QUE `c.rar` VINGT LIGNES PLUS BAS : *quand deux fabriques
+  // doivent montrer la même chose, on transporte le résultat, pas la recette.*
+  // Le coût est d'un SVG pour un index qui en pèse un million.
+  if (cols.indexOf('c') >= 0) c.losange = forme('ULTRA_RARE', 'xl');
+  // ⭐ ET LE GESTIONNAIRE DE REPLI AVEC LUI, POUR LA MÊME RAISON. `ONERROR_REPLI`
+  //   est écrit UNE fois dans `image_cdn.mjs` ; le pilote est un fichier du
+  //   socle, il ne peut pas l'importer. Le recopier en dur en ferait une
+  //   seconde source — et un repli qui diverge, c'est un cadre cassé une fois
+  //   sur soixante sur les seules lignes filtrées.
+  if (cols.indexOf('c') >= 0) c.onerror = ONERROR_REPLI;
   // ⛔⛔ LE CONTRÔLE EST *DANS* LE PRODUCTEUR, PAS SEULEMENT DANS LE BANC.
   // Un banc dit « ça a fui » après le build ; ici on refuse d'écrire. Les deux,
   // parce que le banc voit ce que ce fichier ne voit pas (le `dist/` entier) et
@@ -416,7 +537,7 @@ function charge(corpus, prefixe, cols, dic, lignes, extra = {}) {
 
 import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { sourcesImage } from './image_cdn.mjs';
+import { sourcesImage, imageCarte, ONERROR_REPLI } from './image_cdn.mjs';
 
 // ⭐ `PROJECT_ROOT || cwd()` — LA LIGNE EXACTE DE `cote.mjs` l. 61 ET DE
 //   `vignettes.mjs`. ⛔ Pas `import.meta.url` : Astro **bundle** ce module dans
@@ -481,6 +602,26 @@ export function journalIndex(c) {
       const n = c.lignes.filter((l) => l[pos[k]]).length;
       return `${k} ${n}/${c.total} (${c.dic[k].length} valeurs)`;
     });
+  // 🖼️ LOT E — LE REMPLISSAGE DES IMAGES EST DIT ICI, ET C'EST LE SEUL ENDROIT
+  //   OÙ IL SE MESURE. Le bac à sable n'a pas le catalogue : il tourne sur 90
+  //   lignes d'échantillon, et j'ai transmis « 39,6 % des comics ont une image »
+  //   en confondant le taux d'IMAGES avec le taux de FICHES — deux colonnes
+  //   différentes, un arbitrage posé sur la mauvaise. ⭐ Le producteur, lui,
+  //   voit le vrai catalogue à chaque build : qu'il le DISE, plutôt qu'on le
+  //   redevine. Un rayon dont les images tombent à 40 % est une grille à moitié
+  //   grise, et ça doit se voir dans le journal AVANT le déploiement.
+  // 🔑 ET LE PRÉFIXE AVEC, parce qu'il s'effondre en silence. `prefixeCommun()`
+  //   rend '' dès qu'UNE seule adresse est hébergée ailleurs que sur le CDN —
+  //   la colonne `image` vient d'un Sheet, elle n'impose aucun hébergeur. Les
+  //   adresses partent alors entières : c'est le bon repli (rien ne casse), mais
+  //   l'index grossit sans que personne ne sache pourquoi. ⭐ Mesuré dans le bac
+  //   à sable le 06/09 : l'échantillon porte des images `exemple.invalid`, et le
+  //   préfixe tombait à zéro — *l'échantillon n'écrit pas la même forme que le
+  //   réel, et c'est précisément pour ça que le chiffre doit venir du build.*
+  const img = c.cols.indexOf('c') >= 0
+    ? ` · images ${c.lignes.filter((l) => l[c.cols.indexOf('c')]).length}/${c.total}`
+      + ` · cdn ${c.cdn ? 'factorise' : 'AUCUN (adresses entieres)'}`
+    : '';
   return `[rayon-index] ${c.corpus} : ${c.total} ligne(s), ${(o / 1024).toFixed(0)} Ko`
-    + ` — ${(o / Math.max(1, c.total)).toFixed(0)} o/ligne · ${remplis.join(' · ')}`;
+    + ` — ${(o / Math.max(1, c.total)).toFixed(0)} o/ligne · ${remplis.join(' · ')}${img}`;
 }

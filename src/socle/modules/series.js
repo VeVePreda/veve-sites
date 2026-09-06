@@ -408,6 +408,11 @@ var G = document.getElementById('s-grille');
     // chargement, `C.length` vaut 60 : le compteur aurait annoncé « 60 / 60 »
     // sur un rayon de 3 113 sets.
     cpt.textContent = vis.length + ' / ' + (idx ? C.length : (TOTAL || C.length));
+    // 🆕 LOT D — LE NOMBRE DE RETENUES SORT ICI, comme dans `rayon.js`, et pour
+    // la même raison : le pied de la feuille dit « Voir les N résultats », et
+    // seul le pilote connaît N. ⛔ Le module de forme ne le recompte pas —
+    // compter les nœuds visibles lui donnerait la TRANCHE, pas les retenues.
+    f.setAttribute('data-retenues', String(vis.length));
     vide.hidden = vis.length !== 0;
     var j = document.getElementById('s-actifs'); j.innerHTML = '';
     function jeton(txt, retirer){
@@ -461,8 +466,13 @@ var G = document.getElementById('s-grille');
       // les marques de 60 sets sur 3 113.
       remplirPuces(pan.querySelector('[data-puces]'));
       var ouvrir = pan.hidden;
-      boutons.forEach(function(o){ var p2 = document.getElementById('sp-' + o.dataset.g);
-        if (p2) p2.hidden = true; o.setAttribute('aria-expanded', 'false'); });
+      // 🆕 LOT D — dans un rail, les groupes ne s'excluent plus : la colonne
+      // est un accordéon, et la maquette montre deux panneaux ouverts. Une
+      // barre horizontale, elle, n'a de place que pour un seul.
+      if (!f.hasAttribute('data-rail')) {
+        boutons.forEach(function(o){ var p2 = document.getElementById('sp-' + o.dataset.g);
+          if (p2) p2.hidden = true; o.setAttribute('aria-expanded', 'false'); });
+      }
       pan.hidden = !ouvrir; b.setAttribute('aria-expanded', String(ouvrir));
     }));
   });

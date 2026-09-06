@@ -18,6 +18,7 @@
 //  ⛔ Ne jamais « enrichir » une ligne ici avec un champ pris ailleurs.
 import Base from '../layouts/Base.astro';
 import AVenir from './AVenir.astro';
+import BandeauOutil from './BandeauOutil.astro';
 import { dataset } from '../../engine/lib/dataset.mjs';
 import { t, localize, numberLocale } from '../../engine/lib/i18n.mjs';
 import { rar, mentionEdition } from '../../engine/lib/vitrine.mjs';
@@ -27,6 +28,22 @@ import { rar, mentionEdition } from '../../engine/lib/vitrine.mjs';
 //   quatrième occurrence de « deux gabarits qui rendent la même liste ».
 import Extremes from './Extremes.astro';
 import { nomItem, nomSerie, nomSet } from '../../engine/lib/vignette.mjs';
+// 🖼️ LOT E — LA VUE TUILES. ⭐ `imageCarte()` EST LE POINT UNIQUE, et c'est LA
+//   MÊME fonction que `rayon_index.mjs` appelle pour déposer l'adresse que le
+//   pilote peindra. ⛔ Poser `l.image` brute ici servirait 2 000 px dans une
+//   case de 178, et surtout : `test:series` §2 compare les deux fabriques
+//   adresse par adresse — il rougirait au premier build, et il aurait raison.
+import { imageCarte, ONERROR_REPLI } from '../../engine/lib/image_cdn.mjs';
+// 🔴🔴🔴 IMPORTÉ SOUS UN AUTRE NOM, ET CE N'EST PAS UN CAPRICE DE STYLE.
+//   Ce fichier déclare DÉJÀ `const forme = moduleJs('rail')` quarante lignes
+//   plus haut. Un `import { forme }` par-dessus, et c'est le module du rail qui
+//   part dans `set:html` : « forme is not a function », au RENDU.
+//   ⭐⭐ C'EST LA DEUXIÈME FOIS EN DEUX PASSES — `Market.astro` a payé la même
+//   collision ce matin, sur le même nom, et là le build est resté VERT parce
+//   que `/market/` n'est pas pré-rendue. Ici il a rougi tout de suite.
+//   *Un nom court pris deux fois dans un même fichier ne se voit qu'au rendu ;
+//   le vérifier est plus court que le reproduire.*
+import { forme as formeRarete } from '../../engine/lib/vitrine.mjs';
 // 🔎 LOT 155 — LA BARRE DE FILTRES UNIQUE ET SON PILOTE.
 // ⭐ Le composant et le module sont écrits UNE FOIS et servent les trois rayons :
 //   voir l'en-tête de `BarreRayon.astro` et de `engine/lib/rayon_index.mjs`.
@@ -47,6 +64,13 @@ const pilote = moduleJs('rayon');
 // s'exécutent dans l'ordre du document. C'est exactement la garantie qui manquait
 // au lot 139, quand un `is:inline` lisait un bouton pas encore analysé.
 const chargeur = moduleJs('index_rayon');
+// 🆕 LOT D — LA FORME DE LA BARRE (rail en PC, feuille en mobile). ⭐ C'est un
+// module de COMPOSANT comme les deux autres, et pour la même raison : 12 946
+// pages n'ont pas de barre de filtres, et le verser au socle commun
+// déplacerait le gaspillage au lieu de le supprimer (arbitrage du lot 137).
+// ⛔ Il est chargé MÊME quand la barre est absente ? Non — voir le point
+// d'appel : il suit `filtrable`, exactement comme le pilote.
+const forme = moduleJs('rail');
 // ⭐⭐ LA BARRE NE SORT QUE LÀ OÙ UNE COTE EXISTE, ET LA CONDITION EST IMPORTÉE,
 //   PAS RÉÉCRITE. `coteFermee()` est ce que `Extremes.astro` interroge pour
 //   décider d'émettre un badge ; l'écrire ici en `manifest().features…` donnerait
@@ -96,15 +120,59 @@ const lignes = rayon === 'sets'
       //    faire marcher les extrêmes : c'est `<Cote>` qui les cherchera, à
       //    la demande, derrière la porte. `test:rayon` §① tient la liste des
       //    champs interdits et il rougirait avant le déploiement.
+      // 🖼️ LOT E — `image` ENTRE ICI, ET ELLE ÉTAIT DÉJÀ DANS LA LISTE
+      //    BLANCHE de `rayonDe()` depuis le lot 118. ⛔ Vérifié avant de
+      //    l'ajouter, comme `licensor` au 155 : `image` ne fait pas partie des
+      //    `INTERDITS` de `test:rayon` §① — ce n'est pas un prix, et ça ne le
+      //    devient pas. Le geste est de VÉRIFIER, pas de se le rappeler.
       .map((r) => ({ uuid: r.uuid, nom: r.name, budget: 'item',
                      sous: mentionEdition(r.edition_type), path: r.path,
-                     rarity: r.rarity, tirage: r.tirage, serie: r.series }));
+                     rarity: r.rarity, tirage: r.tirage, serie: r.series,
+                     image: r.image }));
 
 const total = lignes.length;
 const pages = Math.max(1, Math.ceil(total / PAR_PAGE));
 const n = Math.min(Math.max(1, Number(page) || 1), pages);
 const tranche = lignes.slice((n - 1) * PAR_PAGE, n * PAR_PAGE);
 const cliquables = lignes.filter((l) => l.path).length;
+
+// 🎨🔴🔴 LOT E — LA VUE TUILES, TRANCHÉE PAR PREDA LE 05/09 PUIS RECONFIRMÉE LE
+//   06/09 (« tuiles partout ») : *on parcourt un rayon, on compare un marché.*
+//   ⭐⭐ C'EST UNE CLASSE, PAS UN SECOND GABARIT. Le DOM émis est le MÊME dans
+//   les deux vues — même `<li>`, même `.rayon__c`, même `.rayon__b` — et c'est
+//   `.rayon--tui` qui le relit en grille. Deux arbres de DOM selon un booléen,
+//   c'est deux mises en page à tenir, et celle qu'on ne voit jamais est celle
+//   qui casse : la leçon de `.hero-ap`/`.hero-pc`, *deux VUES, pas deux
+//   composants*, et celle de l'enveloppe du rail vingt lignes plus bas.
+//   ⛔ `sets` GARDE SA LISTE : le brief ne lui demande pas de tuiles (il a ses
+//   cartes sur `/collections/`), et surtout sa source n'a pas d'image — un
+//   regroupement par série n'a pas de couverture, c'est `pileSet()` qui en
+//   choisit trois. Ce n'est pas une vue qu'on lui refuse, c'est une donnée
+//   qu'il n'a pas.
+const tuiles = rayon !== 'sets';
+
+// 📐🔴🔴 CE QUE LA TUILE DE RAYON NE COPIE **PAS** DE LA MAQUETTE — ARBITRAGE
+//    DE PREDA DU 06/09, PRIS APRÈS COMPARAISON FICHIER CONTRE FICHIER.
+//    ⛔⛔ NE PAS « CORRIGER » CES QUATRE ÉCARTS : ils sont VOULUS. La prochaine
+//    lecture de `maquette-design-v4-05-09.html` les reverra, et sans ce bloc
+//    elle les prendra pour des défauts — c'est déjà arrivé trois fois dans ce
+//    dépôt. *Un écart à la maquette qui n'est pas écrit redevient un bug.*
+//
+//    ① LA RARETÉ reste dans la cartouche, en flux. La maquette la pose en
+//      pastille `tuile__hd > tuile__rar` sur l'image (haut-gauche).
+//    ② LES EXTRÊMES ATL/ATH restent dans la cartouche. La maquette en fait le
+//      bandeau `socle__ext`, en bas de l'image.
+//    ③ LA SÉRIE et ④ LA MENTION D'ÉDITION (FA/FE/CE) et le TIRAGE sont
+//      SERVIS ; la tuile de la maquette n'affiche que nom, rareté et prix.
+//
+//    🗣️ Preda, 06/09 : « garder ce que je sers » et « garder les trois ». La
+//    raison est celle du rayon lui-même : ce sont les axes par lesquels un
+//    collectionneur reconnaît une pièce, ils sont déjà servis en vue liste, et
+//    les retirer de la page principale du rayon serait une perte d'information.
+//    ⭐ CE QUI EST REPRIS DE LA MAQUETTE, EN REVANCHE, EST MESURÉ ET TENU :
+//    la grille (2 colonnes / gap 9px sous 520 px, 6 en PC — `test:rayon` § ⑨),
+//    le socle 4/5 avec fond flouté, voile et image nette, le titre sur deux
+//    lignes à hauteur fixe (2,56em), et le losange pour une pièce sans visuel.
 
 const racine = `/${rayon}/`;
 const url = (p) => (p <= 1 ? racine : `${racine}page/${p}/`);
@@ -144,15 +212,14 @@ const cadenasSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" s
       crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') },
                { name: t(lang, 'collections.title'), url: localize(lang, '/collections/') },
                { name: t(lang, `rayon.${rayon}`) }]}>
-  <div class="sect-t sect-t--gd"><h1 class="mono-t">{t(lang, `rayon.${rayon}`)}</h1></div>
+  <BandeauOutil titre={t(lang, `rayon.${rayon}`)}
+                compte={t(lang, 'rayon.compte', {
+                  n: total.toLocaleString(nf), c: cliquables.toLocaleString(nf) })} />
 
   {/* ⭐⭐ ON DIT LE CHIFFRE, ET LES DEUX. « 16 682 pièces, 400 avec une fiche »
       est la seule phrase honnête : elle explique pourquoi la plupart des lignes
       ne se cliquent pas, AVANT que le visiteur ne le découvre en cliquant.
       ⛔ Ne pas écrire « 400 pièces » : ce serait faux, on en montre 16 682. */}
-  <p class="etiq">{t(lang, 'rayon.compte', {
-    n: total.toLocaleString(nf), c: cliquables.toLocaleString(nf) })}</p>
-
   <AVenir lang={lang} rayon={rayon} />
 
   {/* 🔎 LOT 155 — LA BARRE. ⛔ Elle est émise sur TOUTES les pages du rayon, pas
@@ -161,11 +228,27 @@ const cadenasSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" s
       prend la main sur la liste, et il la prend d'où qu'on vienne.
       ⭐ `data-*` porte ce que le pilote ne peut pas deviner : le pas de la
       tranche (celui du serveur), et quatre libellés traduits. */}
+  {/* 🆕 LOT D — L'ENVELOPPE DU RAIL. ⭐ Elle ne fait RIEN sous 1 041 px : la
+      barre y est une feuille, hors flux, et la liste occupe toute la largeur.
+      Au-dessus, elle devient une grille de deux colonnes — 248 px pour le rail,
+      le reste pour la liste.
+      🔴 POURQUOI LA LISTE EST ENVELOPPÉE À SON TOUR (`.avec-rail__c`) : une
+      grille place ses ENFANTS. Sans cette enveloppe, la liste, la pagination et
+      le « voir plus » seraient trois enfants, donc trois cellules, donc trois
+      lignes de grille — la pagination se retrouverait sous le rail. ⛔ Et
+      `grid-column` posé sur chacun aurait marché aujourd'hui, puis cassé au
+      premier élément ajouté ici sans qu'on y pense.
+      ⚠️ ELLE EST ÉMISE MÊME QUAND `filtrable` EST FAUX. Un rayon sans barre
+      garde la même structure, avec une colonne vide de 0 px : deux arbres de
+      DOM selon un booléen, c'est deux mises en page à tenir, et celle qu'on ne
+      voit jamais est celle qui casse. */}
+  <div class="avec-rail">
   {filtrable && (
     <BarreRayon lang={lang} corpus={rayon} pas={PAR_PAGE} cadenas={cadenasSvg} />
   )}
 
-  <ul class="rayon" id="r-liste">
+  <div class="avec-rail__c">
+  <ul class:list={["rayon", tuiles && "rayon--tui"]} id="r-liste">
     {tranche.map((l) => {
       // ⭐⭐⭐ LE TAG EST UNE VARIABLE ; LE CORPS S'ÉCRIT UNE FOIS.
       //    Ce fichier écrivait ses cinq `<span>` DEUX FOIS — branche `<a>`,
@@ -180,6 +263,12 @@ const cadenasSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" s
       const Boite = l.path ? 'a' : 'div';
       const nom = l.budget === 'set' ? nomSet(l.nom) : nomItem(l.nom);
       const serie = nomSerie(l.serie);
+      // 🖼️ `null` QUAND IL N'Y A PAS D'IMAGE, ET LE SOCLE MONTRE ALORS SON
+      //    LOSANGE. ⛔ Pas de tuile « dégradée » à cadre vide : le Marché a
+      //    tranché ce point au lot 127 — une grille de rectangles gris
+      //    ressemble à un site cassé, un losange ressemble à une pièce sans
+      //    visuel. C'est la même forme, dessinée par la même fonction.
+      const vig = tuiles && l.image ? imageCarte(l.image) : null;
       return (
       <li class="rayon__l">
         <Boite class={`rayon__c${l.path ? '' : ' rayon__c--muet'}`}
@@ -199,6 +288,51 @@ const cadenasSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" s
               ⭐ Et il aligne le serveur sur le pilote : `rayon.js` pose
               désormais le même attribut sur les lignes qu'il peint. Une
               colonne, deux fabriques, UN comportement. */}
+          {/* 🖼️🔴🔴 LE SOCLE — LE CONTRAT DU MARCHÉ, REPRIS TEL QUEL et intouchable
+              d'après le brief : rapport 4/5, fond flouté, voile, image nette
+              par-dessus. ⛔ Il n'est émis QUE si la vue est en tuiles : sur
+              `sets`, la ligne n'a pas d'image et un socle vide serait un cadre
+              gris de plus par ligne.
+              ⭐ `data-repli` PART AVEC CHAQUE ADRESSE RÉÉCRITE : la vignette du
+              CDN manque une fois sur soixante (129 sur 131, mesuré le 06/09).
+              Le repli n'est pas une ceinture de confort, c'est la moitié de la
+              règle — et `ONERROR_REPLI` est le gestionnaire partagé, en
+              attribut parce qu'il se déclenche avant qu'aucun script ait
+              tourné.
+              ⛔ LE LOSANGE EST DESSINÉ EN LIGNE, PAS RÉFÉRENCÉ. Le Marché le
+              tire de son sprite local ; un rayon n'en a pas, et une référence
+              morte ne lève rien, ne casse rien, et ne dessine rien. */}
+          {tuiles && (
+          <span class:list={["socle", rayon === 'comics' && "socle--comic"]}>
+            {vig ? (
+              <Fragment>
+                <img class="socle__fond ok" src={vig.src} alt="" aria-hidden="true"
+                     width="400" height="600" loading="lazy" decoding="async"
+                     data-repli={vig.repli || undefined} onerror={ONERROR_REPLI} />
+                <span class="socle__voile"></span>
+                <img class="socle__net ok" src={vig.src} alt={nom.complet || nom.vu}
+                     width="400" height="600" loading="lazy" decoding="async"
+                     data-repli={vig.repli || undefined} onerror={ONERROR_REPLI} />
+              </Fragment>
+            ) : (
+              <Fragment>
+                <span class="socle__voile"></span>
+                <span class="socle__cage" aria-hidden="true">
+                  <Fragment set:html={formeRarete('ULTRA_RARE', 'xl')} />
+                </span>
+              </Fragment>
+            )}
+          </span>
+          )}
+
+          {/* ⭐⭐ LE CORPS DE LA LIGNE — ÉMIS DANS LES DEUX VUES, ET C'EST LE
+              POINT. En liste il est en `display:contents` : ses enfants
+              redeviennent les cellules de la grille de `.rayon__c`, et le
+              tableau est exactement celui d'avant ce lot. En tuiles il devient
+              la cartouche sous le socle. *Un seul arbre de DOM, deux vues* —
+              donc une seule forme à tenir, et le pilote n'a qu'un gabarit à
+              reproduire. */}
+          <span class="rayon__b">
           <span class="rayon__n" title={nom.complet || undefined}>{nom.vu}</span>
           {l.serie && <span class="rayon__s" title={serie.complet || undefined}>{serie.vu}</span>}
           {l.sous && <span class="rayon__e">{l.sous}</span>}
@@ -249,6 +383,7 @@ const cadenasSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" s
           {l.path && <Extremes lang={lang} uuid={l.uuid} nf={nf} classe="rayon__ext" />}
           {l.tirage && <span class="rayon__t">{l.tirage.toLocaleString(nf)}</span>}
           {!l.path && <span class="rayon__x">{t(lang, 'rayon.sansfiche')}</span>}
+          </span>
         </Boite>
       </li>
       );
@@ -279,10 +414,19 @@ const cadenasSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" s
       <span class="etiq" id="r-plus-cpt" style="display:block;margin-top:8px;color:var(--muted)"></span>
     </p>
   )}
+  </div>
+  </div>
   {/* ⚡ LE PILOTE DESCEND DANS LE SOCLE (mécanisme du lot 137), et `defer`
       attend la fin de l'analyse par construction : la position du script dans le
       document cesse d'être un pari. C'est la panne du lot 139 sur `series.js`,
       qui lisait `#s-plus` avant que l'analyseur ne l'ait atteint. */}
   {filtrable && <script defer src={chargeur.href}></script>}
   {filtrable && <script defer src={pilote.href}></script>}
+  {/* ⚡ ET LA FORME APRÈS LE PILOTE : `rail.js` lit `data-retenues`, que
+      `rayon.js` écrit. Les deux sont `defer`, donc exécutés dans l'ordre du
+      document — mais le module n'en dépend pas : son observateur rattrape un
+      attribut posé avant lui comme après lui. ⭐ *Un module qui exige un ordre
+      de chargement est un module qui cassera le jour où on en insère un
+      troisième.* */}
+  {filtrable && <script defer src={forme.href}></script>}
 </Base>

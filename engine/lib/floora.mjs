@@ -35,18 +35,68 @@ export const POSE_DE = {
   alerte: 'choc',
   fiche: 'serieux',
   'alertes-armees': 'attente',
+  // 🆕 06/09 (LOT D) — LES QUATRE PERCHES DE PAGE-OUTIL. ⛔ Elles ne sont pas
+  // choisies « à l'ambiance » : chacune est écrite dans la table du livrable
+  // (`livraison-floora/LISEZ-MOI.md`, §3), avec sa clé de bulle et sa taille.
+  // C'est la règle du dossier — *les poses sont assignées* — et l'ajout passe
+  // par ici précisément pour que la revue le voie.
+  // ⚠️ Les DEUX rayons (`/collectibles/`, `/comics/`) n'y sont PAS : la table
+  // du livrable ne leur assigne aucune pose. Leur en inventer une aurait été
+  // le premier pas vers « on met celle qui va bien ».
+  market: 'lunettes',
+  sets: 'clin-oeil',
+  collections: 'panier',
+  analytics: 'emerveille',
+};
+
+/** usage ⟶ clé de la bulle. ⛔ FERMÉE elle aussi, et pour la même raison que
+ *  `POSE_DE` : c'est la table du livrable (`livraison-floora/LISEZ-MOI.md` §3)
+ *  qui apparie une pose, un écran et une phrase. Un gabarit qui choisirait sa
+ *  clé pourrait expliquer deux fois la même chose de deux façons.
+ *  ⚠️ Les usages d'ÉTAT VIDE (404, 500, filtre vide, favoris vides) n'entrent
+ *  pas ici : leur texte est un titre + une description (`floora.404.t/.d`),
+ *  pas une bulle de perche. Deux formes, deux tables. */
+const BULLE_DE = {
+  fiche: 'floora.item',
+  market: 'floora.market',
+  sets: 'floora.sets',
+  collections: 'floora.collections',
+  analytics: 'floora.analytics',
 };
 
 /** hauteur du FICHIER ⟶ hauteur d'AFFICHAGE. ⛔ Pas de 384 : il n'existe pas. */
 export const AFFICHAGE = { 96: 52, 176: 88, 208: 104 };
 
-/** Dimensions intrinsèques MESURÉES le 06/09/2026 sur les fichiers déposés.
+/** Dimensions intrinsèques MESURÉES sur les fichiers déposés.
+ *  🆕 06/09 (LOT D) — LES SEIZE POSES, ET ELLES NE SONT PAS RE-MESURÉES ICI :
+ *  ces largeurs sont RECOPIÉES de `livraison-floora/floora-manifeste.json`,
+ *  qui les tient de la génération des fichiers. ⭐⭐ Les remesurer à la main
+ *  aurait créé une seconde vérité sur la même chose.
+ *  ⛔ CE QUI A CHANGÉ N'EST PAS LA TABLE, C'EST LE DISQUE : les 45 fichiers
+ *  existaient depuis le 04/09 dans `livraison-floora/`, et seuls DEUX avaient
+ *  été déposés. « Il n'y a que deux poses » décrivait le DÉPÔT, pas le travail
+ *  livré. *Une absence dans le dépôt n'est pas une absence tout court.*
+ *  (ancien en-tête ↓)
  *  ⛔ Elles ne se déduisent pas du nom : `loupe-208` fait 254 px de large,
  *  `panique-208` en fait 216. Sans elles, `width`/`height` seraient faux et la
  *  page sauterait au chargement — ou l'image serait déformée. */
 const LARGEUR_FICHIER = {
-  loupe: { 96: 117, 176: 215, 208: 254 },
-  panique: { 96: 100, 176: 183, 208: 216 },
+  'attente': { 96: 133, 176: 243 },
+  'calculatrice': { 96: 104, 176: 190, 208: 225 },
+  'choc': { 96: 103, 176: 189, 208: 223 },
+  'chrono': { 96: 94, 176: 173, 208: 204 },
+  'clin-oeil': { 96: 90, 176: 165, 208: 195 },
+  'coeur': { 96: 117, 176: 214, 208: 253 },
+  'emerveille': { 96: 100, 176: 183, 208: 217 },
+  'fier': { 96: 103, 176: 188, 208: 223 },
+  'jumelles': { 96: 127, 176: 233 },
+  'loupe': { 96: 117, 176: 215, 208: 254 },
+  'lunettes': { 96: 113, 176: 208 },
+  'pancarte-alerte': { 96: 121, 176: 222, 208: 263 },
+  'panier': { 96: 118, 176: 217, 208: 256 },
+  'panique': { 96: 100, 176: 183, 208: 216 },
+  'perplexe': { 96: 88, 176: 161, 208: 190 },
+  'serieux': { 96: 90, 176: 165, 208: 195 },
 };
 
 /**
@@ -78,5 +128,13 @@ export function floora(usage, hauteurFichier = 208) {
     width: Math.round(h * ratio),
     height: h,
     cle: 'floora.alt',
+    // 🆕 06/09 (LOT D) — LA CLÉ DE LA BULLE SORT D'ICI, PAS DU GABARIT.
+    // ⭐⭐ Même raison que la pose : si la page choisissait son texte, deux
+    // pages finiraient par expliquer la même chose de deux façons, et la règle
+    // « une bulle est écrite une fois » (LISEZ-MOI §3) serait invérifiable.
+    // ⛔ `null` quand l'usage n'a pas de bulle assignée — surtout pas une
+    // chaîne vide, qui rendrait une infobulle vide au lieu de n'en rendre
+    // aucune. Le gabarit teste et n'écrit rien.
+    cleBulle: BULLE_DE[usage] || null,
   };
 }

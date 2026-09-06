@@ -37,7 +37,7 @@
 
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { sourcesImage, grandeImage, ONERROR_REPLI } from '../lib/image_cdn.mjs';
+import { sourcesImage, grandeImage, imageFiche, imageCarte, ONERROR_REPLI } from '../lib/image_cdn.mjs';
 
 const R = new URL('../..', import.meta.url).pathname;
 let echecs = 0;
@@ -236,6 +236,7 @@ const GABARITS = [
   'src/components/pages/Market.astro',
   'src/components/pages/Alertes.astro',
   'src/components/CarteSet.astro',
+  'src/components/Carte.astro',
   'src/components/pages/Item.astro',
 ];
 let orphelins = [], lus = 0;
@@ -324,6 +325,96 @@ const cas = [
   ['…et ne touche pas ce qui est déjà en webp', grandeImage(cmw).src === cmw && grandeImage(cmw).repli === null],
 ];
 for (const [quoi, ok] of cas) dire(ok, quoi);
+
+// ═══ §7 — `imageFiche`, ET CE QU'ELLE REFUSE DE FAIRE ═════════════════════
+//
+// 🔴🔴 CE § EXISTE PARCE QUE LA FICHE EST LE SEUL ENDROIT QUI DÉCIDE SUR LA
+// FAMILLE. Partout ailleurs le module tranche sur la largeur d'affichage ; ici
+// la largeur ne PEUT pas trancher — la vignette d'un comic vaut 400 px ou 239
+// selon la pièce, et le build est hors ligne. Une règle qui fait exception à la
+// règle du module doit être tenue par un banc, ou elle sera « simplifiée » au
+// premier lot qui relira le fichier sans l'historique.
+//
+// ⛔ LA LIGNE QUI COMPTE LE PLUS EST CELLE DU COLLECTIBLE. C'est la seule qui
+// dise que l'exception est BORNÉE. Sans elle, remplacer la liste de familles
+// par « tout le CDN » laisserait ce § entièrement vert, en posant une vignette
+// de 132 px dans une boîte de 263.
+console.log('\n§7 — la grande image d\'une fiche (arbitrage Preda du 06/09)');
+
+const cti = `https://${CDN}/comic_type_image.a.b.full.jpeg`;
+
+const casFiche = [
+  ['un comic prend la vignette', imageFiche(cmc).src.endsWith('.thumbnail.jpeg')],
+  ['…et emporte l\'URL SERVIE comme repli, pas une réécriture', imageFiche(cmc).repli === cmc],
+  ['…SANS srcset : à densité 1,375 et 2, un descripteur `x` reprendrait la grande',
+    imageFiche(cmc).srcset === null],
+  ['l\'extension de la vignette suit celle de la source', imageFiche(cmw).src.endsWith('.thumbnail.webp')],
+  ['`comic_type_image` est dans le périmètre (276 px mesurés)', imageFiche(cti).src.endsWith('.thumbnail.jpeg')],
+  ['⛔ un COLLECTIBLE n\'y entre PAS : sa vignette fait 132 px pour une boîte de 263',
+    imageFiche(col).src === grandeImage(col).src && !imageFiche(col).src.includes('thumbnail')],
+  ['une adresse hors CDN ressort intacte',
+    imageFiche('https://ailleurs.test/a.jpg').src === 'https://ailleurs.test/a.jpg'],
+  ['une image absente ne fabrique ni src ni repli',
+    imageFiche(null).src === '' && imageFiche(null).repli === null],
+  ['un suffixe hors table ne fait pas deviner une adresse',
+    imageFiche(`https://${CDN}/comic_cover.a.b.autre.png`).src.endsWith('.autre.png')],
+];
+for (const [quoi, ok] of casFiche) dire(ok, quoi);
+
+// ⭐⭐ AUTO-CONTRÔLE — le §7 sait-il DIRE NON ? Les lignes ci-dessus seraient
+// toutes vraies pour de mauvaises raisons si `imageFiche` rendait n'importe
+// quoi de plausible. On lui montre ce qu'elle ne doit jamais produire.
+dire(imageFiche(cmc).src !== cmc,
+  'auto-contrôle : la vignette n\'est pas simplement l\'URL d\'entrée recopiée');
+dire(imageFiche(col).repli !== col.replace('.webpFull.webp', '.thumbnail.jpeg'),
+  'auto-contrôle : le repli d\'un collectible ne pointe pas sur une vignette');
+
+// ═══ §8 — L'IMAGE D'UNE CARTE : LA VIGNETTE SANS AGRANDIR ════════════════
+console.log('\n§8 — `imageCarte` : la carte dessine à 207 px, pas à 2 000');
+
+// 🔴🔴 CE § EXISTE PARCE QUE `Carte.astro` N'ÉTAIT BRANCHÉE SUR RIEN. Elle
+// servait `item.image` BRUT — ni vignette, ni compression — sur 3 195 pages de
+// collection, plus l'accueil, l'orientation et les favoris. Mesuré en
+// production le 06/09 : **2 000 px servis pour 174 à 207 px dessinés**, et
+// **34,25 Mo → 3,39 Mo** sur 97 images pesées.
+const casCarte = [
+  ['un comic prend la vignette', imageCarte(cmc).src.endsWith('.thumbnail.jpeg')],
+  ['…et garde l\'URL SERVIE comme repli', imageCarte(cmc).repli === cmc],
+  ['…SANS srcset : le cas ② de `sourcesImage` ne gagne RIEN à densité 1,375 et 2',
+    imageCarte(cmc).srcset === null],
+  ['l\'extension de la vignette suit celle de la source', imageCarte(cmw).src.endsWith('.thumbnail.webp')],
+  ['⛔ un COLLECTIBLE n\'y entre PAS : sa vignette fait 132 px pour une carte de 207',
+    !imageCarte(col).src.includes('thumbnail')],
+  ['une adresse hors CDN ressort intacte',
+    imageCarte('https://ailleurs.test/a.jpg').src === 'https://ailleurs.test/a.jpg'],
+  ['une image absente ne fabrique ni src ni repli',
+    imageCarte(null).src === '' && imageCarte(null).repli === null],
+  ['un suffixe hors table ne fait pas deviner une adresse',
+    imageCarte(`https://${CDN}/comic_cover.a.b.autre.png`).src.endsWith('.autre.png')],
+];
+for (const [quoi, ok] of casCarte) dire(ok, quoi);
+
+// ⭐⭐ AUTO-CONTRÔLE — le §8 sait-il DIRE NON ?
+dire(imageCarte(cmc).src !== cmc,
+  'auto-contrôle : la vignette n\'est pas l\'URL d\'entrée recopiée');
+dire(imageCarte(col).src !== col.replace('.webpFull.webp', '.thumbnail.jpeg'),
+  'auto-contrôle : un collectible ne repart pas en vignette par une autre porte');
+
+// ⭐⭐⭐ ET LE CONTRÔLE QUI TIENT VRAIMENT LE LOT : les deux <img> d'une carte
+// doivent partager UNE SEULE URL. C'était la propriété du balisage d'origine
+// (« même requête, même cache ») et une vignette posée sur la seule image nette
+// la casserait EN SILENCE — le rendu resterait juste, le trafic doublerait.
+{
+  const src = nuJs(readFileSync(join(R, 'src/components/Carte.astro'), 'utf8'));
+  const imgs = [...src.matchAll(/<img\b[\s\S]{0,600}?\/>/g)].map((m) => m[0]);
+  const socles = imgs.filter((t) => /class="socle__(fond|net)/.test(t));
+  const srcs = [...new Set(socles.map((t) => (t.match(/src=\{([^}]+)\}/) || [])[1]))];
+  dire(socles.length >= 2 && srcs.length === 1,
+    socles.length >= 2 && srcs.length === 1
+      ? `les ${socles.length} <img> du socle partagent une seule expression de src (${srcs[0]})`
+      : `🔴 le fond et l'image nette ne partagent plus la même source (${srcs.join(' · ')})`
+        + ' — deux requêtes au lieu d\'une, sans que le rendu change.');
+}
 
 console.log(echecs === 0
   ? '\n✅ images : on ne télécharge plus trente fois ce qu\'on dessine\n'

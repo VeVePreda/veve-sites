@@ -1,0 +1,142 @@
+---
+// ⚠️ VeVePreda/veve-sites — src/components/BandeauOutil.astro   (FICHIER NEUF)
+// ═══════════════════════════════════════════════════════════════════════════
+// 🎨 LE BANDEAU-OUTIL — étape 3 de l'ordre du relooking
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// 🔴🔴 CE COMPOSANT EXISTE PARCE QUE LE MÊME RÔLE ÉTAIT ÉCRIT QUATRE FOIS.
+// Mesuré en production le 06/09/2026, sur les 5 pages-outil :
+//
+//   page                        enveloppe du <h1>        le compte
+//   ─────────────────────────────────────────────────────────────────────────
+//   /collectibles/ /comics/     .sect-t.sect-t--gd       <p class="etiq">
+//   /market/                    .wrap                    aucun
+//   /collections/               un <div> nu              <p class="respire">
+//   /collection/<x>/            un <div> nu              <p class="respire muted">
+//
+// Quatre enveloppes, trois traitements du compte, un seul rôle. ⭐ Ce n'est pas
+// une question de style : c'est le genre de dispersion qui fait qu'une
+// correction s'applique à trois pages sur quatre et que personne ne le voit.
+//
+// ⛔⛔ NE PAS CONFONDRE AVEC `.hero` — c'est le hero de l'ACCUEIL (600 px,
+// champ noir, `[data-anonyme]`). J'ai lu l'un pour l'autre en préparant ce lot :
+// « `hero` apparaît 24 fois dans le thème » m'a fait croire que le bandeau
+// existait déjà. Il n'existait pas. ⭐ *Un nom trouve la prose et les voisins,
+// jamais l'usage.*
+//
+// 📐 LA MAQUETTE v4 LE MONTRE EN DEUX VUES, `.hero-ap` et `.hero-pc`. Ce sont
+// deux VUES du même bandeau, pas deux composants : ce gabarit n'émet donc qu'UN
+// élément, restylé au-delà de 820 px. Émettre les deux ferait DEUX `<h1>` dans
+// la page — une faute de structure que la maquette, elle, n'a pas à porter.
+//
+// 🌱 LA PERCHE DE FLOORA — ET LA NOTE QUI DISAIT « ELLE NE PEUT PAS ÊTRE ICI »
+// ÉTAIT FAUSSE, DE LA MEILLEURE DES FAÇONS.
+// J'avais écrit le 06/09 au matin : « il n'y a que DEUX fichiers de pose sur le
+// disque, `floora.mjs` lève pour une pose non mesurée, donc la perche est
+// impossible ». Les deux moitiés étaient vraies — et la conclusion fausse.
+// ⭐⭐⭐ J'avais regardé `public/floora/` (2 fichiers) et conclu sur LE TRAVAIL
+// LIVRÉ. `livraison-floora/public/floora/` porte **45 fichiers, 16 poses**,
+// tous sous 25 Ko, générés le 04/09, avec leur manifeste de largeurs ET leurs
+// 23 clés traduites dans les 5 langues. Rien n'avait jamais été DÉPOSÉ.
+// *Une absence dans le dépôt n'est pas une absence tout court* — et c'est
+// Preda qui a répondu à la question, en donnant le chemin du dossier.
+//
+// 🔴 LE BALISAGE EST CELUI DU LIVRABLE, ET IL N'EST PAS NÉGOCIABLE (LISEZ-MOI
+// §4 ②) : `<picture>` avec un `<source media="(min-width:1100px)">` et un
+// `<img>` SANS `src`. ⛔⛔ Surtout pas un `<img src>` masqué en CSS : une image
+// cachée par `display:none` **est téléchargée quand même**. Le site porte déjà
+// ce défaut ailleurs — 20 `<img>` de largeur 0 sur `/market/`, mesurées le
+// 04/09 — et il ne coûte rien aujourd'hui uniquement parce que personne n'a
+// encore basculé la règle CSS qui les révélerait.
+//
+// ⛔ NI LA POSE NI LA PHRASE NE SE CHOISISSENT ICI. Ce gabarit reçoit un
+// USAGE ; `floora.mjs` en déduit la pose (`POSE_DE`) et la clé de bulle
+// (`BULLE_DE`). Les deux tables sont fermées, et les rayons `/collectibles/` et
+// `/comics/` n'y figurent pas : le livrable ne leur assigne aucune pose, donc
+// ils n'ont pas de perche. *On ne met pas « celle qui va bien ».*
+//
+// ⛔ AUCUN PRIX N'ENTRE ICI. `compte` est un compte de CATALOGUE — public, déjà
+// servi par les rayons aujourd'hui. Le mur (`projeterCote()`, `test:fuite`)
+// n'est ni contourné ni élargi.
+
+import { floora } from '../../engine/lib/floora.mjs';
+import { t, nu } from '../../engine/lib/i18n.mjs';
+
+interface Props {
+  /** Le titre, DÉJÀ traduit par l'appelant. Il devient le `<h1>` de la page. */
+  titre: string;
+  /** La phrase de compte, DÉJÀ traduite. Facultative : `/market/` n'en a pas. */
+  compte?: string | null;
+  /** La ligne d'aide sous le filet, DÉJÀ traduite. Facultative. */
+  aide?: string | null;
+  /** L'USAGE de la perche — `fiche`, `market`, `sets`, `collections`,
+   *  `analytics`. ⛔ JAMAIS une pose : `floora()` lève sur un usage inconnu, et
+   *  c'est ce que `test:floora` §1 protège. Absent ⇒ pas de perche. */
+  perche?: string | null;
+  /** La langue, pour la bulle SEULEMENT. ⚠️ Le reste du composant reçoit du
+   *  texte déjà traduit ; la bulle, elle, ne peut pas l'être par l'appelant
+   *  sans que celui-ci choisisse sa clé — ce que la table interdit. */
+  lang?: string;
+}
+
+const { titre, compte = null, aide = null, perche = null, lang = 'en' } = Astro.props;
+
+// ⭐ 176 ET PAS 208 : la table du livrable donne 176 pour les cinq perches de
+// page-outil. Les 208 sont réservés aux ÉTATS VIDES, qui occupent une page
+// entière. ⛔ Et il n'existe pas de -384 : agrandir de plus de 15 % floute le
+// sujet, c'est écrit dans `floora.mjs` et payé deux fois dans le brief.
+const f = perche ? floora(perche, 176) : null;
+---
+
+{/* ⭐ `mono-t` RESTE sur le `<h1>`. Les bancs existants (`test:titres`,
+    `test:entete`) et le reste du thème s'y branchent ; le bandeau ne fait que
+    redéfinir sa taille et sa casse dans son propre contexte. Changer la classe
+    aurait été un renommage déguisé en relooking. */}
+<div class="bandeau">
+  <h1 class="mono-t">{titre}</h1>
+  {compte && <span class="bandeau__c">{compte}</span>}
+  {aide && <div class="bandeau__a">{aide}</div>}
+  {f && (
+    <div class="perche">
+      {/* ⚠️ L'IMAGE N'A PAS DE `src`, ET C'EST LE POINT. Sous 1 100 px, la
+          balise `source` ne s'applique pas, rien n'est téléchargé, et la
+          perche n'existe pas — ni en octets, ni à l'écran. C'est la seule
+          forme qui tienne la promesse « pas de mascotte sur mobile ».
+          🔴 ET LES CHEVRONS SONT ÉCRITS EN TOUTES LETTRES ICI, EXPRÈS : un
+          commentaire JSX qui contient une balise ouvrante désynchronise le
+          compilateur Astro, qui répond « Expected accolade but found deux-
+          points » — une erreur qui ne désigne ni la ligne ni la cause.
+          ⚠️ Et le message d'erreur n'est PAS recopié tel quel ici : il contient
+          une accolade nue, et `test:gabarits` compte les accolades du corps —
+          citer l'erreur dans un commentaire la lui ferait compter. Payé deux
+          fois le 06/09, à dix minutes d'intervalle. */}
+      <picture class="perche__img">
+        <source media="(min-width: 1100px)" srcset={f.src} />
+        <img alt={t(lang, f.cle)} width={f.width} height={f.height}
+             loading="lazy" decoding="async" />
+      </picture>
+      {/* ⭐ `set:html` parce que les bulles portent du gras — c'est le
+          livrable qui l'écrit, dans les cinq langues, et il y désigne le mot
+          sur lequel l'explication tient. ⛔ Aucune de ces phrases ne contient
+          de valeur mesurée : `test:floora` §5 le vérifie, liste blanche
+          `7 · 24 · 30 · 90 · 0 · 100`.
+
+          🔴🔴🔴 `nu()` EST OBLIGATOIRE ICI, ET C'EST UNE PANNE MESURÉE, PAS UNE
+          PRÉCAUTION. Sous `I18N_MARQUAGE=1` — posé par le Dockerfile, donc EN
+          PRODUCTION — `t()` rend le texte entouré de sentinelles invisibles, et
+          `outils/marquer_i18n.mjs` les remplace ensuite par un `span data-i18n`.
+          Il ne sait le faire que sur du TEXTE SIMPLE. Ici la valeur contient du
+          balisage : le marqueur a retiré les sentinelles et laissé la CLÉ dans
+          la phrase. La bulle servait, mot pour mot :
+              « floora.setsA set has no single price but… »
+          ⭐⭐ Et rien n'aurait rougi : le build était vert, `test:i18n` ne
+          cherche que les sentinelles SURVIVANTES — il n'en restait aucune.
+          ⭐⭐⭐ C'était le PREMIER `set:html={t(…)}` du dépôt. *Un chemin que
+          personne n'a jamais emprunté n'est pas sûr, il est non mesuré.*
+          ⚠️ Le prix de `nu()` est assumé : cette phrase ne sera pas surlignée
+          par l'outil de recette. Une bulle non surlignée coûte moins qu'une
+          bulle qui affiche sa propre clé à tous les visiteurs. */}
+      {f.cleBulle && <p class="bulle" set:html={nu(t(lang, f.cleBulle))}></p>}
+    </div>
+  )}
+</div>

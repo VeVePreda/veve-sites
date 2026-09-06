@@ -15,7 +15,7 @@ import { productLd, breadcrumbLd, couperMilieu } from '../../../engine/lib/seo.m
 import { manifest, siteUrl } from '../../../engine/lib/manifest.mjs';
 import { DESC_MIN, DESC_MAX } from '../../../engine/lib/editorial_pages.mjs';
 import { t, localize, numberLocale, dateLocale, nu } from '../../../engine/lib/i18n.mjs';
-import { grandeImage, ONERROR_REPLI } from '../../../engine/lib/image_cdn.mjs';
+import { imageFiche, ONERROR_REPLI } from '../../../engine/lib/image_cdn.mjs';
 import { postsForItem } from '../../../engine/lib/blog.mjs';
 import { rar, forme, delta, gemsM, RAR, omiM, mcpPoints, mentionEdition, dateSeule, urlStackR } from '../../../engine/lib/vitrine.mjs';
 import { franchit, porte, acces } from '../../../engine/lib/access.mjs';
@@ -63,6 +63,14 @@ const nomDuPalier = (cle) => {
 // bloc de mémoire, c'est signer pour redécouvrir ces trois bugs.
 
 const { lang, item, updatedAt } = Astro.props;
+
+// 🖼️ LOT B (06/09) — LA GRANDE IMAGE, CALCULÉE UNE FOIS POUR LES DEUX <img>.
+// ⛔ Elle était appelée QUATRE fois dans le gabarit (deux `src`, deux
+// `data-repli`) : quatre fois le même calcul pour un résultat identique, et
+// surtout quatre endroits à corriger le jour où la règle change. Le fond diffus
+// et l'image nette PARTAGENT la même URL — c'est déjà le contrat d'avant ce
+// lot : une requête, un cache. La partager ici le rend vrai par construction.
+const img = imageFiche(item.image);
 const m = manifest();
 const root = siteUrl();
 const path = item.path;
@@ -247,6 +255,63 @@ const budget = Math.max(24, 60 - (m.seo?.title_template || '%s').replace('%s', '
 const titreItem = (() => {
   if (!item.series || serieRedondante) return item.qualifie || item.name;
   const base = item.qualifie || item.name;
+  // ═══════════════════════════════════════════════════════════════════════
+  // 🔴🔴🔴 LOT A ① (06/09/2026) — SUR LES COMICS, LE NOM DE SERIE PASSE EN TETE
+  // ═══════════════════════════════════════════════════════════════════════
+  // Decision de Preda, 06/09 : « Wolverine Vol. 8 #7 (2024) » — l'ordre de
+  // lecture naturel, celui que portent deja le catalogue et `rayon-index`.
+  //
+  // ⛔⛔ CETTE VARIANTE AVAIT DEJA ETE CONSTRUITE ET REJETEE LE 14/08. C'est la
+  // « variante D » du commentaire plus bas : « 0 collision, mais 17,9 % de
+  // titres encore tronques ». ⭐⭐⭐ ELLE AVAIT ETE MESUREE AVEC L'ANCIEN BUDGET
+  // DE 47 : l'ordre et la correction de budget ont ete essayes SEPAREMENT,
+  // jamais ensemble. Remesure du 06/09 sur 220 fiches reelles tirees au sort en
+  // production, en appelant `pageTitle` et `couperMilieu` de ce depot :
+  //                      elision …     sans « | VeVe Price »
+  //     E (servi)          4,5 %            28,6 %
+  //     D (ceci)           3,6 %            21,8 %
+  //   collisions : 0 des deux cotes sur l'echantillon.
+  // ⭐⭐ *Deux corrections qui se genent separement peuvent s'entraider une fois
+  // ensemble — et un chiffre de rejet ne vaut que pour la version qu'il a
+  // mesuree.* → regle-arbitrage-pose-sur-une-premisse-fausse
+  //
+  // ⚠️ 0 COLLISION SUR 220 FICHES NE PROUVE RIEN SUR 6 789. `test:titres` §3 lit
+  // le `dist/` entier et reste le seul juge des collisions ; §5 porte desormais
+  // une FAMILLE 4 (comics reordonnes) pour que la regression se voie hors ligne.
+  //
+  // ⚠️ CE BLOC EST PLACE AVANT LE REPLI `complet.length <= budget`, ET C'EST
+  // VOLONTAIRE. Ce repli rend « base — serie » des 47 caracteres : laisse
+  // au-dessus, il aurait servi l'ANCIEN ordre a la grande majorite des comics et
+  // ce lot n'aurait retourne que les titres longs. Le banc l'aurait vu ; un
+  // lecteur de la page, non.
+  if (item.nomComic) {
+    const MINI_SERIE = 24;
+    const inverse = `${item.series} ${base}`;
+    if (inverse.length <= 60) return inverse;
+    // ═════════════════════════════════════════════════════════════════════
+    // 🔴🔴🔴 ET VOICI LA PART QUE `test:titres` §3 A ARRACHEE, LE 06/09
+    // ═════════════════════════════════════════════════════════════════════
+    // Premiere version : `place = max(24, 60 - base.length - 1)`. Sur
+    // `Return of the Jedi #1: Poster Series`, dont quinze pieces partagent le
+    // nom, `base` fait 40 caracteres : le plancher de 24 imposait 24+1+40 = 65,
+    // donc AU-DESSUS du budget — et `pageTitle` coupait alors LA QUEUE, c'est-a-
+    // dire le discriminant (« · 5000 » contre « · 5000 (2) »).
+    // ⇒ **4 collisions**, quatre paires de pages avec le meme <title>.
+    // ⭐⭐⭐ C'est le piege de `seo.mjs` retourne une troisieme fois : en mettant
+    // la serie en tete, on a DEPLACE le discriminant dans la queue, c'est-a-dire
+    // pile la ou la coupe mord. *Reordonner ne change pas seulement l'ordre,
+    // ca change QUI la coupe ampute.*
+    //
+    // LA REGLE RETENUE — la serie cede TOUJOURS la place au discriminant, et
+    // quand il ne reste plus de place lisible pour elle, on retombe sur l'ordre
+    // d'AVANT (base en tete), qui protege le discriminant par construction.
+    // ⛔ Ce repli n'est pas un aveu : sur ces pieces-la, l'ancien ordre est le
+    // BON — il met devant ce qui distingue. L'ordre naturel est un confort de
+    // lecture, l'unicite du titre est une obligation.
+    const place = 60 - base.length - 1;
+    if (place < MINI_SERIE) return `${base} — ${couperMilieu(item.series, Math.max(MINI_SERIE, 60 - base.length - 4))}`;
+    return `${couperMilieu(item.series, place)} ${base}`;
+  }
   const complet = `${base} — ${item.series}`;
   if (complet.length <= budget) return complet;
   // ⚠️ ANCIENNE VERSION : quand la place manquait, on SUPPRIMAIT la serie.
@@ -305,11 +370,11 @@ const titreItem = (() => {
   // protege la mauvaise chose.*
   // ⚠️ CE BLOC NE TOUCHE QUE LES COMICS (`item.nomComic`). Mesure contre la
   // PRODUCTION : **0 titre collectible change sur les 910 tronques**.
-  if (item.nomComic) {
-    if (complet.length <= 60) return complet;
-    const place2 = Math.max(MINI, 60 - base.length - 4);
-    return `${base} — ${couperMilieu(item.series, place2)}`;
-  }
+  // ⛔ LE BLOC COMICS QUI VIVAIT ICI EST REMONTE EN TETE DE CETTE FONCTION
+  // (LOT A ①, 06/09). Les 40 lignes ci-dessus restent : elles portent la mesure
+  // du 14/08 qui a choisi la variante E, et c'est elle qu'on vient de retourner.
+  // ⛔ Ne pas remettre un `if (item.nomComic)` ici : il serait MORT, et un
+  // aiguillage mort se lit comme un aiguillage vivant.
   const place = Math.max(MINI, budget - base.length - 4);   // 3 pour " — ", 1 pour l'ellipse
   if (item.series.length <= place) return complet;
   let bout = item.series.slice(0, place);
@@ -322,6 +387,17 @@ const titreItem = (() => {
 })();
 const anneeDebut = item.since ? new Date(item.since).getFullYear() : null;
 const serieTxt = item.series ? ` (${item.series})` : '';
+// 🔴 LOT A ① (06/09) — LA DESCRIPTION SUIT LE TITRE, OU ELLE LE CONTREDIT.
+// Le titre d'un comic dit desormais « Wolverine Vol. 8 #7 (2024) ». Laisser la
+// description ecrire « #7 (2024) (Wolverine Vol. 8) : … » donnerait deux ordres
+// pour une seule page, dans les deux endroits que Google montre cote a cote.
+// ⭐ Le suffixe entre parentheses DISPARAIT ici, il ne s'ajoute pas : le nom de
+// serie est deja dans `nomDesc`, le repeter ferait « Wolverine Vol. 8 #7 (2024)
+// (Wolverine Vol. 8) ». ⚠️ Meme garde que le titre : `serieRedondante` exclu,
+// sinon on repeterait un nom que la piece porte deja.
+const inverseDesc = Boolean(item.nomComic && item.series && !serieRedondante);
+const nomDesc = inverseDesc ? `${item.series} ${item.qualifie || item.name}` : (item.qualifie || item.name);
+const serieDesc = inverseDesc ? '' : serieTxt;
 // 🔴 LOT 101 — LA DESCRIPTION NE PROMET PLUS UN PRIX QU'ELLE N'AFFICHE PLUS.
 // `desc.item` porte `{price}` : la laisser aurait ecrit le plancher dans la
 // balise <meta description> — c'est-a-dire dans le resultat Google, donc dans
@@ -347,9 +423,9 @@ const serieTxt = item.series ? ` (${item.series})` : '';
 // invisibles, et `.length` sur un resultat de `t()` ment de plusieurs dizaines
 // de caracteres.
 const descLongue = (!coteFermee && item.floor && item.totalPoints && anneeDebut)
-  ? t(lang, 'desc.item', { name: item.qualifie || item.name, series: serieTxt, price: money(item.floor), n: item.totalPoints.toLocaleString(nf), year: anneeDebut, brand: m.site.brand })
+  ? t(lang, 'desc.item', { name: nomDesc, series: serieDesc, price: money(item.floor), n: item.totalPoints.toLocaleString(nf), year: anneeDebut, brand: m.site.brand })
   : null;
-const descCourte = t(lang, 'desc.itemShort', { name: item.qualifie || item.name, series: serieTxt, brand: m.site.brand });
+const descCourte = t(lang, 'desc.itemShort', { name: nomDesc, series: serieDesc, brand: m.site.brand });
 // 🔴🔴🔴 LOT 134c — LA FENETRE A **DEUX** BORNES, ET JE N'EN AI OUTILLE QU'UNE.
 // Le 134b a borne le HAUT (`Base.astro` coupe a `DESC_MAX`) et a laisse le BAS
 // sans surveillance. Deuxieme build Docker en echec, une seule page :
@@ -437,23 +513,30 @@ const mcpJour = mcpPoints(item.rarity, item.type);
               ⚠️ `ok` est en dur et c'est voulu : le fondu au chargement
               demanderait du JS, et une image qui depend de JS pour devenir
               visible ne s'affiche pas du tout s'il echoue. */}
-            {/* 🖼️ RELOOKING 2 — MÊME TAILLE, MEILLEURE COMPRESSION.
-                Ici la vignette du CDN (132 ou 239 px) serait TROP PETITE : la
-                fiche montre l'image en grand, c'est son sujet. Mais 32 des 60
-                couvertures de comics mesurées le 06/09 arrivent en `.full.jpeg`
-                à **1 579 550 o de moyenne**, alors que le même fichier existe
-                en `.webpFull.webp` à **509 799 o** — 29 fois sur 32. **3,1×**,
-                sans toucher à un pixel. Les 3 manquants retombent par
-                `data-repli`, et seulement ensuite le socle se marque cassé.
+            {/* 🖼️ LOT B (06/09) — LA VIGNETTE DU CDN, SUR LES COMICS.
+                ⛔⛔ CE COMMENTAIRE DISAIT L'INVERSE JUSQU'À CE LOT : « ici la
+                vignette serait TROP PETITE ». Il s'appuyait sur une vignette de
+                239 px et sur une boîte qu'on croyait large de 186. Les DEUX
+                nombres étaient faux, et c'est mesuré en production le 06/09 :
+                la boîte fait **263 px sur mobile et 316 sur grand écran**, et la
+                vignette d'un comic vaut la grande image ÷ 5 — **400 px dans 29
+                cas sur 33**, 239 dans les 4 autres.
+                ⇒ Arbitrage de Preda, en connaissance de la facture : on sert la
+                vignette (**510 Ko → 145 Ko, 3,5×, sur TOUS les écrans**) et on
+                accepte l'adoucissement, visible sur les 12 % à 239 px.
+                ⛔ PAS de `srcset` : un descripteur `x` ne sert le petit fichier
+                qu'à densité 1, or l'écran mesuré est à 1,375 en PC et 2 en
+                mobile — le gain aurait été nul. Tout le raisonnement, et les
+                trois renversements de mesure, vivent dans `image_cdn.mjs`.
                 ⚠️ UNE SEULE URL POUR LES DEUX <img> : c'est déjà le contrat du
                 fond diffus et de l'image nette — une requête, un cache. */}
-            <img class="socle__fond ok" src={grandeImage(item.image).src}
-                   data-repli={grandeImage(item.image).repli}
+            <img class="socle__fond ok" src={img.src}
+                   data-repli={img.repli}
                    alt="" aria-hidden="true" onerror={ONERROR_REPLI}
                    width="400" height="500" loading="eager" decoding="async" />
               <span class="socle__voile" aria-hidden="true"></span>
-              <img class="socle__net ok" src={grandeImage(item.image).src}
-                   data-repli={grandeImage(item.image).repli} alt={item.name}
+              <img class="socle__net ok" src={img.src}
+                   data-repli={img.repli} alt={item.name}
                    width="400" height="500" loading="eager" fetchpriority="high" decoding="async"
                    onerror={ONERROR_REPLI} />
             </>

@@ -349,6 +349,74 @@
     if (p) boite.setAttribute('href', idx.prefixe + p);
 
     // ═══════════════════════════════════════════════════════════════════════
+    // 🖼️🔴🔴 LOT E — LE SOCLE, ET C'EST LA CINQUIÈME FOIS QUE CETTE RÈGLE SORT
+    // ═══════════════════════════════════════════════════════════════════════
+    // *Une seconde fabrique ne montre que ce que sa source porte.* Les tuiles
+    // du Marché, puis celles de `/favoris/`, puis le badge ATL/ATH, puis les
+    // vignettes des sets : quatre fois ce dépôt a peint une liste depuis une
+    // source qui ne portait pas tout, et quatre fois la moitié servie par le
+    // serveur avait quelque chose que la moitié filtrée n'avait pas.
+    // ⇒ `c` et `cr` sont dans l'index EXPRÈS. Ce ne sont pas des colonnes de
+    // confort : sans elles, les 20 premières tuiles auraient leur couverture et
+    // toutes les suivantes un losange — un défaut qui ressemble à une donnée
+    // manquante, pas à un bug, donc qu'on ne cherche jamais au bon endroit.
+    // ⭐ LE PRÉFIXE SE RECOLLE ICI, comme `series.js` le fait pour les sets :
+    //   l'index le factorise une fois, chaque adresse le retrouve.
+    // ⛔ `.src = url` PAR LA PROPRIÉTÉ, jamais par une chaîne assemblée : une
+    //   adresse qui contiendrait un guillemet ferait de cette ligne une
+    //   injection. La propriété ne peut pas sortir de l'attribut, la chaîne si.
+    var dans = document.createElement('span');
+    dans.className = 'rayon__b';
+    if (pos.c !== undefined) {
+      var socle = document.createElement('span');
+      socle.className = 'socle' + (idx.corpus === 'comics' ? ' socle--comic' : '');
+      var im = ligneVal(l, 'c');
+      var rp = ligneVal(l, 'cr');
+      if (im) {
+        var url = (idx.cdn || '') + im;
+        var urp = rp ? (idx.cdn || '') + rp : '';
+        var nomC = String(ligneVal(l, 'n') || '');
+        var fond = document.createElement('img');
+        fond.className = 'socle__fond ok'; fond.src = url; fond.alt = '';
+        fond.setAttribute('aria-hidden', 'true');
+        var voile = document.createElement('span'); voile.className = 'socle__voile';
+        var net = document.createElement('img');
+        net.className = 'socle__net ok'; net.src = url; net.alt = nomC;
+        // ⭐ `width`/`height` EN ATTRIBUTS : ils réservent la place et évitent
+        //   le décalage de mise en page. `loading=lazy` fait que peindre 200
+        //   tuiles ne décode que celles à l'écran.
+        // ⚠️ `onerror` EN ATTRIBUT et pas en écouteur : il se déclenche pendant
+        //   le chargement, et le gabarit du serveur le pose de la même façon.
+        //   Les deux fabriques rendent le même HTML, ou elles divergeront.
+        [fond, net].forEach(function (x) {
+          x.setAttribute('width', '400'); x.setAttribute('height', '600');
+          x.setAttribute('loading', 'lazy'); x.setAttribute('decoding', 'async');
+          if (urp) x.setAttribute('data-repli', urp);
+          // ⛔ POSÉ SEULEMENT S'IL EXISTE : un `onerror=""` vide serait un
+          //   attribut d'événement qui ne fait rien, et le banc qui compte les
+          //   replis le verrait comme un repli présent.
+          if (idx.onerror) x.setAttribute('onerror', idx.onerror);
+        });
+        socle.appendChild(fond); socle.appendChild(voile); socle.appendChild(net);
+      } else {
+        // ⭐⭐ LE LOSANGE VIENT DE LA CHARGE (`idx.losange`), IL N'EST PAS
+        //   RÉÉCRIT ICI. Le dessin est produit par `forme()` au build, comme
+        //   les pastilles de rareté d'`idx.rar` : *quand deux fabriques doivent
+        //   montrer la même chose, on transporte le résultat, pas la recette.*
+        //   ⛔ Recopier le `path` du losange dans ce fichier en ferait une
+        //   seconde source — et le jour où le glyphe change, une liste filtrée
+        //   dessinerait l'ancien, sans que les deux soient jamais côte à côte.
+        var v2 = document.createElement('span'); v2.className = 'socle__voile';
+        var cage = document.createElement('span');
+        cage.className = 'socle__cage';
+        cage.setAttribute('aria-hidden', 'true');
+        cage.innerHTML = idx.losange || '';
+        socle.appendChild(v2); socle.appendChild(cage);
+      }
+      boite.appendChild(socle);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
     // 🔴 LOT 182 — LE `title` MANQUAIT ICI, ET LE CSS COUPE QUAND MEME
     // ═══════════════════════════════════════════════════════════════════════
     // `.rayon__n` et `.rayon__s` portent `text-overflow:ellipsis` dans le
@@ -367,10 +435,22 @@
     //   sont PAS dans le HTML servi, ils sont crees ici. Zero octet de page.
     var n = document.createElement('span');
     n.className = 'rayon__n';
-    var nv = String(ligneVal(l, 'n') || '');
-    n.textContent = nv;
-    if (nv) n.title = nv;
-    boite.appendChild(n);
+    // 🔤🔴🔴 LE NOM AFFICHÉ EST LE NOM **COUPÉ**, LE `title` EST L'ENTIER.
+    // Ce module écrivait le nom entier dans les deux. `Rayon.astro` affiche
+    // `nomItem(l.nom).vu` depuis toujours ⇒ les 20 lignes du serveur étaient
+    // coupées et toutes les lignes filtrées ne l'étaient pas, sur **89,7 % des
+    // comics** (mesuré en production le 06/09, 15 375 / 17 134).
+    // ⭐ `nv` VIENT DE L'INDEX, il n'est pas recalculé ici : `couperMots()` ne
+    //   rend PAS un préfixe — « Once Upon a Mouse…in the Future » devient
+    //   « Once Upon a Mouse…in the… » — et un `slice()` client donnerait un
+    //   autre texte. *On transporte le résultat, pas la recette.*
+    // ⛔ `||` et non `??` : `nv` vaut **0** quand le nom n'est pas coupé. C'est
+    //   la convention de l'index (0 = vide), pas une valeur absente.
+    var complet = String(ligneVal(l, 'n') || '');
+    var vu = String(ligneVal(l, 'nv') || complet);
+    n.textContent = vu;
+    if (complet) n.title = complet;
+    dans.appendChild(n);
 
     var se = mot(l, 'se');
     if (se) {
@@ -378,20 +458,20 @@
       s.className = 'rayon__s';
       s.textContent = se;
       s.title = se;
-      boite.appendChild(s);
+      dans.appendChild(s);
     }
     var men = mot(l, 'e');
     if (men) {
       var m = document.createElement('span');
       m.className = 'rayon__e';
       m.textContent = men;
-      boite.appendChild(m);
+      dans.appendChild(m);
     }
     var code = mot(l, 'r');
     if (code && idx.rar && idx.rar[code]) {
       var rr = document.createElement('span');
       rr.innerHTML = idx.rar[code].h;
-      boite.appendChild(rr.firstChild);
+      dans.appendChild(rr.firstChild);
     }
     // 🔴🔴 LES EXTRÊMES, ET SEULEMENT SI LA PIÈCE A UNE FICHE — décision Preda
     //   du 11/08 : les lignes sans fiche n'auront JAMAIS de cote, et un cadenas
@@ -417,28 +497,29 @@
       //   même HTML À L'OCTET, ou elles divergeront au lot suivant.
       var prx = document.createElement('span');
       prx.innerHTML = cadenasNu(u, 'floor', 'cote rayon__p');
-      boite.appendChild(prx.firstChild);
+      dans.appendChild(prx.firstChild);
     }
     if (p && u) {
       var ext = document.createElement('span');
       ext.className = 'rayon__ext';
       ext.setAttribute('aria-hidden', 'true');
       ext.innerHTML = cadenas('b', 'ATL', u, 'atl') + cadenas('h', 'ATH', u, 'ath');
-      boite.appendChild(ext);
+      dans.appendChild(ext);
     }
     var tg = ligneVal(l, 't');
     if (tg) {
       var tt = document.createElement('span');
       tt.className = 'rayon__t';
       tt.textContent = String(tg);
-      boite.appendChild(tt);
+      dans.appendChild(tt);
     }
     if (!p) {
       var x = document.createElement('span');
       x.className = 'rayon__x';
       x.textContent = txt('sansfiche');
-      boite.appendChild(x);
+      dans.appendChild(x);
     }
+    boite.appendChild(dans);
     li.appendChild(boite);
     return li;
   }
@@ -516,6 +597,14 @@
     if (window.vpCote) window.vpCote(L);
 
     CPT.textContent = vus.length + ' / ' + idx.total;
+    // 🆕 LOT D — LE NOMBRE DE RETENUES SORT ICI, ET NULLE PART AILLEURS.
+    // Le pied de la feuille dit « Voir les 41 résultats ». Ce 41 est
+    // `vus.length` : le seul endroit du site où il est connu. ⛔ Le recompter
+    // dans le module du rail — en comptant les nœuds peints, par exemple —
+    // donnerait la TRANCHE (20), pas les retenues, et le bouton mentirait
+    // exactement quand il sert. ⭐ Un attribut, pas un événement : l'état est
+    // LISIBLE dans le DOM, donc mesurable par un banc et par un œil.
+    f.setAttribute('data-retenues', String(vus.length));
     VIDE.hidden = vus.length !== 0;
     if (PLUS) {
       PLUS.hidden = vus.length <= montre;
@@ -600,11 +689,20 @@
       charger().then(function (ok) {
         if (ok) remplirPuces(pan.querySelector('[data-puces]'));
         var ouvrir = pan.hidden;
-        boutons.forEach(function (o) {
-          var p2 = document.getElementById('rp-' + o.getAttribute('data-g'));
-          if (p2) p2.hidden = true;
-          o.setAttribute('aria-expanded', 'false');
-        });
+        // 🆕 LOT D — L'EXCLUSIVITÉ DEVIENT UNE PROPRIÉTÉ DE LA FORME.
+        // Une barre HORIZONTALE n'a de place que pour un panneau ouvert : le
+        // suivant pousserait la liste de 200 px de plus à chaque clic. Un rail
+        // VERTICAL est un accordéon — la maquette montre Rareté et Tirage
+        // ouverts ensemble, et c'est tout l'intérêt d'une colonne.
+        // ⛔ Ce n'est pas « on ferme moins » : c'est la même règle lue dans les
+        // deux formes. `data-rail` est posé par le gabarit, pas deviné ici.
+        if (!f.hasAttribute('data-rail')) {
+          boutons.forEach(function (o) {
+            var p2 = document.getElementById('rp-' + o.getAttribute('data-g'));
+            if (p2) p2.hidden = true;
+            o.setAttribute('aria-expanded', 'false');
+          });
+        }
         pan.hidden = !ouvrir;
         b.setAttribute('aria-expanded', String(ouvrir));
       });

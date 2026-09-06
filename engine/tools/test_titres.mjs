@@ -502,6 +502,92 @@ dit(titresFab.every((t) => [...t].length <= TITLE_BUDGET),
   `…et aucun ne dépasse le budget de ${TITLE_BUDGET} caractères`,
   titresFab.every((t) => [...t].length <= TITLE_BUDGET) ? null
     : `le plus long : ${Math.max(...titresFab.map((t) => [...t].length))}`);
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 FAMILLE 4 — LES COMICS REORDONNES. AJOUTEE LE 06/09/2026 (LOT A ①)
+// ═══════════════════════════════════════════════════════════════════════════
+// Depuis le LOT A ①, un titre de comic s'ecrit « <serie> <base> » et non plus
+// « <base> — <serie> ». ⭐⭐⭐ CE SEUL ECHANGE DEPLACE LE DISCRIMINANT DANS LA
+// QUEUE, c'est-a-dire pile la ou `pageTitle` coupe. La premiere version du lot
+// a rendu **4 paires de pages avec un <title> identique**, et c'est le §3 qui
+// les a vues sur le `dist/` — pas ce §5, qui ne portait pas la famille.
+// ⇒ Elle est ici desormais, avec les noms REELS de la famille qui a rougi.
+//
+// ⚠️ C'EST UNE COPIE DU GESTE DE `Item.astro`, comme `titreDeSet` plus haut, et
+// elle diverge si le gabarit change de strategie sans toucher a ces fonctions.
+// Le §3 reste le juge ; celui-ci fait voir la regression HORS LIGNE.
+const MINI_SERIE = 24;
+const titreDeComic = (serie, base) => {
+  const inverse = `${serie} ${base}`;
+  if (inverse.length <= TITLE_BUDGET) return pageTitle(inverse, GABARIT, '', muet);
+  const place = TITLE_BUDGET - base.length - 1;
+  if (place < MINI_SERIE) {
+    return pageTitle(`${base} — ${couperMilieu(serie, Math.max(MINI_SERIE, TITLE_BUDGET - base.length - 4))}`, GABARIT, '', muet);
+  }
+  return pageTitle(`${couperMilieu(serie, place)} ${base}`, GABARIT, '', muet);
+};
+// La serie qui a fait rougir : quinze pieces partagent ces 36 caracteres, et
+// leurs `base` sont assez longs pour ne laisser aucune place lisible a la serie.
+const SERIE_PARTAGEE = 'Return of the Jedi #1: Poster Series';
+const BASES_REELLES = [
+  'Alex Ross Main Cover · Common · 5000',
+  'Alex Ross Main Cover · Common · 5000 (2)',
+  'Todd McFarlane Variant · Uncommon · 5000',
+  'Todd McFarlane Variant · Uncommon · 5000 (2)',
+  'Bill Sienkiewicz Original Main Cover · Common · 5000',
+  'Bill Sienkiewicz Original Main Cover · Common · 5000 (2)',
+];
+const comicsFab = BASES_REELLES.map((b) => titreDeComic(SERIE_PARTAGEE, b));
+dit(new Set(comicsFab).size === BASES_REELLES.length,
+  `${BASES_REELLES.length} comics d'une MEME serie longue rendent ${
+    new Set(comicsFab).size} titres DISTINCTS (famille 4, l'ordre inverse)`,
+  new Set(comicsFab).size === BASES_REELLES.length ? null
+    : `⛔ la queue coupee emporte le discriminant : ${[...new Set(comicsFab)].join(' | ')}`);
+// 🔬🔴🔴 JUGE PAR INJECTION LE 06/09, ET LE VERDICT SURPREND : en retirant le
+// repli, LA LIGNE CI-DESSUS RESTE VERTE. Les six titres demeurent distincts
+// parce que `couperMilieu` mange une longueur DIFFERENTE dans chacun — alors
+// que sur le `dist/` reel, le §3 voit bien 4 collisions. ⭐⭐⭐ *Ce controle-ci
+// ne mord donc pas sur le defaut qu'il a l'air de surveiller ; c'est le TEMOIN
+// ci-dessous qui porte la charge.* Il reste, parce qu'il ferme l'autre moitie
+// (une coupe qui ecraserait vraiment le discriminant), mais on ne s'y fie pas
+// seul. → index-juger-son-banc
+// ⭐ ET LE CONTROLE QUI EMPECHE CE §-CI D'ETRE VERT PAR PARESSE, deuxieme forme.
+// Si le repli disparaissait, ces six-la garderaient l'ordre naturel et se
+// couperaient dans la queue. On verifie donc qu'ils ont bien PRIS LE REPLI,
+// c'est-a-dire qu'ils commencent par leur `base` et non par la serie.
+dit(comicsFab.every((t, i) => t.startsWith(BASES_REELLES[i].slice(0, 20))),
+  '…et les six sont bien passes par le REPLI (base en tete), sinon ce controle est vide',
+  comicsFab.every((t, i) => t.startsWith(BASES_REELLES[i].slice(0, 20))) ? null
+    : `au moins un garde l'ordre naturel : ${comicsFab.join(' | ')}`);
+// ⭐⭐ ET LE CAS ORDINAIRE, celui des 97 % : la serie DOIT passer en tete quand
+// la place existe. Sans cette ligne, un repli pose partout serait vert ici.
+const comicCourt = titreDeComic('Wolverine Vol. 8', '#7 (2024) · Common');
+dit(comicCourt.startsWith('Wolverine Vol. 8 #7'),
+  'un comic ordinaire porte bien la SERIE EN TETE — « Wolverine Vol. 8 #7 (2024) · Common »',
+  comicCourt.startsWith('Wolverine Vol. 8 #7') ? null : `rendu : ${comicCourt}`);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 ET LE TEMOIN QUI MANQUAIT : L'ECHANTILLON PORTE-T-IL DES COMICS ?
+// ═══════════════════════════════════════════════════════════════════════════
+// Mesure du 06/09 : `engine/data/sample/catalogue.csv` n'avait AUCUNE colonne
+// `veve_comic_name`. Donc `item.nomComic` etait null hors ligne, donc la branche
+// comics de `Item.astro` n'etait **JAMAIS EXECUTEE** par un banc — et les 54
+// bancs restaient verts quoi qu'on y ecrive. Le premier jet du LOT A ① est
+// passe vert sur toute la chaine sans qu'une seule page change.
+// ⭐⭐⭐ *Un echantillon a qui il manque un CHAMP debranche une BRANCHE entiere,
+// en silence.* → regle-echantillon-hors-ligne-angle-mort
+const CSV = new URL('../data/sample/catalogue.csv', import.meta.url);
+const lignesCsv = readFileSync(CSV, 'utf8').split('\n').filter(Boolean);
+const enteteCsv = lignesCsv[0].split(',').map((c) => c.trim());
+const iComic = enteteCsv.indexOf('veve_comic_name');
+dit(iComic >= 0,
+  "l'echantillon porte la colonne `veve_comic_name` (sans elle, la branche comics n'est jamais jouee)",
+  iComic >= 0 ? null : `colonnes : ${enteteCsv.join(', ')}`);
+const avecOeuvre = iComic < 0 ? 0
+  : lignesCsv.slice(1).filter((l) => (l.split(',')[iComic] || '').trim()).length;
+dit(avecOeuvre >= 20,
+  `…et ${avecOeuvre} piece(s) de l'echantillon portent un titre d'oeuvre`,
+  avecOeuvre >= 20 ? null : 'moins de 20 : la branche comics est mesuree sur presque rien');
+
 // ⭐ ET LE CONTRÔLE SYMÉTRIQUE, CELUI QUI DIT QUE LE BANC SAIT ENCORE ÉCHOUER.
 // Sans lui, une `pageTitle()` qui rendrait le nom entier sans jamais couper
 // passerait les deux lignes ci-dessus — et le §2 aussi. On vérifie donc qu'un

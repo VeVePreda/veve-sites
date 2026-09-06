@@ -2887,6 +2887,52 @@ body > main{ background:var(--bg); }
 .rayon__p{ font-family:var(--tech); font-size:var(--t-sm); font-weight:700;
   color:var(--text); font-variant-numeric:tabular-nums; white-space:nowrap; }
 .rayon__p.cote{ display:inline-flex; align-items:center; gap:3px; }
+
+/* 🎨🔴🔴 LOT E — LA VUE TUILES DES RAYONS. Arbitrage Preda du 05/09, reconfirmé
+   le 06/09 : Collectibles et Comics en tuiles, le Marché reste un tableau.
+   ⭐⭐ UN SEUL ARBRE DE DOM, DEUX VUES. `.rayon__b` est en `display:contents`
+   par défaut : ses enfants redeviennent les cellules de la grille à sept
+   colonnes de `.rayon__c`, donc la vue liste (`sets`) est celle d'avant ce lot,
+   au pixel près. Sous `.rayon--tui`, il redevient une boîte : la cartouche.
+   ⛔ NE PAS RÉUTILISER `.tuile` DU MARCHÉ ICI : `.rayon__c` est déclaré APRÈS
+   `.tuile` dans cette feuille, il gagnerait à spécificité égale et la tuile
+   serait relue en grille à sept colonnes — un défaut d'ORDRE, invisible à la
+   lecture des deux règles prises séparément. Le contrat visuel est repris, la
+   cascade ne l'est pas. */
+.rayon__b{ display:contents; }
+.rayon--tui{ grid-template-columns:repeat(auto-fill,minmax(178px,1fr)); gap:var(--s3); }
+.rayon--tui .rayon__l{ display:flex; }
+.rayon--tui .rayon__c{ display:flex; flex-direction:column; align-items:stretch; flex:1;
+  gap:0; padding:0; border-radius:var(--r-lg); overflow:hidden;
+  transition:transform var(--d-base) var(--e-out), border-color var(--d-base); }
+.rayon--tui .rayon__c:hover{ transform:translateY(-3px); }
+.rayon--tui .rayon__b{ display:grid; gap:6px; padding:9px 11px 11px; }
+/* 📏 LE TITRE SUR DEUX LIGNES, HAUTEUR FIXE — le contrat `.tuile__n` du Marché,
+   `height` et non `min-height` : un plancher n'est pas une égalité, et des
+   cartouches de hauteurs différentes désalignent toute la grille. */
+.rayon--tui .rayon__n{ white-space:normal; display:-webkit-box; -webkit-line-clamp:2;
+  -webkit-box-orient:vertical; overflow:hidden; height:2.56em; text-overflow:clip; }
+/* 📐🔴🔴 LE PALIER MOBILE — MESURÉ CONTRE LA MAQUETTE v4 LE 06/09, PAS DEVINÉ.
+   La maquette rend le rayon en **2 colonnes, gap 9px** sous 520 px (offsets
+   153379 et suivants : `grid-template-columns:1fr 1fr;gap:9px`), et **6 colonnes**
+   en PC. `auto-fill minmax(178px,1fr)` donne bien 6 colonnes à 1 520 px — mais
+   **UNE SEULE à 375 px** : 2×178 + 12 = 368 > les ~343 px disponibles.
+   ⭐⭐ ET LA RÈGLE EXISTAIT DÉJÀ, seize cents lignes plus haut, pour `.tuiles`
+   du Marché. Ma vue s'appelle `.rayon--tui` : elle n'en bénéficiait pas. *Une
+   valeur juste écrite pour un sélecteur voisin ne protège pas le mien.*
+   ⛔ Et on ne peut PAS se contenter d'ajouter `.rayon--tui` au sélecteur de
+   `.tuiles` : `.rayon` est déclaré APRÈS et écraserait `gap` à 2px, à
+   spécificité égale. La cascade décide, pas l'intention.
+   🔑 LES DEUX BLOCS DOIVENT DIRE LA MÊME CHOSE — `test:rayon` § ⑨ les compare,
+   comme `LARGEUR_PILE` est comparée entre ses deux fabriques. */
+@media (max-width:520px){ .rayon--tui{ grid-template-columns:repeat(2,1fr); gap:9px; } }
+
+/* 🖼️ LE SOCLE SANS COUVERTURE — le losange, jamais un cadre vide (lot 127).
+   ⛔ La couleur vit ICI et pas en style en ligne : `--c-a` est une variable de
+   marque, elle est REDÉFINIE PAR SECTION, et la graver dans le gabarit
+   servirait la teinte d'une autre section sur la moitié des rayons. */
+.socle__cage{ position:absolute; inset:0; display:grid; place-items:center; z-index:3; }
+.socle__cage .forme{ color:var(--rule-2); }
 @media (max-width:760px){
   .rayon__c{ grid-template-columns:1fr auto; row-gap:4px; }
   .rayon__s{ grid-column:1/-1; }
@@ -3299,3 +3345,253 @@ body[data-tiroir]::after{ opacity:1; pointer-events:auto; }
   .etat{ margin-top:var(--s5); gap:var(--s3); }
   .etat__f{ height:88px; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LE BANDEAU-OUTIL — étape 3 du relooking (06/09/2026)
+   ═══════════════════════════════════════════════════════════════════════════
+   🔴🔴 ⛔ NE PAS CONFONDRE AVEC `.hero`, QUI EST AU-DESSUS DANS CE FICHIER.
+   `.hero` est le hero de l'ACCUEIL : 600 px de haut, champ noir, panneau os,
+   pièce qui déborde, et il ne sort que pour `[data-anonyme]`. Le bandeau-outil
+   est son contraire : une bande de 80 px qui coiffe une page de TRAVAIL. Les
+   deux noms se ressemblent et j'ai lu l'un pour l'autre en préparant ce lot —
+   d'où cet avertissement plutôt qu'un nom de plus en `hero-`.
+   ⭐ La maquette v4 les nomme `.hero-ap` et `.hero-pc` : ce sont ses deux VUES
+   du même bandeau (mobile et PC), pas deux composants. Le code n'émet donc
+   qu'UN élément — deux copies dans le DOM feraient deux `<h1>`.
+
+   📏 CE QUE LA PRODUCTION SERVAIT AVANT, mesuré le 06/09 sur 5 pages-outil :
+   QUATRE enveloppes différentes pour le même rôle — `.sect-t.sect-t--gd` sur
+   les rayons, `.wrap` sur `/market/`, un `<div>` nu sur `/collections/`, un
+   autre sur `/collection/<x>/` — et trois traitements du compte. C'est cette
+   dispersion que le bandeau ferme, pas un défaut de style.
+
+   🎨 `--sect-a` est REDÉFINI PAR SECTION (`[data-sect="comics"]`…) : le teint
+   du bandeau suit donc le rayon sans qu'on l'écrive nulle part. C'est voulu.
+   ⛔ Aucune valeur de prix n'entre ici : le bandeau ne porte qu'un COMPTE de
+   catalogue, qui est public. Le mur du prix reste entier. */
+.bandeau{padding:10px 16px 12px;display:flex;align-items:baseline;gap:10px;
+  flex-wrap:wrap;border-bottom:1px solid var(--rule);
+  background:linear-gradient(180deg,color-mix(in srgb,var(--sect-a) 8%,var(--nuit)),var(--nuit))}
+.bandeau h1{font-size:22px;letter-spacing:-.03em;font-weight:700;margin:0;
+  text-transform:uppercase}
+.bandeau__c{font-family:var(--tech);font-size:12px;color:var(--sect-a)}
+.bandeau__a{width:100%;font-size:11.5px;color:var(--muted);margin-top:2px}
+
+/* ⭐ En PC le bandeau s'aligne EN BAS — c'est ce qui pose la mascotte SUR le
+   filet le jour où une pose existera pour elle. Et le titre y perd ses
+   capitales : la maquette ne les met qu'en vue mobile. */
+@media (min-width:821px){
+  .bandeau{align-items:flex-end;gap:16px;padding:10px 32px 0;min-height:80px}
+  .bandeau>*{margin-bottom:12px}
+  .bandeau h1{font-size:28px;text-transform:none;margin:0 0 12px}
+  .bandeau__a{margin-bottom:12px}
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   🆕 LOT D — LE RAIL (PC) ET LA FEUILLE (MOBILE), UN SEUL BALISAGE
+   ═══════════════════════════════════════════════════════════════════════════
+   📐 DEUX VUES, PAS DEUX COMPOSANTS — la leçon du bandeau-outil (06/09) prise
+   au mot. `.barre-f` est le MÊME formulaire dans les deux : au-dessus de
+   1 040 px c'est une colonne de 248 px collée à gauche, en dessous c'est une
+   feuille qui monte du bas. Émettre deux balisages aurait fait deux `#f-rayon`,
+   donc deux fois les mêmes identifiants, donc un pilote qui n'en trouve qu'un.
+
+   🔴 POURQUOI 1 040 px ET PAS UN SEUIL NEUF. C'est déjà le seuil « PC » du
+   site : `.nav__liens` disparaît et `.nav__deplie` apparaît exactement là
+   (l. 3171). Un rail qui naîtrait à 1 100 px inventerait un troisième état de
+   navigation entre le menu replié et le menu déplié. ⭐ *Un seuil de plus est
+   une largeur de plus à mesurer, pour toujours.*
+
+   📏 MESURÉ EN PRODUCTION LE 06/09, CONNECTÉ, ET C'EST CE QUI JUSTIFIE LE LOT :
+     · à 375 px, la barre horizontale occupe 314,6 px de haut et repousse la
+       première ligne du rayon à 595,8 px — sous le pli, avant tout résultat ;
+     · à 1 440 px, elle s'étale sur 1 377 px de large pour 117 px de haut,
+       et les six axes s'y enroulent en pastilles.
+   ⇒ En bas, on rend 277 px à la liste (le déclencheur fait 38 px). En haut, on
+   prend 248 px de large pour rendre 117 px de haut et cesser d'enrouler.
+
+   ⛔ CE BLOC N'INVENTE AUCUNE COULEUR. `--sect-a` est redéfini par section
+   (règle du 05/09) : le rail prend donc le teint du rayon tout seul, comme le
+   bandeau. Y écrire `--cyan` l'aurait figé sur la couleur d'une seule section.
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* ── L'ENVELOPPE ────────────────────────────────────────────────────────────
+   ⭐ Par défaut elle ne fait RIEN : en feuille, la barre est hors flux et la
+   liste occupe toute la largeur. La grille n'existe qu'en PC. `minmax(0,1fr)`
+   et pas `1fr` : sans le `0`, une ligne de tableau large pousse la colonne et
+   le rail se fait écraser — c'est le piège classique de la grille CSS. */
+.avec-rail{display:block}
+/* ⚠️ `min-width:0` sur la colonne de contenu, TOUJOURS. Une cellule de grille
+   a `min-width:auto` par défaut : un tableau large ou un nom non coupé la fait
+   grandir, et c'est le RAIL qui rétrécit — le symptôme est un rail à 180 px
+   qu'aucune règle ne demande. */
+.avec-rail__c{min-width:0}
+
+/* ── LE MUR DE L'ANONYME ────────────────────────────────────────────────────
+   Arbitrage de Preda du 06/09 : il voit les six axes EXISTER, il n'en voit
+   aucun chiffre. ⛔ Pas de `pointer-events:none` : il n'y a rien à cliquer,
+   ce sont des `<li>`. */
+.rail-mur{border:1px solid var(--rule);border-radius:var(--r-lg);background:var(--surface); padding:12px 14px;display:grid;gap:10px;margin-bottom:var(--s3)}
+.rail-mur .filtres-mur{margin:0}
+.rail-mur__l{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:7px}
+.rail-mur__l li{font-family:var(--tech);font-size:var(--t-xs);text-transform:uppercase; letter-spacing:.08em;color:var(--muted);border:1px solid var(--rule-2); border-radius:var(--r-full);padding:5px 11px}
+
+/* ── 🔴🔴🔴 CE BLOC NE S'APPUIE JAMAIS SUR `gap`, ET C'EST UNE MESURE ──────
+   `.barre-f` est déclarée `display:grid;gap:12px` l. 1308… et cette
+   déclaration NE S'APPLIQUE PAS à un membre. L'en-tête en ligne de
+   `Base.astro` porte `html[data-membre] form[data-membre][hidden]
+   { display:block !important }` — mesuré en production le 06/09 : le
+   formulaire est servi en `block`, pas en `grid`, et `gap` n'existe pas en
+   flux de blocs. ⭐⭐ *Une propriété qui dépend d'un `display` qu'une autre
+   règle écrase est une décoration, pas une mise en page.* Les écarts sont donc
+   portés par des MARGES, qui valent dans les trois `display`.
+   ⛔ Et on ne va pas se battre à coups de `!important` contre l'en-tête : ces
+   règles-là sont la porte du membre, elles ont priorité pour une raison. */
+.barre-f>.barre-f__l{margin-bottom:12px}
+.barre-f>.f-onglets{margin-bottom:12px}
+
+/* ── LE DÉCLENCHEUR DE LA FEUILLE ───────────────────────────────────────────
+   ⚠️ `.f-lancer` est dans le flux et pousse la liste : un bouton flottant
+   recouvrirait la première tuile, et on ne voit pas ce qu'on recouvre. */
+.f-lancer{margin-bottom:var(--s3)}
+.f-ouvrir{width:100%;justify-content:center;gap:8px}
+.f-armes{display:inline-grid;place-items:center;min-width:18px;height:18px;padding:0 5px; border-radius:var(--r-full);background:var(--sect-pur);color:var(--sect-sur); font-family:var(--tech);font-size:10px;font-weight:700}
+
+/* ── LA FEUILLE (le défaut : tout ce qui est sous 1 041 px) ─────────────────
+   🔴🔴 ELLE NE COUVRE PAS LES RÉSULTATS, ET C'EST L'ARBITRAGE DE LA MAQUETTE
+   (variante C, page 12). Elle monte à 62 % de la hauteur : la grille reste
+   visible au-dessus et se rafraîchit DERRIÈRE pendant qu'on coche. ⛔ D'où
+   l'absence de voile assombri — un voile rendrait invisible exactement ce que
+   cette variante a été choisie pour montrer.
+   ⚠️ `translateY(101%)` et pas `100%` : à 100 %, une bordure d'un pixel reste
+   visible en bas de l'écran sur les densités fractionnaires (1,375 mesurée sur
+   l'écran PC du 05/09). */
+.barre-f{position:fixed;left:0;right:0;bottom:0;z-index:45;max-height:62vh;overflow:auto; border-radius:14px 14px 0 0;border-left:0;border-right:0;border-bottom:0; transform:translateY(101%);visibility:hidden;padding-top:20px; box-shadow:0 -18px 40px #000000A6}
+.barre-f[data-ouverte]{transform:none;visibility:visible}
+/* La poignée. ⭐ Un `::before` et pas un élément : elle n'a aucun rôle, elle
+   dit seulement « ça se tire ». Un `<span>` de plus serait un nœud servi sur
+   les 3 195 pages du rayon pour trois pixels de gris. */
+.barre-f::before{content:"";position:absolute;top:8px;left:50%;transform:translateX(-50%); width:36px;height:4px;border-radius:var(--r-full);background:var(--rule-2)}
+.barre-f__x{display:none}
+.barre-f__q{flex:1;min-width:180px;max-width:280px}
+.barre-f__trich{width:200px}
+.rail-borne{width:150px}
+/* Le pied colle en bas de la feuille — il porte le compte des retenues. */
+.f-pied{position:sticky;bottom:0;margin:12px -14px -12px;padding:12px 14px; background:var(--surface);border-top:1px solid var(--rule)}
+.f-voir{width:100%;justify-content:center}
+@media (prefers-reduced-motion: no-preference){
+  .barre-f{transition:transform var(--d-base) var(--e-out),visibility var(--d-base)}
+}
+
+/* ── LE RAIL (PC, au-dessus du seuil du menu) ───────────────────────────────
+   ⭐⭐ TOUT CE BLOC REND À `.barre-f` SON ÉTAT DE FLUX. C'est la moitié du
+   travail d'une bascule : ce qui a été posé pour la feuille — `fixed`,
+   `transform`, `visibility:hidden` — doit être DÉFAIT, pas seulement complété.
+   Un `position:static` oublié ici laisserait le rail collé en bas de l'écran. */
+@media (min-width:1041px){
+  .avec-rail{display:grid;grid-template-columns:248px minmax(0,1fr);align-items:start}
+  /* ⭐ `grid-column:2` EXPLICITE, pas l'auto-placement : le mur de l'anonyme et
+     le formulaire du membre visent tous deux la colonne 1, et un seul des deux
+     est affiché. En auto-placement, le contenu remonterait en colonne 1 chez
+     l'anonyme le jour où le mur passe en `display:none`. */
+  .avec-rail__c{grid-column:2;padding-left:24px}
+  .rail-mur{grid-column:1;border:0;border-right:1px solid var(--rule);border-radius:0; background:transparent;box-shadow:none;margin:0;align-self:stretch;padding:16px 18px 24px}
+  .rail-mur__l{flex-direction:column;gap:4px}
+  .rail-mur__l li{border:0;padding:4px 0;font-size:12.5px;text-transform:none;letter-spacing:0; color:var(--text-2);font-family:var(--geo)}
+  .f-lancer,.f-pied{display:none}
+
+  .barre-f{position:static;transform:none;visibility:visible;max-height:none;overflow:visible; grid-column:1;align-self:stretch;width:248px;padding:16px 18px 24px; background:transparent;border:0;border-right:1px solid var(--rule);border-radius:0; box-shadow:none;gap:0}
+  .barre-f::before{content:none}
+  .barre-f__x{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+  /* ⭐ La tête et la barre du haut passent en colonne : à 212 px utiles, une
+     rangée de trois segments, un champ et un tri ne tiennent pas côte à côte. */
+  .barre-f__l{flex-direction:column;align-items:stretch;gap:10px}
+  .barre-f__l .sep-v{display:none}
+  .barre-f__q,.barre-f__trich,.rail-borne{width:100%;max-width:none;min-width:0}
+  .barre-f__tri{margin-left:0;flex-direction:column;align-items:stretch;gap:6px}
+  .seg-p{width:100%}
+  .seg-p button{flex:1;padding:0 8px;font-size:12px;justify-content:center}
+
+  /* Les six groupes, empilés. ⭐ `border-top` sur le groupe et non sur le
+     bouton : le trait sépare deux GROUPES, panneau ouvert compris. */
+  .f-onglets{flex-direction:column;align-items:stretch;gap:0;margin-top:14px}
+  .rail-g{border-top:1px solid var(--rule)}
+  .rail-g:first-child{border-top:0}
+  .f-b{width:100%;justify-content:space-between;gap:8px;border:0;border-radius:0; background:transparent;padding:12px 0;min-height:44px;font-size:12.5px;font-weight:600; color:var(--text)}
+  .f-b:hover{background:transparent;color:var(--sect-a)}
+  .f-b[aria-expanded="true"]{background:transparent;border-color:transparent;color:var(--text)}
+  .f-b .cpt-f{margin-left:auto}
+  .f-b--reset{margin-top:14px;justify-content:center;border:1px solid var(--rule-2); border-radius:var(--r-full);color:var(--muted)}
+  .f-panneau{margin:0 0 12px;padding:0;background:transparent;border:0;border-radius:0}
+  .f-panneau__t{display:none}   /* le bouton du groupe le dit déjà, au-dessus */
+  .cols-l{grid-template-columns:1fr;gap:2px}
+  .cols-l label{border:0;background:transparent;padding:5px 0;min-height:28px;font-size:12.5px}
+  .cols-l label:hover{border-color:transparent;color:var(--sect-a)}
+  .champ-f{max-width:none}
+  .tiroir__c{flex-direction:column;align-items:stretch;gap:8px}
+  .actifs{padding-top:12px}
+
+  /* ── LE RAIL REPLIÉ ──────────────────────────────────────────────────────
+     📏 La maquette le chiffre : 248 → 52 px, soit 196 px rendus à la liste
+     (elle écrit 216 depuis un rail de 268 px ; le rail servi en fait 248).
+     ⛔ `display:none` sur le contenu, et pas `visibility:hidden` : un champ
+     seulement invisible reste focusable, et la tabulation partirait dans un
+     rail qu'on vient de replier. */
+  /* ⛔ PAS DE `:has()` ICI. Il marcherait, mais il ferait dépendre la
+     largeur de la grille d'un attribut posé sur un ENFANT : le pilote qui
+     replie le rail poserait un attribut et laisserait le navigateur en
+     déduire l'autre. Deux états, un seul geste — c'est le pilote qui pose
+     l'attribut aux DEUX endroits, et ça se lit dans le DOM. */
+  .avec-rail[data-replie]{grid-template-columns:52px minmax(0,1fr)}
+  .barre-f[data-replie]{width:52px;padding:16px 0;align-items:center}
+  .barre-f[data-replie]>*{display:none}
+  .barre-f[data-replie] .barre-f__x{display:flex;justify-content:center;margin:0}
+  .barre-f[data-replie] .barre-f__t{display:none}
+  .barre-f[data-replie] .rail-x svg{transform:rotate(180deg)}
+}
+.rail-x{width:26px;height:26px;flex:0 0 26px;border-radius:6px;border:1px solid var(--rule-2); background:var(--surface-2);color:var(--muted);cursor:pointer;display:grid;place-items:center; transition:border-color var(--d-fast),color var(--d-fast)}
+.rail-x:hover{border-color:var(--sect-a);color:var(--sect-a)}
+.rail-x svg{width:14px;height:14px}
+
+/* ── LE PALIER 360 px ───────────────────────────────────────────────────────
+   🔴 IL VIENT AVEC LE LOT, ET PAS APRÈS : c'est la largeur où la feuille et le
+   déclencheur sont le plus à l'étroit, donc la seule où l'on découvre qu'un
+   segment de trois boutons ne tient pas. ⛔ 320 et 375 px restent des
+   émulations — celui-ci aussi, et il est écrit dans les trous à mesurer. */
+@media (max-width:360px){
+  .barre-f{max-height:76vh;padding:20px 10px 12px}
+  .f-pied{margin:12px -10px -12px;padding:12px 10px}
+  .barre-f__l{gap:6px}
+  .seg-p{width:100%}
+  .seg-p button{flex:1;padding:0 6px;font-size:12px;min-width:0}
+  .barre-f__q{max-width:none;width:100%}
+  .barre-f__tri{width:100%}
+  .barre-f__trich{width:100%}
+  .rail-borne{width:100%}
+  .cols-l{grid-template-columns:1fr}
+  .rail-mur__l li{font-size:10px;padding:4px 8px}
+}
+
+/* ── 🌱 LA PERCHE DE FLOORA, SUR LE BANDEAU-OUTIL (LOT D) ───────────────────
+   🔴🔴 ELLE N'EXISTE QU'AU-DESSUS DE 1 100 px, ET C'EST LE `<picture>` QUI LE
+   DÉCIDE, PAS CE BLOC. Le gabarit sert un `<img>` SANS `src` et un `<source
+   media="(min-width:1100px)">` : sous le seuil, rien n'est téléchargé. ⛔ Ce
+   CSS ne fait donc que POSER ce qui existe déjà — il ne cache rien. Masquer
+   ici une image chargée là-bas serait exactement le défaut que le livrable
+   interdit (20 `<img>` de largeur 0 mesurées sur `/market/` le 04/09).
+   ⚠️ 1 100 px n'est PAS un seuil de mise en page : aucune `@media` n'est
+   écrite ici, donc le cliquet de `engine/lib/seuils.mjs` n'a rien à déclarer.
+   Le seuil vit dans l'attribut `media` d'un `<source>`, où il décide d'un
+   téléchargement, pas d'une bascule de colonnes.
+   ⭐ `margin-left:auto` la pousse à droite du bandeau ; `align-items:flex-end`
+   du bloc PC (l. 3338) la colle au filet. Les deux étaient déjà écrits — la
+   perche s'y assoit sans rien déplacer. */
+.perche{margin-left:auto;display:flex;align-items:flex-end;gap:10px;max-width:min(52%,420px)}
+.perche__img{display:block;flex:0 0 auto;line-height:0}
+.perche__img img{display:block;height:auto}
+/* ⭐ La bulle ne porte JAMAIS de chiffre mesuré (`test:floora` §5). Elle
+   explique comment lire la page — le site, lui, dit quoi lire. */
+.bulle{margin:0 0 8px;padding:9px 12px;border-radius:var(--r-md) var(--r-md) var(--r-md) 2px;
+  background:var(--surface-2);border:1px solid var(--rule-2);color:var(--text-2);
+  font-size:12.5px;line-height:1.45;max-width:330px}
+.bulle b{color:var(--text);font-weight:600}

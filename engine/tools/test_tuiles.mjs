@@ -201,6 +201,41 @@ console.log('\n1. le mur tient, et la page est bien la page réservée');
 const sansSession = await fetch(`http://127.0.0.1:${PORT}/market/`, { redirect: 'manual' });
 verifie('sans session, /market/ redirige (302)', sansSession.status === 302, `reçu ${sansSession.status}`);
 verifie('avec session, /market/ rend la page (200)', rep.status === 200, `reçu ${rep.status}`);
+
+// ═══ 🆕 LOT D — LA FORME DE LA BARRE, JUGÉE ICI ET NULLE PART AILLEURS ══════
+// 🔴🔴🔴 POURQUOI CES CINQ LIGNES SONT DANS *CE* BANC. `test:pli` §5 juge le
+// rail sur les pages pré-générées, en lisant `dist/`. `/market/` n'y est PAS :
+// elle est `prerender = false`, donc absente du disque, donc invisible à tout
+// contrôle qui lit des fichiers. Ce banc est le SEUL du dépôt qui la RENDE.
+// ⭐⭐ Et l'absence de contrôle y coûte cher : c'est exactement ici que le LOT D
+// s'est cassé sans que rien ne rougisse. Une variable `forme` déclarée dans le
+// gabarit écrasait la fonction `forme()` de `vitrine.mjs`, le rendu levait
+// `TypeError: forme is not a function`, le SERVEUR mourait — et ce banc ne
+// disait pas « écart », il s'écroulait sur un socket fermé. *Un build vert ne
+// dit rien d'une page que le build ne rend pas.*
+console.log('\n1 bis. la barre de filtres a bien sa forme de rail');
+verifie('la barre vit dans son enveloppe (`.avec-rail`)',
+  /class="avec-rail"/.test(html),
+  '🔴 sans enveloppe, le rail redevient une bande horizontale en PC');
+verifie('…et le contenu a la sienne (`.avec-rail__c`)',
+  /class="avec-rail__c"/.test(html),
+  '🔴 sans elle, tableau, tuiles et pagination deviennent trois cellules de grille');
+verifie('…et la barre porte `data-rail` — les groupes s\'ouvrent ensemble',
+  /class="barre-f"[^>]*data-rail/.test(html),
+  '🔴 sans lui, ouvrir un panneau referme le précédent, en silence');
+{
+  // ⭐ AUTANT DE GROUPES QUE DE PANNEAUX, et surtout pas le nombre 8 gravé :
+  // le jour où un neuvième axe arrive, un contrôle qui compte 8 rougit sur du
+  // code sain — et *un faux rouge se fait désarmer en trois jours.*
+  const g = (html.match(/class="rail-g"/g) || []).length;
+  const pan = new Set(html.match(/id="fp-[a-z]+"/g) || []).size;
+  verifie(`chaque axe a SON panneau dans son groupe (${g} groupes, ${pan} panneaux)`,
+    g > 0 && g === pan,
+    `🔴 ${g} groupe(s) pour ${pan} panneau(x) — l'accordéon du rail est boiteux`);
+}
+verifie('…et le pied de la feuille SOUMET, il ne recopie pas un nombre',
+  /class="f-pied"[\s\S]{0,300}?type="submit"/.test(html),
+  '🔴 ici le filtrage est SERVEUR : un bouton qui ne soumet pas ne filtre rien');
 // ⭐⭐⭐ LOT 128 — LE NOMBRE DE LIGNES SE DEMANDE AU BUILD, IL NE SE POSTULE PAS.
 // « 200 » est le chiffre de la PRODUCTION. La CI construit hors ligne sur
 // l'échantillon et n'en rend que 90 : un banc qui exige 200 y est rouge par

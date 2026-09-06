@@ -3,6 +3,7 @@
 // ⛔ Propre à veveprice (aucune page de prix chez vevewiki).
 import Base from '../../layouts/Base.astro';
 import CarteSet from '../CarteSet.astro';
+import BandeauOutil from '../BandeauOutil.astro';
 // ⚡ LOT 139 — le pilote de cette page quitte le HTML : voir le point d'appel
 //   en bas de fichier, et l'en-tête de `src/socle/modules/series.js`.
 import { moduleJs } from '../../../engine/lib/socle_js.mjs';
@@ -11,6 +12,8 @@ const pilote = moduleJs('series');
 // Voir l'en-tête de `src/socle/modules/index_rayon.js`. ⭐ L'ordre des deux
 // `<script defer>` est garanti par `defer` lui-même, pas par la position.
 const chargeur = moduleJs('index_rayon');
+// 🆕 LOT D — la forme de la barre (rail en PC, feuille en mobile).
+const forme = moduleJs('rail');
 import { dataset } from '../../../engine/lib/dataset.mjs';
 import { t, localize, numberLocale } from '../../../engine/lib/i18n.mjs';
 import { jourISO } from '../../../engine/lib/vitrine.mjs';
@@ -129,9 +132,11 @@ const PAR_TRANCHE = 60;
             ⭐⭐ Et c'était déjà une faute avant ce lot : des capitales écrites dans le
             texte se copient en capitales, et un lecteur d'écran peut les épeler
             lettre par lettre. La casse est une affaire de STYLE. */}
+      {/* ⭐ Le sur-titre reste dehors — voir la note de `Market.astro`. */}
       <p class="etiq etiq--bleu tete-p__st">// {t(lang, 'collections.title')}</p>
-      <h1 class="mono-t">{t(lang, 'collections.title')}</h1>
-      <p class="respire">{cols.length.toLocaleString(nf)} {t(lang, 'collections.count')}.</p>
+      <BandeauOutil titre={t(lang, 'collections.title')}
+                    compte={`${cols.length.toLocaleString(nf)} ${t(lang, 'collections.count')}`}
+                perche="sets" lang={lang} />
     </div>
     {/* ⭐ MEME DEFAUT ICI, ET IL VENAIT DU MEME COPIER-COLLER : trois
         hexagones en dur au lieu des trois collections de tete. La pile de la
@@ -199,8 +204,36 @@ const PAR_TRANCHE = 60;
       le HTML public : ce sont des noms et des tailles, pas des prix. On retire
       un OUTIL, on ne cache pas une donnée — et il ne faut pas confondre les
       deux, sinon on croira le mur plus haut qu'il n'est. */}
-  <p class="etiq filtres-mur" data-anonyme>{t(lang, 'sets.filtersLocked')}</p>
-  <form class="barre-f" id="f-sets" role="search" data-membre hidden aria-label={t(lang, 'sets.filters')}>
+  {/* 🆕 LOT D — LA MÊME ENVELOPPE QUE LES RAYONS, ET C'EST LE POINT. `/sets/`
+      filtre autrement (sur les nœuds présents, pas sur un index), mais sa barre
+      est la MÊME `.barre-f`. Lui donner une autre forme de rail aurait fait
+      deux rails à tenir — la divergence que ce dépôt paie depuis le lot 127. */}
+  <div class="avec-rail">
+  {/* ⭐ Le mur de l'anonyme nomme les axes sans en chiffrer aucun (arbitrage de
+      Preda, 06/09). ⚠️ Les quatre libellés sont ceux des boutons, pris aux
+      mêmes clés — pas une seconde liste écrite à la main. */}
+  <div class="rail-mur" data-anonyme>
+    <p class="etiq filtres-mur">{t(lang, 'sets.filtersLocked')}</p>
+    <ul class="rail-mur__l">
+      <li>{t(lang, 'sets.licence')}</li><li>{t(lang, 'sets.brand')}</li>
+      <li>{t(lang, 'sets.year')}</li><li>{t(lang, 'sets.size')}</li>
+    </ul>
+  </div>
+  <div class="f-lancer" data-membre hidden>
+    <button type="button" class="btn f-ouvrir" aria-controls="f-sets" aria-expanded="false">
+      {t(lang, 'sets.filters')}<span class="f-armes" hidden>0</span>
+    </button>
+  </div>
+  <form class="barre-f" id="f-sets" role="search" data-membre hidden data-rail aria-label={t(lang, 'sets.filters')}>
+    <div class="barre-f__x">
+      <span class="barre-f__t">{t(lang, 'sets.filters')}</span>
+      <button type="button" class="rail-x" data-repli aria-expanded="true"
+              aria-controls="f-sets" title={t(lang, 'sets.filters')}>
+        <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor"
+             stroke-width="2.2" stroke-linecap="round"><path d="m14 6-6 6 6 6"/></svg>
+        <span class="sr-only">{t(lang, 'sets.filters')}</span>
+      </button>
+    </div>
     <div class="barre-f__l">
       <span class="barre-f__t">{t(lang, 'sets.filters')}</span>
       <div class="seg-p" role="group" aria-label={t(lang, 'movers.type')}>
@@ -237,132 +270,146 @@ const PAR_TRANCHE = 60;
           s'il a au moins DEUX valeurs : à une seule, il ne sépare rien et il
           occupe la place d'un contrôle utile. */}
       {licences.length > 1 && (
-        <button type="button" class="f-b" data-g="licence" aria-expanded="false" aria-controls="sp-licence">{t(lang, 'sets.licence')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevron} /></button>
+        <div class="rail-g">
+          <button type="button" class="f-b" data-g="licence" aria-expanded="false" aria-controls="sp-licence">{t(lang, 'sets.licence')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevron} /></button>
+          <div class="f-panneau" id="sp-licence" hidden>
+            <div class="f-panneau__t">{t(lang, 'sets.licence')}</div>
+            {/* ⭐⭐ CHAQUE LICENCE PORTE SON NOMBRE DE SETS, et c'est ce qui rend la
+                liste lisible : « Marvel 2 986 » dit d'un coup d'œil où est la
+                matière. ⛔ Le nombre est celui des SETS, pas des pièces — c'est ce
+                que la grille en dessous va montrer, et annoncer un chiffre qui ne
+                correspond pas à ce qui s'affiche est la faute la plus coûteuse d'un
+                filtre : il n'a pas l'air cassé, il a l'air faux.
+                ⚠️ `data-b` COMME LE PANNEAU MARQUE : le champ de recherche du lot
+                115b cherche cet attribut. Un second nom d'attribut aurait demandé un
+                second script, pour le même geste. */}
+            {/* LOT 143 - LA LISTE DES PUCES N'EST PLUS SERVIE, ELLE EST CONSTRUITE.
+                Mesure du 12/08 sur la production : les 83 licences et les 469
+                marques pesaient 84 423 o et 1 187 noeuds sur CHACUNE des visites,
+                dans un formulaire porte par data-membre et hidden. Deux comptes
+                existent ; les 3 097 pages sont pre-generees, donc tout le monde
+                recevait le panneau, y compris ceux qui ne peuvent pas l'ouvrir.
+                Aucune donnee ne disparait : chaque valeur etait DEJA dans le DOM,
+                sur les cartes (data-lic et data-brand). Verifie a la mesure :
+                83 sur 83 et 469 sur 469, et zero valeur absente du texte visible
+                des cartes une fois les entites resolues.
+                La construction lit LA CARTE, jamais le nom du set - c'est la meme
+                source que garde() plus bas, donc les deux ne peuvent pas diverger.
+                Le compteur se compte, il ne se recopie pas. */}
+            {/* 🆕 LOT 170 — POINT `e` DE LA LISTE DE PREDA : UNE ZONE DE
+                RECHERCHE DANS LE FILTRE LICENCE.
+                🔴 LE COMMENTAIRE DU LOT 133 DISAIT L'INVERSE — « 96 licences
+                tiennent à l'écran, 1 492 marques non » — et il faut écrire pourquoi
+                on le retire plutôt que de le supprimer en silence.
+                ⭐ SA PRÉMISSE A ÉTÉ REMESURÉE LE 21/08 sur `/rayon-index/sets.json`
+                en production : **93 licences** pour 1 130 marques. Le chiffre tient
+                donc encore. Ce qui a changé, c'est que Preda a demandé le champ
+                APRÈS (point `e`), et 93 puces triées par nombre de sets décroissant
+                ne se parcourent pas à l'œil quand on cherche un nom précis : elles
+                ne sont pas dans l'ordre alphabétique.
+                ⇒ *Un argument de conception juste ne survit pas à l'usage qu'il
+                n'avait pas prévu.*
+                ⭐⭐ COÛT RÉEL : ZÉRO NŒUD DE PLUS DANS LA LISTE. Les puces licence
+                portent DÉJÀ `data-b` (posé par `remplirPuces()`, même attribut que
+                les marques) — c'est le même pilote, appelé une seconde fois.
+                ⛔ MÊMES GARDES QUE `#s-bq`, et pour les mêmes raisons : `name`
+                absent et `form` absent, donc le champ ne part pas avec le
+                formulaire et le bouton `reset` ne le vide pas ; il masque des
+                étiquettes, il ne touche ni aux cases cochées ni à la grille. */}
+            <label class="sr-only" for="s-lq">{t(lang, 'sets.licenceSearch')}</label>
+            <input type="search" id="s-lq" class="champ-f" autocomplete="off"
+                   placeholder={t(lang, 'sets.licenceSearch')} />
+            <div class="cols-l" id="s-lics" data-puces="lic"></div>
+            <p class="etiq" id="s-lq-vide" hidden>{t(lang, 'sets.licenceNone')}</p>
+          </div>
+        </div>
       )}
       {marques.length > 1 && (
-        <button type="button" class="f-b" data-g="marque" aria-expanded="false" aria-controls="sp-marque">{t(lang, 'sets.brand')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevron} /></button>
+        <div class="rail-g">
+          <button type="button" class="f-b" data-g="marque" aria-expanded="false" aria-controls="sp-marque">{t(lang, 'sets.brand')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevron} /></button>
+          <div class="f-panneau" id="sp-marque" hidden>
+            <div class="f-panneau__t">{t(lang, 'sets.brand')}</div>
+            {/* 🔴 LOT 115b — UNE ZONE DE RECHERCHE DANS LE FILTRE MARQUE
+                (demande Preda). Avec {marques.length} marques, une liste de cases à
+                cocher se parcourt à l'œil ligne par ligne : chercher « Marvel »
+                demande de le trouver, pas de le taper.
+                ⭐ ELLE NE FILTRE QUE L'AFFICHAGE DES CASES, jamais les sets. Une
+                case décochée reste décochée quand elle réapparaît — sinon taper
+                trois lettres effacerait la sélection en cours, et personne ne
+                comprendrait pourquoi la grille a bougé.
+                ⛔ `type="search"` et non `type="text"` : le navigateur pose la
+                croix d'effacement et l'annonce comme un champ de recherche.
+                ⚠️ `form="..."` ABSENT ET `name` ABSENT : ce champ ne doit PAS
+                partir avec le formulaire. Sans `name`, il n'est pas soumis — et le
+                bouton `reset` du groupe ne le vide pas non plus, ce qui est le
+                comportement voulu (on remet les cases à zéro, pas la recherche). */}
+            <label class="sr-only" for="s-bq">{t(lang, 'sets.brandSearch')}</label>
+            <input type="search" id="s-bq" class="champ-f" autocomplete="off"
+                   placeholder={t(lang, 'sets.brandSearch')} />
+            {/* LOT 143 - construite, comme le panneau licence au-dessus.
+                Le champ de recherche du lot 115b continue de chercher data-b : cet
+                attribut est pose par la construction, avec la meme casse basse. */}
+            <div class="cols-l" id="s-brands" data-puces="brand"></div>
+            <p class="etiq" id="s-bq-vide" hidden>{t(lang, 'sets.brandNone')}</p>
+          </div>
+        </div>
       )}
       {annees.length > 1 && (
-        <button type="button" class="f-b" data-g="annee" aria-expanded="false" aria-controls="sp-annee">{t(lang, 'sets.year')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevron} /></button>
+        <div class="rail-g">
+          <button type="button" class="f-b" data-g="annee" aria-expanded="false" aria-controls="sp-annee">{t(lang, 'sets.year')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevron} /></button>
+          <div class="f-panneau" id="sp-annee" hidden>
+            <div class="f-panneau__t">{t(lang, 'sets.year')}</div>
+            <div class="tiroir__c">
+              <div class="champ champ--sm" style="width:150px"><label class="etiq" for="s-a1">{t(lang, 'sets.yearFrom')}</label>
+                <input id="s-a1" type="number" min={annees[0]} max={annees[annees.length - 1]} step="1" placeholder={annees[0]} /></div>
+              <div class="champ champ--sm" style="width:150px"><label class="etiq" for="s-a2">{t(lang, 'sets.yearTo')}</label>
+                <input id="s-a2" type="number" min={annees[0]} max={annees[annees.length - 1]} step="1" placeholder={annees[annees.length - 1]} /></div>
+            </div>
+            {/* ⭐ LA PHRASE QUI ÉVITE LA QUESTION SUIVANTE. Preda a demandé « par
+                saison » ; ce panneau dit pourquoi c'est l'année, en un endroit où
+                la question se pose. Une limite expliquée là où elle se rencontre
+                coûte une phrase ; expliquée ailleurs, elle coûte un échange. */}
+            <p class="etiq" style="margin:12px 0 0;color:var(--muted);max-width:60ch;text-transform:none;letter-spacing:0">
+              {t(lang, 'sets.noSeason')}
+            </p>
+          </div>
+        </div>
       )}
-      <button type="button" class="f-b" data-g="taille" aria-expanded="false" aria-controls="sp-taille">{t(lang, 'sets.size')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevron} /></button>
+      <div class="rail-g">
+        <button type="button" class="f-b" data-g="taille" aria-expanded="false" aria-controls="sp-taille">{t(lang, 'sets.size')}<span class="cpt-f" hidden>0</span><Fragment set:html={chevron} /></button>
+        <div class="f-panneau" id="sp-taille" hidden>
+          <div class="f-panneau__t">{t(lang, 'sets.size')}</div>
+          <div class="tiroir__c">
+            <div class="champ champ--sm" style="width:150px"><label class="etiq" for="s-tmin">{t(lang, 'sets.sizeMin')}</label>
+              <input id="s-tmin" type="number" min="0" step="1" placeholder="1" /></div>
+            <div class="champ champ--sm" style="width:150px"><label class="etiq" for="s-tmax">{t(lang, 'sets.sizeMax')}</label>
+              <input id="s-tmax" type="number" min="0" step="1" placeholder={String(tailleMax)} /></div>
+          </div>
+        </div>
+      </div>
       <button type="reset" class="f-b">{t(lang, 'movers.reset')}</button>
     </div>
 
-    {licences.length > 1 && (
-      <div class="f-panneau" id="sp-licence" hidden>
-        <div class="f-panneau__t">{t(lang, 'sets.licence')}</div>
-        {/* ⭐⭐ CHAQUE LICENCE PORTE SON NOMBRE DE SETS, et c'est ce qui rend la
-            liste lisible : « Marvel 2 986 » dit d'un coup d'œil où est la
-            matière. ⛔ Le nombre est celui des SETS, pas des pièces — c'est ce
-            que la grille en dessous va montrer, et annoncer un chiffre qui ne
-            correspond pas à ce qui s'affiche est la faute la plus coûteuse d'un
-            filtre : il n'a pas l'air cassé, il a l'air faux.
-            ⚠️ `data-b` COMME LE PANNEAU MARQUE : le champ de recherche du lot
-            115b cherche cet attribut. Un second nom d'attribut aurait demandé un
-            second script, pour le même geste. */}
-        {/* LOT 143 - LA LISTE DES PUCES N'EST PLUS SERVIE, ELLE EST CONSTRUITE.
-            Mesure du 12/08 sur la production : les 83 licences et les 469
-            marques pesaient 84 423 o et 1 187 noeuds sur CHACUNE des visites,
-            dans un formulaire porte par data-membre et hidden. Deux comptes
-            existent ; les 3 097 pages sont pre-generees, donc tout le monde
-            recevait le panneau, y compris ceux qui ne peuvent pas l'ouvrir.
-            Aucune donnee ne disparait : chaque valeur etait DEJA dans le DOM,
-            sur les cartes (data-lic et data-brand). Verifie a la mesure :
-            83 sur 83 et 469 sur 469, et zero valeur absente du texte visible
-            des cartes une fois les entites resolues.
-            La construction lit LA CARTE, jamais le nom du set - c'est la meme
-            source que garde() plus bas, donc les deux ne peuvent pas diverger.
-            Le compteur se compte, il ne se recopie pas. */}
-        {/* 🆕 LOT 170 — POINT `e` DE LA LISTE DE PREDA : UNE ZONE DE
-            RECHERCHE DANS LE FILTRE LICENCE.
-            🔴 LE COMMENTAIRE DU LOT 133 DISAIT L'INVERSE — « 96 licences
-            tiennent à l'écran, 1 492 marques non » — et il faut écrire pourquoi
-            on le retire plutôt que de le supprimer en silence.
-            ⭐ SA PRÉMISSE A ÉTÉ REMESURÉE LE 21/08 sur `/rayon-index/sets.json`
-            en production : **93 licences** pour 1 130 marques. Le chiffre tient
-            donc encore. Ce qui a changé, c'est que Preda a demandé le champ
-            APRÈS (point `e`), et 93 puces triées par nombre de sets décroissant
-            ne se parcourent pas à l'œil quand on cherche un nom précis : elles
-            ne sont pas dans l'ordre alphabétique.
-            ⇒ *Un argument de conception juste ne survit pas à l'usage qu'il
-            n'avait pas prévu.*
-            ⭐⭐ COÛT RÉEL : ZÉRO NŒUD DE PLUS DANS LA LISTE. Les puces licence
-            portent DÉJÀ `data-b` (posé par `remplirPuces()`, même attribut que
-            les marques) — c'est le même pilote, appelé une seconde fois.
-            ⛔ MÊMES GARDES QUE `#s-bq`, et pour les mêmes raisons : `name`
-            absent et `form` absent, donc le champ ne part pas avec le
-            formulaire et le bouton `reset` ne le vide pas ; il masque des
-            étiquettes, il ne touche ni aux cases cochées ni à la grille. */}
-        <label class="sr-only" for="s-lq">{t(lang, 'sets.licenceSearch')}</label>
-        <input type="search" id="s-lq" class="champ-f" autocomplete="off"
-               placeholder={t(lang, 'sets.licenceSearch')} />
-        <div class="cols-l" id="s-lics" data-puces="lic"></div>
-        <p class="etiq" id="s-lq-vide" hidden>{t(lang, 'sets.licenceNone')}</p>
-      </div>
-    )}
 
-    {marques.length > 1 && (
-      <div class="f-panneau" id="sp-marque" hidden>
-        <div class="f-panneau__t">{t(lang, 'sets.brand')}</div>
-        {/* 🔴 LOT 115b — UNE ZONE DE RECHERCHE DANS LE FILTRE MARQUE
-            (demande Preda). Avec {marques.length} marques, une liste de cases à
-            cocher se parcourt à l'œil ligne par ligne : chercher « Marvel »
-            demande de le trouver, pas de le taper.
-            ⭐ ELLE NE FILTRE QUE L'AFFICHAGE DES CASES, jamais les sets. Une
-            case décochée reste décochée quand elle réapparaît — sinon taper
-            trois lettres effacerait la sélection en cours, et personne ne
-            comprendrait pourquoi la grille a bougé.
-            ⛔ `type="search"` et non `type="text"` : le navigateur pose la
-            croix d'effacement et l'annonce comme un champ de recherche.
-            ⚠️ `form="..."` ABSENT ET `name` ABSENT : ce champ ne doit PAS
-            partir avec le formulaire. Sans `name`, il n'est pas soumis — et le
-            bouton `reset` du groupe ne le vide pas non plus, ce qui est le
-            comportement voulu (on remet les cases à zéro, pas la recherche). */}
-        <label class="sr-only" for="s-bq">{t(lang, 'sets.brandSearch')}</label>
-        <input type="search" id="s-bq" class="champ-f" autocomplete="off"
-               placeholder={t(lang, 'sets.brandSearch')} />
-        {/* LOT 143 - construite, comme le panneau licence au-dessus.
-            Le champ de recherche du lot 115b continue de chercher data-b : cet
-            attribut est pose par la construction, avec la meme casse basse. */}
-        <div class="cols-l" id="s-brands" data-puces="brand"></div>
-        <p class="etiq" id="s-bq-vide" hidden>{t(lang, 'sets.brandNone')}</p>
-      </div>
-    )}
 
-    {annees.length > 1 && (
-      <div class="f-panneau" id="sp-annee" hidden>
-        <div class="f-panneau__t">{t(lang, 'sets.year')}</div>
-        <div class="tiroir__c">
-          <div class="champ champ--sm" style="width:150px"><label class="etiq" for="s-a1">{t(lang, 'sets.yearFrom')}</label>
-            <input id="s-a1" type="number" min={annees[0]} max={annees[annees.length - 1]} step="1" placeholder={annees[0]} /></div>
-          <div class="champ champ--sm" style="width:150px"><label class="etiq" for="s-a2">{t(lang, 'sets.yearTo')}</label>
-            <input id="s-a2" type="number" min={annees[0]} max={annees[annees.length - 1]} step="1" placeholder={annees[annees.length - 1]} /></div>
-        </div>
-        {/* ⭐ LA PHRASE QUI ÉVITE LA QUESTION SUIVANTE. Preda a demandé « par
-            saison » ; ce panneau dit pourquoi c'est l'année, en un endroit où
-            la question se pose. Une limite expliquée là où elle se rencontre
-            coûte une phrase ; expliquée ailleurs, elle coûte un échange. */}
-        <p class="etiq" style="margin:12px 0 0;color:var(--muted);max-width:60ch;text-transform:none;letter-spacing:0">
-          {t(lang, 'sets.noSeason')}
-        </p>
-      </div>
-    )}
 
-    <div class="f-panneau" id="sp-taille" hidden>
-      <div class="f-panneau__t">{t(lang, 'sets.size')}</div>
-      <div class="tiroir__c">
-        <div class="champ champ--sm" style="width:150px"><label class="etiq" for="s-tmin">{t(lang, 'sets.sizeMin')}</label>
-          <input id="s-tmin" type="number" min="0" step="1" placeholder="1" /></div>
-        <div class="champ champ--sm" style="width:150px"><label class="etiq" for="s-tmax">{t(lang, 'sets.sizeMax')}</label>
-          <input id="s-tmax" type="number" min="0" step="1" placeholder={String(tailleMax)} /></div>
-      </div>
-    </div>
 
     <div class="actifs" id="s-actifs" aria-live="polite"></div>
     <p class="etiq" id="s-cpt" role="status"></p>
+
+    {/* 🆕 Le pied de la feuille — mobile seulement, retiré par le CSS en rail.
+        ⛔ AUCUN NOMBRE ÉCRIT ICI : le `{n}` est substitué par le module de
+        forme depuis `data-retenues`, que le pilote pose au moment où il le
+        calcule. Servir « Voir les 0 résultats » avant tout filtre serait un
+        chiffre faux, pas un état d'attente. */}
+    <div class="f-pied">
+      <button type="button" class="btn btn--pri f-voir" data-modele={t(lang, 'rayon.voirN', { n: '{n}' })}>
+        {t(lang, 'sets.filters')}
+      </button>
+    </div>
   </form>
 
+  <div class="avec-rail__c">
   <p class="respire" id="s-vide" hidden>{t(lang, 'sets.empty')}</p>
 
   {/* 🔴🔴🔴 LOT 155-B — LES DEUX MORCEAUX QUE LE PILOTE NE DOIT PAS RÉÉCRIRE.
@@ -427,6 +474,13 @@ const PAR_TRANCHE = 60;
       <span class="etiq" id="s-plus-cpt" style="display:block;margin-top:8px;color:var(--muted)"></span>
     </p>
   )}
+  </div>
+  </div>
+  {/* ⚡ LA FORME DE LA BARRE, APRÈS LE PILOTE. Même module que les rayons —
+      `rail.js` ne connaît ni `f-sets` ni `f-rayon` : il prend la première
+      `.barre-f` de son enveloppe. ⭐ C'est ce qui fait qu'une quatrième page
+      l'aura sans qu'on touche à ce fichier. */}
+  <script defer src={forme.href}></script>
 
   {/* ⛔ LOT 112 — LE SCEAU « REGISTRE INDÉPENDANT / jamais de prix modifié »
       EST RETIRÉ (demande Preda, 10/08). Il était le DERNIER endroit du site à

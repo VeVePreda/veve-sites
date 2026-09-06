@@ -53,7 +53,19 @@
  *  qu'on ajoute ici est un engagement à le vérifier aux 30 largeurs du §3 bis.
  *  Ajouter une ligne pour taire un rouge, c'est désarmer le cliquet — il n'y
  *  aurait alors plus de différence entre l'avoir et ne pas l'avoir. */
-export const SEUILS = [420, 520, 560, 580, 600, 640, 700, 760, 820, 840, 900, 940, 1000, 1040];
+/* 🆕 06/09 — LE QUINZIÈME EST 360, ET IL ENTRE PAR LA PORTE, PAS PAR LA FENÊTRE.
+   ⛔ Ce n'est pas « une ligne ajoutée pour taire un rouge » — l'en-tête
+   ci-dessus l'interdit, et il a raison. C'est un seuil DEMANDÉ : le brief du
+   relooking (`MESSAGE-RELOOKING.md`, étape 5) écrit « le palier 360 px vient
+   avec », et la maquette v4 le dessine. Le cliquet a fait exactement son
+   travail : il a refusé un seuil tant que personne ne l'avait déclaré.
+   ⭐⭐ ET L'ENGAGEMENT QUI VA AVEC EST DÉJÀ TENU : le §3 bis balaie 360 px
+   depuis le lot 139 (« + 360 et 1280 » dans son propre libellé). Ce seuil est
+   donc le seul de la liste qui était vérifié AVANT d'être déclaré.
+   ⚠️ Il est en TÊTE : la liste est ordonnée, et un banc qui lit `SEUILS[0]`
+   pour dire « de X à Y px » dirait « de 420 à 1040 » en oubliant le plus
+   étroit — celui où tout se serre. */
+export const SEUILS = [360, 420, 520, 560, 580, 600, 640, 700, 760, 820, 840, 900, 940, 1000, 1040];
 
 /** ⭐⭐ LES DEUX BORNES DE CHAQUE SEUIL, ET C'EST TOUT LE SUJET.
  *  `max-width:640px` s'applique **à 640 et plus à 641** : un balayage de
