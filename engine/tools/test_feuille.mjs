@@ -838,6 +838,60 @@ console.log('\n═══ LOT 203, POINT `ag` — la série est bornée, et son n
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// ⑦ UNE RÈGLE EN LIGNE QUI FORCE `.f-lancer` DOIT PORTER SON PALIER
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 CE § NAÎT D'UN DÉFAUT VU EN PRODUCTION LE 06/09, DIX MINUTES APRÈS LE
+// DÉPLOIEMENT, ET QU'AUCUN BANC N'AURAIT TROUVÉ.
+// `theme.css` porte `@media (min-width:1041px){ .f-lancer,.f-pied{display:none} }`
+// — le déclencheur de la FEUILLE n'a rien à faire en PC, où le rail est déplié.
+// Mais `Base.astro` pose, en ligne dans l'en-tête :
+//     html[data-membre] .f-lancer[data-membre][hidden] { display:block !important }
+// pour le révéler au MEMBRE (il est `hidden` pour l'anonyme). Sans palier, ce
+// `!important` gagne À TOUTES LES LARGEURS : mesuré à 1 440 px, `.f-lancer`
+// sortait en `display:block`, 248 × 44 px, au-dessus d'un rail déjà ouvert.
+//
+// ⭐⭐⭐ *« LA RÈGLE EST LÀ » NE VEUT PAS DIRE « LA RÈGLE GAGNE ».* Les deux
+// existaient, toutes deux justes prises séparément, et c'est la CASCADE qui
+// tranchait. Aucun banc du dépôt ne compare deux feuilles entre elles, et le
+// rendu n'avait jamais été ouvert — il a fallu regarder la page servie.
+// ⛔ Et on ne peut pas battre un `!important` de l'en-tête depuis `theme.css` :
+// la seule correction est de BORNER la règle en ligne au même palier.
+{
+  console.log('\n── ⑦ le palier des règles en ligne de `.f-lancer` ──');
+  const gab = 'src/layouts/Base.astro';
+  if (!existsSync(gab)) {
+    console.log('  --  SANS OBJET — ce site n\'a pas ce gabarit.');
+  } else {
+    const src = readFileSync(gab, 'utf8');
+    // ⭐ On ne lit QUE les blocs `<style>` : une règle citée dans un commentaire
+    //   n'est pas servie, et cinq fois dans ce dépôt un banc s'est fait avoir
+    //   par la prose qui documentait le sujet.
+    const styles = [...src.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].map((m) => m[1]).join('\n');
+    const lignes = styles.split('\n').filter((l) => l.includes('.f-lancer'));
+    dit(lignes.length > 0,
+      `l'en-tête porte ${lignes.length} règle(s) en ligne sur \`.f-lancer\` — sinon ce § est sans objet`,
+      '⛔ aucune : la règle a disparu, ou ce § ne regarde plus au bon endroit');
+    const nues = lignes.filter((l) => /display\s*:/.test(l) && !/@media/.test(l));
+    dit(nues.length === 0,
+      'chacune est bornée par un `@media` — elle ne peut pas gagner en PC',
+      `⛔ ${nues.length} règle(s) sans palier : un \`!important\` de l'en-tête bat le`
+      + ' `@media (min-width:1041px)` du thème, et le déclencheur de la feuille'
+      + ' reste affiché au-dessus d\'un rail déjà ouvert');
+    // 🔑 ET LE PALIER EST LE COMPLÉMENT EXACT DE CELUI DU THÈME : 1040 / 1041.
+    //   ⛔ Deux paliers voisins mais différents laisseraient une bande de
+    //   largeurs où NI l'une NI l'autre ne s'applique — le trou qu'on ne voit
+    //   qu'à une largeur précise.
+    const bornees = lignes.filter((l) => /@media/.test(l));
+    for (const l of bornees) {
+      const mx = /max-width\s*:\s*(\d+)px/.exec(l);
+      dit(!!mx && mx[1] === '1040',
+        `le palier de la règle en ligne est \`max-width:1040px\` (complément de 1041)`,
+        `⛔ ${mx ? mx[1] + 'px' : 'aucun max-width'} : une bande de largeurs sans règle`);
+    }
+  }
+}
+
 console.log(ko === 0
   ? `\n✅ une feuille de ${octets.length} o pour ${pages.length} pages, rien de recopié,`
     + ` et le JS en ligne sous son cliquet (${moyenneJs} o/page)\n`
