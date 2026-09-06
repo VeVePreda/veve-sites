@@ -175,7 +175,15 @@ export const CHAMPS = ['f-c', 'f-q', 'f-tri', 'f-rar', 'f-var', 'f-pmin', 'f-pma
                        // `input[name="f-b"]` a cote d'un `.f-b` rend les selecteurs
                        // du pilote ambigus a la lecture. `f-mar` et `f-lic` sont sans
                        // collision dans le depot (verifie avant d'ecrire).
-                       'f-mar', 'f-lic'];
+                       'f-mar', 'f-lic',
+                       // 💱 LOT H ④ — LES DEUX AXES StackR. ⛔ `f-ec` et pas
+                       // `f-e` : `f-` + une seule lettre est deja pris trois
+                       // fois (`f-c`, `f-q`, `f-n`) et un quatrieme rendrait la
+                       // table illisible. ⛔ Et `f-spmin`/`f-spmax` et pas
+                       // `f-smin`/`f-smax` : CES DEUX-LA SONT LE TIRAGE. Les
+                       // reutiliser aurait fait filtrer le prix StackR par le
+                       // nombre d'exemplaires, sans une erreur.
+                       'f-ec', 'f-spmin', 'f-spmax'];
 
 /** Un nombre, ou `null` — ⛔ jamais `0` par défaut : « pas de borne » et
  *  « borne à zéro » sont deux choses différentes, et les confondre ferait
@@ -221,6 +229,12 @@ export function lireParams(sp) {
     mcp: nb(un('f-mcp')),
     smin: nb(un('f-smin')), smax: nb(un('f-smax')),
     lmin: nb(un('f-lmin')),
+    // 💱 LOT H ④ — l'ecart minimum VeVe/StackR (en %), et les bornes du
+    // plancher StackR EN DOLLARS. ⛔ En dollars et pas en OMI : la fiche et le
+    // tableau montrent StackR en dollars depuis le lot 181 ; demander une
+    // borne dans une unite que le site n'affiche nulle part serait un piege.
+    ecmin: nb(un('f-ec')),
+    spmin: nb(un('f-spmin')), spmax: nb(un('f-spmax')),
     d1: un('f-d1'), d2: un('f-d2'),
     // ⛔ Un tri inconnu retombe sur le défaut, il ne lève pas : une URL
     // partagée puis un renommage de tri ne doivent pas rendre une page morte.
@@ -253,6 +267,13 @@ export function filtreActif(p) {
   return !!(p.corpus || p.q || p.rar.length || p.mar.length || p.lic.length || p.vari
     || p.pmin !== null || p.pmax !== null || p.mcp !== null
     || p.smin !== null || p.smax !== null || p.lmin !== null || p.d1 || p.d2
+    // 💱 LOT H ④ — LES DEUX AXES StackR EN FONT PARTIE, sinon « tout effacer »
+    // ne s'afficherait pas alors qu'un filtre mord, et le compteur dirait
+    // « X pièces cotées » au lieu de « X retenues sur Y ». C'est la panne du
+    // lot 219 (`ten-desc` ajoute a `TRIS` et oublie dans `LIB_TRI`) dans une
+    // autre table : un axe s'ajoute a TROIS endroits — `CHAMPS`, `garde()` et
+    // ici — et en oublier un ne leve rien.
+    || p.ecmin !== null || p.spmin !== null || p.spmax !== null
     || p.abr);
 }
 
@@ -378,6 +399,26 @@ function garde(i, p) {
   }
   const l = nb(i.listings);
   if (l !== null && p.lmin !== null && l < p.lmin) return false;
+  // ═══ 💱 LOT H ④ — LES DEUX BORNES StackR ═══════════════════════════════
+  // 🔴🔴 UNE FICHE SANS PLANCHER StackR EST **ÉCARTÉE**, PAS LAISSÉE PASSER —
+  // et c'est l'inverse du choix fait pour `f-mcp` douze lignes plus haut. La
+  // différence n'est pas un oubli, elle se raisonne : « au plus X $/MCP » est
+  // un PLAFOND, et un plafond ne jette pas ce qu'il ne connaît pas ; « au
+  // moins 20 % moins cher sur StackR » est une DEMANDE DE PREUVE, et une
+  // pièce dont on ignore le prix StackR n'en apporte aucune. La montrer
+  // reviendrait à répondre « peut-être » à une question fermée.
+  // ⭐⭐ *Un plancher et un plafond ne traitent pas l'inconnu pareil : l'un
+  // doit le garder, l'autre doit le refuser.*
+  if (p.ecmin !== null) {
+    const e = nb(i.ecartStackr);
+    if (e === null || e < p.ecmin) return false;
+  }
+  if (p.spmin !== null || p.spmax !== null) {
+    const sp = nb(i.floorStackrUsd);
+    if (sp === null) return false;
+    if (p.spmin !== null && sp < p.spmin) return false;
+    if (p.spmax !== null && sp > p.spmax) return false;
+  }
   if (p.mcp !== null) {
     const m = parMcp(i);
     // ⛔ Une fiche dont le barème ne connaît pas la rareté n'a pas de $/MCP :

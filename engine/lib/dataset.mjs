@@ -644,6 +644,29 @@ async function construireDataset() {
 
   const { par: rel, ignorees: relIgnores } = indexerReleves(releves);
   const { par: extS } = indexerExtremesStackr(extSt);
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 💱 LOT H ④ — LE COURS DU JOUR, LU **ICI** ET PAS SEULEMENT À LA FIN
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Il était déjà chargé (`tauxLignes`, dans le `Promise.all` ci-dessus) mais
+  // n'était lu qu'à la toute fin, pour être DÉPOSÉ dans la réserve. Les deux
+  // filtres StackR de ce lot ont besoin de sa valeur pendant la construction
+  // des fiches : `floorStackr` arrive en OMI, `floor` est en dollars, et on ne
+  // compare pas deux unités.
+  // ⛔ LA PÉREMPTION EST REFAITE ICI, ET CE N'EST PAS UN DOUBLON. `lireCsv()`
+  // valide la FORME (jamais 0, jamais négatif) ; c'est `lireTaux()` qui juge
+  // l'ÂGE — et lui lit un fichier, donc il n'est pas appelable au build. Un
+  // cours de plus de 24 h veut dire que la chaîne est arrêtée : convertir avec
+  // lui écrirait un écart faux qui a l'air juste, sur 7 000 fiches.
+  // ⭐ `null` et jamais 0 : un cours absent doit faire disparaître les deux
+  //    champs dérivés, pas les mettre à zéro.
+  const tauxBrut = lireTauxCsv(tauxLignes);
+  const AGE_MAX_S = 24 * 3600;
+  const maintenantS = Math.floor(Date.now() / 1000);
+  const omiUsd = tauxBrut && (maintenantS - tauxBrut.ts) <= AGE_MAX_S ? tauxBrut.omiUsd : null;
+  if (tauxBrut && omiUsd === null) {
+    console.log(`[taux] cours OMI PÉRIMÉ (${Math.round((maintenantS - tauxBrut.ts) / 3600)} h)`
+      + ' — les deux filtres StackR (écart, prix) seront sans objet sur toutes les fiches.');
+  }
   const { par: fst, ignorees: fstIgnores } = indexerFichesStackr(fichesSt);
   // ⭐⭐ L'INSTRUMENT SE DECLARE, MEME QUAND IL VA BIEN. Un `0` sur cette ligne
   // est la seule trace, dans 3 000 lignes de log, de la difference entre « la
@@ -1069,6 +1092,46 @@ async function construireDataset() {
       // promettrait une collecte déjà faite.
       atlStackr: extS.get(uuid)?.atl ?? null,
       athStackr: extS.get(uuid)?.ath ?? null,
+      // ═══════════════════════════════════════════════════════════════════════
+      // 💱 LOT H ④ — LE PLANCHER StackR EN DOLLARS, ET L'ÉCART AVEC VeVe
+      // ═══════════════════════════════════════════════════════════════════════
+      // 🔒 DEUX PRIX (le second en est un aussi : un pourcentage d'écart plus
+      // UN des deux planchers redonne l'autre). Ils entrent dans `CHAMPS_COTE`
+      // et n'atteignent jamais le HTML public.
+      //
+      // ⭐⭐⭐ ET C'EST **LA** CONVERSION QUE `cote.mjs` INTERDIT, FAITE
+      // EXPRÈS — il faut donc dire pourquoi elle est permise ici. Son
+      // commentaire écrit : « ⛔ Il ne se convertit PAS en dollars : `sfloors`
+      // (OMI) et `vfloors` (USD) sont deux MARCHÉS, rapport non constant ».
+      // Il a raison sur ce qu'il vise : on ne DÉDUIT pas un plancher VeVe d'un
+      // plancher StackR. Mais convertir un montant OMI en dollars AU COURS DE
+      // L'OMI est une opération de DEVISE, qui ne traverse aucun marché — et
+      // c'est justement ce que mesure l'écart : *combien de dollars sépare les
+      // deux places*. Le rapport non constant n'est pas un obstacle, c'est
+      // l'OBJET du filtre.
+      // ⛔ En revanche on ne remplace RIEN : `floorStackr` reste en OMI, à côté.
+      //
+      // ⚠️ L'ÉCART EST POSITIF QUAND StackR EST MOINS CHER, parce que c'est le
+      // sens dans lequel la question se pose (« où puis-je payer moins ? »).
+      // Un signe choisi à l'envers rendrait « écart ≥ 20 % » incompréhensible.
+      floorStackrUsd: (() => {
+        const o = rel.get(uuid)?.stackr;
+        return omiUsd !== null && Number.isFinite(o) && o > 0 ? o * omiUsd : null;
+      })(),
+      ecartStackr: (() => {
+        const o = rel.get(uuid)?.stackr;
+        // ⚠️ LE MÊME PLANCHER QUE LA LIGNE `floor:` CINQUANTE LIGNES PLUS
+        // HAUT, ET IL EST RECALCULÉ ICI PARCE QUE L'OBJET N'EST PAS ENCORE
+        // CONSTRUIT — on ne peut pas lire `i.floor` depuis l'intérieur du
+        // littéral qui le crée. ⛔ Le RECOPIER serait deux vérités sur « quel
+        // est le plancher » ; on recopie donc l'EXPRESSION, dont le repli
+        // (`publicHist`) est celui du lot 218, `pos()` compris — un `num()`
+        // rendrait 0 et l'écart vaudrait 100 % sur toute fiche sans plancher.
+        const v = Number(pos(c.floor) ?? publicHist[publicHist.length - 1].floor);
+        if (omiUsd === null || !Number.isFinite(o) || o <= 0) return null;
+        if (!Number.isFinite(v) || v <= 0) return null;
+        return ((v - o * omiUsd) / v) * 100;
+      })(),
       // 📅 LES DATES RESTENT PUBLIQUES — voir `CHAMPS_COTE` : « on a regardé le
       // 3 septembre » ne dit aucun prix. Même ligne de partage que `vuStackrLe`.
       atlStackrLe: Number.isFinite(extS.get(uuid)?.atlSec)

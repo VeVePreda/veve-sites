@@ -782,6 +782,74 @@ console.log('\n8. la sélection serveur (marche_selection.mjs) ?');
 // StackR affiche « vu le … » : un montant qu'on ne sait pas dater y
 // apparaîtrait sous la date d'autre chose. C'est la faute des DEUX HORLOGES du
 // lot 146 — celle qui a cassé la CI au lot G, deux heures avant ce lot-ci.
+// ═══════════════════════════════════════════════════════════════════════════
+// 💱 LOT H ④ — LES DEUX FILTRES StackR, ET LEUR TRAITEMENT DE L'INCONNU
+// ═══════════════════════════════════════════════════════════════════════════
+// ⛔ POPULATION FABRIQUÉE, encore, et pour la raison qui vaut depuis le §8 bis :
+// hors ligne `.reserve/cote/` est vide, donc `floorStackrUsd` et `ecartStackr`
+// valent `null` sur les 90 fiches de l'échantillon. Les deux filtres seraient
+// exercés sur une population où ils n'ont rien à mordre — verts sans avoir rien
+// jugé, sur les deux sites.
+//
+// 🔴🔴 LE POINT QUI COMPTE : CES DEUX BORNES **ÉCARTENT** L'INCONNU, alors que
+// `f-mcp`, dix lignes plus haut dans `garde()`, le LAISSE PASSER. Ce n'est pas
+// une incohérence, c'est la différence entre un plafond et une demande de
+// preuve — et un banc doit tenir les deux, sinon quelqu'un « harmonisera ».
+console.log('\n8 quater. les deux filtres StackR mordent-ils, et sur quoi ?');
+{
+  const S = await import('../lib/marche_selection.mjs');
+  // a : StackR nettement moins cher · b : à peine moins cher · c : AUCUN prix
+  // StackR (le cas majoritaire tant que la rotation n'a pas tout vu).
+  const POP = [
+    { uuid: 'a', name: 'A', type: 'collectible', rarity: 'RARE', floor: 100, floorStackrUsd: 70, ecartStackr: 30, listings: 2, tirage: 10 },
+    { uuid: 'b', name: 'B', type: 'collectible', rarity: 'RARE', floor: 100, floorStackrUsd: 95, ecartStackr: 5, listings: 2, tirage: 10 },
+    { uuid: 'c', name: 'C', type: 'collectible', rarity: 'RARE', floor: 100, floorStackrUsd: null, ecartStackr: null, listings: 2, tirage: 10 },
+  ];
+  const P = (q) => S.lireParams(new URLSearchParams(`${q}&f-n=50&f-abr=1`));
+  const r = (q) => S.selectionMarche(POP, P(q)).lignes.map((i) => i.uuid).join('');
+  const cas = [
+    ['sans borne, tout passe', '', 'abc'],
+    ['écart ≥ 20 %', 'f-ec=20', 'a'],
+    ['écart ≥ 1 % — l\'inconnu reste dehors', 'f-ec=1', 'ab'],
+    ['prix StackR entre 60 et 80 $', 'f-spmin=60&f-spmax=80', 'a'],
+    ['prix StackR ≥ 90 $', 'f-spmin=90', 'b'],
+    ['prix StackR ≤ 50 $ — personne', 'f-spmax=50', ''],
+    ['les deux axes ensemble', 'f-ec=20&f-spmax=80', 'a'],
+  ];
+  const ko = cas.filter(([, q, att]) => r(q) !== att).map(([n, q, att]) => `${n} → « ${r(q)} » au lieu de « ${att} »`);
+  verifie('les deux bornes retiennent exactement ce qu\'elles annoncent',
+    ko.length === 0,
+    ko.length ? `🔴 ${ko.join(' · ')}` : `${cas.length} cas sur une population fabriquée`);
+
+  // ⭐⭐ LE CONTRASTE AVEC `f-mcp`, ÉCRIT NOIR SUR BLANC. Si un jour quelqu'un
+  // « harmonise » les trois, ce contrôle rougit et le commentaire de `garde()`
+  // explique pourquoi les deux comportements sont voulus.
+  const sansMcp = [{ uuid: 'z', name: 'Z', type: 'collectible', rarity: 'INCONNUE', floor: 100, listings: 1, tirage: 5 }];
+  const plafond = S.selectionMarche(sansMcp, P('f-mcp=1')).lignes.length;
+  const preuve = S.selectionMarche(sansMcp, P('f-ec=1')).lignes.length;
+  verifie('⛔ un PLAFOND garde l\'inconnu, une DEMANDE DE PREUVE le refuse',
+    plafond === 1 && preuve === 0,
+    `f-mcp (plafond) garde ${plafond}/1 · f-ec (preuve) garde ${preuve}/1`);
+
+  // ⛔ ET LES TROIS AXES COMPTENT COMME UN FILTRE ACTIF. Sans ça, « tout
+  // effacer » resterait caché et le compteur dirait « X pièces cotées » au
+  // lieu de « X retenues sur Y » — la panne du lot 219, dans une autre table.
+  // 🧰🔴🔴 SANS `f-abr`, ET C'EST UNE CORRECTION PAYÉE SUR PLACE. Premier jet :
+  // ce contrôle réutilisait `P()`, qui ajoute `f-abr=1` pour que les autres cas
+  // ne perdent pas les planchers écartés. Or `p.abr` fait À LUI SEUL basculer
+  // `filtreActif` — le contrôle rendait donc `true` quoi qu'il arrive.
+  // ⭐⭐⭐ MESURÉ : injection posée (les trois axes retirés de `filtreActif`),
+  // le banc est resté VERT. *Un contrôle qu'aucune faute ne peut faire rougir
+  // ne mesure rien, il décore.* → regle-terme-a-zero-doit-etre-atteignable
+  const nu = (q) => S.lireParams(new URLSearchParams(`${q}&f-n=50`));
+  verifie('⛔ contre-épreuve : sans axe, `filtreActif` est bien FAUX',
+    S.filtreActif(nu('')) === false,
+    'une page nue n\'est pas « filtrée » — sinon le contrôle suivant est vide de sens');
+  const actifs = ['f-ec=20', 'f-spmin=1', 'f-spmax=9'].filter((q) => S.filtreActif(nu(q)));
+  verifie('⛔ les trois axes déclenchent `filtreActif` (sinon « tout effacer » disparaît)',
+    actifs.length === 3, `${actifs.length}/3`);
+}
+
 console.log('\n8 ter. les extrêmes StackR : l\'index refuse-t-il ce qu\'il doit refuser ?');
 {
   const DS = await import('../lib/dataset.mjs');

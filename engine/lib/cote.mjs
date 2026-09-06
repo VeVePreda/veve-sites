@@ -107,6 +107,13 @@ export const CHAMPS_COTE = [
   // pas listées ici : « on a regardé le 3 septembre » ne dit aucun prix, et
   // c'est exactement la ligne de partage que `vuStackrLe` a déjà tracée.
   'atlStackr', 'athStackr',
+  // 💱 LOT H ④ — LE PLANCHER StackR EN DOLLARS ET L'ÉCART AVEC VeVe.
+  // ⛔ L'ÉCART EST UN PRIX, même s'il s'écrit en pourcentage : un écart plus
+  // UN des deux planchers redonne l'autre. C'est exactement le raisonnement
+  // que `tension` a suivi dans l'autre sens (« bâtie sans aucun prix, elle ne
+  // permet de reconstituer aucun montant ») — ici la reconstitution est
+  // immédiate, donc le champ change de camp.
+  'floorStackrUsd', 'ecartStackr',
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════

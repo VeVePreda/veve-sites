@@ -941,6 +941,31 @@ const ILE_TUILES = JSON.stringify({
             <div class="champ champ--sm" style="width:150px"><label class="etiq" for="f-mcp">{t(lang, 'movers.mcpMax')}</label>
               <input id="f-mcp" name="f-mcp" type="number" min="0" step="any" value={P.mcp ?? ''} placeholder="∞" /></div>
           </div>
+          {/* ═══ 💱 LOT H ④ — LES DEUX FILTRES StackR ══════════════════════════
+              Point 4 du brief du relooking, jamais commencé jusqu'ici.
+              ⭐⭐ ILS SONT DANS « PRIX & VALEUR », avec le plancher VeVe et le
+              $/MCP, et pas dans un groupe « StackR » à eux. Le visiteur ne
+              cherche pas « les réglages StackR » : il cherche un PRIX, et
+              StackR est l'un des deux endroits où il s'en trouve un. Un groupe
+              par source aurait rangé la page selon nos tables plutôt que selon
+              sa question.
+              🔒 LE FILTRE TRAVAILLE SUR LA DONNÉE SERVEUR ET N'ÉCRIT AUCUN
+              MONTANT : `floorStackrUsd` et `ecartStackr` sont dans
+              `CHAMPS_COTE`, donc absents du HTML public — seule la BORNE que
+              le visiteur a lui-même tapée réapparaît dans le champ, et une
+              borne n'est pas une cote.
+              ⛔ EN DOLLARS, PAS EN OMI : le tableau et la fiche montrent
+              StackR en dollars depuis le lot 181. Demander une borne dans une
+              unité que le site n'affiche nulle part serait un piège. */}
+          <div class="tiroir__c" style="margin-top:12px">
+            <div class="champ champ--sm" style="width:170px"><label class="etiq" for="f-ec">{t(lang, 'movers.spreadMin')}</label>
+              <input id="f-ec" name="f-ec" type="number" min="0" max="100" step="any" value={P.ecmin ?? ''} placeholder="0" /></div>
+            <div class="champ champ--sm" style="width:150px"><label class="etiq" for="f-spmin">{t(lang, 'movers.stackrMin')}</label>
+              <input id="f-spmin" name="f-spmin" type="number" min="0" step="any" value={P.spmin ?? ''} placeholder="0" /></div>
+            <div class="champ champ--sm" style="width:150px"><label class="etiq" for="f-spmax">{t(lang, 'movers.stackrMax')}</label>
+              <input id="f-spmax" name="f-spmax" type="number" min="0" step="any" value={P.spmax ?? ''} placeholder="∞" /></div>
+          </div>
+          <p class="etiq" style="margin:8px 0 0;color:var(--muted)">{t(lang, 'movers.spreadHint')}</p>
           <div class="cols-l" style="margin-top:12px">
             <label class="puce"><input type="radio" name="f-var" value="" checked={P.vari === ''} /> {t(lang, 'movers.all')}</label>
             <label class="puce"><input type="radio" name="f-var" value="up" checked={P.vari === 'up'} /> ▲ {t(lang, 'movers.up')}</label>
