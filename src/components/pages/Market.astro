@@ -565,7 +565,23 @@ const ILE_TUILES = JSON.stringify({
         pas un filtre parmi d'autres, c'est l'ensemble sur lequel les autres
         s'appliquent. Les mettre au même rang embrouillait la barre. */}
     <div class="barre-f__l">
-      <span class="barre-f__t">{t(lang, 'movers.filters')}</span>
+      {/* 🔤🔴🔴 LOT G — « FILTERS » ÉTAIT ÉCRIT DEUX FOIS, ET LES DEUX ÉTAIENT
+          VISIBLES. Mesuré sur la page servie le 06/09 : `.barre-f__t` à y=599
+          dans `.barre-f__x` (l'en-tête repliable) et à y=788 ici, même x=42.
+          Deux étiquettes identiques dans une seule barre, à 189 px l'une de
+          l'autre. (Une troisième en `.sr-only` est normale : c'est le nom
+          accessible du bouton de repli.)
+          ⭐⭐ ET LE DOUBLON N'ÉTAIT QUE LA MOITIÉ DU DÉFAUT : ce libellé-ci ne
+          coiffe pas des filtres, il coiffe le segment « All / Collectibles /
+          Comics » — le CORPUS sur lequel les filtres s'appliquent, comme le dit
+          le commentaire quatre lignes plus bas. Le mot juste existait déjà et
+          était déjà employé à deux nœuds d'ici, en `aria-label` du groupe :
+          `movers.type`. ⛔ Ne pas supprimer l'étiquette : une colonne sans titre
+          au milieu d'une barre qui en a partout se lit comme un oubli.
+          ⭐ *Un doublon se corrige en nommant ce que le second désigne, pas en
+          effaçant l'un des deux.* Et le nom accessible du groupe et son titre
+          visible disent désormais le même mot — ils se contredisaient. */}
+      <span class="barre-f__t">{t(lang, 'movers.type')}</span>
       <div class="seg-p" role="group" aria-label={t(lang, 'movers.type')}>
         {/* ⭐ LES TROIS COMPTEURS LISENT LE CORPUS **VISIBLE**, plus les lignes
             rendues : depuis que la page ne rend qu'une tranche, « le nombre

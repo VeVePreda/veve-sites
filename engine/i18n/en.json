@@ -706,5 +706,8 @@
   "floora.alerte.t": "A threshold you set has been crossed",
   "floora.alerte.d": "Thresholds are checked at every rebuild of the site, not continuously.",
   "floora.attente.t": "Nothing to report",
-  "floora.attente.d": "Your alerts are armed. You will get a mail the day one of them is crossed."
+  "floora.attente.d": "Your alerts are armed. You will get a mail the day one of them is crossed.",
+  "item.stackrAucuneOffre": "No offers for sale",
+  "item.stackrVuLe": "Checked on {d}",
+  "item.stackrPrixDrop": "Release price"
 }

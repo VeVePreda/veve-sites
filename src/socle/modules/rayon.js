@@ -341,187 +341,66 @@
   //   catalogue : un nom de pièce est une donnée d'un Sheet. Les deux seuls
   //   `innerHTML` de ce fichier reçoivent du HTML fabriqué par `vitrine.mjs`.
   function rendre(l) {
-    var li = document.createElement('li');
-    li.className = 'rayon__l';
+    // ═══════════════════════════════════════════════════════════════════════
+    // 🧩🔴🔴🔴 LOT G — CETTE FONCTION NE DÉCRIT PLUS LA TUILE, ELLE LA REMPLIT
+    // ═══════════════════════════════════════════════════════════════════════
+    // Elle écrivait ses quinze `createElement` en miroir de `Rayon.astro` —
+    // c'était la DEUXIÈME des trois fabriques que le lot G supprime. Le motif
+    // « trois copies se ressemblent six mois, puis l'une gagne une correction et
+    // les deux autres non » a déjà coûté quatre lots à ce dépôt (127, 131, 132,
+    // 155-A), et il venait de le refaire : le lot 182 a dû corriger le `title`
+    // ICI après l'avoir corrigé LÀ-BAS, et le nom COUPÉ contre le nom ENTIER a
+    // été servi sur 89,7 % des comics jusqu'au 06/09.
+    // ⭐⭐ La forme vit maintenant dans `src/socle/modules/tuile.js`, et ce
+    //   pilote n'en connaît plus une seule classe. ⛔ Ne pas « ajouter juste un
+    //   petit span » ici : il n'apparaîtrait pas côté serveur, et c'est
+    //   exactement la panne que ce lot referme.
+    // ⚠️ `window.vpTuile` DOIT EXISTER — `tuile.js` part en `<script defer>`
+    //   AVANT ce fichier (ordre du document, garanti par `defer`, comme pour le
+    //   chargeur d'index). Le repli n'invente pas de tuile : il rend `null` et
+    //   la ligne est simplement absente, ce que `test:rayon` § ⑧ voit tout de
+    //   suite. ⛔ Un repli qui dessinerait « quelque chose » masquerait la panne.
+    var T = window.vpTuile;
+    if (!T) return null;
     var p = ligneVal(l, 'p');
-    var boite = document.createElement(p ? 'a' : 'div');
-    boite.className = 'rayon__c' + (p ? '' : ' rayon__c--muet');
-    if (p) boite.setAttribute('href', idx.prefixe + p);
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // 🖼️🔴🔴 LOT E — LE SOCLE, ET C'EST LA CINQUIÈME FOIS QUE CETTE RÈGLE SORT
-    // ═══════════════════════════════════════════════════════════════════════
-    // *Une seconde fabrique ne montre que ce que sa source porte.* Les tuiles
-    // du Marché, puis celles de `/favoris/`, puis le badge ATL/ATH, puis les
-    // vignettes des sets : quatre fois ce dépôt a peint une liste depuis une
-    // source qui ne portait pas tout, et quatre fois la moitié servie par le
-    // serveur avait quelque chose que la moitié filtrée n'avait pas.
-    // ⇒ `c` et `cr` sont dans l'index EXPRÈS. Ce ne sont pas des colonnes de
-    // confort : sans elles, les 20 premières tuiles auraient leur couverture et
-    // toutes les suivantes un losange — un défaut qui ressemble à une donnée
-    // manquante, pas à un bug, donc qu'on ne cherche jamais au bon endroit.
-    // ⭐ LE PRÉFIXE SE RECOLLE ICI, comme `series.js` le fait pour les sets :
-    //   l'index le factorise une fois, chaque adresse le retrouve.
-    // ⛔ `.src = url` PAR LA PROPRIÉTÉ, jamais par une chaîne assemblée : une
-    //   adresse qui contiendrait un guillemet ferait de cette ligne une
-    //   injection. La propriété ne peut pas sortir de l'attribut, la chaîne si.
-    var dans = document.createElement('span');
-    dans.className = 'rayon__b';
-    if (pos.c !== undefined) {
-      var socle = document.createElement('span');
-      socle.className = 'socle' + (idx.corpus === 'comics' ? ' socle--comic' : '');
-      var im = ligneVal(l, 'c');
-      var rp = ligneVal(l, 'cr');
-      if (im) {
-        var url = (idx.cdn || '') + im;
-        var urp = rp ? (idx.cdn || '') + rp : '';
-        var nomC = String(ligneVal(l, 'n') || '');
-        var fond = document.createElement('img');
-        fond.className = 'socle__fond ok'; fond.src = url; fond.alt = '';
-        fond.setAttribute('aria-hidden', 'true');
-        var voile = document.createElement('span'); voile.className = 'socle__voile';
-        var net = document.createElement('img');
-        net.className = 'socle__net ok'; net.src = url; net.alt = nomC;
-        // ⭐ `width`/`height` EN ATTRIBUTS : ils réservent la place et évitent
-        //   le décalage de mise en page. `loading=lazy` fait que peindre 200
-        //   tuiles ne décode que celles à l'écran.
-        // ⚠️ `onerror` EN ATTRIBUT et pas en écouteur : il se déclenche pendant
-        //   le chargement, et le gabarit du serveur le pose de la même façon.
-        //   Les deux fabriques rendent le même HTML, ou elles divergeront.
-        [fond, net].forEach(function (x) {
-          x.setAttribute('width', '400'); x.setAttribute('height', '600');
-          x.setAttribute('loading', 'lazy'); x.setAttribute('decoding', 'async');
-          if (urp) x.setAttribute('data-repli', urp);
-          // ⛔ POSÉ SEULEMENT S'IL EXISTE : un `onerror=""` vide serait un
-          //   attribut d'événement qui ne fait rien, et le banc qui compte les
-          //   replis le verrait comme un repli présent.
-          if (idx.onerror) x.setAttribute('onerror', idx.onerror);
-        });
-        socle.appendChild(fond); socle.appendChild(voile); socle.appendChild(net);
-      } else {
-        // ⭐⭐ LE LOSANGE VIENT DE LA CHARGE (`idx.losange`), IL N'EST PAS
-        //   RÉÉCRIT ICI. Le dessin est produit par `forme()` au build, comme
-        //   les pastilles de rareté d'`idx.rar` : *quand deux fabriques doivent
-        //   montrer la même chose, on transporte le résultat, pas la recette.*
-        //   ⛔ Recopier le `path` du losange dans ce fichier en ferait une
-        //   seconde source — et le jour où le glyphe change, une liste filtrée
-        //   dessinerait l'ancien, sans que les deux soient jamais côte à côte.
-        var v2 = document.createElement('span'); v2.className = 'socle__voile';
-        var cage = document.createElement('span');
-        cage.className = 'socle__cage';
-        cage.setAttribute('aria-hidden', 'true');
-        cage.innerHTML = idx.losange || '';
-        socle.appendChild(v2); socle.appendChild(cage);
-      }
-      boite.appendChild(socle);
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // 🔴 LOT 182 — LE `title` MANQUAIT ICI, ET LE CSS COUPE QUAND MEME
-    // ═══════════════════════════════════════════════════════════════════════
-    // `.rayon__n` et `.rayon__s` portent `text-overflow:ellipsis` dans le
-    // theme : une ligne peinte par ce pilote est coupee A LA LARGEUR, sans
-    // qu'aucun `title` ne permette de lire l'entier. Le rendu SERVEUR, lui, en
-    // posait un — donc les 20 premieres lignes avaient l'infobulle et toutes
-    // les suivantes, non. Le meme defaut que le lot 182 corrige au serveur,
-    // vu depuis l'autre fabrique.
-    // ⭐⭐ INCONDITIONNEL, et c'est le raisonnement deja ecrit dans
-    //   `CarteSet.astro` : c'est le CSS qui coupe, a une largeur que PERSONNE
-    //   ne connait au moment d'ecrire le nœud. *Un `title` conditionne a une
-    //   troncature qu'on ne peut pas mesurer serait absent exactement quand il
-    //   sert.* ⛔ Ne pas essayer de deviner avec `scrollWidth` : ce serait une
-    //   mesure de mise en page par ligne peinte, donc un reflow par ligne.
-    // ⛔ Cout : un attribut par ligne, dans le DOM seulement — ces nœuds ne
-    //   sont PAS dans le HTML servi, ils sont crees ici. Zero octet de page.
-    var n = document.createElement('span');
-    n.className = 'rayon__n';
-    // 🔤🔴🔴 LE NOM AFFICHÉ EST LE NOM **COUPÉ**, LE `title` EST L'ENTIER.
-    // Ce module écrivait le nom entier dans les deux. `Rayon.astro` affiche
-    // `nomItem(l.nom).vu` depuis toujours ⇒ les 20 lignes du serveur étaient
-    // coupées et toutes les lignes filtrées ne l'étaient pas, sur **89,7 % des
-    // comics** (mesuré en production le 06/09, 15 375 / 17 134).
-    // ⭐ `nv` VIENT DE L'INDEX, il n'est pas recalculé ici : `couperMots()` ne
-    //   rend PAS un préfixe — « Once Upon a Mouse…in the Future » devient
-    //   « Once Upon a Mouse…in the… » — et un `slice()` client donnerait un
-    //   autre texte. *On transporte le résultat, pas la recette.*
-    // ⛔ `||` et non `??` : `nv` vaut **0** quand le nom n'est pas coupé. C'est
-    //   la convention de l'index (0 = vide), pas une valeur absente.
-    var complet = String(ligneVal(l, 'n') || '');
-    var vu = String(ligneVal(l, 'nv') || complet);
-    n.textContent = vu;
-    if (complet) n.title = complet;
-    dans.appendChild(n);
-
-    var se = mot(l, 'se');
-    if (se) {
-      var s = document.createElement('span');
-      s.className = 'rayon__s';
-      s.textContent = se;
-      s.title = se;
-      dans.appendChild(s);
-    }
-    var men = mot(l, 'e');
-    if (men) {
-      var m = document.createElement('span');
-      m.className = 'rayon__e';
-      m.textContent = men;
-      dans.appendChild(m);
-    }
-    var code = mot(l, 'r');
-    if (code && idx.rar && idx.rar[code]) {
-      var rr = document.createElement('span');
-      rr.innerHTML = idx.rar[code].h;
-      dans.appendChild(rr.firstChild);
-    }
-    // 🔴🔴 LES EXTRÊMES, ET SEULEMENT SI LA PIÈCE A UNE FICHE — décision Preda
-    //   du 11/08 : les lignes sans fiche n'auront JAMAIS de cote, et un cadenas
-    //   dessus dirait « je ne montre pas » là où la vérité est « je n'ai pas ».
-    //   ⭐ Le balisage est celui de `Cote.astro` : `60-cote.js` cherche
-    //   `[data-cote]` et remplit `[data-cote-v]`. On l'appelle en fin de rendu.
     var u = ligneVal(l, 'u');
-    // 🔴🔴🔴 LOT 201 — LE PLANCHER, ET IL EST ÉMIS PAR LES DEUX FABRIQUES.
-    //   `Rayon.astro` le pose côté serveur dans le même lot. ⛔ Ne l'ajouter
-    //   qu'ici aurait fait apparaître un prix au premier filtre et disparaître
-    //   au rechargement — « deux gabarits qui rendent la même liste divergent
-    //   en silence », la faute que ce fichier a déjà payée quatre fois.
-    //   ⭐ MÊME PRÉDICAT `p && u` QUE LES EXTRÊMES : pas de fiche, pas de cote
-    //   en réserve, donc pas de cadenas. Le prédicat n'est pas neuf, il est
-    //   PARTAGÉ — c'est ce qui garantit que les deux badges apparaissent et
-    //   disparaissent ensemble.
-    if (p && u) {
-      // ⛔ PAS D'ENVELOPPE. `Cote.astro` rend UN seul nœud, `class="cote
-      //   rayon__p"` — la classe s'ajoute SUR le badge, elle ne l'emballe pas.
-      //   Un `<span class="rayon__p">` autour aurait produit un enfant de plus
-      //   dans la grille (donc la ligne repliée du lot 201) et un sélecteur
-      //   `.rayon__p.cote` qui ne mordrait plus. Les deux fabriques rendent le
-      //   même HTML À L'OCTET, ou elles divergeront au lot suivant.
-      var prx = document.createElement('span');
-      prx.innerHTML = cadenasNu(u, 'floor', 'cote rayon__p');
-      dans.appendChild(prx.firstChild);
-    }
-    if (p && u) {
-      var ext = document.createElement('span');
-      ext.className = 'rayon__ext';
-      ext.setAttribute('aria-hidden', 'true');
-      ext.innerHTML = cadenas('b', 'ATL', u, 'atl') + cadenas('h', 'ATH', u, 'ath');
-      dans.appendChild(ext);
-    }
+    var im = pos.c !== undefined ? ligneVal(l, 'c') : '';
+    var rp = pos.cr !== undefined ? ligneVal(l, 'cr') : '';
+    var code = mot(l, 'r');
     var tg = ligneVal(l, 't');
-    if (tg) {
-      var tt = document.createElement('span');
-      tt.className = 'rayon__t';
-      tt.textContent = String(tg);
-      dans.appendChild(tt);
-    }
-    if (!p) {
-      var x = document.createElement('span');
-      x.className = 'rayon__x';
-      x.textContent = txt('sansfiche');
-      dans.appendChild(x);
-    }
-    boite.appendChild(dans);
-    li.appendChild(boite);
-    return li;
+    // 🔤 LE NOM COUPÉ EST AFFICHÉ, L'ENTIER EST EN `title` — `nv` VIENT DE
+    //   L'INDEX et n'est pas recalculé : `couperMots()` ne rend PAS un préfixe
+    //   (« Once Upon a Mouse…in the Future » devient « Once Upon a Mouse…in
+    //   the… »), un `slice()` client donnerait un autre texte.
+    //   ⛔ `||` et non `??` : `nv` vaut **0** quand le nom n'est pas coupé —
+    //   convention de l'index (0 = vide), pas une valeur absente.
+    var complet = String(ligneVal(l, 'n') || '');
+    var se = mot(l, 'se');
+    return T.monter(T.decrire({
+      href: p ? idx.prefixe + p : '',
+      nomVu: String(ligneVal(l, 'nv') || complet),
+      nomComplet: complet,
+      serie: se, serieComplete: se,
+      edition: mot(l, 'e'),
+      tirage: tg ? String(tg) : '',
+      comic: idx.corpus === 'comics',
+      // ⭐⭐ LE VISUEL ET LE LOSANGE SONT TRANSPORTÉS, PAS REDESSINÉS : `idx.rar`
+      //   et `idx.losange` portent le HTML que `forme()` a produit au build.
+      //   *Quand deux fabriques doivent montrer la même chose, on transporte le
+      //   résultat, pas la recette.*
+      image: im ? (idx.cdn || '') + im : '',
+      repli: rp ? (idx.cdn || '') + rp : '',
+      onerror: idx.onerror || '',
+      rarHtml: (code && idx.rar && idx.rar[code]) ? idx.rar[code].h : '',
+      losangeHtml: idx.losange || '',
+      // 🔴🔴 MÊME PRÉDICAT `p && u` QUE LE SERVEUR, ET C'EST CE QUI GARANTIT QUE
+      //   LES DEUX BADGES APPARAISSENT ET DISPARAISSENT ENSEMBLE. Une pièce sans
+      //   fiche n'a pas de cote en réserve et n'en aura jamais : un cadenas
+      //   dessus dirait « je ne montre pas » là où la vérité est « je n'ai pas ».
+      prixHtml: (p && u) ? cadenasNu(u, 'floor') : '',
+      extHtml: (p && u) ? (cadenas('b', 'ATL', u, 'atl') + cadenas('h', 'ATH', u, 'ath')) : '',
+      sansFicheTxt: p ? '' : txt('sansfiche')
+    }), document);
   }
 
   /** Le `<span class="cote">` de `Cote.astro`, sans son SVG de cadenas : le
@@ -587,7 +466,16 @@
     // ⭐ UN SEUL REMPLACEMENT DU CONTENU, PAS `n` INSERTIONS. Peindre 20 lignes
     //   une par une dans le document vivant provoque autant de recalculs.
     var frag = document.createDocumentFragment();
-    for (var k = 0; k < tranche.length; k++) frag.appendChild(rendre(tranche[k]));
+    // ⛔ `appendChild(null)` LÈVE. `rendre()` rend `null` quand `window.vpTuile`
+    //   n'a pas été chargé — un cas qui ne doit pas arriver (les deux scripts
+    //   sont `defer`, donc ordonnés par le document) mais qui, s'il arrivait,
+    //   doit vider la liste plutôt que casser le pilote au milieu de sa boucle :
+    //   une grille vide se voit, une exception à mi-parcours laisse la moitié
+    //   des lignes de la page précédente en place et ressemble à un filtre.
+    for (var k = 0; k < tranche.length; k++) {
+      var t = rendre(tranche[k]);
+      if (t) frag.appendChild(t);
+    }
     L.textContent = '';
     L.appendChild(frag);
 

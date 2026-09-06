@@ -1143,8 +1143,18 @@ verifie(`chaque vignette de piece emet ses extremes ET sa mention d'edition`, sa
   const pilote = readFileSync(join(ROOT, 'src', 'socle', 'modules', 'rayon.js'), 'utf8')
     .replace(/\/\*[\s\S]*?\*\//g, ' ').split('\n')
     .map((l) => l.replace(/\/\/.*$/, ' ')).join('\n');
-  const posesN = /\bn\.title\s*=/.test(pilote);
-  const posesS = /\bs\.title\s*=/.test(pilote);
+  // 🧩🔴🔴 LOT G — LE PILOTE NE POSE PLUS `title` LUI-MÊME : IL PASSE LE NOM
+  //   ENTIER AU DESCRIPTEUR (`nomComplet`/`serieComplete`), et c'est
+  //   `src/socle/modules/tuile.js` qui pose l'attribut — pour les DEUX
+  //   fabriques à la fois.
+  //   ⭐⭐ CE QUE LE § PROTÈGE EST INCHANGÉ, ET MÊME RENFORCÉ : le défaut du
+  //   lot 182 (les 20 lignes du serveur avaient l'infobulle, les lignes
+  //   filtrées non) ne peut plus se reproduire par construction — il n'y a plus
+  //   deux endroits qui décident. Le contrôle vérifie donc le POINT DE PASSAGE.
+  //   ⛔ Ne pas chercher `n.title` : la variable n'existe plus, et un banc qui
+  //   cherche un nom disparu passe au vert le jour où on le supprime.
+  const posesN = /nomComplet\s*:/.test(pilote);
+  const posesS = /serieComplete\s*:/.test(pilote);
   verifie('rayon (pilote) : les lignes PEINTES portent le meme `title`',
     posesN && posesS,
     (posesN && posesS) ? 'nom + serie' : `⛔ manquant : ${[!posesN && 'nom', !posesS && 'serie'].filter(Boolean).join(' + ')} — les lignes filtrees perdraient l'infobulle`);
@@ -1620,8 +1630,19 @@ console.log('\n12. « Voir sur StackR » : un lien, et seulement où c\'est vrai
   // ⛔⛔ LE CONTRÔLE QUI VAUT TOUT LE §. `floorStackr` est réservé : le tester
   //   rendrait le lien invisible partout, en silence. Ce banc refuse le retour
   //   de cette faute, en la NOMMANT.
-  verifie('...conditionné à `releveStackrLe` (public), et jamais à `floorStackr` (réservé)',
-    /item\.releveStackrLe\s*&&\s*urlStackR/.test(item)
+  // 🧩🔴🔴 LOT G — L'INVARIANT EST INTACT, SON MOTIF A SUIVI LE GABARIT.
+  //   La condition est passée de `releveStackrLe` (« on y a vu un PRIX »,
+  //   6 726 uuid) à `vuStackrLe` (« on a REGARDÉ la fiche », 19 893) : le lien
+  //   était éteint sur 13 167 pièces qui ont pourtant une page chez StackR.
+  //   ⭐⭐ CE QUE CE CONTRÔLE PROTÈGE N'A PAS CHANGÉ D'UN MOT : la condition doit
+  //   porter sur un champ de `CHAMPS_FRAICHEUR`, jamais sur `floorStackr`, qui
+  //   est réservé et donc ABSENT de l'objet au rendu — le lien n'apparaîtrait
+  //   nulle part et rien ne rougirait. Les deux champs acceptés sont publics et
+  //   tenus tels par l'invariant de `cote.mjs`.
+  //   ⛔ Ne pas relâcher en `/urlStackR/` tout court : c'est précisément la
+  //   partie « et jamais `floorStackr` » qui vaut tout le §.
+  verifie('...conditionné à une date PUBLIQUE (`vuStackrLe`/`releveStackrLe`), jamais à `floorStackr`',
+    /item\.(?:vuStackrLe|releveStackrLe)[\s\S]{0,40}&&\s*urlStackR/.test(item)
     && !/item\.floorStackr\s*!=\s*null\s*&&\s*urlStackR/.test(item),
     'un champ de CHAMPS_COTE est retiré des pages pré-générées : la condition serait fausse partout');
 

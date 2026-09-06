@@ -289,11 +289,18 @@ for (const corpus of CORPUS) {
       const montants = [];
       for (const f of pages) {
         const html = readFileSync(f, 'utf8');
-        for (const m of html.matchAll(/<(a|div) class="rayon__c[^"]*"[^>]*>([\s\S]*?)<\/\1>/g)) {
+        // 🧩 LOT G — LE MARQUAGE EST CELUI DU MARCHÉ (`.tuile`), plus `.rayon__c`.
+        //   ⭐ Ce § ne change pas de QUESTION : il compte toujours les lignes
+        //   servies, celles qui portent les extrêmes et celles qui portent le
+        //   plancher. Seul le vocabulaire suit le gabarit.
+        //   ⛔ `sets` garde `.rayon__c` — il n'a jamais eu de tuiles, et son
+        //   absence de couverture est une donnée, pas un choix de vue.
+        for (const m of html.matchAll(/<(a|div) class="(?:tuile|rayon__c)[^"]*"[^>]*>([\s\S]*?)<\/\1>/g)) {
           const corps = m[2];
           lignes++;
-          const ext = corps.includes('rayon__ext');
-          const prix = /class="cote rayon__p"/.test(corps);
+          const ext = corps.includes('socle__ext') || corps.includes('rayon__ext');
+          const prix = /class="cote(?: rayon__p)?"/.test(corps) && corps.includes('tuile__p')
+            || /class="cote rayon__p"/.test(corps);
           if (ext) avecExt++;
           if (prix) avecPrix++;
           // ⭐⭐ LES ENFANTS DE PREMIER NIVEAU, COMPTÉS. C'est ce nombre-là que
@@ -302,12 +309,25 @@ for (const corpus of CORPUS) {
           //   et la fait grandir. Sur vingt lignes empilées ça ne ressemble pas
           //   à une faute, ça ressemble à du texte long — c'est pour ça que ce
           //   défaut a vécu depuis le lot 139 sans être nommé.
-          let prof = 0, n = 0;
-          for (const t of corps.matchAll(/<(\/?)(span|svg)\b/g)) {
-            if (t[1]) prof--;
-            else { if (prof === 0 && t[2] === 'span') n++; prof++; }
+          // 🧩🔴🔴 LOT G — COMPTÉ SUR LA SEULE VUE LISTE, ET LA PREMIÈRE
+          //   VERSION DE CE CORRECTIF ÉTAIT FAUSSE. J'avais élargi le motif aux
+          //   tuiles puis cru neutraliser ce contrôle par `enfantsMax === 0` :
+          //   il a rendu **60 enfants pour 7 colonnes**. Une tuile empile ses
+          //   `<span>` sur plusieurs niveaux, et compter « les enfants de
+          //   premier niveau » d'un arbre qui n'est plus une ligne de grille ne
+          //   mesure plus rien — ça mesure un autre objet.
+          //   ⭐⭐ *Élargir le motif d'un banc ne suffit pas : il faut vérifier
+          //   que chaque contrôle qu'il nourrit parle encore de la même chose.*
+          //   ⇒ Le compteur ne s'alimente QUE sur `.rayon__c` (la vue liste de
+          //   `sets`), là où la grille à colonnes existe encore.
+          if (/class="rayon__c/.test(m[0])) {
+            let prof = 0, n = 0;
+            for (const t of corps.matchAll(/<(\/?)(span|svg)\b/g)) {
+              if (t[1]) prof--;
+              else { if (prof === 0 && t[2] === 'span') n++; prof++; }
+            }
+            if (n > enfantsMax) enfantsMax = n;
           }
-          if (n > enfantsMax) enfantsMax = n;
           // ⛔ ET AUCUN MONTANT DANS L'EMPLACEMENT. `<Cote>` ne reçoit pas de
           //   valeur : si un chiffre apparaît ici, c'est qu'on lui en a repassé
           //   une, et 19 412 pages publiques porteraient le prix.
@@ -348,8 +368,21 @@ for (const corpus of CORPUS) {
         const colonnes = regle ? regle[1].trim().split(/\s+(?![^(]*\))/).length : 0;
         dit(colonnes > 0, `la grille de \`.rayon__c\` est lisible dans le thème (${colonnes} colonne(s))`,
           '⛔ règle introuvable : le contrôle suivant ne mesurerait rien');
-        dit(enfantsMax > 0 && colonnes >= enfantsMax,
-          `la grille tient la ligne la plus chargée (${colonnes} colonne(s) ≥ ${enfantsMax} enfant(s))`,
+        // 🧩🔴🔴 LOT G — CE CONTRÔLE NE VAUT PLUS QUE POUR LA VUE LISTE (`sets`).
+        //   Une tuile n'est pas une ligne de grille à sept colonnes : c'est une
+        //   colonne flex avec une cartouche. Compter ses enfants contre
+        //   `.rayon__c` compare deux mises en page qui n'ont plus rien à voir —
+        //   il rougissait de « -7 enfants », c'est-à-dire de rien.
+        //   ⭐⭐ ET ON NE LE SUPPRIME PAS : `/sets/` sert toujours des
+        //   `.rayon__c`, et la faute qu'il attrape (un enfant de plus que de
+        //   colonnes replie la ligne) reste possible là-bas. On le RESTREINT à
+        //   la population qu'il sait juger — ⛔ un banc qui juge une population
+        //   qu'il ne décrit plus est un rouge sans information.
+        const tuilees = enfantsMax === 0;
+        dit(tuilees || (enfantsMax > 0 && colonnes >= enfantsMax),
+          tuilees
+            ? 'la grille à colonnes ne concerne plus que la vue liste — SANS OBJET ici'
+            : `la grille tient la ligne la plus chargée (${colonnes} colonne(s) ≥ ${enfantsMax} enfant(s))`,
           `⛔ ${enfantsMax - colonnes} enfant(s) de trop : ces lignes-là se replient sur une`
           + ' seconde rangée et grandissent — regle-enfant-non-plafonne-casse-une-grille');
       }
@@ -377,9 +410,16 @@ for (const corpus of CORPUS) {
     dit(/cadenasNu\s*\(\s*u\s*,\s*'floor'/.test(nu),
       'le pilote peint lui aussi le plancher (code, commentaires retirés)',
       '⛔ le plancher n\'existe qu\'au chargement : il disparaîtrait au premier filtre');
-    dit(/rayon__p/.test(nu),
-      'le pilote pose la classe que le thème peint (`rayon__p`)',
-      '⛔ classe absente ou renommée : un badge sans règle, invisible dans les deux sens');
+    // 🧩 LOT G — LE PILOTE NE POSE PLUS DE CLASSE : IL PASSE LE CADENAS AU
+    //   DESCRIPTEUR, QUI LE POSE DANS `.tuile__p`. La question du § reste la
+    //   même — « le badge du pilote a-t-il une règle qui le peint ? » — mais
+    //   elle se juge maintenant sur le point de passage.
+    //   ⛔ Ne pas revenir à `/rayon__p/` : la classe n'existe plus dans ce
+    //   fichier, et un banc qui cherche un nom disparu est vert le jour où on
+    //   le supprime pour de bon.
+    dit(/prixHtml\s*:/.test(nu),
+      'le pilote passe le plancher au descripteur (`prixHtml`)',
+      '⛔ le cadenas ne parvient plus à la tuile : un plancher qui disparaît au premier filtre');
   }
 }
 
@@ -417,15 +457,21 @@ for (const corpus of CORPUS) {
   } else {
     for (const [corpus, rel] of pages) {
       const h = readFileSync(join(DIST, rel), 'utf8');
-      const lis = h.match(/<li class="rayon__l">/g) || [];
+      // 🧩 LOT G — LES LIGNES SONT DES TUILES DU MARCHÉ.
+      const lis = h.match(/<(?:a|div) class="tuile(?: tuile--muet)?"/g) || [];
       const socles = h.match(/<span class="socle(?: socle--comic)?">/g) || [];
       const nets = h.match(/class="socle__net ok" src="([^"]+)"/g) || [];
       const cages = h.match(/class="socle__cage"/g) || [];
 
-      dit(/id="r-liste"[^>]*class="[^"]*rayon--tui|class="[^"]*rayon--tui[^"]*"[^>]*id="r-liste"/.test(h)
-          || /<ul class="rayon rayon--tui" id="r-liste">/.test(h),
-        `${corpus} : la liste est servie en vue TUILES (\`rayon--tui\`)`,
-        '⛔ la classe manque : la grille retombe en tableau de lignes, sans que rien ne rougisse ailleurs');
+      // 🧩🔴🔴🔴 LOT G — LA VUE TUILES EST CELLE DU MARCHÉ, PAS UNE COPIE.
+      //   ⭐⭐ C'EST L'ASSERTION CENTRALE DU LOT : `.tuiles` est le conteneur du
+      //   Marché, et le rayon l'émet MAINTENANT au lieu de recopier son contrat
+      //   sous `.rayon--tui`. Si quelqu'un réintroduit un sélecteur propre au
+      //   rayon, ce contrôle rougit — c'est ce qu'on lui demande.
+      dit(/<div class="tuiles" id="r-liste">/.test(h),
+        `${corpus} : la liste est servie avec LA tuile du Marché (\`.tuiles\`)`,
+        '⛔ le conteneur du Marché manque : le rayon a repris une grille à lui, '
+        + 'et les deux contrats visuels vont se remettre à diverger');
 
       // ⭐⭐ AUTANT DE SOCLES QUE DE LIGNES — le repli se VOIT. C'est la règle
       //   que le Marché a posée au lot 127 : pas de tuile « dégradée » sans
@@ -499,10 +545,10 @@ for (const corpus of CORPUS) {
         .replace(/\/\*[\s\S]*?\*\//g, ' ')
         .split('\n').map((l) => l.replace(/(^|[^:])\/\/.*$/, '$1')).join('\n');
       for (const [motif, quoi, mal] of [
-        [/className\s*=\s*'socle'/, 'le pilote bâtit un `socle`',
+        [/losangeHtml\s*:/, 'le pilote passe le socle et son losange au descripteur',
           '⛔ les 20 tuiles du serveur auraient leur cadre, les filtrées non'],
-        [/className\s*=\s*'rayon__b'/, 'le pilote pose l\'enveloppe `rayon__b`',
-          '⛔ sans elle, la cartouche n\'existe pas et le texte flotte sous l\'image'],
+        [/vpTuile/, 'le pilote lit LA description partagée (`window.vpTuile`)',
+          '⛔ il s\'est remis à décrire la tuile lui-même : la seconde fabrique renaît'],
         [/idx\.losange/, 'le pilote LIT le losange de la charge, il ne le redessine pas',
           '⛔ un second dessin du même glyphe : deux sources qui divergeront'],
         [/idx\.onerror/, 'le pilote LIT le gestionnaire de repli de la charge',
@@ -618,8 +664,11 @@ for (const corpus of CORPUS) {
       // ⭐ CE QUE LE SERVEUR AVAIT RENDU, RELEVÉ AVANT DE TOUCHER À QUOI QUE CE
       //   SOIT. Après l'exécution, `#r-liste` est REMPLACÉE : ce relevé n'existe
       //   plus nulle part. *On mesure avant la couche qui réécrit.*
-      const releve = (d) => [...d.querySelectorAll('#r-liste .rayon__l')].map((li) => {
-        const n = li.querySelector('.rayon__n');
+      // 🧩 LOT G — ON RELÈVE DES TUILES, ET ELLES SONT LEUR PROPRE RACINE :
+      //   plus de `<li>` autour. `#r-liste > .tuile` plutôt que
+      //   `#r-liste .rayon__l`.
+      const releve = (d) => [...d.querySelectorAll('#r-liste > .tuile')].map((li) => {
+        const n = li.querySelector('.tuile__n');
         const net = li.querySelector('.socle__net');
         return {
           nom: (n && n.textContent || '').trim(),
@@ -627,7 +676,18 @@ for (const corpus of CORPUS) {
           repli: net ? net.getAttribute('data-repli') : null,
           onerr: net ? !!net.getAttribute('onerror') : false,
           losange: !!li.querySelector('.socle__cage'),
-          corps: !!li.querySelector('.rayon__b'),
+          corps: !!li.querySelector('.tuile__b'),
+          // 🧩🔴🔴 LOT G — QUATRE NŒUDS DE PLUS, ET CE SONT EXACTEMENT LES
+          //   QUATRE QUE PREDA A DEMANDÉS EN VOYANT LE RENDU. Sans eux, ce §
+          //   resterait vert si le pilote se remettait à rendre la tuile PAUVRE
+          //   du lot E : même socle, même cartouche, même image — mais sans la
+          //   pastille de rareté ni le bandeau des extrêmes.
+          //   ⭐⭐ *Un banc qui ne regarde que le squelette est vert sur deux
+          //   tuiles qui ne se ressemblent pas.*
+          rar: !!li.querySelector('.tuile__hd .tuile__rar'),
+          ext: !!li.querySelector('.socle .socle__ext'),
+          serie: !!li.querySelector('.tuile__s'),
+          prix: !!li.querySelector('.tuile__p'),
           socle: !!li.querySelector('.socle'),
         };
       });
@@ -647,7 +707,16 @@ for (const corpus of CORPUS) {
       // ⭐ L'ORDRE DU DOCUMENT : le chargeur d'abord, le pilote ensuite. C'est ce
       //   que `defer` garantit dans la page, et ce que `test:series` a appris en
       //   levant « window.vpIndexRayon is not a function ».
-      try { jouer(chargeur); jouer(pilote); } catch (e) { leve = e.message; }
+      // 🧩🔴🔴🔴 LOT G — LA DESCRIPTION PART **AVANT** LE PILOTE, ET LE BANC
+      //   DOIT REJOUER L'ORDRE DU DOCUMENT.
+      //   ⭐⭐⭐ Ce § l'a démontré tout seul : sans `tuile.js`, le pilote a bâti
+      //   **0 tuile** et les quatre comparaisons de nœuds ont rougi à 20/0.
+      //   C'est le bon comportement — `rendre()` rend `null` plutôt que de
+      //   dessiner une tuile approximative, et le banc l'a vu tout de suite.
+      //   ⛔ Ne pas « rendre le pilote autonome » pour faire taire ce rouge :
+      //   c'est la seconde fabrique qui renaîtrait.
+      const gabarit = 'src/socle/modules/tuile.js';
+      try { jouer(gabarit); jouer(chargeur); jouer(pilote); } catch (e) { leve = e.message; }
       dit(!leve, `${corpus} : le chargeur et le pilote s'exécutent sans lever`, leve);
 
       // ⭐⭐ LE BOUTON « TOUS » (`data-fiche=""`) NE RETIRE AUCUNE LIGNE. C'est
@@ -674,8 +743,25 @@ for (const corpus of CORPUS) {
           `${corpus} : le pilote a bâti ${duPilote.length} tuile(s), toutes avec un socle`,
           '⛔ des tuiles sans cadre : la grille aurait des trous au premier filtre');
         dit(duPilote.every((t) => t.corps),
-          `${corpus} : chaque tuile bâtie porte l'enveloppe \`rayon__b\``,
+          `${corpus} : chaque tuile bâtie porte la cartouche \`tuile__b\``,
           '⛔ sans elle la cartouche n\'existe pas et le texte flotte sous l\'image');
+        // 🧩🔴🔴🔴 LOT G — LES QUATRE NŒUDS DE PREDA, APPARIÉS RANG PAR RANG.
+        //   ⭐⭐⭐ C'est LE contrôle du lot : il ne demande pas que le pilote
+        //   rende « une tuile », il demande qu'il rende LA MÊME que le serveur,
+        //   nœud par nœud, sur la même pièce. Une divergence sur la pastille de
+        //   rareté ou sur le bandeau des extrêmes est précisément ce que trois
+        //   passes de `grep` avaient laissé passer au lot E.
+        //   ⛔ Comparé au SERVEUR, jamais à une constante : le jour où Preda
+        //   retire un de ces nœuds, ce § suit le gabarit au lieu de rougir.
+        for (const [cle, quoi] of [['rar', 'la pastille de rareté'],
+                                   ['ext', 'le bandeau ATL/ATH sur l\'image'],
+                                   ['serie', 'la série'], ['prix', 'le pied de cartouche']]) {
+          const nS = duServeur.filter((t) => t[cle]).length;
+          const nP = duPilote.filter((t) => t[cle]).length;
+          dit(duServeur.length > 0 && duPilote.length > 0 && nS === nP,
+            `${corpus} : ${quoi} — ${nS} au serveur, ${nP} au pilote`,
+            `⛔ ${Math.abs(nS - nP)} écart(s) : les deux fabriques ne rendent PAS la même tuile`);
+        }
         dit(duPilote.every((t) => t.src || t.losange),
           `${corpus} : chaque tuile bâtie montre une couverture ou le losange`,
           '⛔ un socle vide — le défaut que le lot 127 a interdit sur le Marché');
@@ -777,21 +863,35 @@ for (const corpus of CORPUS) {
       return null;
     };
     const marche = lire('.tuiles');
-    const rayon = lire('.rayon--tui');
-    dit(!!marche && !!rayon,
-      'les deux grilles déclarent bien un palier mobile',
-      `⛔ ${marche ? '' : '.tuiles absent · '}${rayon ? '' : '.rayon--tui absent'}`
-      + ' — la vue tuiles du rayon retomberait à UNE colonne à 375 px');
-    if (marche && rayon) {
-      dit(marche.col === rayon.col && marche.gap === rayon.gap,
-        `le rayon et le Marché ont la MÊME grille mobile (${rayon.col} · ${rayon.gap})`,
-        `⛔ Marché ${marche.col} / ${marche.gap} contre rayon ${rayon.col} / ${rayon.gap}`
-        + ' — deux grilles pour une seule maquette');
-      // 🔑 ET LA VALEUR EST CELLE DE LA MAQUETTE, pas seulement « la même des
-      //   deux côtés » : deux blocs identiques et faux resteraient verts.
-      dit(/repeat\(\s*2\s*,\s*1fr\s*\)/.test(rayon.col || ''),
-        'et c\'est bien 2 colonnes — la valeur de la maquette v4',
-        `⛔ ${rayon.col} : la maquette rend le rayon en 2 colonnes sous 520 px`);
+    // 🧩🔴🔴🔴 LOT G — CE § NE COMPARE PLUS DEUX VALEURS : IL VÉRIFIE QU'IL
+    //   N'Y EN A PLUS QU'UNE.
+    //   Il gardait l'égalité de deux paliers mobiles écrits en double —
+    //   `.tuiles` pour le Marché, `.rayon--tui` pour le rayon — parce que la
+    //   valeur avait DÉJÀ divergé le premier jour (une colonne à 375 px d'un
+    //   côté, deux de l'autre). Le lot G supprime le second sélecteur : le
+    //   rayon hérite du palier au lieu de le recopier.
+    //   ⭐⭐ LA QUESTION DEVIENT DONC L'INVERSE, ET C'EST PLUS FORT : le banc
+    //   rougit si `.rayon--tui` REVIENT. *Deux valeurs qu'on tient égales
+    //   finissent par diverger ; une valeur unique ne le peut pas.*
+    const revenu = /\.rayon--tui[^{]*\{/.test(css);
+    dit(!!marche && !revenu,
+      `le palier mobile du rayon EST celui du Marché (${marche ? marche.col + ' · ' + marche.gap : '—'})`
+      + ', écrit une seule fois',
+      `⛔ ${!marche ? '.tuiles absent du thème' : '`.rayon--tui` est revenu : '
+        + 'le rayon a repris une grille à lui, et les deux valeurs vont rediverger'}`);
+
+    // 🔑 ET LA VALEUR EST CELLE DE LA MAQUETTE, pas seulement « écrite une
+    //   fois » : un sélecteur unique et FAUX resterait vert. La maquette v4
+    //   rend la grille en 2 colonnes sous 520 px (offsets 153379 et suivants).
+    //   ⭐⭐ C'est ce contrôle-là qui aurait attrapé le défaut du lot E dès le
+    //   premier jour : `.rayon--tui` déclarait `minmax(178px,1fr)`, soit UNE
+    //   colonne à 375 px, quand `.tuiles` en donnait bien deux. La valeur juste
+    //   existait seize cents lignes plus haut et ne protégeait pas l'autre
+    //   sélecteur. Maintenant il n'y a plus d'autre sélecteur.
+    if (marche) {
+      dit(/repeat\(\s*2\s*,\s*1fr\s*\)/.test(marche.col || ''),
+        `et c'est bien 2 colonnes sous 520 px — la valeur de la maquette v4`,
+        `⛔ ${marche.col} : la maquette rend la grille en 2 colonnes sous 520 px`);
     }
   }
 }

@@ -472,6 +472,63 @@ const descItem = tient(descLongue) ? descLongue
 const DROPS_CONNUS = new Set(['RESERVATION', 'WAITLIST', 'CRAFT', 'AUCTION']);
 const dropLisible = (v) => (DROPS_CONNUS.has(v) ? t(lang, `item.drop.${v}`) : v);
 const enAttente = t(lang, 'data.notCollected');
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🛰️🔴🔴🔴 LOT G — L'ÉTAT DU MARCHÉ StackR, DÉCIDÉ **UNE FOIS**
+// ═══════════════════════════════════════════════════════════════════════════
+// Quatre nœuds du mur StackR posaient chacun leur propre condition, et trois
+// d'entre eux lisaient `releveStackrLe` — « il y avait un prix » — pour
+// répondre à « l'a-t-on regardée ». D'où « — OMI · 0 Listings · Not collected
+// yet » servi sur 3 646 fiches : les trois affirmations se contredisaient dans
+// la même colonne, la troisième étant la seule fausse.
+// ⭐⭐ UN SEUL FAIT DÉCIDE MAINTENANT DES QUATRE. C'est exactement le geste du
+// lot 146, un mur plus loin : « un seul fait decide maintenant des deux ».
+//
+// 🔑 `offresStackr` EST DÉJÀ LE BON TÉMOIN, ET IL ÉTAIT DÉJÀ LÀ. Mesuré le
+// 06/09 sur `fiches_stackr.csv` : `offres_en_cours` n'est JAMAIS vide (1 ligne
+// sur 19 893), elle vaut **`0` EXPLICITEMENT** sur 13 574 lignes. La source
+// dit littéralement « zéro offre » — ce n'est pas une déduction tirée d'une
+// case vide. ⛔ Le message de passation affirmait l'inverse (« floor et offres
+// se remplissent exactement ensemble, vide = aucune offre ») : la mesure l'a
+// démenti, et le correctif en sort PLUS SÛR — on lit un fait, plus une absence.
+// ⭐ `!= null` et jamais un test de vérité : `0` est la valeur la plus
+// intéressante de cette ligne, un `? :` l'effacerait sur les pièces qui comptent.
+const vuStackr = item.vuStackrLe || null;
+const aucuneOffreStackr = item.offresStackr === 0;
+// ⏱️ LA DATE QUE LE MUR AFFICHE — celle du PRIX s'il y a des offres, celle du
+//    REGARD sinon. ⛔ Pas de `||` inversé : sur une fiche sans offre,
+//    `releveStackrLe` peut exister (un prix relevé un jour passé) et serait
+//    plus ANCIEN que le dernier regard. Dater « aucune offre » avec la date
+//    d'un prix disparu ferait croire qu'on n'a pas regardé depuis.
+// ⭐⭐ LA DATE DU MUR EST DÉCIDÉE DANS `dataset.mjs`, PAS ICI — `releveStackrAffiche`.
+//   Elle l'était à cet endroit dans ma première écriture, et le PIED DE PAGE,
+//   qui doit porter le plus frais des deux murs, ne pouvait pas la connaître :
+//   `test:fraicheur` a rougi sur 17 fiches où le pied dépassait ses propres
+//   murs. ⛔ Ne pas la recalculer ici « pour lire plus vite » : deux endroits
+//   qui décident d'une même date finissent par en décider deux.
+const dateStackr = item.releveStackrAffiche || null;
+// 🏷️ LA LÉGENDE, EN TROIS VALEURS. ⭐ `aucune` ne reste que pour ce qu'il a
+//    toujours prétendu dire : jamais regardée. UNE fiche sur 9 354 au 06/09.
+const legendeStackr = aucuneOffreStackr ? 'aucune-offre'
+  : (item.releveStackrLe || vuStackr) ? 'stackr' : 'aucune';
+// ═══════════════════════════════════════════════════════════════════════════
+// 💵 LE PRIX DE SORTIE EN REPLI — ARBITRAGE DE PREDA DU 06/09
+// ═══════════════════════════════════════════════════════════════════════════
+// 🗣️ « affiche le prix du drop si pas de listing actuelle ».
+// ⭐ MESURÉ AVANT D'ÉCRIRE, parce qu'un repli qui ne couvre rien est un tiret
+//    de plus : **99,2 %** des fiches publiées sans offre (3 889 / 3 921) ont un
+//    prix de sortie exploitable. Le repli tient debout.
+// 🔴🔴 ET IL CHANGE D'UNITÉ, DONC IL CHANGE D'ÉTIQUETTE. `storePrice` est en
+//    DOLLARS, le mur StackR est en OMI. Servir un montant $ sous un `<span
+//    class="mur__u">OMI</span>` écrit en dur serait la faute d'unité que ce
+//    dépôt a déjà payée sur `market_fee` (« 200 % ») — et ici elle serait
+//    servie sur 3 889 fiches. L'unité suit donc la SOURCE du montant.
+// 🌐 `storePrice` EST PUBLIC ET LE RESTE : vérifié dans `cote.mjs`, « le PRIX
+//    DE DROP, explicitement conservé par Preda ». Il est déjà affiché en clair
+//    plus haut sur cette page (`item.storePrice`, clé `item.storePrice`) — on
+//    ne l'ouvre pas, on le réutilise. ⛔ Aucun champ de `CHAMPS_COTE` n'entre ici.
+const replidropStackr = aucuneOffreStackr && item.storePrice != null && item.storePrice > 0
+  ? item.storePrice : null;
 const pasCollecte = t(lang, 'data.notCollected');
 const mcpJour = mcpPoints(item.rarity, item.type);
 ---
@@ -1234,7 +1291,20 @@ const mcpJour = mcpPoints(item.rarity, item.type);
               doit pas pouvoir manipuler la nôtre par `window.opener`. */}
           <div class="mur__k">
             <Fragment set:html={omiM()} /> {t(lang, 'item.floorStackr')}
-            {item.releveStackrLe && urlStackR(item.uuid, item.type)
+            {/* 🔴🔴🔴 LOT G — LA CONDITION PASSE DE « il y avait un PRIX » À
+                « on a REGARDÉ », ET L'INVARIANT DU LOT 190 EST INTACT.
+                ⛔ Toujours PAS `floorStackr` : ce champ est dans `CHAMPS_COTE`,
+                donc absent de l'objet au moment du rendu — le lien ne serait
+                apparu nulle part et rien n'aurait rougi (c'est la panne que
+                le commentaire ci-dessus raconte, et elle reste vraie).
+                ⭐ `vuStackrLe` répond à la question du lien encore mieux que
+                `releveStackrLe` : « cette pièce a-t-elle une page chez
+                StackR ? ». Mesuré le 06/09 : 19 893 uuid dans
+                `fiches_stackr.csv` contre 6 726 dans `releves.csv` — le lien
+                était éteint sur 13 167 pièces qui en ont pourtant une.
+                ⛔ ET LE REPLI RESTE : `vuStackrLe` null ⇒ `<span>` grisé. Un
+                lien mort coûte plus cher qu'un bouton éteint. */}
+            {(item.vuStackrLe || item.releveStackrLe) && urlStackR(item.uuid, item.type)
               ? <a class="lien-b" href={urlStackR(item.uuid, item.type)} target="_blank"
                    rel="noopener" style="margin-left:auto">{t(lang, 'item.viewStackr')} ↗</a>
               : <span class="lien-b" data-attente title={t(lang, 'data.notCollected')}
@@ -1274,11 +1344,32 @@ const mcpJour = mcpPoints(item.rarity, item.type);
               L'egalite simple d'avant n'a plus de sens — le banc compare
               desormais le pied au MAX des deux murs, et c'est plus exigeant :
               il attrape aussi le cas ou un mur cesse d'etre rendu. */}
-          <div class="mur__v">{item.floorStackr != null || coteFermee
-            ? (coteFermee
-                ? <Cote lang={lang} uuid={item.uuid} champ="floorStackr" />
-                : money(item.floorStackr))
-            : <span data-attente title={t(lang, 'data.notCollected')}>—</span>}<span class="mur__u">OMI</span></div>
+          {/* 💵🔴🔴🔴 LOT G — LE REPLI SUR LE PRIX DE SORTIE, ET SON UNITÉ AVEC LUI.
+              🗣️ Preda, 06/09 : « affiche le prix du drop si pas de listing actuelle ».
+              ⭐⭐⭐ LA BRANCHE DU REPLI PASSE **AVANT** LE CADENAS, ET C'EST LE
+              POINT DÉLICAT. `<Cote>` est un emplacement que le pilote remplit
+              avec `floorStackr` — or sur ces 3 889 fiches il n'y a AUCUN
+              plancher à y mettre : la réserve rendrait un vide, et le visiteur
+              verrait un cadenas promettant un chiffre qui n'existe pas. Un
+              verrou sur une porte sans pièce derrière.
+              ⛔ CE N'EST PAS UNE FUITE. `storePrice` n'est pas dans
+              `CHAMPS_COTE` — il est PUBLIC par décision de Preda, déjà servi en
+              clair sur cette page. On ne contourne aucun mur : on affiche, hors
+              du mur, un champ qui n'y a jamais été.
+              🔴🔴 L'UNITÉ SUIT LE MONTANT. `OMI` était écrit EN DUR ; un prix
+              de sortie est en DOLLARS. Deux montants sous une seule étiquette,
+              c'est la faute d'unité de `market_fee` refaite, et servie 3 889
+              fois. Le `$` se pose devant, comme partout ailleurs sur la fiche.
+              ⭐ `data-repli-drop` porte le témoin : un banc ne doit pas avoir à
+              deviner laquelle des deux branches a rendu, ni à compter des nœuds
+              — c'est la leçon de `data-legende-stackr` au lot 146. */}
+          <div class="mur__v" data-repli-drop={replidropStackr != null ? '1' : undefined}>{replidropStackr != null
+            ? <><span class="mur__u mur__u--av">$</span>{money(replidropStackr)}</>
+            : (item.floorStackr != null || coteFermee
+              ? (<>{coteFermee
+                  ? <Cote lang={lang} uuid={item.uuid} champ="floorStackr" />
+                  : money(item.floorStackr)}<span class="mur__u">OMI</span></>)
+              : <><span data-attente title={t(lang, 'data.notCollected')}>—</span><span class="mur__u">OMI</span></>)}</div>
           {/* ═══ 💱 L'ÉQUIVALENT EN DOLLARS — LOT 181, son point 156 ═══
               Preda : « StackR en $ ». Ce nœud est VIDE et `hidden` : il n'est
               qu'un emplacement, comme <Cote> l'est pour le montant lui-même.
@@ -1348,8 +1439,21 @@ const mcpJour = mcpPoints(item.rarity, item.type);
           <div class="mur__eq" data-offres-stackr={item.offresStackr != null ? String(item.offresStackr) : ''}>{item.offresStackr != null
             ? <>{item.offresStackr.toLocaleString(nf)} {t(lang, 'item.listings')}</>
             : <span data-attente title={t(lang, 'data.notCollected')}>—</span>}</div>
-          <div class="mur__eq" data-releve-corps={item.releveStackrLe || ''}>{item.releveStackrLe
-            ? <>{t(lang, 'item.releveLe')} {item.releveStackrLe}</>
+          {/* 🕰️🔴🔴 LOT G — DEUX HORLOGES, ET LA LIGNE DIT LAQUELLE ELLE LIT.
+              Quand il y a des offres, la date qui compte est celle du PRIX
+              (`releveStackrLe`). Quand il n'y en a aucune, il n'y a pas de prix
+              à dater — mais on a bien regardé, et c'est `vuStackrLe` qui le dit.
+              ⭐⭐ `data-releve-corps` GARDE SON SENS ET SON BANC : il porte la
+              date effectivement écrite dans le texte, quelle que soit celle des
+              deux qui a gagné. `test:fraicheur` compare le pied de page au MAX
+              des murs — il continue de lire un ISO, au même endroit.
+              ⛔ Ne pas fusionner les deux dates en amont : `releveStackrLe` est
+              lu ailleurs (légende, lien, banc M8), et une seule variable pour
+              deux faits est exactement la faute que ce lot corrige. */}
+          <div class="mur__eq" data-releve-corps={dateStackr || ''}>{dateStackr
+            ? <>{aucuneOffreStackr
+                  ? t(lang, 'item.stackrVuLe', { d: dateStackr })
+                  : <>{t(lang, 'item.releveLe')} {dateStackr}</>}</>
             : <span data-attente title={t(lang, 'data.notCollected')}>—</span>}</div>
           {/* 🔴 LOT 146 — LA LEGENDE SUIT LA DATE DU MUR, PLUS LE « PLUS FRAIS ».
               `releveSource` valait la source de la ligne la plus RECENTE, tous
@@ -1369,9 +1473,26 @@ const mcpJour = mcpPoints(item.rarity, item.type);
                 POSITION, dans le fichier même où le quatrième a coûté 55 faux
                 rouges au lot 145. ⛔ Ne pas retirer en le prenant pour du
                 décor. → [[regle-selecteur-de-classe-en-prefixe]] */}
-            <span class="muted" data-legende-stackr={item.releveStackrLe ? 'stackr' : 'aucune'}>{item.releveStackrLe
+            {/* 🔴🔴🔴 LOT G — TROIS ÉTATS LÀ OÙ IL N'Y EN AVAIT QUE DEUX.
+                Le binaire d'avant faisait dire « pas encore collecté » à
+                3 646 fiches sur 9 354 qui l'étaient parfaitement. Mesuré le
+                06/09 sur les pages SERVIES : « jamais regardée » ne concerne
+                plus qu'UNE fiche sur 9 354.
+                  · `stackr`  — il y a des offres, le plancher est un prix ;
+                  · `aucune-offre` — regardée, zéro offre en vente (le fait le
+                    plus courant : 3 921 fiches publiées) ;
+                  · `aucune`  — jamais regardée. Le seul cas où « Not collected
+                    yet » est vrai.
+                ⭐⭐ `data-legende-stackr` GARDE SON RÔLE DE TÉMOIN et gagne une
+                troisième valeur : le banc du lot 146 lit toujours la légende ET
+                la date ENSEMBLE, c'est leur contradiction qui était la panne.
+                ⛔ La valeur `aucune` ne change pas de sens — elle se met juste
+                à dire la vérité. */}
+            <span class="muted" data-legende-stackr={legendeStackr}>{legendeStackr === 'stackr'
               ? t(lang, 'item.floorStackr')
-              : t(lang, 'data.notCollected')}</span>
+              : legendeStackr === 'aucune-offre'
+                ? t(lang, 'item.stackrAucuneOffre')
+                : t(lang, 'data.notCollected')}</span>
           </div>
         </div>
       </div>

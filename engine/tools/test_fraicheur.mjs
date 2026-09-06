@@ -219,7 +219,17 @@ const RE_VEVE_TEXTE = /data-releve-veve="[^"]*"[^>]*>([\s\S]{0,300}?)<\/div>/;
 // `stackr` ou `aucune`, elle n'est JAMAIS vide (lecon de `data-variation-etat`
 // au lot 145 : un critere pose sur un champ qui peut disparaitre juge la
 // presence du champ, pas l'etat de la page).
-const RE_LEGENDE = /data-legende-stackr="(stackr|aucune)"/;
+// 🧩🔴🔴 LOT G — TROIS VALEURS, PLUS DEUX. `aucune-offre` est née du correctif
+// des 3 646 fiches qui disaient « pas encore collecté » alors qu'on les avait
+// regardées : « regardée, zéro offre » est un état À PART ENTIÈRE, et le plus
+// courant (3 921 fiches publiées). ⛔ Sans elle ici, le banc annonçait
+// « 21 fiche(s) SANS `data-legende-stackr` » — il accusait le gabarit d'avoir
+// PERDU l'ancre alors qu'elle avait GAGNÉ une valeur.
+// ⭐⭐ *Un banc qui énumère les valeurs d'un champ rougit à la première valeur
+// neuve, et son message accuse une disparition.* L'alternance est ordonnée du
+// plus précis au plus court : `aucune` avant `aucune-offre` capturerait
+// « aucune » et laisserait « -offre » dehors.
+const RE_LEGENDE = /data-legende-stackr="(stackr|aucune-offre|aucune)"/;
 
 let nPages = 0, nFiches = 0, nAutres = 0, nAutresDatees = 0;
 let nDonnee = 0, nAucune = 0, nBuildSurFiche = 0, nDouble = 0, nMuette = 0;
@@ -292,7 +302,17 @@ const MAX_EX = 5;
       // yet » a la ligne suivante — pour le MEME plancher. Aucun des deux
       // nœuds ne ment tout seul ; c'est leur voisinage qui est faux, et c'est
       // pour ca qu'aucun banc ne l'avait vu. 904 fiches sur 1 200 le 13/08.
-      if (stackr && legende !== 'stackr') {
+      // 🧩🔴🔴 LOT G — `aucune-offre` CONFIRME LA DATE, ELLE NE LA CONTREDIT PAS.
+      //   La panne de 2026-08 était « une date sous un libellé qui dit qu'il n'y
+      //   a pas de donnée ». `aucune-offre` dit l'inverse : *on a regardé ce
+      //   jour-là, et il n'y avait aucune offre en vente*. La date et la légende
+      //   sont d'accord — c'est même le seul couple qui explique le tiret du
+      //   montant. ⛔ Sans cette ligne, le banc comptait 21 « contradictions »
+      //   qui étaient exactement le correctif qu'il aurait dû protéger.
+      //   ⭐⭐ *Un banc écrit contre UNE faute juge « tout ce qui n'est pas
+      //   l'état sain » comme cette faute-là. Il faut lui apprendre les états
+      //   sains qui naissent après lui, sinon il s'oppose aux corrections.*
+      if (stackr && legende !== 'stackr' && legende !== 'aucune-offre') {
         nContradiction++;
         if (exContradiction.length < MAX_EX) exContradiction.push(`${p.slice(RACINE.length)} date=${stackr} legende=${legende}`);
       }

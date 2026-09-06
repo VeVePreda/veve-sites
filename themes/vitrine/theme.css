@@ -1445,6 +1445,7 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 .mur__k{display:flex;align-items:center;gap:9px;font-family:var(--tech);font-size:var(--t-xs); text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:500}
 .mur__v{font-family:var(--tech);font-size:var(--t-4xl);font-weight:700;line-height:.95; font-variant-numeric:tabular-nums;letter-spacing:-.045em;margin-top:14px;display:flex;align-items:baseline;gap:10px}
 .mur__u{font-family:var(--tech);font-size:var(--t-sm);color:var(--muted);letter-spacing:.1em;text-transform:uppercase;font-weight:500}
+.mur__u--av{margin-right:-7px;letter-spacing:0}
 .mur__eq{font-family:var(--tech);font-size:var(--t-sm);color:var(--text-2);margin-top:10px}
 .mur__d{display:flex;gap:7px;flex-wrap:wrap;margin-top:16px}
 .jauge{display:grid;gap:12px;margin-top:var(--s6)}
@@ -2888,44 +2889,46 @@ body > main{ background:var(--bg); }
   color:var(--text); font-variant-numeric:tabular-nums; white-space:nowrap; }
 .rayon__p.cote{ display:inline-flex; align-items:center; gap:3px; }
 
-/* 🎨🔴🔴 LOT E — LA VUE TUILES DES RAYONS. Arbitrage Preda du 05/09, reconfirmé
-   le 06/09 : Collectibles et Comics en tuiles, le Marché reste un tableau.
-   ⭐⭐ UN SEUL ARBRE DE DOM, DEUX VUES. `.rayon__b` est en `display:contents`
-   par défaut : ses enfants redeviennent les cellules de la grille à sept
-   colonnes de `.rayon__c`, donc la vue liste (`sets`) est celle d'avant ce lot,
-   au pixel près. Sous `.rayon--tui`, il redevient une boîte : la cartouche.
-   ⛔ NE PAS RÉUTILISER `.tuile` DU MARCHÉ ICI : `.rayon__c` est déclaré APRÈS
-   `.tuile` dans cette feuille, il gagnerait à spécificité égale et la tuile
-   serait relue en grille à sept colonnes — un défaut d'ORDRE, invisible à la
-   lecture des deux règles prises séparément. Le contrat visuel est repris, la
-   cascade ne l'est pas. */
+/* 🧩🔴🔴🔴 LOT G — LES DIX RÈGLES `.rayon--tui` ONT DISPARU, ET C'EST LE POINT.
+   Le lot E recopiait ici le contrat visuel de `.tuile` sous un autre nom :
+   la grille, le socle 4/5, le titre à hauteur fixe, le palier mobile. Quatre
+   valeurs à tenir en double, dont une avait DÉJÀ divergé au premier jour
+   (`minmax(178px,1fr)` donnait UNE colonne à 375 px, quand `.tuiles` en donnait
+   deux — la règle existait seize cents lignes plus haut et ne protégeait pas ce
+   sélecteur-là).
+   ⭐⭐⭐ Preda a demandé la tuile du Marché : les rayons émettent maintenant
+   `.tuiles > .tuile`, donc ils héritent du contrat au lieu de le recopier. Il
+   n'y a plus rien à tenir en double, et le palier mobile est celui de `.tuiles`
+   — le seul qui ait jamais été mesuré contre la maquette.
+   ⛔ NE PAS RÉINTRODUIRE `.rayon--tui` : `.rayon__c` est déclaré APRÈS `.tuile`
+   dans cette feuille et gagnerait à spécificité égale. C'est la raison qui
+   avait fait naître ces dix règles ; elle disparaît avec le marquage, pas avec
+   l'intention. */
 .rayon__b{ display:contents; }
-.rayon--tui{ grid-template-columns:repeat(auto-fill,minmax(178px,1fr)); gap:var(--s3); }
-.rayon--tui .rayon__l{ display:flex; }
-.rayon--tui .rayon__c{ display:flex; flex-direction:column; align-items:stretch; flex:1;
-  gap:0; padding:0; border-radius:var(--r-lg); overflow:hidden;
-  transition:transform var(--d-base) var(--e-out), border-color var(--d-base); }
-.rayon--tui .rayon__c:hover{ transform:translateY(-3px); }
-.rayon--tui .rayon__b{ display:grid; gap:6px; padding:9px 11px 11px; }
-/* 📏 LE TITRE SUR DEUX LIGNES, HAUTEUR FIXE — le contrat `.tuile__n` du Marché,
-   `height` et non `min-height` : un plancher n'est pas une égalité, et des
-   cartouches de hauteurs différentes désalignent toute la grille. */
-.rayon--tui .rayon__n{ white-space:normal; display:-webkit-box; -webkit-line-clamp:2;
-  -webkit-box-orient:vertical; overflow:hidden; height:2.56em; text-overflow:clip; }
-/* 📐🔴🔴 LE PALIER MOBILE — MESURÉ CONTRE LA MAQUETTE v4 LE 06/09, PAS DEVINÉ.
-   La maquette rend le rayon en **2 colonnes, gap 9px** sous 520 px (offsets
-   153379 et suivants : `grid-template-columns:1fr 1fr;gap:9px`), et **6 colonnes**
-   en PC. `auto-fill minmax(178px,1fr)` donne bien 6 colonnes à 1 520 px — mais
-   **UNE SEULE à 375 px** : 2×178 + 12 = 368 > les ~343 px disponibles.
-   ⭐⭐ ET LA RÈGLE EXISTAIT DÉJÀ, seize cents lignes plus haut, pour `.tuiles`
-   du Marché. Ma vue s'appelle `.rayon--tui` : elle n'en bénéficiait pas. *Une
-   valeur juste écrite pour un sélecteur voisin ne protège pas le mien.*
-   ⛔ Et on ne peut PAS se contenter d'ajouter `.rayon--tui` au sélecteur de
-   `.tuiles` : `.rayon` est déclaré APRÈS et écraserait `gap` à 2px, à
-   spécificité égale. La cascade décide, pas l'intention.
-   🔑 LES DEUX BLOCS DOIVENT DIRE LA MÊME CHOSE — `test:rayon` § ⑨ les compare,
-   comme `LARGEUR_PILE` est comparée entre ses deux fabriques. */
-@media (max-width:520px){ .rayon--tui{ grid-template-columns:repeat(2,1fr); gap:9px; } }
+
+/* 🆕 LOT G — CE QUE LE RAYON MET DANS LA TUILE ET QUE LE MARCHÉ N'A PAS.
+   Trois classes, et pas une de plus. Le Marché n'a rien à mettre dedans : il ne
+   connaît ni la mention d'édition, ni le tirage, ni les pièces sans fiche.
+   ⭐ Les valeurs sont celles de `.rayon__e`, `.rayon__t` et `.rayon__x`, reprises
+   telles quelles — c'est la même information, elle change de contenant, pas de
+   traitement. */
+.tuile__e{ font-family:var(--tech); font-size:9.5px; letter-spacing:.06em;
+  text-transform:uppercase; color:var(--sect-a); }
+/* 📏 LE TIRAGE À DROITE DU PLANCHER. `.tuile__p` est en
+   `justify-content:space-between` depuis le lot 127 : la mise en page existait,
+   on ne lui ajoute rien. ⭐ `tabular-nums` pour que deux tirages superposés
+   dans la grille alignent leurs chiffres. */
+.tuile__t{ font-family:var(--tech); font-size:var(--t-xs); color:var(--muted);
+  font-variant-numeric:tabular-nums; margin-left:auto; }
+.tuile__x{ font-family:var(--tech); font-size:9px; letter-spacing:.06em;
+  text-transform:uppercase; color:var(--muted); }
+/* 🚫 LA TUILE SANS FICHE — un `<div>`, pas un `<a>` : elle ne mène nulle part.
+   ⛔ Elle garde le cadre et l'image (une pièce sans fiche reste une pièce du
+   catalogue) et perd le seul signe qui promettrait un clic : le survol.
+   ⭐ `cursor:default` explicite — sans lui, elle hériterait du curseur du
+   texte, ce qui ne dit rien du tout. */
+.tuile--muet{ cursor:default; }
+.tuile--muet:hover{ transform:none; border-color:var(--rule); }
 
 /* 🖼️ LE SOCLE SANS COUVERTURE — le losange, jamais un cadre vide (lot 127).
    ⛔ La couleur vit ICI et pas en style en ligne : `--c-a` est une variable de

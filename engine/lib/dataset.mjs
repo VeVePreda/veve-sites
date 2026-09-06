@@ -872,7 +872,46 @@ async function construireDataset() {
       // de cette page a ete regardee le … » ne parle d'aucun marche en
       // particulier. ⛔ Ce qu'il ne doit plus faire, c'est atterrir sous UN
       // plancher : un mur porte la date de SON marche, ou rien.
-      releveLe: rel.has(uuid) ? jourDeReleve(rel.get(uuid).sec) : null,
+      // 🔴🔴🔴 LOT G — LE PIED PORTE LA DATE QUE LES MURS **AFFICHENT**.
+      // ⭐⭐⭐ ET C'EST MA DEUXIÈME ÉCRITURE : la première faisait entrer
+      // `vuStackrLe` dans le pied sans regarder ce que le mur montrait, et
+      // `test:fraicheur` a rougi dans l'AUTRE sens — 17 fiches où le PIED
+      // DÉPASSAIT les deux murs (pied 25/08, mur StackR 12/08). J'avais corrigé
+      // le mur, puis daté le pied avec une horloge que le mur n'affiche pas
+      // toujours. *Deux nœuds qui se contredisent ne se réconcilient pas en
+      // avançant l'un des deux : il faut nommer CE QUI EST MONTRÉ.*
+      //
+      // 🔑 LA DATE DU MUR StackR, DÉCIDÉE ICI ET UNE SEULE FOIS :
+      //   · des offres en cours ⇒ la date du PRIX (`stackrObsSec`) ;
+      //   · aucune offre        ⇒ la date du REGARD (`fst.sec`), car il n'y a
+      //     pas de prix à dater et « vérifié le … » est ce que la fiche dit.
+      // ⛔ Ce champ ne remplace pas `releveStackrLe`, qui garde son sens strict
+      //   (« on y a vu un prix ») et son banc (mutant M8 de `test:fraicheur`).
+      //   Il nomme ce que le GABARIT affiche, pour que le pied puisse s'aligner
+      //   dessus sans le recalculer — deux endroits qui décident d'une même
+      //   date, c'est la contradiction qu'on vient de payer.
+      releveStackrAffiche: (() => {
+        const offres = fst.get(uuid)?.offres;
+        const prix = rel.get(uuid)?.stackrObsSec;
+        const regard = fst.get(uuid)?.sec;
+        const sec = offres === 0
+          ? (Number.isFinite(regard) ? regard : prix)
+          : (Number.isFinite(prix) ? prix : regard);
+        return Number.isFinite(sec) ? jourDeReleve(sec) : null;
+      })(),
+      // ⭐ LE PIED = LE PLUS FRAIS DES DEUX MURS, ET RIEN D'AUTRE. C'est ce que
+      //   `test:fraicheur` § ④ vérifie depuis le lot 146, et ce que la phrase
+      //   du pied promet : « la donnée de cette page a été regardée le … ».
+      releveLe: (() => {
+        const veve = rel.get(uuid)?.veveSec ?? -Infinity;
+        const offres = fst.get(uuid)?.offres;
+        const prix = rel.get(uuid)?.stackrObsSec ?? -Infinity;
+        const regard = fst.get(uuid)?.sec ?? -Infinity;
+        const st = offres === 0 ? (Number.isFinite(regard) ? regard : prix)
+                                : (Number.isFinite(prix) ? prix : regard);
+        const m = Math.max(veve, st, rel.has(uuid) ? rel.get(uuid).sec : -Infinity);
+        return Number.isFinite(m) ? jourDeReleve(m) : null;
+      })(),
       releveSource: rel.has(uuid) ? (rel.get(uuid).source || null) : null,
       // 🔴 LOT 146 — UNE DATE PAR MUR. `-Infinity` est le « jamais observe » de
       // `indexerReleves` ; `Number.isFinite` est le seul test qui l'ecarte
@@ -881,6 +920,42 @@ async function construireDataset() {
         ? jourDeReleve(rel.get(uuid).veveSec) : null,
       releveStackrLe: Number.isFinite(rel.get(uuid)?.stackrObsSec)
         ? jourDeReleve(rel.get(uuid).stackrObsSec) : null,
+      // ═══════════════════════════════════════════════════════════════════════
+      // 🛰️🔴🔴🔴 LOT G — « ON A REGARDÉ » N'EST PAS « IL Y AVAIT UN PRIX »
+      // ═══════════════════════════════════════════════════════════════════════
+      // MESURÉ LE 06/09 SUR LES PAGES SERVIES, PAS SUR LE CATALOGUE :
+      // **3 646 fiches sur 9 354 (39,0 %)** affichaient « Not collected yet »
+      // alors que StackR les avait bien regardées. Dans 3 633 cas la vérité
+      // était « aucune offre en vente » ; dans 13 cas il y avait même des
+      // offres. Une SEULE fiche sur 9 354 n'a jamais été regardée — le libellé
+      // était donc faux dans 3 646 des 3 647 cas où il s'affichait.
+      //
+      // 🔑 LA CAUSE : `releveStackrLe` vient de `releves.csv`, qui n'enregistre
+      // une ligne QUE SI UN PRIX A ÉTÉ TROUVÉ (6 726 uuid). `fiches_stackr.csv`
+      // en porte 19 893 avec un `ts_releve` TOUJOURS rempli : c'est lui qui dit
+      // « on a regardé ». Les deux horloges répondent à deux questions, et le
+      // gabarit posait la seconde en lisant la première.
+      //
+      // ⭐⭐⭐ ET LA RÈGLE ÉTAIT DÉJÀ ÉCRITE VINGT LIGNES PLUS HAUT, dans le
+      // commentaire d'`indexerFichesStackr` : « `nombre` refuse la chaîne vide,
+      // sinon "aucune brûlée" serait indistinguable de "jamais visité" ». La
+      // couche du dessus la violait. *Une leçon apprise sur un champ ne se
+      // généralise pas toute seule au champ d'à côté.*
+      // → [[regle-lecon-non-generalisee]] · [[regle-donnee-collectee-puis-jetee]]
+      //
+      // ⛔ CE CHAMP NE REMPLACE PAS `releveStackrLe`, IL LE COMPLÈTE. Trois
+      // horloges distinctes cohabitent maintenant, et les confondre est la
+      // faute que le lot 146 a déjà payée un mur plus loin :
+      //   · `releveStackrLe` — le jour où NOUS avons vu un PRIX chez StackR ;
+      //   · `vuStackrLe`     — le jour où NOUS avons REGARDÉ la fiche StackR ;
+      //   · `floorMajStackr` — le jour où EUX datent leur propre plancher.
+      //
+      // 🌐 PUBLIC, et par la même ligne de partage que les deux autres dates
+      // (`cote.mjs`) : une date d'observation ne DÉSIGNE aucun montant. Il est
+      // ajouté à `CHAMPS_FRAICHEUR`, donc l'invariant de `cote.mjs` refusera de
+      // charger le module si quelqu'un le bascule un jour en réservé.
+      vuStackrLe: Number.isFinite(fst.get(uuid)?.sec)
+        ? jourDeReleve(fst.get(uuid).sec) : null,
       // 🔒 UN PRIX. Il entre dans `CHAMPS_COTE` et n'atteint donc jamais le HTML
       // public. ⛔ EN OMI, et ⛔⛔ AUCUNE conversion vers le dollar : `sfloors`
       // et `vfloors` sont deux MARCHES (rapport median 4 423, p10 2 273,

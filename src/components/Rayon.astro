@@ -34,6 +34,8 @@ import { nomItem, nomSerie, nomSet } from '../../engine/lib/vignette.mjs';
 //   case de 178, et surtout : `test:series` §2 compare les deux fabriques
 //   adresse par adresse — il rougirait au premier build, et il aurait raison.
 import { imageCarte, ONERROR_REPLI } from '../../engine/lib/image_cdn.mjs';
+// 🧩 LOT G — LE VOCABULAIRE DE **LA** TUILE, importé, jamais recopié.
+import { classesTuile } from '../../engine/lib/tuile.mjs';
 // 🔴🔴🔴 IMPORTÉ SOUS UN AUTRE NOM, ET CE N'EST PAS UN CAPRICE DE STYLE.
 //   Ce fichier déclare DÉJÀ `const forme = moduleJs('rail')` quarante lignes
 //   plus haut. Un `import { forme }` par-dessus, et c'est le module du rail qui
@@ -71,6 +73,16 @@ const chargeur = moduleJs('index_rayon');
 // ⛔ Il est chargé MÊME quand la barre est absente ? Non — voir le point
 // d'appel : il suit `filtrable`, exactement comme le pilote.
 const forme = moduleJs('rail');
+// 🧩🔴🔴 LOT G — LA DESCRIPTION DE LA TUILE, SERVIE AU PILOTE.
+// ⭐ C'est le MÊME fichier que le build évalue pour rendre les 20 lignes de
+//   cette page (`engine/lib/tuile.mjs` le lit en `?raw`) : une seule
+//   description, deux exécutions. ⛔ Ce n'est pas un module du socle commun —
+//   12 946 pages n'ont pas de tuile, et l'y verser déplacerait le gaspillage
+//   au lieu de le supprimer (arbitrage du cadran, lot 137).
+// ⚠️ IL PART AVANT `rayon.js`, ET L'ORDRE EST UN CONTRAT : le pilote lit
+//   `window.vpTuile` dès son premier filtrage. Deux `defer` s'exécutent dans
+//   l'ordre du document — c'est la garantie qui manquait au lot 139.
+const gabaritTuile = moduleJs('tuile');
 // ⭐⭐ LA BARRE NE SORT QUE LÀ OÙ UNE COTE EXISTE, ET LA CONDITION EST IMPORTÉE,
 //   PAS RÉÉCRITE. `coteFermee()` est ce que `Extremes.astro` interroge pour
 //   décider d'émettre un badge ; l'écrire ici en `manifest().features…` donnerait
@@ -151,28 +163,45 @@ const cliquables = lignes.filter((l) => l.path).length;
 //   qu'il n'a pas.
 const tuiles = rayon !== 'sets';
 
-// 📐🔴🔴 CE QUE LA TUILE DE RAYON NE COPIE **PAS** DE LA MAQUETTE — ARBITRAGE
-//    DE PREDA DU 06/09, PRIS APRÈS COMPARAISON FICHIER CONTRE FICHIER.
-//    ⛔⛔ NE PAS « CORRIGER » CES QUATRE ÉCARTS : ils sont VOULUS. La prochaine
-//    lecture de `maquette-design-v4-05-09.html` les reverra, et sans ce bloc
-//    elle les prendra pour des défauts — c'est déjà arrivé trois fois dans ce
-//    dépôt. *Un écart à la maquette qui n'est pas écrit redevient un bug.*
+// 🧩🔴🔴🔴 LOT G — LES QUATRE « ÉCARTS VOULUS » DU LOT E SONT **ANNULÉS**,
+//    ET C'EST PREDA QUI LES A ANNULÉS EN LES VOYANT (06/09).
+// ═══════════════════════════════════════════════════════════════════════════
+// 🗣️ « je n'aime pas les tuiles actuelles, j'aimais bien mieux celles d'avant ».
+//    Mesuré sur sa capture : « celles d'avant » est la vue **Tiles de
+//    `/market/`**. Le lot E n'avait pas modifié cette tuile-là — il en avait
+//    fabriqué une SECONDE, plus pauvre, pour les rayons.
+// ⭐⭐⭐ ET LES QUATRE ÉCARTS AVAIENT ÉTÉ ACCEPTÉS LE MATIN MÊME, sur
+//    DESCRIPTION. *Un arbitrage pris sur une description n'engage pas celui
+//    qu'on prend en voyant la chose.* Ne pas les rouvrir « parce qu'ils étaient
+//    argumentés » : ils l'étaient, et ils sont refusés.
 //
-//    ① LA RARETÉ reste dans la cartouche, en flux. La maquette la pose en
-//      pastille `tuile__hd > tuile__rar` sur l'image (haut-gauche).
-//    ② LES EXTRÊMES ATL/ATH restent dans la cartouche. La maquette en fait le
-//      bandeau `socle__ext`, en bas de l'image.
-//    ③ LA SÉRIE et ④ LA MENTION D'ÉDITION (FA/FE/CE) et le TIRAGE sont
-//      SERVIS ; la tuile de la maquette n'affiche que nom, rareté et prix.
+//    ① LA RARETÉ remonte en pastille sur l'image (`tuile__hd > tuile__rar`).
+//    ② LES EXTRÊMES ATL/ATH deviennent le bandeau `socle__ext`, sur l'image.
+//    ③ LA SÉRIE reste — elle était déjà dans la tuile du Marché (`tuile__s`),
+//      l'écart n'en était pas un : la MAQUETTE ne la montre pas, la tuile
+//      SERVIE si. *On copie ce qui est servi, pas ce qui est dessiné.*
+//    ④ LA MENTION D'ÉDITION et LE TIRAGE restent — Preda, 06/09, question
+//      posée séparément parce que « sauf le tirage » ne disait pas ce que
+//      devenait la mention : « La garder sur la tuile de rayon ».
 //
-//    🗣️ Preda, 06/09 : « garder ce que je sers » et « garder les trois ». La
-//    raison est celle du rayon lui-même : ce sont les axes par lesquels un
-//    collectionneur reconnaît une pièce, ils sont déjà servis en vue liste, et
-//    les retirer de la page principale du rayon serait une perte d'information.
-//    ⭐ CE QUI EST REPRIS DE LA MAQUETTE, EN REVANCHE, EST MESURÉ ET TENU :
-//    la grille (2 colonnes / gap 9px sous 520 px, 6 en PC — `test:rayon` § ⑨),
-//    le socle 4/5 avec fond flouté, voile et image nette, le titre sur deux
-//    lignes à hauteur fixe (2,56em), et le losange pour une pièce sans visuel.
+// 🔴🔴 CE QUE LA TUILE DE RAYON N'A PAS, ET NE PEUT PAS AVOIR :
+//    le NOMBRE D'OFFRES et la VARIATION. Ce sont des données de prix, refusées
+//    par `INTERDITS` dans `rayon_index.mjs` — ces 9 354 pages sont PUBLIQUES et
+//    pré-générées. Arbitrage posé à Preda avec son coût, tranché le 06/09 :
+//    « Même dessin, ces 2 cases en moins ». ⛔ Ne pas les « ajouter pour faire
+//    pareil » : ce serait la fuite du lot 101 par la porte d'à côté.
+//
+// ⭐⭐ LE VOCABULAIRE ET L'ORDRE DES NŒUDS VIENNENT DE
+//    `src/socle/modules/tuile.js`, ET DE LÀ SEULEMENT. Ce gabarit lit
+//    `classes` plutôt que d'écrire `"tuile__n"` à la main : le jour où une
+//    classe change, les trois fabriques la suivent ou le build casse ici.
+//    ⛔ Le SERVEUR ne monte pas l'arbre par `set:html` : `<Cote>` et
+//    `<Extremes>` sont des composants, et leurs libellés passent par `t()` en
+//    ATTRIBUT — les sérialiser rouvrirait le piège `set:html={t(…)}`, qui sert
+//    la CLÉ en production. Le filet contre la divergence n'est donc pas le
+//    partage du code mais `test:rayon` § ⑧, qui apparie les deux fabriques
+//    tuile par tuile, PAR PIÈCE.
+const TC = classesTuile();
 
 const racine = `/${rayon}/`;
 const url = (p) => (p <= 1 ? racine : `${racine}page/${p}/`);
@@ -248,7 +277,95 @@ const cadenasSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" s
   )}
 
   <div class="avec-rail__c">
-  <ul class:list={["rayon", tuiles && "rayon--tui"]} id="r-liste">
+  {/* 🧩🔴🔴 LOT G — DEUX CONTENEURS, ET C'EST UN CHANGEMENT DE DOCTRINE ASSUMÉ.
+      Le lot E tenait « un seul arbre de DOM, deux vues » : `.rayon--tui`
+      relisait les mêmes `<li class="rayon__l">` en grille. C'était juste tant
+      que la tuile était NOTRE tuile. Preda a demandé CELLE DU MARCHÉ — et son
+      contrat visuel est porté par `.tuiles > .tuile`, pas par `.rayon`.
+      ⛔ ON NE PEUT PAS SE CONTENTER D'AJOUTER `.rayon--tui` AUX SÉLECTEURS DE
+      `.tuile` : `.rayon__c` est déclaré APRÈS `.tuile` dans la feuille et
+      gagnerait à spécificité égale — le lot E l'avait écrit noir sur blanc, et
+      c'est toujours vrai. *La cascade décide, pas l'intention.* On émet donc le
+      marquage du Marché, et les dix règles `.rayon--tui` disparaissent.
+      ⭐ `sets` GARDE SA LISTE : sa source n'a pas d'image (un regroupement par
+      série n'a pas de couverture) — ce n'est pas une vue qu'on lui refuse,
+      c'est une donnée qu'il n'a pas.
+      ⭐⭐ `id="r-liste"` NE BOUGE PAS : c'est par lui que le pilote prend la
+      main, et le changer aurait cassé le filtrage sans qu'aucun banc de forme
+      ne s'en aperçoive. */}
+  {tuiles ? (
+  <div class="tuiles" id="r-liste">
+    {tranche.map((l) => {
+      const nom = nomItem(l.nom);
+      const serie = nomSerie(l.serie);
+      const vig = l.image ? imageCarte(l.image) : null;
+      const Boite = l.path ? 'a' : 'div';
+      return (
+      <Boite class={l.path ? TC.boite : TC.muet}
+             href={l.path ? localize(lang, l.path) : undefined}>
+        {/* ① LA PASTILLE DE RARETÉ SUR L'IMAGE. ⛔ `tuile__hd` n'est émis que
+            s'il a quelque chose à porter : le thème lui donne une position
+            absolue et un `pointer-events:none`, un bandeau vide ne se verrait
+            pas mais existerait sur 9 354 pages × 20 lignes. */}
+        {l.rarity && (
+          <span class={TC.hd}>
+            <span class={TC.rar}><Fragment set:html={rar(l.rarity, { blanc: true })} /></span>
+          </span>
+        )}
+        <span class={rayon === 'comics' ? TC.socleComic : TC.socle}>
+          {vig ? (
+            <Fragment>
+              <img class={TC.fond} src={vig.src} alt="" aria-hidden="true"
+                   width="400" height="600" loading="lazy" decoding="async"
+                   data-repli={vig.repli || undefined} onerror={ONERROR_REPLI} />
+              <span class={TC.voile}></span>
+              <img class={TC.net} src={vig.src} alt={nom.complet || nom.vu}
+                   width="400" height="600" loading="lazy" decoding="async"
+                   data-repli={vig.repli || undefined} onerror={ONERROR_REPLI} />
+            </Fragment>
+          ) : (
+            <Fragment>
+              <span class={TC.voile}></span>
+              <span class={TC.cage} aria-hidden="true">
+                <Fragment set:html={formeRarete('ULTRA_RARE', 'xl')} />
+              </span>
+            </Fragment>
+          )}
+          {/* ② LES EXTRÊMES EN BANDEAU SUR L'IMAGE — et le composant n'a pas
+              changé d'une ligne : il rendait DÉJÀ `<span class="b"><i>ATL</i>
+              <b>…` , qui est exactement le marquage que `.socle__ext` peint sur
+              le Marché. ⭐ Il ne manquait que la CLASSE. *Le contrat était
+              tenu des deux côtés ; personne ne les avait mis côte à côte.* */}
+          {l.path && <Extremes lang={lang} uuid={l.uuid} nf={nf} classe={TC.ext} />}
+        </span>
+        <span class={TC.bas}>
+          <span class={TC.nom} title={nom.complet || undefined}>{nom.vu}</span>
+          {l.serie && <span class={TC.serie} title={serie.complet || undefined}>{serie.vu}</span>}
+          {l.sous && <span class={TC.edition}>{l.sous}</span>}
+          {/* 💰 LE PIED DE CARTOUCHE : le plancher à gauche, le tirage à droite.
+              ⛔ NON ÉMIS S'IL EST VIDE — `.tuile__p` porte un `border-top`, et
+              un filet qui ne sépare rien se voit.
+              🔒 LE MONTANT N'EST PAS ICI, ET IL NE PEUT PAS L'ÊTRE : `<Cote>`
+              ne reçoit qu'un uuid, `l.floor` n'existe pas à cet instant. Ce
+              n'est pas qu'on a pensé à le masquer — `INTERDITS` l'a refusé à
+              l'index. ⭐ MÊME PRÉDICAT `filtrable && l.path` qu'au lot 201 :
+              une pièce sans fiche n'a pas de cote en réserve et n'en aura
+              jamais ; un cadenas dessus dirait « je ne montre pas » là où la
+              vérité est « je n'ai pas ». */}
+          {((filtrable && l.path) || l.tirage) && (
+            <span class={TC.prix}>
+              {filtrable && l.path && <Cote lang={lang} uuid={l.uuid} champ="floor" />}
+              {l.tirage && <span class={TC.tirage}>{l.tirage.toLocaleString(nf)}</span>}
+            </span>
+          )}
+          {!l.path && <span class={TC.sansFiche}>{t(lang, 'rayon.sansfiche')}</span>}
+        </span>
+      </Boite>
+      );
+    })}
+  </div>
+  ) : (
+  <ul class="rayon" id="r-liste">
     {tranche.map((l) => {
       // ⭐⭐⭐ LE TAG EST UNE VARIABLE ; LE CORPS S'ÉCRIT UNE FOIS.
       //    Ce fichier écrivait ses cinq `<span>` DEUX FOIS — branche `<a>`,
@@ -389,6 +506,7 @@ const cadenasSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" s
       );
     })}
   </ul>
+  )}
 
   {pages > 1 && (
   <nav class="pagin" id="r-pagin" aria-label={t(lang, 'rayon.page')}>
@@ -420,6 +538,12 @@ const cadenasSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" s
       attend la fin de l'analyse par construction : la position du script dans le
       document cesse d'être un pari. C'est la panne du lot 139 sur `series.js`,
       qui lisait `#s-plus` avant que l'analyseur ne l'ait atteint. */}
+  {/* ⭐ ÉMIS DÈS QUE LA VUE EST EN TUILES, PAS SEULEMENT SI LA BARRE EXISTE :
+      c'est le pilote qui en a besoin, et le pilote suit `filtrable` — mais un
+      rayon en tuiles sans barre reste possible (cote ouverte), et le jour où
+      il arrive, mieux vaut que la description soit là que de découvrir la
+      dépendance en production. 1 fichier, mis en cache une fois. */}
+  {tuiles && <script defer src={gabaritTuile.href}></script>}
   {filtrable && <script defer src={chargeur.href}></script>}
   {filtrable && <script defer src={pilote.href}></script>}
   {/* ⚡ ET LA FORME APRÈS LE PILOTE : `rail.js` lit `data-retenues`, que

@@ -122,7 +122,14 @@ export const CHAMPS_COTE = [
 // pourrait les glisser dans `CHAMPS_COTE` sans qu'aucun banc ne bronche, et
 // les murs se remettraient a se taire derriere le cadenas.
 export const CHAMPS_FRAICHEUR = ['releveLe', 'releveSource', 'derniereVariation',
-  'releveVeveLe', 'releveStackrLe'];
+  // 🛰️ LOT G — `vuStackrLe` : le jour où on a REGARDÉ la fiche StackR, par
+  //   opposition à `releveStackrLe` qui date le jour où on y a vu un PRIX.
+  //   Il entre ici, jamais dans `CHAMPS_COTE` : une date d'observation ne
+  //   désigne aucun montant, exactement comme les deux qui la précèdent.
+  //   ⛔ C'est ce champ qui décide si une fiche dit « aucune offre en vente »
+  //   ou « pas encore collecté » — s'il partait derrière le mur, les 3 646
+  //   fiches que ce lot corrige se remettraient à mentir, et en silence.
+  'releveVeveLe', 'releveStackrLe', 'vuStackrLe', 'releveStackrAffiche'];
 
 // ⛔⛔ UN INVARIANT, PAS UN COMMENTAIRE. Le jour ou quelqu'un ajoutera
 // `releveLe` a `CHAMPS_COTE` — de bonne foi, « c'est lie a un prix » — ce
