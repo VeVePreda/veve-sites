@@ -1,7 +1,22 @@
 import { postsFor } from '../../engine/lib/blog.mjs';
 import { manifest, siteUrl } from '../../engine/lib/manifest.mjs';
-import { locales, localize, t } from '../../engine/lib/i18n.mjs';
+import { locales, localize, t, nu } from '../../engine/lib/i18n.mjs';
 
+// 🔴🔴🔴 CORRECTIF J-1 (07/09, 18:25Z) — `nu()` AUTOUR DE CHAQUE `t()`, ET
+// C'EST UN DÉFAUT SERVI QUI L'A DEMANDÉ, MESURÉ SUR LA PRODUCTION.
+// ═══════════════════════════════════════════════════════════════════════════
+// Le lot J a mis deux `t()` dans ce fichier. Vingt minutes après le déploiement,
+// `/rss.xml` servait :
+//     <title>VeVe Price — ⟨sent⟩blog.title⟨sent⟩Articles⟨sent⟩</title>
+// Sous `I18N_MARQUAGE=1` — que le Dockerfile pose — `t()` rend son libellé
+// ENTOURÉ DE SENTINELLES et PRÉFIXÉ de sa clé. L'étape `marquer:i18n` les
+// retire ensuite… **des fichiers `.html` uniquement**. Un `.xml` n'est jamais
+// balayé : les sentinelles partaient telles quelles chez les lecteurs de flux.
+// ⭐⭐⭐ *Ce n'est pas `t()` qui est en cause, c'est le fait de l'employer HORS
+// d'une page HTML* — la même faute que `set:html={t(…)}`, par une autre porte.
+// ⇒ `nu()` ici, et un banc qui balaie DÉSORMAIS les `.xml` de `dist/`.
+// ⛔ Ne pas « retirer les sentinelles au build » : elles servent à `marquer:i18n`.
+//
 // 🔴🔴 LOT J, POINT A-⑧ — LE FLUX NE PORTE PLUS LA PROMESSE DU SITE.
 // ═══════════════════════════════════════════════════════════════════════════
 // Il servait `site.tagline` en `<description>` : « The VeVe catalogue, with
@@ -28,9 +43,9 @@ export async function GET() {
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
 <channel>
-<title>${esc(m.site.brand)} — ${esc(t(lang, 'blog.title'))}</title>
+<title>${esc(m.site.brand)} — ${esc(nu(t(lang, 'blog.title')))}</title>
 <link>${root}${localize(lang, '/blog/')}</link>
-<description>${esc(t(lang, 'blog.feed.desc'))}</description>
+<description>${esc(nu(t(lang, 'blog.feed.desc')))}</description>
 <language>${lang}</language>
 <atom:link href="${root}/rss.xml" rel="self" type="application/rss+xml"/>
 ${items}

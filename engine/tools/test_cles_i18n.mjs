@@ -223,6 +223,42 @@ for (const [cle, ou] of coupables) {
 }
 
 // ---------------------------------------------------------------------------
+// 3 bis. 🔴🔴🔴 LES FICHIERS QUI NE SONT PAS DES PAGES — AJOUTE APRES UN DEFAUT SERVI
+// ---------------------------------------------------------------------------
+// Le lot J a mis deux `t()` dans `src/pages/rss.xml.js`. Vingt minutes apres le
+// deploiement, la PRODUCTION servait :
+//     <title>VeVe Price — ⟨sent⟩blog.title⟨sent⟩Articles⟨sent⟩</title>
+// Sous `I18N_MARQUAGE=1`, `t()` rend son libelle ENTOURE DE SENTINELLES et
+// prefixe de sa cle ; `marquer:i18n` les retire ensuite — **des `.html`
+// uniquement**. Un `.xml` n'est jamais balaye, et les sentinelles partaient
+// telles quelles chez les lecteurs de flux, qui RECOPIENT et ne repassent pas.
+// ⭐⭐⭐ *Le § 3 ci-dessus ne pouvait pas le voir : il ne lit que `pages`,
+// c'est-a-dire des `.html`.* Un banc ne trouve rien hors de la population qu'il
+// s'est donnee — et celle-ci excluait le fichier fautif par construction.
+// ⭐ On ETEND, on ne cree pas un banc de plus : c'est le meme sujet.
+{
+  const xml = [];
+  const empiler = (d) => {
+    for (const e of readdirSync(d, { withFileTypes: true })) {
+      const c = join(d, e.name);
+      if (e.isDirectory()) empiler(c);
+      else if (/\.(xml|json|txt)$/i.test(e.name)) xml.push(c);
+    }
+  };
+  try { empiler(DIST); } catch { /* dist absent : deja traite au § 2 */ }
+  // ⛔ ON CHERCHE LES SENTINELLES ELLES-MEMES, pas un nom de cle : c'est le
+  //    signe INFALSIFIABLE qu'un `t()` est sorti sans `nu()`. Un nom de cle
+  //    peut apparaitre legitimement dans un JSON de donnees.
+  const SENT = /[\u0011\u0012\u0013]/;
+  const fautifs = xml.filter((f) => SENT.test(readFileSync(f, 'utf8')));
+  dit(fautifs.length === 0,
+    `${xml.length} fichier(s) non-HTML de dist/ ne portent aucune sentinelle i18n`,
+    fautifs.length
+      ? `🔴 ${fautifs.slice(0, 3).map((f) => relative(DIST, f)).join(' · ')} — il manque un \`nu()\` autour d'un \`t()\``
+      : 'aucune sentinelle echappee (rss.xml, sitemap.xml, manifest…)');
+}
+
+// ---------------------------------------------------------------------------
 // 4. AUTO-CONTROLE — ce banc sait-il echouer, ET sait-il se taire ?
 //    ⭐ « Un banc se juge sur ce qu'il LAISSE PASSER. » Un test incapable
 //    d'echouer ne prouve rien : lecon du 18/07, ou un audit avait declare
