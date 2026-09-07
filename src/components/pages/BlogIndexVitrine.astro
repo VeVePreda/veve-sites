@@ -81,19 +81,37 @@ const VARIANTE = [' boite--os', '', ' boite--sect', '', ''];
       noindex={posts.length === 0} langs={languesArticles}
       crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') }, { name: meta.title }]}>
 
-  <p class="etiq etiq--bleu tete-p__st">// {meta.title.toUpperCase()} — {posts.length}</p>
+  {/* 🔤🔴 LOT J — `.toUpperCase()` RETIRÉ, ET C'EST LA FAUTE DU LOT 129 ENCORE
+      EN PLACE ICI. `.etiq` porte DÉJÀ `text-transform:uppercase` : les
+      capitales étaient faites deux fois, une fois dans le texte et une fois
+      dans le style — rendu identique à l'octet près. ⛔ Mais la version markup
+      DÉTRUIT la traduction : `t()` marque son libellé d'une clé, et
+      `.toUpperCase()` met LA CLÉ en capitales avec le reste, introuvable dans
+      le dictionnaire donc jamais échangée. ⭐ La casse est une affaire de
+      STYLE. (Même correctif que `Collections.astro` et `Market.astro`.) */}
+  <p class="etiq etiq--bleu tete-p__st">// {meta.title} — {posts.length}</p>
   <h1 class="mono-t">{meta.title}</h1>
   <p class="respire" style="max-width:52ch">{meta.description}</p>
 
-  {tags.length > 0 && (
-    <div class="filtres">
-      {tags.map((x) => (
-        <a class="puce" href={localize(lang, `/blog/tag/${x.tag}/`)}>{x.tag} ({x.n})</a>
-      ))}
-      <span class="sep-v"></span>
-      <a class="puce" href={localize(lang, '/rss.xml')}>RSS</a>
-    </div>
-  )}
+  {/* 📡🔴🔴 LOT J — LE LIEN RSS SORT DE LA CONDITION DES TAGS.
+      ═══════════════════════════════════════════════════════════════════════
+      MESURÉ SUR LA PRODUCTION le 07/09 : `/blog/` ne porte AUCUN lien vers
+      `/rss.xml` — `document.querySelector('a[href*="rss"]')` rend `null`. Le
+      lien EXISTE pourtant dans ce fichier depuis toujours… à l'intérieur de
+      `{tags.length > 0 && …}`. L'unique article publié n'a pas de tag, la
+      barre entière disparaît, et le flux avec elle.
+      ⭐⭐⭐ *Une fonctionnalité rangée sous la condition d'une AUTRE disparaît
+      avec elle* — et personne ne cherche un lien qu'il croit avoir écrit.
+      ⇒ La barre est rendue dès qu'il y a QUELQUE CHOSE à y mettre, et le flux
+        en fait toujours partie ; le séparateur, lui, ne sort que s'il sépare
+        vraiment deux groupes. */}
+  <div class="filtres">
+    {tags.map((x) => (
+      <a class="puce" href={localize(lang, `/blog/tag/${x.tag}/`)}>{x.tag} ({x.n})</a>
+    ))}
+    {tags.length > 0 && <span class="sep-v"></span>}
+    <a class="puce" href={localize(lang, '/rss.xml')}>RSS</a>
+  </div>
 
   {posts.length === 0 && <p class="lead">{t(lang, 'blog.empty')}</p>}
 

@@ -782,8 +782,25 @@ const menuComplet = wikiNav
     commentaire Astro `{…}` est retiré du HTML, un commentaire CSS est servi.
     *Un contrôle qui rougit sur un lot qui « n'ajoute qu'une ligne » mesure
     quelque chose que le lot n'avait pas regardé.* */}
+{/* 🔑🔴🔴 LOT J — LA SYMÉTRIQUE DE `[data-anonyme]`, ET SON COMMENTAIRE EST
+    ICI, PAS DANS LE `<style>`. Un commentaire CSS est SERVI, sur CHAQUE page :
+    la première version portait douze lignes d'explication à l'intérieur du
+    bloc, et `test:feuille` a rougi — « CSS en ligne : 4 209 o par page, au-
+    dessus de 4 096 ». ⭐⭐ *Le commentaire qui explique une règle n'a pas à
+    voyager avec elle jusqu'au navigateur.* (La leçon est déjà écrite vingt
+    lignes plus haut ; je viens de la payer.)
+
+    CE QUE FAIT LA RÈGLE : `[data-anonyme]` disparaît pour un membre — sans sa
+    symétrique, l'emplacement restait VIDE, et un membre ne lisait plus rien là
+    où un visiteur est invité à créer un compte. La maquette v5 demande « un
+    seul emplacement, des messages différents » : il en faut donc deux.
+    ⚠️ ELLE NE DIT QUE « CONNECTÉ », JAMAIS « PAYÉ » : aucun cookie ne porte de
+    palier (mesuré le 19/08 — cinq cookies, aucun). Le message qu'elle révèle
+    doit rester vrai pour un abonné aussi. */}
 <style is:inline>
   html[data-membre] [data-anonyme] { display: none !important; }
+  html:not([data-membre]) [data-connecte] { display: none !important; }
+  html:not([data-membre]) [data-connecte] { display: none !important; }
   html[data-membre] .globe[data-membre] { display: block !important; }
   html:not([data-membre]) .h-cta[hidden] { display: inline-flex !important; }
   html[data-membre] a[data-membre][hidden] { display: inline-flex !important; }

@@ -37,13 +37,40 @@
 // ⭐ Bénéfice qui n'était pas cherché : plus de clignotement, plus d'écran
 //   blanc sans JavaScript, et un aller-retour réseau de moins par visite.
 //
-// ⛔⛔ AUCUN PRIX, AUCUNE COTE — LA PROPRIÉTÉ DU LOT 116 EST TENUE, ET ELLE EST
+// ═══════════════════════════════════════════════════════════════════════════
+// 💰🔴🔴 LOT J — CETTE PAGE PORTE DÉSORMAIS LE PLANCHER, LA VARIATION ET LES
+//    EXTRÊMES, ET LE PARAGRAPHE CI-DESSOUS N'EST PLUS VRAI TEL QUEL.
+// ═══════════════════════════════════════════════════════════════════════════
+// Preda / maquette v5 : « la tuile de favori est la tuile de rayon PLUS TROIS
+// CHOSES : le plancher, la variation 7 j et la jauge bas ↔ haut ». `<Carte>`
+// passe donc à `cote={true} variation={true}`.
+// ⭐⭐⭐ ET LE MUR N'EST PAS PERCÉ POUR AUTANT — c'est tout l'intérêt de ne
+// PAS avoir écrit un second balisage ici. Sous `coteFermee()` (le cas de
+// veveprice), `<Carte>` ne rend AUCUN montant : elle rend des hôtes `<Cote>`
+// (`[data-cote][data-champ]`) que `60-cote.js` remplit depuis `/api/cote/lot`,
+// derrière la porte `cote`. Le HTML servi ne porte pas un chiffre de plus
+// qu'avant ce lot ; c'est le NAVIGATEUR d'un membre qui a le palier qui en
+// reçoit. Sans palier : le cadenas, qui dit « je ne montre pas » — jamais
+// « je n'ai pas ».
+// ⛔ CE QUI RESTE INTERDIT, ET QUI N'A PAS BOUGÉ : `vignettes.mjs` garde sa
+//    liste FERMÉE de six champs sans aucun montant, et c'est toujours elle qui
+//    alimente le serveur. La page n'a pas gagné l'accès aux prix — elle a gagné
+//    des emplacements que la route remplit.
+// ⚠️ LE PARAGRAPHE HISTORIQUE EST GARDÉ CI-DESSOUS parce que ses trois gardes
+//    tiennent toujours pour ce que le SERVEUR écrit ; seule sa conclusion
+//    (« aucune cote sur cette page ») a changé, et elle est corrigée ici.
+//    ⛔ *Un commentaire faux est un banc à l'envers* — on le date, on ne le
+//    laisse pas contredire le fichier qu'il ouvre.
+//
+// ⛔⛔ [JUSQU'AU LOT J] AUCUN PRIX, AUCUNE COTE — LA PROPRIÉTÉ DU LOT 116 EST
 //    TENUE PAR TROIS CHOSES QUI SE GARDENT L'UNE L'AUTRE :
 //      ① `vignettes.mjs` a une liste FERMÉE de six champs, aucun n'est un
 //         montant, et il est déposé APRÈS `projeterCote()` ;
-//      ② `<Carte cote={false}>` ne rend ni la ligne du plancher ni le bandeau
+////      ② `<Carte cote={false}>` ne rendait ni la ligne du plancher ni le bandeau
 //         ATL/ATH — retirer l'une sans l'autre aurait laissé passer par le
-//         bandeau ce qu'on ferme par la ligne ;
+//         bandeau ce qu'on ferme par la ligne. ⚠️ Au lot J la page demande les
+//         DEUX, et elle les demande ENSEMBLE : c'est la même symétrie, dans
+//         l'autre sens ;
 //      ③ `test:fuite` balaie le rendu.
 //    ⇒ C'est ce qui garde cette page hors du mur des ABONNÉS : elle est
 //      réservée aux COMPTES, pas aux paliers, et « qui es-tu » n'est pas « à
@@ -110,13 +137,13 @@ const nf = numberLocale[lang] || 'en-GB';
         <div class="grille" id="fav-l">
           {items.map((it, k) => (
             it.path
-              ? <Carte item={it} lang={lang} href={it.path} nf={nf} i={k} cote={false} />
+              ? <Carte item={it} lang={lang} href={it.path} nf={nf} i={k} cote={true} variation={true} />
               /* ⚠️ UN FAVORI SANS ADRESSE RESTE AFFICHÉ, ET IL N'EST PAS UN
                  LIEN. Il en existe : un item sorti du catalogue n'a plus
                  d'entrée dans l'index, et le chemin rangé dans la base peut
                  dater. ⛔ Le retirer silencieusement de la liste de quelqu'un
                  serait effacer sa donnée pour un défaut d'affichage. */
-              : <Carte item={it} lang={lang} href={undefined} nf={nf} i={k} cote={false} />
+              : <Carte item={it} lang={lang} href={undefined} nf={nf} i={k} cote={true} variation={true} />
           ))}
         </div>
         {/* ⭐ LA MÊME CHOSE, MASQUÉE : c'est ce nœud que `favoris.js` révèle

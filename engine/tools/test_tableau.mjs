@@ -298,8 +298,20 @@ const lireNu = (...p) => {
 //   panne du lot 24 vue depuis un composant : `Astro.cookies` y marche tant
 //   que la page est rendue à la demande, puis rend l'ordre par défaut sans
 //   erreur ni banc rouge le jour où un gabarit pré-généré l'emploie.
+// 🔬🔴🔴 LOT J — CE CONTRÔLE JUGEAIT UNE MISE EN PAGE, PAS UN MÉCANISME.
+//   Il exigeait `tb = '' }` — donc que `tb` soit LE DERNIER de la liste — ou
+//   bien `tb` APRÈS le mot `Astro.props`. Les deux décrivaient la ligne telle
+//   qu'elle était écrite le jour du lot 202, pas la propriété qu'elle porte.
+//   Ajouter trois props après `tb` (`favoris`, `visite`, `indisponible`) l'a
+//   fait rougir sur un composant qui reçoit toujours `tb` par ses props.
+//   ⭐⭐ Un banc écrit contre UNE faute finit par juger « tout ce qui n'est pas
+//   l'état sain » comme cette faute-là : il s'oppose alors aux corrections.
+//   ⇒ On lit la DÉSTRUCTURATION de `Astro.props` et on y cherche `tb`. C'est
+//   plus strict que l'ancien motif (une prop lue par `Astro.props.tb` ailleurs
+//   dans le fichier ne passerait plus) et ça ne dépend plus de l'ORDRE.
+const propsRecues = (nu.match(/const\s*\{([^}]*)\}\s*=\s*Astro\.props/) || [])[1] || '';
 verifie('le gabarit REÇOIT l\'agencement en prop (`tb`)',
-  /\btb\s*=\s*''\s*\}\s*=\s*Astro\.props/.test(nu) || /Astro\.props[\s\S]{0,200}?\btb\b/.test(nu),
+  /(^|[\s,{])tb\s*(=|,|$)/.test(propsRecues),
   '⇒ la route lit, le composant reçoit');
 verifie('🔑 et il ne lit PAS le cookie lui-même',
   !/Astro\.cookies/.test(nu),

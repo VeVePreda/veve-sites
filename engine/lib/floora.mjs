@@ -47,6 +47,12 @@ export const POSE_DE = {
   sets: 'clin-oeil',
   collections: 'panier',
   analytics: 'emerveille',
+  // 🆕 LOT J — L'OFFRE UNIQUE. ⭐ LA POSE N'EST PAS CHOISIE « À L'AMBIANCE » :
+  //   la table du livrable (`livraison-floora/LISEZ-MOI.md`, §3) réserve
+  //   `pancarte-alerte` au plancher à offre unique, et la maquette v5 la
+  //   dessine à cet endroit exact. L'ajout passe par ici pour que la revue le
+  //   voie — c'est la règle de cette table fermée.
+  'offre-unique': 'pancarte-alerte',
 };
 
 /** usage ⟶ clé de la bulle. ⛔ FERMÉE elle aussi, et pour la même raison que
@@ -62,6 +68,10 @@ const BULLE_DE = {
   sets: 'floora.sets',
   collections: 'floora.collections',
   analytics: 'floora.analytics',
+  // ⛔ SA BULLE NE CONTIENT AUCUN NOMBRE, et c'est la consigne de la maquette :
+  //   « sa bulle ne contient aucun nombre ». Elle dit ce que ça VEUT DIRE
+  //   qu'une seule offre soit en vente — pas laquelle, ni à combien.
+  'offre-unique': 'floora.offreUnique',
 };
 
 /** hauteur du FICHIER ⟶ hauteur d'AFFICHAGE. ⛔ Pas de 384 : il n'existe pas. */

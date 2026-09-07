@@ -91,20 +91,44 @@ import Base from '../../layouts/Base.astro';
 //   redirection, effacé ensuite par `astro_features.mjs`.
 //   ⛔ UN SCRIPT SERVI SANS SON HÔTE NE FAIT PAS D'ERREUR — il ne fait RIEN,
 //   et c'est ce qui rend ce genre d'oubli invisible pendant six mois.
-import { t, localize, numberLocale, pick } from '../../../engine/lib/i18n.mjs';
+import { t, localize, numberLocale, dateLocale, pick } from '../../../engine/lib/i18n.mjs';
+// ⭐ LA PASTILLE DE RARETÉ VIENT DE LA FABRIQUE COMMUNE — pas d'un second
+//   balisage écrit ici, qui divergerait au premier ajout de rareté.
+import { rar } from '../../../engine/lib/vitrine.mjs';
 import { manifest } from '../../../engine/lib/manifest.mjs';
 import { catalogueModules, porte, plages, PALIERS, profondeur as profondeurAccordee } from '../../../engine/lib/access.mjs';
 import { priceEnabled } from '../../../engine/lib/features.mjs';
 import { lireMarche } from '../../../engine/lib/cote.mjs';
 import { moduleJs } from '../../../engine/lib/socle_js.mjs';
 import { lireAgencement } from '../../../engine/lib/tableau.mjs';
+// 📊 LOT J — LE POULS. ⛔ Il ne calcule rien : il LIT un constat daté et le
+//   résumé déposé au build. Voir `engine/lib/pouls.mjs` pour la seule question
+//   qui compte — pourquoi ce constat est un fichier et pas trois littéraux.
+import { pouls24 } from '../../../engine/lib/pouls.mjs';
 
 // ⚠️ `tb` PAR DÉFAUT VIDE, et non `undefined` : une chaîne vide est exactement
 //   ce que `lireAgencement` traite comme « rien de rangé », donc l'ordre par
 //   défaut au complet. Un composant appelé sans cette prop rend donc la même
 //   page qu'avant ce lot — c'est ce qui permet de la rendre hors d'une route.
-const { lang, palier = 'member', tb = '' } = Astro.props;
+// ❤️📅 LOT J — TROIS PROPS DE PLUS, ET TOUTES VIENNENT DE LA ROUTE.
+// ⚠️ LEURS DÉFAUTS DISENT CHACUN UN ÉTAT DIFFÉRENT, ET C'EST VOULU :
+//   · `favoris: []`        — « aucun », un fait ;
+//   · `visite: undefined`  — « on ne sait pas » (base muette) ⇒ la case ne
+//                            s'affiche pas. ⛔ Ce n'est PAS `null`, qui dit
+//                            « première visite » ;
+//   · `indisponible: false` — le cas normal.
+// ⭐ Rendu hors route (un banc, une capture), ce composant rend donc la page
+//   d'un membre sans favori, et non une page en panne.
+const { lang, palier = 'member', tb = '', favoris = [], visite, indisponible = false } = Astro.props;
 const nf = numberLocale[lang] || 'en-GB';
+const df = dateLocale[lang] || 'en-GB';
+const jour = (v) => {
+  // ⚠️ UNE DATE ILLISIBLE NE S'AFFICHE PAS. `Invalid Date` se propage jusque
+  //   dans la page en « NaN/NaN/NaN », et une case datée d'un NaN est pire
+  //   qu'une case sans date : elle a l'air d'un relevé.
+  const t0 = v ? Date.parse(v) : NaN;
+  return Number.isFinite(t0) ? new Date(t0).toLocaleDateString(df) : null;
+};
 
 // ⭐ LE RANG, PAS LE NOM. Comparer deux paliers par leur position dans
 // `PALIERS` est la seule façon de dire « au-dessus » sans écrire une table de
@@ -312,6 +336,12 @@ const tuiles = !avecPrix ? [] : lireAgencement(tb)
 // le `<script>` doit disparaître avec elle, sans qu'une seconde condition ait
 // à l'apprendre. *Une seule liste décide, et c'est celle qui est rendue.*
 const pilote = tuiles.some((x) => x.compteur) ? moduleJs('favoris') : null;
+// 📊 LOT J — LE PILOTE DU TABLEAU DE BORD, SOUS LA MÊME LOI QUE CELUI DU
+//   COMPTEUR JUSTE AU-DESSUS : il n'est demandé que si son hôte existe. Sans
+//   porte des prix, le bloc « Votre collection » n'est pas rendu — et un script
+//   servi sans son hôte ne fait pas d'erreur, il ne fait RIEN, ce qui est
+//   exactement ce qui rend ce genre d'oubli invisible pendant six mois.
+const piloteBord = avecPrix ? moduleJs('bord') : null;
 
 // ⭐⭐ LE NOM LISIBLE D'UN PALIER VIENT DU MANIFESTE, exactement comme sur
 // `/offre/` (`nomPlan()`), et surtout PAS d'une clé i18n `tier.*` que j'aurais
@@ -326,6 +356,20 @@ const nomPalier = (cle) => pick((PLANS.find((x) => x.cle === cle) || {}).nom, la
 
 // ⭐ LE CADENAS, EN SVG, PAS EN GLYPHE. Un caractère à symbole dépend d'une
 // fonte que le thème ne charge pas (leçon du bouton jour/nuit, lot 18).
+// ═══════════════════════════════════════════════════════════════════════════
+// 📊 LE POULS — TROIS CHIFFRES DATÉS ET DEUX TIRETS (arbitrage Preda, 07/09)
+// ═══════════════════════════════════════════════════════════════════════════
+// ⛔⛔ LES DEUX TIRETS DISENT « PAS ENCORE BRANCHÉ », JAMAIS ZÉRO — ET
+//    SURTOUT PLUS « N'EXISTE PAS », qui était FAUX. Mesuré le 07/09 :
+//    `burns_daily.csv` (`omi_burned`) et `burns_split_daily.csv`
+//    (`omi_volume`) existent chez jetonveve et sont QUOTIDIENS. Ce qui manque
+//    est le chemin jusqu'au site, pas la donnée.
+//    ⭐ Un `0` affirmerait « il ne s'est rien passé » : une mesure, et fausse.
+// ⚠️ `avecPrix` GARDE L'APPEL comme pour `lireMarche()` : sur vevewiki il n'y a
+//    ni marché ni tableau de bord rendu, et une case « offres en vente » y
+//    parlerait d'un marché que le site ne publie pas.
+const P = avecPrix ? pouls24({ offres: R.offres, offresPieces: R.offresPieces, offresLe: R.offresLe }) : null;
+
 const cadenas = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
   + 'stroke-linecap="round" aria-hidden="true"><rect x="4.5" y="10.5" width="15" height="10" rx="2"/>'
   + '<path d="M8 10.5V7.8a4 4 0 0 1 8 0v2.7"/></svg>';
@@ -381,6 +425,221 @@ const cadenas = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stro
   <p class="etiq etiq--bleu tete-p__st">// {t(lang, 'dash.title')} — {nomPalier(palier)}</p>
   <h1 class="mono-t">{t(lang, 'dash.title')}</h1>
   <p class="respire" style="max-width:52ch">{t(lang, 'dash.lead')}</p>
+
+  {/* ═══════════════════════════════════════════════════════════════════════
+      ❤️ ① VOTRE COLLECTION — ET ELLE PASSE AVANT LE MARCHÉ
+      ═══════════════════════════════════════════════════════════════════════
+      🔴 LA MAQUETTE v4 OUVRAIT SUR LE POULS DU MARCHÉ. Un tableau de bord
+      répond d'abord de ce qui appartient à celui qui l'ouvre : « combien ça
+      vaut, ça a bougé de combien, qu'est-ce qui a franchi un seuil ». Le
+      marché vient après, et il est étiqueté comme tel.
+
+      ⛔⛔⛔ LES QUATRE CASES SONT SERVIES VIDES, ET C'EST LE MUR DU LOT 101.
+      La valeur d'un portefeuille est une SOMME DE PLANCHERS : un montant, donc
+      un `CHAMPS_COTE`, donc quelque chose qui ne traverse jamais le HTML. Le
+      serveur ne l'écrit pas — il ne l'a même pas : `projeterCote()` a retiré
+      `floor` des items bien avant que cette page existe. Les valeurs arrivent
+      dans le navigateur par `/api/cote/lot`, derrière la porte `cote`, et
+      `src/socle/modules/bord.js` les additionne là.
+      ⭐ Bénéfice qui n'était pas cherché : la page ne ment jamais sur le
+      palier. Sans la porte, la case dit « réservé » — elle ne dit pas zéro.
+
+      ⚠️ CHAQUE CASE PORTE SA DATE, ET CE N'EST PAS DE L'ORNEMENT. Trois
+      fraîcheurs vivent sur cet écran (transferts, prix, favoris) et elles ne
+      sont pas les mêmes ; les mélanger sous un seul « aujourd'hui » ment par
+      omission. C'est la faute des DEUX HORLOGES du lot 146, sur un écran neuf. */}
+  {/* ⛔ TOUT CE BLOC EST SOUS `avecPrix`, ET CE N'EST PAS UNE PRÉCAUTION DE
+      STYLE. Sans la porte des prix (vevewiki), `60-cote.js` n'est pas embarqué
+      du tout : aucune valeur n'arriverait JAMAIS, et les quatre cases
+      resteraient quatre tirets à vie. Un écran qui promet une donnée qu'aucun
+      chemin ne peut apporter est pire qu'un écran qui ne la promet pas. */}
+  {avecPrix && (
+    <>
+  <div class="sect-t"><h2 class="mono-t">{t(lang, 'bord.collection')}</h2></div>
+  {/* 🔑 LES MOTS VOYAGENT PAR `data-l-*`, PAS PAR LE MODULE. `bord.js` est du
+      JS de socle : servi identique aux cinq langues, il ne peut connaître
+      aucun texte — une chaîne écrite dedans sortirait en anglais partout, sans
+      erreur (P30, lot 139). ⭐ C'est la forme de `Corner.astro` et de
+      `Cadran.astro`, et `test:fuite` §7 admet cette famille parce qu'elle ne
+      porte QUE des mots traduits, jamais une valeur. */}
+  <div class="stats" id="tb-collection" data-favoris={favoris.length}
+       data-l-faite={t(lang, 'bord.valeur.faite')}
+       data-l-partiel={t(lang, 'bord.valeur.partiel')}
+       data-l-vide={t(lang, 'bord.valeur.vide')}
+       data-l-reserve={t(lang, 'bord.reserve')}
+       data-l-hs={t(lang, 'bord.hs')}>
+    <div class="stat">
+      <div class="k">{t(lang, 'bord.valeur')}</div>
+      {/* ⭐ `—` EST LA VALEUR SERVIE, ET ELLE EST HONNÊTE : à cet instant, le
+          serveur ne sait pas. Un `0` serait faux et un blanc ressemblerait à
+          un chargement sans fin. */}
+      <div class="v" id="tb-valeur">—</div>
+      <div class="s" id="tb-valeur-s">{t(lang, 'bord.valeur.s', { n: favoris.length.toLocaleString(nf) })}</div>
+    </div>
+    <div class="stat">
+      <div class="k">{t(lang, 'bord.var7')}</div>
+      <div class="v" id="tb-var">—</div>
+      <div class="s" id="tb-var-s"></div>
+    </div>
+    {/* 📅 LA CASE DES SEUILS N'EXISTE QUE SI ON SAIT DEPUIS QUAND. `visite`
+        vaut `undefined` quand la base est muette : une case « 2 » sans borne
+        basse est un nombre qui a l'air d'une mesure. ⭐ `null` (première
+        visite) la garde, avec sa propre phrase — il y a quelque chose à dire. */}
+    {visite !== undefined && (
+      <div class="stat">
+        <div class="k">{t(lang, 'bord.seuils')}</div>
+        <div class="v" id="tb-seuils">—</div>
+        <div class="s">{visite
+          ? t(lang, 'bord.seuils.s', { d: jour(visite) })
+          : t(lang, 'bord.seuils.premiere')}</div>
+      </div>
+    )}
+    {/* ⏱️ CELLE-CI EST SERVIE PAR LE SERVEUR : ce n'est pas un montant, c'est
+        la DATE du relevé des offres — un champ de fraîcheur, public depuis
+        toujours (`CHAMPS_FRAICHEUR`). */}
+    {P && P.offres.le && (
+      <div class="stat">
+        <div class="k">{t(lang, 'bord.releve')}</div>
+        <div class="v" style="font-size:20px">{jour(P.offres.le)}</div>
+        <div class="s">{t(lang, 'bord.releve.s')}</div>
+      </div>
+    )}
+  </div>
+
+  {/* ═══ ② VOS FAVORIS AUJOURD'HUI ══════════════════════════════════════════
+      ⛔ CE N'EST PAS LE DOUBLON QUE PREDA A FAIT RETIRER AU 154-A. Celui-là
+      était une GRILLE DE TUILES identique à `/favoris/` à un `slice(0, 8)`
+      près — la même vue, deux fois. Ici c'est un TABLEAU de trois lignes qui
+      porte ce que `/favoris/` ne porte pas : le plancher, la variation et la
+      position entre les extrêmes. Deux vues qui disent des choses différentes
+      ne sont pas un doublon ; c'est la distinction que le lot 154-A posait
+      lui-même en retirant « la tuile ET la section ».
+      ⚠️ Et le lien vers la liste complète reste, parce que la liste reste son
+      métier. */}
+  {!indisponible && favoris.length > 0 && (
+    <>
+      <div class="sect-t">
+        <h2 class="mono-t">{t(lang, 'bord.favoris')}</h2>
+        <a class="etiq" href={localize(lang, '/favoris/')}>{t(lang, 'bord.favoris.tous', { n: favoris.length.toLocaleString(nf) })}</a>
+      </div>
+      <div class="tbl-hote" tabindex="0">
+        <table id="tb-fav-t">
+          <thead><tr>
+            <th>{t(lang, 'bord.col.piece')}</th>
+            <th>{t(lang, 'bord.col.rarete')}</th>
+            <th class="num">{t(lang, 'bord.col.plancher')}</th>
+            <th class="num">{t(lang, 'bord.col.sept')}</th>
+            <th>{t(lang, 'bord.col.jauge')}</th>
+          </tr></thead>
+          <tbody>
+            {/* ⭐ TROIS, ET LE NOMBRE SE DÉFEND : c'est un RÉSUMÉ, et son lien
+                « les N favoris » est juste au-dessus. Une table de trente
+                lignes sur la page d'arrivée serait `/favoris/` déguisée — le
+                doublon, cette fois pour de bon. */}
+            {favoris.slice(0, 3).map((f) => (
+              <tr>
+                <td>{f.path
+                  ? <a href={f.path}>{f.qualifie || f.name}</a>
+                  : <span>{f.qualifie || f.name}</span>}</td>
+                <td>{f.rarity && <Fragment set:html={rar(f.rarity, { abrege: true })} />}</td>
+                {/* ⭐⭐ `data-cote` + `data-champ` : LE MÊME CONTRAT QUE LA FICHE
+                    ET QUE `/market/`. C'est `src/socle/60-cote.js` — l'appelant
+                    UNIQUE de `/api/cote/lot` — qui remplira, avec son plafond,
+                    sa lecture du 401 et son format de nombre. ⛔ Ne pas écrire
+                    un second `fetch` ici : ce serait la deuxième implémentation
+                    du même échange, et la deuxième à corriger. */}
+                <td class="num" data-cote={f.uuid} data-champ="floor"><span data-cote-v>—</span></td>
+                <td class="num" data-cote={f.uuid} data-champ="change7d"><span data-cote-v>—</span></td>
+                {/* 📊 LA JAUGE EST UN HÔTE VIDE. Elle situe le plancher entre
+                    l'ATL et l'ATH : trois montants, donc rien qui puisse être
+                    calculé au serveur. `bord.js` la remplit depuis la MÊME
+                    réponse que les deux colonnes voisines. */}
+                <td><span class="jauge-t" data-jauge={f.uuid} aria-hidden="true"><i></i></span></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {/* ═══════════════════════════════════════════════════════════════════
+          🔴🔴🔴 LA SOMME PORTE SUR TOUS LES FAVORIS, PAS SUR LES TROIS AFFICHÉS
+          ═══════════════════════════════════════════════════════════════════
+          `60-cote.js` ne demande que les uuid PRÉSENTS DANS LE DOM. Sans ces
+          hôtes, « valeur de vos favoris » aurait additionné trois planchers sur
+          dix-sept — un nombre faux qui a exactement l'air d'un nombre juste, et
+          que rien n'aurait signalé. *Un total calculé sur ce qui est affiché
+          mesure l'affichage, pas la collection.*
+          ⚠️ 57 = 60 (MAX_LOT de `/api/cote/lot`) moins les 3 lignes visibles.
+          Le plafond est DUPLIQUÉ ici en connaissance de cause, comme dans
+          `60-cote.js` : demander 200 uuid pour n'en recevoir que 60 laisserait
+          140 vides sans qu'aucune erreur ne le dise.
+          ⭐ ET AU-DELÀ, LA PAGE LE DIT (`bord.valeur.partiel`) : une somme
+          tronquée qui ne s'annonce pas est un chiffre faux.
+          ⛔ `hidden` ET PAS `display:none` en ligne : `[hidden]` est déjà
+          neutralisé par le thème, et un style en ligne aurait été une seconde
+          façon de cacher la même chose. */}
+      <div hidden>
+        {favoris.slice(3, 60).map((f) => (
+          <span data-cote={f.uuid} data-champ="floor"><span data-cote-v></span></span>
+        ))}
+      </div>
+    </>
+  )}
+
+  {/* ═══ ③ LE POULS DU MARCHÉ — 24 DERNIÈRES HEURES ═════════════════════════
+      🕐🔴🔴 L'ÉTIQUETTE DIT LE JOUR **ET SON HORLOGE**, et c'est une mesure du
+      07/09 qui l'impose. La fenêtre glissante de 24 h sur `ts_utc`
+      (11/08 06:59:30Z → 12/08 06:59:30Z) et le comptage du jour `date_pt =
+      2026-08-11` rendent le MÊME nombre : le jour de l'entrepôt est un jour
+      PACIFIQUE. ⭐⭐ J'avais « corrigé » la maquette en écrivant « 24 h au
+      12/08 » — c'était moi qui lisais un jour PT dans une horloge UTC. *Deux
+      dates justes dans deux horloges ne se corrigent pas : elles se nomment.*
+      ⛔ Les deux dernières cases ne sont PAS des zéros : `pouls.mjs` ne produit
+      un `0` nulle part pour un manque. */}
+    </>
+  )}
+
+  {P && (
+    <>
+      <div class="sect-t">
+        <h2 class="mono-t">{t(lang, 'bord.pouls')}</h2>
+        <span class="etiq">{t(lang, 'bord.pouls.jour', { d: jour(P.transferts.jour), h: P.transferts.horloge })}</span>
+      </div>
+      <div class="stats">
+        {[['bord.pouls.tx', P.transferts], ['bord.pouls.wallets', P.wallets]].map(([cle, c]) => (
+          <div class="stat">
+            <div class="k">{t(lang, cle)}</div>
+            <div class="v" style={c.etat === 'mesure' ? undefined : 'color:var(--muted)'}>
+              {c.etat === 'mesure' ? c.v.toLocaleString(nf) : '—'}</div>
+            <div class="s">{c.etat === 'mesure'
+              ? t(lang, 'bord.pouls.le', { d: jour(c.jour), h: c.horloge })
+              : t(lang, 'bord.pouls.absent')}</div>
+          </div>
+        ))}
+        <div class="stat">
+          <div class="k">{t(lang, 'bord.pouls.offres')}</div>
+          <div class="v" style={P.offres.etat === 'mesure' ? 'color:var(--gems)' : 'color:var(--muted)'}>
+            {P.offres.etat === 'mesure' ? P.offres.v.toLocaleString(nf) : '—'}</div>
+          <div class="s">{P.offres.etat === 'mesure'
+            ? t(lang, 'bord.pouls.offres.s', {
+                n: (P.offres.pieces ?? 0).toLocaleString(nf), d: jour(P.offres.le) || '?' })
+            : t(lang, 'bord.pouls.absent')}</div>
+        </div>
+        {[['bord.pouls.revenue', P.revenue], ['bord.pouls.omi', P.omiBrules]].map(([cle]) => (
+          <div class="stat">
+            <div class="k">{t(lang, cle)}</div>
+            {/* ⛔⛔ CE TIRET NE DEVIENDRA JAMAIS UN ZÉRO. Les deux mesures
+                EXISTENT (jetonveve, quotidiennes) ; ce qui manque est une
+                source de plus dans `warehouse.mjs`. Le jour où elle sera
+                déclarée, `pouls.mjs` les lira et cette branche s'éteindra
+                d'elle-même. En attendant, « pas encore branché » est la seule
+                phrase vraie — et « non collecté » ne l'était pas. */}
+            <div class="v" style="color:var(--muted)">—</div>
+            <div class="s">{t(lang, 'bord.pouls.absent')}</div>
+          </div>
+        ))}
+      </div>
+    </>
+  )}
 
   {/* ═══ LES MODULES ═════════════════════════════════════════════════════════
       ⭐ Chaque tuile porte TROIS choses et pas une de plus : ce que c'est, un
@@ -529,4 +788,5 @@ const cadenas = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stro
     la porte des prix, `tuiles` est vide et il n'y a aucun hôte — le script
     serait servi pour ne rien piloter, sans une erreur pour le dire. */}
 {pilote && <script defer src={pilote.href}></script>}
+{piloteBord && <script defer src={piloteBord.href}></script>}
 

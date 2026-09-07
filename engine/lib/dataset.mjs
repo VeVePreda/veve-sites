@@ -1765,6 +1765,38 @@ async function construireDataset() {
   // ⭐ Le TOTAL avant plafond : la page annonce « 200 sur N », et N ne peut pas
   // se recalculer apres coup — `items` aura perdu `floor`.
   const marcheTotal = items.filter((i) => i.floor !== null && i.floor !== undefined).length;
+  // 🏷️🔴🔴 LOT J — LES OFFRES EN VENTE SE COMPTENT ICI, ET NULLE PART AILLEURS.
+  // ⭐ MÊME RAISON QUE `marcheTotal` DEUX LIGNES PLUS HAUT, ET C'EST TOUT
+  //   L'ARGUMENT : `listings` est un CHAMP DE COTE (`deposer()` le range dans
+  //   `.reserve/cote/<uuid>.json`), donc `projeterCote()` le retire des items.
+  //   Compté après, ce total vaudrait 0 — un zéro qui ressemble à une mesure,
+  //   sur la case d'un tableau de bord. C'est la faute que ce lot existe pour
+  //   ne pas commettre.
+  // ⛔ ET CE N'EST PAS UN MONTANT. On compte des ANNONCES, pas des prix : un
+  //   total d'offres ne permet de reconstituer le plancher d'aucune pièce, et
+  //   il ne descend jamais à l'unité. C'est ce qui l'autorise à voyager dans le
+  //   résumé — que `test:marche` §2 balaie sur `CHAMPS_COTE` — puis dans le
+  //   HTML servi du tableau de bord, là où la valeur des favoris, elle, ne peut
+  //   pas aller.
+  // ⚠️ `> 0` ET PAS `!= null` POUR LES PIÈCES : « 0 annonce est un FAIT, et le
+  //   fait le plus courant » (l. 98). Une pièce à zéro offre n'est pas une
+  //   pièce « en vente » — la compter gonflerait le dénominateur de la seule
+  //   phrase que la case porte : « N offres sur M pièces ».
+  const offresLignes = items.filter((i) => Number.isFinite(i.listings) && i.listings > 0);
+  const offres = offresLignes.reduce((n, i) => n + i.listings, 0);
+  const offresPieces = offresLignes.length;
+  // 📅 ET LA CASE PORTE SA PROPRE DATE, QUI N'EST PAS CELLE DES TRANSFERTS.
+  // ⭐ `releveLe` est le champ de FRAÎCHEUR de la fiche — « quand on a
+  //   regardé » — et il survit à `projeterCote()` (`CHAMPS_FRAICHEUR`, jamais
+  //   `CHAMPS_COTE`). Le plus frais des lignes qui portent une offre est donc
+  //   la date exacte de ce que la case annonce.
+  // ⛔ PAS `ds.updatedAt` : c'est l'heure du BUILD, et un build de 5 h du matin
+  //   daterait de ce matin des offres relevées il y a trois jours. C'est la
+  //   faute des DEUX HORLOGES du lot 146, refaite sur une case neuve.
+  const offresLe = offresLignes.reduce((m, i) =>
+    (typeof i.releveLe === 'string' && i.releveLe > m ? i.releveLe : m), '') || null;
+  console.log(`[marche] offres en vente : ${offres} annonce(s) sur ${offresPieces} piece(s)`
+    + (offresPieces === 0 ? ' 🔴 AUCUNE — la case « offres en vente » du tableau de bord dira « non collecté »' : ''));
   // ⭐ LE JOURNAL DIT DESORMAIS « projetee(s) », PAS « rendue(s) ». Le mot
   // comptait : depuis le lot 155-C ce nombre n'est plus ce que la page rend,
   // c'est ce que le filtre du serveur peut voir. Un journal qui garde l'ancien
@@ -2230,6 +2262,9 @@ async function construireDataset() {
     //   (« compter sur le fichier RELU »), et elle est forcee par la donnee,
     //   pas choisie — d'ou ce commentaire plutot qu'un silence.
     marcheCandidats: candidatsEcart,
+    // 🏷️ LOT J — TRANSPORTÉS, PAS RECOMPTÉS, exactement comme `marcheCandidats`
+    //   juste au-dessus : `listings` n'existe plus après `projeterCote()`.
+    offres, offresPieces, offresLe,
     catalogueSize: cat.length,
     windowDays: WINDOW_DAYS,
     maxPoints: MAX_POINTS,

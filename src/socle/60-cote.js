@@ -42,11 +42,61 @@ if (!membre) return;
 // socle_js.mjs). *La condition voyage avec le code, ou elle disparait.*
 window.vpCote = remplir;
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴 LOT J — QUI VEUT LA REPONSE L'ATTEND ICI, ET NE LA REDEMANDE PAS
+// ═══════════════════════════════════════════════════════════════════════════
+// Le tableau de bord doit SOMMER des planchers (« valeur de vos favoris ») et
+// /favoris/ doit en tirer une jauge. Ni l'un ni l'autre n'est un champ d'une
+// piece : aucun `[data-cote][data-champ]` ne les rend.
+//
+// ⛔⛔ ET AUCUN DES DEUX N'A LE DROIT DE RELIRE LE TEXTE AFFICHE. `nb()` vient
+// de poser une valeur FORMATEE selon `data-nf` : en `fr-FR` « 1 234,5 », en
+// `de-DE » « 1.234,5 ». Les additionner reviendrait a mesurer avec la regle de
+// mon outil au lieu de celle du site — la faute exacte qui a fait lire « 4,1 %
+// de fiches avec store_price » pour 99,2 %, parce que le nombre portait une
+// virgule. ⇒ on rend les valeurs BRUTES, une seule fois, a qui les attend.
+//
+// ⛔ ET SURTOUT PAS UN SECOND `fetch`. C'est la regle du bloc juste au-dessus,
+// et un appelant de plus rouvrirait les trois divergences qu'elle ferme (le
+// plafond de 60, la lecture du 401, le format des nombres).
+//
+// ⭐⭐⭐ LE RAPPEL EST APPELE MEME QUAND CA RATE, avec `null`. Sans cela un
+// refus 403 laisserait le tableau de bord avec quatre cases BLANCHES — et une
+// case blanche ne dit rien, alors que « reserve a votre palier » dit tout. *Un
+// canal qui ne transporte que le succes oblige son lecteur a deviner l'echec.*
+var attentes = [];
+window.vpCotes = null;
+window.vpQuandCotes = function (f) {
+  if (typeof f !== 'function') return;
+  // ⭐ DEJA ARRIVEE ? ON REPOND TOUT DE SUITE. Ce module est dans le `<head>`
+  //   et repond souvent avant qu'un `<script defer>` de fin de page ne
+  //   s'execute : sans cette branche, l'inscrit arrive apres la fete et
+  //   attendrait un evenement qui ne repassera pas.
+  if (window.vpCotes !== null) { f(window.vpCotes, null); return; }
+  attentes.push(f);
+};
+function servir(cotes, raison) {
+  // ⭐ ON FUSIONNE, ON NE REMPLACE PAS. `remplir()` est RAPPELABLE (la barre de
+  //   filtres repeint des lignes apres coup) : un second appel qui ecraserait
+  //   le premier ferait disparaitre des cotes deja recues, et la somme des
+  //   favoris changerait toute seule sous les yeux du lecteur.
+  window.vpCotes = cotes ? Object.assign(window.vpCotes || {}, cotes) : (window.vpCotes || {});
+  var f = attentes; attentes = [];
+  for (var i = 0; i < f.length; i++) {
+    try { f[i](cotes, raison); } catch (e) { console.warn('[cote] attente : ' + e.message); }
+  }
+}
+
 remplir(document);
 
 function remplir(racine) {
 var places = (racine || document).querySelectorAll('[data-cote]:not([data-ouverte])');
-if (!places.length) return;
+// ⭐⭐ RIEN A DEMANDER N'EST PAS UNE PANNE, ET IL FAUT LE DIRE AUX ATTENTES.
+//   Un membre sans aucun favori ouvre un tableau de bord sans un seul
+//   `[data-cote]` : sans cette ligne, `servir()` ne serait jamais appele et ses
+//   quatre cases resteraient BLANCHES pour toujours — un ecran qui a l'air de
+//   charger sans fin. `{}` dit « la reponse est vide », ce qui est vrai.
+if (!places.length) { servir({}, null); return; }
 
 var uuids = [];
 var vus = {};
@@ -73,11 +123,14 @@ fetch('/api/cote/lot?u=' + uuids.join(','), {
   // rien a dire. 404/500 : la donnee est due et n'arrive pas, et une reserve
   // non copiee dans l'image rendrait TOUTES les fiches muettes pour les
   // seuls abonnes, avec un deploiement vert. La, il faut une trace.
-  if (r.status === 401 || r.status === 403) return null;
-  if (!r.ok) { console.warn('[cote] HTTP ' + r.status); return null; }
+  // ⭐ LA RAISON VOYAGE AVEC L'ECHEC : « palier » n'est pas « panne », et les
+  //   deux ne s'ecrivent pas pareil a l'ecran.
+  if (r.status === 401 || r.status === 403) { servir(null, 'palier'); return null; }
+  if (!r.ok) { console.warn('[cote] HTTP ' + r.status); servir(null, 'panne'); return null; }
   return r.json();
 }).then(function (j) {
-  if (!j || !j.ok || !j.c) return;
+  if (!j || !j.ok || !j.c) { if (j !== null) servir(null, 'panne'); return; }
+  servir(j.c, null);
   // 💱 LOT 181 — le cours du jour, s'il en est venu un. Voir `lot.js` : la clé
   //    est ABSENTE quand il n'y a pas de cours frais, jamais `null`.
   var taux = (j.taux && isFinite(j.taux.omiUsd) && j.taux.omiUsd > 0) ? j.taux.omiUsd : 0;
@@ -127,6 +180,6 @@ fetch('/api/cote/lot?u=' + uuids.join(','), {
       usd.toLocaleString(nf, { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
     eq.removeAttribute('hidden');
   }
-}).catch(function (e) { console.warn('[cote] ' + e.message); });
+}).catch(function (e) { console.warn('[cote] ' + e.message); servir(null, 'panne'); });
 }
 })();

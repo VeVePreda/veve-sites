@@ -304,6 +304,29 @@ const unites = (c) => [
     )}
   </div>
 
+  {/* ═══ 🔑 LOT J — LE MÊME EMPLACEMENT, L'AUTRE MESSAGE ═══════════════════
+      MAQUETTE v5 : « La porte change avec le palier : public → créer un
+      compte ; membre → voir les paliers. Un seul emplacement, des messages
+      différents. » Le panneau ci-dessus s'efface pour un membre — et
+      l'emplacement restait alors VIDE : le visiteur était invité, le membre
+      n'était plus invité à rien.
+      ⛔⛔ ET CE MESSAGE NE DIT PAS « VOUS N'ÊTES PAS ABONNÉ ». Il ne peut pas :
+      aucun cookie ne porte de palier (mesuré le 19/08), et `data-membre` dit
+      « session », jamais « payé » — la vue ABONNÉ est INDÉCIDABLE côté client.
+      Une phrase du genre « passez à un palier » serait donc FAUSSE pour un
+      abonné, sur sa propre page. ⇒ On dit ce qui reste vrai des DEUX : ce que
+      chaque palier ouvre, et où le lire.
+      ⭐ Aucune classe neuve : `.panneau`, `.num-s`, `.puce` sont déjà servies. */}
+  {acces().tiers.length > 1 && (
+    <div class="panneau" data-connecte style="margin-top:var(--s5)">
+      <p class="num-s">// {t(lang, 'analytics.subjects')}</p>
+      <p style="margin:8px 0 0">{t(lang, 'analytics.tiersLead')}</p>
+      <p style="margin-top:var(--s4)">
+        <a class="puce" href={localize(lang, '/offre/')}>{t(lang, 'nav.offer')} →</a>
+      </p>
+    </div>
+  )}
+
   {/* ═══ LES QUATRE SUJETS ═══
       ⚠️ ON RÉUTILISE `.modules` / `.module`, LA GRILLE QUI EXISTE DÉJÀ JUSTE
       EN DESSOUS. Inventer une classe de carte ici aurait ajouté une règle CSS

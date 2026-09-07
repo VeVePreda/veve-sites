@@ -48,7 +48,16 @@ import { imageCarte, ONERROR_REPLI } from '../../engine/lib/image_cdn.mjs';
 // ⚠️ `cote={false}` retire DEUX choses, et les deux sont des données de cote :
 //    la ligne du plancher ET le bandeau `<Extremes>` (ATL/ATH). Retirer l'une
 //    sans l'autre laisserait passer par le bandeau ce qu'on ferme par la ligne.
-const { item, lang, href, nf, i = 0, ed = true, libre = false, cote = true } = Astro.props;
+// 📈 LOT J — `variation` : LA VARIATION 7 J, ET ELLE EST FERMÉE PAR DÉFAUT.
+// ⛔ ELLE NE S'ALLUME PAS PARTOUT, ET C'EST LE LOT 112 QU'ON RESPECTE : « la
+//    variation apparaissait sur CHAQUE carte du site, à côté d'un prix fermé —
+//    44 pourcentages en clair sur le seul accueil ». Ici elle ne sort QUE là où
+//    une page la demande explicitement (`/favoris/`, où la maquette v5 la
+//    range parmi les trois choses qu'une tuile de favori porte en plus).
+// ⭐ Et sous le mur elle passe par le MÊME hôte que le plancher (`<Cote>`), donc
+//    par `/api/cote/lot` : aucun pourcentage n'est écrit au serveur.
+const { item, lang, href, nf, i = 0, ed = true, libre = false, cote = true,
+        variation = false } = Astro.props;
 const nom = nomItem(item.name);
 // 🔴 LOT 101 — la carte ne porte plus de montant quand la cote est fermee.
 // ⭐ ELLE NE TESTE PAS `item.floor` : apres `projeter()` ce champ est absent
@@ -172,7 +181,13 @@ const imgC = imageCarte(item.image);
       {/* 🔴 LOT 112 — la variation suit le prix. Elle apparaissait sur CHAQUE
           carte du site, à côté d'un prix fermé : 44 pourcentages en clair sur
           le seul accueil. */}
-      {!coteFermee && <Fragment set:html={delta(item.change7d, { blanc: true })} />}
+      {!coteFermee && variation && <Fragment set:html={delta(item.change7d, { blanc: true })} />}
+      {/* ⭐ SOUS LE MUR, LA VARIATION EST UN HÔTE — comme le plancher juste
+          au-dessus. `60-cote.js` y écrira le nombre au retour de la route ;
+          sans palier, le cadenas reste et dit « je ne montre pas », ce qui
+          n'est pas « je n'ai pas ». */}
+      {coteFermee && variation && <span class="delta delta--flat">
+        <Cote lang={lang} uuid={item.uuid} champ="change7d" /></span>}
     </div>
     )}
   </div>

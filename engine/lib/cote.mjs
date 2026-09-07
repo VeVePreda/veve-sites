@@ -580,6 +580,20 @@ function resumerPourLeTableauDeBord(ds) {
     //   cause empêche de regarder. Ce nombre le rend mesurable à chaque build.
     aVenirCliquables: nombreOuNull(Array.isArray(ds.aVenir)
       ? ds.aVenir.filter((d) => d && d.path).length : undefined),
+    // 🏷️🔴 LOT J — LE POULS DU MARCHÉ N'A QU'UNE CASE QUE CE SITE SAIT COMPTER.
+    // ⭐ Elle entre dans le RÉSUMÉ et pas dans la charge : le résumé est
+    //   précisément la table des DÉNOMBREMENTS que le tableau de bord lit sans
+    //   rappeler `dataset()`. Les deux autres cases (transferts, wallets)
+    //   viennent de `engine/data/pouls24.json` — l'entrepôt les a, le site ne
+    //   les reçoit pas ; voir `engine/lib/pouls.mjs`.
+    // ⚠️ COMPTÉES EN AMONT, PAS ICI : `listings` a quitté les items à
+    //   `projeterCote()`, et un `ds.items.reduce()` écrit à cette ligne
+    //   rendrait 0. `dataset.mjs` les transporte, comme `marcheCandidats`.
+    offres: nombreOuNull(ds.offres),
+    offresPieces: nombreOuNull(ds.offresPieces),
+    // ⚠️ UNE DATE, DONC PAS `nombreOuNull` — et `null` si aucune ligne n'a de
+    //   relevé : une case sans sa date ne s'affiche pas du tout.
+    offresLe: (typeof ds.offresLe === 'string' && ds.offresLe) ? ds.offresLe : null,
   };
 }
 

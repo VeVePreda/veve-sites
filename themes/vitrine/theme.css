@@ -340,6 +340,65 @@ footer.site{border-top:1px solid var(--vp-rule);padding:var(--s6) 0;
   text-transform:uppercase;letter-spacing:var(--ls-etiq)}
 .stat .v{font-family:var(--font-heading);font-size:clamp(24px,3vw,34px);font-weight:700;
   font-variant-numeric:tabular-nums;letter-spacing:-.03em;line-height:1;margin-top:6px}
+/* 📅 LOT J — LA SOUS-LIGNE QUI DATE UNE CASE.
+   `.stat .k` (le libelle) et `.stat .v` (le chiffre) existaient ; il manquait
+   la troisieme ligne, et c'est elle qui porte tout le sujet du tableau de
+   bord : TROIS fraicheurs vivent sur cet ecran (transferts, prix, favoris) et
+   les melanger sous un seul « aujourd'hui » ment par omission.
+   ⛔ Pas une classe neuve inventee a cote : `.item .s` existait deja avec
+   exactement ce role sur la carte d'une piece. On etend la famille, on n'en
+   ouvre pas une seconde. */
+.stat .s{font-size:12px;color:var(--muted);margin-top:5px;line-height:1.35}
+/* 📊 LOT J — LA JAUGE BAS ↔ HAUT EN UNE CELLULE DE TABLEAU.
+   🔴🔴 ELLE NE S'APPELLE PAS `.jauge`, ET C'EST UNE COLLISION EVITEE DE JUSTESSE.
+   `.jauge` EXISTE DEJA DEUX FOIS : l. 1540 pour la grande jauge ATL/ATH de la
+   fiche (`.jauge__b/__r/__c/__l`, emise par `Item.astro`), et en LOCAL dans
+   `AlertesReglages.astro` pour une barre de progression. Ecrire une troisieme
+   `.jauge{display:block;width:96px}` ici aurait redefini la premiere selon
+   l'ordre du fichier — et `.jauge i` aurait attrape la seconde. Aucun banc ne
+   l'aurait vu : les deux classes sont legales, et la page fautive ne l'est
+   qu'a l'oeil. *Un nom deja pris est un defaut qui ne leve jamais.*
+   ⭐ ELLE EST SERVIE VIDE ET LE RESTE tant que `bord.js` n'a pas recu la
+   reponse de `/api/cote/lot` : les trois valeurs sont des MONTANTS, donc rien
+   que le serveur puisse calculer.
+   ⛔ ET UNE JAUGE VIDE N'A PAS DE CURSEUR A ZERO : un point colle a gauche se
+   lirait « au plus bas », c'est-a-dire une mesure, et fausse. `[data-remplie]`
+   est pose par le pilote, et c'est la seule chose qui allume le curseur. */
+.jauge-t{position:relative;display:block;width:96px;height:6px;border-radius:var(--r-full);
+  background:var(--surface-2);border:1px solid var(--rule)}
+.jauge-t i{position:absolute;top:50%;width:9px;height:9px;margin-top:-4.5px;margin-inline-start:-4.5px;
+  border-radius:var(--r-full);background:var(--sect-a);display:none}
+.jauge-t[data-remplie] i{display:block}
+/* 📖 LOT J — LE RÉSUMÉ DE LA FICHE : QUATRE LIGNES, PUIS « LIRE LA SUITE ».
+   Mesuré sur le catalogue le 07/09 : 17 097 comics sur 17 134 (99,8 %) portent
+   une description, mediane 397 caracteres, p90 701 — assez pour pousser les
+   deux murs de prix sous le pli sur la moitie des fiches.
+   ⭐⭐⭐ AUCUN JAVASCRIPT, ET C'EST LE POINT : une case a cocher masquee plus un
+   `<label>`. Le texte ENTIER est dans le HTML — donc lu par Google, par un
+   lecteur d'ecran et par qui n'execute pas de script ; seul son AFFICHAGE est
+   borne. Un depliage pilote par un script aurait cache le texte a tout ce qui
+   n'est pas un navigateur.
+   ⛔ Et la case est masquee par `position:absolute`, PAS par `display:none` :
+   `display:none` la sort de l'ordre de tabulation et le depliage devient
+   inatteignable au clavier. */
+/* 🔬🔴 ET ELLE N'EST PAS MASQUEE PAR `opacity:0` — `test:opacite` a mordu sur
+   la premiere version, et il avait raison : un etat de repos a `opacity:0` sans
+   AUCUNE regle qui le releve decrit quelque chose d'invisible pour toujours,
+   c'est-a-dire soit un oubli, soit un objet qui n'a rien a faire dans le flux.
+   Ici l'invisibilite est VOULUE et definitive : c'est le motif « visually
+   hidden », qui retire l'element de l'affichage SANS le retirer du clavier ni
+   du lecteur d'ecran. ⭐ Le banc ne demandait pas de rendre la case visible :
+   il demandait qu'on la cache avec l'outil qui dit ce qu'on fait. */
+.resume__i{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
+  clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;border:0}
+.resume__t{display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+.resume__i:checked ~ .resume__t{display:block;-webkit-line-clamp:none}
+.resume__p{display:inline-block;margin-top:6px;font-family:var(--tech);font-size:var(--t-sm);
+  color:var(--sect-a);cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.resume__i:focus-visible ~ .resume__p{outline:2px solid var(--sect-a);outline-offset:2px}
+.resume__i:checked ~ .resume__p .resume__plus{display:none}
+.resume__p .resume__moins{display:none}
+.resume__i:checked ~ .resume__p .resume__moins{display:inline}
 th, td{text-align:left;padding:11px var(--s2);border-bottom:1px solid var(--vp-rule)}
 td.num, th.num{text-align:right;font-variant-numeric:tabular-nums;
   font-family:var(--font-heading);font-weight:600}

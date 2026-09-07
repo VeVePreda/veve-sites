@@ -108,6 +108,10 @@ const df = dateLocale[lang] || 'en-GB';
 // graduation chiffree. Cote ouverte : rien ne change, ancien chemin.
 // ⛔ NE PAS faire une fonction unique qui devine : un rendu qui decide seul
 // s'il a le droit d'ecrire un prix est un verrou pose sur une heuristique.
+// 🎭 LOT J — LA PANCARTE DE L'OFFRE UNIQUE. ⭐ 96 (donc 52 px affichés) : la
+// table du livrable réserve 176 aux perches de page-outil et 208 aux états
+// vides, qui occupent une page entière. Celle-ci vit DANS un mur de prix.
+const flooraOffre = floora('offre-unique', 96);
 const coteFermee = coteEstFermee();
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1035,7 +1039,27 @@ const fPerche = floora('fiche', 176);
           d'une saisie, donc c'est une donnee d'entree comme une autre. La
           rendre en HTML serait une injection servie par notre domaine — la
           meme faute que le `src` non assaini des visuels. */}
-      {item.description && <p class="prose">{item.description}</p>}
+      {/* 📖 LOT J — QUATRE LIGNES, PUIS « LIRE LA SUITE » (maquette v5, page 06).
+          ⭐ LE TEXTE ENTIER RESTE DANS LE HTML : seul son affichage est borné,
+          par `-webkit-line-clamp` et une case à cocher. Rien n'est retiré du
+          document — ni pour Google, ni pour un lecteur d'écran, ni pour qui
+          n'exécute pas de script. ⛔ Un dépliage en JavaScript aurait fait
+          l'inverse : cacher le texte à tout ce qui n'est pas un navigateur.
+          ⛔ Texte BRUT, jamais `set:html` — voir la note ci-dessus : cette
+          chaîne vient d'un Sheet, donc d'une saisie.
+          ⚠️ L'`id` porte l'uuid : deux fiches ne cohabitent pas sur une page
+          aujourd'hui, mais un `id` fixe est exactement ce qui casse le jour où
+          un gabarit en met deux — et le `<label for>` viserait la mauvaise. */}
+      {item.description && (
+        <div class="resume">
+          <input class="resume__i" type="checkbox" id={`res-${item.uuid}`} />
+          <p class="prose resume__t">{item.description}</p>
+          <label class="resume__p" for={`res-${item.uuid}`}>
+            <span class="resume__plus">{t(lang, 'item.readMore')}</span>
+            <span class="resume__moins">{t(lang, 'item.readLess')}</span>
+          </label>
+        </div>
+      )}
 
       {/* ═══ LES DEUX MURS ═══
           ⚠️ La maquette oppose « Plancher VeVe » (gems) et « Plancher StackR »
@@ -1082,6 +1106,27 @@ const fPerche = floora('fiche', 176);
             ? <Cote lang={lang} uuid={item.uuid} champ="floor" />
             : money(item.floor)}<span class="mur__u">gems</span></div>
           <div class="mur__eq">{item.listings ?? '—'} {t(lang, 'item.listings')}</div>
+          {/* 🎭 LOT J — L'OFFRE UNIQUE (maquette v5, page 06).
+              ⭐ `item.listings` EST PUBLIC — il l'est depuis toujours (la ligne
+              juste au-dessus l'affiche), et ce n'est pas une exception : un
+              NOMBRE D'ANNONCES ne dit aucun montant. Le bloc peut donc être
+              rendu par le serveur, contrairement au plancher qui l'accompagne.
+              ⛔ ET LA BULLE NE PORTE AUCUN NOMBRE (consigne de la maquette) :
+              elle dit ce que « une seule offre » veut dire, pas laquelle ni à
+              combien. Le texte vient de `BULLE_DE`, jamais d'ici — sinon deux
+              pages finiraient par expliquer la même chose de deux façons.
+              ⚠️ `=== 1` STRICTEMENT : `0` est un état COURANT (« aucune
+              offre », déjà dit ailleurs et daté) et ne se confond pas avec
+              celui-ci. `null` (on ne sait pas) encore moins. */}
+          {item.listings === 1 && (
+            <div class="mur__d" style="align-items:center">
+              <img src={flooraOffre.src} alt={t(lang, flooraOffre.cle)}
+                   width={flooraOffre.width} height={flooraOffre.height}
+                   loading="lazy" decoding="async" />
+              <span class="etiq" style="text-transform:none;letter-spacing:.04em">
+                {t(lang, flooraOffre.cleBulle)}</span>
+            </div>
+          )}
           {/* ═══════════════════════════════════════════════════════════════
               🏪 LOT 218 — « ENCORE DISPONIBLE EN BOUTIQUE : N / M ».
               ═══════════════════════════════════════════════════════════════
