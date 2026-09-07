@@ -398,7 +398,13 @@
       //   fiche n'a pas de cote en réserve et n'en aura jamais : un cadenas
       //   dessus dirait « je ne montre pas » là où la vérité est « je n'ai pas ».
       prixHtml: (p && u) ? cadenasNu(u, 'floor') : '',
-      extHtml: (p && u) ? (cadenas('b', 'ATL', u, 'atl') + cadenas('h', 'ATH', u, 'ath')) : '',
+      // 🧩 LOT I ④ — LA FORME DU BANDEAU EST PARTIE DANS `tuile.js`. Ce module
+      //   ne dit plus que ce qu'il est SEUL à savoir : quel cadenas va dans quel
+      //   `<b>`. `cadenas()` recopiait ici `<span class="b"><i>ATL</i><b>…` —
+      //   la même forme que `Market.astro` montait de son côté, sans que rien
+      //   ne tienne les deux ensemble. Le HTML produit est INCHANGÉ.
+      ext: (p && u) ? [{ c: 'b', lib: 'ATL', h: cadenasNu(u, 'atl') },
+                       { c: 'h', lib: 'ATH', h: cadenasNu(u, 'ath') }] : null,
       sansFicheTxt: p ? '' : txt('sansfiche')
     }), document);
   }
@@ -407,17 +413,15 @@
    *  thème le dessine depuis `.cote__l`, et le serveur l'écrit en dur. ⭐ On
    *  émet la même structure et le même `title` (`data-titre`, posé par le
    *  serveur donc traduit) — le cadenas graphique est repris du gabarit. */
-  /** ⭐ LE MÊME BADGE, SANS L'ÉTIQUETTE. `cadenas()` enveloppe dans
-   *  `<span class=b|h><i>ATL</i><b>…` parce qu'un extrême a besoin de dire
-   *  LEQUEL il est. Un plancher n'a besoin d'aucun mot : il est le prix.
-   *  ⛔ Émettre `<i></i>` vide « pour garder la même forme » aurait posé un
-   *  nœud que le thème peint (`.rayon__ext i` a une taille et un
-   *  interlettrage) et qui ne dirait rien — un blanc dont personne ne
-   *  retrouverait la cause.
-   *  ⭐⭐ ET IL SORT DU MÊME ENDROIT QUE `cadenas()` : la structure interne du
-   *  `<span class="cote">` n'est écrite QU'UNE FOIS dans ce fichier. Deux
-   *  copies du même balisage, c'est `CoteScript` qui remplit l'une et pas
-   *  l'autre le jour où l'une bouge. */
+  /** ⭐ LE MÊME BADGE POUR LE PLANCHER ET POUR LES EXTRÊMES. L'étiquette
+   *  (`<i>ATL</i>`) n'est plus posée ici mais par `tuile.js` : un extrême a
+   *  besoin de dire LEQUEL il est, un plancher n'a besoin d'aucun mot — il est
+   *  le prix. ⛔ Émettre `<i></i>` vide « pour garder la même forme » poserait
+   *  un nœud que le thème peint (`.rayon__ext i` a une taille et un
+   *  interlettrage) et qui ne dirait rien.
+   *  ⭐⭐ LA STRUCTURE INTERNE DU `<span class="cote">` N'EST ÉCRITE QU'ICI, et
+   *  les deux usages y passent : deux copies du même balisage, c'est
+   *  `CoteScript` qui remplit l'une et pas l'autre le jour où l'une bouge. */
   function cadenasNu(uuid, champ, cl) {
     return '<span class="' + (cl || 'cote') + '" data-cote="' + uuid + '" data-champ="' + champ + '"'
       + ' title="' + txt('titrecote').replace(/"/g, '&quot;') + '">'
@@ -426,18 +430,12 @@
       + '</span>';
   }
 
-  function cadenas(cl, k, uuid, champ) {
-    return '<span class="' + cl + '"><i>' + k + '</i><b>'
-      // ⛔ `class="cote"` ET RIEN DE PLUS — comparé à l'octet près au HTML servi
-      //   par `Extremes.astro` sur `/comics/page/2/`. La première version
-      //   écrivait `class="cote rayon__cote"` : une classe QUE PERSONNE NE PEINT
-      //   (le thème connaît `.rayon__ext` et `.cote`, pas `.rayon__cote`).
-      //   Elle n'aurait rien cassé et n'aurait rien fait — c'est
-      //   `regle-emetteur-sans-regle`, la faute qui traverse une revue parce
-      //   qu'elle est invisible dans les deux sens.
-      + cadenasNu(uuid, champ)
-      + '</b></span>';
-  }
+  // 🧩 LOT I ④ — `cadenas()` A ÉTÉ RETIRÉ : sa seule raison d'être était
+  //   d'assembler la forme `<span class="b"><i>ATL</i><b>…</b></span>`, qui vit
+  //   maintenant dans `tuile.js`. ⛔ Le laisser en place aurait fait un émetteur
+  //   sans appelant — la description d'une forme que plus rien ne rend, prête à
+  //   diverger le jour où l'autre change.
+
 
   // ═══════════════════════════════════════════════════════════════════════
   //  ⑤ APPLIQUER

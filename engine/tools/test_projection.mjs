@@ -399,7 +399,22 @@ const nues = [];
 const vues = new Set();
 for (const f of fichiersAstro) {
   readFileSync(f, 'utf8').split('\n').forEach((l, n) => {
-    const code = decommenter(l);
+    // 🔴🔴⭐⭐⭐ LOT I — DEUX CHOSES S'APPELLENT `history`, ET CE BANC N'EN JUGE
+    //    QU'UNE. Son sujet est `item.history`, la SÉRIE DE PRIX que `projeter()`
+    //    supprime : la lire rend `undefined`, et `f(undefined)` rend du vide en
+    //    silence. `window.history`, c'est l'API d'historique du NAVIGATEUR —
+    //    aucun rapport, aucun risque de projection, et le lot I ③ s'en sert
+    //    légitimement pour que « précédent » annule un tri.
+    //    ⛔ ON NE L'AJOUTE PAS À LA LISTE BLANCHE : une autorisation nommée dit
+    //    « cette lecture-ci du champ est sûre », alors qu'ici il n'y a pas de
+    //    lecture du champ du tout. L'y mettre aurait fait croire, à la première
+    //    relecture, que le pilote touche à la série de prix.
+    //    ⭐ On retire donc l'API du texte AVANT de chercher le champ : le banc
+    //    est réécrit vers son MÉCANISME, il n'est pas assoupli. Une vraie
+    //    lecture de `item.history` sur la même ligne rougirait toujours.
+    //    ⚠️ Et `window.history` ne reste pas sans surveillance pour autant :
+    //    `test:tuiles` §7 e mesure le `pushState` du tri.
+    const code = decommenter(l).replace(/\bwindow\.history\b/g, ' ');
     if (!/\b\w+\.history\b/.test(code)) return;
     const connue = LECTURES_NOMMEES.find((a) => code.includes(a.motif) && f.endsWith(a.ou.split('/').pop()));
     if (connue) { vues.add(connue.motif); return; }

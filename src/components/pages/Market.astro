@@ -61,6 +61,13 @@ import { lireTaux, convertirOmi } from '../../../engine/lib/taux_omi.mjs';
 // fallu lancer le serveur À LA MAIN, avec une fausse porte veveid, pour LIRE
 // le message au lieu de le deviner.
 const formeBarre = moduleJs('rail');
+// 🧩🔴🔴 LOT I ④ — LA DESCRIPTION DE LA TUILE EST DÉSORMAIS UN FICHIER SERVI.
+//   `batirTuiles()` ne décrit plus la tuile, elle appelle `window.vpTuile` —
+//   qui n'existe que si CE fichier-ci est chargé. ⛔ Le déposer sans l'appeler
+//   aurait donné une vue Tuiles VIDE en production, la panne exacte du lot 226
+//   (« un fichier déposé n'est pas un fichier branché »). `Rayon.astro` le
+//   charge de la même façon depuis le lot G.
+const gabaritTuile = moduleJs('tuile');
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 🔴🔴 LOT 104 (07/08/2026) — LA PAGE REVIENT, RÉSERVÉE AUX COMPTES
@@ -1296,7 +1303,7 @@ const ILE_TUILES = JSON.stringify({
             sur un classement par variation. Sur un catalogue trié par date, un
             numéro d'ordre est un chiffre qui a l'air d'être une donnée. */}
         <th scope="col" class="rang"><span class="sr-only">{t(lang, 'item.cover')}</span></th>
-        <th scope="col" class="tri" aria-sort={sensTri('nom')}><a class="th-tri" href={urlTri(triSuivant('nom'))}>{t(lang, 'movers.item')}<span class="th-tri__f" aria-hidden="true">{flecheTri('nom')}</span></a></th>
+        <th scope="col" class="tri" aria-sort={sensTri('nom')}><a class="th-tri" data-tri-col="nom" href={urlTri(triSuivant('nom'))}>{t(lang, 'movers.item')}<span class="th-tri__f" aria-hidden="true">{flecheTri('nom')}</span></a></th>
         {/* 🔴 LOT H — LE `hidden` EST POSÉ PAR LE SERVEUR, PAS SEULEMENT PAR LE
             PILOTE. `colonnes()` (plus bas) peint déjà l'état au chargement,
             mais il peint APRÈS : sans ce `hidden`-ci, la page servie montre un
@@ -1307,15 +1314,29 @@ const ILE_TUILES = JSON.stringify({
             ⛔ On n'OMET pas la cellule : `colonnes()` la rallume en décochant
             une case, sans aller-retour serveur. Un `<td>` absent devrait être
             refabriqué — et ce serait une deuxième fabrique. */}
-        <th scope="col" class="c-3" data-col="rar" hidden={!colVue('rar')} aria-sort={sensTri('rar')}><a class="th-tri" href={urlTri(triSuivant('rar'))}>{t(lang, 'item.rarity')}<span class="th-tri__f" aria-hidden="true">{flecheTri('rar')}</span></a></th>
-        <th scope="col" class="n c-4" data-col="sup" hidden={!colVue('sup')} aria-sort={sensTri('sup')}><a class="th-tri" href={urlTri(triSuivant('sup'))}>{t(lang, 'item.supply')}<span class="th-tri__f" aria-hidden="true">{flecheTri('sup')}</span></a></th>
-        <th scope="col" class="n c-4" data-col="lst" hidden={!colVue('lst')} aria-sort={sensTri('lst')}><a class="th-tri" href={urlTri(triSuivant('lst'))}>{t(lang, 'item.listings')}<span class="th-tri__f" aria-hidden="true">{flecheTri('lst')}</span></a></th>
-        <th scope="col" class="n c-4" data-col="ten" hidden={!colVue('ten')} title={t(lang, 'movers.tensionAide')} aria-sort={sensTri('ten')}><a class="th-tri" href={urlTri(triSuivant('ten'))}>{t(lang, 'movers.tension')}<span class="th-tri__f" aria-hidden="true">{flecheTri('ten')}</span></a></th>
-        <th scope="col" class="n" aria-sort={sensTri('floor')}><a class="th-tri" href={urlTri(triSuivant('floor'))}>{t(lang, 'movers.floor')}<span class="th-tri__f" aria-hidden="true">{flecheTri('floor')}</span></a></th>
-        <th scope="col" class="n c-5" data-col="atl" hidden={!colVue('atl')} aria-sort={sensTri('atl')}><a class="th-tri" href={urlTri(triSuivant('atl'))}>{t(lang, 'item.atl')}<span class="th-tri__f" aria-hidden="true">{flecheTri('atl')}</span></a></th>
-        <th scope="col" class="n c-5" data-col="ath" hidden={!colVue('ath')} aria-sort={sensTri('ath')}><a class="th-tri" href={urlTri(triSuivant('ath'))}>{t(lang, 'item.ath')}<span class="th-tri__f" aria-hidden="true">{flecheTri('ath')}</span></a></th>
-        <th scope="col" class="c-2 col-courbe" data-col="c7" hidden={!colVue('c7')} aria-sort={sensTri('ch')}><a class="th-tri" href={urlTri(triSuivant('ch'))}>{t(lang, 'movers.7d')}<span class="th-tri__f" aria-hidden="true">{flecheTri('ch')}</span></a></th>
-        <th scope="col" class="n c-5" data-col="mcp" hidden={!colVue('mcp')} aria-sort={sensTri('mcp')}><a class="th-tri" href={urlTri(triSuivant('mcp'))}>{t(lang, 'movers.perMcp')}<span class="th-tri__f" aria-hidden="true">{flecheTri('mcp')}</span></a></th>
+        <th scope="col" class="c-3" data-col="rar" hidden={!colVue('rar')} aria-sort={sensTri('rar')}><a class="th-tri" data-tri-col="rar" href={urlTri(triSuivant('rar'))}>{t(lang, 'item.rarity')}<span class="th-tri__f" aria-hidden="true">{flecheTri('rar')}</span></a></th>
+        <th scope="col" class="n c-4" data-col="sup" hidden={!colVue('sup')} aria-sort={sensTri('sup')}><a class="th-tri" data-tri-col="sup" href={urlTri(triSuivant('sup'))}>{t(lang, 'item.supply')}<span class="th-tri__f" aria-hidden="true">{flecheTri('sup')}</span></a></th>
+        <th scope="col" class="n c-4" data-col="lst" hidden={!colVue('lst')} aria-sort={sensTri('lst')}><a class="th-tri" data-tri-col="lst" href={urlTri(triSuivant('lst'))}>{t(lang, 'item.listings')}<span class="th-tri__f" aria-hidden="true">{flecheTri('lst')}</span></a></th>
+        <th scope="col" class="n c-4" data-col="ten" hidden={!colVue('ten')} title={t(lang, 'movers.tensionAide')} aria-sort={sensTri('ten')}><a class="th-tri" data-tri-col="ten" href={urlTri(triSuivant('ten'))}>{t(lang, 'movers.tension')}<span class="th-tri__f" aria-hidden="true">{flecheTri('ten')}</span></a></th>
+        <th scope="col" class="n" aria-sort={sensTri('floor')}><a class="th-tri" data-tri-col="floor" href={urlTri(triSuivant('floor'))}>{t(lang, 'movers.floor')}<span class="th-tri__f" aria-hidden="true">{flecheTri('floor')}</span></a></th>
+        {/* 🔤 LOT I ⑤ — « ALL-TIME LOW » DEVIENT « ATL », LE LONG PASSE EN INFOBULLE.
+            🗣️ Preda, 06/09 : « tu peux réduire l'épaisseur des colonnes de ALL-TIME
+            LOW et ALL-TIME HIGH en renommant ça ATL et ATH, et dans l'infobulle tu
+            marques All Time Low ». 📏 MESURÉ sur la page servie : ces deux en-têtes
+            faisaient 124,6 et 127,4 px — les DEUX plus larges du tableau après le nom.
+            ⭐ L'INFOBULLE EST `item.atl`, LA CLÉ DÉJÀ TRADUITE, pas une chaîne neuve.
+            En anglais elle rend exactement « All-time low », ce que Preda demande ; en
+            français elle rend « Plus-bas ». Écrire l'anglais en dur ici aurait planté
+            une phrase non traduite dans une interface qui l'est intégralement.
+            ⛔ ET SEUL L'EN-TÊTE ABRÈGE. Le sélecteur de tri et la liste « Colonnes »
+            gardent `item.atl` en entier : ils ont la place, et une case à cocher
+            « ATL » dans un panneau replié serait une abréviation sans son contexte.
+            ⚠️ `title` sur le `<th>` et non sur le lien : c'est la forme que
+            `movers.tensionAide` emploie déjà deux colonnes plus haut. */}
+        <th scope="col" class="n c-5" data-col="atl" hidden={!colVue('atl')} title={t(lang, 'item.atl')} aria-sort={sensTri('atl')}><a class="th-tri" data-tri-col="atl" href={urlTri(triSuivant('atl'))}>{t(lang, 'item.atlAbbr')}<span class="th-tri__f" aria-hidden="true">{flecheTri('atl')}</span></a></th>
+        <th scope="col" class="n c-5" data-col="ath" hidden={!colVue('ath')} title={t(lang, 'item.ath')} aria-sort={sensTri('ath')}><a class="th-tri" data-tri-col="ath" href={urlTri(triSuivant('ath'))}>{t(lang, 'item.athAbbr')}<span class="th-tri__f" aria-hidden="true">{flecheTri('ath')}</span></a></th>
+        <th scope="col" class="c-2 col-courbe" data-col="c7" hidden={!colVue('c7')} aria-sort={sensTri('ch')}><a class="th-tri" data-tri-col="ch" href={urlTri(triSuivant('ch'))}>{t(lang, 'movers.7d')}<span class="th-tri__f" aria-hidden="true">{flecheTri('ch')}</span></a></th>
+        <th scope="col" class="n c-5" data-col="mcp" hidden={!colVue('mcp')} aria-sort={sensTri('mcp')}><a class="th-tri" data-tri-col="mcp" href={urlTri(triSuivant('mcp'))}>{t(lang, 'movers.perMcp')}<span class="th-tri__f" aria-hidden="true">{flecheTri('mcp')}</span></a></th>
         <th scope="col" class="c-4" data-col="liens" hidden={!colVue('liens')}>{t(lang, 'movers.links')}</th>
       </tr></thead>
       <tbody>{lignes.map((i, k) => (
@@ -1346,8 +1367,16 @@ const ILE_TUILES = JSON.stringify({
           <td class="rang vign">
             {i.image
               ? (() => {
-                  /* 🖼️ RELOOKING 2 — 48 px, ET C'EST LE CSS QUI LE DIT
-                     (`theme.css`, `.vign__i{width:48px}`), pas cet attribut.
+                  /* 🖼️ LOT I ① — 48 px, ET C'EST TOUJOURS LE CSS QUI LE DIT
+                     (`theme.css`, `.vign__i`), pas cet attribut. Ces deux
+                     nombres-ci ne servent qu'à réserver le RATIO avant que la
+                     feuille n'arrive.
+                     🔴🔴 CE FICHIER N'A RIEN À SE REPROCHER, ET C'EST LE POINT :
+                     `width="48"` était déjà écrit ici, `width:48px` était déjà
+                     écrit dans la feuille, et l'image faisait quand même 0 px
+                     de large. Le coupable est un `img{max-width:100%}` GLOBAL,
+                     à quinze cents lignes d'ici. *Le défaut n'était pas là où
+                     la valeur est écrite.*
                      ⭐ 48 × 2 = 96 ≤ 132 : la vignette du CDN reste NETTE même
                      sur un écran à double densité, donc pas de `srcset`. */
                   const v = sourcesImage(i.image, 48);
@@ -1804,6 +1833,11 @@ const ILE_TUILES = JSON.stringify({
       `.barre-f` de son enveloppe. Trois pages, trois façons de filtrer, une
       seule façon d'ouvrir une feuille. */}
   <script defer src={formeBarre.href}></script>
+  {/* 🧩 LOT I ④ — ⛔ AVANT le pilote en ligne, et `defer` comme son voisin :
+      les deux s'exécutent dans l'ordre du document, une fois le DOM prêt. Le
+      pilote lit `window.vpTuile` au moment du CLIC sur « Tuiles », donc bien
+      après — mais l'ordre reste écrit plutôt que supposé. */}
+  <script defer src={gabaritTuile.href}></script>
 
   {/* ═══════════════════════════════════════════════════════════════════════
       🔴🔴🔴 LOT 155-C ③ — CE QUE LE PILOTE FAIT DE NEUF, ET POURQUOI
@@ -1906,21 +1940,56 @@ const ILE_TUILES = JSON.stringify({
       try { ile = JSON.parse(document.getElementById('tui-src').textContent); } catch (e) { ile = null; }
       var tuilesFaites = false;
 
+      // ═══════════════════════════════════════════════════════════════════
+      // 🧩🔴🔴🔴 LOT I ④ — LA TROISIÈME FABRIQUE EST PARTIE
+      // ═══════════════════════════════════════════════════════════════════
+      // C'était le SEUL point du lot H resté à faire. Le dépôt avait TROIS
+      // codes qui dessinaient une tuile ; le lot G en a ramené deux sur
+      // `src/socle/modules/tuile.js`, celui-ci restait. ~140 lignes qui
+      // décrivaient la tuile pour leur compte, et le motif est payé CINQ fois
+      // dans ce dépôt (lots 127, 131, 132, 155-A, puis G).
+      //
+      // ⭐⭐⭐ CE QUI CHANGE, ET CE QUI NE CHANGE PAS. La tuile est la MÊME —
+      // c'est la tuile de référence, celle que Preda a validée, et un lot qui
+      // la modifierait aurait raté sa cible. Ce qui change, c'est QUI la
+      // décrit : `tuile.js` rend un arbre `{t,c,x,a,k}`, ce fichier ne fait
+      // plus que LIRE la ligne et passer les valeurs.
+      //
+      // ⭐⭐ ET IL CLONE TOUJOURS. `prixNoeuds` et `ext[].noeud` reçoivent des
+      // nœuds DOM clonés de la ligne : le montant, l'alerte, les extrêmes. La
+      // description les porte tels quels — c'est l'extension `nodeType` de
+      // `monter()`. ⛔ Les re-fabriquer aurait été une seconde source pour un
+      // chiffre que le serveur a déjà rendu, avec sa devise et son échelle.
+      //
+      // 🔴 LE PIÈGE DU LOT H EST PRÉSERVÉ EXPLICITEMENT : la cellule ATL/ATH a
+      // gagné une seconde ligne (l'extrême StackR), et `querySelector` rend le
+      // PREMIER `.num` — l'extrême VeVe. C'est voulu : la tuile montre la
+      // référence VeVe. ⛔ Ne pas « corriger » en `querySelectorAll`.
+      //
+      // ⚠️ DEUX ÉCARTS ASSUMÉS, MESURÉS, ET AUCUN N'EST VISIBLE :
+      //   · l'`alt` de la couverture prend le nom ENTIER (`nomComplet`) là où
+      //     ce code prenait le nom COUPÉ — la règle du rayon, et un meilleur
+      //     texte de remplacement ;
+      //   · `.socle` devient un `<span>` au lieu d'un `<div>`. `.tuile` est
+      //     `display:flex` : ses enfants sont BLOCKIFIÉS, donc `aspect-ratio`
+      //     et `overflow` s'appliquent à l'identique — vérifié sur la page
+      //     servie (`display:block`, `aspect-ratio:4/5`).
       function batirTuiles(){
         // ⚠️ REPLI HONNÊTE : sans île, on ne bâtit RIEN et la grille reste
         // vide. ⛔ Surtout pas une tuile « dégradée » sans image : une grille
         // de rectangles gris ressemble à un site cassé, et `test:tuiles` §3
         // exige autant de tuiles que de lignes — le repli se VOIT.
         if (tuilesFaites || !grille || !ile) return;
+        // ⛔ MÊME REPLI SI LA DESCRIPTION MANQUE. `tuile.js` est un
+        //   `<script defer>` comme ses voisins : s'il n'a pas chargé, on ne
+        //   bâtit pas une tuile au rabais, on n'en bâtit aucune.
+        var VP = window.vpTuile;
+        if (!VP) return;
         tuilesFaites = true;
         var frag = document.createDocumentFragment();
         for (var k = 0; k < L.length; k++) {
           var l = L[k];
-          var a = document.createElement('a');
-          a.className = 'tuile revele';
           var lien = l.querySelector('a.tbl-obj');
-          a.setAttribute('href', lien ? lien.getAttribute('href') : '#');
-          a.setAttribute('style', '--i:' + k);
 
           // ⭐⭐⭐ LES ATTRIBUTS DE FILTRAGE, RECOPIÉS EN BLOC. Pas dix
           // affectations nommées : une BOUCLE sur ce que la ligne porte. Le
@@ -1928,123 +1997,71 @@ const ILE_TUILES = JSON.stringify({
           // — c'est exactement la panne ① du lot 71 (4 attributs sur 10, donc
           // quatre groupes de filtres qui laissaient tout passer) rendue
           // structurellement impossible.
+          var att = { style: '--i:' + k };
           for (var q = 0; q < l.attributes.length; q++) {
             var at = l.attributes[q];
-            if (at.name.indexOf('data-') === 0) a.setAttribute(at.name, at.value);
+            if (at.name.indexOf('data-') === 0) att[at.name] = at.value;
           }
 
-          // 155-C ③ ① — voir le bloc Astro au-dessus du script.
-          var hd = document.createElement('span'); hd.className = 'tuile__hd';
-          var of = document.createElement('span'); of.className = 'tuile__off';
-          // ⚠️ `|| '0'` et pas `|| 0` : `data-lst` vaut '' quand le nombre
-          // d'offres est INCONNU. Le gabarit d'origine écrivait `?? 0`, donc
-          // « 0 listings ». On garde le comportement à l'identique — le
-          // corriger serait un autre lot, avec sa propre mesure.
-          of.textContent = (a.getAttribute('data-lst') || '0') + ' ' + (ile.lst || '');
-          // la rareté monte dans le bandeau — CLONÉE, la table reste sur la ligne
           var srcRar = l.querySelector('[data-col="rar"] .m2__a .rar');
-          if (srcRar) {
-            var pr = document.createElement('span'); pr.className = 'tuile__rar';
-            pr.appendChild(srcRar.cloneNode(true));
-            hd.appendChild(pr);
-          }
-          hd.appendChild(of);
-
-          var socle = document.createElement('div'); socle.className = 'socle';
-          var url = ile.img[k];
-          if (url) {
-            // ⛔ `.src = url`, JAMAIS une concaténation dans `innerHTML` : une
-            // URL de couverture qui contiendrait un guillemet ferait de cette
-            // ligne une injection. La propriété ne peut pas sortir de
-            // l'attribut, la chaîne si.
-            var nom = (l.querySelector('.tbl-obj__n') || {}).textContent || '';
-            var fond = document.createElement('img');
-            fond.className = 'socle__fond ok'; fond.src = url; fond.alt = '';
-            fond.setAttribute('aria-hidden', 'true');
-            var net = document.createElement('img');
-            net.className = 'socle__net ok'; net.src = url; net.alt = nom;
-            var voile = document.createElement('span'); voile.className = 'socle__voile';
-            // ⭐ `width`/`height` posés en ATTRIBUTS : ils réservent la place
-            // et évitent le décalage de mise en page. `loading="lazy"` fait
-            // que bâtir 200 tuiles ne décode que celles à l'écran — c'est ce
-            // qui rend ce lot possible sans rendre la bascule lente.
-            [fond, net].forEach(function (x) {
-              x.setAttribute('width', '400'); x.setAttribute('height', '600');
-              x.setAttribute('loading', 'lazy'); x.setAttribute('decoding', 'async');
-            });
-            socle.appendChild(fond); socle.appendChild(voile); socle.appendChild(net);
-          } else {
-            var voile2 = document.createElement('span'); voile2.className = 'socle__voile';
-            var cage = document.createElement('span');
-            cage.setAttribute('style', 'position:absolute;inset:0;display:grid;place-items:center;z-index:3');
-            cage.innerHTML = '<span class="forme forme--xl" style="--c-a:var(--rule-2)">'
-              + '<svg viewBox="0 0 24 24"><use href="#s-r-ULTRA_RARE"/></svg></span>';
-            socle.appendChild(voile2); socle.appendChild(cage);
-          }
-
-          // 155-C ③ ② — ⛔ JAMAIS par ILE_TUILES (lot 127) : on CLONE la cellule.
-          var extB = l.querySelector('[data-ext="atl"] .num');
-          var extH = l.querySelector('[data-ext="ath"] .num');
-          if (extB || extH) {
-            var ext = document.createElement('span');
-            ext.className = 'socle__ext'; ext.setAttribute('aria-hidden', 'true');
-            [['b', 'ATL', extB, 'atl'], ['h', 'ATH', extH, 'ath']].forEach(function (d) {
-              if (!d[2]) return;
-              var c = document.createElement('span');
-              c.className = d[0];
-              c.setAttribute('data-col', d[3]);
-              var lib = document.createElement('i'); lib.textContent = d[1];
-              var val = document.createElement('b'); val.appendChild(d[2].cloneNode(true));
-              c.appendChild(lib); c.appendChild(val);
-              ext.appendChild(c);
-            });
-            socle.appendChild(ext);
-          }
-
-          var bas = document.createElement('span'); bas.className = 'tuile__b';
-          var titre = document.createElement('span'); titre.className = 'tuile__n';
-          var srcN = l.querySelector('.tbl-obj__n');
-          // ⛔ le titre est SEUL dans son bloc : c'est ce qui fige la hauteur
-          titre.textContent = srcN ? srcN.textContent : '';
-          // 📏 LOT 203 — L'INFOBULLE SUIT LE TEXTE JUSQU'À LA TUILE.
-          // ⭐⭐ C'EST ICI QUE LA TUILE EN A LE PLUS BESOIN : sa case est bien
-          //   plus étroite que la colonne du tableau, donc elle coupe bien plus
-          //   tôt. Recopier le texte sans recopier son `title` aurait donné
-          //   l'infobulle là où elle sert le moins et l'aurait retirée là où
-          //   elle sert le plus.
-          // ⛔ `getAttribute` et non `.title` en repli sur le texte : si la
-          //   source n'a pas d'attribut, on n'en invente pas un — un `title`
-          //   qui répète exactement le texte visible est une infobulle qui
-          //   s'ouvre pour ne rien apprendre.
-          if (srcN && srcN.getAttribute('title')) titre.title = srcN.getAttribute('title');
-          var se = document.createElement('span'); se.className = 'tuile__s';
-          var srcSe = l.querySelector('.tbl-obj__s');
-          se.textContent = srcSe ? srcSe.textContent : '';
-          if (srcSe && srcSe.getAttribute('title')) se.title = srcSe.getAttribute('title');
-
-          var prix = document.createElement('span'); prix.className = 'tuile__p';
-          var srcP = l.querySelector('[data-prix] .num');
-          if (srcP) prix.appendChild(srcP.cloneNode(true));
+          var srcN   = l.querySelector('.tbl-obj__n');
+          var srcSe  = l.querySelector('.tbl-obj__s');
+          var srcP   = l.querySelector('[data-prix] .num');
           // 155-C ③ ③ — `.alerte` est le FRÈRE de `.num`, il ne suivait pas
-          var srcA = l.querySelector('[data-prix] .alerte');
-          if (srcA) prix.appendChild(srcA.cloneNode(true));
-          // ── LA VARIATION. ⛔ Le POURCENTAGE vient de l'île, pas de
-          // `data-ch` : `data-ch` est arrondi à 2 décimales pour le TRI, et
-          // l'afficher avec une décimale l'arrondirait une seconde fois.
-          // « On arrondit la clé de tri, jamais la valeur affichée. »
-          // La FLÈCHE, elle, vient de `data-var` — la même source que le filtre
-          // ▲/▼, donc un badge qui ne peut pas contredire le filtre.
-          var sens = a.getAttribute('data-var') || 'flat';
-          var trace = sens === 'up' ? 'M6 2 11 9H1z' : sens === 'down' ? 'M6 10 1 3h10z' : 'M2 6h8';
-          var badge = document.createElement('span');
-          badge.className = 'delta delta--' + sens;
-          badge.innerHTML = '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="' + trace + '"/></svg>';
-          badge.appendChild(document.createTextNode(ile.pct[k] || '—'));
-          prix.appendChild(badge);
+          var srcA   = l.querySelector('[data-prix] .alerte');
+          var extB   = l.querySelector('[data-ext="atl"] .num');
+          var extH   = l.querySelector('[data-ext="ath"] .num');
 
-          bas.appendChild(titre); bas.appendChild(se); bas.appendChild(prix);
-          a.appendChild(hd); a.appendChild(socle); a.appendChild(bas);
-          frag.appendChild(a);
+          var noeuds = [];
+          if (srcP) noeuds.push(srcP.cloneNode(true));
+          if (srcA) noeuds.push(srcA.cloneNode(true));
+          var extremes = [];
+          if (extB) extremes.push({ c: 'b', col: 'atl', lib: 'ATL', noeud: extB.cloneNode(true) });
+          if (extH) extremes.push({ c: 'h', col: 'ath', lib: 'ATH', noeud: extH.cloneNode(true) });
+
+          var url = ile.img[k];
+          frag.appendChild(VP.monter(VP.decrire({
+            href: lien ? lien.getAttribute('href') : '',
+            classePlus: 'revele',
+            attrs: att,
+            // la rareté monte dans le bandeau — CLONÉE, la table reste sur la ligne
+            rarHtml: srcRar ? srcRar.outerHTML : '',
+            // ⚠️ `|| '0'` et pas `|| 0` : `data-lst` vaut '' quand le nombre
+            // d'offres est INCONNU. Le gabarit d'origine écrivait `?? 0`, donc
+            // « 0 listings ». On garde le comportement à l'identique — le
+            // corriger serait un autre lot, avec sa propre mesure.
+            offresTxt: (att['data-lst'] || '0') + ' ' + (ile.lst || ''),
+            image: url || '',
+            // ⭐⭐ LE LOSANGE EST TRANSPORTÉ, PAS REDESSINÉ (règle du lot 155-B).
+            //   ⛔ Le style en ligne `--c-a` a disparu : `.socle__cage .forme`
+            //   pose déjà la couleur dans le thème, et c'est ce que la fabrique
+            //   du rayon emploie. Chemin NON EXERCÉ sur la page servie du
+            //   06/09 (0 tuile sur 20 sans couverture) — donc non mesuré ici,
+            //   mais mesuré sur les rayons, qui l'empruntent tous les jours.
+            losangeHtml: url ? '' : '<span class="forme forme--xl"><svg viewBox="0 0 24 24"><use href="#s-r-ULTRA_RARE"/></svg></span>',
+            nomVu: srcN ? srcN.textContent : '',
+            // 📏 LOT 203 — L'INFOBULLE SUIT LE TEXTE JUSQU'À LA TUILE, parce que
+            // sa case est bien plus étroite que la colonne et coupe bien plus
+            // tôt. ⛔ `getAttribute` et non `.title` : si la source n'a pas
+            // d'attribut, on n'en invente pas un — une infobulle qui répète le
+            // texte visible s'ouvre pour ne rien apprendre.
+            nomComplet: srcN ? srcN.getAttribute('title') : null,
+            serie: srcSe ? srcSe.textContent : '',
+            serieComplete: srcSe ? srcSe.getAttribute('title') : null,
+            // ⛔ voir `serieVide` dans `tuile.js` : `/market/` émet le créneau
+            //   même vide, le rayon non. Divergence NOMMÉE, pas subie.
+            serieVide: true,
+            ext: extremes,
+            prixNoeuds: noeuds,
+            // ── LA VARIATION. ⛔ Le POURCENTAGE vient de l'île, pas de
+            // `data-ch` : `data-ch` est arrondi à 2 décimales pour le TRI, et
+            // l'afficher avec une décimale l'arrondirait une seconde fois.
+            // « On arrondit la clé de tri, jamais la valeur affichée. »
+            // La FLÈCHE, elle, vient de `data-var` — la même source que le
+            // filtre ▲/▼, donc un badge qui ne peut pas contredire le filtre.
+            deltaSens: att['data-var'] || 'flat',
+            deltaTxt: ile.pct[k] || '—'
+          }), document));
         }
         grille.appendChild(frag);
         colonnes();   // ⛔ les tuiles naissent APRÈS colonnes() — sinon le bandeau revient
@@ -2425,6 +2442,185 @@ const ILE_TUILES = JSON.stringify({
         if (cx) cx.value = '1';
         enVol = true;
       });
+
+      // ═══════════════════════════════════════════════════════════════════
+      //  ⑦ LOT I ③ — LE TRI NE RECHARGE PLUS LA PAGE
+      // ═══════════════════════════════════════════════════════════════════
+      // 🗣️ PREDA, 06/09 : « quand je clique sur un des noms de colonne ça me
+      // recharge la page ». Arbitrage rendu le même jour, sur trois formes
+      // proposées : **remplacer le tableau sans recharger**.
+      //
+      // ⛔⛔ CE QUI NE CHANGE PAS, ET C'EST LE POINT LE PLUS IMPORTANT : LE TRI
+      // RESTE AU SERVEUR. Trier ici trierait la TRANCHE affichée (20 lignes) et
+      // non la sélection (9 354) : l'ordre aurait l'air juste et mentirait dès
+      // la 21ᵉ. C'est la raison écrite au lot H, elle tient toujours, et elle
+      // n'a jamais été la raison du RECHARGEMENT — les deux questions avaient
+      // été confondues.
+      // ⭐⭐⭐ *« Le calcul doit rester au serveur » ne dit rien de la façon dont
+      // la réponse arrive à l'écran.* Un `<button name="f-tri">` était bien
+      // impossible (le formulaire porte DÉJÀ un `<select name="f-tri">`, les
+      // deux seraient partis et `sp.get()` aurait lu le premier) — mais un
+      // pilote qui INTERCEPTE le clic ne l'a jamais été.
+      //
+      // ⛔ ET L'EN-TÊTE RESTE UN `<a href>`. Sans JavaScript — ou si `fetch`
+      // manque — rien n'est branché et le lien navigue, exactement comme
+      // aujourd'hui. C'est la promesse que « voir plus » a déjà payée au
+      // lot 201 : on ne transforme pas un lien en geste.
+      //
+      // 🔴🔴 ET ON LIT `fetch` / `DOMParser` **SUR LE `window` REÇU**, jamais
+      // sur la portée globale. `test:tuiles` exécute ce pilote dans linkedom en
+      // lui PASSANT un `window` : des globales auraient rendu tout ce bloc
+      // inatteignable en banc — vert pour la seule raison qu'il n'aurait jamais
+      // été joué. C'est mot pour mot le piège de `window.location` du lot 201,
+      // et il s'évite en laissant l'appelant fournir le transport.
+      // ⭐ ON RÉEMPLOIE `hoteTbl`, LU PLUS HAUT POUR LE LIBELLÉ D'ATTENTE.
+      //   Un second nom pour le même nœud aurait été la porte ouverte à ce que
+      //   l'un des deux cesse un jour de désigner l'autre.
+      var enTri = false;
+
+      // ── CE QUE L'ÉCHANGE DOIT REMETTRE EN PLACE ────────────────────────────
+      // 🔴🔴 UN NŒUD REMPLACÉ N'EST PAS UN NŒUD BRANCHÉ. Cinq choses tenaient à
+      // l'ancien corps du tableau, et aucune ne survit toute seule :
+      //   ① `L`, la liste des lignes, lue UNE fois à l'ouverture ;
+      //   ② le libellé d'attente, reposé par le pilote sur chaque `data-attente` ;
+      //   ③ l'île `#tui-src`, dont `img[k]`/`pct[k]` suivent l'ORDRE DES LIGNES
+      //      — la sauter donnerait à chaque tuile la couverture d'une autre ;
+      //   ④ les tuiles déjà bâties, qui décrivent l'ancien ordre ;
+      //   ⑤ les colonnes masquées, repeintes par `colonnes()`.
+      // ⭐ Ce sont exactement les gestes de l'ouverture : on les nomme une fois
+      //   et les deux chemins les partagent, plutôt que d'en tenir deux copies.
+      function rebrancher() {
+        L = [].slice.call(document.querySelectorAll('#vue-tbl tbody tr'));
+        if (ATT) {
+          [].slice.call(document.querySelectorAll('#vue-tbl [data-attente]'))
+            .forEach(function (e) { if (!e.getAttribute('title')) e.setAttribute('title', ATT); });
+        }
+        try { ile = JSON.parse(document.getElementById('tui-src').textContent); } catch (e) { ile = null; }
+        tuilesFaites = false;
+        if (grille) grille.innerHTML = '';
+        T = [];
+        // ⛔ `batirTuiles()` appelle `colonnes()` en fin de course : l'appeler
+        //    AUSSI ici repeindrait deux fois. On choisit selon la vue en cours.
+        if ((champVue ? champVue.value : 'tbl') === 'tui') batirTuiles(); else colonnes();
+      }
+
+      // ── LA CHIRURGIE, SÉPARÉE DU TRANSPORT ────────────────────────────────
+      // ⭐⭐ Elle prend du TEXTE et rend `true`/`false`. Aucun `fetch` dedans :
+      // c'est ce qui permet à un banc de lui donner une seconde page fabriquée
+      // et de VÉRIFIER l'échange, sans réseau et sans stub de promesse.
+      function appliquerReponse(html) {
+        if (!hoteTbl || !html) return false;
+        var doc = null;
+        try { doc = new window.DOMParser().parseFromString(html, 'text/html'); } catch (e) { return false; }
+        if (!doc) return false;
+        var neufHote = doc.getElementById('vue-tbl');
+        // ⛔ ON EXIGE LE TABLEAU, PAS SEULEMENT L'HÔTE. Une page d'erreur, une
+        //    redirection vers `/connexion/` ou un état vide rendraient un hôte
+        //    sans `#resultats` : on refuse et l'appelant navigue pour de bon —
+        //    plutôt que d'installer un tableau vide en silence.
+        if (!neufHote || !doc.getElementById('resultats')) return false;
+        hoteTbl.innerHTML = neufHote.innerHTML;
+        var ileN = doc.getElementById('tui-src'), ileL = document.getElementById('tui-src');
+        if (ileN && ileL) ileL.textContent = ileN.textContent;
+        var cptN = doc.getElementById('cpt'), cptL = document.getElementById('cpt');
+        // ⭐ `#cpt` porte `role="status"` : le remplir refait ANNONCER le compte.
+        if (cptN && cptL) cptL.textContent = cptN.textContent;
+        var pcN = doc.getElementById('plus-cpt'), pcL = document.getElementById('plus-cpt');
+        if (pcN && pcL) pcL.textContent = pcN.textContent;
+        // ⭐⭐ `#plus` reprend l'adresse QUE LE SERVEUR VIENT D'ÉCRIRE : elle
+        //    porte le nouveau tri et les treize filtres. `rebrancher()` →
+        //    `colonnes()` → `majPlus()` y remettra ensuite la vue et les
+        //    colonnes. ⛔ L'ordre compte : recopier APRÈS `majPlus()` effacerait
+        //    ce que `majPlus()` vient d'y poser.
+        var plusN = doc.getElementById('plus');
+        if (PLUS && plusN && plusN.getAttribute('href')) PLUS.setAttribute('href', plusN.getAttribute('href'));
+        // ⚠️ LE `<select>` DU RAIL SUIT, SINON IL AFFICHE L'ANCIEN TRI. On lit
+        //    l'`<option selected>` de la réponse et non `select.value` : dans
+        //    linkedom, la propriété d'un `<select>` ne suit pas l'attribut
+        //    (correctif d'instrument connu, `_dom_banc.mjs`).
+        var optN = doc.querySelector('#f-tri option[selected]');
+        var selL = document.getElementById('f-tri');
+        if (optN && selL) selL.value = optN.getAttribute('value');
+        rebrancher();
+        return true;
+      }
+
+      // ── LE FOCUS SUIT LA COLONNE ──────────────────────────────────────────
+      // 🔴 Le lien cliqué est DÉTRUIT par l'échange. Sans ce geste, le focus
+      // retombe sur le corps du document et la navigation au clavier repart du
+      // haut de la page : un rechargement, lui, au moins ancrait sur
+      // `#resultats`. ⭐ C'est à ça que sert `data-tri-col` — une identité de
+      // COLONNE, stable, alors que `href` change à chaque tri.
+      function redonnerLeFocus(cle) {
+        if (!cle) return;
+        var a = document.querySelector('#vue-tbl a.th-tri[data-tri-col="' + cle + '"]');
+        if (a && a.focus) { try { a.focus(); } catch (e) { /* linkedom */ } }
+      }
+
+      function chargerTri(url, pousser, cle) {
+        if (enTri || !url) return;
+        enTri = true;
+        // ⭐ L'ATTENTE SE VOIT. `aria-busy` la dit aux lecteurs d'écran, et le
+        //   thème s'en sert pour le curseur et l'estompe — un tableau qui ne
+        //   bouge pas pendant 200 ms sans un signe ressemble à un clic perdu.
+        if (hoteTbl) hoteTbl.setAttribute('aria-busy', 'true');
+        var finir = function () {
+          enTri = false;
+          if (hoteTbl) hoteTbl.removeAttribute('aria-busy');
+        };
+        var replier = function () {
+          finir();
+          // ⛔ LE REPLI EST UNE VRAIE NAVIGATION, PAS UN MESSAGE D'ERREUR.
+          //    L'utilisateur a demandé un tri : il l'obtient, en payant le
+          //    rechargement d'avant ce lot.
+          try { window.location.href = url; } catch (e) { /* linkedom */ }
+        };
+        window.fetch(url, { credentials: 'same-origin' })
+          .then(function (r) { if (!r || !r.ok) throw new Error('HTTP'); return r.text(); })
+          .then(function (txt) {
+            if (!appliquerReponse(txt)) throw new Error('sans tableau');
+            if (pousser && window.history && window.history.pushState) {
+              try { window.history.pushState({ tri: 1 }, '', url); } catch (e) { /* linkedom */ }
+            }
+            finir();
+            redonnerLeFocus(cle);
+          })
+          .catch(replier);
+      }
+
+      // ⭐ UN SEUL ÉCOUTEUR, POSÉ SUR L'HÔTE — qui, lui, SURVIT à l'échange
+      //   (on ne remplace que son contenu). Un écouteur par lien serait à
+      //   reposer après chaque tri, et c'est précisément l'oubli qui fait les
+      //   « ça marche une fois sur deux ».
+      if (hoteTbl && window.fetch && window.DOMParser && hoteTbl.addEventListener) {
+        hoteTbl.addEventListener('click', function (ev) {
+          if (ev.defaultPrevented) return;
+          // ⛔ ON LAISSE PASSER CE QUI N'EST PAS UN CLIC SIMPLE : Ctrl/⌘/Maj et
+          //    le clic du milieu ouvrent un onglet, et intercepter ça priverait
+          //    d'un geste que le lien offre gratuitement.
+          if (ev.button) return;
+          if (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
+          var n = ev.target, a = null;
+          while (n && n !== hoteTbl) {
+            if (n.tagName === 'A' && String(n.className || '').indexOf('th-tri') !== -1) { a = n; break; }
+            n = n.parentNode;
+          }
+          if (!a) return;
+          var href = a.getAttribute('href');
+          if (!href) return;
+          ev.preventDefault();
+          chargerTri(href, true, a.getAttribute('data-tri-col'));
+        });
+        // ⭐ « PRÉCÉDENT » DOIT ANNULER UN TRI, SINON `pushState` A MENTI : on
+        //   a écrit une entrée d'historique sans savoir y revenir.
+        if (window.addEventListener) {
+          window.addEventListener('popstate', function () {
+            if (!window.location) return;
+            enTri = false;
+            chargerTri(String(window.location.href), false, null);
+          });
+        }
+      }
 
       // ⭐ L'ÉTAT INITIAL EST CELUI DU SERVEUR : on ne le restitue pas, on le
       // PEINT. Les colonnes et la vue sont déjà justes dans le HTML — ces deux

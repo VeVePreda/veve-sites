@@ -974,10 +974,59 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
    ⭐ `line-height:0` sur la cellule : sans lui, la ligne du tableau garde
    l'interligne du texte SOUS l'image, et chaque ligne grandit de 4 px pour
    rien. */
+/* 🔴🔴🔴 LOT I ① — LES MINIATURES ÉTAIENT LARGES DE 0 px, ET LA COLONNE DE 15.
+   🗣️ Preda, 06/09 : « le tableau n'a pas les miniatures comme tu peux le
+   remarquer ». MESURÉ sur la page servie, et AUSSI sur `75f2be7`, AVANT le
+   lot H : la colonne « Cover » fait 15 px dans les deux cas — le défaut est
+   ANTÉRIEUR au relooking, il n'en vient pas.
+   Les 20 `<img>` étaient bien là, `width:48px` déclaré deux lignes plus bas,
+   et pourtant `getBoundingClientRect().width === 0`.
+
+   ⭐⭐⭐ LA CAUSE, ET ELLE NE SE VOIT PAS DANS CE BLOC : le socle porte un
+   `img{max-width:100%}` global. Il ne RÉDUIT pas l'image ici, il change la
+   NATURE de sa demande — `width:48px` cesse d'être « je fais 48 » pour devenir
+   « je fais 48 si on me le permet ». Or la colonne est en `table-layout:auto`
+   et `.rang{width:1%}` : elle se règle sur ce qu'on lui DEMANDE. Une demande
+   conditionnelle vaut zéro, la colonne accorde zéro, `100%` de zéro fait zéro,
+   et la boucle se referme sur elle-même. *Une image qui n'exige aucune largeur
+   dans une colonne qui se règle sur les exigences obtient le padding.*
+
+   📏 LA CONTRE-ÉPREUVE, DÉCLARATION PAR DÉCLARATION (hôte du tableau 1 103 px) :
+     · `width` sur la CELLULE, sans `max-width:none` … image 5 px, colonne 15
+       → NE CORRIGE RIEN. `table-layout:auto` ne descend jamais sous le
+       min-content, et le min-content d'une image bridée par un pourcentage est
+       nul.
+     · `max-width:none` SEUL ………………………………… image 48 px, colonne 63 → CORRIGE.
+   ⛔⛔ CELA DÉMENT MA PROPRE NOTE DE REPRISE, qui annonçait qu'il fallait
+   « AUSSI réserver la colonne ». Réserver ne sert à rien tant que la demande
+   reste conditionnelle. **C'est `max-width:none` qui corrige, et lui seul.**
+
+   🔴🔴⭐⭐⭐ ET LA TAILLE N'A PAS BOUGÉ, ALORS QUE J'ALLAIS LA RÉDUIRE. La
+   première version de ce lot passait la vignette à 42×63 avec un padding de
+   10 px, « pour tenir dans 1 103 » : à 48×72 le tableau mesurait 1 113,9 et
+   débordait de 9 px. C'était vrai — et c'est devenu faux VINGT MINUTES PLUS
+   TARD, quand Preda a demandé d'abréger « All-time low/high » en ATL/ATH
+   (point ⑤ du même lot), ce qui a rendu une centaine de pixels. Re-mesuré
+   ensuite, les trois formes donnent **1 103,3, à l'identique** : la colonne du
+   nom absorbe la différence (303 → 290).
+   ⭐⭐⭐ *Une contrainte mesurée avant un autre changement du MÊME lot n'est
+   plus une contrainte.* On garde donc les 48 px que Preda avait nommés au
+   lot 155-C (« vignette moyenne, 48 px ») et on ne touche pas au padding : la
+   seule chose que ce lot change ici, c'est la NATURE de la demande.
+   ⚠️ 48 × 2 = 96 ≤ 132 (la vignette du CDN) : elle reste NETTE en écran dense.
+   Le ratio 2:3 des couvertures VeVe est conservé, comme au lot 155-C. */
 .vign{width:1%;padding-right:0!important;line-height:0}
-.vign__i{display:block;width:48px;height:72px;object-fit:cover;border-radius:3px;background:var(--rule-2)}
+.vign__i{display:block;width:48px;height:72px;max-width:none;object-fit:cover;border-radius:3px;background:var(--rule-2)}
 .vign__v{display:grid;place-items:center;width:48px;height:72px;color:var(--rule-2)}
 .vign__v svg{width:24px;height:24px}
+/* ⏳ LOT I ③ — L'ATTENTE DU TRI SE VOIT.
+   Le tri ne recharge plus la page : sans ce signe, un clic sur un en-tête ne
+   produirait RIEN à l'écran pendant l'aller-retour, ce qui se lit « le clic
+   n'a pas marché » et invite à re-cliquer. ⭐ On s'accroche à `aria-busy`, que
+   le pilote pose déjà pour les lecteurs d'écran : un état, deux publics, pas
+   une classe de plus. */
+.tbl-hote[aria-busy="true"]{cursor:progress}
+.tbl-hote[aria-busy="true"] tbody{opacity:.5;transition:opacity var(--d-fast) var(--e-soft)}
 .ticker{border-block:1px solid var(--rule);background:var(--surface);overflow:hidden;position:relative; mask-image:linear-gradient(90deg,transparent,#000 4%,#000 96%,transparent)}
 .ticker__piste{display:flex;gap:var(--s5);padding:11px 0;width:max-content;animation:defile 48s linear infinite}
 .ticker:hover .ticker__piste,.ticker:focus-within .ticker__piste{animation-play-state:paused}
@@ -3452,8 +3501,20 @@ body[data-tiroir]::after{ opacity:1; pointer-events:auto; }
      REDÉFINIE PAR SECTION (règle du 05/09), donc le bandeau prend le teint de
      son rayon tout seul. */
   background:linear-gradient(150deg,color-mix(in srgb,var(--sect-a) 12%,var(--nuit)) 0%,var(--nuit) 58%)}
-.bandeau h1{font-size:22px;letter-spacing:-.03em;font-weight:700;margin:0;
-  text-transform:uppercase}
+/* 🔴🔴🔴 LOT I ② — LE BANDEAU ANNULAIT LA CLASSE QUI FAIT SES TITRES.
+   🗣️ Preda, 06/09, après le lot H : « tu n'as toujours pas corrigé le Titre ».
+   Puis, sur la question du cran : « je veux qu'il soit impactant comme sur la
+   maquette ». MESURÉ : le `<h1>` porte DÉJÀ `class="mono-t"`, la classe des
+   grands titres du site — 800, capitales, `wdth 108`, `line-height:.92`. Ce
+   sélecteur-ci, plus spécifique, lui reprenait le poids, la casse et
+   l'interlettrage, ligne par ligne.
+   ⭐⭐⭐ « Impactant comme sur la maquette » ne demandait donc pas d'inventer
+   des valeurs : il demandait de RENDRE `.mono-t` À SON TRAVAIL. On ne garde ici
+   que ce qui est propre au bandeau — la TAILLE et la MARGE.
+   ⛔ On ne libère pas la taille pour autant : `.mono-t` monte à
+   `clamp(38px,7.2vw,96px)`, soit 96 px à 1 440. La maquette v4 tranche à 62 sur
+   son `.hero-ed`, et c'est cette valeur-là que Preda a désignée. */
+.bandeau h1{font-size:22px;margin:0}
 .bandeau__c{font-family:var(--tech);font-size:12px;color:var(--sect-a)}
 .bandeau__a{width:100%;font-size:11.5px;color:var(--muted);margin-top:2px}
 
@@ -3487,7 +3548,21 @@ body[data-tiroir]::after{ opacity:1; pointer-events:auto; }
      éditorial, il coiffe un tableau et doit lui laisser la vedette. 38 px est
      le cran au-dessus qui reste un OUTIL — et il tient dans le `min-height:80`
      existant, mesuré, sans repousser le contenu. */
-  .bandeau h1{font-size:38px;text-transform:none;margin:0 0 10px;line-height:1.05}
+  /* 🔤 LOT I ② — 38 → 62 px, ET LE CARACTÈRE DE `.mono-t` REVIENT.
+     🔴 CE COMMENTAIRE REMPLACE LE MIEN, DU LOT H, QUI ÉCRIVAIT « ⛔ On ne va
+     PAS à 62 : le bandeau-outil n'est pas le hero éditorial ». C'était un
+     arbitrage de ma part, pas une mesure — et Preda l'a tranché dans l'autre
+     sens le jour même, en voyant le rendu. *Un arbitrage pris sur une
+     description n'engage pas celui qu'on prend en voyant la chose* : c'est mot
+     pour mot la leçon du lot G, repayée sur le titre.
+     📏 MESURÉ à 1 440×900 sur la page servie, sur les cinq titres que ce
+     bandeau porte : COLLECTIONS, le plus long, fait 448,2 px dans un hôte de
+     1 376,7 — aucun débordement, et `scrollWidth` du document ne bouge pas
+     (1 425 avant comme après). Le bandeau passe de 213,0 à 234,2 px.
+     ⚠️ CE CRAN VAUT POUR LES CINQ PAGES-OUTIL : `.bandeau` est partagé
+     (market, collections, collection/<x>, sets, analytics). Dit à Preda avant
+     le dépôt, pas après. */
+  .bandeau h1{font-size:62px;margin:0 0 14px}
   .bandeau__a{margin-bottom:12px}
 }
 

@@ -100,7 +100,22 @@ export function htmlDe(d) {
   //   `monter()` tient côté client (`innerHTML` contre `textContent`). `h` ne
   //   reçoit que du HTML fabriqué par nos propres gabarits — pastille de
   //   rareté, cadenas, losange ; `x` reçoit la donnée de catalogue.
-  const dedans = d.h != null ? d.h
+  // 🧩🔴🔴 LOT I ④ — UN NŒUD DÉJÀ MONTÉ NE SE SÉRIALISE PAS, IL SE REFUSE.
+  //   `monter()` accepte, chez le client, qu'un enfant soit un nœud CLONÉ de la
+  //   page servie (le montant, l'alerte, les extrêmes du Marché). Ici il n'y a
+  //   pas de DOM : le sérialiser « au mieux » écrirait `[object Object]` dans
+  //   une page, en silence. ⭐ On lève, avec le nom de la balise — un chemin qui
+  //   ne peut pas exister doit le dire, pas se débrouiller.
+  if (d.k) for (const enf of d.k) {
+    if (enf && enf.nodeType) {
+      throw new Error(`tuile: un nœud DOM déjà monté est arrivé au sérialiseur (<${d.t}>) — `
+        + 'ce cas n\'existe que chez le client (valeurs clonées du tableau).');
+    }
+  }
+  // ⛔ `h` PUIS `x` : c'est la variation du Marché — une flèche fabriquée suivie
+  //   d'un pourcentage de données. `h != null ? d.h : …` seul aurait AVALÉ le
+  //   texte sans rien dire. Même règle qu'au client : `h` brut, `x` échappé.
+  const dedans = d.h != null ? d.h + (d.x ? ech(d.x) : '')
     : d.k ? d.k.map(htmlDe).join('')
     : d.x != null ? ech(d.x) : '';
   return `${ouvre}${dedans}</${d.t}>`;

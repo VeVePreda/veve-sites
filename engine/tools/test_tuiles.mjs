@@ -1012,11 +1012,81 @@ const { document, window } = dom;
 const src = [...document.querySelectorAll('script')].map((s) => s.textContent).find((t) => t && t.includes('function batirTuiles'));
 if (!src) { indecis('le pilote de la barre', 'aucun <script> ne contient `function batirTuiles`'); fin(); }
 
+// 🧩🔴🔴🔴 LOT I ④ — LA DESCRIPTION PART **AVANT** LE PILOTE, ET CE BANC DOIT
+// REJOUER L'ORDRE DU DOCUMENT. `batirTuiles()` ne décrit plus la tuile : elle
+// lit `window.vpTuile`, que `src/socle/modules/tuile.js` pose. Ce fichier est
+// un `<script defer src>` dans la page ; ici, il faut le jouer à la main.
+// ⭐⭐⭐ CE BANC L'A DÉMONTRÉ TOUT SEUL : à la première exécution du lot I, sans
+// cette ligne, la grille a été bâtie à **0 tuile sur 20** et le §3 a rougi.
+// C'est le bon comportement des deux côtés — `batirTuiles()` refuse de bâtir
+// une tuile approximative, et le banc le voit tout de suite.
+// ⛔ NE PAS « RENDRE LE PILOTE AUTONOME » POUR FAIRE TAIRE CE ROUGE : ce serait
+// la troisième fabrique qui renaîtrait, celle que le lot vient de supprimer.
+// ⚠️ Même geste que `test:rayon` §7, qui a payé cette leçon au lot G.
+const GABARIT_TUILE = join(ROOT, 'src', 'socle', 'modules', 'tuile.js');
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔀🔴🔴🔴 LOT I ③ — LE TRANSPORT DU TRI EST FOURNI AU PILOTE, PAS DEVINÉ
+// ═══════════════════════════════════════════════════════════════════════════
+// Le pilote lit `fetch` et `DOMParser` SUR LE `window` QU'ON LUI PASSE. C'est
+// ce qui rend le tri sans rechargement mesurable ici : on lui donne un
+// transport de banc, et le vrai chemin — écouteur, requête, chirurgie,
+// rebranchement — est celui qu'exerce la production.
+// ⛔ S'il les avait lus dans la portée globale, TOUT ce bloc aurait été
+//   inatteignable en banc, et vert pour la seule raison qu'il n'aurait jamais
+//   été joué. C'est le piège de `window.location` du lot 201, à l'identique.
+// ⚠️ ON N'INSTALLE PAS `window.location` : sans lui, le repli du pilote
+//   (`window.location.href = url`) lève et est avalé par son `try`. C'est
+//   voulu — un banc où le repli NAVIGUE ne mesurerait plus rien.
+const { DOMParser: DOMParserBanc } = await import('linkedom');
+window.DOMParser = DOMParserBanc;
+const trafic = { url: null, reponse: null, ok: true, appels: 0 };
+window.fetch = (u) => {
+  trafic.url = String(u); trafic.appels += 1;
+  return Promise.resolve({
+    ok: trafic.ok, status: trafic.ok ? 200 : 503,
+    text: () => Promise.resolve(trafic.reponse == null ? '' : trafic.reponse),
+  });
+};
+const pousses = [];
+window.history = { pushState: (_e, _t, u) => { pousses.push(String(u)); } };
+
 let leve = '';
-try { new Function('document', 'window', 'localStorage', 'console', src)(document, window, undefined, { log() {}, warn() {}, error() {} }); }
+try {
+  new Function('window', readFileSync(GABARIT_TUILE, 'utf8'))(window);
+  new Function('document', 'window', 'localStorage', 'console', src)(document, window, undefined, { log() {}, warn() {}, error() {} });
+}
 catch (e) { leve = e.message; }
 verifie('le pilote de la barre s\'exécute sans lever', !leve, leve || 'aucune exception');
 if (leve) fin(1);
+// 🔑 LE TÉMOIN : sans lui, une `tuile.js` qui n'exposerait plus rien ferait
+// rougir le §3 sans dire POURQUOI — « 0 tuile » a deux causes très
+// différentes (la description absente, ou la construction cassée).
+// 🔴🔴🔴 ET LA PAGE DOIT LE CHARGER, ELLE AUSSI — L'ANGLE MORT DE CE BANC.
+// Ci-dessus, le banc joue `tuile.js` À LA MAIN : il serait donc VERT même si la
+// page servie ne le chargeait plus. C'est exactement la panne du lot 226 —
+// *un fichier déposé n'est pas un fichier branché* — et elle coûterait ici une
+// vue Tuiles vide en production, sans une erreur nulle part.
+// ⭐ On mesure donc la PAGE, pas le banc : un `<script src>` dont l'adresse
+//   porte le nom du module. `moduleJs()` y met une empreinte, d'où le motif.
+// 🧰🔴🔴 ET LE MOTIF S'EST TROMPÉ D'ABORD : `moduleJs()` sert
+//   `/socle-<empreinte>.js` — LE NOM DU MODULE N'EST PAS DANS L'ADRESSE. Un
+//   motif qui cherchait « tuile » dans le `src` rougissait sur une page juste.
+//   ⭐⭐ On refait donc le calcul du serveur : sha256 du fichier, 12 signes. Ce
+//   qui rend le contrôle plus fort que prévu — il ne dit plus seulement « un
+//   script est chargé », il dit « c'est EXACTEMENT le fichier du dépôt ».
+{
+  const { createHash } = await import('node:crypto');
+  const empreinte = createHash('sha256')
+    .update(readFileSync(GABARIT_TUILE, 'utf8')).digest('hex').slice(0, 12);
+  const charge = html.includes(`src="/socle-${empreinte}.js"`);
+  verifie('⛔ la page servie CHARGE CE `tuile.js`-ci (le banc, lui, le joue à la main)',
+    charge, charge ? `<script src="/socle-${empreinte}.js"> — l'empreinte du fichier du dépôt`
+      : `🔴 aucun \`<script src="/socle-${empreinte}.js">\` : la grille serait VIDE en production, et ce banc ne le verrait pas`);
+}
+verifie('⛔ la description partagée est bien posée (`window.vpTuile`)',
+  !!(window.vpTuile && window.vpTuile.decrire && window.vpTuile.monter),
+  window.vpTuile ? 'decrire + monter exposés' : '🔴 `tuile.js` n\'expose pas `vpTuile` — la grille resterait vide');
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 🆕 LOT 143 — LE LIBELLÉ D'ATTENTE N'EST PLUS SERVI, IL EST REPOSÉ
@@ -1402,5 +1472,374 @@ console.log('\n4. « voir plus » emporte-t-il la VUE et les COLONNES ? (lot 201
     }
   }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🧩 §5 bis — LOT I ④ : CE QUE LA DESCRIPTION PARTAGÉE DOIT ENCORE PRODUIRE
+// ═══════════════════════════════════════════════════════════════════════════
+// `batirTuiles()` ne décrit plus la tuile : elle passe des valeurs à
+// `tuile.js`. Le §5 garde la STRUCTURE (où vivent le titre, la rareté, la
+// série) ; il ne dit rien des quatre morceaux qui n'appartiennent qu'au
+// Marché — le compteur d'offres, la classe d'apparition, le rang `--i`, et la
+// cartouche de prix à TROIS enfants directs.
+// ⭐⭐⭐ ET C'EST EXACTEMENT LÀ QUE LE PORTAGE POUVAIT ÉCHOUER SANS BRUIT : la
+// tuile aurait gardé sa forme générale et perdu un détail que personne ne
+// regarde en banc. *Un remaniement « sans effet visible » a besoin d'un banc
+// qui regarde ce que l'œil ne regarde plus.*
+console.log('\n5 bis. la tuile porte-t-elle ce que le Marché SEUL lui donne ? (lot I ④)');
+{
+  const t = document.querySelector('#vue-tui .tuile');
+  const l = [...document.querySelectorAll('#vue-tbl tbody tr')][0];
+  // ⭐ L'ÎLE EST LA SOURCE DE DEUX VALEURS QUE LA LIGNE N'A PAS : le libellé
+  //   « Listings » et le pourcentage AFFICHÉ. On la lit ici pour comparer la
+  //   tuile à sa source, et non à une chaîne écrite dans ce banc — qui serait
+  //   fausse à la première page servie dans une autre langue.
+  let ileBanc = null;
+  try { ileBanc = JSON.parse(document.getElementById('tui-src').textContent); } catch { ileBanc = null; }
+  if (!t || !l || !ileBanc) {
+    indecis('les morceaux propres au Marché', 'aucune tuile, aucune ligne, ou pas d\'île');
+  } else {
+    // ① LA CLASSE D'APPARITION ET LE RANG
+    verifie('⛔ la boîte garde `tuile revele` et son rang `--i`',
+      /(^|\s)tuile(\s|$)/.test(t.className) && /(^|\s)revele(\s|$)/.test(t.className)
+        && /--i:\s*0/.test(t.getAttribute('style') || ''),
+      `class="${t.className}" style="${t.getAttribute('style') || ''}"`
+        + ((/(^|\s)revele(\s|$)/.test(t.className) && /--i:/.test(t.getAttribute('style') || ''))
+          ? '' : ' 🔴 sans `revele` les tuiles n\'apparaissent plus, sans `--i` elles apparaissent toutes ensemble'));
+
+    // ② LE COMPTEUR D'OFFRES — et sa valeur, pas seulement sa présence
+    const off = t.querySelector('.tuile__hd .tuile__off');
+    const attenduOff = ((l.dataset.lst || '0') + ' ' + (ileBanc && ileBanc.lst ? ileBanc.lst : '')).trim();
+    verifie('le compteur d\'offres est dans le bandeau, et il dit ce que la ligne dit',
+      !!off && (off.textContent || '').trim() === attenduOff,
+      off ? `« ${(off.textContent || '').trim()} » (attendu « ${attenduOff} »)`
+        : '🔴 `.tuile__off` absent — la tuile ne dit plus combien d\'offres existent');
+
+    // ③ LA CARTOUCHE : TROIS ENFANTS DIRECTS, PAS UN EMBALLAGE
+    // ⭐ `.tuile__p` est en `justify-content:space-between` : ce sont ses
+    //   enfants DIRECTS qui font la mise en page. Emballer le montant et
+    //   l'alerte dans un `<span>` — ce que fait la fabrique du rayon, qui n'a
+    //   qu'un cadenas — aurait déplacé la variation sans rien casser d'autre.
+    const pied = t.querySelector('.tuile__p');
+    const attendus = [];
+    if (l.querySelector('[data-prix] .num')) attendus.push('num');
+    if (l.querySelector('[data-prix] .alerte')) attendus.push('alerte');
+    attendus.push('delta');
+    const rendus = pied ? [...pied.children].map((c) => {
+      const cl = String(c.className || '');
+      return cl.indexOf('delta') === 0 ? 'delta' : cl.split(' ')[0];
+    }) : [];
+    verifie('⛔ la cartouche a ses enfants DIRECTS, dans l\'ordre (pas d\'emballage)',
+      rendus.join(',') === attendus.join(','),
+      `rendus [${rendus.join(', ')}] · attendus [${attendus.join(', ')}]`);
+
+    // ④ LA VARIATION : LE SENS, LE TRACÉ ET LE TEXTE
+    // ⛔ Le tracé est la RECETTE que ce lot a sortie de `Market.astro`. S'il
+    //   se perdait, la flèche disparaîtrait sans que rien ne lève.
+    const TRACES = { up: 'M6 2 11 9H1z', down: 'M6 10 1 3h10z', flat: 'M2 6h8' };
+    const sens = l.dataset.var || 'flat';
+    const badge = t.querySelector('.tuile__p .delta');
+    const chemin = badge ? badge.querySelector('svg path') : null;
+    verifie('la variation porte le sens de la ligne, son tracé et son texte',
+      !!badge && badge.className.indexOf('delta--' + sens) !== -1
+        && !!chemin && chemin.getAttribute('d') === TRACES[sens]
+        && (badge.textContent || '').trim() !== '',
+      badge ? `class="${badge.className}" d="${chemin ? chemin.getAttribute('d') : '—'}" texte « ${(badge.textContent || '').trim()} »`
+        : '🔴 aucune `.delta` : la tuile ne dit plus la variation');
+    verifie('…et le POURCENTAGE vient de l\'île, jamais de `data-ch` (deux arrondis)',
+      !!badge && (badge.textContent || '').trim() === String((ileBanc && ileBanc.pct ? ileBanc.pct[0] : '') || '—'),
+      badge ? `tuile « ${(badge.textContent || '').trim() }» · île « ${(ileBanc && ileBanc.pct ? ileBanc.pct[0] : '—')} » · data-ch « ${l.dataset.ch} »`
+        : '🔴 pas de badge');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔀 §7 — LOT I ③ : LE TRI REMPLACE LE TABLEAU, IL NE RECHARGE PLUS
+// ═══════════════════════════════════════════════════════════════════════════
+// 🗣️ Preda, 06/09 : « quand je clique sur un des noms de colonne ça me recharge
+// la page ». ⭐⭐⭐ CE QUI SE MESURE ICI N'EST PAS « ÇA NE RECHARGE PAS » — un
+// banc ne voit pas un rechargement. C'est l'INVERSE, et c'est décidable : le
+// clic est INTERCEPTÉ (une requête part), et le DOM d'après porte le contenu
+// de la réponse, avec tout ce qui tenait à l'ancien tableau REBRANCHÉ.
+// ⛔ Le repli sans JavaScript n'est pas mesurable ici non plus : ce qui l'est,
+//   c'est que l'en-tête reste un `<a href>` — et le §7 c le vérifie.
+console.log('\n7. le tri remplace le tableau au lieu de recharger la page (lot I ③)');
+{
+  const hote = document.getElementById('vue-tbl');
+  const lien = document.querySelector('#vue-tbl a.th-tri[data-tri-col]');
+  if (!hote || !lien) {
+    indecis('le tri sans rechargement', 'aucun `a.th-tri[data-tri-col]` dans #vue-tbl');
+  } else {
+    // ── a) L'EN-TÊTE EST RESTÉ UN LIEN, AVEC UNE ADRESSE COMPLÈTE
+    // ⭐ C'est la promesse « ça marche sans JavaScript », et c'est la seule
+    //   partie du repli qu'un banc puisse constater.
+    const href = lien.getAttribute('href') || '';
+    verifie('a) l\'en-tête est un `<a href>` qui porte le tri (repli sans JavaScript)',
+      lien.tagName === 'A' && /[?&]f-tri=/.test(href),
+      `<${lien.tagName.toLowerCase()} href="${href}">`);
+
+    // ── b) ON FABRIQUE LA RÉPONSE DU SERVEUR
+    // 🔴🔴 LA POPULATION EST FABRIQUÉE, PAS ATTENDUE. Hors ligne, ce bac ne
+    //   sait pas produire deux tris différents de la même sélection ; sans
+    //   cette page fabriquée, le chemin entier serait VERT SANS AVOIR ÉTÉ
+    //   EXERCÉ — la faute exacte qui a coûté le déploiement du lot G.
+    // ⭐ On part du HTML RÉELLEMENT SERVI et on le retourne : les lignes
+    //   changent d'ordre, le compteur change de texte, l'île suit. C'est
+    //   précisément ce que fait un tri.
+    const corps = (html.match(/<tbody>([\s\S]*?)<\/tbody>/i) || [])[1] || '';
+    const trs = corps.split(/(?=<tr)/).filter((x) => x.trim().startsWith('<tr'));
+    const renverse = trs.slice().reverse().join('');
+    let page2 = html.replace(/<tbody>[\s\S]*?<\/tbody>/i, '<tbody>' + renverse + '</tbody>');
+    const ileAvant = JSON.parse(document.getElementById('tui-src').textContent);
+    const ile2 = JSON.parse(JSON.stringify(ileAvant));
+    ile2.img = (ile2.img || []).slice().reverse();
+    ile2.pct = (ile2.pct || []).slice().reverse();
+    // 🧪🔴🔴🔴 ON FABRIQUE LE CAS QUE LA POPULATION NE PORTE PAS.
+    //   Hors ligne, `.reserve/cote/` est vide : `data-ch` et `ile.pct` valent
+    //   TOUS LES DEUX « — » sur chaque ligne. Une injection qui ferait lire
+    //   `data-ch` au lieu de l'île n'aurait donc RIEN changé, et le contrôle
+    //   serait resté vert — mesuré, c'est arrivé.
+    //   ⭐⭐⭐ *Quand la population n'atteint pas le cas, on le FABRIQUE ; on
+    //   n'attend pas qu'il arrive.* Le témoin ne peut venir que de l'île : s'il
+    //   apparaît sur la tuile, c'est que le pourcentage n'a pas été déduit de
+    //   `data-ch`, qui est arrondi à 2 décimales POUR LE TRI.
+    ile2.pct[0] = 'ÎLE-TÉMOIN';
+    page2 = page2.replace(/(<script type="application\/json" id="tui-src">)[\s\S]*?(<\/script>)/i,
+      (m, o, f) => o + JSON.stringify(ile2) + f);
+    page2 = page2.replace(/(<p class="etiq" id="cpt"[^>]*>)[\s\S]*?(<\/p>)/i, '$1TÉMOIN-DU-BANC$2');
+    // ⭐ Le `aria-sort` de la colonne cliquée bascule : c'est le serveur qui le
+    //   pose, et la preuve que l'en-tête vient bien de la RÉPONSE.
+    const col = lien.getAttribute('data-tri-col');
+    page2 = page2.replace(new RegExp('(<th[^>]*aria-sort=")[^"]*("[^>]*><a class="th-tri" data-tri-col="' + col + '")'),
+      '$1ascending$2');
+
+    const avantPremier = (document.querySelector('#vue-tbl tbody tr') || {}).dataset;
+    const avantN = avantPremier ? avantPremier.n : null;
+    const appelsAvant = trafic.appels;
+    trafic.reponse = page2; trafic.ok = true;
+
+    // ⭐ ON CLIQUE. Le vrai geste, sur le vrai lien, avec le vrai écouteur.
+    const ev = new window.Event('click', { bubbles: true, cancelable: true });
+    lien.dispatchEvent(ev);
+    await new Promise((r) => setImmediate(r));
+    await new Promise((r) => setImmediate(r));
+    await new Promise((r) => setImmediate(r));
+
+    verifie('b) le clic est INTERCEPTÉ : une requête part vers l\'adresse du lien',
+      trafic.appels === appelsAvant + 1 && trafic.url === href,
+      trafic.appels === appelsAvant + 1 ? `1 requête vers ${trafic.url}`
+        : `🔴 ${trafic.appels - appelsAvant} requête(s) — sans interception, la page se recharge`);
+
+    const apres = [...document.querySelectorAll('#vue-tbl tbody tr')];
+    const apresN = apres.length ? apres[0].dataset.n : null;
+    verifie('c) le CORPS du tableau est remplacé par celui de la réponse',
+      apres.length === trs.length && apresN !== avantN,
+      `${apres.length} ligne(s) · première « ${apresN} » (elle était « ${avantN} »)`);
+
+    verifie('…et l\'EN-TÊTE aussi : `aria-sort` vient de la réponse',
+      (document.querySelector('#vue-tbl th[aria-sort="ascending"]') || null) !== null,
+      document.querySelector('#vue-tbl th[aria-sort="ascending"]')
+        ? 'la flèche de tri suit le serveur'
+        : '🔴 seul le `<tbody>` a bougé : l\'en-tête montrerait l\'ancien tri');
+
+    verifie('…et le COMPTEUR suit (il porte `role=status`, il s\'annonce)',
+      ((document.getElementById('cpt') || {}).textContent || '').indexOf('TÉMOIN-DU-BANC') !== -1,
+      (document.getElementById('cpt') || {}).textContent || '🔴 pas de #cpt');
+
+    // ── d) LE REBRANCHEMENT — la partie qu'on oublie
+    // 🔴🔴 `L`, l'île, les tuiles et le libellé d'attente tenaient à l'ANCIEN
+    //   corps. Un échange qui ne les refait pas donne une page qui a l'air
+    //   juste et ment à la première bascule.
+    const ileApres = JSON.parse(document.getElementById('tui-src').textContent);
+    verifie('d) l\'île des tuiles a suivi l\'ordre des lignes',
+      JSON.stringify(ileApres.img) === JSON.stringify(ile2.img),
+      JSON.stringify(ileApres.img) === JSON.stringify(ile2.img)
+        ? 'les couvertures suivent le nouveau tri'
+        : '🔴 l\'île porte l\'ANCIEN ordre — chaque tuile prendrait la couverture d\'une autre');
+
+    const btnTui = [...document.querySelectorAll('.v-b')].find((b) => b.dataset.vue === 'tui');
+    if (btnTui) {
+      btnTui.dispatchEvent(new window.Event('click', { bubbles: true }));
+      const tuiles = [...document.querySelectorAll('#vue-tui .tuile')];
+      verifie('…et les TUILES sont rebâties depuis le nouveau corps',
+        tuiles.length === apres.length && tuiles[0] && tuiles[0].dataset.n === apresN,
+        tuiles.length ? `${tuiles.length} tuile(s), première « ${tuiles[0].dataset.n} » (ligne « ${apresN} »)`
+          : '🔴 aucune tuile : `tuilesFaites` n\'a pas été remis à zéro, ou la grille n\'a pas été vidée');
+      // ⭐ ET LE POURCENTAGE VIENT DE L'ÎLE — le témoin fabriqué le prouve, là
+      //   où la population hors ligne ne le pouvait pas.
+      const badgeT = tuiles[0] ? tuiles[0].querySelector('.tuile__p .delta') : null;
+      verifie('…et le POURCENTAGE de la tuile vient de l\'ÎLE, pas de `data-ch`',
+        !!badgeT && (badgeT.textContent || '').trim() === 'ÎLE-TÉMOIN',
+        badgeT ? `« ${(badgeT.textContent || '').trim()} » (île « ÎLE-TÉMOIN » · data-ch « ${tuiles[0].dataset.ch} »)`
+          : '🔴 aucune `.delta` sur la tuile rebâtie');
+    }
+
+    const declare = hote.getAttribute('data-attente-txt') || '';
+    const cellules = [...document.querySelectorAll('#vue-tbl [data-attente]')];
+    const nus = cellules.filter((e) => e.getAttribute('title') !== declare);
+    if (!declare || cellules.length === 0) {
+      console.log('  ..  …le libellé d\'attente : SANS OBJET — aucune cellule en attente dans ce corps.');
+    } else {
+      verifie('…et le libellé d\'attente est REPOSÉ sur les cellules neuves',
+        nus.length === 0,
+        nus.length ? `🔴 ${nus.length}/${cellules.length} cellule(s) sans libellé après l'échange`
+          : `${cellules.length} cellule(s) réétiquetées`);
+    }
+
+    verifie('e) l\'historique reçoit l\'adresse (« précédent » annule le tri)',
+      pousses.length === 1 && pousses[0] === href,
+      pousses.length ? `pushState(${pousses.join(', ')})`
+        : '🔴 aucun `pushState` : l\'URL mentirait sur le tri affiché');
+
+    // ── f) LA RÉPONSE QUI N'EN EST PAS UNE
+    // ⭐⭐⭐ C'EST LA CONTRE-ÉPREUVE, ET ELLE EST OBLIGATOIRE. `/market/` rend
+    //   302 vers `/connexion/` quand la session tombe : la réponse est alors
+    //   une page SANS `#resultats`. Un échange qui l'installerait quand même
+    //   viderait le tableau en silence — le pire des deux mondes.
+    const avantF = document.querySelectorAll('#vue-tbl tbody tr').length;
+    trafic.reponse = '<html><body><div id="vue-tbl"></div></body></html>';
+    const lien2 = document.querySelector('#vue-tbl a.th-tri[data-tri-col]');
+    if (lien2) {
+      lien2.dispatchEvent(new window.Event('click', { bubbles: true, cancelable: true }));
+      await new Promise((r) => setImmediate(r));
+      await new Promise((r) => setImmediate(r));
+      const apresF = document.querySelectorAll('#vue-tbl tbody tr').length;
+      verifie('f) ⛔ une réponse SANS `#resultats` ne remplace RIEN (elle replie)',
+        apresF === avantF && apresF > 0,
+        apresF === avantF ? `${apresF} ligne(s) intactes — le pilote laisse la navigation faire`
+          : `🔴 le tableau est passé de ${avantF} à ${apresF} ligne(s) : une page de connexion a vidé le tableau`);
+    }
+  }
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🖼️🔤 §8 — LOT I ① ET ⑤ : LA COLONNE COUVERTURE, ET LES DEUX EN-TÊTES ABRÉGÉS
+// ═══════════════════════════════════════════════════════════════════════════
+// ⚠️ CE BANC S'APPELLE `test:tuiles` ET C'EST DEVENU CELUI DE LA PAGE `/market/`
+// SERVIE : il est le seul à monter son DOM (le §3 des libellés d'attente et le
+// §4 de « voir plus » n'ont déjà rien à voir avec des tuiles). On le dit ici
+// plutôt que d'ouvrir un cinquième banc sur la même page — mais c'est un nom
+// qui a dérivé de son sujet, et ça se saura le jour où quelqu'un cherchera où
+// vit le contrôle de la colonne « Cover ».
+console.log('\n8. la couverture et les extrêmes, dans le tableau (lot I ① ⑤)');
+{
+  // ── ① LA MINIATURE. ⭐⭐⭐ ON MESURE LE MÉCANISME, PAS LA VALEUR.
+  //   Le défaut du 06/09 n'était pas « 48 est trop petit » : `width:48px` était
+  //   ÉCRIT et l'image faisait 0. Un `img{max-width:100%}` global transformait
+  //   sa demande FERME en demande CONDITIONNELLE, et une colonne
+  //   `table-layout:auto` qui se règle sur les demandes accorde zéro à une
+  //   demande conditionnelle. ⛔ Un banc qui vérifierait « width vaut 42 »
+  //   serait donc VERT sur exactement le bug d'origine.
+  //   📏 L'EFFET, lui, a été mesuré au navigateur sur la page servie : image
+  //   42×63, colonne 52, tableau 1 103,0 dans un hôte de 1 103 — et sans
+  //   `max-width:none`, image 5 px et colonne 15. linkedom ne met rien en page :
+  //   ici on garde la CAUSE, pas la mise en page.
+  const CSS = readFileSync(join(ROOT, 'themes', 'vitrine', 'theme.css'), 'utf8');
+  const regle = (CSS.match(/\.vign__i\s*\{([^}]*)\}/) || [])[1] || '';
+  const larg = ((regle.match(/(?:^|;)\s*width\s*:\s*([^;]+)/) || [])[1] || '').trim();
+  const plaf = ((regle.match(/max-width\s*:\s*([^;]+)/) || [])[1] || '').trim();
+  verifie('① la vignette DEMANDE une largeur en px, et sa demande est INCONDITIONNELLE',
+    /^\d+(\.\d+)?px$/.test(larg) && plaf === 'none',
+    `width:${larg || '—'} · max-width:${plaf || '— (donc 100% hérité du socle)'}`
+      + ((plaf === 'none') ? '' : ' 🔴 une demande conditionnelle vaut ZÉRO dans une colonne `auto`'));
+
+  // ⭐ ET LES ATTRIBUTS DU `<img>` DISENT LE MÊME RATIO. Ils ne servent qu'à
+  //   réserver la place avant l'arrivée de la feuille ; s'ils divergent du CSS,
+  //   la ligne saute d'une frame au premier rendu, à chaque visite.
+  const balise = (html.match(/<img[^>]*class="vign__i"[^>]*>/) || [])[0] || '';
+  const aW = Number((balise.match(/\swidth="(\d+)"/) || [])[1]);
+  const aH = Number((balise.match(/\sheight="(\d+)"/) || [])[1]);
+  const cssW = Number(larg.replace('px', ''));
+  const cssH = Number(((regle.match(/height\s*:\s*([\d.]+)px/) || [])[1] || 0));
+  verifie('…et les attributs `width`/`height` disent EXACTEMENT ce que le CSS dessine',
+    !!balise && aW === cssW && aH === cssH,
+    balise ? `balise ${aW}×${aH} · feuille ${cssW}×${cssH}` : '🔴 aucune `<img class="vign__i">` servie');
+
+  // ── ② LE TITRE DU BANDEAU — on garde le MÉCANISME, pas le nombre
+  // 🗣️ Preda, 06/09 : « je veux qu'il soit impactant comme sur la maquette ».
+  // ⭐⭐⭐ CE QUI A ÉTÉ CORRIGÉ N'EST PAS UNE TAILLE, C'EST UNE ANNULATION : le
+  //   `<h1>` porte `class="mono-t"` — la classe des grands titres du site,
+  //   800, capitales, `wdth 108` — et `.bandeau h1`, plus spécifique, lui
+  //   reprenait le poids, la casse et l'interlettrage ligne par ligne. Un banc
+  //   qui vérifierait « font-size vaut 62 » serait vert le jour où quelqu'un
+  //   remet `font-weight:700` et `text-transform:none` à côté.
+  // ⛔ La MISE EN PAGE ne se mesure pas ici (linkedom ne compose rien) : elle
+  //   l'a été au navigateur — COLLECTIONS, le plus long des cinq titres, fait
+  //   448,2 px dans un hôte de 1 376,7, et le document ne déborde pas.
+  {
+    const pc = (CSS.match(/@media\s*\(min-width:821px\)\s*\{[\s\S]*?\n\}/) || [])[0] || '';
+    const regleH1 = (pc.match(/\.bandeau h1\s*\{([^}]*)\}/) || [])[1] || '';
+    const taille = Number(((regleH1.match(/font-size\s*:\s*(\d+)px/) || [])[1] || 0));
+    const reprises = ['text-transform', 'font-weight', 'letter-spacing', 'font-stretch']
+      .filter((d) => new RegExp(d + '\\s*:').test(regleH1));
+    verifie('② le titre du bandeau monte à 48 px ou plus en PC',
+      taille >= 48, `font-size:${taille || '—'}px`
+        + (taille >= 48 ? '' : ' 🔴 le cran « outil » de 38 px a été remis'));
+    verifie('…et il LAISSE `.mono-t` porter le caractère (il ne le réécrit pas)',
+      reprises.length === 0,
+      reprises.length ? `🔴 le bandeau redéclare ${reprises.join(', ')} — il annule la classe des grands titres`
+        : 'seules la taille et la marge sont propres au bandeau');
+  }
+
+  // ── ⑤ LES DEUX EN-TÊTES ABRÉGÉS
+  // 🗣️ Preda, 06/09 : « réduire l'épaisseur des colonnes ALL-TIME LOW et
+  //   ALL-TIME HIGH en renommant ça ATL et ATH, et dans l'infobulle All Time
+  //   Low ». 📏 Les deux en-têtes faisaient 124,6 et 127,4 px sur la page
+  //   servie — les deux plus larges après le nom.
+  // ⭐⭐ ON EXIGE LES DEUX MOITIÉS : abrégé À L'ÉCRAN, entier EN INFOBULLE. Un
+  //   banc qui ne verrait que l'abréviation serait vert sur une colonne devenue
+  //   illisible ; un banc qui ne verrait que le `title` serait vert sur une
+  //   colonne restée large.
+  // 🧰🔴🔴 ON NE MESURE PAS LA LONGUEUR DU TEXTE RENDU, ET C'EST UNE LEÇON DÉJÀ
+  //   PAYÉE. `I18N_MARQUAGE=1` PRÉFIXE chaque libellé de sa clé : la première
+  //   version de ce contrôle lisait « item.atlAbbrATL », 18 caractères, et
+  //   rougissait sur un code juste. *On mesure avec la règle du SITE, jamais
+  //   avec celle de son propre outil.* ⇒ on juge le DICTIONNAIRE (ce qui fixe
+  //   la largeur à l'écran) et la CLÉ EMPLOYÉE (ce qui fixe la structure), pas
+  //   la chaîne que le mode de marquage a réécrite en chemin.
+  // ⚠️ `DICOS` du §… vit dans un bloc : on refait le chemin ici plutôt que de
+  //   le sortir de sa portée — deux lignes contre un remaniement à distance.
+  // 🧰🔴🔴🔴 ET LA SECONDE FOIS, C'ÉTAIT ENCORE MON INSTRUMENT. Comparer par
+  //   SUFFIXE ne suffisait pas : en mode marquage, `t()` rend
+  //   `SENT_DEB + clé + SENT_MIL + texte + SENT_FIN` — il y a une sentinelle
+  //   APRÈS le texte, donc `endsWith('ATL')` est faux sur une page juste.
+  //   ⭐⭐ Le dépôt a déjà l'outil : `nu()` dans `engine/lib/i18n.mjs`. *Quand on
+  //   mesure une chaîne que le site a réécrite, on la lit avec la fonction du
+  //   site, pas avec une règle qu'on se donne.*
+  const { nu } = await import(join(R_I18N, 'engine', 'lib', 'i18n.mjs').replace(/^/, 'file://'));
+  const DOSSIER_DICOS = join(ROOT, 'engine', 'i18n');
+  const dicos = {};
+  for (const f of readdirSync(DOSSIER_DICOS).filter((x) => x.endsWith('.json'))) {
+    try { dicos[f.replace('.json', '')] = JSON.parse(readFileSync(join(DOSSIER_DICOS, f), 'utf8')); } catch { /* ignoré */ }
+  }
+  for (const col of ['atl', 'ath']) {
+    const th = [...document.querySelectorAll('#vue-tbl th')]
+      .find((x) => x.querySelector(`a.th-tri[data-tri-col="${col}"]`));
+    if (!th) { indecis(`l'en-tête ${col.toUpperCase()}`, 'colonne absente du tableau servi'); continue; }
+    const vu = nu(th.querySelector('a.th-tri')?.textContent || '').trim();
+    const bulle = nu(th.getAttribute('title') || '').trim();
+
+    // ① LE DICTIONNAIRE : l'abrégé est court PARTOUT, le long est plus long.
+    const trop = Object.entries(dicos)
+      .filter(([, d]) => d[`item.${col}Abbr`] == null || String(d[`item.${col}Abbr`]).length > 4);
+    verifie(`⑤ « item.${col}Abbr » existe et tient en 4 signes dans les 5 langues`,
+      Object.keys(dicos).length >= 5 && trop.length === 0,
+      trop.length ? `🔴 ${trop.map(([l, d]) => `${l}: ${d[`item.${col}Abbr`] === undefined ? 'ABSENT' : `« ${d[`item.${col}Abbr`]} »`}`).join(' · ')}`
+        : Object.entries(dicos).map(([l, d]) => `${l}: ${d[`item.${col}Abbr`]}`).join(' · '));
+
+    // ② LA PAGE SERVIE : l'en-tête porte l'abrégé, le `title` porte l'entier.
+    //   ⭐ On compare par SUFFIXE : le marquage préfixe, il ne suffixe pas.
+    const abr = (dicos.en || {})[`item.${col}Abbr`] || '';
+    const lng = (dicos.en || {})[`item.${col}`] || '';
+    verifie(`…et l'en-tête servi affiche l'abrégé, pas le libellé entier`,
+      !!abr && vu.endsWith(abr) && !vu.endsWith(lng),
+      `en-tête « ${vu} » (attendu se terminant par « ${abr} »)`);
+    verifie(`…et son infobulle porte le libellé ENTIER, traduit`,
+      !!lng && bulle.endsWith(lng),
+      bulle ? `title « ${bulle} » (attendu se terminant par « ${lng} »)`
+        : '🔴 aucun `title` : « ATL » seul n\'apprend rien à qui ne connaît pas le jargon');
+  }
+}
+
 
 fin();

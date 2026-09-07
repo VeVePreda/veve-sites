@@ -54,7 +54,11 @@
     fond: 'socle__fond ok', voile: 'socle__voile', net: 'socle__net ok',
     cage: 'socle__cage', ext: 'socle__ext',
     bas: 'tuile__b', nom: 'tuile__n', serie: 'tuile__s',
-    edition: 'tuile__e', prix: 'tuile__p', tirage: 'tuile__t', sansFiche: 'tuile__x'
+    edition: 'tuile__e', prix: 'tuile__p', tirage: 'tuile__t', sansFiche: 'tuile__x',
+    // 🧩 LOT I ④ — CE QUE LE MARCHÉ SAIT ET QUE LE RAYON IGNORE. Symétrique de
+    //   `__e`/`__t`/`__x` trois lignes plus haut, qui sont l'inverse. Les deux
+    //   classes existent dans le thème depuis le lot 127.
+    off: 'tuile__off', delta: 'delta'
   };
 
   // ⭐ UN NŒUD DÉCRIT : `t` la balise, `c` la classe, `x` le texte, `a` les
@@ -75,7 +79,9 @@
   // ═════════════════════════════════════════════════════════════════════════
   // `v` porte des VALEURS DÉJÀ PRÊTES, jamais des champs bruts de catalogue :
   //   nomVu, nomComplet, serie, edition, tirage (texte), href, image, repli,
-  //   onerror, comic, rarHtml, losangeHtml, prixHtml, extHtml, sansFicheTxt.
+  //   onerror, comic, rarHtml, losangeHtml, prixHtml, sansFicheTxt,
+  //   et depuis le lot I : offresTxt, ext (tableau), prixNoeuds (tableau),
+  //   deltaSens, deltaTxt, classePlus, attrs.
   // ⭐⭐ AUCUN PRIX N'ENTRE ICI EN CLAIR, et ce n'est pas une précaution : sur
   //   un rayon, `prixHtml` est le CADENAS rendu par `Cote.astro` — le montant
   //   n'existe pas encore à l'instant du rendu. `test:fuite` ratisse ces pages,
@@ -85,6 +91,10 @@
     var haut = [];
     // ① LA RARETÉ EN PASTILLE SUR L'IMAGE — c'était l'écart ① du lot E, annulé.
     if (v.rarHtml) haut.push(n('span', C.rar, { h: v.rarHtml }));
+    // 🧩 LOT I ④ — LE NOMBRE D'OFFRES, à droite du bandeau. ⚠️ `!= null` et pas
+    //   une vérité : `'0'` est un compte légitime, et `''` veut dire INCONNU —
+    //   ce sont deux choses que `if (v.offresTxt)` aurait confondues.
+    if (v.offresTxt != null && v.offresTxt !== '') haut.push(n('span', C.off, { x: v.offresTxt }));
 
     var dedans = [];
     if (v.image) {
@@ -113,7 +123,26 @@
     // ② LES EXTRÊMES SUR LE SOCLE — c'était l'écart ② du lot E, annulé.
     //   ⚠️ `aria-hidden` : le bandeau répète en abrégé ce que la fiche dit en
     //   toutes lettres ; le lecteur d'écran n'a pas à l'entendre deux fois.
-    if (v.extHtml) dedans.push(n('span', C.ext, { a: { 'aria-hidden': 'true' }, h: v.extHtml }));
+    // 🧩🔴🔴 LOT I ④ — LE BANDEAU DES EXTRÊMES EST DÉCRIT ICI, PLUS ASSEMBLÉ
+    //   EN CHAÎNE CHEZ L'APPELANT. Il l'était deux fois : `rayon.js` le
+    //   concaténait dans `cadenas()`, `Market.astro` le montait en DOM. Les deux
+    //   écrivaient LA MÊME FORME — `<span class="b"><i>ATL</i><b>…</b></span>` —
+    //   et rien ne les tenait ensemble. ⭐ Ce qui DIFFÈRE d'un appelant à l'autre
+    //   n'est pas la forme, c'est ce qu'on met dans le `<b>` : un cadenas de cote
+    //   pour le rayon, une valeur CLONÉE de la ligne pour le Marché. C'est donc
+    //   la seule chose qu'on laisse passer en paramètre.
+    if (v.ext && v.ext.length) {
+      var morceaux = [];
+      for (var e2 = 0; e2 < v.ext.length; e2++) {
+        var x2 = v.ext[e2];
+        if (!x2) continue;
+        morceaux.push(n('span', x2.c, {
+          a: x2.col ? { 'data-col': x2.col } : null,
+          k: [n('i', '', { x: x2.lib }), n('b', '', x2.noeud ? { k: [x2.noeud] } : { h: x2.h || '' })]
+        }));
+      }
+      if (morceaux.length) dedans.push(n('span', C.ext, { a: { 'aria-hidden': 'true' }, k: morceaux }));
+    }
 
     var bas = [];
     // 🔤 LE NOM COUPÉ EST AFFICHÉ, LE NOM ENTIER EST EN `title`, et les DEUX
@@ -123,8 +152,22 @@
     //   masqué par `text-overflow`.
     bas.push(n('span', C.nom, { x: v.nomVu || '',
       a: v.nomComplet ? { title: v.nomComplet } : null }));
-    if (v.serie) bas.push(n('span', C.serie, { x: v.serie,
-      a: v.serieComplete ? { title: v.serieComplete } : null }));
+    // 🔴🔴 LOT I ④ — `serieVide` : UNE DIVERGENCE CONSTATÉE, PAS UN OUBLI.
+    //   Les deux fabriques ne traitent pas pareil une pièce SANS sous-ligne :
+    //   le rayon n'émet rien, `/market/` émettait un `<span>` vide. MESURÉ sur
+    //   la page servie le 06/09 : 2 lignes sur 20 sont dans ce cas, leur
+    //   cartouche fait 98 px contre 114 (le prix remonte de 15 px), et le span
+    //   vide en reprend 6 — il ATTÉNUE le décalage, il ne le crée pas.
+    //   ⛔ Aligner les deux fabriques ici aurait changé le rendu de `/market/`
+    //   dans un lot dont la consigne est « aucun effet visible », OU celui des
+    //   9 354 pages de rayon, qui ne sont pas la surface de ce lot. On garde
+    //   donc les deux politiques, on les NOMME, et on laisse la trace : le bon
+    //   geste est probablement d'émettre le créneau des deux côtés, mais il se
+    //   décide sur une mesure du rayon, pas ici.
+    if (v.serie || (v.serieVide && v.serie != null)) {
+      bas.push(n('span', C.serie, { x: v.serie,
+        a: v.serieComplete ? { title: v.serieComplete } : null }));
+    }
     // ③④ LA SÉRIE, LA MENTION D'ÉDITION ET LE TIRAGE RESTENT — Preda, 06/09,
     //   confirmé une seconde fois en voyant le rendu : ce sont les axes par
     //   lesquels un collectionneur reconnaît une pièce.
@@ -134,19 +177,56 @@
     //   la mise en page existe déjà, on ne lui ajoute rien.
     //   ⛔ ÉMIS MÊME VIDE ? NON. `.tuile__p` porte un `border-top` : une
     //   cartouche sans prix afficherait un filet qui ne sépare rien.
-    if (v.prixHtml || v.tirage) {
+    if (v.prixHtml || v.tirage || (v.prixNoeuds && v.prixNoeuds.length) || v.deltaSens) {
       var pied = [];
-      if (v.prixHtml) pied.push(n('span', '', { h: v.prixHtml }));
+      // 🧩🔴🔴 LOT I ④ — DEUX APPELANTS, DEUX FORMES DE PIED, ET C'EST VOULU.
+      //   `.tuile__p` est en `justify-content:space-between` : ses ENFANTS
+      //   DIRECTS sont la mise en page. Le rayon en a UN (le cadenas), le Marché
+      //   en a TROIS (le montant, l'alerte, la variation) — mesuré sur la page
+      //   servie : 46 px · 16 px · 58 px. Emballer les trois du Marché dans le
+      //   `<span>` du rayon aurait fait passer la cartouche de 3 enfants à 2 et
+      //   déplacé la variation. ⭐ Ce n'est donc pas une seconde description :
+      //   c'est la même, avec un pied qui compte ce que l'appelant lui donne.
+      if (v.prixNoeuds) {
+        for (var q2 = 0; q2 < v.prixNoeuds.length; q2++) {
+          if (v.prixNoeuds[q2]) pied.push(v.prixNoeuds[q2]);
+        }
+      } else if (v.prixHtml) pied.push(n('span', '', { h: v.prixHtml }));
+      // 📉 LA VARIATION — ⭐⭐⭐ SON TRACÉ VIT ICI ET NULLE PART AILLEURS. C'était
+      //   une recette recopiée dans `Market.astro` : trois `path` en dur dans un
+      //   `innerHTML`. *Quand deux fabriques doivent montrer la même chose, on
+      //   transporte le résultat, pas la recette* — et une flèche est une forme,
+      //   donc elle est décrite ici, comme la tuile qui la porte.
+      //   ⚠️ Le TEXTE est une donnée (« -24,6 % ») : il passe par `x`, jamais par
+      //   `h`. Le SVG est une forme fixe : il passe par `h`. Les deux cohabitent
+      //   dans le même nœud, et `monter()` sait poser l'un puis l'autre.
+      if (v.deltaSens) {
+        var trace = v.deltaSens === 'up' ? 'M6 2 11 9H1z'
+          : v.deltaSens === 'down' ? 'M6 10 1 3h10z' : 'M2 6h8';
+        pied.push(n('span', C.delta + ' ' + C.delta + '--' + v.deltaSens, {
+          h: '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="' + trace + '"/></svg>',
+          x: v.deltaTxt == null ? '' : v.deltaTxt
+        }));
+      }
       if (v.tirage) pied.push(n('span', C.tirage, { x: v.tirage }));
-      bas.push(n('span', C.prix, { k: pied }));
+      if (pied.length) bas.push(n('span', C.prix, { k: pied }));
     }
     if (v.sansFicheTxt) bas.push(n('span', C.sansFiche, { x: v.sansFicheTxt }));
 
     // ⚠️ `<a>` OU `<div>`, JAMAIS UN `<a>` SANS `href` : un lien sans
     //   destination reste focusable et s'annonce comme un lien. Règle tenue par
     //   les trois fabriques depuis le lot 113.
-    var racineN = n(v.href ? 'a' : 'div', v.href ? C.boite : C.muet,
-      { a: v.href ? { href: v.href } : null, k: [] });
+    // 🧩 LOT I ④ — `classePlus` et `attrs` : ce que le Marché pose sur la boîte
+    //   et que le rayon ne pose pas — la classe `revele` de l'apparition, le
+    //   `--i` de son rang, et les DIX attributs `data-` recopiés en bloc depuis
+    //   la ligne. ⛔ Ils passent par un dictionnaire ANONYME : nommer les dix
+    //   ici rouvrirait exactement la panne ① du lot 71 (quatre attributs sur
+    //   dix, donc quatre groupes de filtres qui laissaient tout passer).
+    var attrsR = v.href ? { href: v.href } : {};
+    if (v.attrs) { for (var w2 in v.attrs) if (v.attrs[w2] != null) attrsR[w2] = v.attrs[w2]; }
+    var racineN = n(v.href ? 'a' : 'div',
+      (v.href ? C.boite : C.muet) + (v.classePlus ? ' ' + v.classePlus : ''),
+      { a: attrsR, k: [] });
     if (haut.length) racineN.k.push(n('span', C.hd, { k: haut }));
     racineN.k.push(n('span', v.comic ? C.socleComic : C.socle, { k: dedans }));
     racineN.k.push(n('span', C.bas, { k: bas }));
@@ -166,9 +246,25 @@
     if (d.c) e.className = d.c;
     if (d.a) { for (var k in d.a) if (d.a[k] != null) {
       if (k === 'src') e.src = d.a[k]; else e.setAttribute(k, d.a[k]); } }
-    if (d.h) e.innerHTML = d.h;
-    else if (d.x != null) e.textContent = d.x;
-    if (d.k) for (var i = 0; i < d.k.length; i++) e.appendChild(monter(d.k[i], doc));
+    // 🧩 LOT I ④ — `h` PUIS `x` PEUVENT COHABITER, et c'est la variation qui
+    //   l'exige : une flèche fabriquée (`h`) suivie d'un pourcentage de données
+    //   (`x`). ⛔ `textContent` après `innerHTML` aurait EFFACÉ la flèche : on
+    //   ajoute donc un nœud de texte, on ne réécrit pas le contenu.
+    if (d.h) {
+      e.innerHTML = d.h;
+      if (d.x) e.appendChild(doc.createTextNode(d.x));
+    } else if (d.x != null) e.textContent = d.x;
+    // 🧩🔴🔴 LOT I ④ — UN ENFANT PEUT ÊTRE UN NŒUD DÉJÀ MONTÉ. C'est la règle du
+    //   transport prise au mot : le Marché CLONE le montant, l'alerte et les
+    //   extrêmes depuis la ligne du tableau — il ne les refabrique pas, et il
+    //   n'a donc pas de description à en donner. ⛔ Ce cas n'existe QUE chez le
+    //   client : `engine/lib/tuile.mjs`, qui sérialise au build, refuse un nœud
+    //   plutôt que de le sérialiser à moitié.
+    if (d.k) for (var i = 0; i < d.k.length; i++) {
+      var enf = d.k[i];
+      if (!enf) continue;
+      e.appendChild(enf.nodeType ? enf : monter(enf, doc));
+    }
     return e;
   }
 
