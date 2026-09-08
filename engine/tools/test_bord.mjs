@@ -198,9 +198,20 @@ const propre = (n) => nu(n ? n.textContent : '').replace(/\s+/g, ' ').trim();
 
 console.log('\n2. le pouls dit-il ses dates, et jamais un zéro ?');
 const bloc = (html.match(/<div class="stats">[\s\S]*?<\/div>\s*<\/div>\s*<\/div>/g) || []).join(' ');
-verifie('les trois chiffres mesurés sont servis',
-  html.includes('7,013') && html.includes('943'),
-  '7 013 transferts · 943 wallets actifs (union « a envoyé OU reçu »), journée VeVe du 06/09');
+// ⭐⭐⭐ CE § LISAIT « 7 013 » ET « 943 » EN DUR — deux nombres recopiés du
+//   constat écrit à la main. Le lot L REGÉNÈRE ce constat depuis la chaîne :
+//   ces deux nombres changent tous les jours, et le banc rougissait sur un site
+//   parfaitement sain, exactement comme le §K avait rougi sur `encyclopedie`.
+//   ⛔ UN NOMBRE MAGIQUE NE MESURE PAS CE QU'IL PRÉTEND. Le banc lit désormais
+//   LE CONSTAT et vérifie que la page sert CE QU'IL DIT : c'est le mécanisme
+//   (« l'écran ne fabrique rien »), et il reste vrai demain.
+const { constat } = await import('../lib/pouls.mjs');
+const C = constat();
+const fmt = (n) => Number(n).toLocaleString('en-US');
+verifie('les chiffres du constat sont servis TELS QUELS',
+  html.includes(fmt(C.transferts)) && html.includes(fmt(C.wallets.actifs)),
+  `${fmt(C.transferts)} transferts · ${fmt(C.wallets.actifs)} wallets actifs`
+  + ` (union « a envoyé OU reçu », adresse nulle exclue), journée VeVe du ${C.fenetre.jourVeve}`);
 // ⛔⛔ LE CONTRÔLE QUI COMPTE : les deux cases sans source ne doivent JAMAIS
 //    porter un nombre. On cherche « not collected » ET on refuse un « 0 » sous
 //    ces libellés — un zéro affirme « il ne s'est rien passé », c'est une
@@ -221,8 +232,21 @@ if (!dom) {
   //   était faux (la donnée existe, elle n'est pas servie). Le banc suit les
   //   libellés, il ne fige pas une formulation.
   const sansSource = cases.filter((c) => /not wired up|pas encore branché|noch nicht angebunden|aún no conectado|non ancora collegato/i.test(c.s));
-  verifie('les deux cases non servies le disent, et ne disent pas « zéro »', sansSource.length >= 2,
-    `${sansSource.length} case(s) sur ${cases.length} — attendu au moins 2 (revenue, OMI brûlés)`);
+  // ⭐ COMBIEN DE CASES DOIVENT ÊTRE VIDES ? LE CONSTAT LE DIT — on ne le
+  //   décrète plus. Avant le lot L, `revenue` et `omiBrules` manquaient toujours
+  //   et « au moins 2 » était juste ; le pont les remplit, et « au moins 2 »
+  //   serait devenu une exigence de PANNE. Un banc qui exige le défaut qu'il
+  //   surveillait s'oppose à sa propre correction.
+  const attendus = [
+    ['revenue', !(C.revenue && typeof C.revenue.usd === 'number')],
+    ['OMI brûlés', !(C.omiBrules && typeof C.omiBrules.v === 'number')],
+  ].filter(([, absent]) => absent).map(([nom]) => nom);
+  verifie('les cases sans source le disent, et ne disent pas « zéro »',
+    sansSource.length === attendus.length,
+    attendus.length
+      ? `${sansSource.length} case(s) sur ${cases.length} — le constat n'a pas : ${attendus.join(', ')}`
+      : `${sansSource.length} case(s) sur ${cases.length} — le constat porte TOUT : le pouls est`
+        + ' entièrement branché, aucune case ne doit dire « pas encore branché »');
   // ⛔⛔ LE CONTRÔLE QUI COMPTE : aucune d'elles ne porte un CHIFFRE. Un zéro
   //    affirme « il ne s'est rien passé » — c'est une mesure, et elle est fausse.
   const chiffrees = sansSource.filter((c) => /[0-9]/.test(c.v));
@@ -231,10 +255,30 @@ if (!dom) {
       : sansSource.map((c) => `« ${c.v} »`).join(' · '));
   // ⭐ ET LES CASES MESURÉES, ELLES, PORTENT BIEN LEUR CHIFFRE : sans ce
   //   contre-contrôle, un gabarit qui rendrait TOUT en tiret serait vert.
-  const mesurees = cases.filter((c) => /7,013|7 013|7\.013|943/.test(c.v));
+  const attendues = [fmt(C.transferts), fmt(C.wallets.actifs)];
+  const mesurees = cases.filter((c) => attendues.includes(c.v.replace(/[^0-9,]/g, '')));
   verifie('…et les cases mesurées, elles, portent leur chiffre ET leur date',
-    mesurees.length >= 2 && mesurees.every((c) => /2026|06\/09|09\/06/.test(c.s)),
+    mesurees.length >= 2 && mesurees.every((c) => /20[0-9]{2}/.test(c.s)),
     mesurees.map((c) => `${c.v} (${c.s})`).join(' · ') || '🔴 aucune case chiffrée trouvée');
+  // ── 🫀 LE PONT DU LOT L : les deux cases qu'il remplit ────────────────────
+  // ⛔ On juge ce que le constat PORTE, pas ce qu'on espère : si un jour la
+  //    release n'est pas publiée, `preparer_pouls.mjs` laisse la case vide et
+  //    ces contrôles deviennent SANS OBJET — ils ne rougissent pas.
+  if (C.revenue && typeof C.revenue.usd === 'number') {
+    const cR = cases.find((c) => new RegExp(`\\$?${fmt(Math.round(C.revenue.usd))}`).test(c.v));
+    verifie('💰 le revenue du drop est servi, AVEC son assiette',
+      !!cR && new RegExp(`${fmt(C.revenue.mintsChiffres)}`).test(cR.s),
+      cR ? `${cR.v} — « ${cR.s} » (${C.revenue.mintsChiffres}/${C.revenue.mints} mints chiffrés)`
+        : `🔴 aucune case ne porte ${fmt(Math.round(C.revenue.usd))} : une somme servie sans son`
+          + ' assiette se lirait comme un total');
+  } else console.log('  --  💰 revenue SANS OBJET — le constat ne le porte pas.');
+  if (C.omiBrules && typeof C.omiBrules.v === 'number') {
+    const cO = cases.find((c) => c.v.replace(/[^0-9,]/g, '') === fmt(Math.round(C.omiBrules.v)));
+    verifie('🔥 les OMI brûlés sont servis, en OMI et JAMAIS convertis',
+      !!cO && /OMI/.test(cO.s) && !/\$|USD/.test(cO.v),
+      cO ? `${cO.v} — « ${cO.s} »`
+        : `🔴 aucune case ne porte ${fmt(Math.round(C.omiBrules.v))}`);
+  } else console.log('  --  🔥 OMI brûlés SANS OBJET — le constat ne les porte pas.');
 }
 // 🕐 L'HORLOGE EST DANS L'ÉTIQUETTE, et c'est la mesure du 07/09 qui l'impose :
 //   le jour de l'entrepôt est un jour PACIFIQUE, pas un jour UTC.

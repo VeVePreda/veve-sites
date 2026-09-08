@@ -1,24 +1,29 @@
 {
-  "_lisezMoi": "LE CONSTAT DU POULS 24 H. La donnee EXISTE et elle est FRAICHE : la release `chain-archive-daily` du depot VeVePreda/scrapeur-veve publie un `transfers_daily_<AAAA-MM-JJ>.csv.gz` par jour (89 assets, le dernier mis a jour le 07/09/2026 a 07:22 UTC, soit J-1). Ce que le SITE n'a pas, c'est le chemin pour la lire : `engine/data/warehouse.mjs` ne declare pas cette source. Ce fichier est donc un CONSTAT recopie a la main, en attendant le pont. Voir engine/lib/pouls.mjs.",
-  "mesureLe": "2026-09-07T17:40:00Z",
-  "mesurePar": "release VeVePreda/scrapeur-veve · chain-archive-daily · transfers_daily_2026-09-06.csv.gz (223 956 o)",
+  "_lisezMoi": "LE POULS 24 H, CALCULÉ. Ce fichier n'est plus recopié à la main : `engine/tools/preparer_pouls.mjs` le régénère depuis la release `chain-archive-daily` de VeVePreda/scrapeur-veve, le catalogue et `burns_daily.csv`. ⛔ Ne pas l'éditer : relancer l'outil.",
+  "mesureLe": "2026-09-08T11:27:00.394Z",
+  "mesurePar": "https://github.com/VeVePreda/scrapeur-veve/releases/download/chain-archive-daily/transfers_daily_2026-09-07.csv.gz",
   "fenetre": {
-    "debutUtc": "2026-09-06T07:00:00Z",
-    "finUtc": "2026-09-07T06:57:30Z",
-    "jourVeve": "2026-09-06",
+    "debutUtc": "2026-09-07T07:00:00Z",
+    "finUtc": "2026-09-08T06:57:30Z",
+    "jourVeve": "2026-09-07",
     "horloge": "UTC-7",
     "_note": "Un fichier `transfers_daily_<J>` couvre exactement la JOURNEE PACIFIQUE J : premier horodatage 07:00:00Z le jour J, dernier 06:57:30Z le lendemain. C'est pourquoi l'etiquette dit le jour VeVe ET son decalage, jamais un jour UTC seul."
   },
-  "transferts": 7013,
+  "transferts": 5591,
   "wallets": {
-    "actifs": 943,
-    "emetteurs": 448,
-    "destinataires": 783,
-    "_definition": "Arbitrage Preda du 07/09/2026 : ACTIF = a envoye OU recu sur la fenetre, TOUS mouvements confondus. Un wallet qui fait les deux est compte UNE fois (union, pas somme : 448 + 783 = 1 231).",
-    "_autreDefinition": "⚠️ `ledger_derived.py` (jetonveve) compte autrement : il ecarte les `listing`, qui ne transferent aucune propriete, et les compte a part sous `listeurs`. Sur cette meme journee cela donne 4 407 mouvements et 846 wallets, pas 7 013 et 943. Les deux chiffres sont justes ; ils ne repondent pas a la meme question. C'est la definition de Preda qui est servie, et elle est ecrite ici pour que l'ecart se voie."
+    "actifs": 775,
+    "_definition": "a envoyé OU reçu — l'union, jamais la somme. ⛔ L'adresse nulle est EXCLUE : c'est le contrat qui frappe, pas un porteur."
   },
-  "ventilation": { "market": 2453, "listing": 2606, "mint": 1922, "system_transfer": 32 },
-  "revenue": null,
-  "omiBrules": null,
-  "_absents": "revenue et omiBrules valent null, et null veut dire NON SERVI AU SITE — ⛔ PAS « n'existe pas ». Mesure du 07/09 : `jetonveve/data/burns_split_daily.csv` porte `omi_volume` (le 02/09 : 38 916 978) et `burns_daily.csv` porte `omi_burned` (le 02/09 : 763 078, cumul 628 781 419). Les deux sont QUOTIDIENS. Ce qui manque est le meme pont que pour les transferts : une source de plus dans `warehouse.mjs`. ⛔ Ils ne doivent JAMAIS devenir 0 : un zero se lit comme une mesure."
+  "mints": 279,
+  "revenue": {
+    "usd": 4065.1,
+    "mints": 279,
+    "mintsChiffres": 279,
+    "_definition": "REVENUE 24 H = LE SUPPLY AU DROP VENDUE (arbitrage Preda, 08/09/2026) : la somme des `store_price` des pièces FRAPPÉES dans la journée. ⚠️ `mintsChiffres` dit sur combien de mints la somme porte — une pièce trop neuve pour le catalogue publié n'a pas encore de prix."
+  },
+  "omiBrules": {
+    "v": 584609.28,
+    "jour": "2026-09-07",
+    "_unite": "OMI — ⛔ jamais converti en dollars"
+  }
 }

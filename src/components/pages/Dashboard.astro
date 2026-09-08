@@ -624,19 +624,36 @@ const cadenas = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stro
                 n: (P.offres.pieces ?? 0).toLocaleString(nf), d: jour(P.offres.le) || '?' })
             : t(lang, 'bord.pouls.absent')}</div>
         </div>
-        {[['bord.pouls.revenue', P.revenue], ['bord.pouls.omi', P.omiBrules]].map(([cle]) => (
-          <div class="stat">
-            <div class="k">{t(lang, cle)}</div>
-            {/* ⛔⛔ CE TIRET NE DEVIENDRA JAMAIS UN ZÉRO. Les deux mesures
-                EXISTENT (jetonveve, quotidiennes) ; ce qui manque est une
-                source de plus dans `warehouse.mjs`. Le jour où elle sera
-                déclarée, `pouls.mjs` les lira et cette branche s'éteindra
-                d'elle-même. En attendant, « pas encore branché » est la seule
-                phrase vraie — et « non collecté » ne l'était pas. */}
-            <div class="v" style="color:var(--muted)">—</div>
-            <div class="s">{t(lang, 'bord.pouls.absent')}</div>
-          </div>
-        ))}
+        {/* 💰 LE REVENUE DU DROP — LOT L. « Revenue 24 h, c'est le supply au drop
+            VENDUE » (Preda, 08/09) : la somme des `store_price` des pièces
+            FRAPPÉES dans la journée, que `kind === 'mint'` donne exactement.
+            ⚠️ LA SOUS-LIGNE PORTE L'ASSIETTE, et ce n'est pas un ornement : une
+            pièce trop neuve pour le catalogue publié n'a pas encore de prix.
+            Mesuré le 06/09 : 540 mints sur 1 922 dans ce cas. Une somme servie
+            sans son assiette se lit comme un total. */}
+        <div class="stat">
+          <div class="k">{t(lang, 'bord.pouls.revenue')}</div>
+          <div class="v" style={P.revenue.etat === 'mesure' ? undefined : 'color:var(--muted)'}>
+            {P.revenue.etat === 'mesure'
+              ? `$${Math.round(P.revenue.v).toLocaleString(nf)}` : '—'}</div>
+          <div class="s">{P.revenue.etat === 'mesure'
+            ? t(lang, 'bord.pouls.revenue.s', {
+                n: (P.revenue.pieces ?? 0).toLocaleString(nf),
+                m: (P.revenue.mints ?? 0).toLocaleString(nf) })
+            : t(lang, 'bord.pouls.absent')}</div>
+        </div>
+        {/* 🔥 EN OMI, ⛔ JAMAIS CONVERTI EN DOLLARS. Le rapport OMI/USD n'est pas
+            constant (médiane 4 423, p10 2 273, p90 8 520) : une conversion
+            « pour aider » fabriquerait un chiffre que personne ne peut vérifier. */}
+        <div class="stat">
+          <div class="k">{t(lang, 'bord.pouls.omi')}</div>
+          <div class="v" style={P.omiBrules.etat === 'mesure' ? 'color:var(--att)' : 'color:var(--muted)'}>
+            {P.omiBrules.etat === 'mesure'
+              ? Math.round(P.omiBrules.v).toLocaleString(nf) : '—'}</div>
+          <div class="s">{P.omiBrules.etat === 'mesure'
+            ? t(lang, 'bord.pouls.omi.s', { d: jour(P.omiBrules.jour), h: P.omiBrules.horloge })
+            : t(lang, 'bord.pouls.absent')}</div>
+        </div>
       </div>
     </>
   )}

@@ -989,7 +989,12 @@ identity:
   palette:
     primary: "#10CEF2"   # le cyan VeVe — porte les LIENS et l'état actif
     accent:  "#3EC875"   # hausse
-    danger:  "#ED9BA6"   # baisse
+    # ⭐ LOT L · `danger` EST L'APLAT DE LA BAISSE, et il est redevenu vivant :
+    # le thème lisait `--down: var(--danger)`, mais un doublon minifié en fin de
+    # `theme.css` réécrivait `--down` en dur juste après — le manifeste ne décidait
+    # plus rien. Le doublon est parti (lot L) : cette ligne se voit à nouveau.
+    # 🔬 #E36777 = la valeur de la maquette v5 · 5,36:1 sous une encre noire.
+    danger:  "#E36777"   # baisse — l'APLAT (l'encre est `--down-txt`, #F08A9B)
     bg:      "#1A1A1A"   # le gris VeVe d'époque
     surface: "#2C2C2C"
     text:    "#FFFFFF"

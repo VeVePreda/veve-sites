@@ -209,6 +209,47 @@ const SOURCES = {
     sample: 'fiches_stackr.csv',
   },
 
+  // ══════════════════════════════════════════════════════════════════════════
+  // 🔥 LES BRÛLAGES QUOTIDIENS — lot L, 08/09/2026 · LE PONT DU POULS 24 H
+  // ══════════════════════════════════════════════════════════════════════════
+  // ⭐⭐⭐ IL N'Y A RIEN À COLLECTER — ET C'EST LE POINT. J'avais écrit quatre
+  // fois que « le pouls 24 h demande une collecte ». Faux : la donnée est
+  // publiée, quotidienne, et elle était à une URL de distance. Ce qui manquait
+  // n'était pas un collecteur, c'était CETTE DÉCLARATION. ⛔ Une note qui nomme
+  // une solution (« il faut collecter ») fait sauter la question du besoin.
+  //
+  // 🔴 CE SONT DES FICHIERS DU DÉPÔT, PAS DES RELEASES. `base()` fabrique des
+  // URL de release ; ces deux-là vivent dans `data/` de `fanablefrance/jetonveve`
+  // et se lisent en RAW. L'URL est donc en dur — même écart, et même raison,
+  // que `ventes` plus haut : on le commente, on ne le cache pas.
+  //
+  // Schéma MESURÉ le 08/09/2026 sur les fichiers servis (HTTP 200) :
+  //   burns_daily.csv        date, source, transactions, omi_burned, cumulative
+  //   burns_split_daily.csv  date, nft_sales, omi_nft, omi_volume, gem_buys, omi_gem
+  // · `date` : jour PACIFIQUE, comme `transfers_daily_<J>` — la même horloge que
+  //   le reste du pouls, et c'est ce qui autorise à les afficher côte à côte.
+  //   ⛔ Ne JAMAIS l'étiqueter comme un jour UTC : c'est la faute déjà payée.
+  // · `omi_burned` : des OMI, ⛔ PAS des dollars. Aucune conversion, ici ni
+  //   ailleurs — le rapport OMI/USD n'est pas constant (médiane 4 423, p10
+  //   2 273, p90 8 520). L'écran dit « OMI » ou ne dit rien.
+  // · dernières lignes lues le 08/09 : 2026-09-07 · 584 609,28 OMI brûlés ·
+  //   29 815 073,28 OMI de volume. La veille : 851 416,32 et 43 422 232,32.
+  //
+  // ⛔ PAS DE `prev` : un fichier de dépôt n'a pas de release N-1. Un secours
+  // qui n'existe pas ne se déclare pas (même raison que `releves` et `omiUsd`).
+  // ⇒ Ces deux sources se lisent par `chargerFacultatif` : injoignables, la
+  // case du pouls redit « pas encore branché » et le build reste vert.
+  burns: {
+    url: process.env.BURNS_URL
+      || 'https://raw.githubusercontent.com/fanablefrance/jetonveve/main/data/burns_daily.csv',
+    sample: 'burns_daily.csv',
+  },
+  burnsSplit: {
+    url: process.env.BURNS_SPLIT_URL
+      || 'https://raw.githubusercontent.com/fanablefrance/jetonveve/main/data/burns_split_daily.csv',
+    sample: 'burns_split_daily.csv',
+  },
+
   // ═══════════════════════════════════════════════════════════════════════════
   // LES DÉRIVÉS DU GRAND LIVRE — lot 44, 03/08/2026
   // ═══════════════════════════════════════════════════════════════════════════
@@ -739,6 +780,72 @@ export const getOmiUsd = () => chargerFacultatif('omiUsd');
 // fiche perd son tableau de ventes et RIEN d'autre. ⛔ Le build ne meurt pas
 // pour un enrichissement dont deux fiches sur trois se passent deja.
 export const getVentes = () => chargerFacultatif('ventes');
+// 🔥 Le pont du pouls 24 h — FACULTATIVES l'une comme l'autre : une case qui
+// redit « pas encore branché » vaut mieux qu'un build rouge, et infiniment
+// mieux qu'un zéro (qui affirmerait qu'il ne s'est rien brûlé aujourd'hui).
+// ══════════════════════════════════════════════════════════════════════════
+// 🫀 LE POULS 24 H — lot L, 08/09/2026 · LE JOUR EST DANS LE NOM DU FICHIER
+// ══════════════════════════════════════════════════════════════════════════
+// ⭐⭐⭐ CE N'EST PAS UNE SOURCE ORDINAIRE, ET C'EST POUR ÇA QU'ELLE A SA
+// FONCTION. `SOURCES` tient des URL FIXES ; ici le nom porte la date
+// (`transfers_daily_2026-09-07.csv.gz`), et le fichier de J-1 n'existe qu'à
+// partir d'environ 07:15 UTC — mesuré sur la release : 07:22:32Z le 07/09,
+// 07:15:29Z le 08/09. Un build lancé à 06:00 doit donc lire J-2, et ce n'est
+// PAS un incident.
+// ⛔ D'OÙ LE REFUS DU CHAMP `prev` : il aurait marché, mais `noterRepli()` crie
+// un `::warning` et devient FATAL sous `WAREHOUSE_REFUSE_PREV=1`. Un mécanisme
+// de secours transformerait une matinée normale en alerte — et une alerte qui
+// se déclenche tous les jours finit désarmée.
+//
+// Schéma MESURÉ le 08/09 sur `transfers_daily_2026-09-07.csv.gz` (5 591 lignes) :
+//   block, log_index, ts_utc, date_pt, kind, category, veve_uuid, edition,
+//   from, to, token_id
+// · `date_pt` : le jour PACIFIQUE, constant dans tout le fichier. C'est LUI
+//   qu'on affiche, avec son décalage — jamais un jour UTC.
+// · `kind` : `mint` · `market` · `listing` · `system_transfer`.
+//   ⭐ `mint` EST la supply vendue au drop (arbitrage Preda, 08/09) : 1 922 le
+//   06/09, 279 le 07/09.
+// · `from` / `to` : ⚠️ la colonne s'appelle `from`, PAS `from_address`. Lue
+//   sous le mauvais nom elle rend `undefined` partout, et un filtre écrit
+//   dessus déclare alors que TOUTES les lignes sont des mints. (Fait le 08/09.)
+//
+// 🔬 LA CONTRE-ÉPREUVE QUI AUTORISE À REMPLACER LE CONSTAT FIGÉ : recalculé
+// sur `transfers_daily_2026-09-06`, ce lecteur rend **7 013 transferts et 943
+// wallets** — exactement les deux nombres que `pouls24.json` portait à la main.
+// Un pont qui rend d'autres chiffres que le constat qu'il remplace n'est pas un
+// pont, c'est un second constat.
+const JOURS_ESSAYES = 4;
+const urlTransferts = (jour) => 'https://github.com/VeVePreda/scrapeur-veve/releases/'
+  + `download/chain-archive-daily/transfers_daily_${jour}.csv.gz`;
+
+/** Les transferts du jour le plus récent qu'on trouve, ou `null`.
+ *  ⛔ `null` et JAMAIS un tableau vide : « pas de fichier » et « une journée
+ *  sans un seul transfert » ne doivent pas rendre la même chose — l'un est un
+ *  manque, l'autre serait une mesure (et fausse). */
+export async function chargerTransfertsQuotidiens(aujourdHui = new Date()) {
+  if (OFFLINE) {
+    const rows = readSample('transfers_daily.csv');
+    return rows.length ? { rows, jour: rows[0].date_pt || null, source: 'echantillon' } : null;
+  }
+  for (let d = 1; d <= JOURS_ESSAYES; d += 1) {
+    const j = new Date(aujourdHui.getTime() - d * 86400000).toISOString().slice(0, 10);
+    try {
+      const rows = await fetchTable(urlTransferts(j));
+      if (rows.length) {
+        console.log(`[entrepot] transfertsQuotidiens: ${rows.length} lignes pour le ${j}`);
+        return { rows, jour: rows[0].date_pt || j, source: urlTransferts(j) };
+      }
+    } catch (e) {
+      console.warn(`[entrepot] transfertsQuotidiens: ${j} indisponible (${e.message})`);
+    }
+  }
+  console.warn('::warning title=Pouls 24 h sans source::aucun `transfers_daily_<J>` sur '
+    + `${JOURS_ESSAYES} jours — le tableau de bord dira « pas encore branché ».`);
+  return null;
+}
+
+export const getBurns = () => chargerFacultatif('burns');
+export const getBurnsSplit = () => chargerFacultatif('burnsSplit');
 
 // Les dérivés du grand livre. ⚠️ Réservés : ne jamais les passer à un composant
 // rendu au build — ils vont dans `.reserve/`, servis par `/api/analytics/`.

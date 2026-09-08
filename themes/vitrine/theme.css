@@ -61,10 +61,21 @@
 
   /* ─── PRIX ─── sur des CHIFFRES uniquement ─────────────────────────────── */
   --up:        #3EC875;   /* vert VeVe éclairci · 4,51:1 */
-  --down:      #F08A9B;   /* v5 · 7,30:1 sur nuit. ⛔ JAMAIS sur --carte : 2,38:1.
-                             Pour une baisse sur fond clair : .delta--sur-blanc.delta--down (#B01F32, 6,80:1). */
+  /* ⭐⭐ LOT L · LA BAISSE SE SCINDE EN DEUX, COMME DANS LA MAQUETTE v5.
+     La v5 déclare `--baisse:#E36777` (l'APLAT) et `--baisse-txt:#F08A9B`
+     (l'ENCRE), puis `--down:var(--baisse)`. On garde le vocabulaire du site :
+     `--down` EST l'aplat — et il redevient `var(--danger)` par le pont, donc
+     branché sur le manifeste, ce que le doublon supprimé plus bas empêchait.
+     🔬 MESURÉ, et c'est ce qui décide de chaque usage :
+       · l'aplat #E36777 porte du texte NOIR à 5,36:1  (`.alerte`, `.jauge`)
+       · l'encre #F08A9B se lit à 7,30:1 sur la nuit   (`.delta`, `.avertis b`)
+       · l'inverse échoue : l'encre en aplat ne tient que 2,38:1 sous du blanc
+     ⛔ AUCUN des deux ne fait un texte sur `--carte` (3,24 et 2,38) : sur fond
+     clair, c'est `.delta--sur-blanc` qui prend la main (#B01F32, 6,80:1). */
+  --down:      #E36777;   /* l'APLAT : fonds, filets, dégradés, pastilles */
+  --down-txt:  #F08A9B;   /* l'ENCRE : textes, traits de courbe, points */
   --up-1v:     #3EC8751F;
-  --down-1v:   #F08A9B1F;
+  --down-1v:   #E367771F;
 
   /* ─── MONNAIES ─────────────────────────────────────────────────────────────
      ⭐ Deux marques distinctes, imposées par Preda et justes :
@@ -96,14 +107,24 @@
      mais il faut alors que le traitement soit tenu partout, sans exception. */
   --lock:      #10CEF2;
   --lock-pur:  #10CEF2;
-  --lock-1v:   #10CEF224;
+  /* ⭐ LOT L — celui-ci, si : hors section, le voile du cadenas était figé à 14 %
+     (#10CEF224) quand tous les autres voiles passent à 12 % par `--sect-1v`.
+     Il rejoint le calcul. ⛔ Sur une page de section, `[data-sect]` le
+     redéfinissait déjà : cette ligne ne change que les pages neutres. */
+  --lock-1v:   var(--sect-1v);
 
   /* ─── SECTION — 5 ambiances, toutes de la planche VeVe ─────────────────── */
   --sect-a:    #10CEF2;
   --sect-pur:  #10CEF2;
   --sect-sur:  #1A1A1A;
   --sect-fonce:#0A7A8F;   /* v5 · 3,48:1 sur nuit — sans objet : 6 usages mesurés, TOUS en background */
-  --sect-1v:   #10CEF21F;
+  /* ⭐⭐ LOT L · v5 : LE VOILE SE CALCULE, IL NE SE RECOPIE PLUS.
+     Neuf sections écrivaient chacune leur `--sect-1v` en dur — et sur la teinte
+     PURE, pas sur `--sect-a` qui est celle qu'on voit. Un `color-mix` sur
+     `--sect-a` les remplace toutes : une section neuve n'a plus qu'à déclarer
+     sa couleur. ⛔ C'est la seule des cinq divergences de mécanisme de la v5 qui
+     RETIRE des lignes au lieu d'en ajouter. */
+  --sect-1v:   color-mix(in srgb,var(--sect-a) 12%,transparent);
 
   /* ─── TYPO ─────────────────────────────────────────────────────────────── */
   /* ⭐ ARCHIVO remplace Outfit — c'est la fonte de la référence « SIGN UP FOR
@@ -155,7 +176,7 @@
           0 10px 34px -12px color-mix(in srgb,var(--sect-pur) 38%,transparent);
 
   --d-fast:130ms; --d-base:240ms; --d-slow:440ms;
-  --e-out:cubic-bezier(.22,1,.36,1); --e-soft:cubic-bezier(.4,0,.2,1);
+  --e-out:cubic-bezier(.2,.7,.2,1); --e-soft:cubic-bezier(.4,0,.2,1);
   --e-rebond:cubic-bezier(.34,1.56,.64,1);
 
   /* ⛔⛔ REINJECTE LE 31/07/2026 — CES CINQ VARIABLES AVAIENT DISPARU EN PROD.
@@ -420,7 +441,7 @@ th, td{text-align:left;padding:11px var(--s2);border-bottom:1px solid var(--vp-r
 td.num, th.num{text-align:right;font-variant-numeric:tabular-nums;
   font-family:var(--font-heading);font-weight:600}
 .up{color:var(--accent)}
-.down{color:var(--danger)}
+.down{color:var(--down-txt)}
 .searchbox{width:100%;min-height:var(--tap);padding:0 var(--s4);
   border-radius:var(--r-md);border:1px solid var(--vp-rule-2);
   background:var(--surface);color:var(--text);font-size:16px;font-family:var(--font-body);
@@ -485,7 +506,7 @@ td.num, th.num{text-align:right;font-variant-numeric:tabular-nums;
   --rule:#E2E2E2; --rule-2:#C6C6C6; --rule-int:#767676;
   /* --text : fourni par le manifeste */ --text-2:#3D3D3D; --muted:#5E5E5E;
   --cyan:#08687A; --cyan-fonce:#054E5C; --cyan-1v:#10CEF23D;
-  --up:#096E38; --down:#B01F32; --up-1v:#096E3814; --down-1v:#B01F3214;
+  --up:#096E38; --down:#B01F32; --down-txt:#B01F32; --up-1v:#096E3814; --down-1v:#B01F3214;
   /* ⭐⭐ LE THÈME JOUR N'EST PLUS TERNE — et la correction n'est pas
      « éclaircir », c'est SÉPARER DEUX USAGES.
      Mesuré : sur un fond clair, les couleurs VeVe vives échouent en TEXTE
@@ -505,12 +526,12 @@ td.num, th.num{text-align:right;font-variant-numeric:tabular-nums;
   --r-ultra-a:#AF6A00; --r-ultra-b:#8A5300; --r-ultra-ink:#BB7000;
   --r-secret-a:#C02236; --r-secret-b:#7D1623; --r-secret-ink:#D7263D;
   --r-proof-a:#7A7A7A; --r-proof-b:#5E5E5E; --r-proof-ink:#818181;
-  --lock:#08687A; --lock-pur:#10CEF2; --lock-1v:#10CEF233;
+  --lock:var(--sect-a); --lock-pur:#10CEF2; --lock-1v:var(--sect-1v);
   /* ⚠️ EN MODE JOUR L'APLAT DEVIENT LE CYAN FONCÉ, PAS LE CYAN VIF.
      Un `#10CEF2` en aplat sur une page presque blanche est fluorescent : il
      passe le contraste (9,23:1) et il est laid. `--sect-pur` bascule donc en
      `#0A6F84` avec du texte blanc — 5,07:1, et ça respire. */
-  --sect-a:#08687A; --sect-pur:#10CEF2; --sect-sur:#1A1A1A; --sect-fonce:#0A7A8F; --sect-1v:#10CEF233;
+  --sect-a:#08687A; --sect-pur:#10CEF2; --sect-sur:#1A1A1A; --sect-fonce:#0A7A8F;
   --survol:#0000000F; --voile-haut:#FFFFFF80; --voile-bas:#0000002E; /* pendant jour : voile SOMBRE, sinon invisible */
   --sh-1:0 1px 2px #0000001A; --sh-2:0 10px 26px -10px #00000026,0 2px 8px #00000014;
   --sh-3:0 26px 64px -18px #00000033,0 6px 18px #0000001A;
@@ -533,27 +554,46 @@ td.num, th.num{text-align:right;font-variant-numeric:tabular-nums;
   --up:       var(--accent);
   --down:     var(--danger);
   --gems:     var(--primary);
+  /* 🔴🔴⭐⭐⭐ LOT L · CE QUI N'A PAS ÉTÉ ÉCRIT ICI, ET POURQUOI.
+     La maquette v5 déclare `--lock: var(--sect-a)`. Je l'ai écrit, bâti, puis
+     MESURÉ sur `/blog/` — et le cadenas y était DÉJÀ orange. La règle
+     `[data-sect]{--lock:var(--sect-a)}` existe depuis l'arbitrage Preda du
+     26/08 (« le verrou SUIT LA PAGE »), plus bas dans ce fichier. Hors section,
+     `--sect-a` vaut `var(--primary)` : mon changement rendait donc exactement
+     la même couleur partout. ⛔ UN NO-OP N'EST PAS UNE FIDÉLITÉ, c'est du bruit
+     dans un diff, et son commentaire — « le verrou cesse d'être un cyan » —
+     aurait été FAUX en plus d'être inutile.
+     ⭐⭐⭐ Et il a fallu la mesure pour le voir : le §L ne l'aurait pas dit,
+     puisqu'il refuse délibérément de juger une variable contre une autre.
+     *Un écart entre la maquette et la prod n'est un défaut que si la prod ne
+     fait pas déjà la chose par un autre chemin.* */
   --lock:     var(--primary);
 }
 
-[data-sect="collectibles"]{--sect-a:#6BB6FC;--sect-pur:#0082FA;--sect-sur:#1A1A1A;--sect-fonce:#004B91;--sect-1v:#0082FA24}
-[data-sect="comics"] {--sect-a:#3EC875;--sect-pur:#0EBA52;--sect-sur:#1A1A1A;--sect-fonce:#086C30;--sect-1v:#0EBA5224}
-[data-sect="cotes"] {--sect-a:#ED9BA6;--sect-pur:#D7263D;--sect-sur:#FFFFFF;--sect-fonce:#8E1926;--sect-1v:#D7263D26}
-[data-sect="analyse"] {--sect-a:#10CEF2;--sect-pur:#10CEF2;--sect-sur:#1A1A1A;--sect-fonce:#0A7A8F;--sect-1v:#10CEF21F}
-[data-sect="collectibles"]{--sect-a:#005FB5;--sect-pur:#0082FA;--sect-sur:#1A1A1A;--sect-fonce:#0060B7;--sect-1v:#0082FA33}
-[data-sect="comics"] {--sect-a:#096E38;--sect-pur:#0EBA52;--sect-sur:#1A1A1A;--sect-fonce:#097039;--sect-1v:#0EBA5233}
-[data-sect="cotes"] {--sect-a:#B72034;--sect-pur:#D7263D;--sect-sur:#FFFFFF;--sect-fonce:#8E1926;--sect-1v:#D7263D2E}
-[data-sect="analyse"] {--sect-a:#08687A;--sect-pur:#10CEF2;--sect-sur:#1A1A1A;--sect-fonce:#0A7A8F;--sect-1v:#10CEF233}
-:root{--nuit: #1A1A1A; --surface: #2C2C2C; --surface-2: #383838; --surface-3: #444444; --rule: #3A3A3A; --rule-2: #4E4E4E; --rule-int: #8F8F8F; --text: #FFFFFF; --text-2: #CACACA; --muted: #B1B1B1; --carte: #FFFFFF; --carte-2: #F2F2F2; --carte-ink: #1A1A1A; --carte-ink-2:#5E5E5E; --carte-lien:#0B798F; --carte-rule:#E4E4E4; --cyan: #10CEF2; --cyan-fonce:#0A7A8F; --cyan-1v: #10CEF21F; --att:#F0A029; --up: #3EC875; --down: #F08A9B; --up-1v: #3EC8751F; --down-1v: #F08A9B1F; --gems: #10CEF2; --omi: #E36777; --r-common-a: #0EBA52; --r-common-b: #086C30; --r-common-ink: #0B9542; --r-uncommon-a:#D157FC; --r-uncommon-b:#762692; --r-uncommon-ink:#C540F4; --r-rare-a: #1F91FB; --r-rare-b: #004B91; --r-rare-ink: #007FF5; --r-ultra-a: #ED8E00; --r-ultra-b: #895200; --r-ultra-ink: #BB7000; --r-secret-a: #E36777; --r-secret-b: #7D1623; --r-secret-ink: #D7263D; --r-proof-a: #CACACA; --r-proof-b: #757575; --r-proof-ink: #818181; --lock: #10CEF2; --lock-pur: #10CEF2; --lock-1v: #10CEF224; --sect-a: #10CEF2; --sect-pur: #10CEF2; --sect-sur: #1A1A1A; --sect-fonce:#0A7A8F; --sect-1v: #10CEF21F; --geo:'Archivo',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif; --tech:'Space Grotesk',ui-monospace,'SF Mono','Cascadia Mono',monospace; --sans:'Archivo',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif; --t-3xs:9px; --t-2xs:10px; --t-xs:11px; --t-sm:12.5px; --t-md:14.5px; --t-lg:16.5px; --t-xl:clamp(20px,2.2vw,25px); --t-2xl:clamp(26px,3.6vw,38px); --t-3xl:clamp(32px,5vw,52px); --t-4xl:clamp(34px,5.4vw,58px); --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:36px; --s7:56px; --s8:88px; --r-doc:0; --r-sm:2px; --r-md:8px; --r-lg:14px; --r-full:999px; --tap:44px; --tap-min:36px; --ls-titre:-.03em; --ls-etiq:.11em; --ls-etiq-l:.16em; --foc-net:0px; --foc-proche:2.5px; --foc-loin:7px; --foc-mur:9px; --foc-fond:26px; --foc-verre:18px; --survol:#FFFFFF1A; --voile-haut:#FFFFFF1F; --voile-bas:#00000073; --sh-1:0 1px 2px #00000073; --sh-2:0 10px 26px -10px #000000CC,0 2px 8px #00000080; --sh-3:0 26px 64px -18px #000000E6,0 6px 18px #0000009E; --lueur:0 0 0 1px color-mix(in srgb,var(--sect-pur) 30%,transparent), 0 10px 34px -12px color-mix(in srgb,var(--sect-pur) 38%,transparent); --d-fast:130ms; --d-base:240ms; --d-slow:440ms; --e-out:cubic-bezier(.22,1,.36,1); --e-soft:cubic-bezier(.4,0,.2,1); --e-rebond:cubic-bezier(.34,1.56,.64,1);}
-[data-theme="jour"]{--nuit:#EFEFEF; --surface:#FFFFFF; --surface-2:#E7E7E7; --surface-3:#D9D9D9; --rule:#E2E2E2; --rule-2:#C6C6C6; --rule-int:#767676; --text:#1A1A1A; --text-2:#3D3D3D; --muted:#5E5E5E; --cyan:#08687A; --cyan-fonce:#054E5C; --cyan-1v:#10CEF23D; --up:#096E38; --down:#B01F32; --up-1v:#096E3814; --down-1v:#B01F3214; --gems:#0B859D; --omi:#B01F32; --carte:#FFFFFF; --carte-2:#F2F2F2; --carte-lien:#0B798F; --carte-rule:#E4E4E4; --r-common-a:#0B8D3F; --r-common-b:#075E2A; --r-common-ink:#0B9542; --r-uncommon-a:#A62BD4; --r-uncommon-b:#6B1E85; --r-uncommon-ink:#C540F4; --r-rare-a:#0069C9; --r-rare-b:#00447F; --r-rare-ink:#007FF5; --r-ultra-a:#AF6A00; --r-ultra-b:#8A5300; --r-ultra-ink:#BB7000; --r-secret-a:#C02236; --r-secret-b:#7D1623; --r-secret-ink:#D7263D; --r-proof-a:#7A7A7A; --r-proof-b:#5E5E5E; --r-proof-ink:#818181; --lock:#08687A; --lock-pur:#10CEF2; --lock-1v:#10CEF233; --sect-a:#08687A; --sect-pur:#10CEF2; --sect-sur:#1A1A1A; --sect-fonce:#0A7A8F; --sect-1v:#10CEF233; --survol:#0000000F; --voile-haut:#FFFFFF80; --voile-bas:#0000002E; --sh-1:0 1px 2px #0000001A; --sh-2:0 10px 26px -10px #00000026,0 2px 8px #00000014; --sh-3:0 26px 64px -18px #00000033,0 6px 18px #0000001A;}
-[data-sect="collectibles"]{--sect-a:#6BB6FC;--sect-pur:#0082FA;--sect-sur:#1A1A1A;--sect-fonce:#004B91;--sect-1v:#0082FA24}
-[data-sect="comics"]{--sect-a:#3EC875;--sect-pur:#0EBA52;--sect-sur:#1A1A1A;--sect-fonce:#086C30;--sect-1v:#0EBA5224}
-[data-sect="cotes"]{--sect-a:#ED9BA6;--sect-pur:#D7263D;--sect-sur:#FFFFFF;--sect-fonce:#8E1926;--sect-1v:#D7263D26}
-[data-sect="analyse"]{--sect-a:#10CEF2;--sect-pur:#10CEF2;--sect-sur:#1A1A1A;--sect-fonce:#0A7A8F;--sect-1v:#10CEF21F}
-[data-theme="jour"] [data-sect="collectibles"]{--sect-a:#005FB5;--sect-pur:#0082FA;--sect-sur:#1A1A1A;--sect-fonce:#0060B7;--sect-1v:#0082FA33}
-[data-theme="jour"] [data-sect="comics"]{--sect-a:#096E38;--sect-pur:#0EBA52;--sect-sur:#1A1A1A;--sect-fonce:#097039;--sect-1v:#0EBA5233}
-[data-theme="jour"] [data-sect="cotes"]{--sect-a:#B72034;--sect-pur:#D7263D;--sect-sur:#FFFFFF;--sect-fonce:#8E1926;--sect-1v:#D7263D2E}
-[data-theme="jour"] [data-sect="analyse"]{--sect-a:#08687A;--sect-pur:#10CEF2;--sect-sur:#1A1A1A;--sect-fonce:#0A7A8F;--sect-1v:#10CEF233}
+/* ═══ ⛔ ICI VIVAIT UN DOUBLON — LOT L, 08/09/2026 ════════════════════
+   Dix lignes minifiées reprenaient `:root`, `[data-theme="jour"]` et les huit
+   `[data-sect]` déjà déclarés plus haut. Elles GAGNAIENT, étant les dernières.
+   ⭐⭐⭐ Éditer le bloc lisible en tête était donc parfaitement INVISIBLE en
+   production : build vert, contrôles verts, diff juste, rendu inchangé.
+   ⚠️ Pire, ce `:root` redéfinissait `--nuit`, `--sect-a`, `--sect-pur`,
+   `--sect-sur`, `--up`, `--down`, `--gems` et `--lock` APRÈS le pont ci-dessus :
+   le thème était DÉBRANCHÉ du manifeste, et personne ne pouvait le voir puisque
+   les valeurs en dur étaient les mêmes. Un défaut de MÉCANISME, pas de couleur.
+   🔬 Mesuré avant de couper : 99 jetons communs, 0 divergence (nuit) et 54
+   communs, 0 divergence (jour). Les 4 seuls jetons que le doublon apportait en
+   propre — `--surface`, `--text`, `--muted`, et `--text` en jour — sont ceux que
+   le manifeste injecte : ils reviennent par la palette, à l’octet près.
+   ⛔ Quatre des huit `[data-sect]` supprimés n’avaient PAS le préfixe
+   `[data-theme="jour"]` : ils écrasaient la nuit avec les couleurs du clair.
+   `test:feuille` §K rougit désormais si deux `:root` servis se contredisent. */
+[data-sect="collectibles"]{--sect-a:#6BB6FC;--sect-pur:#0082FA;--sect-sur:#1A1A1A;--sect-fonce:#1E5FA8}
+[data-sect="comics"]{--sect-a:#3EC875;--sect-pur:#0EBA52;--sect-sur:#1A1A1A;--sect-fonce:#137A42}
+[data-sect="cotes"]{--sect-a:#ED9BA6;--sect-pur:#D7263D;--sect-sur:#FFFFFF;--sect-fonce:#9B2033}
+[data-sect="analyse"]{--sect-a:#10CEF2;--sect-pur:#10CEF2;--sect-sur:#1A1A1A;--sect-fonce:#0A7A8F}
+[data-theme="jour"] [data-sect="collectibles"]{--sect-a:#005FB5;--sect-pur:#0082FA;--sect-sur:#1A1A1A;--sect-fonce:#1E5FA8}
+[data-theme="jour"] [data-sect="comics"]{--sect-a:#096E38;--sect-pur:#0EBA52;--sect-sur:#1A1A1A;--sect-fonce:#137A42}
+[data-theme="jour"] [data-sect="cotes"]{--sect-a:#B72034;--sect-pur:#D7263D;--sect-sur:#FFFFFF;--sect-fonce:#9B2033}
+[data-theme="jour"] [data-sect="analyse"]{--sect-a:#08687A;--sect-pur:#10CEF2;--sect-sur:#1A1A1A;--sect-fonce:#0A7A8F}
 [data-sect]{--cyan:var(--sect-a);--cyan-fonce:var(--sect-fonce);--cyan-1v:var(--sect-1v)}
 [data-leger] .socle__fond,[data-leger] .socle__voile,[data-leger] .grain, [data-leger] .decor,[data-leger] 
 [data-leger] .socle__net{filter:none!important;transform:none!important}
@@ -926,7 +966,7 @@ h3{font-size:var(--t-lg)}
 .carte:hover .rar--secret .forme,.rar--secret:hover .forme{animation:pulse-pli 700ms var(--e-out)}
 .delta{display:inline-flex;align-items:center;gap:4px;font-family:var(--tech); font-variant-numeric:tabular-nums;font-weight:600;font-size:var(--t-sm);white-space:nowrap;line-height:1.2}
 .delta--up{color:var(--up)}
-.delta--down{color:var(--down)}
+.delta--down{color:var(--down-txt)}
 .delta--flat{color:var(--muted)}
 .delta svg{width:9px;height:9px;fill:currentColor;flex:0 0 9px}
 .delta--plein{padding:4px 9px;border-radius:var(--r-full);background:var(--surface-2)}
@@ -1003,7 +1043,7 @@ h3{font-size:var(--t-lg)}
 .spark{width:100%;height:26px;display:block;overflow:visible}
 .spark path.l{fill:none;stroke:var(--muted);stroke-width:1.6;stroke-linejoin:round;stroke-linecap:round;vector-effect:non-scaling-stroke}
 .spark.up path.l{stroke:var(--up)}
-.spark.down path.l{stroke:var(--down)}
+.spark.down path.l{stroke:var(--down-txt)}
 .spark path.a{stroke:none;fill:url(#gU)}
 .spark.down path.a{fill:url(#gD)}
 /* 🔴🔴 LOT K — LE BLOC DE CHIFFRES DEVIENT *UN* BLOC (maquette v5).
@@ -1233,7 +1273,7 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 .graph .ligne-offres{fill:none;stroke:var(--muted);stroke-width:1.6;stroke-dasharray:4 3;opacity:.9}
 .graph .pt-haut,.graph .pt-bas{r:4;stroke:var(--surface);stroke-width:2}
 .graph .pt-haut{fill:var(--up)}
-.graph .pt-bas{fill:var(--down)}
+.graph .pt-bas{fill:var(--down-txt)}
 .graph .cadran{stroke:var(--text);stroke-width:1;stroke-dasharray:2 3;opacity:0;transition:opacity var(--d-fast)}
 .graph .cadran-pt{fill:var(--sect-pur);stroke:var(--surface);stroke-width:2;r:5;opacity:0;transition:opacity var(--d-fast)}
 .graph-hote:hover .cadran,.graph-hote:hover .cadran-pt, .graph-hote:focus-within .cadran,.graph-hote:focus-within .cadran-pt{opacity:1}
@@ -1245,7 +1285,7 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 .extremes{display:grid;grid-template-columns:1fr 1fr;gap:var(--s3);margin-top:var(--s4)}
 .extreme{position:relative;overflow:hidden;border-radius:var(--r-lg);padding:16px 18px; border:1px solid color-mix(in srgb,var(--c) 34%,transparent); background:linear-gradient(115deg,color-mix(in srgb,var(--c) 13%,transparent),transparent 72%)}
 .extreme--h{--c:var(--up)}
-.extreme--b{--c:var(--down)}
+.extreme--b{--c:var(--down-txt)}
 .extreme::before{content:"";position:absolute;inset:0 auto 0 0;width:3px;background:var(--c)}
 .extreme__k{font-family:var(--tech);font-size:var(--t-xs);text-transform:uppercase;letter-spacing:.1em; color:var(--c);font-weight:600;display:flex;align-items:center;gap:6px}
 .extreme__v{font-family:var(--tech);font-size:var(--t-2xl);font-weight:700;font-variant-numeric:tabular-nums; line-height:1;margin-top:8px;letter-spacing:-.03em;display:flex;align-items:center;gap:8px}
@@ -1344,7 +1384,7 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 .btn--verrou:hover{background:var(--lock);color:var(--sect-sur);box-shadow:var(--lueur)}
 .btn--fantome{background:transparent;border-color:var(--rule-int);color:var(--text-2)}
 .btn--fantome:hover{border-color:var(--sect-a);color:var(--sect-a);background:var(--sect-1v)}
-.btn--danger{background:transparent;border-color:color-mix(in srgb,var(--down) 50%,transparent);color:var(--down)}
+.btn--danger{background:transparent;border-color:color-mix(in srgb,var(--down) 50%,transparent);color:var(--down-txt)}
 .btn--danger:hover{background:var(--down-1v);border-color:var(--down)}
 .btn--sm{min-height:36px;padding:0 14px;font-size:var(--t-xs)}
 .btn svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2.2;flex:0 0 15px}
@@ -1523,8 +1563,8 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 .crumbs a:hover{color:var(--sect-a)}
 .crumbs span[aria-current]{color:var(--text-2)}
 .avertis{display:flex;gap:12px;align-items:flex-start;padding:14px 17px;border-radius:var(--r-md); border:1px solid color-mix(in srgb,var(--down) 34%,transparent);border-left-width:3px; background:var(--down-1v);font-size:var(--t-sm);line-height:1.55;color:var(--text-2)}
-.avertis b{color:var(--down);font-weight:600}
-.avertis svg{width:17px;height:17px;flex:0 0 17px;margin-top:2px;stroke:var(--down);fill:none;stroke-width:1.9}
+.avertis b{color:var(--down-txt);font-weight:600}
+.avertis svg{width:17px;height:17px;flex:0 0 17px;margin-top:2px;stroke:var(--down-txt);fill:none;stroke-width:1.9}
 .alerte{display:inline-grid;place-items:center;width:16px;height:16px;border-radius:var(--r-full); background:var(--down);color:#1A1A1A;font-family:var(--tech);font-size:10px;font-weight:700; vertical-align:middle;margin-left:5px;cursor:help;line-height:1}
 /* 🗺️ 06/09/2026 — LA FICHE PASSE AUX ZONES NOMMEES.
    Sur PC RIEN NE BOUGE : `viz` tient les deux rangees a gauche, `id` puis
@@ -1619,7 +1659,7 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 .jauge__k{font-family:var(--tech);font-size:var(--t-xs);text-transform:uppercase;letter-spacing:.1em; color:var(--muted);display:flex;align-items:center;gap:6px}
 .jauge__v{font-family:var(--tech);font-size:var(--t-lg);font-weight:700;font-variant-numeric:tabular-nums; letter-spacing:-.02em;display:flex;align-items:center;gap:7px}
 .jauge__v--h{color:var(--up)}
-.jauge__v--b{color:var(--down)}
+.jauge__v--b{color:var(--down-txt)}
 .jauge__d{font-family:var(--tech);font-size:10px;color:var(--muted)}
 dl.fiche-tbl{display:grid;grid-template-columns:auto 1fr;gap:0;margin:0;font-size:var(--t-sm)}
 dl.fiche-tbl dt{padding:10px 15px 10px 0;border-bottom:1px solid var(--rule);white-space:nowrap;color:var(--muted)}
@@ -2506,17 +2546,17 @@ header.site.site-h .wrap{
    coquetterie : une couleur assez vive pour une ligne de 3 px est illisible en
    texte de 14 px. La même distinction existe déjà pour le cyan (l. 327-329) ;
    la reproduire ici évite de repayer la leçon cinq fois. */
-[data-sect="tableau"]  {--sect-a:#10CEF2;--sect-pur:#10CEF2;--sect-sur:#1A1A1A;--sect-fonce:#0A7A8F;--sect-1v:#10CEF21F}
-[data-sect="blog"]     {--sect-a:#ED8E00;--sect-pur:#ED8E00;--sect-sur:#1A1A1A;--sect-fonce:#895200;--sect-1v:#ED8E0024}
-[data-sect="sets"]     {--sect-a:#6BB6FC;--sect-pur:#0082FA;--sect-sur:#1A1A1A;--sect-fonce:#004B91;--sect-1v:#0082FA24}
-[data-sect="offre"]    {--sect-a:#E3B341;--sect-pur:#D4A017;--sect-sur:#1A1A1A;--sect-fonce:#8A6608;--sect-1v:#D4A01726}
-[data-sect="analytics"]{--sect-a:#C08BF8;--sect-pur:#A855F7;--sect-sur:#FFFFFF;--sect-fonce:#6B21A8;--sect-1v:#A855F726}
+[data-sect="tableau"]{--sect-a:#10CEF2;--sect-pur:#10CEF2;--sect-sur:#1A1A1A;--sect-fonce:#0A7A8F}
+[data-sect="blog"]{--sect-a:#F0A029;--sect-pur:#ED8E00;--sect-sur:#1A1A1A;--sect-fonce:#9B6208}
+[data-sect="sets"]{--sect-a:#6BB6FC;--sect-pur:#0082FA;--sect-sur:#1A1A1A;--sect-fonce:#1E5FA8}
+[data-sect="offre"]    {--sect-a:#E3B341;--sect-pur:#D4A017;--sect-sur:#1A1A1A;--sect-fonce:#8A6608}
+[data-sect="analytics"]{--sect-a:#E193FD;--sect-pur:#CB42FC;--sect-sur:#FFFFFF;--sect-fonce:#7A2A9B}
 /* Thème jour : `--sect-a` s'assombrit, `--sect-pur` ne bouge pas. */
-[data-theme="jour"] [data-sect="tableau"]  {--sect-a:#08687A;--sect-pur:#10CEF2;--sect-sur:#1A1A1A;--sect-fonce:#0A7A8F;--sect-1v:#10CEF233}
-[data-theme="jour"] [data-sect="blog"]     {--sect-a:#8A5300;--sect-pur:#ED8E00;--sect-sur:#1A1A1A;--sect-fonce:#895200;--sect-1v:#ED8E0033}
-[data-theme="jour"] [data-sect="sets"]     {--sect-a:#005FB5;--sect-pur:#0082FA;--sect-sur:#1A1A1A;--sect-fonce:#0060B7;--sect-1v:#0082FA33}
-[data-theme="jour"] [data-sect="offre"]    {--sect-a:#6F5200;--sect-pur:#D4A017;--sect-sur:#1A1A1A;--sect-fonce:#8A6608;--sect-1v:#D4A01733}
-[data-theme="jour"] [data-sect="analytics"]{--sect-a:#6B21A8;--sect-pur:#A855F7;--sect-sur:#FFFFFF;--sect-fonce:#6B21A8;--sect-1v:#A855F733}
+[data-theme="jour"] [data-sect="tableau"]{--sect-a:#08687A;--sect-pur:#10CEF2;--sect-sur:#1A1A1A;--sect-fonce:#0A7A8F}
+[data-theme="jour"] [data-sect="blog"]{--sect-a:#8A5300;--sect-pur:#ED8E00;--sect-sur:#1A1A1A;--sect-fonce:#9B6208}
+[data-theme="jour"] [data-sect="sets"]{--sect-a:#005FB5;--sect-pur:#0082FA;--sect-sur:#1A1A1A;--sect-fonce:#1E5FA8}
+[data-theme="jour"] [data-sect="offre"]    {--sect-a:#6F5200;--sect-pur:#D4A017;--sect-sur:#1A1A1A;--sect-fonce:#8A6608}
+[data-theme="jour"] [data-sect="analytics"]{--sect-a:#6B21A8;--sect-pur:#CB42FC;--sect-sur:#FFFFFF;--sect-fonce:#7A2A9B}
 
 /* ───────────────────────────────────────────────────────────────────────────
    2. LE CONTENU DESCEND JUSQU'AU PIED DE PAGE

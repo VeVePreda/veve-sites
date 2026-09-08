@@ -9,6 +9,7 @@
     "preview": "astro preview",
     "start": "node ./dist/server/entry.mjs",
     "slugs": "node engine/tools/freeze-slugs.mjs",
+    "pouls": "node engine/tools/preparer_pouls.mjs",
     "audit": "python3 engine/tools/audit_seo.py dist",
     "test:slugs": "python3 engine/tools/test_slugs.py",
     "test:nginx": "python3 engine/tools/test_nginx.py",

@@ -106,7 +106,59 @@ export function agePouls(maintenant = new Date()) {
  * @param {{offres?: number|null, offresPieces?: number|null, offresLe?: string|null}} marche
  *        Les seuls chiffres que le BUILD sait compter lui-même. `null` ⇒ absent.
  */
+// ══════════════════════════════════════════════════════════════════════════
+// 🫀 LE PONT — lot L, 08/09/2026
+// ══════════════════════════════════════════════════════════════════════════
+// ⭐⭐⭐ CE QUI MANQUAIT N'ÉTAIT PAS UNE COLLECTE. J'ai écrit quatre fois que
+// « le pouls 24 h demande de collecter des données ». La donnée était publiée,
+// quotidienne, à J-1, depuis toujours. Il manquait CETTE FONCTION : quinze
+// lignes qui comptent. ⛔ Une note qui nomme une solution fait sauter la
+// question du besoin — et se transmet ensuite comme une loi.
+//
+// ⛔ CE QUE CE CALCUL N'EST PAS : une mesure de l'activité VeVe complète. Il
+// lit la CHAÎNE (IMX/CollectChain). Ce qui ne s'y écrit pas n'y est pas.
+//
+/** Compte le pouls d'une journée à partir des lignes `transfers_daily_<J>`.
+ *  @param {Array<object>} lignes  le CSV du jour, tel quel
+ *  @param {Map<string,number>} prixParUuid  `store_price` par `veve_uuid`
+ *  @returns {{jour, transferts, wallets, mints, revenue, mintsChiffres}|null} */
+export function compterPouls(lignes, prixParUuid = new Map()) {
+  if (!Array.isArray(lignes) || lignes.length === 0) return null;
+  // ⚠️ LES COLONNES S'APPELLENT `from` ET `to`, pas `from_address`. Lues sous
+  // un nom absent, elles rendent `undefined` PARTOUT — et un compte écrit
+  // dessus sort un nombre parfaitement plausible. C'est arrivé le 08/09.
+  if (!('from' in lignes[0]) || !('to' in lignes[0]) || !('kind' in lignes[0])) return null;
+  const wallets = new Set();
+  let mints = 0; let revenue = 0; let mintsChiffres = 0;
+  for (const l of lignes) {
+    wallets.add(l.from); wallets.add(l.to);
+    if (l.kind !== 'mint') continue;
+    mints += 1;
+    const p = prixParUuid.get(l.veve_uuid);
+    // ⛔ Une pièce trop neuve pour le catalogue publié n'a PAS de prix : on ne
+    //    la compte pas, et on dit combien de mints sont chiffrés. Mesuré le
+    //    06/09 : 540 mints sur 1 922 hors catalogue — un total muet aurait
+    //    laissé croire à une somme complète.
+    if (typeof p === 'number' && Number.isFinite(p)) { revenue += p; mintsChiffres += 1; }
+  }
+  return {
+    jour: lignes[0].date_pt || null,
+    transferts: lignes.length,
+    // 🔬 L'ADRESSE NULLE N'EST PAS UN PORTEFEUILLE ACTIF, c'est le contrat qui
+    //    frappe. Le constat du 07/09 la comptait : il disait 943 wallets pour
+    //    le 06/09, on en compte 942. ⚠️ L'écart d'UN est donc voulu, et c'est
+    //    la seule différence entre ce calcul et le constat qu'il remplace.
+    wallets: [...wallets].filter((w) => w && !/^0x0{40}$/i.test(w)).length,
+    mints, revenue: mintsChiffres ? revenue : null, mintsChiffres,
+  };
+}
+
 export function pouls24(marche = {}) {
+  // ⭐⭐ LE CONSTAT N'EST PLUS ÉCRIT À LA MAIN — `engine/tools/preparer_pouls.mjs`
+  //   le REGÉNÈRE depuis la chaîne. La page, elle, ne change pas d'un octet :
+  //   elle lit toujours un JSON embarqué dans le bundle. ⛔ On ne met PAS un
+  //   `fetch` dans le rendu d'une page pour « avoir du frais » : le lot J a
+  //   déjà payé la page tronquée sous HTTP 200.
   const c = constat();
   const jour = c.fenetre.jourVeve;
   const horloge = c.fenetre.horloge;
@@ -142,8 +194,23 @@ export function pouls24(marche = {}) {
     //    et c'est ce que j'avais transmis à Preda, qui a tranché dessus.
     //    ⭐ « Pas encore branché » est vrai, et ça se répare ; « n'existe pas »
     //    est faux, et ça se croit.
-    revenue: { etat: 'non-servi', v: null },
-    omiBrules: { etat: 'non-servi', v: null },
+    // 💰 « REVENUE 24 H = LE SUPPLY AU DROP VENDUE » — Preda, 08/09. Ce n'est
+    //    donc ni le volume échangé ni les achats de gems : c'est la somme des
+    //    `store_price` des pièces FRAPPÉES dans la journée. `kind === 'mint'`
+    //    la donne exactement, et le catalogue porte le prix.
+    //    ⚠️ `pieces` dit sur combien de mints la somme porte : une somme sans
+    //    son assiette se lit comme un total, et 28 % des mints du 06/09
+    //    n'étaient pas encore au catalogue.
+    revenue: (c.revenue && typeof c.revenue.usd === 'number')
+      ? { etat: 'mesure', v: c.revenue.usd, jour, horloge,
+          pieces: c.revenue.mintsChiffres, mints: c.revenue.mints }
+      : { etat: 'non-servi', v: null },
+    // 🔥 EN OMI, ⛔ JAMAIS CONVERTI. Le rapport OMI/USD n'est pas constant.
+    omiBrules: (c.omiBrules && typeof c.omiBrules.v === 'number')
+      ? { etat: 'mesure', v: c.omiBrules.v, jour: c.omiBrules.jour || jour, horloge }
+      : { etat: 'non-servi', v: null },
+    // ⏳ L'ÂGE EST CELUI DE CE QU'ON SERT. Branché sur la chaîne, le pouls a
+    //    un jour ; c'est le constat figé, lui, qui périmait à 45 jours.
     age: agePouls(),
     perime: (agePouls() ?? 0) > PEREMPTION,
   };

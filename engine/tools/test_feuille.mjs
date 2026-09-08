@@ -1080,6 +1080,134 @@ console.log('\n═══ LOT 203, POINT `ag` — la série est bornée, et son n
   }
 }
 
+
+// ════════════════════════════════════════════════════════════════════════════
+// 🔴🔴 §L — UN JETON BRANCHÉ NE SE FAIT PAS RE-FIGER  (lot L — 08/09/2026)
+// ════════════════════════════════════════════════════════════════════════════
+//
+// ⭐⭐⭐ POURQUOI, ET C'EST LA SUITE EXACTE DU §K. Le §K attrape deux `:root`
+// qui se CONTREDISENT — deux valeurs littérales différentes. Il laisse passer,
+// délibérément, le cas où l'un dit `var(--danger)` et l'autre `#F08A9B` : ce
+// n'est pas une contradiction de couleur, les deux peuvent valoir la même
+// chose. C'est pourtant le défaut le plus coûteux des deux, parce qu'il ne se
+// voit JAMAIS : le thème cesse d'obéir au manifeste, la couleur ne bouge pas,
+// et le jour où quelqu'un change `identity.palette`, rien ne se passe.
+// C'était l'état de `themes/vitrine` jusqu'au lot L : huit jetons branchés sur
+// la palette, et huit valeurs en dur écrites juste après.
+//
+// ⛔ CE QUE CE § NE DIT PAS. Une SECTION qui pose sa propre couleur
+// (`[data-sect="comics"]{--sect-a:#3EC875}`) ne re-fige rien : elle spécialise,
+// c'est son rôle. On ne compare donc que des `:root` entre eux — même portée,
+// même poids, seul l'ordre décide. Les jetons CALCULÉS sont l'exception traitée
+// en §L-ter : un `color-mix` qui suit déjà `--sect-a` n'a aucune raison d'être
+// recopié à la main quelque part.
+{
+  const decls = (txt) => {
+    // découpe « a:1;b:calc(2;3) » en déclarations, sans casser sur les `;`
+    // internes aux parenthèses. Un `split(';')` naïf coupe dans `color-mix(…)`.
+    const out = []; let cur = ''; let prof = 0;
+    for (const c of txt) {
+      if (c === '(') prof += 1;
+      else if (c === ')') prof -= 1;
+      if (c === ';' && prof === 0) { out.push(cur); cur = ''; continue; }
+      cur += c;
+    }
+    if (cur.trim()) out.push(cur);
+    return out.map((d) => d.trim()).filter(Boolean);
+  };
+  // ⭐⭐ CONTRE-ÉPREUVE DU DÉCOUPEUR, avant toute accusation : sait-il trouver
+  // ce qu'il cherche ? Une regex ou un split qui rend la même réponse pour deux
+  // états opposés est le mensonge d'instrument le plus cher de ce dépôt.
+  const t = decls('color:var(--a);background:color-mix(in srgb,var(--b) 12%,transparent);x:1');
+  if (t.length !== 3 || t[1] !== 'background:color-mix(in srgb,var(--b) 12%,transparent)') {
+    console.error('\n❌ §L — son découpeur de déclarations échoue sur une chaîne témoin'
+      + ` dont on connaît la réponse (${t.length} morceau(x), attendu 3). Il ne prouve rien.`);
+    process.exit(2);
+  }
+
+  const blocsRoot = [...feuilleSansProse.matchAll(/(^|[};])\s*:root\s*\{([^}]*)\}/g)].map((m) => m[2]);
+
+  // ── §L — un `:root` postérieur ne re-fige pas un jeton branché ────────────
+  const branche = new Map();     // jeton -> l'expression qui le branche
+  const refiges = [];
+  for (const bloc of blocsRoot) {
+    for (const d of decls(bloc)) {
+      const m = /^(--[a-z0-9-]+)\s*:\s*(.+)$/s.exec(d);
+      if (!m) continue;
+      const [, jeton, valeur] = m;
+      const calcule = /var\(|color-mix\(|calc\(/.test(valeur);
+      if (calcule) { branche.set(jeton, valeur.trim()); continue; }
+      if (branche.has(jeton)) {
+        refiges.push(`${jeton} : branché sur « ${branche.get(jeton)} », puis re-figé en dur à « ${valeur.trim()} » plus bas`);
+        branche.delete(jeton);
+      }
+    }
+  }
+  if (branche.size === 0 && refiges.length === 0) {
+    console.log('\n  --  §L SANS OBJET — aucun jeton de ce thème n\'est branché sur une autre'
+      + ' variable dans `:root` : il n\'y a rien qui puisse être re-figé.');
+  } else {
+    dit(refiges.length === 0,
+      `§L — ${branche.size} jeton(s) branché(s) dans \`:root\`, aucun re-figé en dur ensuite`,
+      refiges.length === 0 ? null
+        : `⛔ ${refiges.length} jeton(s) débranché(s) du manifeste. La couleur ne change pas — c'est`
+          + ' précisément pourquoi personne ne le voit :\n      ' + refiges.join('\n      '));
+  }
+
+  // ── §L-bis — l'APLAT et l'ENCRE ne se croisent pas ────────────────────────
+  // Convention du thème : `--x` est l'aplat, `--x-txt` son encre. Le lot L les
+  // sépare parce qu'AUCUNE des deux valeurs ne fait les deux métiers : l'aplat
+  // porte une encre noire à 5,36:1, l'encre se lit à 7,30:1 sur la nuit, et
+  // l'inverse tombe à 2,38:1. Le banc ne juge PAS les couleurs — il juge que
+  // chacune reste dans son métier. ⛔ Aucun nom en dur : on cherche la PAIRE.
+  const paires = [...feuilleSansProse.matchAll(/(--[a-z0-9-]+)-txt\s*:/g)]
+    .map((m) => m[1]).filter((base, i, a) => a.indexOf(base) === i)
+    .filter((base) => new RegExp(`${base}\\s*:`).test(feuilleSansProse));
+  if (paires.length === 0) {
+    console.log('\n  --  §L-bis SANS OBJET — ce thème ne déclare aucune paire `--x` / `--x-txt`.');
+  } else {
+    const ENCRE = /^(color|stroke|fill|-webkit-text-fill-color)$/;
+    const APLAT = /^(background|background-color|border|border-color|border-.*-color|box-shadow|outline-color)$/;
+    const croises = [];
+    for (const d of decls(feuilleSansProse.replace(/\{|\}/g, ';'))) {
+      const m = /^([a-z-]+)\s*:\s*(.+)$/s.exec(d);
+      if (!m) continue;
+      const [, prop, val] = m;
+      for (const base of paires) {
+        const aplatUtilise = new RegExp(`var\\(\\s*${base}\\s*[,)]`).test(val);
+        const encreUtilisee = new RegExp(`var\\(\\s*${base}-txt\\s*[,)]`).test(val);
+        if (ENCRE.test(prop) && aplatUtilise) croises.push(`${prop}: var(${base}) — c'est l'APLAT posé en encre`);
+        if (APLAT.test(prop) && encreUtilisee) croises.push(`${prop}: var(${base}-txt) — c'est l'ENCRE étalée en aplat`);
+      }
+    }
+    dit(croises.length === 0,
+      `§L-bis — ${paires.length} paire(s) aplat/encre (${paires.join(', ')}) : chacune reste dans son métier`,
+      croises.length === 0 ? null
+        : `⛔ ${croises.length} croisement(s) :\n      ` + croises.slice(0, 10).join('\n      '));
+  }
+
+  // ── §L-ter — un jeton CALCULÉ ne se recopie pas en dur ailleurs ───────────
+  const calcules = [...branche.entries()].filter(([, v]) => /color-mix\(|calc\(/.test(v)).map(([k]) => k);
+  if (calcules.length === 0) {
+    console.log('\n  --  §L-ter SANS OBJET — aucun jeton calculé dans `:root`.');
+  } else {
+    const recopies = [];
+    for (const m of feuilleSansProse.matchAll(/([^{};]*\[data-[^{}]*)\{([^}]*)\}/g)) {
+      for (const d of decls(m[2])) {
+        const j = /^(--[a-z0-9-]+)\s*:\s*(.+)$/s.exec(d);
+        if (!j || !calcules.includes(j[1])) continue;
+        if (/var\(|color-mix\(|calc\(/.test(j[2])) continue;
+        recopies.push(`${j[1]} = « ${j[2].trim()} » dans « ${m[1].trim().slice(0, 46)} »`);
+      }
+    }
+    dit(recopies.length === 0,
+      `§L-ter — ${calcules.length} jeton(s) calculé(s) (${calcules.join(', ')}) : aucune recopie en dur`,
+      recopies.length === 0 ? null
+        : `⛔ ${recopies.length} recopie(s) — le calcul suit déjà la couleur de section, la valeur en dur`
+          + ' la fige et diverge au premier changement :\n      ' + recopies.slice(0, 10).join('\n      '));
+  }
+}
+
 console.log(ko === 0
   ? `\n✅ une feuille de ${octets.length} o pour ${pages.length} pages, rien de recopié,`
     + ` et le JS en ligne sous son cliquet (${moyenneJs} o/page)\n`
