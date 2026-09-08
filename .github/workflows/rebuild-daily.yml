@@ -331,12 +331,50 @@ jobs:
       #
       # ⚠️ Si la balise disparaissait du gabarit, ce controle deviendrait
       #    aveugle : il ECHOUE alors au lieu de passer, et il le dit.
+      # ═══════════════════════════════════════════════════════════════════
+      # 🔴🔴 « PAS ENCORE SERVI » N'EST PAS « DEPLOIEMENT ECHOUE » — LOT M
+      # ═══════════════════════════════════════════════════════════════════
+      # MESURE DU 08/09/2026, run #104 (34222257588). Cette etape a rougi, une
+      # alerte Discord est partie, et IL N'Y AVAIT AUCUN DEFAUT. Le build
+      # 11:52:03Z existait bel et bien ; l'origine servait encore 05:18 a 11:59
+      # et 11:52 a 12:13. La fenetre de 15 minutes a expire vers 12:01, quelques
+      # minutes trop tot.
+      #
+      # ⭐⭐⭐ CE GARDE-FOU SUPPOSAIT UN DEPLOIEMENT A LA FOIS. Chaque push
+      # declenche DEUX builds Coolify, et ils sont SEQUENTIELS depuis le 02/09 :
+      # quatre pushes en quatorze minutes mettent huit builds dans la file, et
+      # le site sert tranquillement l'avant-dernier pendant que la fenetre
+      # s'epuise. Le defaut n'etait pas dans le deploiement, il etait dans la
+      # CADENCE DES DEPOTS — c'est-a-dire dans ma facon de travailler.
+      #
+      # ⛔ ET UNE ALERTE QUI CRIE SANS DEFAUT EST PIRE QU'AUCUNE ALERTE : elle
+      # apprend a ne plus la lire. Le jour ou le deploiement echoue vraiment,
+      # le message est le meme que les cinq fois ou il n'echouait pas.
+      #
+      # ⇒ ON DISTINGUE TROIS ETATS, LA OU IL N'Y EN AVAIT QUE DEUX :
+      #   ① le site sert un build posterieur au declenchement ......... VERT
+      #   ② il sert un build ANTERIEUR, mais qui a AVANCE pendant l'attente :
+      #      la file bouge, le deploiement vit, il est seulement en retard . VERT
+      #      avec un avertissement — et surtout AUCUNE alerte.
+      #   ③ le build-time n'a pas bouge d'une seconde, ou la balise a
+      #      disparu : la, quelque chose est reellement casse ......... ROUGE
+      # ⭐⭐ Le signal qui separe ② de ③ n'est pas une duree — une duree se
+      # regle au doigt mouille et se refait deregler. C'est le MOUVEMENT : un
+      # `build-time` qui progresse prouve qu'un deploiement aboutit, meme si ce
+      # n'est pas encore le notre. *On mesure que la machine avance, pas qu'elle
+      # est arrivee.*
+      # ⚠️ La fenetre passe quand meme de 15 a 21 minutes : elle ne coute rien
+      # quand tout va bien (la boucle sort des le premier build frais) et elle
+      # couvre le cas mesure, ou il manquait des minutes, pas des heures.
       - name: Attendre puis verifier que le site est VRAIMENT reconstruit
         run: |
           set -u
           echo "Le build doit etre posterieur a : $(date -u -d "@${DEPART}" +%FT%TZ)"
           ok=0
-          for i in $(seq 1 20); do
+          premier=""       # le build-time vu a la toute premiere lecture
+          dernier=""       # le dernier build-time lu
+          vues=0           # combien de fois la balise a ete lue
+          for i in $(seq 1 28); do
             sleep 45
             html=$(curl -sS "https://veveprice.com/?cb=$(date +%s)" || true)
             bt=$(printf '%s' "$html" \
@@ -346,6 +384,9 @@ jobs:
               echo "Tentative $i : aucune balise build-time dans la page."
               continue
             fi
+            vues=$((vues + 1))
+            [ -z "$premier" ] && premier="$bt"
+            dernier="$bt"
             ts=$(date -u -d "$bt" +%s 2>/dev/null || echo 0)
             if [ "$ts" -ge "$DEPART" ]; then
               echo "Build frais : $bt (tentative $i)."
@@ -354,11 +395,31 @@ jobs:
             fi
             echo "Tentative $i : le site sert encore le build du $bt."
           done
-          if [ "$ok" != "1" ]; then
-            echo "Apres 15 minutes, le site sert toujours un build anterieur au declenchement."
-            echo "Soit le deploiement a echoue, soit la balise build-time a disparu du gabarit."
+          if [ "$ok" = "1" ]; then
+            exit 0
+          fi
+          # ── ③ rien n'a jamais ete lu : la page ne dit plus son build ──────
+          if [ "$vues" = "0" ]; then
+            echo "::error::En 21 minutes, aucune page n'a porte de balise build-time."
+            echo "Soit le site ne repond pas, soit la balise a disparu du gabarit."
             exit 1
           fi
+          tsP=$(date -u -d "$premier" +%s 2>/dev/null || echo 0)
+          tsD=$(date -u -d "$dernier" +%s 2>/dev/null || echo 0)
+          # ── ② la file avance, elle est seulement en retard sur nous ───────
+          if [ "$tsD" -gt "$tsP" ]; then
+            echo "::warning::PAS ENCORE SERVI — et ce n'est pas un echec."
+            echo "Le build servi a AVANCE pendant l'attente : $premier -> $dernier."
+            echo "Un deploiement aboutit donc bien ; la file Coolify est simplement"
+            echo "en retard sur notre declenchement (2 builds par push, sequentiels)."
+            echo "⛔ Ne pas alerter : rien n'est casse. Si cela se repete sans"
+            echo "   pushes rapproches, c'est la file qu'il faut regarder."
+            exit 0
+          fi
+          # ── ③ immobile : la, c'est un vrai echec ──────────────────────────
+          echo "::error::En 21 minutes, le build servi n'a pas bouge d'une seconde ($dernier)."
+          echo "Le site sert des donnees perimees et aucun deploiement n'aboutit."
+          exit 1
 
       # IndexNow lit le sitemap TEL QU'IL EST SERVI et ne soumet que les URL
       # dont le `lastmod` a bouge depuis le passage precedent. Il ne pouvait pas
