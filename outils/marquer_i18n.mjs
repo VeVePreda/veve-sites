@@ -75,6 +75,10 @@ const html = [];
 const echapper = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 let nTexte = 0;
+// 🔴 LOT M — combien de libellés vivent DANS un SVG : ils sortent en `<tspan>`.
+// ⭐ Compté et DIT, pas silencieux : un chiffre qui tombe à zéro du jour au
+// lendemain est le seul signal qu'un gabarit a cessé de traduire ses figures.
+let nDansSvg = 0;
 let nAttribut = 0;
 let nAttributRefuse = 0;
 let nDeforme = 0;
@@ -319,10 +323,63 @@ for (const f of html) {
 
   // ── SECONDE PASSE — ce qui reste : texte, <title>, <script>.
   const zonesBrutes2 = [];
-  for (const m of avecAttributs.matchAll(/<(title|script|style)\b[^>]*>([\s\S]*?)<\/\1>/gi)) {
+  // 🔴 LOT M — `desc` REJOINT LA LISTE, ET C'EST UNE FERMETURE, PAS UN CORRECTIF.
+  // `<desc>` est la description longue d'un SVG (`engine/lib/figures.mjs`).
+  // 🔬 Mesuré le 08/09 avant d'y toucher : **0 cas** — ni sur les 165 pages du
+  // build (2 778 SVG, zéro `data-i18n` dedans), ni sur les 6 pages servies que
+  // j'ai relues en production. Le chemin n'est pas emprunté aujourd'hui parce
+  // que `figures.mjs` compose ses textes avec `dire()`, qui n'émet aucune
+  // sentinelle — jamais avec `t()`. ⛔ Mais rien ne l'INTERDIT : le jour où une
+  // figure voudra un `<desc>` traduit, le marqueur y poserait un `<span>`, et
+  // un élément HTML dans un SVG est éjecté hors de l'image par l'analyseur —
+  // la figure se vide, sans une erreur, et **ça ne se voit que dans le DOM**.
+  // ⭐ `<title>` était déjà couvert, par accident heureux : le SVG et le
+  // `<head>` emploient le même nom de balise. `<desc>` n'a pas eu cette chance.
+  // ⚠️ CONSÉQUENCE ASSUMÉE, la même que pour `<title>` : le contenu reste en
+  // anglais. C'est la politique du dépôt pour tout ce qui n'est pas du texte
+  // courant, et une description d'image alternative vaut mieux non traduite que
+  // disparue. 🧪 Borné par `test:i18n` § « aucun marquage dans un SVG ».
+  for (const m of avecAttributs.matchAll(/<(title|script|style|desc)\b[^>]*>([\s\S]*?)<\/\1>/gi)) {
     zonesBrutes2.push([m.index, m.index + m[0].length]);
   }
   const brute2 = (i) => zonesBrutes2.some(([a, b]) => i >= a && i < b);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 🔴🔴🔴 LOT M — UN `<span>` DANS UN SVG ÉJECTE TOUT CE QUI SUIT
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 🔬 MESURÉ SUR LA PRODUCTION LE 08/09/2026, `https://vevewiki.com/brands/007/` :
+  // la page SERVIE porte **16 `<text>`** dans sa figure ; le SVG rendu n'en garde
+  // qu'**UN**. Ses enfants réels : `title, desc, rect, rect, text` — cinq au lieu
+  // de seize. Les quinze autres, et leurs `<span>`, sont reparentés **APRÈS
+  // `</svg>`**. La figure occupe toujours 751×260 à l'écran : elle est vide.
+  // Dans le build : **145 SVG fautifs sur 170 pages** de vevewiki.
+  //
+  // ⭐⭐⭐ LA CAUSE EST UNE RÈGLE D'ANALYSE, PAS UNE FAUTE DE CSS NI DE DONNÉES.
+  // À l'intérieur d'un SVG, l'analyseur HTML est en « contenu étranger ». La
+  // règle « any other start tag » y traite une balise HTML inconnue du SVG comme
+  // un signal de SORTIE : il ferme le contexte étranger et reparente la suite.
+  // `<span>` est exactement cette balise. ⛔ Le HTML reste VALIDE, le build
+  // VERT, la page se charge, la figure a sa taille — **et ça ne se voit que dans
+  // le DOM.** Aucune lecture du texte servi ne pouvait le dire.
+  //
+  // ⭐⭐ LA PARADE N'EST PAS DE RENONCER À TRADUIRE. Un `<svg>` entier rangé
+  // parmi les zones brutes aurait réparé l'affichage en supprimant la fonction :
+  // les titres de figures seraient restés anglais pour toujours, dans le
+  // silence. `<tspan>` est le pendant SVG de `<span>` — élément LÉGITIME du
+  // contenu étranger, donc aucune sortie de contexte — et il porte des attributs
+  // comme n'importe quel élément : le script client cherche `[data-i18n]` et
+  // écrit `textContent`, il ne demande rien de plus. On change la BALISE, pas le
+  // mécanisme.
+  // ⚠️ `<tspan>` n'est légal que dans un `<text>`/`<tspan>` — jamais dans
+  // `<title>` ni `<desc>`, qui portent du texte pur. Ces deux-là sont déjà dans
+  // les zones brutes juste au-dessus, et ils DOIVENT y rester : c'est la moitié
+  // complémentaire de cette réparation, pas un doublon.
+  // 🧪 Borné par `test:i18n` § « aucun marquage HTML ne descend dans un SVG ».
+  const zonesSvg = [];
+  for (const m of avecAttributs.matchAll(/<svg\b[^>]*>[\s\S]*?<\/svg>/gi)) {
+    zonesSvg.push([m.index, m.index + m[0].length]);
+  }
+  const dansSvg = (i) => zonesSvg.some(([a, b]) => i >= a && i < b);
 
   const sortie = avecAttributs.replace(MOTIF, (tout, cle, texte, position) => {
     const variable = cle.endsWith('!');
@@ -350,7 +407,9 @@ for (const f of html) {
       if (vals) { extra = ` data-i18n-v="${echapper(JSON.stringify(vals))}"`; nVariable++; }
       else nVariableRefus++;
     }
-    return `<span data-i18n="${echapper(propre)}"${variable ? ' data-i18n-var' : ''}${extra}>${texte}</span>`;
+    const balise = dansSvg(position) ? 'tspan' : 'span';
+    if (balise === 'tspan') nDansSvg += 1;
+    return `<${balise} data-i18n="${echapper(propre)}"${variable ? ' data-i18n-var' : ''}${extra}>${texte}</${balise}>`;
   });
 
   // ⛔⛔ LE BALAI DE FIN, ET IL EST LE FILET DE SÉCURITÉ DE TOUT CE FICHIER.
@@ -483,6 +542,7 @@ console.log(
   + `· ${nAttribut} en ATTRIBUT échangeables (${clesAttribut.size} clés, via data-i18n-attr) `
   + `· ${nAttributRefuse} attribut(s) mixte(s) laissés en anglais (le libellé n'occupe pas toute la valeur) `
   + `· ${nBrut} en <title>/<meta>/<script> laissés bruts (voulu : le SEO reste anglais)`
+  + `· ${nDansSvg} dans un SVG, marqués en <tspan> (un <span> y éjecterait la figure)`
   // ⭐⭐ CE COMPTE DOIT ATTEINDRE LE LECTEUR. Sans lui, une extraction qui se
   //   mettrait à refuser TOUS les libellés à variables (un gabarit anglais
   //   reformulé, un jeton renommé) rendrait la page anglaise en silence — et

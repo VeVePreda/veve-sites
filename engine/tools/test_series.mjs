@@ -822,4 +822,110 @@ console.log('\n6. la série des comics entre-t-elle NUE, sans emporter les colle
   lus += 2;
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 🏆 §M — LE TRI PAR RENDEMENT MCP, **EXÉCUTÉ** (lot M — demande `f` de Preda)
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐⭐⭐ POURQUOI CE § EXÉCUTE AU LIEU DE LIRE. Trois `grep` diraient « les deux
+// options sont là, `ORDRE.gpm` existe, `garde()` filtre » — et une page qui
+// n'affiche rien passerait. Ce lot a déjà appris la leçon dans l'autre sens :
+// un § qui MONTE le pilote a trouvé deux défauts servis que trois lectures
+// avaient manqués. On joue donc le tri pour de vrai.
+//
+// 🔴🔴 CE QU'IL GARDE, ET C'EST LA CONTRAINTE D'ARCHITECTURE DU LOT :
+// **aucun prix ne doit descendre dans ce DOM.** `/sets/` est un rayon PUBLIC,
+// `test:rayon` §① y interdit les prix, et `$ / MCP` se calcule sur des
+// planchers. Le pilote ne demande donc au serveur qu'un ORDRE. Ce § vérifie que
+// c'est bien tout ce qui arrive : il injecte un classement qui porte, EXPRÈS,
+// des coûts et des ratios — et il exige de ne retrouver aucun de ces nombres
+// dans la page. ⛔ Sans ces valeurs pièges, le contrôle serait vert sur un
+// pilote qui recopierait tout : *un contrôle qu'aucune faute ne peut faire
+// rougir ne mesure rien.*
+{
+  console.log('\n§M · le tri par rendement MCP, exécuté');
+  const { monterDOM: monterM, choisir: choisirM } = await import('./_dom_banc.mjs');
+  const fSets = join(DIST, 'sets', 'index.html');
+  const srcP = join(R, 'src', 'socle', 'modules', 'series.js');
+  const srcC = join(R, 'src', 'socle', 'modules', 'index_rayon.js');
+  if (!existsSync(fSets) || !existsSync(srcP) || !existsSync(srcC)) {
+    indecis('§M le tri MCP', 'la page ou un module manque — rien n\'a été mesuré');
+  } else {
+    const htmlM = readFileSync(fSets, 'utf8');
+    const dom = await monterM(htmlM);
+    if (!dom) {
+      indecis('§M le tri MCP', 'linkedom absent — rien n\'a été mesuré');
+    } else {
+      const cartes = () => [...dom.document.querySelectorAll('#s-grille .col-carte')];
+      const slugDe = (el) => (el.getAttribute('href') || '').replace(/[?#].*$/, '')
+        .replace(/\/+$/, '').split('/').pop();
+      const servies = cartes();
+      // ⭐⭐ ON CLASSE DES SETS QUI EXISTENT VRAIMENT DANS LA PAGE, et on prend
+      // **l'ordre INVERSE** de celui du DOM : si le pilote ignorait le
+      // classement, la page resterait dans son ordre d'origine et ce § serait
+      // vert par accident. L'inverse est le seul ordre qu'aucun tri existant
+      // (taille, année, nom, licence) ne peut produire par coïncidence.
+      const choisis = servies.slice(0, Math.min(5, servies.length)).map(slugDe).reverse();
+      if (choisis.length < 2) {
+        indecis('§M le tri MCP', `${choisis.length} carte(s) servie(s) — corpus trop petit pour classer`);
+      } else {
+        // 🎣 LES VALEURS PIÈGES : des nombres qu'AUCUNE page publique ne doit
+        //    porter. S'ils apparaissent, le pilote a recopié un prix.
+        const PIEGES = [424242, 313131, 505050, 616161, 727272];
+        const classement = {
+          calcule: '2026-09-08T00:00:00Z', total: 9999, classables: choisis.length,
+          personnalise: false, baremeSetMax: 5,
+          sets: choisis.map((slug, i) => ({
+            slug, nom: 'X', taille: 1, cout: PIEGES[i], points: 2,
+            usdParMcp: PIEGES[i], stackrParMcp: PIEGES[i],
+          })),
+        };
+        const idxSets = JSON.parse(readFileSync(join(DIST, 'rayon-index', 'sets.json'), 'utf8'));
+        let vuRoute = 0;
+        dom.window.fetch = (u) => {
+          const url = String(u);
+          if (url.indexOf('/api/analytics/sets_mcp') === 0 || url.indexOf('sets_mcp') !== -1) {
+            vuRoute += 1;
+            return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(classement) });
+          }
+          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(idxSets) });
+        };
+        const run = (f) => new Function('document', 'window', 'console', 'localStorage',
+          readFileSync(f, 'utf8'))(dom.document, dom.window, { log() {}, warn() {}, error() {} }, undefined);
+        try { run(srcC); run(srcP); } catch (e) {
+          verifie('§M le pilote s\'exécute', false, `🔴 ${e.message}`);
+        }
+        const sel = dom.document.getElementById('s-tri');
+        const opts = sel ? [...sel.options].map((o) => o.value) : [];
+        verifie('§M les deux tris MCP sont proposés dans la page servie',
+          opts.includes('gpm') && opts.includes('spm'), opts.join(' '));
+
+        choisirM(sel, 'gpm', dom.window, dom.document.getElementById('f-sets'));
+        await new Promise((r) => setImmediate(r));
+        await new Promise((r) => setTimeout(r, 30));
+
+        verifie('§M le pilote a bien INTERROGÉ la route de classement',
+          vuRoute > 0, `${vuRoute} appel(s)`);
+
+        const vis = cartes().filter((c) => !c.hidden);
+        // ① l'ORDRE est celui du serveur
+        const ordreVu = vis.map(slugDe);
+        verifie('🎯 §M l\'ordre servi est celui du CLASSEMENT, pas celui du DOM',
+          ordreVu.length === choisis.length && ordreVu.every((s2, i) => s2 === choisis[i]),
+          `attendu ${choisis.join(',')} · vu ${ordreVu.join(',')}`);
+        // ② les NON CLASSÉS sont écartés
+        verifie('§M les sets que le serveur n\'a pas classés sont écartés',
+          vis.length === choisis.length,
+          `${vis.length} visible(s) sur ${cartes().length} carte(s)`);
+        // ③ 🔴 AUCUN PRIX N'EST DESCENDU
+        const texte = dom.document.body.innerHTML;
+        const fuites = PIEGES.filter((n) => texte.indexOf(String(n)) !== -1);
+        verifie('🎯 §M AUCUN chiffre du classement n\'entre dans le DOM public',
+          fuites.length === 0,
+          fuites.length === 0 ? 'coût et ratios restés au serveur ; seul le rang a traversé'
+            : `🔴 ${fuites.join(', ')} — un prix a été recopié dans un rayon public`);
+        lus += 5;
+      }
+    }
+  }
+}
+
 fin();

@@ -1237,7 +1237,14 @@ console.log('\n═══ LOT 203, POINT `ag` — la série est bornée, et son n
       for (const d of decls(b.corps)) {
         const m = /^(--[a-z0-9-]+)\s*:\s*(.+)$/s.exec(d);
         if (!m) continue;
-        if (racine(b.sel)) { if (b.sel.trim() === ':root') dansRoot.set(m[1], m[2].trim()); }
+        // 🔴 LOT M — TOUS LES BLOCS DE NIVEAU RACINE, PAS SEULEMENT `:root`.
+        // Jusqu'ici seul `:root` nourrissait `dansRoot` : un jeton bâti sur un
+        // `var()` et déclaré dans `[data-theme="nuit"]` passait donc entre les
+        // mailles. C'était sans conséquence tant que ce bloc ne mordait pas —
+        // le lot M vient précisément de le rendre vivant, et il porte
+        // `--lock-1v: var(--sect-1v)`, exactement la forme du piège du lot L.
+        // ⭐ `racine()` sait déjà répondre ; on cessait juste de l'écouter.
+        if (racine(b.sel)) { dansRoot.set(m[1], m[2].trim()); }
         else horsRoot.add(m[1]);
       }
     }
@@ -1247,16 +1254,16 @@ console.log('\n═══ LOT 203, POINT `ag` — la série est bornée, et son n
       const sensibles = refs.filter((r) => horsRoot.has(r));
       if (sensibles.length && !horsRoot.has(jeton)) {
         figes.push(`${jeton} = « ${valeur.slice(0, 58)} » : ${sensibles.join(', ')}`
-          + ' change selon le contexte, mais ce jeton n\'est déclaré QUE dans `:root`');
+          + ' change selon le contexte, mais ce jeton n\'est déclaré QU\'au niveau racine');
       }
     }
     if (dansRoot.size === 0) {
-      console.log('\n  --  §L-quater SANS OBJET — aucun jeton déclaré dans `:root` ici.');
+      console.log('\n  --  §L-quater SANS OBJET — aucun jeton déclaré au niveau racine ici.');
     } else {
       dit(figes.length === 0,
-        `§L-quater — ${dansRoot.size} jeton(s) de \`:root\` : aucun ne fige la valeur de la racine`,
+        `§L-quater — ${dansRoot.size} jeton(s) de niveau racine : aucun ne fige la valeur de la racine`,
         figes.length === 0 ? null
-          : `⛔ ${figes.length} jeton(s) résolus DANS \`:root\`, donc insensibles à la section.`
+          : `⛔ ${figes.length} jeton(s) résolus AU NIVEAU RACINE, donc insensibles à la section.`
             + ' Le CSS est juste, le rendu est faux, et aucune lecture du texte ne le voit :\n      '
             + figes.slice(0, 8).join('\n      '));
     }
@@ -1281,6 +1288,170 @@ console.log('\n═══ LOT 203, POINT `ag` — la série est bornée, et son n
       recopies.length === 0 ? null
         : `⛔ ${recopies.length} recopie(s) — le calcul suit déjà la couleur de section, la valeur en dur`
           + ' la fige et diverge au premier changement :\n      ' + recopies.slice(0, 10).join('\n      '));
+  }
+}
+
+
+// ════════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 §M-thème — UN SÉLECTEUR NE PEUT PAS VISER UN ÉTAT QUE PERSONNE NE POSE
+// ════════════════════════════════════════════════════════════════════════════
+//
+// ⭐⭐⭐ CE QU'IL FERME, ET IL A VÉCU DES MOIS. `themes/vitrine` portait
+// SEIZE règles `[data-theme="jour"]` — tout le pendant clair des sections, les
+// ombres, les filets, le voile du verrou. Aucun code n'a JAMAIS posé la valeur
+// `jour` : `Base.astro` écrit `setAttribute('data-theme','nuit')` ou RETIRE
+// l'attribut, jamais autre chose. Les seize règles étaient donc du texte.
+//
+// ⛔⛔ ET AUCUN DES BANCS EXISTANTS NE POUVAIT LE DIRE, chacun pour une bonne
+// raison : le §K compare des `:root` entre eux (ceux-là n'en sont pas), le §L
+// suit un jeton branché (ceux-là sont des littéraux), `css-mort` cherche des
+// CLASSES jamais employées (le sélecteur, lui, est parfaitement bien formé), et
+// le build est vert par construction — du CSS qui ne mord pas n'est pas une
+// erreur de CSS. ⭐⭐ *Une règle morte ne se distingue d'une règle vivante que
+// si on lit AILLEURS QUE DANS LA FEUILLE : dans le code qui pose l'état.*
+//
+// ⭐⭐⭐ ET LA CONCLUSION FAUSSE QU'ELLE M'A FAIT TIRER, qui est le vrai coût.
+// De « ces règles ne mordent pas » j'avais déduit « le thème clair est mort »,
+// et j'ai proposé à Preda de le SUPPRIMER. Mesuré sur la page servie, le thème
+// clair marchait : `--bg` passait bien de #1A1A1A à #EFEFEF, `main` se
+// repeignait, `color-scheme` basculait, et le bouton était servi sur `/compte/`.
+// Seul le pendant de SECTION était cassé. J'allais faire retirer un réglage
+// vivant. ⇒ *le code mort et la fonctionnalité sont deux objets ; ce banc
+// nomme le premier PRÉCISÉMENT pour qu'on cesse de le confondre avec le second.*
+{
+  // ── ① QUELLES VALEURS LE CODE POSE-T-IL VRAIMENT ? ───────────────────────
+  // ⛔ PAS la liste blanche de `engine/lib/theme.mjs` : elle contient `jour`,
+  // qui est une valeur de COOKIE (« j'ai choisi clair ») et non un attribut —
+  // le clair se rend en RETIRANT l'attribut. Lire cette liste-là aurait rendu
+  // ce banc vert sur le défaut même qu'il existe pour attraper. *On lit le
+  // geste, pas le vocabulaire qui l'entoure.*
+  const SRC = join(R, 'src');
+  const sources = [];
+  (function marcher(d) {
+    for (const e of readdirSync(d, { withFileTypes: true })) {
+      const f = join(d, e.name);
+      if (e.isDirectory()) marcher(f);
+      else if (/\.(astro|mjs|js|ts)$/.test(e.name)) sources.push(f);
+    }
+  }(SRC));
+  const posees = new Set();
+  let posePeuLisible = 0;
+  for (const f of sources) {
+    const txt = readFileSync(f, 'utf8');
+    for (const m of txt.matchAll(/setAttribute\(\s*['"]data-theme['"]\s*,\s*([^)]+)\)/g)) {
+      const arg = m[1].trim();
+      const lit = /^['"]([a-z0-9-]+)['"]$/i.exec(arg);
+      if (lit) posees.add(lit[1]); else posePeuLisible += 1;
+    }
+    // Un attribut écrit directement dans le gabarit compte aussi.
+    for (const m of txt.matchAll(/\bdata-theme\s*=\s*"([a-z0-9-]+)"/gi)) posees.add(m[1]);
+  }
+
+  // ⭐⭐ CONTRE-ÉPREUVE, AVANT TOUTE ACCUSATION : ce banc sait-il trouver ce
+  // qu'il cherche ? Un `readdirSync` sur le mauvais dossier, une regex qui ne
+  // mord plus après un reformatage, et il déclarerait MORTES toutes les règles
+  // du thème — un rouge massif et parfaitement faux. Il exige donc d'avoir lu
+  // des sources ET d'y avoir trouvé au moins une pose.
+  if (sources.length < 20 || posees.size === 0) {
+    console.error(`\n❌ §M-thème — il a lu ${sources.length} source(s) et n'y trouve `
+      + `${posees.size} pose de \`data-theme\`. Il ne mesure plus le code : il ne prouve rien.`);
+    process.exit(2);
+  }
+
+  // ── ② QUELLES VALEURS LA FEUILLE SERVIE VISE-T-ELLE ? ────────────────────
+  const visees = new Map();      // valeur -> nombre de règles
+  for (const m of feuilleSansProse.matchAll(/\[data-theme\s*=\s*"([a-z0-9-]+)"\]/gi)) {
+    visees.set(m[1], (visees.get(m[1]) || 0) + 1);
+  }
+
+  if (visees.size === 0) {
+    console.log('\n  --  §M-thème SANS OBJET — ce thème ne vise aucun état `data-theme`.');
+  } else {
+    const mortes = [...visees.entries()].filter(([v]) => !posees.has(v));
+    dit(mortes.length === 0 && posePeuLisible === 0,
+      `§M-thème — ${visees.size} état(s) visé(s) par la feuille (${[...visees.keys()].join(', ')}),`
+        + ` tous posés par le code (${[...posees].join(', ')})`,
+      mortes.length === 0 && posePeuLisible === 0 ? null
+        : (mortes.length
+            ? `⛔ ${mortes.reduce((n, [, c]) => n + c, 0)} règle(s) visent un état que RIEN ne pose.`
+              + ' Elles sont du texte : le build est vert, le CSS est bien formé, et elles ne'
+              + ' peindront jamais rien.\n      '
+              + mortes.map(([v, c]) => `[data-theme="${v}"] — ${c} règle(s), jamais posé`).join('\n      ')
+            : '')
+          + (posePeuLisible
+            ? `\n      ⚠️ ${posePeuLisible} pose(s) de \`data-theme\` avec une valeur calculée :`
+              + ' ce banc ne peut plus énumérer les états, il refuse de conclure au vert.'
+            : ''));
+  }
+
+  // ── ③ LE PENDANT DU THÈME ET LA PALETTE GÉNÉRÉE NE SE CONTREDISENT PAS ───
+  // La feuille servie porte DEUX blocs pour le même état : `:root[data-theme=X]`
+  // écrit par `feuille_theme.mjs` depuis `identity.palette_nuit`, et le
+  // `[data-theme=X]` du thème. Le premier a la plus forte spécificité (0,2,0
+  // contre 0,1,0) et gagne, quel que soit l'ordre. ⭐ Un jeton que les deux
+  // déclarent avec DEUX valeurs différentes est donc un jeton dont la valeur
+  // écrite dans le thème est morte — et rien ne le signale, puisque la couleur
+  // servie, elle, existe bien.
+  const litBloc = (re) => {
+    const m = re.exec(feuilleSansProse);
+    if (!m) return null;
+    const out = new Map();
+    for (const d of m[1].split(';')) {
+      const j = /^\s*(--[a-z0-9-]+)\s*:\s*(.+?)\s*$/s.exec(d);
+      if (j) out.set(j[1], j[2]);
+    }
+    return out;
+  };
+  const etats = [...visees.keys()].filter((v) => posees.has(v));
+  const contradictions = [];
+  for (const v of etats) {
+    const gen = litBloc(new RegExp(`:root\\[data-theme="${v}"\\]\\{([^}]*)\\}`));
+    const thm = litBloc(new RegExp(`(?:^|[};])\\s*\\[data-theme="${v}"\\]\\s*\\{([^}]*)\\}`, 'm'));
+    if (!gen || !thm) continue;
+    for (const [jeton, val] of thm) {
+      if (!gen.has(jeton)) continue;
+      if (gen.get(jeton).toLowerCase() !== val.toLowerCase()) {
+        contradictions.push(`${jeton} : le manifeste sert « ${gen.get(jeton)} » et gagne,`
+          + ` le thème écrit « ${val} » et ne sera jamais lu (état « ${v} »)`);
+      }
+    }
+  }
+  if (etats.length === 0) {
+    console.log('\n  --  §M-thème ③ SANS OBJET — aucun état visé n\'a de palette générée.');
+  } else {
+    dit(contradictions.length === 0,
+      `§M-thème ③ — le pendant du thème et la palette du manifeste s'accordent sur ${etats.join(', ')}`,
+      contradictions.length === 0 ? null
+        : `⛔ ${contradictions.length} jeton(s) où le thème écrit une valeur que sa spécificité`
+          + ' plus faible rend inatteignable :\n      ' + contradictions.join('\n      '));
+  }
+
+  // ── ④ LE LIBELLÉ DE LA BASCULE NE S'ÉCRIT PAS EN DUR ─────────────────────
+  // Il doit se DÉDUIRE de la luminance de la palette visée (`cleBascule`), sinon
+  // le même texte sert deux sites opposés. 🔬 Mesuré le 08/09 : `theme.toggle`
+  // = « Passer en mode nuit » était JUSTE sur vevewiki (base claire) et FAUX sur
+  // veveprice (base sombre, alternative claire) — un bouton qui promettait la
+  // nuit et livrait le jour, dans cinq langues.
+  // ⛔ Ce §-ci lit la SOURCE et non `dist/`, délibérément : sur veveprice la
+  // seule page qui porte ce bouton (`/compte/`) est rendue à la demande, donc
+  // ABSENTE du build — un banc qui ne lirait que `dist/` serait vert ici sans
+  // avoir rien regardé, précisément sur le site où le défaut vivait.
+  const gabaritsBascule = sources.filter((f) => /id="bascule-theme"/.test(readFileSync(f, 'utf8')));
+  if (gabaritsBascule.length === 0) {
+    console.log('\n  --  §M-thème ④ SANS OBJET — aucun gabarit ne sert de bouton d\'apparence.');
+  } else {
+    const fautifs = [];
+    for (const f of gabaritsBascule) {
+      const txt = readFileSync(f, 'utf8');
+      const dur = [...txt.matchAll(/t\(\s*lang\s*,\s*['"](theme\.to(?:Dark|Light)|theme\.toggle)['"]/g)];
+      if (dur.length) fautifs.push(`${f.slice(R.length)} — libellé en dur (${dur.map((m) => m[1]).join(', ')})`);
+      else if (!/cleBascule\s*\(/.test(txt)) fautifs.push(`${f.slice(R.length)} — n'appelle pas \`cleBascule()\``);
+    }
+    dit(fautifs.length === 0,
+      `§M-thème ④ — ${gabaritsBascule.length} gabarit(s) de bascule : le libellé se déduit de la palette`,
+      fautifs.length === 0 ? null
+        : '⛔ un libellé constant dit la même chose sur un site à base claire et sur un site à base'
+          + ' sombre — il est donc faux sur l\'un des deux :\n      ' + fautifs.join('\n      '));
   }
 }
 

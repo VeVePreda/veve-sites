@@ -349,6 +349,12 @@ var G = document.getElementById('s-grille');
   // n'est pas une date ancienne. Même règle que le Marché.
   function garde(e, x){
     var d = x.dataset;
+    // 🏆 LOT M — sous un tri MCP, la page EST le classement : un set que le
+    // serveur n'a pas classé n'y a pas sa place. ⭐ Placé en TÊTE de `garde()`
+    // à dessein : le classement est le corpus, les autres filtres se posent
+    // DEDANS. L'inverse — filtrer puis classer — aurait rendu un « top 200 »
+    // dont le contenu change selon les cases cochées, sans le dire.
+    if (TRIS_MCP[e.tri] && rang(e.tri, x) === Infinity) return false;
     if (e.q && d.n.indexOf(e.q) === -1) return false;
     if (e.corpus && d.ty !== e.corpus) return false;
     if (e.brands.length && e.brands.indexOf(d.brand) === -1) return false;
@@ -366,6 +372,66 @@ var G = document.getElementById('s-grille');
     if (e.tmax !== null && tl > e.tmax) return false;
     return true;
   }
+  // ═════════════════════════════════════════════════════════════════════════
+  // 🏆 LOT M — LE RENDEMENT MCP, DEMANDE `f` DE PREDA
+  // ═════════════════════════════════════════════════════════════════════════
+  // ⛔⛔ CE QUI TRAVERSE EST UN RANG, PAS UN PRIX — et c'est ce qui rend ce tri
+  // possible sur une page PUBLIQUE. `/sets/` est un rayon : `test:rayon` §①
+  // interdit qu'un prix y figure, et `$ / MCP` se calcule sur des planchers.
+  // La route rend donc une liste de slugs classés ; le pilote ne lit QUE
+  // l'ordre. Aucun coût, aucun ratio, aucun nombre n'entre dans ce DOM.
+  // ⭐ Et le rang ne se déduit pas non plus : deux sets voisins dans le
+  //   classement ne disent rien de l'écart entre eux.
+  //
+  // ⭐⭐ LA ROUTE PLAFONNE À 200, ET ON NE LE CACHE PAS. Elle est
+  // `private, no-store` : chaque octet se repaie à chaque visite, et ce plafond
+  // est mesuré, pas arbitraire. ⇒ Un tri MCP MONTRE LES SETS CLASSÉS, et eux
+  // seuls. C'est un choix, et il est le seul honnête des trois possibles :
+  //   · laisser les non-classés derrière ferait passer le 201ᵉ meilleur set
+  //     pour un set sans rendement — un mensonge par voisinage ;
+  //   · les intercaler dans leur ordre précédent rendrait la page instable
+  //     selon d'où l'on vient ;
+  //   · les MASQUER dit ce qui est vrai — « voici le classement » — et les
+  //     compteurs existants (`s-cpt`, `s-plus-cpt`) annoncent alors le nombre
+  //     RÉEL de lignes classées, sans qu'on ait à écrire une phrase de plus.
+  // ⚠️ Un set peut n'être classé que sur UN des deux marchés : StackR ne cote
+  //   pas tout. Les deux classements ont donc leurs propres effectifs, et c'est
+  //   pour ça qu'ils sont mémorisés séparément.
+  var RANGS = {};        // tri -> { slug: rang }  (null tant qu'on n'a pas demandé)
+  var rangsEnCours = {};
+  // ⭐ Le slug se LIT DANS LE `href`, il n'est pas recopié en attribut.
+  //   `data-slug` sur 3 194 cartes serait la même chaîne servie deux fois, et
+  //   ce rayon a déjà payé une leçon sur le poids de son index. ⛔ Et on ne
+  //   construit pas l'adresse : `localize()` peut préfixer une locale, donc on
+  //   prend le DERNIER segment, quelle que soit la langue.
+  function slugDe(el){
+    var h = el.getAttribute('href') || '';
+    var m = h.replace(/[?#].*$/, '').replace(/\/+$/, '').split('/');
+    return m[m.length - 1] || '';
+  }
+  function chargerRangs(tri, apres){
+    if (RANGS[tri] || rangsEnCours[tri]) { apres(); return; }
+    rangsEnCours[tri] = true;
+    fetch('/api/analytics/sets_mcp?tri=' + encodeURIComponent(tri) + '-asc&n=200',
+          { headers: { accept: 'application/json' }, credentials: 'same-origin' })
+      .then(function(r){
+        // ⭐ 401/403 ne sont pas des pannes : c'est le mur qui fonctionne. On
+        //   retombe alors sur un classement VIDE, donc zéro carte retenue et
+        //   l'état vide déjà servi par la page — jamais une liste au hasard qui
+        //   aurait l'air d'être le classement.
+        if (!r.ok) return { sets: [] };
+        return r.json();
+      })
+      .then(function(d){
+        var m = {};
+        (d && d.sets ? d.sets : []).forEach(function(x, i){ if (x && x.slug) m[x.slug] = i; });
+        RANGS[tri] = m;
+      })
+      .catch(function(){ RANGS[tri] = {}; })
+      .then(function(){ rangsEnCours[tri] = false; apres(); });
+  }
+  var TRIS_MCP = { gpm: 1, spm: 1 };
+
   var ORDRE = {
     taille: function(a,b){ return parseInt(b.dataset.taille,10) - parseInt(a.dataset.taille,10); },
     annee:  function(a,b){ return (b.dataset.an || '').localeCompare(a.dataset.an || ''); },
@@ -380,8 +446,21 @@ var G = document.getElementById('s-grille');
     licence: function(a,b){
       var d = (a.dataset.lic || '').localeCompare(b.dataset.lic || '');
       return d !== 0 ? d : (parseInt(b.dataset.taille,10) - parseInt(a.dataset.taille,10));
-    }
+    },
+    // 🏆 LOT M — l'ordre vient du serveur ; ici on ne fait que le relire.
+    gpm: function(a,b){ return rang('gpm', a) - rang('gpm', b); },
+    spm: function(a,b){ return rang('spm', a) - rang('spm', b); }
   };
+  /** Le rang d'une carte dans le classement demandé. ⛔ `Infinity` — et non un
+   *  grand nombre — pour les sets absents : ils sont de toute façon écartés par
+   *  `garde()`, mais si un jour ils ne l'étaient plus, `Infinity` les met en
+   *  fin sans jamais les mélanger aux classés. */
+  function rang(tri, el){
+    var m = RANGS[tri];
+    if (!m) return Infinity;
+    var r = m[slugDe(el)];
+    return r === undefined ? Infinity : r;
+  }
   var bPlus = document.getElementById('s-plus');
   var cPlus = document.getElementById('s-plus-cpt');
   var pas = bPlus ? parseInt(bPlus.dataset.pas, 10) : 0;
@@ -479,7 +558,16 @@ var G = document.getElementById('s-grille');
   if (bPlus) bPlus.addEventListener('click', apresChargement(function(){ montre += pas; appliquer(); }));
   // ⛔ Changer de filtre revient à la première tranche : sinon « 300 / 12 ».
   f.addEventListener('input',  apresChargement(function(){ montre = pas || 1e9; appliquer(); }));
-  f.addEventListener('change', apresChargement(function(){ montre = pas || 1e9; appliquer(); }));
+  // 🏆 LOT M — un tri MCP a besoin du serveur AVANT de pouvoir classer. ⭐ Un
+  // `appliquer()` lancé sans attendre rendrait une page VIDE pendant la requête
+  // (aucun set classé, donc aucun retenu) puis se remplirait : un clignotement
+  // qui ressemble à « il n'y a rien ». On ne réordonne qu'une fois l'ordre là.
+  f.addEventListener('change', apresChargement(function(){
+    montre = pas || 1e9;
+    var tri = val('s-tri');
+    if (TRIS_MCP[tri]) { chargerRangs(tri, appliquer); return; }
+    appliquer();
+  }));
   f.addEventListener('reset',  apresChargement(function(){ setTimeout(function(){ corpus = ''; montre = pas || 1e9; appliquer(); }, 0); }));
   // ⭐⭐⭐ ON CHARGE À L'INTENTION, PAS AU CLIC — ET C'EST `test:series` QUI A
   // RENDU CE DÉFAUT VISIBLE. Le lot 143 exige de remplir un panneau AVANT de

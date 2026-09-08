@@ -68,13 +68,13 @@ verifie('un set complet : coût = somme des planchers, points = bonus + pièces'
   && complet.points === 4.25,
   `cout=${complet.cout} bonus=${complet.bonusSet} pieces=${complet.pointsPieces} pts=${complet.points}`);
 verifie('… et son ratio est le quotient EXACT, sans arrondi',
-  complet.gemsParMcp === 150 / 4.25, String(complet.gemsParMcp));
+  complet.usdParMcp === 150 / 4.25, String(complet.usdParMcp));
 
 // REFUS ① — une seule pièce sans plancher suffit.
 const troue = agregerSet(set([piece(100), piece(null, 'RARE')]));
-verifie('REFUS ① une pièce sans plancher ⇒ `cout` ET `gemsParMcp` sont `null`',
-  troue.cout === null && troue.gemsParMcp === null && troue.couvert === 1,
-  `cout=${troue.cout} ratio=${troue.gemsParMcp} couvert=${troue.couvert}/${troue.taille}`);
+verifie('REFUS ① une pièce sans plancher ⇒ `cout` ET `usdParMcp` sont `null`',
+  troue.cout === null && troue.usdParMcp === null && troue.couvert === 1,
+  `cout=${troue.cout} ratio=${troue.usdParMcp} couvert=${troue.couvert}/${troue.taille}`);
 // ⭐ Et le zéro n'est pas un plancher : un `floor` à 0 ne couvre pas la pièce.
 verifie('… et un plancher à 0 ne compte pas comme couvert (0 n\'est pas un prix)',
   agregerSet(set([piece(100), piece(0)])).cout === null);
@@ -82,15 +82,15 @@ verifie('… et un plancher à 0 ne compte pas comme couvert (0 n\'est pas un pr
 // REFUS ② — une pièce hors barème ne vaut pas zéro point.
 const horsBareme = agregerSet(set([piece(100), piece(50, 'ARTIST_PROOF', 'comic')]));
 verifie('REFUS ② une pièce sans barème ⇒ `points` est `null`, pas un total gonflé',
-  horsBareme.points === null && horsBareme.sansBareme === 1 && horsBareme.gemsParMcp === null,
+  horsBareme.points === null && horsBareme.sansBareme === 1 && horsBareme.usdParMcp === null,
   `pts=${horsBareme.points} sansBareme=${horsBareme.sansBareme}`);
 
 // ── ③ LE CLASSEMENT — LES `null` EN DERNIER, DANS LES DEUX SENS ───────────
 console.log('\n③ le classement');
 const corpus = [
-  { nom: 'cher', gemsParMcp: 900, points: 5, cout: 900, taille: 1 },
-  { nom: 'muet', gemsParMcp: null, points: null, cout: null, taille: 2 },
-  { nom: 'bon', gemsParMcp: 10, points: 9, cout: 90, taille: 3 },
+  { nom: 'cher', usdParMcp: 900, points: 5, cout: 900, taille: 1 },
+  { nom: 'muet', usdParMcp: null, points: null, cout: null, taille: 2 },
+  { nom: 'bon', usdParMcp: 10, points: 9, cout: 90, taille: 3 },
 ];
 const asc = classerSets(corpus, 'gpm-asc').map((a) => a.nom);
 const desc = classerSets(corpus, 'gpm-desc').map((a) => a.nom);
@@ -236,7 +236,7 @@ console.log('\n⑩ la route /api/analytics/sets_mcp — EXÉCUTÉE, pas relue');
     sets: Array.from({ length: 500 }, (_, i) => ({
       slug: 's' + i, nom: 'Set ' + i, marque: 'M', licence: 'L', taille: 1,
       cout: i + 1, couvert: 1, bonusSet: 1, pointsPieces: 1, sansBareme: 0,
-      points: 2, gemsParMcp: (i + 1) / 2 })) };
+      points: 2, usdParMcp: (i + 1) / 2 })) };
   writeFileSync(reserve, JSON.stringify(faux), 'utf8');
 
   // ⛔ PAS DE TEMPLATE LITTÉRAL DANS CE CODE INJECTÉ : il traverse un argument
@@ -314,6 +314,99 @@ console.log('\n⑩ la route /api/analytics/sets_mcp — EXÉCUTÉE, pas relue');
     verifie('le défaut déclaré est strictement sous le plafond — sinon rien ne distingue les deux',
       R.defaut < R.max, `${R.defaut} < ${R.max}`);
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🏪 §M — LE SECOND MARCHÉ, ET L'UNITÉ QUI ÉTAIT FAUSSE
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴🔴 CE QUE CE § FERME EN PREMIER, ET ÇA N'EST PAS UN CALCUL : **UN NOM.**
+// Le champ s'appelait `gemsParMcp`, le commentaire affirmait « `cout` EST EN
+// GEMS », et les cinq dictionnaires servaient l'en-tête « gems / MCP ».
+// 🔬 MESURÉ LE 08/09/2026 SUR `/market/` SERVI : la colonne du site s'appelle
+// **`$/MCP`** et rend `55` pour un plancher de `330` et `6.00 MCP` — soit
+// `330 / 6`, au centième. Le mot « GEMS » n'apparaît **pas une fois** sur la
+// page. Le même quotient portait donc deux unités selon l'endroit où on le
+// lisait, et l'une des deux était fausse.
+// ⭐⭐⭐ **UN NOM FAUX VOYAGE PLUS LOIN QU'UN COMMENTAIRE FAUX** : celui-ci
+// partait dans `.reserve/sets_mcp.json`, dans la route publique, dans le
+// tableau servi et dans cinq langues. Un commentaire se lit une fois ; un nom
+// se lit à chaque usage, et il finit par convertir.
+// ⇒ Ce § interdit au libellé de reparler de gems, DANS LES CINQ LANGUES — et
+//   il ne juge pas le champ par son nom (qu'on peut renommer) mais par ce que
+//   l'utilisateur LIT.
+console.log('\n⑪ le second marché, et l\'unité');
+{
+  const I18N = join(ROOT, 'engine', 'i18n');
+  const langues = ['en', 'fr', 'es', 'de', 'it'];
+  const fautifs = [];
+  for (const lg of langues) {
+    const d = JSON.parse(readFileSync(join(I18N, `${lg}.json`), 'utf8'));
+    const r = String(d['led.sets.ratio'] ?? '');
+    const rs = String(d['led.sets.ratioS'] ?? '');
+    if (/gem/i.test(r) || /gem/i.test(rs)) fautifs.push(`${lg} : « ${r} » / « ${rs} »`);
+    if (!r || !rs) fautifs.push(`${lg} : clé manquante (ratio=« ${r} » ratioS=« ${rs} »)`);
+  }
+  verifie('aucun en-tête ne parle de « gems » — le site écrit $/MCP',
+    fautifs.length === 0,
+    fautifs.length === 0 ? `${langues.length} langues relues` : fautifs.join(' · '));
+
+  // ── LES DEUX MARCHÉS SONT INDÉPENDANTS ────────────────────────────────────
+  // ⭐⭐ LA VRAIE QUESTION DE CE § : un trou chez StackR ne doit PAS effacer le
+  // ratio VeVe. Un compteur de couverture partagé entre les deux marchés ferait
+  // exactement ça — et le symptôme serait « moins de sets classables », c'est-à-
+  // dire un chiffre qui rétrécit sans erreur. On l'exerce dans les deux sens.
+  const p2 = (floor, stackr, rarity = 'COMMON', type = 'collectible') =>
+    ({ floor, floorStackrUsd: stackr, rarity, type });
+  const set2 = (items) => ({ slug: 's', name: 'S', brand: '', licensor: '', items });
+
+  const deux = agregerSet(set2([p2(100, 80), p2(50, 40, 'RARE')]));
+  verifie('les deux marchés se calculent, chacun sur SA somme',
+    deux.cout === 150 && deux.coutStackr === 120
+      && deux.usdParMcp === 150 / 4.25 && deux.stackrParMcp === 120 / 4.25,
+    `veve=${deux.cout}/${deux.usdParMcp} · stackr=${deux.coutStackr}/${deux.stackrParMcp}`);
+
+  const trouStackr = agregerSet(set2([p2(100, 80), p2(50, null, 'RARE')]));
+  verifie('🎯 un trou chez StackR n\'efface PAS le ratio VeVe',
+    trouStackr.usdParMcp === 150 / 4.25 && trouStackr.stackrParMcp === null
+      && trouStackr.couvert === 2 && trouStackr.couvertStackr === 1,
+    `veve=${trouStackr.usdParMcp} stackr=${trouStackr.stackrParMcp}`
+      + ` · couvert ${trouStackr.couvert}/${trouStackr.couvertStackr}`);
+
+  const trouVeve = agregerSet(set2([p2(100, 80), p2(null, 40, 'RARE')]));
+  verifie('… et réciproquement : un trou chez VeVe n\'efface pas celui de StackR',
+    trouVeve.usdParMcp === null && trouVeve.stackrParMcp === 120 / 4.25,
+    `veve=${trouVeve.usdParMcp} stackr=${trouVeve.stackrParMcp}`);
+
+  // ⛔ MÊME REFUS QUE LE MARCHÉ VeVe : un set à moitié coté n'a pas de ratio.
+  verifie('REFUS ① s\'applique aussi à StackR : 1 pièce cotée sur 2 ⇒ pas de ratio',
+    agregerSet(set2([p2(100, 80), p2(50, 0, 'RARE')])).stackrParMcp === null,
+    'un plancher à 0 ne compte pas comme coté');
+
+  // ── LES TRIS DU SECOND MARCHÉ ─────────────────────────────────────────────
+  const corpus2 = [
+    { nom: 'cher', stackrParMcp: 900, usdParMcp: 1, points: 5, cout: 900, taille: 1 },
+    { nom: 'muet', stackrParMcp: null, usdParMcp: 2, points: null, cout: null, taille: 2 },
+    { nom: 'bon', stackrParMcp: 10, usdParMcp: 3, points: 9, cout: 90, taille: 3 },
+  ];
+  verifie('`spm-asc` classe sur StackR, le muet en dernier',
+    classerSets(corpus2, 'spm-asc').map((a) => a.nom).join(',') === 'bon,cher,muet',
+    classerSets(corpus2, 'spm-asc').map((a) => a.nom).join(','));
+  verifie('`spm-desc` inverse, et le muet reste en dernier',
+    classerSets(corpus2, 'spm-desc').map((a) => a.nom).join(',') === 'cher,bon,muet',
+    classerSets(corpus2, 'spm-desc').map((a) => a.nom).join(','));
+  // ⭐⭐ CONTRE-ÉPREUVE : les deux tris ne doivent pas rendre la MÊME chose,
+  // sinon `spm-asc` pourrait n'être qu'un alias silencieux de `gpm-asc` et ce §
+  // serait vert sur un tri qui n'existe pas. Le corpus est fabriqué pour que les
+  // deux ordres DIVERGENT — sans ça, on mesurerait une coïncidence.
+  verifie('🎯 et il ne classe pas comme `gpm-asc` — sinon ce serait un alias muet',
+    classerSets(corpus2, 'spm-asc').map((a) => a.nom).join(',')
+      !== classerSets(corpus2, 'gpm-asc').map((a) => a.nom).join(','),
+    `spm : ${classerSets(corpus2, 'spm-asc').map((a) => a.nom).join(',')}`
+      + ` · gpm : ${classerSets(corpus2, 'gpm-asc').map((a) => a.nom).join(',')}`);
+
+  verifie('les deux clés sont déclarées dans TRIS_SETS, pas recopiées ailleurs',
+    TRIS_SETS.includes('spm-asc') && TRIS_SETS.includes('spm-desc'),
+    TRIS_SETS.join(' '));
 }
 
 console.log(ko === 0 ? '\n✅ SETS MCP — tout est conforme\n'

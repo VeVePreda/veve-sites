@@ -26,6 +26,7 @@ import { manifest } from '../../../engine/lib/manifest.mjs';
 import { acces, palierVisiteur, sessionDe } from '../../../engine/lib/access.mjs';
 import { t, localize, locales, localeNames, languesInterface, choisirLangue, COOKIE_LANGUE } from '../../../engine/lib/i18n.mjs';
 import { comptesActifs } from '../../../engine/lib/features.mjs';
+import { cleBascule } from '../../../engine/lib/feuille_theme.mjs';
 // ❤️ LOT 141 — `avoirsDeLaSession()` VIT DANS LE MOTEUR, PAS ICI.
 // ⭐⭐ Elle porte QUATRE ÉTATS NOMMÉS (liste · vide · inconnu · nonverifie) et
 // c'est un module Node, donc `test:membre` §8 peut l'IMPORTER et l'exercer sur
@@ -190,6 +191,12 @@ if (aLaDemande && !connecte) return Astro.redirect('/connexion/', 302);
 const reglagesIci = (m.identity?.langues_dans === 'compte') || (m.identity?.theme_dans === 'compte');
 const langueIci = m.identity?.langues_dans === 'compte';
 const themeIci = m.identity?.theme_dans === 'compte';
+// 🔴 LOT M — le MÊME libellé déduit que dans l'en-tête, et par le MÊME appel.
+// ⛔ Deux calculs séparés, c'est deux textes qui divergeront le jour où l'un
+// des deux sites changera de palette : c'est exactement ce qui vient d'arriver
+// avec `theme.toggle`, écrit en dur et juste sur un seul des deux sites.
+const libBascule = m.identity?.palette_nuit
+  ? t(lang, cleBascule(m.identity.palette_nuit)) : '';
 // 🔴🔴 LOT 120 — LE SÉLECTEUR NE FABRIQUE PLUS D'ADRESSE LOCALISÉE.
 // Il envoyait vers `localize(l, '/')`, c'est-à-dire `/fr/`, `/es/`, `/de/`.
 // Ces accueils N'EXISTENT PLUS : nginx les redirige désormais en 301 vers `/`.
@@ -813,7 +820,7 @@ const _m = Astro.url.searchParams.get('m');
               qu'il a déménagé » aurait produit un bouton parfaitement visible
               et parfaitement inerte : la panne qui se croit une réussite. */}
           <button type="button" id="bascule-theme" class="bascule"
-                  aria-label={t(lang, 'theme.toggle')} title={t(lang, 'theme.toggle')}
+                  aria-label={libBascule} title={libBascule}
                   aria-pressed="false"></button>
           <p class="muted" style="font-size:13px;margin-top:var(--s3)">{t(lang, 'account.theme.d')}</p>
         </div>

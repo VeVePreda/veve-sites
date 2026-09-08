@@ -449,7 +449,8 @@ const chemin = `/analytics/${sujet}/`;
     // 🏆 LOT 228 — les libellés du rendement des sets.
     sSet: t(lang, 'led.sets.set'), sSize: t(lang, 'led.sets.size'),
     sCost: t(lang, 'led.sets.cost'), sPts: t(lang, 'led.sets.pts'),
-    sRatio: t(lang, 'led.sets.ratio'), sNote: t(lang, 'led.sets.note'),
+    sRatio: t(lang, 'led.sets.ratio'), sRatioS: t(lang, 'led.sets.ratioS'),
+    sNote: t(lang, 'led.sets.note'),
   },
 }}>
 (function () {
@@ -567,14 +568,18 @@ const chemin = `/analytics/${sujet}/`;
         + (d.classables != null ? ' · ' + num(d.classables) + ' ' + ech(L.sRatio) : '')
         + (d.tronque ? ' · ' + num(n) : '') + '</p>'
         + '<p class="muted" style="max-width:70ch">' + ech(L.sNote) + '</p>'
-        + tab([L.sSet, L.sSize, L.sCost, L.sPts, L.sRatio],
+        + tab([L.sSet, L.sSize, L.sCost, L.sPts, L.sRatio, L.sRatioS],
           (d.sets || []).map(function (r) {
-            // ⛔ UN TIRET, JAMAIS UN ZERO. `cout` et `gemsParMcp` valent `null`
-            // des qu'un plancher manque ou qu'une piece echappe au bareme :
-            // ecrire « 0 » dirait « ce set est gratuit ».
+            // ⛔ UN TIRET, JAMAIS UN ZERO. `cout`, `usdParMcp` et `stackrParMcp`
+            // valent `null` des qu'un plancher manque ou qu'une piece echappe au
+            // bareme : ecrire « 0 » dirait « ce set est gratuit ».
+            // 🏪 LOT M — la colonne StackR est SEPAREE, jamais fondue avec celle
+            // de VeVe : les deux marches ne cotent pas les memes sets, et un
+            // tiret dans l'une a cote d'un chiffre dans l'autre est une
+            // INFORMATION (« ici, StackR ne cote pas tout le set »).
             var tiret = function (v) { return v == null ? '—' : num(Math.round(v * 100) / 100); };
             return ['<b>' + ech(r.nom) + '</b>', num(r.taille),
-              tiret(r.cout), tiret(r.points), tiret(r.gemsParMcp)];
+              tiret(r.cout), tiret(r.points), tiret(r.usdParMcp), tiret(r.stackrParMcp)];
           }));
     },
   };

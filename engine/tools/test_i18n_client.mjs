@@ -699,4 +699,52 @@ console.log('\n4 ter. un visiteur qui revient avec un cache PÉRIMÉ finit-il tr
       : `🔴 ${t4}/${n4.length} — la revalidation a fait perdre ce que le cache portait`);
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴 LOT M — AUCUN MARQUAGE NE DESCEND DANS UN SVG
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐⭐⭐ POURQUOI CE § EXISTE ALORS QUE LE DÉFAUT N'EXISTE PAS. Mes notes
+// portaient « des figures sont VIDES en prod : un `<span data-i18n>` dans un
+// `<desc>` éjecte les nœuds hors du SVG ». 🔬 REMESURÉ le 08/09 : **faux**.
+// Ni sur les pages servies (8 figures relues en production, 12 enfants chacune,
+// zéro vide), ni dans le build (2 778 SVG, zéro `data-i18n` dedans). La raison
+// est mécanique : `figures.mjs` compose avec `dire()`, qui n'émet pas de
+// sentinelle — le marqueur n'a donc rien à saisir.
+// ⛔ MAIS « personne n'emprunte ce chemin » N'EST PAS « ce chemin est sûr ».
+// Le premier `t()` posé dans un `<desc>` rouvrirait la panne, et elle est de la
+// pire espèce : la figure se vide, le HTML reste valide, le build reste vert,
+// et **rien ne se voit hors du DOM**. `marquer_i18n.mjs` traite désormais
+// `<desc>` comme `<title>` ; ce §-ci le mesure sur ce qui est SERVI.
+// ⭐ Il regarde l'EFFET (un élément marqué à l'intérieur d'un `<svg>`), pas la
+//   liste de balises du marqueur : une liste se relit, un effet se mesure.
+console.log('\nX. aucun marquage i18n ne descend dans un SVG');
+{
+  const DANS_SVG = /<svg\b[^>]*>([\s\S]*?)<\/svg>/gi;
+  const fautives = [];
+  let nSvg = 0;
+  for (const f of pages) {
+    const txt = readFileSync(f, 'utf8');
+    for (const m of txt.matchAll(DANS_SVG)) {
+      nSvg += 1;
+      if (/<span\b[^>]*\bdata-i18n\b/i.test(m[1]) || /<desc\b[^>]*>[^<]*<span/i.test(m[1])) {
+        fautives.push(f.replace(RACINE, ''));
+      }
+    }
+  }
+  // ⭐⭐ CONTRE-ÉPREUVE — « sait-il trouver ce qu'il cherche ? » Un banc qui ne
+  // lit AUCUN SVG rendrait exactement la même réponse qu'un banc qui les lit
+  // tous et les trouve propres. Les deux états opposés, une seule sortie : le
+  // mensonge d'instrument le plus banal de ce dépôt. On exige donc d'avoir vu
+  // des SVG avant de déclarer qu'ils vont bien.
+  if (nSvg === 0) {
+    indecis('aucun marquage dans un SVG', 'ce build ne sert aucun SVG — rien n\'a été mesuré');
+  } else {
+    verifie('⛔ zéro élément marqué à l\'intérieur d\'un <svg>',
+      fautives.length === 0,
+      fautives.length === 0
+        ? `${nSvg} SVG relus sur ${pages.length} page(s)`
+        : `🔴 ${fautives.length} SVG portent un nœud HTML marqué : l'analyseur l'éjecte hors de `
+          + `l'image et la figure se vide. Ex. ${[...new Set(fautives)].slice(0, 3).join(', ')}`);
+  }
+}
+
 fin();

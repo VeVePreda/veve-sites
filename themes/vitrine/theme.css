@@ -501,7 +501,45 @@ td.num, th.num{text-align:right;font-variant-numeric:tabular-nums;
 }
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
 
-[data-theme="jour"]{
+/* ═══════════════════════════════════════════════════════════════════════════
+   🔴🔴🔴⭐⭐⭐ LE PENDANT CLAIR — ET POURQUOI IL S'ÉCRIT « nuit »
+   ═══════════════════════════════════════════════════════════════════════════
+   LOT M, 08/09/2026. Ce bloc s'appelait `[data-theme="jour"]` et il n'a JAMAIS
+   servi une seule fois depuis qu'il existe. **Aucun code ne pose la valeur
+   `jour`.** `Base.astro` écrit `setAttribute('data-theme','nuit')` ou il RETIRE
+   l'attribut — jamais autre chose. Les 16 règles écrites ici visaient donc un
+   sélecteur qui ne pouvait pas mordre.
+
+   🔬 MESURÉ SUR LA PAGE SERVIE (`/blog/`, feuille `706af53342ce`, 08/09) :
+   16 règles `[data-theme="jour"]` dans la feuille, **0 qui morde** une fois
+   `data-theme="nuit"` posé. Renommées en `nuit` et rejouées sur la même page :
+   `--sect-a` du blog passe de `#F0A029` (l'orange vif, écrit pour un fond
+   sombre) à `#8A5300` (l'orange sombre, écrit pour un fond clair). C'est
+   exactement ce que ce bloc voulait faire.
+
+   ⛔⛔ ET « nuit » NE VEUT PAS DIRE SOMBRE ICI. `data-theme` ne nomme pas une
+   couleur, il nomme un EMPLACEMENT : l'absence d'attribut = `identity.palette`,
+   `nuit` = `identity.palette_nuit`, c'est-à-dire **la palette ALTERNATIVE**.
+   Sur veveprice la palette de base est sombre, donc l'alternative est CLAIRE ;
+   sur vevewiki c'est l'inverse, et le même attribut y sert un vrai thème
+   sombre. Le mot est trompeur, il est ancien, et il est écrit dans le cookie
+   `vp_theme` de tous les visiteurs : le renommer maintenant remettrait à zéro
+   la préférence de chacun sans qu'il l'ait demandé. ⇒ **on garde la valeur,
+   on écrit ce qu'elle veut dire, et le LIBELLÉ montré à l'utilisateur, lui, se
+   DÉDUIT de la luminance des deux palettes** (voir `theme.switchTo` et
+   `motPalette()` dans `engine/lib/feuille_theme.mjs`) — il ne se code plus en
+   dur, précisément pour qu'il ne puisse plus mentir sur l'un des deux sites.
+
+   ⭐⭐⭐ LA LEÇON, ET ELLE A FAILLI COÛTER LA FONCTIONNALITÉ : j'avais conclu
+   « le thème clair est MORT » de « ces règles ne mordent pas ». C'était une
+   DÉDUCTION servie comme une mesure. Le thème clair MARCHE — `--bg` passe bien
+   de #1A1A1A à #EFEFEF, `main` se repeint, `color-scheme` bascule, et le
+   bouton « Apparence » est servi sur `/compte/`. Seul le pendant de SECTION
+   était cassé. *Les règles mortes et le thème sont deux objets différents ;
+   avant de proposer une SUPPRESSION, mesurer que la CHOSE ne marche pas, pas
+   que son code a l'air mort.*
+   🧪 Borné par `test:feuille` § M-thème. */
+[data-theme="nuit"]{
   --nuit:#EFEFEF; --surface:#FFFFFF; --surface-2:#E7E7E7; --surface-3:#D9D9D9;
   --rule:#E2E2E2; --rule-2:#C6C6C6; --rule-int:#767676;
   /* --text : fourni par le manifeste */ --text-2:#3D3D3D; --muted:#5E5E5E;
@@ -571,7 +609,8 @@ td.num, th.num{text-align:right;font-variant-numeric:tabular-nums;
 }
 
 /* ═══ ⛔ ICI VIVAIT UN DOUBLON — LOT L, 08/09/2026 ════════════════════
-   Dix lignes minifiées reprenaient `:root`, `[data-theme="jour"]` et les huit
+   Dix lignes minifiées reprenaient `:root`, le pendant clair (nommé
+   `[data-theme="jour"]` jusqu'au lot M) et les huit
    `[data-sect]` déjà déclarés plus haut. Elles GAGNAIENT, étant les dernières.
    ⭐⭐⭐ Éditer le bloc lisible en tête était donc parfaitement INVISIBLE en
    production : build vert, contrôles verts, diff juste, rendu inchangé.
@@ -584,16 +623,17 @@ td.num, th.num{text-align:right;font-variant-numeric:tabular-nums;
    propre — `--surface`, `--text`, `--muted`, et `--text` en jour — sont ceux que
    le manifeste injecte : ils reviennent par la palette, à l’octet près.
    ⛔ Quatre des huit `[data-sect]` supprimés n’avaient PAS le préfixe
-   `[data-theme="jour"]` : ils écrasaient la nuit avec les couleurs du clair.
+   le préfixe du pendant clair : ils écrasaient la palette de base avec les
+   couleurs du clair.
    `test:feuille` §K rougit désormais si deux `:root` servis se contredisent. */
 [data-sect="collectibles"]{--sect-a:#6BB6FC;--sect-pur:#0082FA;--sect-sur:#1A1A1A;--sect-fonce:#1E5FA8}
 [data-sect="comics"]{--sect-a:#3EC875;--sect-pur:#0EBA52;--sect-sur:#1A1A1A;--sect-fonce:#137A42}
 [data-sect="cotes"]{--sect-a:#ED9BA6;--sect-pur:#D7263D;--sect-sur:#FFFFFF;--sect-fonce:#9B2033}
 [data-sect="analyse"]{--sect-a:#10CEF2;--sect-pur:#10CEF2;--sect-sur:#1A1A1A;--sect-fonce:#0A7A8F}
-[data-theme="jour"] [data-sect="collectibles"]{--sect-a:#005FB5;--sect-pur:#0082FA;--sect-sur:#1A1A1A;--sect-fonce:#1E5FA8}
-[data-theme="jour"] [data-sect="comics"]{--sect-a:#096E38;--sect-pur:#0EBA52;--sect-sur:#1A1A1A;--sect-fonce:#137A42}
-[data-theme="jour"] [data-sect="cotes"]{--sect-a:#B72034;--sect-pur:#D7263D;--sect-sur:#FFFFFF;--sect-fonce:#9B2033}
-[data-theme="jour"] [data-sect="analyse"]{--sect-a:#08687A;--sect-pur:#10CEF2;--sect-sur:#1A1A1A;--sect-fonce:#0A7A8F}
+[data-theme="nuit"] [data-sect="collectibles"]{--sect-a:#005FB5;--sect-pur:#0082FA;--sect-sur:#1A1A1A;--sect-fonce:#1E5FA8}
+[data-theme="nuit"] [data-sect="comics"]{--sect-a:#096E38;--sect-pur:#0EBA52;--sect-sur:#1A1A1A;--sect-fonce:#137A42}
+[data-theme="nuit"] [data-sect="cotes"]{--sect-a:#B72034;--sect-pur:#D7263D;--sect-sur:#FFFFFF;--sect-fonce:#9B2033}
+[data-theme="nuit"] [data-sect="analyse"]{--sect-a:#08687A;--sect-pur:#10CEF2;--sect-sur:#1A1A1A;--sect-fonce:#0A7A8F}
 /* 🔴🔴⭐⭐⭐ CORRECTIF L-1 (08/09/2026) — ET IL A FALLU LA PROD POUR LE VOIR.
    Le lot L a remplacé les neuf `--sect-1v` en dur par UN calcul dans `:root` :
        :root{ --sect-1v: color-mix(in srgb, var(--sect-a) 12%, transparent) }
@@ -630,11 +670,11 @@ td.num, th.num{text-align:right;font-variant-numeric:tabular-nums;
 *,*::before,*::after{box-sizing:border-box}
 .grain{position:fixed;inset:0;pointer-events:none;z-index:9999;opacity:.03;mix-blend-mode:overlay; background-image:var(--grain);background-size:160px 160px}
 .carte,.panneau,.stat,.tbl-hote,.graph-hote,.tarif,.barre-f,.col-carte,.mur,.sceau{box-shadow:inset 0 1px 0 #FFFFFF0F, var(--sh-1)}
-[data-theme="jour"] .carte,[data-theme="jour"] .panneau,[data-theme="jour"] .stat, [data-theme="jour"] .tbl-hote,[data-theme="jour"] .graph-hote,[data-theme="jour"] .tarif, [data-theme="jour"] .barre-f,[data-theme="jour"] .col-carte,[data-theme="jour"] .mur, [data-theme="jour"] .sceau{box-shadow:inset 0 1px 0 #FFFFFF, var(--sh-1)}
+[data-theme="nuit"] .carte,[data-theme="nuit"] .panneau,[data-theme="nuit"] .stat, [data-theme="nuit"] .tbl-hote,[data-theme="nuit"] .graph-hote,[data-theme="nuit"] .tarif, [data-theme="nuit"] .barre-f,[data-theme="nuit"] .col-carte,[data-theme="nuit"] .mur, [data-theme="nuit"] .sceau{box-shadow:inset 0 1px 0 #FFFFFF, var(--sh-1)}
 main::after{content:"";position:absolute;inset:-10% -20% auto;height:520px;pointer-events:none;z-index:0; background:radial-gradient(58% 100% at 50% 0%, color-mix(in srgb,var(--sect-pur) 13%,transparent), transparent 68%); filter:blur(30px)}
-[data-theme="jour"] main::after{display:none}
+[data-theme="nuit"] main::after{display:none}
 main[data-sect="collectibles"]::after,main[data-sect="comics"]::after{background:repeating-linear-gradient(90deg,var(--rule) 0 1px,transparent 1px 118px), repeating-linear-gradient(0deg,var(--rule) 0 1px,transparent 1px 118px); filter:none;opacity:.6;height:420px;inset:0 0 auto; mask-image:linear-gradient(180deg,#000 0%,transparent 88%)}
-[data-theme="jour"] main::before{background: repeating-linear-gradient(90deg,var(--rule) 0 1px,transparent 1px 120px), repeating-linear-gradient(0deg,var(--rule) 0 1px,transparent 1px 120px); mask-image:linear-gradient(180deg,#000 0%,transparent 92%);height:340px}
+[data-theme="nuit"] main::before{background: repeating-linear-gradient(90deg,var(--rule) 0 1px,transparent 1px 120px), repeating-linear-gradient(0deg,var(--rule) 0 1px,transparent 1px 120px); mask-image:linear-gradient(180deg,#000 0%,transparent 92%);height:340px}
 img{max-width:100%;display:block}
 button{font:inherit;color:inherit}
 a{color:var(--sect-a);text-decoration:none}
@@ -1324,7 +1364,7 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 .verrou__prof i:nth-child(3){top:62%;bottom:0;backdrop-filter:blur(7px); -webkit-backdrop-filter:blur(7px);mask-image:linear-gradient(180deg,transparent,#000 45%)}
 [data-leger] .verrou__prof{display:none}
 .verrou__voile{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:var(--s5) var(--s4); background:linear-gradient(180deg,#1A1A1A4D,#1A1A1AF7 62%)}
-[data-theme="jour"] .verrou__voile{background:linear-gradient(180deg,#F5F5F54D,#F5F5F5F7 62%)}
+[data-theme="nuit"] .verrou__voile{background:linear-gradient(180deg,#F5F5F54D,#F5F5F5F7 62%)}
 .verrou__in{max-width:46ch;display:grid;gap:var(--s3);justify-items:center;position:relative;z-index:2}
 .verrou__t{font-family:var(--geo);font-size:var(--t-lg);font-weight:600;color:var(--text);letter-spacing:-.02em}
 .verrou__d{font-size:var(--t-sm);color:var(--text-2);line-height:1.6}
@@ -1871,7 +1911,7 @@ dl.fiche-tbl + dl.fiche-tbl{border-top:1px solid var(--rule);padding-top:2px}
   .bloc--une__viz{position:relative;inset:auto;width:100%;aspect-ratio:16/7}
   .bloc--une__viz::after{background:linear-gradient(0deg,#0E0E0E 10%,transparent 60%)}
 }
-[data-theme="jour"] .bloc__champ--noir{background:#1A1A1A}
+[data-theme="nuit"] .bloc__champ--noir{background:#1A1A1A}
 .bloc__os{background:var(--carte);color:var(--carte-ink);padding:var(--s6) var(--s6) var(--s5); position:relative;z-index:2;max-width:640px}
 .bloc__os .mono-t{color:var(--carte-ink)}
 .bloc__os p{color:var(--carte-ink-2)}
@@ -1888,7 +1928,7 @@ dl.fiche-tbl + dl.fiche-tbl{border-top:1px solid var(--rule);padding-top:2px}
 .marq span{font-family:var(--tech);font-size:9.5px;letter-spacing:.13em;text-transform:uppercase; color:var(--text-2);line-height:1.7}
 .hero{position:relative;min-height:600px;display:grid;align-items:center;margin-bottom:var(--s8)}
 .hero__champ{position:absolute;top:0;bottom:104px;left:26%;right:calc(50% - 50vw); background:#0E0E0E;z-index:0}
-[data-theme="jour"] .hero__champ{background:#1A1A1A}
+[data-theme="nuit"] .hero__champ{background:#1A1A1A}
 .hero__ref{position:absolute;z-index:4;font-family:var(--tech);font-size:9.5px;letter-spacing:.13em; text-transform:uppercase;color:#8E8E8E;line-height:1.7;white-space:pre-line}
 .hero__ref.ref--tg{top:22px;left:calc(26% + 24px)}
 .hero__ref.ref--bd{bottom:126px;right:24px;text-align:right}
@@ -2576,11 +2616,11 @@ header.site.site-h .wrap{
 [data-sect="offre"]    {--sect-a:#E3B341;--sect-pur:#D4A017;--sect-sur:#1A1A1A;--sect-fonce:#8A6608}
 [data-sect="analytics"]{--sect-a:#E193FD;--sect-pur:#CB42FC;--sect-sur:#FFFFFF;--sect-fonce:#7A2A9B}
 /* Thème jour : `--sect-a` s'assombrit, `--sect-pur` ne bouge pas. */
-[data-theme="jour"] [data-sect="tableau"]{--sect-a:#08687A;--sect-pur:#10CEF2;--sect-sur:#1A1A1A;--sect-fonce:#0A7A8F}
-[data-theme="jour"] [data-sect="blog"]{--sect-a:#8A5300;--sect-pur:#ED8E00;--sect-sur:#1A1A1A;--sect-fonce:#9B6208}
-[data-theme="jour"] [data-sect="sets"]{--sect-a:#005FB5;--sect-pur:#0082FA;--sect-sur:#1A1A1A;--sect-fonce:#1E5FA8}
-[data-theme="jour"] [data-sect="offre"]    {--sect-a:#6F5200;--sect-pur:#D4A017;--sect-sur:#1A1A1A;--sect-fonce:#8A6608}
-[data-theme="jour"] [data-sect="analytics"]{--sect-a:#6B21A8;--sect-pur:#CB42FC;--sect-sur:#FFFFFF;--sect-fonce:#7A2A9B}
+[data-theme="nuit"] [data-sect="tableau"]{--sect-a:#08687A;--sect-pur:#10CEF2;--sect-sur:#1A1A1A;--sect-fonce:#0A7A8F}
+[data-theme="nuit"] [data-sect="blog"]{--sect-a:#8A5300;--sect-pur:#ED8E00;--sect-sur:#1A1A1A;--sect-fonce:#9B6208}
+[data-theme="nuit"] [data-sect="sets"]{--sect-a:#005FB5;--sect-pur:#0082FA;--sect-sur:#1A1A1A;--sect-fonce:#1E5FA8}
+[data-theme="nuit"] [data-sect="offre"]    {--sect-a:#6F5200;--sect-pur:#D4A017;--sect-sur:#1A1A1A;--sect-fonce:#8A6608}
+[data-theme="nuit"] [data-sect="analytics"]{--sect-a:#6B21A8;--sect-pur:#CB42FC;--sect-sur:#FFFFFF;--sect-fonce:#7A2A9B}
 
 /* ───────────────────────────────────────────────────────────────────────────
    2. LE CONTENU DESCEND JUSQU'AU PIED DE PAGE

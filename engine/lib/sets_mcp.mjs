@@ -86,10 +86,26 @@ export const pointsDeSet = (taille) => {
  *  ③ **AUCUN ARRONDI.** L'affichage arrondit ; le tri, jamais. Deux sets
  *     séparés par 0,004 doivent rester dans l'ordre où le calcul les met.
  *
- * ⚠️ `cout` EST EN **GEMS** — `i.floor` l'est (le marché VeVe), et le plancher
- *    StackR est en OMI : deux MARCHÉS dont le rapport n'est pas constant
- *    (médiane 4 423, p10 2 273, p90 8 520 — mesure du lot 144). ⛔ Ne jamais
- *    les additionner ni les rapporter ici.
+ * 🔴🔴🔴⭐⭐⭐ L'UNITÉ — CETTE NOTE DISAIT « GEMS », ET C'ÉTAIT FAUX (lot M).
+ *    Elle affirmait « `cout` EST EN GEMS — `i.floor` l'est ». **Mesuré le
+ *    08/09/2026 sur `/market/` SERVI** : la colonne s'appelle **`$/MCP`**, et
+ *    sur sa première ligne elle rend `55` pour un plancher de `330` et
+ *    `6.00 MCP` — soit exactement `330 / 6`. Le site lui-même publie donc ce
+ *    quotient en DOLLARS, et il n'écrit le mot « GEMS » nulle part (0 occurrence
+ *    sur la page). ⇒ `i.floor` est un montant en **dollars**.
+ *    ⭐⭐⭐ Et la faute ne vivait pas que dans la prose : le champ s'appelait
+ *    `gemsParMcp`. **Un nom faux voyage plus loin qu'un commentaire faux** — il
+ *    part dans la réserve, dans la route, dans le tableau servi, et le premier
+ *    qui le lira convertira un dollar en gem. Renommé `usdParMcp`.
+ * ⚠️ LE SECOND MARCHÉ SE RAPPORTE, LUI, PARCE QU'IL EST DÉJÀ CONVERTI.
+ *    `dataset.mjs` pose `floorStackrUsd = stackr(OMI) × omiUsd` : le plancher
+ *    StackR arrive ici **en dollars**, comme celui de VeVe. Les deux ratios
+ *    partagent donc le même axe, et c'est précisément le modèle que Preda a
+ *    donné (`vevesetlist.com/sets`, colonnes `Price` et `$/MCP`).
+ *    ⛔⛔ CE QUI RESTE INTERDIT, ET LA NUANCE EST TOUTE LA RÈGLE : additionner
+ *    ou rapporter les planchers BRUTS, dont l'un est en OMI (rapport non
+ *    constant — médiane 4 423, p10 2 273, p90 8 520, lot 144). On ne compare
+ *    jamais deux unités ; on compare deux montants **déjà ramenés à la même**.
  * ⚠️ Le plancher est un prix **DEMANDÉ** : ce ratio est un PLAFOND de coût
  *    d'entrée, pas un prix payé.
  */
@@ -101,10 +117,19 @@ export function agregerSet(col) {
   let couvert = 0;
   let pointsPieces = 0;
   let sansBareme = 0;
+  // 🏪 LE SECOND MARCHÉ — StackR, déjà ramené en dollars par `dataset.mjs`.
+  // ⭐ Il se compte À PART, avec SA propre couverture : un set peut être
+  // entièrement coté chez VeVe et à moitié chez StackR. Un compteur partagé
+  // ferait disparaître le ratio VeVe dès qu'une pièce manque chez StackR —
+  // c'est-à-dire punir le marché COMPLET pour le trou de l'autre.
+  let coutStackr = 0;
+  let couvertStackr = 0;
 
   for (const i of items) {
     const f = i?.floor;
     if (typeof f === 'number' && Number.isFinite(f) && f > 0) { cout += f; couvert++; }
+    const s2 = i?.floorStackrUsd;
+    if (typeof s2 === 'number' && Number.isFinite(s2) && s2 > 0) { coutStackr += s2; couvertStackr++; }
     const m = mcpPoints(i?.rarity, i?.type);
     if (typeof m === 'number' && Number.isFinite(m) && m > 0) pointsPieces += m;
     else sansBareme++;
@@ -114,6 +139,12 @@ export function agregerSet(col) {
   // ⭐ Le total est `null` dès qu'une pièce échappe au barème : voir refus ②.
   const points = bonusSet === null || sansBareme > 0 ? null : bonusSet + pointsPieces;
   const complet = taille > 0 && couvert === taille;
+  // ⭐ MÊME REFUS ①, APPLIQUÉ AU SECOND MARCHÉ : le coût d'un set est celui de
+  // TOUTES ses pièces. Un set coté chez StackR sur 3 pièces sur 5 n'a pas de
+  // ratio StackR — il en aurait un plus BAS que la réalité, donc il remonterait
+  // en tête d'un tri croissant. *Un classement se trompe toujours du côté où on
+  // a le moins regardé.*
+  const completStackr = taille > 0 && couvertStackr === taille;
 
   return {
     slug: col?.slug || '',
@@ -124,12 +155,20 @@ export function agregerSet(col) {
     // Ce que le set coûte à compléter, en gems — `null` si un plancher manque.
     cout: complet ? cout : null,
     couvert,
+    // Le même coût, sur l'autre marché — en dollars lui aussi.
+    coutStackr: completStackr ? coutStackr : null,
+    couvertStackr,
     bonusSet,
     pointsPieces,
     sansBareme,
     points,
-    // 🔑 LE CHIFFRE DE LA DEMANDE : gems par point MCP quotidien, croissant.
-    gemsParMcp: complet && points !== null && points > 0 ? cout / points : null,
+    // 🔑 LE CHIFFRE DE LA DEMANDE : le COÛT D'UN POINT MCP quotidien, croissant.
+    // ⚠️ En DOLLARS (voir le bloc d'unité en tête de cette fonction), et non en
+    // gems comme le nom précédent l'affirmait.
+    usdParMcp: complet && points !== null && points > 0 ? cout / points : null,
+    // 🔑 ET LE MÊME, SUR STACKR — la seconde moitié de la demande `f`.
+    // ⭐ Les deux se comparent : même unité, même dénominateur, même définition.
+    stackrParMcp: completStackr && points !== null && points > 0 ? coutStackr / points : null,
   };
 }
 
@@ -137,7 +176,7 @@ export function agregerSet(col) {
  *  `marche_selection.mjs` : deux listes recopiées, c'est « deux menus, deux
  *  vérités ». ⭐ `gpm-asc` est le défaut : la demande est « les plus
  *  intéressants », et intéressant veut dire PEU CHER par point. */
-export const TRIS_SETS = ['gpm-asc', 'gpm-desc', 'pts-desc', 'cout-asc', 'taille-desc', 'nom-asc'];
+export const TRIS_SETS = ['gpm-asc', 'gpm-desc', 'spm-asc', 'spm-desc', 'pts-desc', 'cout-asc', 'taille-desc', 'nom-asc'];
 export const TRI_SETS_DEFAUT = 'gpm-asc';
 
 /**
@@ -152,7 +191,11 @@ export const TRI_SETS_DEFAUT = 'gpm-asc';
 export function classerSets(agregats, tri = TRI_SETS_DEFAUT) {
   const t = TRIS_SETS.includes(tri) ? tri : TRI_SETS_DEFAUT;
   const cle = {
-    'gpm-asc': (a) => a.gemsParMcp, 'gpm-desc': (a) => a.gemsParMcp,
+    'gpm-asc': (a) => a.usdParMcp, 'gpm-desc': (a) => a.usdParMcp,
+    // 🏪 `spm` = StackR par MCP. ⭐ Les clés gardent leur préfixe court parce
+    // qu'elles voyagent dans une URL ; `gpm` est conservé tel quel pour ne pas
+    // casser les liens déjà partagés, même si le `g` ne veut plus dire « gems ».
+    'spm-asc': (a) => a.stackrParMcp, 'spm-desc': (a) => a.stackrParMcp,
     'pts-desc': (a) => a.points, 'cout-asc': (a) => a.cout,
     'taille-desc': (a) => a.taille, 'nom-asc': null,
   }[t];
@@ -179,7 +222,8 @@ export function classerSets(agregats, tri = TRI_SETS_DEFAUT) {
 export function construireSetsMcp(collections) {
   const cols = collections instanceof Map ? [...collections.values()] : (collections || []);
   const agregats = cols.map(agregerSet);
-  const classables = agregats.filter((a) => a.gemsParMcp !== null);
+  const classables = agregats.filter((a) => a.usdParMcp !== null);
+  const classablesStackr = agregats.filter((a) => a.stackrParMcp !== null);
   return {
     // ⚠️ La date sert à l'étiquette : ces planchers sont ceux du BUILD, pas du
     // direct. La réserve est figée au build — c'est la cadence des
@@ -187,6 +231,10 @@ export function construireSetsMcp(collections) {
     calcule: new Date().toISOString(),
     total: agregats.length,
     classables: classables.length,
+    // ⭐ Le second marché a SON dénominateur : StackR ne cote pas tout, et une
+    // page qui trierait dessus sans le dire laisserait croire à un classement
+    // complet. Le chiffre voyage, comme `classables`.
+    classablesStackr: classablesStackr.length,
     // ⭐ Dit explicitement que le classement n'est PAS personnalisé, pour
     //   qu'aucune étiquette ne promette l'exclusion des sets déjà possédés.
     personnalise: false,

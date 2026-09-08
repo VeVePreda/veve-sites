@@ -258,6 +258,22 @@ const PAR_TRANCHE = 60;
                 option rendrait une liste identique à l'ordre d'avant, et un
                 contrôle qui ne change rien apprend à ne plus cliquer dessus. */}
             {licences.length > 1 && <option value="licence">{t(lang, 'sets.sortLicence')}</option>}
+            {/* 🏆 LOT M — LA DEMANDE `f` DE PREDA, ENFIN SUR LA PAGE QU'IL VISAIT.
+                Le calcul et la route existent depuis le lot 228 ; ils n'étaient
+                servis que dans `/analytics/`. Ici, deux tris de plus, et RIEN
+                d'autre ne change.
+                ⛔⛔ AUCUN PRIX NE DESCEND DANS CE DOM, ET C'EST LA CONTRAINTE
+                QUI DÉCIDE DE TOUT LE MÉCANISME. `/sets/` est un rayon PUBLIC —
+                `test:rayon` §① l'interdit — et ces deux tris se calculent sur
+                des planchers. Le pilote ne demande donc au serveur qu'un ORDRE
+                (une liste de slugs) : pas un ratio, pas un coût, pas un nombre.
+                Ce qui traverse est un rang, et un rang n'est pas un prix.
+                ⭐ Le `<select>` vit déjà dans `#f-sets`, porté par `data-membre`
+                et `hidden` : un visiteur ne voit pas ces options, sans qu'aucune
+                branche de rendu ne dépende de la session — la page reste la même
+                pour tout le monde, donc cachable et indexable. */}
+            <option value="gpm">{t(lang, 'sets.sortMcp')}</option>
+            <option value="spm">{t(lang, 'sets.sortMcpS')}</option>
           </select>
         </div>
       </div>

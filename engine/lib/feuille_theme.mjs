@@ -51,6 +51,36 @@ const luminance = (hex) => {
 };
 export const colorScheme = (pal) => (luminance(pal.bg) < 0.18 ? 'dark' : 'light');
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔴🔴⭐⭐⭐ LE LIBELLÉ DE LA BASCULE SE DÉDUIT, IL NE S'ÉCRIT PAS EN DUR
+// ═══════════════════════════════════════════════════════════════════════════
+// LOT M, 08/09/2026. Le bouton d'apparence annonçait `theme.toggle` =
+// « Passer en mode nuit », dans les cinq langues, sur les DEUX sites.
+// 🔬 Mesuré sur `/compte/` servi le 08/09 : veveprice est SOMBRE par défaut et
+// son `palette_nuit` est CLAIRE (bg #EFEFEF) ⇒ le bouton promettait la nuit et
+// livrait le jour. Sur vevewiki, base claire et `palette_nuit` sombre (#0c0d10),
+// le même libellé était JUSTE. Un seul texte, deux sites, un sens opposé.
+//
+// ⭐⭐⭐ LA CAUSE N'EST PAS UNE FAUTE DE TRADUCTION, C'EST UN NOM QUI DÉCIDE.
+// `palette_nuit` nomme un EMPLACEMENT (« l'autre palette »), pas une couleur —
+// et le libellé, lui, avait pris le nom de l'emplacement pour une description.
+// ⇒ On ne demande plus au nom ce qu'il ne sait pas : on MESURE la luminance de
+// la palette visée, exactement comme `colorScheme` le fait déjà juste au-dessus
+// pour décider ce qu'on annonce au navigateur. Les deux répondent donc toujours
+// la même chose — il n'y a plus d'endroit où ils peuvent diverger.
+//
+// ⛔ ET ON NE RENOMME PAS L'ATTRIBUT `data-theme="nuit"` POUR AUTANT : sa valeur
+// est écrite dans le cookie `vp_theme` de tous les visiteurs qui ont déjà
+// choisi. La renommer remettrait leur préférence à zéro sans qu'ils l'aient
+// demandé — un coût réel, payé par eux, pour un confort de lecture qui est le
+// mien. Le mot trompeur est DOCUMENTÉ là où il vit (themes/vitrine/theme.css,
+// engine/lib/theme.mjs) ; c'est ce que l'utilisateur LIT qui est corrigé.
+
+/** La clé i18n du libellé « passer à … », déduite de la palette VISÉE.
+ *  ⛔ Jamais une constante : sur un site à base claire, la cible est sombre. */
+export const cleBascule = (palVisee) => (colorScheme(palVisee) === 'dark'
+  ? 'theme.toDark' : 'theme.toLight');
+
 // ⛔ LE SOCLE — les règles qui n'appartiennent à aucun thème (liens légaux,
 // barre de langues, lien d'évitement, bandeau de suggestion). Elles vivaient
 // dans un `<style is:inline>` du gabarit, recopié 8 484 fois lui aussi.

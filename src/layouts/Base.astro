@@ -14,7 +14,7 @@ import CoteScript from '../components/CoteScript.astro';
 // voir le commentaire posé sur son appel, plus bas dans le `<body>`.
 import BandeauVu from '../components/BandeauVu.astro';
 import { blogEnabled, blogMeta, languesBlog } from '../../engine/lib/blog.mjs';
-import { feuilleTheme } from '../../engine/lib/feuille_theme.mjs';
+import { feuilleTheme, cleBascule } from '../../engine/lib/feuille_theme.mjs';
 import { socleJs } from '../../engine/lib/socle_js.mjs';
 
 const m = manifest();
@@ -216,6 +216,14 @@ const socle = socleJs();
 const fontFiles = Array.isArray(f.files) ? f.files : [];
 
 const pNuit = m.identity.palette_nuit || null;
+
+// 🔴🔴 LES DEUX LIBELLÉS DE LA BASCULE — LOT M. Le bouton dit ce vers quoi il
+// VA, pas le nom de l'emplacement où le choix est rangé. `cleBascule()` lit la
+// luminance de la palette VISÉE : sur veveprice (base sombre, alternative
+// claire) il rend « passer en mode clair » ; sur vevewiki, l'inverse. ⛔ Le
+// texte en dur d'avant (« Passer en mode nuit ») était juste sur UN des deux.
+const libVersAutre = pNuit ? t(lang, cleBascule(pNuit)) : '';
+const libVersBase  = pNuit ? t(lang, cleBascule(p)) : '';
 
 const canary = createHash('sha256')
   .update((process.env.CANARY_SALT || m.site.domain) + Astro.url.pathname)
@@ -1101,7 +1109,7 @@ const menuComplet = wikiNav
       </a>
       {pNuit && !themeAuCompte && (
       <button type="button" id="bascule-theme" class="bascule"
-              aria-label={t(lang, 'theme.toggle')} title={t(lang, 'theme.toggle')}
+              aria-label={libVersAutre} title={libVersAutre}
               aria-pressed="false"></button>
     )}
       {/* 🌐 L'ACCÈS DISCRET AUX LANGUES — demande de Preda du 06/08/2026.
@@ -1749,7 +1757,7 @@ const menuComplet = wikiNav
   </div>
 </div></footer>
 {pNuit && (
-  <script is:inline define:vars={{ BG_JOUR: p.bg, BG_NUIT: pNuit.bg }}>
+  <script is:inline define:vars={{ BG_JOUR: p.bg, BG_NUIT: pNuit.bg, LIB_AUTRE: libVersAutre, LIB_BASE: libVersBase }}>
     (function () {
       var b = document.getElementById('bascule-theme');
       if (!b) return;
@@ -1759,6 +1767,13 @@ const menuComplet = wikiNav
         if (nuit) racine.setAttribute('data-theme', 'nuit');
         else racine.removeAttribute('data-theme');
         b.setAttribute('aria-pressed', String(nuit));
+        // 🔴 LE LIBELLÉ SUIT L'ÉTAT, SINON IL MENT DÈS LE PREMIER CLIC. Une fois
+        // basculé, le bouton ramène vers la palette de BASE : c'est ce qu'il doit
+        // annoncer. ⛔ Il ne s'agit pas d'un raffinement — un bouton qui promet
+        // toujours la même chose et fait l'inverse une fois sur deux est pire
+        // qu'un bouton sans libellé, pour qui l'entend au lecteur d'écran.
+        var lib = nuit ? LIB_BASE : LIB_AUTRE;
+        if (lib) { b.setAttribute('aria-label', lib); b.setAttribute('title', lib); }
         // La barre d'adresse d'Android suit, sinon elle reste claire au-dessus
         // d'une page sombre.
         if (meta) meta.setAttribute('content', nuit ? BG_NUIT : BG_JOUR);
