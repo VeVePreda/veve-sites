@@ -68,7 +68,7 @@ const rangees = [
       title={t(lang, 'orient.title')}
       description={t(lang, 'orient.desc')}
       crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') },
-               { name: t(lang, 'orient.title') }]}>
+               { name: t(lang, 'orient.h1') }]}>
 
   {/* 🔠 LOT 118 — LE TITRE REDESCEND D'UN CRAN. Preda, 10/08 : « titre de
       catégorie trop gros ». `sect-t--gd` est le format des TÊTES DE PAGE
@@ -99,7 +99,17 @@ const rangees = [
           traduction : `t()` marque son libellé d'une clé, que la mise en
           capitales rendrait introuvable dans le dictionnaire (P30, 1 199
           libellés). La casse est une affaire de STYLE. */}
-      <p class="etiq etiq--bleu tete-p__st">// {t(lang, 'orient.title')}</p>
+      {/* 🗣️ PREDA, 08/09/2026 : « changer le titre de Collections en Catalogue ».
+          ⭐⭐ DEUX CLÉS, ET C'EST DÉLIBÉRÉ. `orient.title` reste le `<title>`
+          de l'onglet — « Explorer le catalogue VeVe » — parce que c'est une
+          page d'ENTRÉE et que raccourcir sa balise lui coûterait ses mots-clés.
+          `orient.h1` est ce que le VISITEUR lit : le titre, l'étiquette et le
+          fil d'Ariane. ⛔ Une seule clé pour les deux aurait forcé à choisir
+          entre le référencement et la lisibilité — c'est le doublon inverse,
+          celui qui économise une clé et paie en ambiguïté.
+          ⛔ L'ADRESSE `/collections/` NE BOUGE PAS : renommer le titre est
+          gratuit, renommer l'URL coûterait un cycle de réindexation. */}
+      <p class="etiq etiq--bleu tete-p__st">// {t(lang, 'orient.h1')}</p>
       {/* 📐🔴 LOT J — LE TITRE PASSE SOUS `.bandeau`, ET C'EST UNE MESURE QUI
           L'A DEMANDÉ. Relevé sur la PRODUCTION le 07/09 (1 440 px,
           `innerWidth` vérifié) : ce `<h1 class="mono-t">` nu rendait à
@@ -120,7 +130,7 @@ const rangees = [
           ⛔ PAS DE `perche` : `.tete-p__viz` occupe déjà la droite avec trois
           vraies pièces. Deux visuels dans une tête de page se disputent le
           regard, et la mascotte perdrait — ce serait la payer pour rien. */}
-      <BandeauOutil titre={t(lang, 'orient.title')} aide={t(lang, 'orient.desc')} lang={lang} />
+      <BandeauOutil titre={t(lang, 'orient.h1')} aide={t(lang, 'orient.desc')} lang={lang} />
     </div>
     {/* ⭐ LA PILE DIT DE QUOI PARLE L'ÉCRAN AVANT QU'ON LISE LE TITRE — et elle
         prend de VRAIES pièces. ⛔ On cherche l'image dans TOUT le set, pas dans

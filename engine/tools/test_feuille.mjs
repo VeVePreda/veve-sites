@@ -1455,6 +1455,86 @@ console.log('\n═══ LOT 203, POINT `ag` — la série est bornée, et son n
   }
 }
 
+// ════════════════════════════════════════════════════════════════════════════
+// 🎨🔴🔴 §M-fond — UNE SEULE COUCHE COLORÉE SUR `main`, ET ELLE TRAVERSE
+// ════════════════════════════════════════════════════════════════════════════
+// 🗣️ PREDA, 08/09/2026, en regardant `/market/` : « la couleur rouge devrait
+// être de gauche à droite, il y a une superposition étrange. »
+//
+// 🔬 ET « SUPERPOSITION » ÉTAIT LITTÉRAL. Le haut de `main` portait DEUX voiles
+// colorés empilés : `::before` en `linear-gradient(180deg)` sur 240 px, et
+// `::after` en `radial-gradient` centré, 520 px de haut, 1 994 px de large
+// (`inset:-10% -20%`, il débordait du cadre de 285 px de chaque côté), flouté à
+// 30 px. Deux directions, aucune horizontale, sur les SIX sections qui portaient
+// le halo. Aucun des deux ne vient de la maquette v5 — elle ne déclare ni l'un
+// ni l'autre ; ils ont survécu au relooking sans que personne les compare.
+//
+// ⭐⭐⭐ POURQUOI UN BANC, ALORS QU'IL SUFFIT DE REGARDER : parce que personne
+// n'a regardé pendant des semaines. Un voile à 12 % d'opacité ne casse rien, ne
+// rougit nulle part, et se voit seulement quand quelqu'un ouvre la page avec
+// l'œil d'un designer. C'est exactement la classe de défaut que ce dépôt paie le
+// plus cher — et le seul instrument qui l'attrape est une règle sur le NOMBRE de
+// couches, pas sur leur apparence.
+// ⛔ IL NE JUGE PAS LE GOÛT. Il ne dit pas quelle couleur, ni quelle opacité :
+// il dit « pas deux fonds colorés au même endroit », et « celui qui reste
+// traverse ». Un banc qui aurait un avis sur la beauté serait relevé au premier
+// désaccord.
+{
+  const decl = (sel) => {
+    // la DERNIÈRE déclaration gagne à spécificité égale : on les prend toutes.
+    const re = new RegExp(`(^|[};])\\s*${sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\{([^}]*)\\}`, 'g');
+    const out = [];
+    for (const m of feuilleSansProse.matchAll(re)) out.push(m[2]);
+    return out;
+  };
+  const fond = (corps) => {
+    const m = /(?:^|;)\s*background(?:-image)?\s*:\s*([^;]+)/.exec(corps);
+    return m ? m[1].trim() : null;
+  };
+  const avant = decl('main::before').map(fond).filter(Boolean);
+  const apres = decl('main::after').map(fond).filter(Boolean);
+
+  if (avant.length === 0 && apres.length === 0) {
+    console.log('\n  --  §M-fond SANS OBJET — ce thème ne peint aucun fond sur `main`.');
+  } else {
+    // ── ① PAS DEUX COUCHES COLORÉES AU MÊME ENDROIT ─────────────────────────
+    // ⭐ « colorée » = elle porte un jeton de section. Une grille de filets
+    //   (`var(--rule)`) n'est pas un lavis : c'est le motif voulu de
+    //   `collectibles`/`comics`, et il ne se superpose à rien.
+    const colore = (v) => /--sect-|color-mix\(/.test(v) && !/--rule/.test(v);
+    const couches = [...avant, ...apres].filter(colore);
+    dit(couches.length <= 1,
+      `§M-fond — ${couches.length} couche(s) colorée(s) de base sur \`main\`, jamais deux empilées`,
+      couches.length <= 1 ? null
+        : `⛔ ${couches.length} lavis superposés au même endroit. Ils ne cassent rien, ne rougissent`
+          + ' nulle part, et se voient à l\'œil :\n      '
+          + couches.map((c) => c.slice(0, 88)).join('\n      '));
+
+    // ── ② CELLE QUI RESTE TRAVERSE ──────────────────────────────────────────
+    // ⭐⭐ LA DIRECTION N'EST PAS UN GOÛT, C'EST UNE COHÉRENCE : le filet de
+    // l'en-tête (`.hdr::after` dans la maquette, servi ici) est un
+    // `linear-gradient(90deg, …, transparent 68%)`. Le fond reprend la même
+    // direction et la même coupe pour que les deux se lisent comme UN geste.
+    // ⛔ Et un dégradé horizontal sur une boîte de 240 px trancherait NET en
+    //   bas : la couche DOIT donc porter un masque vertical. Les deux moitiés,
+    //   ou aucune — sans le masque, on remplace une superposition par une arête.
+    const seule = [...avant, ...apres].filter(colore)[0];
+    if (!seule) {
+      console.log('\n  --  §M-fond ② SANS OBJET — aucune couche colorée à orienter.');
+    } else {
+      const horizontal = /\b90deg\b|\bto right\b/.test(seule);
+      const corpsAvant = decl('main::before').join(' ');
+      const masque = /mask-image\s*:/.test(corpsAvant) && /-webkit-mask-image\s*:/.test(corpsAvant);
+      dit(horizontal && masque,
+        '§M-fond ② — le voile traverse (90deg) et s\'éteint vers le bas (masque, préfixé compris)',
+        horizontal && masque ? null
+          : `⛔ ${horizontal ? '' : 'la couche ne traverse pas : « ' + seule.slice(0, 70) + ' ». '}`
+            + `${masque ? '' : 'le masque vertical manque (ou sa forme préfixée) — la couche trancherait net en bas.'}`);
+    }
+  }
+}
+
+
 console.log(ko === 0
   ? `\n✅ une feuille de ${octets.length} o pour ${pages.length} pages, rien de recopié,`
     + ` et le JS en ligne sous son cliquet (${moyenneJs} o/page)\n`

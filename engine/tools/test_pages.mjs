@@ -390,5 +390,125 @@ serveur.kill('SIGTERM');
 await dormir(300);
 if (!serveur.killed) serveur.kill('SIGKILL');
 
+
+// ════════════════════════════════════════════════════════════════════════════
+// 🎨🔴🔴 §M-tête — AUCUNE PAGE NE GARDE UN TITRE D'AVANT LE RELOOKING
+// ════════════════════════════════════════════════════════════════════════════
+// 🗣️ PREDA, 08/09/2026 : « poursuis le redesign, il y a des pages qui n'ont pas
+// eu le redesign. » Il avait raison, et il a fallu les COMPTER pour le savoir :
+// `/legal/<doc>` servait un `<h1>` **sans aucune classe** — la seule page du
+// site dans ce cas — et quatre pages d'outil du membre portaient encore le
+// vieux `sect-t sect-t--gd`, sans étiquette, avec leur description rendue en
+// `.etiq` quand elle l'était.
+//
+// ⭐⭐⭐ POURQUOI UN BANC SUR LA SOURCE ET NON SUR `dist/` : les quatre pages
+// concernées sont rendues À LA DEMANDE (membre, `noindex`). Elles ne sont donc
+// dans AUCUN build, et un contrôle qui ne lirait que `dist/` serait vert sans
+// avoir rien regardé — précisément sur les pages où le défaut vivait. C'est la
+// leçon que ce dépôt a déjà payée deux fois aujourd'hui.
+//
+// ⛔ IL NE JUGE PAS L'APPARENCE, il juge l'APPARTENANCE : un `<h1>` servi par
+// ce site porte la classe des grands titres. Les exceptions sont NOMMÉES ici,
+// pas devinées — une exception muette redeviendrait un oubli au lot suivant.
+{
+  console.log('\n§M-tête · aucun titre d\'avant le relooking');
+  const { readdirSync, readFileSync: lire } = await import('node:fs');
+  const RACINE = new URL('../..', import.meta.url).pathname;
+  const src = [];
+  (function marcher(d) {
+    for (const e of readdirSync(d, { withFileTypes: true })) {
+      const f = join(d, e.name);
+      if (e.isDirectory()) marcher(f);
+      else if (e.name.endsWith('.astro')) src.push(f);
+    }
+  }(join(RACINE, 'src')));
+
+  // ⭐ EXCEPTIONS NOMMÉES, avec leur raison — pas une liste de commodité.
+  const TOLERE = {
+    'inscr__h1': 'la carte d’accès (/connexion/, /acces/) : un écran centré, '
+      + 'autonome, dont le titre est dimensionné pour la carte, pas pour une page',
+    'h-page': 'le titre d’un ARTICLE de blog — un document, pas une tête de rayon',
+    'etat__t': 'les pages 404 et 500 : un écran d’erreur, volontairement à part',
+  };
+  // ⛔ ET LES GABARITS DE L'AUTRE SITE NE SONT PAS JUGÉS ICI. `BlogIndex`,
+  // `BlogPost`, `BlogTag` et les trois `Editorial*` servent l'ENCYCLOPÉDIE
+  // (vevewiki), qui a son propre thème et ses propres classes. Les juger à
+  // l'aune du relooking de la vitrine ferait rougir un banc pour un site qui
+  // n'a jamais eu ce relooking — un rouge qu'on relèverait au lieu de le lire.
+  // ⭐ Ils sont nommés un par un : une exclusion par motif (« tout ce qui
+  //   contient Blog ») emporterait `BlogIndexVitrine`, qui, lui, EST de la
+  //   vitrine et doit rester surveillé.
+  const AUTRE_SITE = ['BlogIndex.astro', 'BlogPost.astro', 'BlogTag.astro',
+    'Editorial.astro', 'EditorialEntry.astro', 'EditorialHome.astro'];
+  // 📝🔴 DÉCAPER AVANT DE CHERCHER — SIXIÈME FOIS QUE CE PIÈGE SE PAIE ICI.
+  // Premier jet : 36 « fautes », dont les quatre `<h1>` de `BandeauOutil.astro`…
+  // qui sont dans ses COMMENTAIRES. *Un banc branché sur un motif lit la prose
+  // qui en parle.* ⛔ Et l'ORDRE n'est pas libre : les commentaires de LIGNE
+  // d'abord, les BLOCS ensuite — un `/*` cité dans un `//` s'apparie sinon
+  // quatre cents lignes plus bas et emporte du vrai code avec lui.
+  // ⚠️ Astro a DEUX formes de commentaire : `{/* … */}` dans le gabarit et
+  // `/* … */` dans le front-matter. Les deux se décapent.
+  const decapeBrut = (t) => t
+    .split('\n').map((l) => l.replace(/(^|[^:])\/\/.*$/, '$1')).join('\n')
+    .replace(/\{\s*\/\*[\s\S]*?\*\/\s*\}/g, ' ')
+    .replace(/\/\*[\s\S]*?\*\//g, ' ');
+  const decape = decapeBrut;
+  // ⭐⭐⭐ AUTO-CONTRÔLE DU DÉCAPEUR — ET MON PREMIER SEUIL ÉTAIT FAUX.
+  // J'avais écrit « il doit rester au moins le quart du fichier ». Il a accusé
+  // **32 fichiers sur 57** : dans ce dépôt, un `.astro` est majoritairement fait
+  // de commentaires, et en retirer 80 % est l'état NORMAL.
+  // ⇒ ⛔ Un seuil de VOLUME mesure le style d'écriture du dépôt, pas la santé
+  // du décapeur. On le juge donc sur un TÉMOIN dont on connaît la réponse :
+  // il doit garder le code et retirer les deux formes de commentaire.
+  const t1 = decapeBrut('<h1 class="mono-t">A</h1>{/* <h1>faux</h1> */}\n// <h1>faux</h1>\n/* <h1>faux</h1> */');
+  if ((t1.match(/<h1/g) || []).length !== 1) {
+    verifie('§M-tête — son décapeur répond juste sur un témoin', false,
+      `🔴 il laisse ${(t1.match(/<h1/g) || []).length} \`<h1>\` là où le témoin n'en porte qu'UN de code`);
+  }
+  const fautifs = [];
+  let vus = 0;
+  for (const f of src) {
+    if (AUTRE_SITE.some((n) => f.endsWith(n))) continue;
+    const brut = lire(f, 'utf8');
+    const txt = decape(brut);
+    void brut;
+    for (const m of txt.matchAll(/<h1(\s[^>]*)?>/g)) {
+      vus += 1;
+      const attrs = m[1] || '';
+      const cls = (/class="([^"]*)"/.exec(attrs) || [])[1] || '';
+      if (/\bmono-t\b/.test(cls)) continue;
+      if (Object.keys(TOLERE).some((t) => cls.includes(t))) continue;
+      fautifs.push(`${f.slice(RACINE.length)} — <h1 ${cls ? `class="${cls}"` : 'SANS CLASSE'}>`);
+    }
+  }
+  // ⭐⭐ CONTRE-ÉPREUVE : un banc qui ne lit aucun `<h1>` rendrait la même
+  // réponse qu'un banc qui les lit tous et les trouve conformes.
+  if (vus === 0) {
+    verifie('§M-tête — il a trouvé des <h1> à juger', false,
+      '🔴 aucun `<h1>` lu dans `src/` : ce contrôle ne mesure plus rien');
+  } else {
+    verifie(`⛔ les ${vus} <h1> de \`src/\` portent la classe des grands titres`,
+      fautifs.length === 0,
+      fautifs.length === 0
+        ? `${vus} titre(s) conformes · ${Object.keys(TOLERE).length} exception(s) nommée(s)`
+        : `🔴 ${fautifs.length} titre(s) d'avant le relooking :\n      ${fautifs.join('\n      ')}`);
+  }
+
+  // ── ② PLUS AUCUNE TÊTE `sect-t--gd` ─────────────────────────────────────
+  // C'est la forme que les quatre pages d'outil employaient : un titre nu dans
+  // un bloc de section, sans étiquette ni description. ⛔ La classe elle-même
+  // reste légitime AILLEURS (titres de section en cours de page) : on n'interdit
+  // que le cas où elle enveloppe le `<h1>`, c'est-à-dire où elle sert de tête.
+  const vieilles = [];
+  for (const f of src) {
+    const txt = decape(lire(f, 'utf8'));
+    if (/sect-t--gd"[^>]*>\s*<h1/.test(txt)) vieilles.push(f.slice(RACINE.length));
+  }
+  verifie('⛔ aucune page ne coiffe son `<h1>` d\'un `sect-t--gd` (la tête d\'avant)',
+    vieilles.length === 0,
+    vieilles.length === 0 ? 'toutes les têtes suivent le patron étiquette + titre + description'
+      : `🔴 ${vieilles.length} : ${vieilles.join(', ')}`);
+}
+
 console.log(`\n${ko === 0 ? '✅ pages : toutes répondent' : `❌ pages : ${ko} écart(s)`}`);
 process.exit(ko === 0 ? 0 : 1);

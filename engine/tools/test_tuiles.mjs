@@ -1769,12 +1769,33 @@ console.log('\n8. la couverture et les extrêmes, dans le tableau (lot I ① ⑤
   {
     const pc = (CSS.match(/@media\s*\(min-width:821px\)\s*\{[\s\S]*?\n\}/) || [])[0] || '';
     const regleH1 = (pc.match(/\.bandeau h1\s*\{([^}]*)\}/) || [])[1] || '';
-    const taille = Number(((regleH1.match(/font-size\s*:\s*(\d+)px/) || [])[1] || 0));
+    // 🔴🔴⭐⭐⭐ LOT M — CE § S'OPPOSAIT À SA PROPRE CORRECTION (08/09/2026).
+    // Il exigeait un `font-size` **déclaré sur `.bandeau h1`** ≥ 48 px. Or la
+    // bonne correction est de **ne plus rien déclarer du tout** : le `<h1>`
+    // porte déjà `.mono-t` (`clamp(38px,7.2vw,96px)`, soit **96 px** à 1 440),
+    // et c'est `.bandeau h1` — plus spécifique — qui le RABAISSAIT à 62.
+    // ⇒ En retirant la ligne, le titre MONTE à 96 px… et ce § rougissait, en
+    // annonçant « le cran outil de 38 px a été remis ». Faux : il lisait
+    // l'absence de déclaration comme un retour en arrière.
+    // ⭐⭐⭐ *Un banc écrit contre UNE faute juge « tout ce qui n'est pas
+    // l'état d'alors » comme cette faute-là.* Le sien mesurait un ENDROIT (la
+    // règle du bandeau) au lieu de la GRANDEUR (la taille rendue).
+    // ⇒ On lit désormais la taille EFFECTIVE : celle que le bandeau déclare
+    //   s'il en déclare une, SINON celle de `.mono-t` dont il hérite. Le § dit
+    //   toujours la même chose — « ce titre est grand » — mais il ne dicte plus
+    //   par où la grandeur arrive.
+    const declaree = Number(((regleH1.match(/font-size\s*:\s*(\d+)px/) || [])[1] || 0));
+    const monoT = (CSS.match(/\.mono-t\s*\{([^}]*)\}/) || [])[1] || '';
+    // ⭐ Le PLAFOND du `clamp()` est ce que rend un grand écran — c'est la
+    //   valeur que ce § juge, comme il jugeait un `62px` de bloc PC.
+    const plafondMono = Number(((monoT.match(/font-size\s*:\s*clamp\([^,]+,[^,]+,\s*(\d+)px\s*\)/) || [])[1] || 0));
+    const taille = declaree || plafondMono;
     const reprises = ['text-transform', 'font-weight', 'letter-spacing', 'font-stretch']
       .filter((d) => new RegExp(d + '\\s*:').test(regleH1));
     verifie('② le titre du bandeau monte à 48 px ou plus en PC',
-      taille >= 48, `font-size:${taille || '—'}px`
-        + (taille >= 48 ? '' : ' 🔴 le cran « outil » de 38 px a été remis'));
+      taille >= 48,
+      `${taille || '—'}px — ${declaree ? 'déclaré par le bandeau' : 'hérité de `.mono-t` (le bandeau ne le rabaisse plus)'}`
+        + (taille >= 48 ? '' : ' 🔴 le cran « outil » a été remis, ou `.mono-t` a perdu son plafond'));
     verifie('…et il LAISSE `.mono-t` porter le caractère (il ne le réécrit pas)',
       reprises.length === 0,
       reprises.length ? `🔴 le bandeau redéclare ${reprises.join(', ')} — il annule la classe des grands titres`

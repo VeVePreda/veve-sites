@@ -105,8 +105,32 @@ const nf = numberLocale[lang] || 'en-GB';
       crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') },
                { name: t(lang, 'fav.title') }]}>
 
-  <div class="sect-t sect-t--gd"><h1 class="mono-t">{t(lang, 'fav.title')}</h1>
-    {items.length > 0 && <span class="etiq etiq--bleu">{items.length}</span>}</div>
+  {/* ═══════════════════════════════════════════════════════════════════════
+      🎨 LOT M — LA TÊTE DE PAGE REJOINT CELLE DU RESTE DU SITE
+      ═══════════════════════════════════════════════════════════════════════
+      🗣️ PREDA, 08/09/2026 : « poursuis le redesign, il y a des pages qui n'ont
+      pas eu le redesign. »
+      🔬 MESURÉ sur les pages servies : `/blog/`, `/offre/`, `/`, `/dashboard/`,
+      `/compte/`, `/how-prices-work/` et les sujets d'`/analytics/` portent
+      TOUS les trois mêmes éléments — l'étiquette « // Titre », le `<h1
+      class="mono-t">`, puis une description en `.respire`. Les quatre pages
+      d'outil du membre portaient encore le vieux `sect-t sect-t--gd`, sans
+      étiquette, et leur description — quand elle était affichée — l'était en
+      `.etiq`, la classe des petites capitales, pas celle d'un texte courant.
+      ⭐⭐ ET LA DESCRIPTION EXISTAIT DÉJÀ, dans les cinq langues : elle servait
+      la balise `<meta description>` et rien d'autre. **Ce n'est pas une donnée
+      manquante, c'est une ligne manquante** — le même motif que `image`,
+      `ath_date`, `veve_url` et `series_uuid` avant elle, et c'est la septième
+      fois que ce dépôt le paie.
+      ⛔ ON RÉUTILISE `tete-p__st` / `mono-t` / `respire`, ON N'INVENTE RIEN :
+      inventer une variante ici, c'est refaire demain la divergence qu'on est
+      en train de refermer. 🧪 Borné par `test:pages` §M-tete. */}
+  <p class="etiq etiq--bleu tete-p__st">// {t(lang, 'fav.title')}{items.length > 0 ? ` — ${items.length}` : ''}</p>
+  <h1 class="mono-t">{t(lang, 'fav.title')}</h1>
+  {/* ⚠️ `fav.desc` DIT CE QU'EST LA PAGE, `fav.note` dit où les favoris sont
+      rangés. La seconde restait seule sous le titre : elle répond à une
+      question qu'on ne se pose qu'après. On sert les deux, dans cet ordre. */}
+  <p class="respire" style="max-width:52ch">{t(lang, 'fav.desc')}</p>
   <p class="etiq">{t(lang, 'fav.note')}</p>
 
   {indisponible

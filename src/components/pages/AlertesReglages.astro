@@ -50,8 +50,12 @@ const rempli = plafond > 0 ? Math.min(100, Math.round((alertes.length / plafond)
                { name: t(lang, 'alerts.title'), url: localize(lang, '/alertes/') },
                { name: t(lang, 'alerts.settings') }]}>
 
-  <div class="sect-t sect-t--gd"><h1 class="mono-t">{t(lang, 'alerts.settings')}</h1>
-    <span class="etiq etiq--bleu">{t(lang, 'alerts.count', { n: alertes.length, m: plafond })}</span></div>
+  {/* 🎨 LOT M — même tête que le reste du site (voir `Alertes.astro`).
+      ⭐ Trouvée par `test:pages` §M-tête, pas à l'œil : c'est la CINQUIÈME
+      page d'outil, et je l'avais manquée dans mon propre inventaire. */}
+  <p class="etiq etiq--bleu tete-p__st">// {t(lang, 'alerts.settings')}</p>
+  <h1 class="mono-t">{t(lang, 'alerts.settings')}</h1>
+  <span class="etiq etiq--bleu">{t(lang, 'alerts.count', { n: alertes.length, m: plafond })}</span>
   <p class="etiq">{t(lang, 'alerts.settings.desc')}</p>
 
   {/* 🔴 LE PALIER À ZÉRO SE DIT, IL NE SE DEVINE PAS. Une page vide sans

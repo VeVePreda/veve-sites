@@ -11,6 +11,19 @@ const descLegal = t(lang, `legal.desc.${doc}`, { brand: manifest().site.brand })
 <Base lang={lang} path={`/legal/${doc}/`} title={title} description={descLegal} updatedAt={updatedAt}
       langs={languesLegales(languesDuSite())}
       crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') }, { name: title }]}>
-  <h1>{title}</h1>
+  {/* ═══════════════════════════════════════════════════════════════════════
+      🎨 LOT M — LA SEULE PAGE DU SITE DONT LE `<h1>` N'AVAIT AUCUNE CLASSE
+      ═══════════════════════════════════════════════════════════════════════
+      🔬 Mesuré sur les pages servies le 08/09 : partout ailleurs le titre porte
+      `mono-t`. Ici, `<h1>` nu — il tombait donc sur la règle générique `h1` du
+      thème et ne ressemblait à aucune autre page. Ce n'était pas un choix, ces
+      pages sont simplement passées à côté du relooking.
+      ⭐⭐ ET LA DESCRIPTION ÉTAIT DÉJÀ CALCULÉE deux lignes plus haut
+      (`descLegal`), pour la seule balise `<meta>`. **Une ligne manquante, pas
+      une donnée manquante** — septième occurrence du motif dans ce dépôt.
+      ⚠️ `.respire` et non `.etiq` : c'est une phrase, pas une étiquette. */}
+  <p class="etiq etiq--bleu tete-p__st">// {title}</p>
+  <h1 class="mono-t">{title}</h1>
+  <p class="respire" style="max-width:56ch">{descLegal}</p>
   <div class="legal" set:html={body} />
 </Base>
