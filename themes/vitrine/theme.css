@@ -44,23 +44,27 @@
      fabrique : c'est ce qu'on obtient quand on n'a rien choisi. Un os cassé
      tire vers le chaud, se détache du gris VeVe sans l'agresser, et c'est
      exactement le panneau des planches .SWOOSH. */
-  --carte:     #EEEDE8;
-  --carte-2:   #E4E3DD;
+  --carte:     #FFFFFF;   /* v5 · le blanc PUR remonte tous les contrastes de la cartouche */
+  --carte-2:   #F2F2F2;
   --carte-ink: #1A1A1A;   /* 13,53:1 */
   --carte-ink-2:#5E5E5E;  /*  5,04:1 */
-  --carte-lien:#0A6F84;   /*  4,51:1 — corrigé après mesure sur l'os */
-  --carte-rule:#D5D4CD;
+  --carte-lien:#0B798F;   /*  5,07:1 sur #FFF — mesuré 08/09, lot K (était 4,95 sur l'ivoire) */
+  --carte-rule:#E4E4E4;
 
   /* ─── CYAN — la couleur du site ────────────────────────────────────────── */
   --cyan:      #10CEF2;   /* 5,16:1 · texte ET aplat, sans retouche */
-  --cyan-fonce:#0A8FA9;
+  --cyan-fonce:#0A7A8F;
   --cyan-1v:   #10CEF21F;
+  /* ⚠️ --att est un APLAT d'avertissement, pas une encre : 2,15:1 sur --carte.
+     Du texte sur --att veut --carte-ink (#1A1A1A) par-dessus, jamais l'inverse. */
+  --att:       #F0A029;
 
   /* ─── PRIX ─── sur des CHIFFRES uniquement ─────────────────────────────── */
   --up:        #3EC875;   /* vert VeVe éclairci · 4,51:1 */
-  --down:      #ED9BA6;   /* rouge VeVe éclairci · 4,56:1 */
+  --down:      #F08A9B;   /* v5 · 7,30:1 sur nuit. ⛔ JAMAIS sur --carte : 2,38:1.
+                             Pour une baisse sur fond clair : .delta--sur-blanc.delta--down (#B01F32, 6,80:1). */
   --up-1v:     #3EC8751F;
-  --down-1v:   #ED9BA61F;
+  --down-1v:   #F08A9B1F;
 
   /* ─── MONNAIES ─────────────────────────────────────────────────────────────
      ⭐ Deux marques distinctes, imposées par Preda et justes :
@@ -98,7 +102,7 @@
   --sect-a:    #10CEF2;
   --sect-pur:  #10CEF2;
   --sect-sur:  #1A1A1A;
-  --sect-fonce:#0A8FA9;
+  --sect-fonce:#0A7A8F;   /* v5 · 3,48:1 sur nuit — sans objet : 6 usages mesurés, TOUS en background */
   --sect-1v:   #10CEF21F;
 
   /* ─── TYPO ─────────────────────────────────────────────────────────────── */
@@ -121,7 +125,7 @@
      ⛔ Tout arrondir donne un site « application » ; tout carrer donne un site
      « brutaliste illisible ». La règle est : ce qui CONTIENT est carré, ce
      qu'on CLIQUE est rond. */
-  --r-doc:0; --r-sm:2px; --r-md:3px; --r-lg:4px; --r-full:999px;
+  --r-doc:0; --r-sm:2px; --r-md:8px; --r-lg:14px; --r-full:999px;
   --tap:44px;--i-lune:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z'/%3E%3C/svg%3E");--i-soleil:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='4.2'/%3E%3Cpath d='M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M18.7 5.3l-1.6 1.6M6.9 17.1l-1.6 1.6'/%3E%3C/svg%3E");        /* cible confortable — navigation, boutons pleins */
   --tap-min:36px;    /* plancher tactile : WCAG 2.1 AA exige 24 px (2.5.8),
                         donc 32 px était CONFORME. ⭐ « Conforme » et
@@ -189,7 +193,20 @@
 
 html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--bg);color:var(--text);
-  font-family:var(--font-body);line-height:1.6;font-size:16px;
+  font-family:var(--font-body);line-height:1.6;
+  /* 📏 LOT K — 13,5px : la v5 pose `.site{font-size:var(--t-corps)}` = 13,5.
+     ⛔ TROIS LECTURES FAUSSES DE SUITE SUR CETTE SEULE LIGNE, le 07 et le 08 :
+     ① l'audit disait « 13,5 contre 14,5 » — il comparait deux JETONS
+        (`--t-corps` et `--t-md`) en les appelant « le corps du site » ;
+     ② j'ai ensuite lu 15px dans le `body` de la maquette — c'est le body du
+        DOCUMENT d'audit, pas du site, qui vit sous `.site` ;
+     ③ la prod n'était pas à 14,5 mais à 16px, mesuré sur le site SERVI.
+     ⭐⭐ ET LE PLUS UTILE EST VENU APRÈS : mesuré dans le navigateur sur / ,
+     /methode/, /blog/ et /collections/, **UN SEUL élément textuel sur 143
+     hérite de cette taille** — chaque composant pose la sienne. Ce jeton est
+     donc quasi inerte : on l'aligne par exactitude, pas pour un effet.
+     ⛔ Ne pas en refaire un sujet sans avoir remesuré cette part. */
+  font-size:13.5px;
   /* Le grain : papier photographique tiré. Il casse les bandes des dégradés et
      donne au gris une épaisseur qu'un aplat numérique n'a jamais. On ne le voit
      pas ; on sent son absence. Data-URI, donc zéro requête. */
@@ -336,10 +353,10 @@ footer.site{border-top:1px solid var(--vp-rule);padding:var(--s6) 0;
 .item .s{font-size:12.5px;color:var(--muted)}
 .item .f{margin-top:var(--s3);font-family:var(--font-heading);
   font-size:21px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
-.stat .k{font-family:var(--font-heading);font-size:10px;color:var(--muted);
+.stat .k{font-family:var(--tech);font-size:9.5px;color:var(--muted);
   text-transform:uppercase;letter-spacing:var(--ls-etiq)}
-.stat .v{font-family:var(--font-heading);font-size:clamp(24px,3vw,34px);font-weight:700;
-  font-variant-numeric:tabular-nums;letter-spacing:-.03em;line-height:1;margin-top:6px}
+.stat .v{font-family:var(--tech);font-size:24px;font-weight:700;
+  font-variant-numeric:tabular-nums;letter-spacing:-.02em;line-height:1;margin-top:3px}
 /* 📅 LOT J — LA SOUS-LIGNE QUI DATE UNE CASE.
    `.stat .k` (le libelle) et `.stat .v` (le chiffre) existaient ; il manquait
    la troisieme ligne, et c'est elle qui porte tout le sujet du tableau de
@@ -348,7 +365,7 @@ footer.site{border-top:1px solid var(--vp-rule);padding:var(--s6) 0;
    ⛔ Pas une classe neuve inventee a cote : `.item .s` existait deja avec
    exactement ce role sur la carte d'une piece. On etend la famille, on n'en
    ouvre pas une seconde. */
-.stat .s{font-size:12px;color:var(--muted);margin-top:5px;line-height:1.35}
+.stat .s{font-family:var(--tech);font-size:9.5px;color:var(--muted);margin-top:2px;line-height:1.35}
 /* 📊 LOT J — LA JAUGE BAS ↔ HAUT EN UNE CELLULE DE TABLEAU.
    🔴🔴 ELLE NE S'APPELLE PAS `.jauge`, ET C'EST UNE COLLISION EVITEE DE JUSTESSE.
    `.jauge` EXISTE DEJA DEUX FOIS : l. 1540 pour la grande jauge ATL/ATH de la
@@ -481,7 +498,7 @@ td.num, th.num{text-align:right;font-variant-numeric:tabular-nums;
      Ici : `--*-pur` reprend les valeurs de la NUIT à l'octet près, `--*-a`
      reste assombri pour le texte, et les voiles passent de 1F à 33. */
   --gems:#0B859D; --omi:#B01F32;
-  --carte:#EEEDE8; --carte-2:#E4E3DD; --carte-lien:#0A6F84; --carte-rule:#D5D4CD;
+  --carte:#FFFFFF; --carte-2:#F2F2F2; --carte-lien:#0B798F; --carte-rule:#E4E4E4;
   --r-common-a:#0B8D3F; --r-common-b:#075E2A; --r-common-ink:#0B9542;
   --r-uncommon-a:#A62BD4; --r-uncommon-b:#6B1E85; --r-uncommon-ink:#C540F4;
   --r-rare-a:#0069C9; --r-rare-b:#00447F; --r-rare-ink:#007FF5;
@@ -493,7 +510,7 @@ td.num, th.num{text-align:right;font-variant-numeric:tabular-nums;
      Un `#10CEF2` en aplat sur une page presque blanche est fluorescent : il
      passe le contraste (9,23:1) et il est laid. `--sect-pur` bascule donc en
      `#0A6F84` avec du texte blanc — 5,07:1, et ça respire. */
-  --sect-a:#08687A; --sect-pur:#10CEF2; --sect-sur:#1A1A1A; --sect-fonce:#0A8FA9; --sect-1v:#10CEF233;
+  --sect-a:#08687A; --sect-pur:#10CEF2; --sect-sur:#1A1A1A; --sect-fonce:#0A7A8F; --sect-1v:#10CEF233;
   --survol:#0000000F; --voile-haut:#FFFFFF80; --voile-bas:#0000002E; /* pendant jour : voile SOMBRE, sinon invisible */
   --sh-1:0 1px 2px #0000001A; --sh-2:0 10px 26px -10px #00000026,0 2px 8px #00000014;
   --sh-3:0 26px 64px -18px #00000033,0 6px 18px #0000001A;
@@ -522,21 +539,21 @@ td.num, th.num{text-align:right;font-variant-numeric:tabular-nums;
 [data-sect="collectibles"]{--sect-a:#6BB6FC;--sect-pur:#0082FA;--sect-sur:#1A1A1A;--sect-fonce:#004B91;--sect-1v:#0082FA24}
 [data-sect="comics"] {--sect-a:#3EC875;--sect-pur:#0EBA52;--sect-sur:#1A1A1A;--sect-fonce:#086C30;--sect-1v:#0EBA5224}
 [data-sect="cotes"] {--sect-a:#ED9BA6;--sect-pur:#D7263D;--sect-sur:#FFFFFF;--sect-fonce:#8E1926;--sect-1v:#D7263D26}
-[data-sect="analyse"] {--sect-a:#10CEF2;--sect-pur:#10CEF2;--sect-sur:#1A1A1A;--sect-fonce:#0A8FA9;--sect-1v:#10CEF21F}
+[data-sect="analyse"] {--sect-a:#10CEF2;--sect-pur:#10CEF2;--sect-sur:#1A1A1A;--sect-fonce:#0A7A8F;--sect-1v:#10CEF21F}
 [data-sect="collectibles"]{--sect-a:#005FB5;--sect-pur:#0082FA;--sect-sur:#1A1A1A;--sect-fonce:#0060B7;--sect-1v:#0082FA33}
 [data-sect="comics"] {--sect-a:#096E38;--sect-pur:#0EBA52;--sect-sur:#1A1A1A;--sect-fonce:#097039;--sect-1v:#0EBA5233}
 [data-sect="cotes"] {--sect-a:#B72034;--sect-pur:#D7263D;--sect-sur:#FFFFFF;--sect-fonce:#8E1926;--sect-1v:#D7263D2E}
-[data-sect="analyse"] {--sect-a:#08687A;--sect-pur:#10CEF2;--sect-sur:#1A1A1A;--sect-fonce:#0A8FA9;--sect-1v:#10CEF233}
-:root{--nuit: #1A1A1A; --surface: #2C2C2C; --surface-2: #383838; --surface-3: #444444; --rule: #3A3A3A; --rule-2: #4E4E4E; --rule-int: #8F8F8F; --text: #FFFFFF; --text-2: #CACACA; --muted: #B1B1B1; --carte: #EEEDE8; --carte-2: #E4E3DD; --carte-ink: #1A1A1A; --carte-ink-2:#5E5E5E; --carte-lien:#0A6F84; --carte-rule:#D5D4CD; --cyan: #10CEF2; --cyan-fonce:#0A8FA9; --cyan-1v: #10CEF21F; --up: #3EC875; --down: #ED9BA6; --up-1v: #3EC8751F; --down-1v: #ED9BA61F; --gems: #10CEF2; --omi: #E36777; --r-common-a: #0EBA52; --r-common-b: #086C30; --r-common-ink: #0B9542; --r-uncommon-a:#D157FC; --r-uncommon-b:#762692; --r-uncommon-ink:#C540F4; --r-rare-a: #1F91FB; --r-rare-b: #004B91; --r-rare-ink: #007FF5; --r-ultra-a: #ED8E00; --r-ultra-b: #895200; --r-ultra-ink: #BB7000; --r-secret-a: #E36777; --r-secret-b: #7D1623; --r-secret-ink: #D7263D; --r-proof-a: #CACACA; --r-proof-b: #757575; --r-proof-ink: #818181; --lock: #10CEF2; --lock-pur: #10CEF2; --lock-1v: #10CEF224; --sect-a: #10CEF2; --sect-pur: #10CEF2; --sect-sur: #1A1A1A; --sect-fonce:#0A8FA9; --sect-1v: #10CEF21F; --geo:'Archivo',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif; --tech:'Space Grotesk',ui-monospace,'SF Mono','Cascadia Mono',monospace; --sans:'Archivo',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif; --t-3xs:9px; --t-2xs:10px; --t-xs:11px; --t-sm:12.5px; --t-md:14.5px; --t-lg:16.5px; --t-xl:clamp(20px,2.2vw,25px); --t-2xl:clamp(26px,3.6vw,38px); --t-3xl:clamp(32px,5vw,52px); --t-4xl:clamp(34px,5.4vw,58px); --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:36px; --s7:56px; --s8:88px; --r-doc:0; --r-sm:2px; --r-md:3px; --r-lg:4px; --r-full:999px; --tap:44px; --tap-min:36px; --ls-titre:-.03em; --ls-etiq:.11em; --ls-etiq-l:.16em; --foc-net:0px; --foc-proche:2.5px; --foc-loin:7px; --foc-mur:9px; --foc-fond:26px; --foc-verre:18px; --survol:#FFFFFF1A; --voile-haut:#FFFFFF1F; --voile-bas:#00000073; --sh-1:0 1px 2px #00000073; --sh-2:0 10px 26px -10px #000000CC,0 2px 8px #00000080; --sh-3:0 26px 64px -18px #000000E6,0 6px 18px #0000009E; --lueur:0 0 0 1px color-mix(in srgb,var(--sect-pur) 30%,transparent), 0 10px 34px -12px color-mix(in srgb,var(--sect-pur) 38%,transparent); --d-fast:130ms; --d-base:240ms; --d-slow:440ms; --e-out:cubic-bezier(.22,1,.36,1); --e-soft:cubic-bezier(.4,0,.2,1); --e-rebond:cubic-bezier(.34,1.56,.64,1);}
-[data-theme="jour"]{--nuit:#EFEFEF; --surface:#FFFFFF; --surface-2:#E7E7E7; --surface-3:#D9D9D9; --rule:#E2E2E2; --rule-2:#C6C6C6; --rule-int:#767676; --text:#1A1A1A; --text-2:#3D3D3D; --muted:#5E5E5E; --cyan:#08687A; --cyan-fonce:#054E5C; --cyan-1v:#10CEF23D; --up:#096E38; --down:#B01F32; --up-1v:#096E3814; --down-1v:#B01F3214; --gems:#0B859D; --omi:#B01F32; --carte:#EEEDE8; --carte-2:#E4E3DD; --carte-lien:#0A6F84; --carte-rule:#D5D4CD; --r-common-a:#0B8D3F; --r-common-b:#075E2A; --r-common-ink:#0B9542; --r-uncommon-a:#A62BD4; --r-uncommon-b:#6B1E85; --r-uncommon-ink:#C540F4; --r-rare-a:#0069C9; --r-rare-b:#00447F; --r-rare-ink:#007FF5; --r-ultra-a:#AF6A00; --r-ultra-b:#8A5300; --r-ultra-ink:#BB7000; --r-secret-a:#C02236; --r-secret-b:#7D1623; --r-secret-ink:#D7263D; --r-proof-a:#7A7A7A; --r-proof-b:#5E5E5E; --r-proof-ink:#818181; --lock:#08687A; --lock-pur:#10CEF2; --lock-1v:#10CEF233; --sect-a:#08687A; --sect-pur:#10CEF2; --sect-sur:#1A1A1A; --sect-fonce:#0A8FA9; --sect-1v:#10CEF233; --survol:#0000000F; --voile-haut:#FFFFFF80; --voile-bas:#0000002E; --sh-1:0 1px 2px #0000001A; --sh-2:0 10px 26px -10px #00000026,0 2px 8px #00000014; --sh-3:0 26px 64px -18px #00000033,0 6px 18px #0000001A;}
+[data-sect="analyse"] {--sect-a:#08687A;--sect-pur:#10CEF2;--sect-sur:#1A1A1A;--sect-fonce:#0A7A8F;--sect-1v:#10CEF233}
+:root{--nuit: #1A1A1A; --surface: #2C2C2C; --surface-2: #383838; --surface-3: #444444; --rule: #3A3A3A; --rule-2: #4E4E4E; --rule-int: #8F8F8F; --text: #FFFFFF; --text-2: #CACACA; --muted: #B1B1B1; --carte: #FFFFFF; --carte-2: #F2F2F2; --carte-ink: #1A1A1A; --carte-ink-2:#5E5E5E; --carte-lien:#0B798F; --carte-rule:#E4E4E4; --cyan: #10CEF2; --cyan-fonce:#0A7A8F; --cyan-1v: #10CEF21F; --att:#F0A029; --up: #3EC875; --down: #F08A9B; --up-1v: #3EC8751F; --down-1v: #F08A9B1F; --gems: #10CEF2; --omi: #E36777; --r-common-a: #0EBA52; --r-common-b: #086C30; --r-common-ink: #0B9542; --r-uncommon-a:#D157FC; --r-uncommon-b:#762692; --r-uncommon-ink:#C540F4; --r-rare-a: #1F91FB; --r-rare-b: #004B91; --r-rare-ink: #007FF5; --r-ultra-a: #ED8E00; --r-ultra-b: #895200; --r-ultra-ink: #BB7000; --r-secret-a: #E36777; --r-secret-b: #7D1623; --r-secret-ink: #D7263D; --r-proof-a: #CACACA; --r-proof-b: #757575; --r-proof-ink: #818181; --lock: #10CEF2; --lock-pur: #10CEF2; --lock-1v: #10CEF224; --sect-a: #10CEF2; --sect-pur: #10CEF2; --sect-sur: #1A1A1A; --sect-fonce:#0A7A8F; --sect-1v: #10CEF21F; --geo:'Archivo',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif; --tech:'Space Grotesk',ui-monospace,'SF Mono','Cascadia Mono',monospace; --sans:'Archivo',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif; --t-3xs:9px; --t-2xs:10px; --t-xs:11px; --t-sm:12.5px; --t-md:14.5px; --t-lg:16.5px; --t-xl:clamp(20px,2.2vw,25px); --t-2xl:clamp(26px,3.6vw,38px); --t-3xl:clamp(32px,5vw,52px); --t-4xl:clamp(34px,5.4vw,58px); --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:36px; --s7:56px; --s8:88px; --r-doc:0; --r-sm:2px; --r-md:8px; --r-lg:14px; --r-full:999px; --tap:44px; --tap-min:36px; --ls-titre:-.03em; --ls-etiq:.11em; --ls-etiq-l:.16em; --foc-net:0px; --foc-proche:2.5px; --foc-loin:7px; --foc-mur:9px; --foc-fond:26px; --foc-verre:18px; --survol:#FFFFFF1A; --voile-haut:#FFFFFF1F; --voile-bas:#00000073; --sh-1:0 1px 2px #00000073; --sh-2:0 10px 26px -10px #000000CC,0 2px 8px #00000080; --sh-3:0 26px 64px -18px #000000E6,0 6px 18px #0000009E; --lueur:0 0 0 1px color-mix(in srgb,var(--sect-pur) 30%,transparent), 0 10px 34px -12px color-mix(in srgb,var(--sect-pur) 38%,transparent); --d-fast:130ms; --d-base:240ms; --d-slow:440ms; --e-out:cubic-bezier(.22,1,.36,1); --e-soft:cubic-bezier(.4,0,.2,1); --e-rebond:cubic-bezier(.34,1.56,.64,1);}
+[data-theme="jour"]{--nuit:#EFEFEF; --surface:#FFFFFF; --surface-2:#E7E7E7; --surface-3:#D9D9D9; --rule:#E2E2E2; --rule-2:#C6C6C6; --rule-int:#767676; --text:#1A1A1A; --text-2:#3D3D3D; --muted:#5E5E5E; --cyan:#08687A; --cyan-fonce:#054E5C; --cyan-1v:#10CEF23D; --up:#096E38; --down:#B01F32; --up-1v:#096E3814; --down-1v:#B01F3214; --gems:#0B859D; --omi:#B01F32; --carte:#FFFFFF; --carte-2:#F2F2F2; --carte-lien:#0B798F; --carte-rule:#E4E4E4; --r-common-a:#0B8D3F; --r-common-b:#075E2A; --r-common-ink:#0B9542; --r-uncommon-a:#A62BD4; --r-uncommon-b:#6B1E85; --r-uncommon-ink:#C540F4; --r-rare-a:#0069C9; --r-rare-b:#00447F; --r-rare-ink:#007FF5; --r-ultra-a:#AF6A00; --r-ultra-b:#8A5300; --r-ultra-ink:#BB7000; --r-secret-a:#C02236; --r-secret-b:#7D1623; --r-secret-ink:#D7263D; --r-proof-a:#7A7A7A; --r-proof-b:#5E5E5E; --r-proof-ink:#818181; --lock:#08687A; --lock-pur:#10CEF2; --lock-1v:#10CEF233; --sect-a:#08687A; --sect-pur:#10CEF2; --sect-sur:#1A1A1A; --sect-fonce:#0A7A8F; --sect-1v:#10CEF233; --survol:#0000000F; --voile-haut:#FFFFFF80; --voile-bas:#0000002E; --sh-1:0 1px 2px #0000001A; --sh-2:0 10px 26px -10px #00000026,0 2px 8px #00000014; --sh-3:0 26px 64px -18px #00000033,0 6px 18px #0000001A;}
 [data-sect="collectibles"]{--sect-a:#6BB6FC;--sect-pur:#0082FA;--sect-sur:#1A1A1A;--sect-fonce:#004B91;--sect-1v:#0082FA24}
 [data-sect="comics"]{--sect-a:#3EC875;--sect-pur:#0EBA52;--sect-sur:#1A1A1A;--sect-fonce:#086C30;--sect-1v:#0EBA5224}
 [data-sect="cotes"]{--sect-a:#ED9BA6;--sect-pur:#D7263D;--sect-sur:#FFFFFF;--sect-fonce:#8E1926;--sect-1v:#D7263D26}
-[data-sect="analyse"]{--sect-a:#10CEF2;--sect-pur:#10CEF2;--sect-sur:#1A1A1A;--sect-fonce:#0A8FA9;--sect-1v:#10CEF21F}
+[data-sect="analyse"]{--sect-a:#10CEF2;--sect-pur:#10CEF2;--sect-sur:#1A1A1A;--sect-fonce:#0A7A8F;--sect-1v:#10CEF21F}
 [data-theme="jour"] [data-sect="collectibles"]{--sect-a:#005FB5;--sect-pur:#0082FA;--sect-sur:#1A1A1A;--sect-fonce:#0060B7;--sect-1v:#0082FA33}
 [data-theme="jour"] [data-sect="comics"]{--sect-a:#096E38;--sect-pur:#0EBA52;--sect-sur:#1A1A1A;--sect-fonce:#097039;--sect-1v:#0EBA5233}
 [data-theme="jour"] [data-sect="cotes"]{--sect-a:#B72034;--sect-pur:#D7263D;--sect-sur:#FFFFFF;--sect-fonce:#8E1926;--sect-1v:#D7263D2E}
-[data-theme="jour"] [data-sect="analyse"]{--sect-a:#08687A;--sect-pur:#10CEF2;--sect-sur:#1A1A1A;--sect-fonce:#0A8FA9;--sect-1v:#10CEF233}
+[data-theme="jour"] [data-sect="analyse"]{--sect-a:#08687A;--sect-pur:#10CEF2;--sect-sur:#1A1A1A;--sect-fonce:#0A7A8F;--sect-1v:#10CEF233}
 [data-sect]{--cyan:var(--sect-a);--cyan-fonce:var(--sect-fonce);--cyan-1v:var(--sect-1v)}
 [data-leger] .socle__fond,[data-leger] .socle__voile,[data-leger] .grain, [data-leger] .decor,[data-leger] 
 [data-leger] .socle__net{filter:none!important;transform:none!important}
@@ -830,7 +847,7 @@ h3{font-size:var(--t-lg)}
 .lead{color:var(--text-2);font-size:var(--t-lg);line-height:1.68;margin:var(--s4) 0 0;max-width:60ch}
 .muted{color:var(--muted)}
 .num{font-family:var(--tech);font-variant-numeric:tabular-nums;font-weight:600}
-.etiq{font-family:var(--tech);font-size:var(--t-xs);text-transform:uppercase;letter-spacing:.1em; color:var(--muted);font-weight:500;line-height:1.4}
+.etiq{font-family:var(--tech);font-size:9.5px;text-transform:uppercase;letter-spacing:.11em; color:var(--muted);font-weight:500;line-height:1.4}
 .etiq--bleu{color:var(--sect-a)}
 .sect-t{display:flex;align-items:center;gap:var(--s4);margin:var(--s7) 0 var(--s5)}
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -896,7 +913,7 @@ h3{font-size:var(--t-lg)}
 .forme--xl{width:44px;height:44px;flex:0 0 44px}
 .forme--xl svg{stroke-width:1.4}
 .rar--sur-blanc .forme{color:var(--c-ink)}
-.rar{display:inline-flex;align-items:center;gap:7px;font-family:var(--tech);font-size:var(--t-xs); font-weight:500;letter-spacing:.06em;color:var(--text-2);white-space:nowrap;line-height:1;text-transform:uppercase}
+.rar{display:inline-flex;align-items:center;gap:6px;font-family:var(--tech);font-size:10.5px; font-weight:500;letter-spacing:.1em;color:var(--text-2);white-space:nowrap;line-height:1;text-transform:uppercase}
 .rar--common{--c-a:var(--r-common-a);--c-b:var(--r-common-b);--c-ink:var(--r-common-ink)}
 .rar--uncommon{--c-a:var(--r-uncommon-a);--c-b:var(--r-uncommon-b);--c-ink:var(--r-uncommon-ink)}
 .rar--rare{--c-a:var(--r-rare-a);--c-b:var(--r-rare-b);--c-ink:var(--r-rare-ink)}
@@ -969,7 +986,12 @@ h3{font-size:var(--t-lg)}
 .carte:hover .socle--comic .socle__net{transform:scale(1.05) translateY(-3px)}
 .carte:hover .socle::after{opacity:.7;width:54%}
 .carte:hover .socle__fond{filter:blur(24px) saturate(1.6) brightness(.58)}
-.cartouche{background:var(--carte);color:var(--carte-ink);padding:10px 12px 11px; display:flex;flex-direction:column;gap:6px;margin-top:auto}
+/* 🔴 LOT K — la v5 en fait une PASTILLE POSÉE sur le socle (rayon 6, marge 11
+   sur les quatre côtés) ; la prod la SOUDAIT au bas de la carte (`margin-top:
+   auto`, rayon 0). ⚠️ `margin:11px` retire le `margin-top:auto` : la cartouche
+   ne colle plus au bas — c'est `.tuile{flex-direction:column}` qui décide
+   désormais de sa place. */
+.cartouche{background:var(--carte);color:var(--carte-ink);padding:10px 12px 11px; display:flex;flex-direction:column;gap:4px;margin:11px;border-radius:6px}
 /* 158-A : hauteur FIXE (pas min-height) + etiq sur 1 ligne = grille regulière.
    Le pourquoi et les mesures vivent dans CarteSet.astro — ce fichier est SERVI. */
 .cartouche__n{font-family:var(--geo);font-size:var(--t-sm);font-weight:600;line-height:1.3;letter-spacing:-.015em; display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;height:2.6em}
@@ -984,10 +1006,21 @@ h3{font-size:var(--t-lg)}
 .spark.down path.l{stroke:var(--down)}
 .spark path.a{stroke:none;fill:url(#gU)}
 .spark.down path.a{fill:url(#gD)}
-.stats{display:grid;gap:var(--s3);grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
-.stat{background:var(--surface);border:1px solid var(--rule);border-radius:var(--r-md);padding:13px 16px;position:relative}
-.stat__v{font-family:var(--tech);font-size:var(--t-xl);font-weight:700;font-variant-numeric:tabular-nums; margin-top:5px;line-height:1.1;display:flex;align-items:baseline;gap:5px;flex-wrap:wrap;letter-spacing:-.02em}
-.stat--bleu{border-color:color-mix(in srgb,var(--sect-pur) 40%,transparent);background:var(--sect-1v)}
+/* 🔴🔴 LOT K — LE BLOC DE CHIFFRES DEVIENT *UN* BLOC (maquette v5).
+   ⛔ LES NOMS S'INVERSENT ENTRE LES DEUX CÔTÉS, et c'est le piège : la v5
+   appelle `.stat` le CONTENEUR et `.stat > div` la cellule ; ici `.stats` est
+   le conteneur et `.stat` la cellule. On aligne les RÔLES, pas les noms.
+   Le filet d'un pixel est la GOUTTIÈRE de la grille, remplie par le fond du
+   conteneur — c'est pour ça que la cellule n'a plus de bordure à elle : deux
+   bordures adjacentes feraient 2px, et un coin arrondi par cellule trouerait
+   le filet. */
+.stats{display:grid;gap:1px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+  background:var(--rule);border:1px solid var(--rule);border-radius:var(--r-md);overflow:hidden}
+.stat{background:var(--surface);padding:12px 15px;position:relative}
+.stat__v{font-family:var(--tech);font-size:24px;font-weight:700;font-variant-numeric:tabular-nums; margin-top:5px;line-height:1.1;display:flex;align-items:baseline;gap:5px;flex-wrap:wrap;letter-spacing:-.02em}
+/* ⛔ `.stat--bleu` ne peut plus se distinguer par sa BORDURE : la cellule n'en
+   a plus (voir ci-dessus). Elle garde son fond teinté, qui suffit. */
+.stat--bleu{background:var(--sect-1v)}
 .tbl-hote{background:var(--surface);border:1px solid var(--rule);border-radius:var(--r-lg);overflow-x:auto;overflow-y:hidden;box-shadow:var(--sh-1)}
 /* 📏 06/09/2026 — LA HAUTEUR BORNEE DES TABLEAUX D'ANALYTICS.
    Le correctif du defaut `n` rend enfin 50 sets au lieu d'UN. Mesure sur la
@@ -1002,14 +1035,14 @@ h3{font-size:var(--t-lg)}
    manque-la aussi, pas seulement le defilement vertical qu'on ajoute ici. */
 .tbl-hote--borne{max-height:814px;overflow-y:auto;overscroll-behavior:contain}
 .tbl-hote--borne thead th{position:sticky;top:0;z-index:2}
-table{width:100%;border-collapse:collapse;font-size:var(--t-sm)}
-thead th{text-align:left;padding:11px 15px;background:var(--surface-2);font-family:var(--tech); font-size:var(--t-xs);text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:500; border-bottom:1px solid var(--rule);white-space:nowrap}
+table{width:100%;border-collapse:collapse;font-size:12px} /* v5 · était var(--t-sm)=12,5 */
+thead th{text-align:left;padding:8px;background:var(--surface-2);font-family:var(--tech); font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:500; border-bottom:1px solid var(--rule);white-space:nowrap}
 thead th.tri{cursor:pointer;user-select:none;transition:color var(--d-fast)}
 thead th.tri:hover,thead th.tri[aria-sort]{color:var(--sect-a)}
 thead th.tri::after{content:"↕";margin-left:5px;opacity:.4;font-size:9px}
 thead th.tri[aria-sort="descending"]::after{content:"↓";opacity:1}
 thead th.tri[aria-sort="ascending"]::after{content:"↑";opacity:1}
-tbody td{padding:9px 15px;border-bottom:1px solid var(--rule);vertical-align:middle}
+tbody td{padding:8px;border-bottom:1px solid var(--rule);vertical-align:middle}
 tbody tr{transition:background var(--d-fast) var(--e-soft)}
 tbody tr:hover{background:var(--sect-1v)}
 tbody tr:last-child td{border-bottom:0}
@@ -2473,13 +2506,13 @@ header.site.site-h .wrap{
    coquetterie : une couleur assez vive pour une ligne de 3 px est illisible en
    texte de 14 px. La même distinction existe déjà pour le cyan (l. 327-329) ;
    la reproduire ici évite de repayer la leçon cinq fois. */
-[data-sect="tableau"]  {--sect-a:#10CEF2;--sect-pur:#10CEF2;--sect-sur:#1A1A1A;--sect-fonce:#0A8FA9;--sect-1v:#10CEF21F}
+[data-sect="tableau"]  {--sect-a:#10CEF2;--sect-pur:#10CEF2;--sect-sur:#1A1A1A;--sect-fonce:#0A7A8F;--sect-1v:#10CEF21F}
 [data-sect="blog"]     {--sect-a:#ED8E00;--sect-pur:#ED8E00;--sect-sur:#1A1A1A;--sect-fonce:#895200;--sect-1v:#ED8E0024}
 [data-sect="sets"]     {--sect-a:#6BB6FC;--sect-pur:#0082FA;--sect-sur:#1A1A1A;--sect-fonce:#004B91;--sect-1v:#0082FA24}
 [data-sect="offre"]    {--sect-a:#E3B341;--sect-pur:#D4A017;--sect-sur:#1A1A1A;--sect-fonce:#8A6608;--sect-1v:#D4A01726}
 [data-sect="analytics"]{--sect-a:#C08BF8;--sect-pur:#A855F7;--sect-sur:#FFFFFF;--sect-fonce:#6B21A8;--sect-1v:#A855F726}
 /* Thème jour : `--sect-a` s'assombrit, `--sect-pur` ne bouge pas. */
-[data-theme="jour"] [data-sect="tableau"]  {--sect-a:#08687A;--sect-pur:#10CEF2;--sect-sur:#1A1A1A;--sect-fonce:#0A8FA9;--sect-1v:#10CEF233}
+[data-theme="jour"] [data-sect="tableau"]  {--sect-a:#08687A;--sect-pur:#10CEF2;--sect-sur:#1A1A1A;--sect-fonce:#0A7A8F;--sect-1v:#10CEF233}
 [data-theme="jour"] [data-sect="blog"]     {--sect-a:#8A5300;--sect-pur:#ED8E00;--sect-sur:#1A1A1A;--sect-fonce:#895200;--sect-1v:#ED8E0033}
 [data-theme="jour"] [data-sect="sets"]     {--sect-a:#005FB5;--sect-pur:#0082FA;--sect-sur:#1A1A1A;--sect-fonce:#0060B7;--sect-1v:#0082FA33}
 [data-theme="jour"] [data-sect="offre"]    {--sect-a:#6F5200;--sect-pur:#D4A017;--sect-sur:#1A1A1A;--sect-fonce:#8A6608;--sect-1v:#D4A01733}

@@ -892,6 +892,194 @@ console.log('\n═══ LOT 203, POINT `ag` — la série est bornée, et son n
   }
 }
 
+
+// ════════════════════════════════════════════════════════════════════════════
+// 🔴🔴 §K — DEUX `:root` NE DOIVENT JAMAIS SE CONTREDIRE  (lot K — 08/09/2026)
+// ════════════════════════════════════════════════════════════════════════════
+//
+// ⭐⭐⭐ POURQUOI CE § EXISTE, ET IL A FAILLI ME COÛTER LE LOT ENTIER.
+// `themes/vitrine/theme.css` déclare `:root` DEUX fois : un bloc lisible et
+// commenté en tête, et un bloc MINIFIÉ en fin de fichier qui en redéfinit 101
+// jetons. Le second gagne. Le 08/09, en alignant les jetons sur la maquette v5,
+// j'ai commencé par éditer le bloc lisible — un changement PARFAITEMENT
+// INVISIBLE en production, que ni le build, ni aucun banc, ni une relecture du
+// diff n'auraient signalé. « LÀ ? » n'est pas « GAGNE ? ».
+//
+// ⛔ CE § N'INTERDIT PAS LE DOUBLON. Le supprimer serait le bon geste, mais
+// c'est un autre lot : le bloc minifié fige aussi `--surface`, `--text`,
+// `--muted` et les 8 alias du manifeste, donc le retirer REBRANCHE le thème sur
+// `identity.palette` — mesuré identique en valeur au 08/09, mais c'est un
+// changement de MÉCANISME, pas de couleur. Ce § se contente de rendre la
+// divergence IMPOSSIBLE À NE PAS VOIR.
+//
+// ⛔ IL LIT LA FEUILLE SERVIE, pas la source : c'est ce qu'on SERT qui décide.
+{
+  // Les blocs `:root` NUS uniquement — `:root[data-theme]`, `:root .x` ou
+  // `[data-theme="jour"]` sont d'autres sélecteurs, avec d'autres spécificités,
+  // et il est parfaitement légitime qu'ils divergent.
+  const sansCommentaires = texteFeuilleBrut.replace(/\/\*[\s\S]*?\*\//g, '');
+  const blocs = [];
+  const re = /(^|[};])\s*:root\s*\{([^}]*)\}/g;
+  let m;
+  while ((m = re.exec(sansCommentaires)) !== null) blocs.push(m[2]);
+
+  const jetonsDe = (txt) => {
+    const d = new Map();
+    for (const j of txt.matchAll(/(--[a-z0-9-]+)\s*:\s*([^;}]+)/g)) {
+      d.set(j[1], j[2].split(/\s+/).join(' ').trim());
+    }
+    return d;
+  };
+  const tables = blocs.map(jetonsDe);
+
+  // ⭐⭐ LA CONTRE-ÉPREUVE PORTE SUR LE PARSEUR, PAS SUR LA RICHESSE DU THÈME.
+  // Première version de ce §, le 08/09 : « au moins 2 blocs et 50 jetons, sinon
+  // rc=2 ». Elle a rougi sur `encyclopedie` — 2 blocs, 20 jetons — un thème
+  // parfaitement sain. ⛔ UN NOMBRE MAGIQUE NE MESURE PAS CE QU'IL PRÉTEND : il
+  // mesurait « vitrine », et appelait « cassé » tout ce qui n'est pas vitrine.
+  // C'est mot pour mot la leçon écrite en tête de ce fichier, réapprise le jour
+  // même. Le bon garde ne demande pas au thème d'être gros : il demande au
+  // PARSEUR de savoir trouver ce qu'il cherche, sur une chaîne dont on connaît
+  // la réponse.
+  const essai = jetonsDe('--a:#111;--b: 2px ;--c:var(--a)');
+  const parseurOk = essai.size === 3 && essai.get('--a') === '#111'
+    && essai.get('--b') === '2px' && essai.get('--c') === 'var(--a)';
+  if (!parseurOk) {
+    console.error('\n❌ §K — le parseur de jetons échoue sur une chaîne témoin dont on connaît'
+      + ` la réponse (lu ${essai.size} jeton(s) au lieu de 3). Il ne prouve rien.`);
+    process.exit(2);
+  }
+  // Et il doit avoir vu quelque chose de RÉEL : une feuille sans aucun `:root`
+  // ni aucun jeton n'est pas un thème, c'est une feuille qu'on n'a pas lue.
+  const totalJetons = tables.reduce((n, t) => n + t.size, 0);
+  if (blocs.length === 0 || totalJetons === 0) {
+    console.error(`\n❌ §K n'a trouvé aucun \`:root\` (${blocs.length}) ou aucun jeton (${totalJetons})`
+      + ' dans la feuille SERVIE — elle a changé de forme, ou ce § lit au mauvais endroit.');
+    process.exit(2);
+  }
+  // ⛔ UN SEUL BLOC : il n'y a rien à comparer. On le DIT — « rien à comparer »
+  // et « comparé, tout va bien » se ressemblent dans un vert, et sont l'inverse
+  // l'un de l'autre.
+  if (blocs.length < 2) {
+    console.log(`\n  --  §K SANS OBJET — un seul bloc \`:root\` servi (${totalJetons} jetons) :`
+      + ' aucun doublon ne peut se contredire ici.');
+  }
+
+  const divergences = [];
+  for (let a = 0; a < tables.length; a += 1) {
+    for (let b = a + 1; b < tables.length; b += 1) {
+      for (const [k, va] of tables[a]) {
+        const vb = tables[b].get(k);
+        // ⚠️ Une valeur qui référence une AUTRE variable n'est pas une
+        // contradiction : `--nuit: var(--bg)` puis `--nuit: #1A1A1A` est
+        // précisément le débranchement qu'on veut voir, mais il se juge à
+        // l'œil, pas au rouge — on ne compare que des valeurs LITTÉRALES.
+        if (vb === undefined || va === vb) continue;
+        if (va.includes('var(') || vb.includes('var(')) continue;
+        divergences.push(`${k} : bloc ${a + 1} dit « ${va} », bloc ${b + 1} dit « ${vb} » (c'est le ${b + 1}ᵉ qui gagne)`);
+      }
+    }
+  }
+
+  dit(divergences.length === 0,
+    `§K — ${blocs.length} blocs \`:root\` servis, ${totalJetons} jetons lus : aucun ne se contredit`,
+    divergences.length === 0 ? null
+      : `⛔ ${divergences.length} jeton(s) déclarés deux fois avec des valeurs DIFFÉRENTES.`
+        + ' Le dernier bloc gagne, donc une édition du premier est invisible en production :\n      '
+        + divergences.slice(0, 12).join('\n      ')
+        + (divergences.length > 12 ? `\n      … et ${divergences.length - 12} autre(s)` : ''));
+}
+
+
+// ════════════════════════════════════════════════════════════════════════════
+// 🔴 §K-bis — DEUX MOITIÉS D'UNE MÊME DÉCISION  (lot K — 08/09/2026)
+// ════════════════════════════════════════════════════════════════════════════
+//
+// ⭐⭐⭐ POURQUOI. Le lot K refait deux objets, et CHACUN se décide en DEUX
+// endroits qui doivent s'accorder. Injection faite le 08/09 : le bloc de
+// chiffres remis en quatre cartes séparées — les 1 745 contrôles des deux
+// chaînes sont restés VERTS. *Un banc ne trouve rien hors de la population
+// qu'il s'est donnée*, et aucune population n'incluait la structure du thème.
+//
+// ⛔ CE § NE FIGE PAS LES PIXELS, ET C'EST DÉLIBÉRÉ. Un banc écrit contre UNE
+// faute juge « tout ce qui n'est pas l'état sain » comme cette faute-là : il
+// finit par s'opposer aux corrections (lot I, `test:projection`). Il ne dit
+// donc pas « gap:1px » ni « radius:6px » — il dit que les deux moitiés d'une
+// même décision ne doivent pas se contredire. Preda peut revenir à des cartes
+// séparées demain : ce § restera vert, tant que les deux moitiés bougent
+// ensemble.
+{
+  const re1 = /(^|[};])\s*\.stats\s*\{([^}]*)\}/.exec(texteFeuilleBrut.replace(/\/\*[\s\S]*?\*\//g, ''));
+  const re2 = /(^|[};])\s*\.stat\s*\{([^}]*)\}/.exec(texteFeuilleBrut.replace(/\/\*[\s\S]*?\*\//g, ''));
+
+  if (!re1 || !re2) {
+    console.log('\n  --  §K-bis SANS OBJET — ce thème ne déclare pas `.stats`/`.stat`'
+      + ` (${re1 ? '' : '.stats absent'} ${re2 ? '' : '.stat absent'}).`);
+  } else {
+    const conteneur = re1[2];
+    const cellule = re2[2];
+    // La GOUTTIÈRE d'un pixel n'est un filet que si le conteneur peint le fond
+    // qu'elle laisse voir. Une gouttière fine SANS fond ne dessine rien ; une
+    // cellule qui garde sa bordure PAR-DESSUS le filet en fait deux.
+    const gap = /(?:^|;)\s*gap\s*:\s*([^;]+)/.exec(conteneur);
+    const px = gap ? parseFloat(gap[1]) : NaN;
+    const filet = Number.isFinite(px) && px <= 2;
+    const fondConteneur = /(?:^|;)\s*background\s*:/.test(conteneur);
+    // ⛔ « IL Y A UN `border:` » N'EST PAS « IL Y A UNE BORDURE ». Première
+    // version de ce §, le 08/09 : elle a rougi sur `encyclopedie`, qui écrit
+    // `border:0` — c'est-à-dire AUCUNE bordure, et ce thème faisait déjà
+    // exactement ce que la maquette v5 demande. Un motif qui accepte la
+    // PRÉSENCE ne mesure pas ce qu'il nomme : on lit la VALEUR.
+    const bord = /(?:^|;)\s*border\s*:\s*([^;]+)/.exec(cellule);
+    const bordCellule = !!bord
+      && !/^\s*(0\w*|none)\s*$/.test(bord[1])
+      && !/(^|\s)none(\s|$)/.test(bord[1])
+      && parseFloat(bord[1]) !== 0;
+
+    // ⭐ CONTRE-ÉPREUVE : ces trois lectures savent-elles trouver ce qu'elles
+    // cherchent ? On les rejoue sur une déclaration dont on connaît la réponse.
+    const t = 'display:grid;gap:1px;background:var(--rule);border:1px solid var(--rule)';
+    const okLecture = /(?:^|;)\s*gap\s*:\s*([^;]+)/.exec(t)
+      && parseFloat(/(?:^|;)\s*gap\s*:\s*([^;]+)/.exec(t)[1]) === 1
+      && /(?:^|;)\s*background\s*:/.test(t) && /(?:^|;)\s*border\s*:/.test(t)
+      && !/(?:^|;)\s*border\s*:/.test('background:var(--surface);padding:12px 15px')
+      // …et elle doit savoir que `border:0` n'est PAS une bordure :
+      && parseFloat(/(?:^|;)\s*border\s*:\s*([^;]+)/.exec('background:var(--bg);border:0;padding:11px')[1]) === 0;
+    if (!okLecture) {
+      console.error('\n❌ §K-bis — ses lectures échouent sur une déclaration témoin. Il ne prouve rien.');
+      process.exit(2);
+    }
+
+    dit(!filet || fondConteneur,
+      `§K-bis — la gouttière du bloc de chiffres (${gap ? gap[1].trim() : '—'}) et le fond du conteneur s'accordent`,
+      '⛔ une gouttière d\'un pixel SANS `background` sur `.stats` : le filet ne se voit pas,'
+      + ' les cellules se touchent presque et la grille a l\'air cassée');
+    dit(!filet || !bordCellule,
+      '§K-bis — le filet est dessiné À UN SEUL ENDROIT (le conteneur), pas deux',
+      '⛔ `.stats` sépare ses cellules par un filet d\'un pixel ET `.stat` garde sa propre'
+      + ' `border` : deux traits adjacents font 2px, et le rayon de chaque cellule troue le filet');
+    dit(filet || !fondConteneur || bordCellule,
+      '§K-bis — cartes séparées : chaque cellule porte bien son propre cadre',
+      '⛔ `.stats` peint un fond mais espace ses cellules de plus de 2px, et `.stat` n\'a pas'
+      + ' de bordure : le fond du conteneur apparaît en larges bandes entre des cartes sans cadre');
+
+    // La CARTOUCHE se décide aussi en deux : POSÉE (rayon + marge sur 4 côtés)
+    // ou SOUDÉE (rayon 0 + `margin-top:auto`). Une moitié de chaque donne une
+    // pastille arrondie collée au bas — l'état que personne n'a choisi.
+    const rc = /(^|[};])\s*\.cartouche\s*\{([^}]*)\}/.exec(texteFeuilleBrut.replace(/\/\*[\s\S]*?\*\//g, ''));
+    if (rc) {
+      const c = rc[2];
+      const rayon = /(?:^|;)\s*border-radius\s*:\s*([^;]+)/.exec(c);
+      const arrondie = !!rayon && parseFloat(rayon[1]) > 0;
+      const soudee = /(?:^|;)\s*margin-top\s*:\s*auto/.test(c);
+      dit(!(arrondie && soudee),
+        `§K-bis — la cartouche est cohérente : ${arrondie ? 'POSÉE (rayon ' + rayon[1].trim() + ')' : 'SOUDÉE au socle'}`,
+        '⛔ elle est à la fois arrondie et collée en bas (`margin-top:auto`) : une pastille'
+        + ' dont deux coins ronds tombent sur le bord de la carte — ni posée, ni soudée');
+    }
+  }
+}
+
 console.log(ko === 0
   ? `\n✅ une feuille de ${octets.length} o pour ${pages.length} pages, rien de recopié,`
     + ` et le JS en ligne sous son cliquet (${moyenneJs} o/page)\n`
