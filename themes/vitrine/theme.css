@@ -594,7 +594,31 @@ td.num, th.num{text-align:right;font-variant-numeric:tabular-nums;
 [data-theme="jour"] [data-sect="comics"]{--sect-a:#096E38;--sect-pur:#0EBA52;--sect-sur:#1A1A1A;--sect-fonce:#137A42}
 [data-theme="jour"] [data-sect="cotes"]{--sect-a:#B72034;--sect-pur:#D7263D;--sect-sur:#FFFFFF;--sect-fonce:#9B2033}
 [data-theme="jour"] [data-sect="analyse"]{--sect-a:#08687A;--sect-pur:#10CEF2;--sect-sur:#1A1A1A;--sect-fonce:#0A7A8F}
-[data-sect]{--cyan:var(--sect-a);--cyan-fonce:var(--sect-fonce);--cyan-1v:var(--sect-1v)}
+/* 🔴🔴⭐⭐⭐ CORRECTIF L-1 (08/09/2026) — ET IL A FALLU LA PROD POUR LE VOIR.
+   Le lot L a remplacé les neuf `--sect-1v` en dur par UN calcul dans `:root` :
+       :root{ --sect-1v: color-mix(in srgb, var(--sect-a) 12%, transparent) }
+   Le CSS est juste, les trois § du banc sont verts, et le résultat est FAUX.
+   ⭐⭐⭐ UNE CUSTOM PROPERTY EST SUBSTITUÉE LÀ OÙ ELLE EST DÉCLARÉE, PAS LÀ OÙ
+   ELLE EST UTILISÉE. `var(--sect-a)` est donc résolu DANS `:root`, avec le cyan,
+   et c'est cette valeur DÉJÀ CALCULÉE que les sections héritent. Résultat mesuré
+   sur `/blog/` servi le 08/09 à 12:20 : `--sect-a` valait bien #F0A029, et le
+   voile rendait `srgb(0.063 0.808 0.949 / .12)` — le CYAN, sur une page orange.
+   ⛔ Aucun banc de ce dépôt ne pouvait le voir : ils lisent le TEXTE de la
+   feuille, et le texte était juste. Il a fallu peindre un `<div>` sur la page
+   servie. ⇒ `test:feuille` §L-quater le borne désormais, statiquement.
+   ⚠️ Et la maquette v5 fait la même chose — mais elle n'a JAMAIS été rendue :
+   j'ai copié un mécanisme que personne n'avait vu à l'œuvre.
+   ⇒ Redéclaré ICI : au niveau de `[data-sect]`, la substitution se fait avec le
+   `--sect-a` de la SECTION. `--cyan-1v` et `--lock-1v` suivent en cascade. */
+/* 🔬 `--lueur` A LA MÊME MALADIE, ET C'EST LE BANC NEUF QUI L'A TROUVÉE — un
+   défaut ANTÉRIEUR au lot L. Elle est bâtie sur `var(--sect-pur)` dans `:root`,
+   donc résolue au cyan une fois pour toutes : les 5 survols qui la portent
+   (`.h-rech`, `.globe>summary`, `.btn--principal`, `.btn--verrou`) glacent en
+   cyan sur une page verte ou orange. ⚠️ MESURÉ SUR `/blog/` SERVI : la lueur y
+   rend bien `srgb(.063 .808 .949)` au lieu de l'orange — mais ⛔ AUCUN élément
+   de cette page ne la portait au moment de la mesure (ce sont des survols).
+   Je corrige le MÉCANISME ; je ne l'ai pas vue à l'œuvre. */
+[data-sect]{--sect-1v:color-mix(in srgb,var(--sect-a) 12%,transparent);--lueur:0 0 0 1px color-mix(in srgb,var(--sect-pur) 30%,transparent), 0 10px 34px -12px color-mix(in srgb,var(--sect-pur) 38%,transparent);--cyan:var(--sect-a);--cyan-fonce:var(--sect-fonce);--cyan-1v:var(--sect-1v)}
 [data-leger] .socle__fond,[data-leger] .socle__voile,[data-leger] .grain, [data-leger] .decor,[data-leger] 
 [data-leger] .socle__net{filter:none!important;transform:none!important}
 [data-leger] .site-h,[data-leger] .deplie__m,[data-leger] .tuile__rar, [data-leger] .tuile__off,[data-leger] .socle__fav{backdrop-filter:none!important}

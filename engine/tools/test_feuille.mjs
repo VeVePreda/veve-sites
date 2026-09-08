@@ -1186,6 +1186,82 @@ console.log('\n═══ LOT 203, POINT `ag` — la série est bornée, et son n
         : `⛔ ${croises.length} croisement(s) :\n      ` + croises.slice(0, 10).join('\n      '));
   }
 
+  // ── §L-quater — UN JETON EST SUBSTITUÉ LÀ OÙ IL EST DÉCLARÉ ──────────────
+  // ⭐⭐⭐ LA RÈGLE QUE LE LOT L A APPRISE EN PRODUCTION, PAS AU BANC.
+  // `:root{--sect-1v: color-mix(in srgb, var(--sect-a) 12%, transparent)}` est
+  // du CSS parfaitement juste — et il rend le CYAN sur une page orange. Parce
+  // qu'une custom property est résolue LÀ OÙ ELLE EST DÉCLARÉE : `var(--sect-a)`
+  // est substitué dans `:root`, et c'est cette valeur DÉJÀ CALCULÉE que les
+  // sections héritent. Une section qui redéfinit `--sect-a` ne change donc rien.
+  // ⛔ Les trois § ci-dessus étaient VERTS : ils lisent le TEXTE de la feuille,
+  //    et le texte était juste. Il a fallu peindre un `<div>` sur la page servie.
+  //
+  // ⇒ LA RÈGLE, ET ELLE EST STATIQUE : si `--X` est déclaré dans `:root` avec un
+  //   `var(--Y)`, et que `--Y` est redéfini par un sélecteur qui peut viser un
+  //   DESCENDANT (`[data-sect]`, une classe…), alors `--X` doit être redéclaré
+  //   au même niveau. Sinon il fige la valeur de la racine.
+  // ⚠️ NE PAS confondre avec une redéfinition sur la RACINE elle-même
+  //   (`:root[data-theme="nuit"]`) : là, tout se joue dans la cascade d'un seul
+  //   élément, la substitution voit la bonne valeur. `--nuit:var(--bg)` est sain.
+  {
+    // ⭐⭐ QUI EST « LA RACINE » ? PAS UNE LISTE DE NOMS — UNE MESURE.
+    // Premier jet : « tout ce qui ne commence pas par `:root` vise un
+    // descendant ». Il a accusé `--vp-s2`, à cause de `[data-theme="jour"]` —
+    // qui est posé sur `<html>`, donc sur la racine, donc sans danger. ⛔ Un
+    // critère qui range `[data-theme]` avec `[data-sect]` ne mesure pas ce
+    // qu'il nomme : il mesure « ça ne commence pas par deux-points ».
+    // ⇒ Le signal est DANS LA FEUILLE : un sélecteur qui apparaît quelque part
+    //   en position d'ANCÊTRE (`[data-theme="jour"] [data-sect="blog"]`) est un
+    //   sélecteur de niveau supérieur ; sa redéfinition se joue dans la même
+    //   cascade que `:root`. `[data-sect]`, lui, n'est jamais ancêtre : il est
+    //   porté par le `<body>`, sous la racine — et c'est là que le piège vit.
+    const ancetres = new Set();
+    for (const m of feuilleSansProse.matchAll(/([^{}]+)\{/g)) {
+      for (const part of m[1].split(',')) {
+        const bouts = part.trim().split(/\s+/);
+        for (let i = 0; i < bouts.length - 1; i += 1) ancetres.add(bouts[i]);
+      }
+    }
+    const racine = (sel) => {
+      const t = sel.trim();
+      if (/^(:root|html)\b/.test(t)) return true;
+      return t.split(',').every((p) => ancetres.has(p.trim().split(/\s+/)[0]));
+    };
+    const blocs = [...feuilleSansProse.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+      .map((m) => ({ sel: m[1].split(/\s+/).join(' ').trim(), corps: m[2] }));
+    // où chaque jeton est-il déclaré ?
+    const dansRoot = new Map();      // jeton -> valeur (dernière gagnante)
+    const horsRoot = new Set();      // jetons redéfinis par un sélecteur descendant
+    for (const b of blocs) {
+      if (/^@/.test(b.sel)) continue;
+      for (const d of decls(b.corps)) {
+        const m = /^(--[a-z0-9-]+)\s*:\s*(.+)$/s.exec(d);
+        if (!m) continue;
+        if (racine(b.sel)) { if (b.sel.trim() === ':root') dansRoot.set(m[1], m[2].trim()); }
+        else horsRoot.add(m[1]);
+      }
+    }
+    const figes = [];
+    for (const [jeton, valeur] of dansRoot) {
+      const refs = [...valeur.matchAll(/var\(\s*(--[a-z0-9-]+)/g)].map((m) => m[1]);
+      const sensibles = refs.filter((r) => horsRoot.has(r));
+      if (sensibles.length && !horsRoot.has(jeton)) {
+        figes.push(`${jeton} = « ${valeur.slice(0, 58)} » : ${sensibles.join(', ')}`
+          + ' change selon le contexte, mais ce jeton n\'est déclaré QUE dans `:root`');
+      }
+    }
+    if (dansRoot.size === 0) {
+      console.log('\n  --  §L-quater SANS OBJET — aucun jeton déclaré dans `:root` ici.');
+    } else {
+      dit(figes.length === 0,
+        `§L-quater — ${dansRoot.size} jeton(s) de \`:root\` : aucun ne fige la valeur de la racine`,
+        figes.length === 0 ? null
+          : `⛔ ${figes.length} jeton(s) résolus DANS \`:root\`, donc insensibles à la section.`
+            + ' Le CSS est juste, le rendu est faux, et aucune lecture du texte ne le voit :\n      '
+            + figes.slice(0, 8).join('\n      '));
+    }
+  }
+
   // ── §L-ter — un jeton CALCULÉ ne se recopie pas en dur ailleurs ───────────
   const calcules = [...branche.entries()].filter(([, v]) => /color-mix\(|calc\(/.test(v)).map(([k]) => k);
   if (calcules.length === 0) {
