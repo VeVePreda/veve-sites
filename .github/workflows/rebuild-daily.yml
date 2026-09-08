@@ -212,11 +212,49 @@ jobs:
       # serait mis a mesurer par rapport a un depart qui n'etait plus le sien.
       # ⭐⭐ UN TEMOIN ANCRE SUR UN JALON POSE APRES LE DEPART REEL NE MESURE
       # PLUS CE QU'IL CROIT. Pose ici, il couvre les DEUX ordres possibles.
+      # ══════════════════════════════════════════════════════════════════
+      # 🫀 LE POULS 24 H — lot L, 08/09/2026
+      # ══════════════════════════════════════════════════════════════════
+      # `engine/data/pouls24.json` est EMBARQUE DANS LE BUNDLE (`import … with
+      # { type: 'json' }`). Le regenerer ici sans le committer ne servirait a
+      # rien : le deploiement bâtit depuis le DEPOT via le Dockerfile, pas
+      # depuis cet espace de travail. ⛔ Lecon deja payee — « un vert GitHub ne
+      # dit rien du deploiement ».
+      #
+      # ⏰ POURQUOI CETTE PLACE EST LA BONNE, ET C'EST MESURE, pas deduit du
+      # cron. `transfers_daily_<J-1>` parait vers 07:15-07:22 UTC. Le cron dit
+      # « 07:41 » — mais les runs `schedule` REELS des 02→07/09 sont partis a
+      # 11:43, 12:14, 12:16 et 13:39 UTC (jusqu'a SIX heures de retard), et les
+      # `repository_dispatch` entre 10:54 et 12:59. Dans les deux cas on est
+      # tres loin apres la publication : le pouls sera a J-1 tous les jours.
+      # ⭐ Si la marge se resserrait, `preparer_pouls.mjs` recule seul jusqu'a
+      #   J-4 et AFFICHE le jour qu'il a lu — il ne ment pas, il vieillit.
+      #
+      # `continue-on-error` : un pouls non recalcule ne doit JAMAIS empecher la
+      # reconstruction du site. Le constat precedent reste servi, et date.
+      - name: Pouls 24 h (transferts, wallets, mints, revenue, OMI brules)
+        id: pouls
+        continue-on-error: true
+        env:
+          SITE: veveprice
+        run: npm run pouls
+
+      - name: Dire si le pouls n'a pas pu etre recalcule
+        if: steps.pouls.outcome == 'failure'
+        run: |
+          set -u
+          run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          msg="🟠 **VeVePrice** : le pouls 24 h n'a pas pu être recalculé.\\nLe tableau de bord garde le constat précédent — il n'est pas faux, il vieillit, et l'écran affiche sa date.\\nSi ça se reproduit demain, c'est la release chain-archive-daily qui est cassée.\\n${run_url}"
+          payload=$(printf '{"content":"%s"}' "$msg")
+          curl -sS -X POST -H 'Content-Type: application/json' -d "$payload" "${DISCORD_ALERTE_TECH_WEBHOOK}" || true
+        env:
+          DISCORD_ALERTE_TECH_WEBHOOK: ${{ secrets.DISCORD_ALERTE_TECH_WEBHOOK }}
+
       - name: Horodater le depart
         run: echo "DEPART=$(date -u +%s)" >> "$GITHUB_ENV"
 
       # ⚠️ AVANT le declenchement : c'est ce commit que Coolify va construire.
-      - name: Committer le journal des dates s'il a change
+      - name: Committer le journal des dates et le pouls s'ils ont change
         run: |
           set -euo pipefail
           git config user.name  "veveprice-bot"
@@ -226,10 +264,17 @@ jobs:
           #    `git add` sur un chemin absent fait echouer l'etape, donc le
           #    deploiement, pour une raison qui n'a rien a voir avec lui.
           git add engine/data/lastmod.veveprice.json || true
+          # 🫀 Le pouls suit le meme chemin, et pour la meme raison : sans commit,
+          #    le Dockerfile bâtirait sur le constat d'avant.
+          git add engine/data/pouls24.json || true
           if git diff --cached --quiet; then
-            echo "Journal des dates inchange — rien a committer."
+            echo "Journal des dates et pouls inchanges — rien a committer."
           else
-            git commit -m "chore(veveprice): journal des dates $(date -u +%F)"
+            # ⭐ Le message NOMME ce qui a bouge : « journal des dates » sur un
+            #   commit qui ne porte que le pouls enverrait chercher au mauvais
+            #   endroit le jour ou l'un des deux se fige.
+            quoi=$(git diff --cached --name-only | sed 's|.*/||;s|\.json$||' | paste -sd '+' -)
+            git commit -m "chore(veveprice): ${quoi} $(date -u +%F)"
             git pull --rebase --autostash && git push
             # 🔴🔴 CE `git push` VIENT DE COMMANDER UN DEPLOIEMENT (06/08/2026).
             # Coolify a un webhook sur cette branche : chaque commit declenche un
