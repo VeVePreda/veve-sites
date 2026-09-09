@@ -1121,6 +1121,32 @@ h3{font-size:var(--t-lg)}
 .grille--ligne{grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);grid-template-columns:none}
 .carte{display:flex;flex-direction:column;background:var(--surface);border-radius:var(--r-lg);overflow:hidden; color:var(--text);box-shadow:var(--sh-1);position:relative;isolation:isolate;border:1px solid var(--rule); transition:transform var(--d-base) var(--e-out),box-shadow var(--d-base),border-color var(--d-base)}
 .carte:hover{transform:translateY(-4px);box-shadow:var(--sh-2);border-color:var(--rule-2);text-decoration:none}
+/* 🎯 LOT O — LA TUILE ÉTEINTE (arbitrage Preda du 09/09 : « des tuiles grisées,
+   non cliquables »). Une pièce du set qui n'a PAS de page : elle dit laquelle
+   manque, elle ne promet aucun clic.
+   ⭐ Elle emprunte TOUTE la boîte de `.carte` — même cadre, même rayon, même
+   place dans la grille : ce n'est pas un autre objet, c'est le même dans un
+   autre état. Ce qui change tient en trois choses, et chacune répond à un
+   signal que la carte vivante envoie :
+     · le CURSEUR et le SURVOL, parce qu'une boîte qui se soulève sous la
+       souris promet un lien ; il n'y en a pas ;
+     · l'IMAGE en retrait (opacité + gris), pour que l'œil trie la grille sans
+       lire une seule étiquette ;
+     · le CADRE en pointillé, seul signal qui survit au mode clair comme au
+       mode sombre — une nuance de gris, non.
+   ⛔ PAS d'`opacity` sur `.carte--eteinte` ENTIÈRE : elle emporterait le nom et
+   la rareté sous le seuil de contraste, et une tuile illisible ne dit plus
+   quelle pièce manque — c'est-à-dire tout ce qu'on lui demande. L'opacité ne
+   touche donc que le socle (l'image), jamais le cartouche.
+   ⛔ Et pas de `pointer-events:none` : il ferait disparaître l'étiquette du
+   coin des lecteurs d'écran survolants et empêcherait la sélection du nom. La
+   racine n'est déjà plus un `<a>` — il n'y a rien à neutraliser. */
+.carte--eteinte{border-style:dashed;cursor:default;box-shadow:none}
+.carte--eteinte:hover{transform:none;box-shadow:none;border-color:var(--rule)}
+.carte--eteinte .socle{opacity:.55;filter:grayscale(.75)}
+.carte--eteinte:hover .socle__net{transform:none;filter:none}
+.carte--eteinte:hover .socle__fond{filter:blur(24px)}
+.carte--eteinte .socle__coin{background:var(--surface);color:var(--text-2);border:1px solid var(--rule);opacity:1}
 .carte:hover .socle__net{transform:scale(1.12) translateY(-3px);filter:drop-shadow(0 16px 18px #00000073)}
 .carte:hover .socle--comic .socle__net{transform:scale(1.05) translateY(-3px)}
 .carte:hover .socle::after{opacity:.7;width:54%}

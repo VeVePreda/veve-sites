@@ -479,6 +479,24 @@ const PAR_TRANCHE = 60;
       ⛔ ET IL EST ÉMIS ICI, PAS DANS `Base.astro` : 3 096 pages sur 3 097 n'ont
       pas de grille de séries. Le verser au socle commun déplacerait le
       gaspillage au lieu de le supprimer — c'est l'arbitrage du cadran, lot 137. */}
+  {/* 🔴🔴🔴 LOT O — LE CHARGEUR N'ÉTAIT PAS ÉMIS, ET IL MANQUAIT DEPUIS LE 155-B.
+      `chargeur` est déclaré en tête de ce fichier depuis ce lot-là, avec un
+      commentaire qui parle de « l'ordre des DEUX `<script defer>` » — mais le
+      second n'a jamais été écrit. Mesuré sur la page SERVIE le 09/09/2026 :
+      `window.vpIndexRayon` vaut `undefined`, `series.js` lève à la première
+      frappe, et `/sets/` reste un mur de 60 cartes qui AFFICHE « 60 / 3256 » —
+      la recherche, les filtres et les tris $/MCP ne font rien, en silence.
+      ⭐⭐⭐ ET LE MODULE ÉTAIT DÉJÀ SERVI : `/socle-4ed806ef9862.js` répondait
+      200. Rien ne manquait au build — seulement la ligne qui le demande.
+      ⭐⭐ POURQUOI AUCUN BANC NE L'A VU : `test_series.mjs` monte lui-même les
+      deux modules avant de mesurer. Il prouve que le pilote marche QUAND ON LUI
+      DONNE le chargeur, jamais que la page le lui donne. C'est
+      `regle-seconde-fabrique-ne-montre-que-sa-source` vue de l'autre côté : le
+      banc avait sa propre fabrique de page, et elle était plus complète que la
+      vraie. ⇒ §⑧ de `test_series.mjs` lit désormais le HTML RENDU.
+      ⛔ L'ordre n'a pas besoin d'être gardé à la main : `defer` exécute dans
+      l'ordre du document, et c'est ce que dit déjà l'en-tête du fichier. */}
+  <script defer src={chargeur.href}></script>
   <script defer src={pilote.href}></script>
   {/* ═══ LOT 72 — LE DÉVOILEMENT PAR TRANCHES ═══
       🔴 Preda : « la page Sets met une limite d'affichage de 20 ». Il n'y avait

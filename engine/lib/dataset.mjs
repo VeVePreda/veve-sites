@@ -1633,6 +1633,18 @@ async function construireDataset() {
       edition_type: c.edition_type || '', series: c.series || '',
       seriesUuid: String(c.series_uuid || '').trim(), releaseDate: c.release_date || '',
       brand: c.brand || '', licensor: c.licensor || '',
+      // 🎯 LOT O — DEUX CHAMPS PUBLICS DE PLUS, ET ILS SONT LA MOITIÉ DE
+      //   L'ARBITRAGE G. Les pièces d'un set qui n'ont pas de page prennent
+      //   désormais une TUILE ÉTEINTE sur la page du set (Preda, 09/09 :
+      //   « des tuiles grisées, non cliquables »). Une tuile sans image ni
+      //   tirage serait un rectangle gris de plus — elle ne dirait pas QUELLE
+      //   pièce manque, et c'est tout ce qu'on lui demande.
+      //   ⛔ `tirage` et `image` sont déjà servis publiquement sur les fiches
+      //   et les cartes : on ne les OUVRE pas, on les transporte. Aucun champ
+      //   de `CHAMPS_COTE` n'entre ici — le plancher juste en dessous est
+      //   effacé pour ces pièces après `deposerSetsMcp()`, comme au lot N.
+      tirage: pos(c.tirage),
+      image: c.image || '',
       floor: pos(c.floor),
       floorStackrUsd: omiUsd !== null && Number.isFinite(o) && o > 0 ? o * omiUsd : null,
       path: null,

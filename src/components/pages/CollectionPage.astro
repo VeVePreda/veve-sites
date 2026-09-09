@@ -60,6 +60,12 @@ const ld = [itemListLd(items.map((i) => ({ name: i.name, url: `${root}${localize
 //    couper sans lui tranche au milieu d'un marqueur (64 `<head>` avales au 129).
 const etiqCol = t(lang, 'item.collection');
 const brutCollection = `${etiqCol} : ${col.name}`;
+// 🎯 LOT O — les pièces du set qui n'ont pas de page (arbitrage G du 09/09).
+// ⭐ `col.pieces` est le set ENTIER (lot N) ; `col.items` en est le sous-ensemble
+//   publié. La différence, c'est exactement ce que la page taisait.
+// ⛔ `?? []` et pas un `if` : un set bâti avant le lot N n'a pas de `pieces`, et
+//   une page qui explose sur un champ absent est pire que la page d'avant.
+const sansPage = (col.pieces || []).filter((x) => !x.path);
 const titreCollection = [...nu(brutCollection)].length <= TITLE_BUDGET
   ? brutCollection
   : `${nu(etiqCol)} : ${couperMilieu(nu(col.name), TITLE_BUDGET - [...nu(etiqCol)].length - 3)}`;
@@ -104,6 +110,29 @@ const titreCollection = [...nu(brutCollection)].length <= TITLE_BUDGET
       emporter ce qu'elle étendait.* */}
   <div class="grille grille--apres-stats">{items.slice(0, 24).map((i, k) => (
     <Carte item={i} lang={lang} href={localize(lang, i.path)} nf={nf} i={k} />
+  ))}{/* ═══════════════════════════════════════════════════════════════════
+      🎯 LOT O — LE SET ENTIER, Y COMPRIS CE QUI N'A PAS DE PAGE
+      ═══════════════════════════════════════════════════════════════════
+      Arbitrage de Preda, 09/09 : « des tuiles grisées, non cliquables ».
+      MESURÉ AVANT de le lui demander, sur la prod : **1 511 pages de set sur
+      3 256 (46,4 %)** annonçaient plus de pièces qu'elles n'en montraient —
+      **3 249 pièces** n'étaient listées NULLE PART. Le bandeau disait déjà la
+      vérité depuis le lot N (« 5 items · 1 collectibles tracked ») ; il disait
+      COMBIEN il en manquait, jamais LESQUELLES.
+      ⭐⭐ La donnée était là depuis le lot N et n'était pas lue : `col.pieces`
+      porte le set ENTIER (catalogue), `col.items` seulement ce qui a une page.
+      C'est le même motif que le chargeur d'index du même lot — *une ligne
+      manquante, pas une donnée manquante*, 8ᵉ fois.
+      ⛔ ELLES NE VONT PAS DANS LE TABLEAU du dessous : ses colonnes sont
+      `plancher` et `offres`, et ces pièces n'ont ni l'un ni l'autre. Une ligne
+      de tableau à deux tirets se lit « prix inconnu » ; une tuile éteinte dit
+      « pièce non suivie », ce qui est la vérité.
+      ⛔ AUCUN PLAFOND À 24 ICI : `items.slice(0, 24)` protège une grille de
+      910 cartes, or le plus gros set du catalogue en compte 16. Un plafond qui
+      ne mord jamais est un plafond qui ment sur son utilité — et celui-ci
+      rendrait le compte du bandeau faux le jour où il mordrait. */}
+  {sansPage.map((x, k) => (
+    <Carte item={x} lang={lang} nf={nf} i={items.slice(0, 24).length + k} eteinte />
   ))}</div>
 
   {items.length > 24 && (

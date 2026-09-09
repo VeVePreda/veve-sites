@@ -932,4 +932,163 @@ console.log('\n6. la série des comics entre-t-elle NUE, sans emporter les colle
   }
 }
 
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 8. 🔴🔴🔴 CHAQUE MODULE DÉCLARÉ PAR LE GABARIT EST-IL RÉELLEMENT ÉMIS ?
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// ⭐⭐⭐ LE DÉFAUT QUE CE § REND MESURABLE, ET POURQUOI AUCUN AUTRE NE POUVAIT.
+// Le 09/09/2026, sur la page SERVIE : `window.vpIndexRayon` valait `undefined`.
+// `Collections.astro` déclarait `const chargeur = moduleJs('index_rayon')` —
+// avec, deux lignes plus haut, un commentaire parlant de « l'ordre des DEUX
+// `<script defer>` » — et n'écrivait jamais le second. Résultat pour un membre :
+// `/sets/` affichait « 60 / 3256 », et la recherche, les filtres et les tris
+// $/MCP ne faisaient RIEN. Le compteur RÉPONDAIT. Personne ne remonte ça.
+//
+// ⛔ ET LES § PRÉCÉDENTS DE CE BANC NE POUVAIENT PAS LE VOIR : ils montent
+// eux-mêmes `index_rayon.js` PUIS `series.js` avant de mesurer (c'est écrit au
+// §2, lot 155-B). Ils prouvent que le pilote marche QUAND ON LUI DONNE le
+// chargeur — jamais que la page le lui donne. **Le banc avait sa propre
+// fabrique de page, et elle était plus complète que la vraie.**
+// ⭐⭐ C'est `regle-seconde-fabrique-ne-montre-que-sa-source` vue de l'autre
+// côté : d'habitude la seconde fabrique en montre MOINS ; ici elle en montrait
+// PLUS, et c'est le même aveuglement.
+//
+// ⭐⭐ CE § NE VÉRIFIE PAS « index_rayon est là ». Il vérifie **la règle** :
+// tout `moduleJs('X')` appelé par le gabarit doit se retrouver dans le HTML
+// rendu ET dans `dist/`. Écrire le cas particulier laisserait le prochain
+// module déclaré-non-émis passer exactement pareil.
+// 🔑 L'empreinte se recalcule ici avec la MÊME formule que `socle_js.mjs`
+// (sha256 du contenu brut, 12 hexa). Vérifiée contre la prod le 09/09 :
+// `sha256(index_rayon.js)[:12]` = `4ed806ef9862`, et `/socle-4ed806ef9862.js`
+// répondait 200 — le module était bâti et servi, seule la ligne manquait.
+console.log('\n8. les modules déclarés par le gabarit sont-ils émis dans la page servie ?');
+{
+  const { createHash } = await import('node:crypto');
+  const gabarit = join(R, 'src', 'components', 'pages', 'Collections.astro');
+  if (!existsSync(gabarit)) {
+    indecis('le gabarit des sets', `${gabarit} absent — rien n'a été mesuré`);
+  } else {
+    const gsrc = readFileSync(gabarit, 'utf8');
+    const noms = [...gsrc.matchAll(/moduleJs\(\s*'([^']+)'\s*\)/g)].map((m) => m[1]);
+    // ⛔ ZÉRO NOM N'EST PAS UN SUCCÈS : ce serait l'instrument qui ne mord pas.
+    if (noms.length < 2) {
+      verifie('le gabarit déclare ses modules', false,
+        `🔴 ${noms.length} appel(s) à moduleJs() trouvé(s) — l'analyse du gabarit a échoué, pas le site`);
+    } else {
+      for (const nom of noms) {
+        const f = join(R, 'src', 'socle', 'modules', `${nom}.js`);
+        if (!existsSync(f)) {
+          verifie(`le module « ${nom} » existe`, false, `🔴 ${f} absent`);
+          continue;
+        }
+        const emp = createHash('sha256').update(readFileSync(f)).digest('hex').slice(0, 12);
+        const href = `/socle-${emp}.js`;
+        verifie(`🎯 « ${nom} » est ÉMIS par la page servie (${href})`,
+          html.indexOf(href) !== -1,
+          html.indexOf(href) !== -1
+            ? 'le <script> pointe le module'
+            : `🔴 déclaré par moduleJs('${nom}') mais AUCUN <script> ne le demande `
+              + '— le module est bâti, servi, et jamais chargé : la page se tait et ment');
+        verifie(`« ${nom} » est bien écrit dans dist/`,
+          existsSync(join(DIST, `socle-${emp}.js`)),
+          `dist/socle-${emp}.js`);
+        lus += 2;
+      }
+    }
+  }
+}
+
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 9. 🎯 LOT O — LA PAGE D'UN SET MONTRE-T-ELLE LE SET ENTIER ?
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// LA MESURE QUI L'A FAIT NAÎTRE (prod, 09/09/2026) : **1 511 pages de set sur
+// 3 256 (46,4 %)** annonçaient plus de pièces qu'elles n'en montraient, et
+// **3 249 pièces** n'étaient listées NULLE PART. `/collection/fantastic-four-
+// vol-1-53/` disait « 5 items · 1 collectibles tracked » et servait UNE carte.
+// Arbitrage de Preda le jour même : « des tuiles grisées, non cliquables ».
+//
+// ⭐⭐⭐ CE § JUGE UNE ÉGALITÉ, PAS UNE PRÉSENCE. « il y a des tuiles éteintes »
+// serait vert le jour où il en manquerait la moitié. Ce qu'on veut tenir, c'est
+// **tuiles rendues == taille annoncée** — le bandeau et la grille doivent dire
+// le même nombre, sinon l'un des deux ment et personne ne sait lequel.
+//
+// ⛔ ET IL EXIGE QUE LE CAS EXISTE DANS L'ÉCHANTILLON. Le build hors ligne ne
+// fabrique que ~37 sets ; si aucun n'était partiel, ce § serait vert sans avoir
+// rien regardé — « un banc joué dans toutes les configurations sauf celle qui
+// compte » (`regle-echantillon-hors-ligne-angle-mort`). L'échantillon du lot N
+// porte exprès un set partiel : on le RÉCLAME, on ne l'espère pas.
+console.log('\n9. la page d\'un set montre-t-elle AUSSI les pièces qui n\'ont pas de fiche ?');
+{
+  const dirCol = join(DIST, 'collection');
+  if (!existsSync(dirCol)) {
+    indecis('les pages de set', `${dirCol} absent — ce banc va APRÈS le build`);
+  } else {
+    const { readdirSync } = await import('node:fs');
+    const { monterDOM } = await import('./_dom_banc.mjs');
+    const slugs = readdirSync(dirCol).filter((d) => existsSync(join(dirCol, d, 'index.html')));
+    let partielles = 0, jugees = 0;
+    for (const slug of slugs) {
+      const h = readFileSync(join(dirCol, slug, 'index.html'), 'utf8');
+      if (h.indexOf('carte--eteinte') === -1) continue;
+      partielles += 1;
+      if (jugees >= 2) continue;            // deux pages suffisent, le § n'est pas un audit
+      const dom = await monterDOM(h);
+      if (!dom) { indecis('la page de set', 'linkedom absent — rien n\'a été mesuré'); break; }
+      const d = dom.document;
+      // ① le nombre ANNONCÉ par la cartouche bleue (`taille` du set, lot N)
+      const annonce = Number((d.querySelector('.stat--bleu .stat__v')?.textContent || '')
+        .replace(/[^\d]/g, ''));
+      const vivantes = [...d.querySelectorAll('.grille--apres-stats .carte')]
+        .filter((c) => !c.classList.contains('carte--eteinte'));
+      const eteintes = [...d.querySelectorAll('.grille--apres-stats .carte--eteinte')];
+      verifie(`🎯 §O ${slug} : la grille rend le set ENTIER`,
+        annonce > 0 && vivantes.length + eteintes.length === annonce,
+        `annoncé ${annonce} · ${vivantes.length} avec fiche + ${eteintes.length} éteinte(s) `
+        + `= ${vivantes.length + eteintes.length}`);
+      // ② CONTRE-ÉPREUVE — sans elle, une grille de zéro carte vivante passerait
+      //    le ① dès que le compte tombe juste par accident.
+      verifie(`§O ${slug} : la page porte AUSSI des cartes vivantes`,
+        vivantes.length > 0 && vivantes.every((c) => c.getAttribute('href')),
+        `${vivantes.length} carte(s) avec un lien`);
+      // ③ UNE TUILE ÉTEINTE NE MÈNE NULLE PART — ni lien, ni favori, ni hôte de prix.
+      const avecLien = eteintes.filter((c) => c.tagName === 'A' || c.getAttribute('href'));
+      verifie(`🎯 §O ${slug} : aucune tuile éteinte n'est un lien`,
+        avecLien.length === 0,
+        avecLien.length ? `🔴 ${avecLien.length} tuile(s) cliquable(s)` : `${eteintes.length} tuile(s), aucune cliquable`);
+      // ⛔ ON REGARDE L'ENVELOPPE, PAS LA CARTE. Le cœur de favori est un FRÈRE
+      //    du lien (`.carte-h > .carte` + `.carte-h > button.socle__fav`) — un
+      //    `<button>` dans un `<a>` serait du HTML invalide, et `Carte.astro`
+      //    le dit en toutes lettres. Chercher `[data-fav]` DANS la carte aurait
+      //    donc rendu 0 quoi qu'il arrive : un contrôle qu'aucune faute ne peut
+      //    faire rougir ne mesure rien.
+      const fuite = eteintes.filter((c) => {
+        const env = c.closest('.carte-h') || c.parentElement;
+        return c.querySelector('[data-cote],.prix') || (env && env.querySelector('[data-fav]'));
+      });
+      verifie(`🎯 §O ${slug} : aucune tuile éteinte ne porte de prix ni de favori`,
+        fuite.length === 0,
+        fuite.length ? '🔴 un hôte de cote ou un cœur sur une pièce sans page' : 'ni hôte de cote, ni cœur');
+      // ④ elle DIT pourquoi elle est éteinte : une tuile grise muette se lit
+      //    « image cassée ».
+      const muettes = eteintes.filter((c) => !c.querySelector('.socle__coin'));
+      verifie(`§O ${slug} : chaque tuile éteinte porte son étiquette`,
+        muettes.length === 0, muettes.length ? `🔴 ${muettes.length} muette(s)` : 'toutes étiquetées');
+      jugees += 1;
+      lus += 5;
+    }
+    // ⛔ ZÉRO PAGE PARTIELLE N'EST PAS UN SUCCÈS — c'est l'échantillon qui ne
+    //    porte pas le cas, donc un banc qui ne mesure rien.
+    verifie('l\'échantillon contient au moins un set PARTIEL',
+      partielles > 0,
+      partielles > 0 ? `${partielles} page(s) de set avec des pièces sans fiche`
+        : '🔴 aucune — le cas du lot O n\'est pas fabriqué dans l\'échantillon, ce § est aveugle');
+    lus += 1;
+  }
+}
+
+
 fin();

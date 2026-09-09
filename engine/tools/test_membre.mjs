@@ -247,6 +247,21 @@ if (!existsSync(DIST)) {
   //   qu'une page entière cesse d'en porter.
   const envDe = (t) => (t.match(/class="carte-h[ "]/g) || []).length;
   const cœurDe = (t) => (t.match(/class="socle__fav"/g) || []).length;
+  // 🎯 LOT O — LES TUILES ÉTEINTES N'ONT PAS DE CŒUR, ET CE N'EST PAS UN
+  // ASSOUPLISSEMENT. Une pièce d'un set qui n'a pas de fiche prend désormais
+  // une tuile éteinte (arbitrage Preda du 09/09) : elle a bien son enveloppe
+  // `.carte-h` — c'est la même case de grille — mais **aucun chemin**. Or le
+  // favori mémorise un uuid, UN CHEMIN et un nom : lui donner un cœur, ce
+  // serait fabriquer un favori qui ne mène nulle part.
+  // ⭐⭐⭐ ON RESTE SUR UNE ÉGALITÉ EXACTE, jamais sur un « au moins ». Écrire
+  // `cœurs <= enveloppes` aurait rendu ce banc vert le jour où un `hidden` de
+  // trop ferait disparaître la moitié des cœurs — c'est exactement la panne
+  // qu'il existe pour attraper, et le commentaire ci-dessus le dit. On ne
+  // relâche pas le terme, **on nomme la population** : les enveloppes qui
+  // doivent porter un cœur sont celles qui portent une carte VIVANTE.
+  // ⛔ Et le pendant — « aucun cœur À L'INTÉRIEUR d'une enveloppe éteinte » —
+  // est mesuré là où il se voit, sur le DOM, par `test:series` §⑨.
+  const eteinteDe = (t) => (t.match(/carte--eteinte/g) || []).length;
   const avecCarte = html.filter((f) => envDe(readFileSync(f, 'utf8')) > 0);
   if (!avecCarte.length) {
     // ⚠️ NORMAL SUR VEVEWIKI : ce site n'a pas de vitrine de pièces.
@@ -254,12 +269,13 @@ if (!existsSync(DIST)) {
   } else {
     const sansCoeur = avecCarte.filter((f) => {
       const t = readFileSync(f, 'utf8');
-      return cœurDe(t) !== envDe(t);
+      return cœurDe(t) !== envDe(t) - eteinteDe(t);
     }).slice(0, 6);
     const totalE = avecCarte.reduce((n, f) => n + envDe(readFileSync(f, 'utf8')), 0);
-    verifie(`autant de cœurs que d'enveloppes, page par page (${avecCarte.length} pages, ${totalE} cartes)`,
+    const totalX = avecCarte.reduce((n, f) => n + eteinteDe(readFileSync(f, 'utf8')), 0);
+    verifie(`un cœur par carte VIVANTE, page par page (${avecCarte.length} pages, ${totalE} enveloppes dont ${totalX} éteinte(s))`,
       sansCoeur.length === 0,
-      sansCoeur.length ? `🔴 ${sansCoeur.map((f) => `${relative(DIST, f)} (${envDe(readFileSync(f, 'utf8'))} cartes / ${cœurDe(readFileSync(f, 'utf8'))} cœurs)`).join(' · ')}` : '');
+      sansCoeur.length ? `🔴 ${sansCoeur.map((f) => { const t = readFileSync(f, 'utf8'); return `${relative(DIST, f)} (${envDe(t)} enveloppes − ${eteinteDe(t)} éteintes / ${cœurDe(t)} cœurs)`; }).join(' · ')}` : '');
     // ⭐ Et la contre-épreuve du CSS : la règle de survol doit suivre
     //   l'enveloppe, sinon le cœur reste à `opacity:0` pour toujours.
     const css = lire(join(ROOT, 'themes', 'vitrine', 'theme.css'));

@@ -57,7 +57,38 @@ import { imageCarte, ONERROR_REPLI } from '../../engine/lib/image_cdn.mjs';
 // ⭐ Et sous le mur elle passe par le MÊME hôte que le plancher (`<Cote>`), donc
 //    par `/api/cote/lot` : aucun pourcentage n'est écrit au serveur.
 const { item, lang, href, nf, i = 0, ed = true, libre = false, cote = true,
-        variation = false } = Astro.props;
+        variation = false, eteinte = false } = Astro.props;
+// ═══════════════════════════════════════════════════════════════════════════
+// 🎯 LOT O — LA TUILE ÉTEINTE, ET POURQUOI ELLE VIT DANS **CE** FICHIER
+// ═══════════════════════════════════════════════════════════════════════════
+// Arbitrage de Preda du 09/09 : « des tuiles grisées, non cliquables ». Mesuré
+// sur la prod avant de le lui demander : **1 511 pages de set sur 3 256
+// (46,4 %)** annoncent plus de pièces qu'elles n'en montrent, et **3 249
+// pièces** ne sont listées nulle part — `/collection/fantastic-four-vol-1-53/`
+// dit « 5 items · 1 collectibles tracked » et sert UNE carte.
+//
+// ⛔⛔ ET ON N'ÉCRIT PAS UN SECOND COMPOSANT. Une `CarteEteinte.astro` serait
+// une DEUXIÈME FABRIQUE de la même tuile : elles divergeraient au premier lot
+// qui n'en touche qu'une, et ce dépôt a déjà payé ce motif cinq fois
+// (`regle-seconde-fabrique-ne-montre-que-sa-source`). Une seule fabrique, un
+// drapeau : `eteinte`.
+//
+// CE QUE LE DRAPEAU CHANGE, ET RIEN D'AUTRE :
+//   · la racine cesse d'être un `<a>` — une tuile qui ne mène nulle part ne
+//     doit pas être un lien : ni tabulable, ni cliquable, ni suivie par un
+//     robot. `aria-disabled` seul sur un `<a href>` laisserait les deux.
+//   · aucun hôte de cote (`<Extremes>`, `<Cote>`) : ces pièces n'ont AUCUN
+//     prix — leur plancher est effacé dans `dataset.mjs` juste après le dépôt
+//     du classement. Un hôte vide enverrait une requête pour un tiret.
+//   · aucun cœur de favori : le favori mémorise un CHEMIN, et il n'y en a pas.
+// ⭐ Le reste — image, nom, rareté, mention d'édition — est identique, parce
+//   que c'est exactement ce que la tuile doit dire : QUELLE pièce manque.
+const Balise = eteinte ? 'div' : 'a';
+// ⭐ Le drapeau IMPLIQUE la fermeture de la cote : appeler `<Carte eteinte
+//   cote={true}>` poserait un hôte de prix sur une pièce qui n'en a pas. On ne
+//   le laisse pas au choix de l'appelant — un appelant se trompe, un invariant
+//   non.
+const avecCote = cote && !eteinte;
 const nom = nomItem(item.name);
 // 🔴 LOT 101 — la carte ne porte plus de montant quand la cote est fermee.
 // ⭐ ELLE NE TESTE PAS `item.floor` : apres `projeter()` ce champ est absent
@@ -105,7 +136,8 @@ const imgC = imageCarte(item.image);
     un chemin et un nom — trois choses déjà publiques sur la carte elle-même.
     Le gestionnaire est global (Base.astro, `[data-fav]`) : rien à brancher. */}
 <div class="carte-h revele" style={`--i:${i}`}>
-<a class="carte" href={href}>
+<Balise class:list={["carte", eteinte && "carte--eteinte"]} href={eteinte ? undefined : href}
+   aria-disabled={eteinte ? "true" : undefined}>
   <div class="socle">
     {item.image ? (
       <>
@@ -138,8 +170,13 @@ const imgC = imageCarte(item.image);
         « cote fermée / cote ouverte », et c'est précisément pour ça qu'il
         n'existait que sur les deux pages qui appellent CE gabarit. Mesuré :
         0 sur 40 lignes de rayon, 0 sur 910 cartes de set. ⇒ `<Extremes>`. */}
-    {cote && <Extremes lang={lang} uuid={item.uuid} item={item} nf={nf} />}
+    {avecCote && <Extremes lang={lang} uuid={item.uuid} item={item} nf={nf} />}
     {libre && <span class="socle__coin etiq">Libre</span>}
+    {/* ⭐ L'ÉTIQUETTE DIT POURQUOI LA TUILE EST ÉTEINTE. Une tuile grise sans
+        mot se lit « image cassée » — c'est le même piège que le losange de
+        repli quatre lignes plus haut. `socle__coin etiq` est le coin que
+        `Libre` occupe déjà : une place, un style, pas une règle de plus. */}
+    {eteinte && <span class="socle__coin etiq">{t(lang, 'collection.untracked')}</span>}
   </div>
 
   <div class="cartouche">
@@ -158,7 +195,7 @@ const imgC = imageCarte(item.image);
         pend sous la dernière. Un `style` en ligne et non une classe : les trois
         contrôles CSS tournent avant le compilateur, et une classe émise sans
         règle dans les thèmes les ferait crier — à juste titre. */}
-    <div class="cartouche__l" style={cote ? undefined : 'border:0'}>
+    <div class="cartouche__l" style={avecCote ? undefined : 'border:0'}>
       {/* ⚠️ `rar--sur-blanc` est OBLIGATOIRE ici : le cartouche est le seul vrai
           blanc de la page, et la forme y bascule sur son encre foncée. Sans
           cette classe, le tracé clair sur blanc tombe à 1,22:1 — invisible. */}
@@ -170,7 +207,7 @@ const imgC = imageCarte(item.image);
           reste, et un `<span>` vide n'occupe aucune place. */}
       <span class="cartouche__s">{ed ? mentionEdition(item.edition_type) : ''}</span>
     </div>
-    {cote && (
+    {avecCote && (
     <div class="cartouche__l" style="border:0;padding-top:0">
       {/* ⭐ LE PICTOGRAMME GEMS RESTE, MEME FERME. Il dit dans quelle UNITE se
           compte ce qui est cache — et une unite n'est pas un montant. Le retirer
@@ -191,8 +228,8 @@ const imgC = imageCarte(item.image);
     </div>
     )}
   </div>
-</a>
-  <button type="button" class="socle__fav" data-fav={item.uuid}
+</Balise>
+  {!eteinte && <button type="button" class="socle__fav" data-fav={item.uuid}
           data-fav-path={item.path} data-fav-nom={item.qualifie || item.name}
           aria-pressed="false"
           data-l={t(lang, 'fav.add')}
@@ -201,5 +238,5 @@ const imgC = imageCarte(item.image);
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <path d="M12 20.3 4.7 13a4.6 4.6 0 0 1 6.5-6.5l.8.8.8-.8A4.6 4.6 0 0 1 19.3 13Z" />
     </svg>
-  </button>
+  </button>}
 </div>
