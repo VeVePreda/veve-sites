@@ -21,7 +21,8 @@ export const prerender = true;
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { ANALYTICS_DIR } from '../../../../engine/lib/reserve_analytics.mjs';
-import { SETS_MCP_FICHIER, TRIS_SETS, TRI_SETS_DEFAUT, classerSets }
+import { piecesDetenues, RE_ADRESSE } from '../../../../engine/lib/classeur_lecture.mjs';
+import { SETS_MCP_FICHIER, TRIS_SETS, TRI_SETS_DEFAUT, classerSets, personnaliser }
   from '../../../../engine/lib/sets_mcp.mjs';
 import { franchit, porte } from '../../../../engine/lib/access.mjs';
 
@@ -168,17 +169,42 @@ export async function GET({ params, request, locals }) {
   const tri = TRIS_SETS.includes(sp.get('tri') || '') ? sp.get('tri') : TRI_SETS_DEFAUT;
   const n = entierBorne(sp.get('n'), SETS_DEFAUT, 1, SETS_MAX);
   const charge = JSON.parse(brut);
-  const tous = Array.isArray(charge.sets) ? charge.sets : [];
+  let tous = Array.isArray(charge.sets) ? charge.sets : [];
+  // 👛 LOT N ⑪ — `?adresse=0x…` : le classement VU DE CE PORTEFEUILLE.
+  //   Les sets complets sortent, le coût des autres est celui des pièces
+  //   manquantes (`personnaliser()`, sets_mcp.mjs). ⛔ Adresse mal formée ⇒ 400 ;
+  //   réserve du classeur absente ⇒ 503 — jamais un classement « personnalisé »
+  //   qui ne le serait pas.
+  const adresse = sp.get('adresse') || '';
+  let perso = null;
+  if (adresse) {
+    if (!RE_ADRESSE.test(adresse)) return refus(400, 'adresse');
+    const det = piecesDetenues(adresse);
+    if (det === null) return refus(503, 'classeur');
+    const r = personnaliser(tous, det);
+    tous = r.sets;
+    perso = { personnalise: true, adresse, possedes: det.size, exclus: r.exclus, touches: r.touches };
+  }
   const classes = classerSets(tous, tri);
+  // ⭐ Le compte de classables suit la personnalisation : sinon l'étiquette
+  //   annoncerait le total de tout le monde sur un classement qui n'est plus le sien.
+  const classables = perso ? classes.filter((a) => a.usdParMcp !== null).length : charge.classables;
+  const classablesStackr = perso ? classes.filter((a) => a.stackrParMcp !== null).length : charge.classablesStackr;
+  // 🔒 `pieces` (uuid + planchers de chaque pièce) ne sort PAS de la route : la
+  //   page ne s'en sert pas, et un tableau de 20 000 planchers n'a pas à voyager.
+  const sansPieces = (a) => { const { pieces, ...reste } = a; return reste; };
   return new Response(JSON.stringify({
     ...charge,
+    ...(perso || {}),
+    classables, classablesStackr,
     tri,
     // ⭐ LE DÉNOMINATEUR VOYAGE AVEC LA TRANCHE. `total` et `classables`
     //   viennent du fichier ; `rendus` dit ce que CETTE réponse contient. Sans
     //   les trois, « 50 sets » se lit « le catalogue fait 50 sets ».
+    total: tous.length,
     rendus: Math.min(n, classes.length),
     tronque: classes.length > n,
-    sets: classes.slice(0, n),
+    sets: classes.slice(0, n).map(sansPieces),
   }), { status: 200, headers: ENTETES });
 }
 

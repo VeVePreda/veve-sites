@@ -229,6 +229,19 @@ const pages = [];
 // meme `dist/` — identique. Les §2-4 recoivent desormais leurs materiaux de
 // CETTE boucle au lieu de les recalculer depuis un tableau retenu.
 let talons = 0;
+// 🎯 LOT N — LES ALIAS D'ADRESSE. Un set servi à son ancienne adresse EN PLUS
+// de la sienne (`sets.mjs` § 3 bis) porte le même `<title>` que sa vraie page :
+// ce n'est pas un doublon, c'est un doublon DÉCLARÉ — son `<link
+// rel="canonical">` pointe une AUTRE adresse. ⭐ On l'écarte du §3 par ce
+// qu'il DIT (le canonical), jamais par son nom, et on compte : un alias dont
+// la cible n'existe pas dans `dist/` est une promesse vide, et se refuse.
+const alias = [];
+const aliasCasses = [];
+const cheminCanonique = (h) => {
+  const m = h.match(/<link\s+rel="canonical"\s+href="([^"]+)"/i);
+  if (!m) return null;
+  try { return new URL(m[1]).pathname; } catch { return m[1]; }
+};
 let nbContenu = 0;
 // §2 — les <h1>
 const trop = [];
@@ -254,8 +267,18 @@ for (const p of pages) {
   else if (nH1 === 0) aucun.push(chemin);
 
   const titre = titreDe(h);
+  // l'adresse que cette page SERT, sous la forme du canonical (`/x/`)
+  const propre = chemin.replace(/\\/g, '/').replace(/index\.html$/, '');
+  const canon = cheminCanonique(h);
+  // ⭐ On compare SANS locale des deux côtés : une traduction canonise sa
+  //   propre adresse localisée, ce n'est pas un alias.
+  const estAlias = !!canon && sansLocale(canon).replace(/\/$/, '') !== sansLocale(propre).replace(/\/$/, '');
+  if (estAlias) {
+    alias.push(chemin);
+    if (!existsSync(join(DIST, canon.replace(/^\//, ''), 'index.html'))) aliasCasses.push(`${chemin} → ${canon}`);
+  }
   if (!titre) sansTitre.push(chemin);
-  else {
+  else if (!estAlias) {
     if (!parTitre.has(titre)) parTitre.set(titre, []);
     parTitre.get(titre).push(chemin);
   }
@@ -326,6 +349,10 @@ for (const [titre, chemins] of parTitre) {
   const distincts = [...new Set(chemins.map(sansLocale))];
   if (distincts.length > 1) doublons.push(`« ${titre} » → ${distincts.slice(0, 4).join(' + ')}`);
 }
+dit(true, `${alias.length} alias d'adresse (canonical vers une autre page) écarté(s) du compte des doublons`
+  + (alias.length ? ` — ${alias.slice(0, 3).join(' · ')}${alias.length > 3 ? ' …' : ''}` : ''));
+dit(aliasCasses.length === 0, 'chaque alias pointe une page qui EXISTE dans dist/',
+  aliasCasses.length === 0 ? null : `${aliasCasses.length} alias vers le vide : ${aliasCasses.slice(0, 4).join(' · ')}`);
 dit(doublons.length === 0, `${parTitre.size} titre(s) distinct(s), aucun partagé par deux pages différentes`,
   doublons.length === 0 ? null
     : `${doublons.length} doublon(s) : ${doublons.slice(0, 5).join(' · ')}${doublons.length > 5 ? ' …' : ''}`);

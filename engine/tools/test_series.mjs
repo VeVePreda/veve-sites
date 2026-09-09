@@ -70,8 +70,12 @@ console.log('\n1. la licence d\'un set est-elle dérivée de ses pièces, à un 
 const src = readFileSync(join(R, 'engine', 'lib', 'dataset.mjs'), 'utf8');
 verifie('`dataset.mjs` pose `licensor` sur la collection',
   /c\.licensor\s*=/.test(src), 'un seul endroit calcule l\'axe');
+// 🎯 LOT N — la majorité se prend sur `c.pieces` (le set ENTIER, pages ou
+//   non) ; `c.items` reste accepté. Le § juge le MÉCANISME (une majorité sur
+//   les pièces du set), pas le nom de la liste — sinon il s'opposait à la
+//   correction du 08/09 exactement comme `test:projection` au lot I.
 verifie('…par MAJORITÉ, pas sur la première pièce rencontrée',
-  /majoritaire\s*\(/.test(src) && /majoritaire\(c\.items,\s*'licensor'\)/.test(src),
+  /majoritaire\s*\(/.test(src) && /majoritaire\(c\.(pieces|items),\s*'licensor'\)/.test(src),
   '⛔ `items[0].licensor` serait juste aujourd\'hui (0 set mixte) et faux en silence demain');
 // ⛔ ET LE GABARIT NE LE REDÉRIVE PAS. Deux calculs pour un même axe divergent
 //    au premier lot qui n'en touche qu'un — c'est la panne du lot 127.

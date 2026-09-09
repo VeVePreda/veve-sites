@@ -317,7 +317,8 @@ export function indexRayon(ds, corpus) {
   // format aurait divergé au premier changement.
   if (corpus === 'sets') {
     const dic = { b: dictionnaire(), l: dictionnaire(), ty: dictionnaire() };
-    const cols = [...ds.collections.values()].sort((a, b) => b.items.length - a.items.length);
+    // 🎯 LOT N — la TAILLE d'un set est celle de VeVe (`taille`, toutes ses pièces), pas le nombre de pages.
+    const cols = [...ds.collections.values()].sort((a, b) => (b.taille ?? b.items.length) - (a.taille ?? a.items.length));
     // ⭐ LOT 155-B — LES PILES SONT CHOISIES AVANT LA BOUCLE, PARCE QUE LE
     // PRÉFIXE SE MESURE SUR L'ENSEMBLE. On ne peut pas factoriser un préfixe
     // qu'on découvre ligne par ligne : il faut avoir vu la dernière adresse
@@ -348,7 +349,7 @@ export function indexRayon(ds, corpus) {
         dic.b.idx(c.brand),
         dic.l.idx(c.licensor),
         ans[0] || 0,
-        c.items.length,
+        c.taille ?? c.items.length,
         dic.ty.idx(nbComic * 2 > c.items.length ? 'comic' : 'collectible'),
         // ⭐ LE NOM COUPÉ, ET SEULEMENT S'IL EST COUPÉ — voir le bloc de COLS_SET.
         nomCoupe.tronque ? nomCoupe.vu : 0,

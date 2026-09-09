@@ -102,14 +102,14 @@ const nf = numberLocale[lang] || 'en-GB';
 //    qu'un troisième composant qui divergerait au premier changement.
 const lignes = rayon === 'sets'
   ? [...ds.collections.values()]
-      .sort((a, b) => b.items.length - a.items.length)
+      .sort((a, b) => (b.taille ?? b.items.length) - (a.taille ?? a.items.length))
       // ⚠️ `uuid: null` EXPLICITE, ET CE N'EST PAS UN OUBLI : un regroupement
       //    par série n'a pas d'uuid de pièce, donc pas d'extrêmes — même
       //    décision que sur `CarteSet` (Preda, 11/08). Le nommer à `null`
       //    plutôt que l'omettre fait que `<Extremes>` reçoit une absence
       //    DÉCLARÉE au lieu d'un `undefined` qu'on lirait comme un bug.
       .map((c) => ({ uuid: null, nom: c.name, budget: 'set',
-                     sous: `${c.items.length} ${t(lang, 'collections.items')}`,
+                     sous: `${c.taille ?? c.items.length} ${t(lang, 'collections.items')}`,
                      path: `/collection/${c.slug}/`, rarity: '', tirage: null, serie: '' }))
   : ds.rayon
       .filter((r) => r.type === (rayon === 'comics' ? 'comic' : 'collectible'))

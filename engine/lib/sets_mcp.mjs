@@ -32,17 +32,17 @@
 //   débit journalier fabriquerait un chiffre qui ne décrit aucune durée.
 //   L'étiquette de la page le mentionne à part ; le ratio ne le porte pas.
 //
-// ⚠️⚠️ LA PRÉMISSE QUI N'EST PAS MESURÉE, ET QUI DOIT SE RELIRE :
-//   **« un set du site » = « un Set de VeVe » n'est pas vérifié.** Ici un set
-//   est ce que `dataset.mjs` appelle une `collection` : une SÉRIE, ou
-//   `<série> #<numéro>` pour un comic (`cleSet`, l. ~1323). Si VeVe groupe
-//   autrement, le bonus de set est attribué au mauvais objet — et le chiffre
-//   serait faux sans qu'aucun banc puisse le voir, parce que les deux côtés
-//   seraient cohérents avec eux-mêmes. ⇒ À poser à Preda / à mesurer à la
-//   source AVANT de publier ce classement hors du palier de mesure.
-//   ⭐ C'est pourquoi la définition du set n'est PAS recopiée ici : ce module
+// ✅ LA PRÉMISSE EST MESURÉE DEPUIS LE LOT N (08/09/2026) — ET ELLE ÉTAIT
+//   FAUSSE : « un set du site » n'était PAS « un Set de VeVe ». La clé
+//   `<série> #<numéro>` (lot 71) confondait les réimpressions, et
+//   `/api/analytics/sets_mcp?n=200` servait 176 numéros de comics sur 200,
+//   hissés par ce bonus-là. Un set est désormais un `series_uuid` — la clé
+//   de VeVe (comics : jamais plus de 5 pièces, 2 075/2 075 groupes de 5 à 5
+//   raretés distinctes ; collectibles : 924 contre 936 « Sets » de `getSets`).
+//   Voir `sets.mjs`, qui décide seul ce qu'est un set.
+//   ⭐ La définition du set n'est toujours PAS recopiée ici : ce module
 //   reçoit les `collections` déjà faites. Un seul endroit décide ce qu'est un
-//   set, et le jour où cette prémisse tombe, il n'y a qu'un endroit à changer.
+//   set — c'est exactement ce qui a rendu la correction locale.
 
 import { mcpPoints } from './vitrine.mjs';
 
@@ -110,7 +110,16 @@ export const pointsDeSet = (taille) => {
  *    d'entrée, pas un prix payé.
  */
 export function agregerSet(col) {
-  const items = Array.isArray(col?.items) ? col.items : [];
+  // 🎯 LOT N — LE SET ENTIER, PAS SES SEULES PAGES. `dataset.mjs` pose
+  //   `col.pieces` (toutes les pièces du catalogue pour ce `series_uuid`) à
+  //   côté de `col.items` (celles qui ont une page). Mesuré le 08/09 sur le
+  //   build réel : 127 des 200 premiers sets se calculaient sur une taille
+  //   PUBLIÉE inférieure à leur taille VeVe (1 page pour 5 pièces). Le ratio
+  //   d'un set est celui de TOUTES ses pièces — refus ① appliqué à la
+  //   population, pas seulement aux planchers.
+  //   ⭐ `col.items` reste accepté (bancs, appelants anciens) : un set sans
+  //   `pieces` est un set dont toutes les pièces ont une page.
+  const items = Array.isArray(col?.pieces) ? col.pieces : (Array.isArray(col?.items) ? col.items : []);
   const taille = items.length;
 
   let cout = 0;
@@ -125,14 +134,25 @@ export function agregerSet(col) {
   let coutStackr = 0;
   let couvertStackr = 0;
 
+  // 👛 LOT N ⑪ — CHAQUE PIÈCE VOYAGE AVEC LE SET, sous forme compacte
+  //   `[uuid, plancher VeVe, plancher StackR en $, points MCP]` (`null` quand
+  //   inconnu). C'est ce qui permet à `personnaliser()` de recalculer le coût
+  //   sur les seules pièces MANQUANTES d'un portefeuille, à la requête, sans
+  //   relire le catalogue. 🔒 Ces planchers vont dans `.reserve/sets_mcp.json`,
+  //   derrière la même porte que `cout` : même nature, même mur.
+  const pieces = [];
   for (const i of items) {
     const f = i?.floor;
-    if (typeof f === 'number' && Number.isFinite(f) && f > 0) { cout += f; couvert++; }
+    const fOk = typeof f === 'number' && Number.isFinite(f) && f > 0;
+    if (fOk) { cout += f; couvert++; }
     const s2 = i?.floorStackrUsd;
-    if (typeof s2 === 'number' && Number.isFinite(s2) && s2 > 0) { coutStackr += s2; couvertStackr++; }
+    const sOk = typeof s2 === 'number' && Number.isFinite(s2) && s2 > 0;
+    if (sOk) { coutStackr += s2; couvertStackr++; }
     const m = mcpPoints(i?.rarity, i?.type);
-    if (typeof m === 'number' && Number.isFinite(m) && m > 0) pointsPieces += m;
+    const mOk = typeof m === 'number' && Number.isFinite(m) && m > 0;
+    if (mOk) pointsPieces += m;
     else sansBareme++;
+    pieces.push([String(i?.uuid || ''), fOk ? f : null, sOk ? s2 : null, mOk ? m : null]);
   }
 
   const bonusSet = pointsDeSet(taille);
@@ -169,7 +189,63 @@ export function agregerSet(col) {
     // 🔑 ET LE MÊME, SUR STACKR — la seconde moitié de la demande `f`.
     // ⭐ Les deux se comparent : même unité, même dénominateur, même définition.
     stackrParMcp: completStackr && points !== null && points > 0 ? coutStackr / points : null,
+    pieces,
   };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 👛 LOT N ⑪ — LE CLASSEMENT VU D'UN PORTEFEUILLE
+// ═══════════════════════════════════════════════════════════════════════════
+// 🗣️ Preda (05/09) : « on peut aussi exclure ceux qu'on possède si
+//   l'utilisateur a renseigné son wallet ». Et l'en-tête de ce fichier dit
+//   pourquoi ce n'est pas un confort : un 2ᵉ exemplaire ne rapporte que 30 %,
+//   donc le `$/MCP` de tout le monde est FAUX pour celui qui possède déjà.
+// ⭐ CE QUE LE PORTEFEUILLE CHANGE, ET RIEN D'AUTRE :
+//   · un set dont il détient TOUTES les pièces est EXCLU du classement (le
+//     compléter n'est plus possible, le racheter ne vaut que 30 %) ;
+//   · pour les autres, le coût est celui des pièces MANQUANTES, et les points
+//     gagnés = le bonus de set (qu'il n'a pas encore) + les points des pièces
+//     manquantes. Les pièces qu'il a déjà lui rapportent déjà leurs points :
+//     elles ne comptent ni au numérateur ni au dénominateur.
+//   · les refus ① et ② s'appliquent aux pièces MANQUANTES : une manquante sans
+//     plancher ⇒ pas de coût, sans barème ⇒ pas de points, donc pas de ratio.
+// ⛔ La liste des pièces détenues vient du CLASSEUR (grand livre on-chain,
+//   `engine/lib/classeur.mjs`) — jamais d'une déclaration de l'utilisateur.
+/**
+ * @param agregats  sortie de `agregerSet` (avec `pieces`)
+ * @param possedes  `Set` des uuid détenus (une pièce compte une fois, quel que
+ *                  soit le nombre d'éditions)
+ * @returns `{ sets, exclus, touches }` — `sets` sans les sets complets
+ */
+export function personnaliser(agregats, possedes) {
+  const det = possedes instanceof Set ? possedes : new Set(possedes || []);
+  let exclus = 0, touches = 0;
+  const sets = [];
+  for (const a of agregats) {
+    const pieces = Array.isArray(a.pieces) ? a.pieces : [];
+    const manque = pieces.filter((p) => !det.has(p[0]));
+    const possede = pieces.length - manque.length;
+    if (possede === 0 || pieces.length === 0) { sets.push({ ...a, possede }); continue; }
+    if (manque.length === 0) { exclus++; continue; }
+    touches++;
+    let cout = 0, ok = true, coutS = 0, okS = true, pts = 0, okP = true;
+    for (const [, f, s2, m] of manque) {
+      if (f === null) ok = false; else cout += f;
+      if (s2 === null) okS = false; else coutS += s2;
+      if (m === null) okP = false; else pts += m;
+    }
+    const bonus = pointsDeSet(pieces.length);
+    const points = okP && bonus !== null ? bonus + pts : null;
+    sets.push({
+      ...a, possede,
+      cout: ok ? cout : null,
+      coutStackr: okS ? coutS : null,
+      points,
+      usdParMcp: ok && points !== null && points > 0 ? cout / points : null,
+      stackrParMcp: okS && points !== null && points > 0 ? coutS / points : null,
+    });
+  }
+  return { sets, exclus, touches };
 }
 
 /** Les clés de tri, déclarées ICI et nulle part ailleurs — la leçon de

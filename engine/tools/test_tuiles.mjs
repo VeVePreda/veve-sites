@@ -1768,7 +1768,18 @@ console.log('\n8. la couverture et les extrêmes, dans le tableau (lot I ① ⑤
   //   448,2 px dans un hôte de 1 376,7, et le document ne déborde pas.
   {
     const pc = (CSS.match(/@media\s*\(min-width:821px\)\s*\{[\s\S]*?\n\}/) || [])[0] || '';
-    const regleH1 = (pc.match(/\.bandeau h1\s*\{([^}]*)\}/) || [])[1] || '';
+    // 🔴🔴 LOT N — ET CE § A ENCORE MESURÉ UN ENDROIT (08/09, prod à 15:20 UTC).
+    // Il ne lisait `.bandeau h1` QUE dans le bloc PC. Or une règle `.bandeau
+    // h1{font-size:22px}` HORS média vaut à toutes les largeurs, et elle bat
+    // `.mono-t` exactement comme le 62 px d'avant. Le § disait « hérité de
+    // `.mono-t` » pendant que la prod servait 22 px. ⇒ On lit la CASCADE :
+    // ce que le bloc PC déclare, SINON ce que la règle de base déclare,
+    // SINON `.mono-t`. C'est ce que fait le navigateur, pas ce que fait un
+    // grep dans un bloc.
+    const hors = CSS.replace(/@media[^{]*\{[\s\S]*?\n\}/g, '');           // les règles hors média
+    const regleBase = (hors.match(/\.bandeau h1\s*\{([^}]*)\}/) || [])[1] || '';
+    const reglePc = (pc.match(/\.bandeau h1\s*\{([^}]*)\}/) || [])[1] || '';
+    const regleH1 = /font-size\s*:/.test(reglePc) ? reglePc : `${regleBase};${reglePc}`;
     // 🔴🔴⭐⭐⭐ LOT M — CE § S'OPPOSAIT À SA PROPRE CORRECTION (08/09/2026).
     // Il exigeait un `font-size` **déclaré sur `.bandeau h1`** ≥ 48 px. Or la
     // bonne correction est de **ne plus rien déclarer du tout** : le `<h1>`
@@ -1794,7 +1805,7 @@ console.log('\n8. la couverture et les extrêmes, dans le tableau (lot I ① ⑤
       .filter((d) => new RegExp(d + '\\s*:').test(regleH1));
     verifie('② le titre du bandeau monte à 48 px ou plus en PC',
       taille >= 48,
-      `${taille || '—'}px — ${declaree ? 'déclaré par le bandeau' : 'hérité de `.mono-t` (le bandeau ne le rabaisse plus)'}`
+      `${taille || '—'}px — ${declaree ? 'déclaré par le bandeau' + (/font-size\s*:/.test(reglePc) ? ' (bloc PC)' : ' (RÈGLE DE BASE, hors média — elle vaut à toutes les largeurs)') : 'hérité de `.mono-t` (le bandeau ne le rabaisse plus)'}`
         + (taille >= 48 ? '' : ' 🔴 le cran « outil » a été remis, ou `.mono-t` a perdu son plafond'));
     verifie('…et il LAISSE `.mono-t` porter le caractère (il ne le réécrit pas)',
       reprises.length === 0,

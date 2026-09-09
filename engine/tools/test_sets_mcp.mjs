@@ -409,6 +409,321 @@ console.log('\n⑪ le second marché, et l\'unité');
     TRIS_SETS.join(' '));
 }
 
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ── ⑦ LOT N — UN SET = UN `series_uuid` (engine/lib/sets.mjs) ─────────────
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐ Le module est PUR : on lui donne des pièces, il rend des sets. Le banc
+//   fabrique donc les cas que la prod a montrés le 08/09 (réimpression sous
+//   la même adresse, homonymes, pièce dont la `series` diverge) et lit ce
+//   qui sort. `slugify` est recopié ici à l'identique plutôt qu'importé de
+//   `dataset.mjs` (l'importer vide `.reserve/cote/`, voir l'en-tête).
+{
+  console.log('\n⑦ LOT N — un set = un `series_uuid`, les adresses survivent');
+  const { exigerColonneSets, construireSets, cleHeritee, uuid8, ORPHELINS_MAX } = await import('../lib/sets.mjs');
+  const { jourISO } = await import('../lib/vitrine.mjs');
+  const slugify = (x) => String(x).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'item';
+  const outils = { slugify, jourISO };
+  const U = (n) => `${String(n).padStart(8, '0')}-0000-4000-8000-000000000000`;
+  const piece = (o) => ({ uuid: o.uuid || `${o.seriesUuid}-${o.rarity}`, type: o.type || 'comic', series: o.series,
+    edition_type: o.edition_type ?? '1', name: o.name, seriesUuid: o.seriesUuid, releaseDate: o.releaseDate, rarity: o.rarity || 'COMMON' });
+  const RARETES = ['COMMON', 'UNCOMMON', 'RARE', 'ULTRA_RARE', 'SECRET_RARE'];
+  const setDe = (n, o) => RARETES.slice(0, n).map((r) => piece({ ...o, rarity: r }));
+
+  // la porte
+  let leve = null;
+  try { exigerColonneSets([{ uuid: 'a', series: 'S' }]); } catch (e) { leve = e; }
+  verifie('🚪 la porte LÈVE quand l\'en-tête n\'a pas `series_uuid`',
+    !!leve && /series_uuid/.test(leve.message), leve ? leve.message.slice(0, 70) : '🔴 rien levé');
+  let calme = true;
+  try { exigerColonneSets([{ uuid: 'a', series: 'S', series_uuid: '' }]); exigerColonneSets([]); } catch { calme = false; }
+  verifie('…et reste muette sur une colonne présente (même vide) ou un catalogue vide', calme);
+
+  // le cas de la prod : Red Sonja: Noir #1, éditions 2025 et 2026 sous UNE adresse
+  const rs25 = setDe(5, { series: 'Red Sonja: Noir', name: 'Red Sonja: Noir #1 (2025)', seriesUuid: U(1), releaseDate: '16/07/2025' });
+  const rs26 = setDe(4, { series: 'Red Sonja: Noir', name: 'Red Sonja: Noir #1 (2026)', seriesUuid: U(2), releaseDate: '01/07/2026' });
+  const { collections: c1, stats: s1 } = construireSets([...rs26, ...rs25], outils);
+  verifie('une adresse qui mêlait 2 sets ÉCLATE en 2 pages',
+    c1.size === 2 && s1.groupesEclates === 1, `${c1.size} set(s), ${s1.groupesEclates} groupe(s) éclaté(s)`);
+  verifie('l\'AÎNÉ (sortie la plus ancienne) GARDE l\'ancienne adresse — aucune ancienne adresse ne meurt',
+    c1.get('red-sonja-noir-1')?.seriesUuid === U(1) && c1.get('red-sonja-noir-1')?.items.length === 5,
+    `red-sonja-noir-1 → ${c1.get('red-sonja-noir-1')?.name || '∅'}`);
+  verifie('le cadet reçoit l\'adresse de son NOM (elle était libre)',
+    c1.get('red-sonja-noir-1-2026')?.seriesUuid === U(2), [...c1.keys()].join(' '));
+  verifie('`colSlug` est posé sur CHAQUE pièce, par le module (leçon du lot 102)',
+    rs25.every((i) => i.colSlug === 'red-sonja-noir-1') && rs26.every((i) => i.colSlug === 'red-sonja-noir-1-2026'));
+  verifie('le nom d\'un set de comics est celui de ses pièces (l\'année y est), pas la série',
+    c1.get('red-sonja-noir-1').name === 'Red Sonja: Noir #1 (2025)', c1.get('red-sonja-noir-1').name);
+
+  // stabilité : l'ordre d'entrée ne change rien
+  const bis = [...rs25, ...rs26].map((i) => ({ ...i, colSlug: undefined }));
+  const { collections: c1b } = construireSets(bis.reverse(), outils);
+  verifie('les adresses ne dépendent PAS de l\'ordre des pièces (deux passes, mêmes slugs)',
+    [...c1b.keys()].sort().join() === [...c1.keys()].sort().join()
+      && c1b.get('red-sonja-noir-1').seriesUuid === U(1));
+
+  // le nom est PRIS → 8 hex ; et un nom ne vole jamais l'adresse d'un autre groupe
+  const sn1 = setDe(5, { series: 'Supernatural', name: 'Supernatural #1 (2025)', seriesUuid: U(3), releaseDate: '29/10/2025' });
+  const sn2 = setDe(5, { series: 'Supernatural', name: 'Supernatural #1 (2025)', seriesUuid: U(4), releaseDate: '04/02/2026' });
+  const sn3 = setDe(5, { series: 'Supernatural', name: 'Supernatural #1 (2025)', seriesUuid: U(5), releaseDate: '04/02/2026' });
+  // un set d'un AUTRE groupe dont le nom vaut exactement un ancien slug
+  const voleur = setDe(2, { series: 'Autre', edition_type: '9', name: 'Supernatural #1', seriesUuid: U(6), releaseDate: '01/01/2020' });
+  const autre = setDe(3, { series: 'Autre', edition_type: '9', name: 'Autre #9', seriesUuid: U(7), releaseDate: '01/01/2019' });
+  const { collections: c2, stats: s2 } = construireSets([...sn1, ...sn2, ...sn3, ...voleur, ...autre], outils);
+  verifie('deux homonymes de plus : le 2ᵉ prend l\'adresse de son nom (`-2025`, libre), le 3ᵉ la trouve PRISE et prend `<ancien>-<8 hex>`',
+    c2.get('supernatural-1')?.seriesUuid === U(3) && c2.get('supernatural-1-2025')?.seriesUuid === U(4)
+      && c2.get(`supernatural-1-${uuid8(U(5))}`)?.seriesUuid === U(5),
+    [...c2.keys()].join(' '));
+  verifie('un set dont le NOM vaut l\'ancienne adresse d\'un autre groupe ne la VOLE pas (réservée d\'abord)',
+    c2.get('supernatural-1')?.seriesUuid === U(3) && !c2.get('autre-9') === false && c2.get('autre-9').seriesUuid === U(7)
+      && [...c2.values()].find((c) => c.seriesUuid === U(6))?.slug === `autre-9-${uuid8(U(6))}`,
+    [...c2.values()].map((c) => `${c.slug}=${c.seriesUuid.slice(0, 8)}`).join(' '));
+  verifie('trois sets au même nom rendent trois NOMS distincts (jour de sortie, puis 8 hex)',
+    new Set([...c2.values()].map((c) => c.name)).size === c2.size && s2.nomsDesambigues >= 2,
+    [...c2.values()].map((c) => c.name).join(' | '));
+
+  // deux cadets de deux GROUPES veulent le même slug de nom : le plus ANCIEN l'a, quel que soit l'ordre des groupes
+  const gA1 = setDe(2, { series: 'Zed', edition_type: '1', name: 'Zed #1', seriesUuid: U(20), releaseDate: '01/01/2020' });
+  const gA2 = setDe(2, { series: 'Zed', edition_type: '1', name: 'Zed #1 (2024)', seriesUuid: U(21), releaseDate: '01/01/2024' });   // cadet du groupe `zed-1`, jeune
+  const gB1 = setDe(2, { series: 'Zed', edition_type: '2', name: 'Zed #2', seriesUuid: U(22), releaseDate: '01/01/2020' });
+  const gB2 = setDe(2, { series: 'Zed', edition_type: '2', name: 'Zed #1 (2024)', seriesUuid: U(23), releaseDate: '01/01/2022' });   // cadet du groupe `zed-2`, PLUS ANCIEN, même nom voulu
+  const { collections: c5 } = construireSets([...gA1, ...gA2, ...gB1, ...gB2], outils);
+  verifie('deux cadets de deux groupes veulent `zed-1-2024` : le plus ANCIEN l\'obtient (pas le premier groupe dans l\'ordre), l\'autre prend 8 hex',
+    c5.get('zed-1-2024')?.seriesUuid === U(23) && c5.get(`zed-1-${uuid8(U(21))}`)?.seriesUuid === U(21),
+    [...c5.values()].map((c) => `${c.slug}=${c.seriesUuid.slice(6, 8)}`).join(' '));
+
+  // alias : une pièce dont la `series` diverge rejoint son set, son ancienne adresse survit
+  const ff = setDe(4, { series: 'Fantastic Four', edition_type: '13', name: 'Fantastic Four #13 (2025)', seriesUuid: U(8), releaseDate: '01/03/2025' });
+  const egaree = piece({ series: 'Fantastic Four Vol. 8', edition_type: '13', name: 'Fantastic Four #13 (2025)', seriesUuid: U(8), releaseDate: '01/03/2025', rarity: 'SECRET_RARE' });
+  const { collections: c3, stats: s3 } = construireSets([...ff, egaree], outils);
+  verifie('la pièce égarée rejoint son set (5 pièces, une page)',
+    c3.size === 1 && c3.get('fantastic-four-13')?.items.length === 5, `${c3.size} set(s)`);
+  verifie('…et son ancienne adresse devient un ALIAS du set (servie, canonical vers la vraie page)',
+    c3.get('fantastic-four-13')?.alias.join() === 'fantastic-four-vol-8-13' && s3.alias === 1,
+    `alias : ${c3.get('fantastic-four-13')?.alias.join(' ') || '∅'}`);
+
+  // orphelins : tolérés et COMPTÉS, rangés derniers ; au-delà du seuil, refus
+  const orphelin = piece({ series: 'Red Sonja: Noir', name: 'Red Sonja: Noir #1 (2024)', seriesUuid: '', releaseDate: '01/01/2024', rarity: 'RARE', uuid: 'orph' });
+  // ⚠️ 1 orpheline sur 11 pièces = 9 % : SOUS le seuil, sinon c'est le refus qu'on mesure
+  const { collections: c4, stats: s4 } = construireSets([orphelin, ...rs25.map((i) => ({ ...i })), ...sn1.map((i) => ({ ...i }))], outils);
+  verifie('une pièce SANS clé forme un set orphelin, compté, et ne prend PAS l\'ancienne adresse d\'un vrai set (même plus ancienne)',
+    s4.orphelins === 1 && s4.setsOrphelins === 1 && c4.get('red-sonja-noir-1')?.seriesUuid === U(1)
+      && [...c4.values()].find((c) => c.orphelin)?.slug !== 'red-sonja-noir-1',
+    `orphelins ${s4.orphelins} · ${[...c4.keys()].join(' ')}`);
+  let refus = null;
+  try { construireSets([orphelin, piece({ series: 'X', name: 'X #1', seriesUuid: '', releaseDate: '', uuid: 'o2' })], outils); } catch (e) { refus = e; }
+  verifie(`au-delà de ${100 * ORPHELINS_MAX} % de pièces sans clé, le module REFUSE (colonne vide déguisée en présente)`,
+    !!refus && /series_uuid/.test(refus.message), refus ? refus.message.slice(0, 60) : '🔴 accepté');
+  verifie('`cleHeritee` rend toujours l\'ancienne clé du lot 71 — c\'est l\'histoire des adresses',
+    cleHeritee({ type: 'comic', series: 'S', edition_type: '3' }) === 'S #3'
+      && cleHeritee({ type: 'comic', series: 'S', edition_type: '' }) === 'S'
+      && cleHeritee({ type: 'collectible', series: 'S', edition_type: '3' }) === 'S');
+
+  // LA POPULATION : le set entier (`pieces`), pas ses seules pages (`items`)
+  // 🔬 127 des 200 premiers sets se calculaient sur 1 page pour 5 pièces (08/09).
+  const publiee = { floor: 100, rarity: 'COMMON', type: 'comic', path: '/x/' };
+  const sansPage = (f, r) => ({ floor: f, rarity: r, type: 'comic', path: null });
+  const partiel = agregerSet({ slug: 'p', name: 'P', items: [publiee] });
+  const entier = agregerSet({ slug: 'p', name: 'P', items: [publiee],
+    pieces: [publiee, sansPage(50, 'UNCOMMON'), sansPage(200, 'RARE'), sansPage(400, 'ULTRA_RARE'), sansPage(900, 'SECRET_RARE')] });
+  verifie('🎯 `agregerSet` compte TOUTES les pièces du set (`pieces`), pas seulement celles qui ont une page',
+    entier.taille === 5 && entier.cout === 1650 && entier.bonusSet === 5 && partiel.taille === 1,
+    `entier : ${entier.taille} p, ${entier.cout} $, bonus ${entier.bonusSet} · sans \`pieces\` : ${partiel.taille} p`);
+  verifie('…et un set dont une pièce SANS page n\'a pas de plancher n\'a PAS de ratio (refus ① sur la population entière)',
+    agregerSet({ slug: 'q', name: 'Q', items: [publiee], pieces: [publiee, sansPage(null, 'RARE')] }).usdParMcp === null);
+
+  // BRANCHÉ : le moteur appelle la porte AVANT de bâtir, et n'a plus sa propre clé
+  const DS = readFileSync(join(ROOT, 'engine', 'lib', 'dataset.mjs'), 'utf8');
+  const DSnu = DS.replace(/\/\*[\s\S]*?\*\//g, '').split('\n').map((l) => l.replace(/(^|[^:])\/\/.*$/, '$1')).join('\n');
+  const iPorte = DSnu.indexOf('exigerColonneSets(cat)');
+  const iBatir = DSnu.indexOf('construireSets(pieces');
+  verifie('🔌 `dataset.mjs` passe la PORTE puis bâtit les sets par `construireSets()` — et plus par une clé à lui',
+    iPorte > 0 && iBatir > iPorte && !/const cleSet\s*=/.test(DSnu) && /seriesUuid:\s*String\(c\.series_uuid/.test(DSnu),
+    `porte@${iPorte} bâtir@${iBatir} cleSet ${/const cleSet\s*=/.test(DSnu) ? 'ENCORE LÀ' : 'retirée'}`);
+  verifie('🔌 …sur le CATALOGUE ENTIER (`construireSets(pieces`, bâties depuis `cat`), et le classement reçoit TOUS les sets (`deposerSetsMcp(setsTous)`)',
+    /construireSets\(pieces,/.test(DSnu) && /for \(const c of cat\)[\s\S]{0,400}parUuidPublie\.get\(uuid\)/.test(DSnu)
+      && /deposerSetsMcp\(setsTous\)/.test(DSnu),
+    `pieces ${/construireSets\(pieces,/.test(DSnu) ? 'oui' : 'NON'} · setsTous ${/deposerSetsMcp\(setsTous\)/.test(DSnu) ? 'oui' : 'NON'}`);
+  verifie('🔌 …et une ancienne adresse dont l\'aîné n\'a pas de page reste SERVIE, en alias du plus ancien set servi du groupe (`aliasMigres`)',
+    /aliasMigres\+\+/.test(DSnu) && /c\.rang === 0/.test(DSnu) && /cible\.alias\.push\(c\.slug\)/.test(DSnu));
+  verifie('🔒 …et les planchers des pièces sans page sont EFFACÉS après le dépôt, comme `projeterCote()` efface ceux des fiches',
+    // ⚠️ `delete x.floor;` AVEC son point-virgule : `delete x.floorStackrUsd` contient
+    //    la même chaîne, et ma première version de ce § restait verte sans le plancher
+    //    VeVe effacé — une injection qui ne mord pas accuse le banc (08/09).
+    (() => { const a = DSnu.indexOf('deposerSetsMcp(setsTous)'); const b = DSnu.indexOf('delete x.floor;');
+             const c = DSnu.indexOf('delete x.floorStackrUsd;'); return a > 0 && b > a && c > a; })());
+  // et l'ÉCHANTILLON porte la forme du réel : une colonne, un groupe éclaté, un alias, un orphelin
+  const { parseCSV } = await import('../data/warehouse.mjs');
+  const ech = parseCSV(readFileSync(join(ROOT, 'engine', 'data', 'sample', 'catalogue.csv'), 'utf8'));
+  let echOk = false, echStats = null;
+  try {
+    exigerColonneSets(ech);
+    const its = ech.map((c) => ({ uuid: c.uuid, type: /comic/i.test(c.kind) ? 'comic' : 'collectible', series: c.series,
+      edition_type: c.edition_type, name: c.name, seriesUuid: c.series_uuid, releaseDate: c.release_date }));
+    echStats = construireSets(its, outils).stats;
+    echOk = echStats.groupesEclates >= 1 && echStats.slugsUuid >= 1 && echStats.alias >= 1 && echStats.orphelins >= 1;
+  } catch (e) { echStats = e.message; }
+  verifie('🧪 l\'échantillon hors ligne EXERCE les quatre chemins (éclatement, 8 hex, alias, orphelin) — sinon la CI est verte sur du vide',
+    echOk, typeof echStats === 'string' ? echStats.slice(0, 80) : JSON.stringify(echStats));
+  // …et il porte des pièces SANS page (absentes de prices.csv) : un set partiel ET un set fantôme
+  const prix = readFileSync(join(ROOT, 'engine', 'data', 'sample', 'prices.csv'), 'utf8');
+  const sansHistorique = ech.filter((c) => !prix.includes(c.uuid));
+  const setsSansHist = new Set(sansHistorique.map((c) => c.series_uuid));
+  const setsAvecHist = new Set(ech.filter((c) => prix.includes(c.uuid)).map((c) => c.series_uuid));
+  verifie('🧪 …et des pièces SANS historique de prix : au moins un set PARTIEL et un set entièrement sans page',
+    sansHistorique.length >= 3 && [...setsSansHist].some((u) => setsAvecHist.has(u)) && [...setsSansHist].some((u) => !setsAvecHist.has(u)),
+    `${sansHistorique.length} pièce(s) hors prices.csv dans ${setsSansHist.size} set(s)`);
+  // …et un groupe dont l'AÎNÉ (le plus ancien set) n'a aucune page pendant qu'un cadet en a
+  const parLegacy = new Map();
+  for (const c of ech) {
+    const k = slugify(cleHeritee({ type: /comic/i.test(c.kind) ? 'comic' : 'collectible', series: c.series, edition_type: c.edition_type }));
+    if (!parLegacy.has(k)) parLegacy.set(k, new Map());
+    const g = parLegacy.get(k);
+    if (!g.has(c.series_uuid)) g.set(c.series_uuid, { sortie: jourISO(c.release_date), page: false });
+    const e = g.get(c.series_uuid);
+    if (jourISO(c.release_date) < e.sortie) e.sortie = jourISO(c.release_date);
+    if (prix.includes(c.uuid)) e.page = true;
+  }
+  const aineSansPage = [...parLegacy.values()].some((g) => {
+    const l = [...g.values()].sort((a, b) => a.sortie.localeCompare(b.sortie));
+    return l.length > 1 && !l[0].page && l.some((x) => x.page);
+  });
+  verifie('🧪 …et un groupe dont l\'AÎNÉ n\'a pas de page pendant qu\'un cadet en a (l\'ancienne adresse doit rester servie)',
+    aineSansPage);
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ── ⑧ LOT N ⑪ — LE CLASSEMENT VU D'UN PORTEFEUILLE ────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+{
+  console.log('\n⑧ LOT N ⑪ — le classement vu d\'un portefeuille');
+  const { personnaliser } = await import('../lib/sets_mcp.mjs');
+  const P = (u, f, t = 'comic', r = 'COMMON') => ({ uuid: u, floor: f, floorStackrUsd: f ? f * 2 : null, rarity: r, type: t, path: '/x/' });
+  // un set de 4 : A B C D — planchers 10 20 30 40 ; points comics C/U/R/UR
+  const set4 = agregerSet({ slug: 'q', name: 'Q', items: [P('A', 10), P('B', 20, 'comic', 'UNCOMMON'), P('C', 30, 'comic', 'RARE'), P('D', 40, 'comic', 'ULTRA_RARE')] });
+  verifie('`agregerSet` emporte ses pièces sous forme compacte [uuid, plancher, StackR $, points]',
+    Array.isArray(set4.pieces) && set4.pieces.length === 4 && set4.pieces[0][0] === 'A' && set4.pieces[0][1] === 10
+      && set4.pieces[0][2] === 20 && typeof set4.pieces[0][3] === 'number',
+    JSON.stringify(set4.pieces[0]));
+
+  const rien = personnaliser([set4], new Set());
+  verifie('un portefeuille qui n\'a AUCUNE pièce du set ne change rien (mêmes coût, points, ratio)',
+    rien.sets.length === 1 && rien.exclus === 0 && rien.sets[0].cout === set4.cout && rien.sets[0].points === set4.points
+      && rien.sets[0].usdParMcp === set4.usdParMcp && rien.sets[0].possede === 0);
+
+  const complet = personnaliser([set4], new Set(['A', 'B', 'C', 'D']));
+  verifie('🎯 un set COMPLET est EXCLU du classement (le racheter ne vaut que 30 %)',
+    complet.sets.length === 0 && complet.exclus === 1, `sets ${complet.sets.length} · exclus ${complet.exclus}`);
+
+  const moitie = personnaliser([set4], new Set(['A', 'B']));
+  const m = moitie.sets[0];
+  const ptsManquants = set4.pieces[2][3] + set4.pieces[3][3];
+  verifie('🎯 avec A et B en poche : coût = C + D (70 $), points gagnés = bonus de set + points de C et D',
+    m.possede === 2 && m.cout === 70 && m.coutStackr === 140 && m.points === set4.bonusSet + ptsManquants
+      && Math.abs(m.usdParMcp - 70 / (set4.bonusSet + ptsManquants)) < 1e-12,
+    `possede ${m.possede} · cout ${m.cout} · points ${m.points} (bonus ${set4.bonusSet} + ${ptsManquants}) · ratio ${m.usdParMcp}`);
+  verifie('…et le ratio personnalisé est PLUS BAS que celui de tout le monde (ce qui manque coûte moins que le tout)',
+    m.usdParMcp < set4.usdParMcp, `${m.usdParMcp} < ${set4.usdParMcp}`);
+
+  // refus ① sur les pièces MANQUANTES seulement
+  const troue = agregerSet({ slug: 't', name: 'T', items: [P('A', 10), P('B', null, 'comic', 'RARE'), P('C', 30, 'comic', 'ULTRA_RARE')] });
+  const p1 = personnaliser([troue], new Set(['B'])).sets[0];
+  const p2 = personnaliser([troue], new Set(['A'])).sets[0];
+  verifie('une pièce SANS plancher : si elle est DÉTENUE le ratio existe, si elle MANQUE il n\'existe pas (refus ①)',
+    p1.usdParMcp !== null && p1.cout === 40 && p2.usdParMcp === null && p2.cout === null,
+    `détenue → ${p1.usdParMcp} · manquante → ${p2.usdParMcp}`);
+  verifie('les éditions ne comptent pas : une pièce détenue deux fois est détenue une fois (un Set, pas une liste)',
+    personnaliser([set4], new Set(['A', 'A', 'B'])).sets[0].possede === 2);
+
+  // BRANCHÉ : la route lit `?adresse=`, refuse 400 / 503, et ne laisse pas sortir `pieces`
+  const ROUTE = readFileSync(join(ROOT, 'src', 'pages', 'api', 'analytics', '[module].js'), 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, '').split('\n').map((l) => l.replace(/(^|[^:])\/\/.*$/, '$1')).join('\n');
+  verifie('🔌 la route lit `adresse`, passe par `piecesDetenues()` + `personnaliser()`, refuse 400 (forme) et 503 (classeur absent)',
+    /sp\.get\('adresse'\)/.test(ROUTE) && /piecesDetenues\(adresse\)/.test(ROUTE) && /personnaliser\(tous, det\)/.test(ROUTE)
+      && /refus\(400, 'adresse'\)/.test(ROUTE) && /refus\(503, 'classeur'\)/.test(ROUTE));
+  verifie('🔒 …et `pieces` (uuid + planchers de chaque pièce) ne sort JAMAIS de la route',
+    /const \{ pieces, \.\.\.reste \} = a; return reste;/.test(ROUTE) && /\.map\(sansPieces\)/.test(ROUTE));
+  const SER = readFileSync(join(ROOT, 'src', 'socle', 'modules', 'series.js'), 'utf8');
+  verifie('🔌 le pilote de `/sets/` envoie l\'adresse de `#s-adresse` (bien formée seulement) et met le classement en cache PAR adresse',
+    /getElementById\('s-adresse'\)|val\('s-adresse'\)/.test(SER) && /&adresse=/.test(SER) && /tri \+ '\|' \+ a\.toLowerCase\(\)/.test(SER)
+      && /RANGS\[cleRangs\(tri\)\]/.test(SER));
+  const COL = readFileSync(join(ROOT, 'src', 'components', 'pages', 'Collections.astro'), 'utf8');
+  verifie('🔌 `/sets/` sert le champ `#s-adresse` DANS `#f-sets` (donc derrière `data-membre`, comme les tris MCP)',
+    /id="s-adresse"/.test(COL) && COL.indexOf('id="s-adresse"') > COL.indexOf('id="f-sets"'));
+  for (const l of ['en', 'fr', 'es', 'de', 'it']) {
+    const d = JSON.parse(readFileSync(join(ROOT, 'engine', 'i18n', `${l}.json`), 'utf8'));
+    verifie(`${l} : \`sets.wallet\` et \`sets.walletHelp\` existent et parlent d'un 0x`,
+      typeof d['sets.wallet'] === 'string' && d['sets.wallet'].includes('0x') && typeof d['sets.walletHelp'] === 'string' && d['sets.walletHelp'].length > 40);
+  }
+
+  // EXÉCUTÉE : la route avec une réserve de classeur FABRIQUÉE
+  const { execFileSync } = await import('node:child_process');
+  const { writeFileSync, mkdtempSync, mkdirSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const boite = mkdtempSync(join(tmpdir(), 'banc-perso-'));
+  const reserve = join(boite, 'sets_mcp.json');
+  const A = '0xabcdef0123456789abcdef0123456789abcdef01';
+  const charge = { calcule: new Date().toISOString(), total: 3, classables: 3, classablesStackr: 3, personnalise: false,
+    baremeSetMax: SET_POINTS_MAX,
+    sets: [
+      agregerSet({ slug: 'complet', name: 'Complet', items: [P('A', 10), P('B', 20, 'comic', 'RARE')] }),
+      agregerSet({ slug: 'moitie', name: 'Moitié', items: [P('C', 10), P('D', 1000, 'comic', 'RARE')] }),
+      agregerSet({ slug: 'libre', name: 'Libre', items: [P('E', 100), P('F', 100, 'comic', 'RARE')] }),
+    ] };
+  writeFileSync(reserve, JSON.stringify(charge), 'utf8');
+  const cl = join(boite, 'classeur'); mkdirSync(join(cl, 'wallets'), { recursive: true });
+  writeFileSync(join(cl, 'uuids.json'), JSON.stringify(['A', 'B', 'C', 'D', 'E', 'F']));
+  // le portefeuille A détient A, B (set complet) et D (la pièce CHÈRE de « moitié »)
+  writeFileSync(join(cl, 'wallets', 'ab.json'), JSON.stringify({ [A]: [[0, 1, 0], [1, 1, 0], [3, 2, 0]] }));
+  const CODE = [
+    "import { pathToFileURL } from 'node:url';",
+    "import { join } from 'node:path';",
+    "const R = process.env.PROJECT_ROOT;",
+    "const url = (f) => pathToFileURL(join(R, f)).href;",
+    "const route = await import(url('src/pages/api/analytics/[module].js'));",
+    "const acces = await import(url('engine/lib/access.mjs'));",
+    "const P = acces.porte('modules');",
+    "const locals = P.actif ? { palier: P.tier } : {};",
+    "const appel = async (q) => {",
+    "  const r = await route.GET({ params: { module: 'sets_mcp' },",
+    "    request: new Request('https://banc.test/api/analytics/sets_mcp' + q), locals });",
+    "  const t = await r.text(); let j = null; try { j = JSON.parse(t); } catch (e) {}",
+    "  return { status: r.status, j, corps: t.slice(0, 100) };",
+    "};",
+    "const out = {};",
+    "out.sans = await appel('?tri=gpm-asc&n=10');",
+    "out.avec = await appel('?tri=gpm-asc&n=10&adresse=" + A + "');",
+    "out.mal = await appel('?adresse=0x123');",
+    "out.inconnu = await appel('?adresse=0x0000000000000000000000000000000000000000');",
+    "console.log(JSON.stringify(out));",
+  ].join('\n');
+  let R2 = null; let err2 = '';
+  try {
+    const brut = execFileSync(process.execPath, ['--input-type=module', '-e', CODE],
+      { cwd: ROOT, encoding: 'utf8', timeout: 30000,
+        env: { ...process.env, PROJECT_ROOT: ROOT, RESERVE_SETS_MCP: reserve, CLASSEUR_DIR: cl } });
+    R2 = JSON.parse(brut.trim().split('\n').pop());
+  } catch (e) { err2 = String(e.stderr || e.message).split('\n').slice(-4).join(' | '); }
+  verifie('la route personnalisée se charge et répond', R2 !== null, err2);
+  if (R2) {
+    const sans = R2.sans.j, avec = R2.avec.j;
+    verifie('sans adresse : 3 sets, `personnalise: false`, et aucune ligne ne porte `pieces`',
+      sans && sans.sets.length === 3 && sans.personnalise === false && sans.sets.every((x) => !('pieces' in x)),
+      R2.sans.corps);
+    verifie('🎯 avec l\'adresse : le set complet a DISPARU, « moitié » ne coûte plus que sa pièce manquante (10 $) et passe DEVANT « libre »',
+      avec && avec.personnalise === true && avec.exclus === 1 && avec.possedes === 3
+        && avec.sets.map((x) => x.slug).join(',') === 'moitie,libre' && avec.sets[0].cout === 10 && avec.sets[0].possede === 1,
+      avec ? `${avec.sets.map((x) => x.slug + ':' + x.cout).join(' ')} · exclus ${avec.exclus} · possedes ${avec.possedes}` : R2.avec.corps);
+    verifie('…et `total`/`classables` suivent : 2 et 2, pas les 3 de tout le monde',
+      avec && avec.total === 2 && avec.classables === 2, avec ? `total ${avec.total} classables ${avec.classables}` : '');
+    verifie('une adresse mal formée est REFUSÉE (400), une adresse inconnue du grand livre rend le classement de tout le monde (200, 0 possédée)',
+      R2.mal.status === 400 && R2.inconnu.status === 200 && R2.inconnu.j && R2.inconnu.j.possedes === 0 && R2.inconnu.j.sets.length === 3,
+      `mal ${R2.mal.status} · inconnu ${R2.inconnu.status}`);
+  }
+}
+
 console.log(ko === 0 ? '\n✅ SETS MCP — tout est conforme\n'
                      : `\n❌ SETS MCP — ${ko} contrôle(s) en échec\n`);
 process.exit(ko === 0 ? 0 : 1);

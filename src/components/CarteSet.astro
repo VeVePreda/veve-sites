@@ -87,7 +87,7 @@ const vignettes = pileSet(col, pile);
    data-lic={axes ? (col.licensor || '') : undefined}
    data-an={axes ? axes.an : undefined}
    data-ty={axes ? axes.ty : undefined}
-   data-taille={axes ? String(col.items.length) : undefined}>
+   data-taille={axes ? String(col.taille ?? col.items.length) : undefined}>
 
   {/* 🔴 `pile(c).map(() => …)` — LE PARAMÈTRE ÉTAIT IGNORÉ (01/08/2026). Les
       trois pièces étaient calculées correctement, puis jetées : la boucle
@@ -197,6 +197,6 @@ const vignettes = pileSet(col, pile);
         « Marvel Mighty… » désignait 15 séries différentes. On plafonne les
         LIGNES, pas les caractères. */}
     {col.brand && <span class="etiq" title={col.brand}>{col.brand}</span>}
-    <span class="etiq etiq--bleu"><b>{col.items.length}</b> {t(lang, 'collections.items')}</span>
+    <span class="etiq etiq--bleu"><b>{col.taille ?? col.items.length}</b> {t(lang, 'collections.items')}</span>
   </span>
 </a>

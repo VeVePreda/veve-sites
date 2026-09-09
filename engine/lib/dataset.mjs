@@ -35,6 +35,7 @@ import { manifest, SITE } from './manifest.mjs';
 import { planchierEcarte } from './plancher_ecarte.mjs';
 import { porte } from './access.mjs';
 import { jourISO } from './vitrine.mjs';   // 🔴 LOT 113 — JJ/MM/AAAA, jamais `new Date(chaine)`
+import { exigerColonneSets, construireSets } from './sets.mjs';
 // ⭐ LA RÉSERVE — l'historique COMPLET, écrit HORS de dist/, pour la route
 // `/api/historique/[uuid]`. Elle se greffe sur LA passe de prix qui a DÉJÀ
 // lieu ici : `streamPrices` n'est pas mis en cache (contrairement à `load()`),
@@ -582,6 +583,11 @@ async function construireDataset() {
     getCatalogue(), getBaselines(), getReleves(), getOmiUsd(), getFichesStackr(), getVentes(),
     getExtremesStackr()]);
   memoire.jalon(`catalogue (${cat.length}) + baselines (${baselines.length}) + releves (${releves.length}) lus`);
+  // 🔴🔴 LOT N — LA PORTE DES SETS, AVANT TOUTE AUTRE LECTURE DU CATALOGUE.
+  // Sans `series_uuid` dans l'en-tête, ~3 000 adresses `/collection/`
+  // rebasculeraient sur l'ancien découpage. On échoue ICI, en clair, plutôt
+  // que de servir hier avec la date d'aujourd'hui. Voir `sets.mjs`.
+  exigerColonneSets(cat);
 
   // --- Agregation EN FLUX -------------------------------------------------
   // Par item on ne retient que : le nombre total de releves, la date du
@@ -790,6 +796,11 @@ async function construireDataset() {
       // catalogue.csv.gz depuis toujours ; il n'etait simplement pas remonte.
       edition_type: c.edition_type || '',
       series: c.series || '',
+      // 🎯 LOT N — LA CLÉ DE SET DE VeVe. Colonne du catalogue depuis
+      // scrapeur-veve `b0aeedf` (08/09/2026) ; `exigerColonneSets()` a déjà
+      // refusé le build si elle manque. Une cellule vide reste vide : la
+      // pièce sera un « orphelin », compté par `construireSets()`.
+      seriesUuid: String(c.series_uuid || '').trim(),
       brand: c.brand || '',
       licensor: c.licensor || '',
       releaseDate: c.release_date || '',
@@ -1573,52 +1584,103 @@ async function construireDataset() {
   // que les 1 200 fiches). Rien ne casse ; Google devra ré-explorer.
   // ⛔ Un comic SANS numéro retombe sur sa série seule plutôt que de fabriquer
   //    un « #undefined » : on ne crée pas d'adresse à partir d'un trou.
-  const cleSet = (i) => {
-    if (i.type !== 'comic') return { cle: i.series, nom: i.series };
-    const n = String(i.edition_type || '').trim();
-    return n ? { cle: `${i.series} #${n}`, nom: `${i.series} #${n}` }
-             : { cle: i.series, nom: i.series };
-  };
-  const collections = new Map();
-  for (const i of items) {
-    if (!i.series) continue;
-    const { cle, nom } = cleSet(i);
-    const s = slugify(cle);
-    // 🔴🔴 LOT 133 — `brand` N'EST PLUS PRIS SUR LA PREMIÈRE PIÈCE RENCONTRÉE.
-    // Il l'était depuis toujours, et c'est le même piège que le visuel de set
-    // du lot 118 : *prendre le premier élément d'une liste, c'est hériter de
-    // son ordre sans le vouloir.* Mesuré le 10/08 sur le catalogue complet
-    // (19 412 lignes, 5 154 sets) : **2 sets portent plusieurs marques**. Deux,
-    // c'est peu — et c'est exactement le nombre qui ne se voit jamais.
-    // ⇒ La marque ET la licence sont désormais calculées APRÈS la boucle, par
-    //   MAJORITÉ, au même endroit et de la même façon. Deux champs de même
-    //   nature calculés différemment finissent par se contredire.
-    if (!collections.has(s)) collections.set(s, { slug: s, name: nom, brand: '', licensor: '', items: [] });
-    collections.get(s).items.push(i);
-    // ═══════════════════════════════════════════════════════════════════════
-    // 🔴 LOT 102 — L'ADRESSE DU SET, POSÉE PAR CELUI QUI LA FABRIQUE
-    // ═══════════════════════════════════════════════════════════════════════
-    // `Item.astro` renvoyait vers `/collection/${item.serieSlug}/`, c'est-à-dire
-    // le slug de la SÉRIE. Or depuis le lot 68 (05/08) le set d'un comic n'est
-    // plus la série : c'est `<série> #<numéro>` (`cleSet` ci-dessus). Les deux
-    // ont divergé le jour même, en silence — mesuré le 07/08 par l'audit SEO :
-    // **81 liens internes en cul-de-sac**, 27 par set, sur trois sets de comics.
-    //
-    // ⭐⭐⭐ ET LE FICHIER PORTAIT DÉJÀ LA LEÇON, ÉCRITE LE 29/07 : « ON LIT
-    // `serieSlug`, ON NE LE RECALCULE PAS » — après 52 liens cassés par une
-    // re-slugification à la main. La règle était juste et elle a été suivie.
-    // Elle ne protégeait simplement pas de LIRE LE BON CHAMP : `serieSlug`
-    // était devenu le mauvais, sans cesser d'être valide.
-    // ⭐⭐ UN CHAMP QUI CHANGE DE SENS NE CASSE RIEN — il continue de rendre une
-    // chaîne plausible. C'est la même famille que le tri sur `i.floor` du lot
-    // 101 : le calcul tourne, il ne veut simplement plus dire ce qu'on croit.
-    //
-    // ⛔ NE PAS le recalculer dans le gabarit « puisque `cleSet` est simple » :
-    // ce serait rouvrir exactement le défaut du 29/07, un cran plus loin.
-    // Le slug est posé ICI, par la boucle qui crée la page de destination —
-    // donc les deux ne peuvent plus diverger sans qu'aucune page n'existe.
-    i.colSlug = s;
+  // ═════════════════════════════════════════════════════════════════════════
+  // 🎯🔴🔴 LOT N — UN SET = UN `series_uuid`. LA CLÉ CI-DESSUS (lot 71) N'EST
+  // PLUS QUE L'HISTOIRE DES ADRESSES.
+  // ═════════════════════════════════════════════════════════════════════════
+  // Le lot 71 avait raison sur le SYMPTÔME (une série n'est pas un set) et
+  // faux sur la CLÉ : `<série> #<numéro>` réunit encore l'édition 2025 et la
+  // réimpression 2026 d'un même numéro. VeVe, lui, publie la clé — c'est
+  // `series_uuid`, et le catalogue la porte depuis le 08/09/2026.
+  // ⭐ TOUT LE DÉCOUPAGE VIT DANS `sets.mjs` : la clé, la continuité des
+  //   adresses (l'aîné du groupe garde l'ancien slug, les autres en reçoivent
+  //   un neuf), les alias, les homonymes. Ici on ne fait que l'appeler et
+  //   dériver marque + licence, comme avant.
+  // 🔴 `i.colSlug` reste posé PAR celui qui fabrique la page (leçon du lot
+  //   102) — c'est `construireSets()` qui le pose, pour la même raison.
+  // ═════════════════════════════════════════════════════════════════════════
+  // 🔴🔴 ET LE SET SE BÂTIT SUR LE CATALOGUE ENTIER, PAS SUR LES PAGES.
+  // ═════════════════════════════════════════════════════════════════════════
+  // 🔬 MESURÉ LE 08/09 SUR LE BUILD RÉEL, la clé `series_uuid` déjà posée :
+  //   127 des 200 premiers sets du classement MCP avaient une taille PUBLIÉE
+  //   plus petite que leur taille VeVe (« Bettie Page Vol. 1 #4 » : 1 page
+  //   pour 5 pièces). Le ratio se calculait sur 1 pièce sur 5 — c'était la
+  //   SECONDE moitié du « faux à 88 % » : la première était la clé, celle-ci
+  //   est la POPULATION. *Un classement se trompe toujours du côté où on a
+  //   le moins regardé* (refus ① de `sets_mcp.mjs`), et ici on ne regardait
+  //   que les pièces qui ont une page.
+  // ⇒ Les pièces SANS page entrent dans le set comme des objets légers (nom,
+  //   rareté, plancher du catalogue, plancher StackR converti) : elles n'ont
+  //   pas de `path`, donc pas de lien, mais elles comptent dans la TAILLE,
+  //   le COÛT et les POINTS. Le set garde deux listes : `pieces` (toutes) et
+  //   `items` (celles qui ont une page — c'est ce que la page liste).
+  // ⭐ Et les ADRESSES gagnent en stabilité : le slug d'un set ne dépend plus
+  //   de QUELLES pièces ont passé le seuil de relevés ce jour-là.
+  // 🔒 Les planchers des pièces sans page vont dans `.reserve/sets_mcp.json`
+  //   (route gardée), jamais dans le HTML — même ligne que `i.floor`.
+  const parUuidPublie = new Map(items.map((i) => [i.uuid, i]));
+  const pieces = [];
+  let piecesSansPage = 0;
+  for (const c of cat) {
+    const uuid = c.uuid || c.veve_uuid;
+    if (!uuid || !c.series) continue;
+    const publie = parUuidPublie.get(uuid);
+    if (publie) { pieces.push(publie); continue; }
+    piecesSansPage++;
+    const o = rel.get(uuid)?.stackr;
+    pieces.push({
+      uuid, type: typeDe(c), name: c.name || 'Sans nom', rarity: c.rarity || '',
+      edition_type: c.edition_type || '', series: c.series || '',
+      seriesUuid: String(c.series_uuid || '').trim(), releaseDate: c.release_date || '',
+      brand: c.brand || '', licensor: c.licensor || '',
+      floor: pos(c.floor),
+      floorStackrUsd: omiUsd !== null && Number.isFinite(o) && o > 0 ? o * omiUsd : null,
+      path: null,
+    });
   }
+  const setsBatis = construireSets(pieces, { slugify, jourISO });
+  const statsSets = setsBatis.stats;
+  // `setsTous` : TOUS les sets (le classement MCP les veut tous) ;
+  // `collections` : ceux qui ont au moins une page (tout ce qui RENDU les lit).
+  const setsTous = setsBatis.collections;
+  const collections = new Map();
+  for (const [slug, c] of setsTous) {
+    c.pieces = c.items;
+    c.items = c.pieces.filter((x) => x.path);
+    c.taille = c.pieces.length;
+    if (c.items.length) collections.set(slug, c);
+  }
+  // 🔴 L'ANCIENNE ADRESSE RESTE SERVIE MÊME SI SON AÎNÉ N'A PAS DE PAGE.
+  // 🔬 Mesuré sur le build réel du 08/09 : 6 adresses servies la veille
+  //   n'avaient plus de page — l'aîné du groupe (qui garde le slug) n'avait
+  //   aucune pièce publiée, et le cadet, qui les a, vivait sous un slug neuf.
+  //   Hier cette adresse montrait les pièces du cadet ; elle continue : tant
+  //   que l'aîné n'a pas de page, son slug devient un ALIAS du plus ancien
+  //   set SERVI du même groupe (canonical vers lui). Le jour où l'aîné a une
+  //   page, il reprend son adresse — comme hier, où elle l'aurait inclus.
+  // ⭐ Même sort pour un alias posé sur un set sans page : il migre vers un
+  //   set servi du groupe, sinon il tombe (une adresse vers rien n'existe pas).
+  const parGroupe = new Map();
+  for (const c of setsTous.values()) {
+    if (!parGroupe.has(c.slugHerite)) parGroupe.set(c.slugHerite, []);
+    parGroupe.get(c.slugHerite).push(c);
+  }
+  let aliasMigres = 0, aliasTombes = 0;
+  for (const liste of parGroupe.values()) {
+    const servis = liste.filter((c) => c.items.length).sort((a, b) => a.rang - b.rang);
+    if (!servis.length) continue;
+    for (const c of liste) {
+      if (c.items.length) continue;
+      const cible = servis[0];
+      if (c.rang === 0) { cible.alias.push(c.slug); aliasMigres++; }
+      for (const a of c.alias) { cible.alias.push(a); aliasMigres++; }
+      c.alias = [];
+    }
+  }
+  for (const c of setsTous.values()) if (!c.items.length && c.alias.length) { aliasTombes += c.alias.length; c.alias = []; }
+  console.log(`[sets] ${pieces.length} pièce(s) du catalogue dans ${setsTous.size} set(s), dont ${piecesSansPage} sans page`
+    + ` · ${setsTous.size - collections.size} set(s) sans aucune page (classés, non servis)`
+    + ` · anciennes adresses gardées en alias parce que leur aîné n'a pas de page : ${aliasMigres} · alias tombés : ${aliasTombes}`);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // 🔴🔴 LOT 133 — LA MARQUE ET LA LICENCE D'UN SET, DÉRIVÉES DE SES PIÈCES
@@ -1660,9 +1722,9 @@ async function construireDataset() {
     return { valeur: gagnant, distinctes: c.size };
   };
   let setsMarqueMixte = 0, setsLicenceMixte = 0, setsSansLicence = 0;
-  for (const c of collections.values()) {
-    const m = majoritaire(c.items, 'brand');
-    const l = majoritaire(c.items, 'licensor');
+  for (const c of setsTous.values()) {
+    const m = majoritaire(c.pieces, 'brand');
+    const l = majoritaire(c.pieces, 'licensor');
     c.brand = m.valeur;
     c.licensor = l.valeur;
     if (m.distinctes > 1) setsMarqueMixte++;
@@ -1670,7 +1732,11 @@ async function construireDataset() {
     if (!l.valeur) setsSansLicence++;
   }
   console.log(`[sets] ${collections.size} set(s) · marque mixte : ${setsMarqueMixte}`
-    + ` · licence mixte : ${setsLicenceMixte} · sans licence : ${setsSansLicence}`);
+    + ` · licence mixte : ${setsLicenceMixte} · sans licence : ${setsSansLicence}`
+    + ` · groupes éclatés : ${statsSets.groupesEclates} · slugs hérités ${statsSets.slugsHerites}`
+    + ` / neufs ${statsSets.slugsNeufs} / uuid ${statsSets.slugsUuid} · alias : ${statsSets.alias}`
+    + ` · orphelins (sans series_uuid) : ${statsSets.orphelins} pièce(s) en ${statsSets.setsOrphelins} set(s)`
+    + ` · homonymes désambiguïsés : ${statsSets.nomsDesambigues}`);
   const rarities = new Map();
   for (const i of items) {
     if (!i.rarity) continue;
@@ -2070,9 +2136,23 @@ async function construireDataset() {
   // deux ont besoin du prix, les deux meurent en silence un cran plus bas.
   // ⛔ Le fichier va à la RACINE de `.reserve/`, pas dans `analytics/` : ce
   // dossier-là est supprimé à `astro:build:done`, donc APRÈS nous.
-  deposerSetsMcp(collections);
+  deposerSetsMcp(setsTous);           // 🎯 LOT N — TOUS les sets, pages ou non
 
   const cote = projeterCote(items);
+  // 🔒 LOT N — LES PIÈCES SANS PAGE SUIVENT LE MÊME MUR. `projeterCote()` ne
+  // connaît que `items` ; les objets légers de `c.pieces` (catalogue entier,
+  // voir « le set se bâtit sur le catalogue entier ») portaient un plancher
+  // pour `deposerSetsMcp()`. Il a été lu, il ne traverse pas : on l'efface
+  // ICI, au même moment que les prix des fiches, pour la même raison.
+  let planchersEffaces = 0;
+  for (const c of setsTous.values()) {
+    for (const x of c.pieces) {
+      if (x.path) continue;                 // une fiche publiée : `projeterCote()` l'a déjà faite
+      if ('floor' in x) { delete x.floor; planchersEffaces++; }
+      delete x.floorStackrUsd;
+    }
+  }
+  memoire.jalon(`planchers des pièces sans page effacés (${planchersEffaces})`);
   memoire.jalon(`projeterCote fait (${items.length} fiches publiees)`);
 
   // ═══════════════════════════════════════════════════════════════════════

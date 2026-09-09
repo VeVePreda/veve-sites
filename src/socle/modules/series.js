@@ -409,10 +409,26 @@ var G = document.getElementById('s-grille');
     var m = h.replace(/[?#].*$/, '').replace(/\/+$/, '').split('/');
     return m[m.length - 1] || '';
   }
+  // 👛 LOT N ⑪ — LE CLASSEMENT VU DU PORTEFEUILLE. Si `#s-adresse` porte une
+  //   adresse bien formée, la route rend l'ordre calculé sur les pièces
+  //   MANQUANTES et sans les sets complets. ⭐ La clé de cache porte l'adresse :
+  //   deux portefeuilles, deux classements, jamais l'un servi pour l'autre.
+  //   ⛔ Une adresse mal formée n'est pas envoyée : le classement redevient
+  //   celui de tout le monde, et le champ le dit (`aria-invalid`).
+  var RE_ADRESSE = /^0x[0-9a-fA-F]{40}$/;
+  function adresse(){
+    var a = val('s-adresse');
+    var e = document.getElementById('s-adresse');
+    if (e) e.setAttribute('aria-invalid', a && !RE_ADRESSE.test(a) ? 'true' : 'false');
+    return RE_ADRESSE.test(a) ? a : '';
+  }
+  function cleRangs(tri){ var a = adresse(); return a ? tri + '|' + a.toLowerCase() : tri; }
   function chargerRangs(tri, apres){
-    if (RANGS[tri] || rangsEnCours[tri]) { apres(); return; }
-    rangsEnCours[tri] = true;
-    fetch('/api/analytics/sets_mcp?tri=' + encodeURIComponent(tri) + '-asc&n=200',
+    var cle = cleRangs(tri), a = adresse();
+    if (RANGS[cle] || rangsEnCours[cle]) { apres(); return; }
+    rangsEnCours[cle] = true;
+    fetch('/api/analytics/sets_mcp?tri=' + encodeURIComponent(tri) + '-asc&n=200'
+          + (a ? '&adresse=' + encodeURIComponent(a) : ''),
           { headers: { accept: 'application/json' }, credentials: 'same-origin' })
       .then(function(r){
         // ⭐ 401/403 ne sont pas des pannes : c'est le mur qui fonctionne. On
@@ -425,10 +441,10 @@ var G = document.getElementById('s-grille');
       .then(function(d){
         var m = {};
         (d && d.sets ? d.sets : []).forEach(function(x, i){ if (x && x.slug) m[x.slug] = i; });
-        RANGS[tri] = m;
+        RANGS[cle] = m;
       })
-      .catch(function(){ RANGS[tri] = {}; })
-      .then(function(){ rangsEnCours[tri] = false; apres(); });
+      .catch(function(){ RANGS[cle] = {}; })
+      .then(function(){ rangsEnCours[cle] = false; apres(); });
   }
   var TRIS_MCP = { gpm: 1, spm: 1 };
 
@@ -456,7 +472,7 @@ var G = document.getElementById('s-grille');
    *  `garde()`, mais si un jour ils ne l'étaient plus, `Infinity` les met en
    *  fin sans jamais les mélanger aux classés. */
   function rang(tri, el){
-    var m = RANGS[tri];
+    var m = RANGS[cleRangs(tri)];
     if (!m) return Infinity;
     var r = m[slugDe(el)];
     return r === undefined ? Infinity : r;
@@ -557,7 +573,13 @@ var G = document.getElementById('s-grille');
   });
   if (bPlus) bPlus.addEventListener('click', apresChargement(function(){ montre += pas; appliquer(); }));
   // ⛔ Changer de filtre revient à la première tranche : sinon « 300 / 12 ».
-  f.addEventListener('input',  apresChargement(function(){ montre = pas || 1e9; appliquer(); }));
+  f.addEventListener('input',  apresChargement(function(ev){
+    montre = pas || 1e9;
+    // 👛 une adresse tapée sous un tri MCP redemande l'ordre AVANT de classer
+    var tri = val('s-tri');
+    if (ev && ev.target && ev.target.id === 's-adresse' && TRIS_MCP[tri]) { chargerRangs(tri, appliquer); return; }
+    appliquer();
+  }));
   // 🏆 LOT M — un tri MCP a besoin du serveur AVANT de pouvoir classer. ⭐ Un
   // `appliquer()` lancé sans attendre rendrait une page VIDE pendant la requête
   // (aucun set classé, donc aucun retenu) puis se remplirait : un clignotement

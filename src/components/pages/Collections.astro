@@ -21,7 +21,7 @@ import { jourISO } from '../../../engine/lib/vitrine.mjs';
 const { lang } = Astro.props;
 const ds = await dataset();
 const nf = numberLocale[lang] || 'en-GB';
-const cols = [...ds.collections.values()].sort((a, b) => b.items.length - a.items.length);
+const cols = [...ds.collections.values()].sort((a, b) => (b.taille ?? b.items.length) - (a.taille ?? a.items.length));
 
 // 🔴 LOT 131 — `pile()` A DÉMÉNAGÉ DANS `CarteSet.astro`, ET ELLE Y A GAGNÉ
 // UNE CORRECTION. Elle prenait `items.slice(0, 3)` : les trois pièces les plus
@@ -104,7 +104,7 @@ for (const c of cols) {
 const licences = [...parLicence.entries()]
   .sort((a, b) => (b[1] - a[1]) || a[0].localeCompare(b[0]))
   .map(([nom, n]) => ({ nom, n }));
-const tailles = cols.map((c) => c.items.length);
+const tailles = cols.map((c) => c.taille ?? c.items.length);
 const tailleMax = tailles.length ? Math.max(...tailles) : 0;
 const nbComicSets = axes.filter((x) => x.ty === 'comic').length;
 const chevron = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
@@ -275,6 +275,19 @@ const PAR_TRANCHE = 60;
             <option value="gpm">{t(lang, 'sets.sortMcp')}</option>
             <option value="spm">{t(lang, 'sets.sortMcpS')}</option>
           </select>
+        </div>
+        {/* 👛 LOT N ⑪ — LE PORTEFEUILLE. Un 2ᵉ exemplaire d'un set ne rapporte
+            que 30 % : le `$/MCP` de tout le monde est faux pour qui possède
+            déjà. Avec une adresse, le pilote demande à la route le classement
+            VU DE CE WALLET (sets complets exclus, coût des pièces manquantes).
+            ⭐ Même forme et même contrôle que `/classeur/` (`cl-a`) : l'adresse
+            se TAPE, rien n'est stocké sur le compte — c'est le choix le moins
+            cher, et un wallet mémorisé un jour ne ferait que pré-remplir ce
+            champ. ⛔ Ce qui traverse reste un RANG : aucun prix, aucune pièce. */}
+        <div class="champ champ--sm" style="width:220px">
+          <label class="sr-only" for="s-adresse">{t(lang, 'sets.wallet')}</label>
+          <input type="text" id="s-adresse" placeholder={t(lang, 'sets.wallet')} title={t(lang, 'sets.walletHelp')}
+                 spellcheck="false" autocomplete="off" maxlength="42" inputmode="text" aria-invalid="false" />
         </div>
       </div>
     </div>

@@ -65,16 +65,19 @@ const titreCollection = [...nu(brutCollection)].length <= TITLE_BUDGET
   : `${nu(etiqCol)} : ${couperMilieu(nu(col.name), TITLE_BUDGET - [...nu(etiqCol)].length - 3)}`;
 ---
 <Base sect="sets" lang={lang} path={path} title={titreCollection}
-      description={t(lang, 'desc.collection', { name: col.name, n: col.items.length })} ld={ld} updatedAt={updatedAt}
+      description={t(lang, 'desc.collection', { name: col.name, n: col.taille ?? col.items.length })} ld={ld} updatedAt={updatedAt}
       crumbs={[{ name: t(lang, 'home.crumb'), url: localize(lang, '/') }, { name: t(lang, 'collections.title'), url: localize(lang, '/collections/') }, { name: col.name }]}>
   <div class="h-page">
     <BandeauOutil titre={col.name}
-                  compte={`${items.length} ${t(lang, 'collection.tracked')}`}
+                  compte={(col.taille ?? items.length) > items.length
+                    ? `${col.taille} ${t(lang, 'collections.items')} · ${items.length} ${t(lang, 'collection.tracked')}`
+                    : `${items.length} ${t(lang, 'collection.tracked')}`}
                 perche="collections" lang={lang} />
   </div>
   {/* ⭐ Les trois chiffres de la série, au format `stats` de la maquette. */}
   <div class="stats">
-    <div class="stat stat--bleu"><div class="etiq">{t(lang, 'collections.items')}</div><div class="stat__v">{items.length}</div></div>
+    {/* 🎯 LOT N — la taille du SET (toutes ses pièces chez VeVe) ; le bandeau dit combien sont suivies ici. */}
+    <div class="stat stat--bleu"><div class="etiq">{t(lang, 'collections.items')}</div><div class="stat__v">{col.taille ?? items.length}</div></div>
     {coteFermee ? (
       <>
         <div class="stat"><div class="etiq">{t(lang, 'item.supply')}</div><div class="stat__v">{tirageTotal ? tirageTotal.toLocaleString(nf) : '—'}</div></div>

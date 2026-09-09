@@ -87,7 +87,7 @@ const featured = (() => {
   }
   return pris.sort(parScore).slice(0, N);
 })();
-const cols = [...ds.collections.values()].sort((a, b) => b.items.length - a.items.length).slice(0, 6);
+const cols = [...ds.collections.values()].sort((a, b) => (b.taille ?? b.items.length) - (a.taille ?? a.items.length)).slice(0, 6);
 const tick = [...up, ...down];
 
 // 🔴 LOT 68 — « ON NE VOIT PAS LES COUVERTURES DANS LE MODULE SETS » (Preda).

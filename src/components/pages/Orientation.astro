@@ -33,7 +33,7 @@ const nf = numberLocale[lang] || 'en-GB';
 //    personne ne lit est le faux positif de tout grep, et il ferait croire que
 //    la forme plate est encore une option.
 const sets = [...ds.collections.values()]
-  .sort((a, b) => b.items.length - a.items.length).slice(0, 6);
+  .sort((a, b) => (b.taille ?? b.items.length) - (a.taille ?? a.items.length)).slice(0, 6);
 // ⭐ On pioche dans `ds.items` (les 1 200 PUBLIÉES) et non dans `ds.rayon` :
 //   une vitrine montre ce qui se clique. Le rayon complet est à un lien de là.
 const parType = (k) => ds.items.filter((i) => (k === 'comic' ? i.type === 'comic' : i.type !== 'comic')).slice(0, 6);

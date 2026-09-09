@@ -3745,7 +3745,17 @@ body[data-tiroir]::after{ opacity:1; pointer-events:auto; }
    ⛔ On ne libère pas la taille pour autant : `.mono-t` monte à
    `clamp(38px,7.2vw,96px)`, soit 96 px à 1 440. La maquette v4 tranche à 62 sur
    son `.hero-ed`, et c'est cette valeur-là que Preda a désignée. */
-.bandeau h1{font-size:22px;margin:0}
+/* 🔴🔴 LOT N — LE `font-size:22px` QUI VIVAIT ICI EST RETIRÉ, ET C'EST LE
+   CORRECTIF DU LOT M2. Le lot M2 avait retiré la taille du bloc PC (821 px+)
+   pour rendre la main à `.mono-t`… mais CETTE règle-ci, hors média, vaut à
+   TOUTES les largeurs et bat encore `.mono-t` (0,1,1 contre 0,1,0). Mesuré
+   sur la prod du 08/09 à 15:20 UTC : titre à **22 px** sur les 6 pages à
+   bandeau — pire que les 62 px d'avant. ⭐ La simulation d'hier supprimait
+   bien cette déclaration-là ; l'écriture n'a touché que le bloc PC.
+   🔬 Sans elle, sur la page servie : 96 px à 1 440, 64,8 px à 900, 35,25 px à
+   375 — `scrollWidth` inchangé aux trois largeurs. 🧪 `test:tuiles` §② lit
+   désormais la CASCADE (bloc PC, sinon règle de base, sinon `.mono-t`). */
+.bandeau h1{margin:0}
 .bandeau__c{font-family:var(--tech);font-size:12px;color:var(--sect-a)}
 .bandeau__a{width:100%;font-size:11.5px;color:var(--muted);margin-top:2px}
 
