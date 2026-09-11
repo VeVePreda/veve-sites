@@ -1,29 +1,29 @@
 {
   "_lisezMoi": "LE POULS 24 H, CALCULÉ. Ce fichier n'est plus recopié à la main : `engine/tools/preparer_pouls.mjs` le régénère depuis la release `chain-archive-daily` de VeVePreda/scrapeur-veve, le catalogue et `burns_daily.csv`. ⛔ Ne pas l'éditer : relancer l'outil.",
-  "mesureLe": "2026-09-10T11:48:31.527Z",
-  "mesurePar": "https://github.com/VeVePreda/scrapeur-veve/releases/download/chain-archive-daily/transfers_daily_2026-09-09.csv.gz",
+  "mesureLe": "2026-09-11T11:47:27.250Z",
+  "mesurePar": "https://github.com/VeVePreda/scrapeur-veve/releases/download/chain-archive-daily/transfers_daily_2026-09-10.csv.gz",
   "fenetre": {
-    "debutUtc": "2026-09-09T07:00:00Z",
-    "finUtc": "2026-09-10T06:57:30Z",
-    "jourVeve": "2026-09-09",
+    "debutUtc": "2026-09-10T07:00:00Z",
+    "finUtc": "2026-09-11T06:57:30Z",
+    "jourVeve": "2026-09-10",
     "horloge": "UTC-7",
     "_note": "Un fichier `transfers_daily_<J>` couvre exactement la JOURNEE PACIFIQUE J : premier horodatage 07:00:00Z le jour J, dernier 06:57:30Z le lendemain. C'est pourquoi l'etiquette dit le jour VeVe ET son decalage, jamais un jour UTC seul."
   },
-  "transferts": 6736,
+  "transferts": 8129,
   "wallets": {
-    "actifs": 745,
+    "actifs": 754,
     "_definition": "a envoyé OU reçu — l'union, jamais la somme. ⛔ L'adresse nulle est EXCLUE : c'est le contrat qui frappe, pas un porteur."
   },
-  "mints": 1631,
+  "mints": 2445,
   "revenue": {
-    "usd": 6118.64,
-    "mints": 1631,
-    "mintsChiffres": 472,
+    "usd": 3341.49,
+    "mints": 2445,
+    "mintsChiffres": 231,
     "_definition": "REVENUE 24 H = LE SUPPLY AU DROP VENDUE (arbitrage Preda, 08/09/2026) : la somme des `store_price` des pièces FRAPPÉES dans la journée. ⚠️ `mintsChiffres` dit sur combien de mints la somme porte — une pièce trop neuve pour le catalogue publié n'a pas encore de prix."
   },
   "omiBrules": {
-    "v": 428099.08,
-    "jour": "2026-09-09",
+    "v": 1103728.02,
+    "jour": "2026-09-10",
     "_unite": "OMI — ⛔ jamais converti en dollars"
   }
 }
