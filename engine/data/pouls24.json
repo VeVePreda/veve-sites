@@ -1,29 +1,29 @@
 {
   "_lisezMoi": "LE POULS 24 H, CALCULÉ. Ce fichier n'est plus recopié à la main : `engine/tools/preparer_pouls.mjs` le régénère depuis la release `chain-archive-daily` de VeVePreda/scrapeur-veve, le catalogue et `burns_daily.csv`. ⛔ Ne pas l'éditer : relancer l'outil.",
-  "mesureLe": "2026-10-04T12:51:34.277Z",
-  "mesurePar": "https://github.com/VeVePreda/scrapeur-veve/releases/download/chain-archive-daily/transfers_daily_2026-10-03.csv.gz",
+  "mesureLe": "2026-10-05T15:15:50.686Z",
+  "mesurePar": "https://github.com/VeVePreda/scrapeur-veve/releases/download/chain-archive-daily/transfers_daily_2026-10-04.csv.gz",
   "fenetre": {
-    "debutUtc": "2026-10-03T07:00:00Z",
-    "finUtc": "2026-10-04T06:57:30Z",
-    "jourVeve": "2026-10-03",
+    "debutUtc": "2026-10-04T07:00:00Z",
+    "finUtc": "2026-10-05T06:57:30Z",
+    "jourVeve": "2026-10-04",
     "horloge": "UTC-7",
     "_note": "Un fichier `transfers_daily_<J>` couvre exactement la JOURNEE PACIFIQUE J : premier horodatage 07:00:00Z le jour J, dernier 06:57:30Z le lendemain. C'est pourquoi l'etiquette dit le jour VeVe ET son decalage, jamais un jour UTC seul."
   },
-  "transferts": 5112,
+  "transferts": 5772,
   "wallets": {
-    "actifs": 758,
+    "actifs": 690,
     "_definition": "a envoyé OU reçu — l'union, jamais la somme. ⛔ L'adresse nulle est EXCLUE : c'est le contrat qui frappe, pas un porteur."
   },
-  "mints": 563,
+  "mints": 401,
   "revenue": {
-    "usd": 5695.22,
-    "mints": 563,
-    "mintsChiffres": 341,
+    "usd": 2265.88,
+    "mints": 401,
+    "mintsChiffres": 196,
     "_definition": "REVENUE 24 H = LE SUPPLY AU DROP VENDUE (arbitrage Preda, 08/09/2026) : la somme des `store_price` des pièces FRAPPÉES dans la journée. ⚠️ `mintsChiffres` dit sur combien de mints la somme porte — une pièce trop neuve pour le catalogue publié n'a pas encore de prix."
   },
   "omiBrules": {
-    "v": 464142.12,
-    "jour": "2026-10-03",
+    "v": 812192.98,
+    "jour": "2026-10-04",
     "_unite": "OMI — ⛔ jamais converti en dollars"
   }
 }
