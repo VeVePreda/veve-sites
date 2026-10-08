@@ -1,24 +1,24 @@
 {
   "_lisezMoi": "LE POULS 24 H, CALCULÉ. Ce fichier n'est plus recopié à la main : `engine/tools/preparer_pouls.mjs` le régénère depuis la release `chain-archive-daily` de VeVePreda/scrapeur-veve, le catalogue et `burns_daily.csv`. ⛔ Ne pas l'éditer : relancer l'outil.",
-  "mesureLe": "2026-10-07T13:53:22.474Z",
-  "mesurePar": "https://github.com/VeVePreda/scrapeur-veve/releases/download/chain-archive-daily/transfers_daily_2026-10-06.csv.gz",
+  "mesureLe": "2026-10-08T14:00:32.692Z",
+  "mesurePar": "https://github.com/VeVePreda/scrapeur-veve/releases/download/chain-archive-daily/transfers_daily_2026-10-07.csv.gz",
   "fenetre": {
-    "debutUtc": "2026-10-06T07:00:00Z",
-    "finUtc": "2026-10-07T06:57:30Z",
-    "jourVeve": "2026-10-06",
+    "debutUtc": "2026-10-07T07:00:00Z",
+    "finUtc": "2026-10-08T06:57:30Z",
+    "jourVeve": "2026-10-07",
     "horloge": "UTC-7",
     "_note": "Un fichier `transfers_daily_<J>` couvre exactement la JOURNEE PACIFIQUE J : premier horodatage 07:00:00Z le jour J, dernier 06:57:30Z le lendemain. C'est pourquoi l'etiquette dit le jour VeVe ET son decalage, jamais un jour UTC seul."
   },
-  "transferts": 206553,
+  "transferts": 7893,
   "wallets": {
-    "actifs": 1369,
+    "actifs": 901,
     "_definition": "a envoyé OU reçu — l'union, jamais la somme. ⛔ L'adresse nulle est EXCLUE : c'est le contrat qui frappe, pas un porteur."
   },
-  "mints": 201060,
+  "mints": 1941,
   "revenue": {
-    "usd": 3218.23,
-    "mints": 201060,
-    "mintsChiffres": 149,
+    "usd": 2001.04,
+    "mints": 1941,
+    "mintsChiffres": 161,
     "_definition": "REVENUE 24 H = LE SUPPLY AU DROP VENDUE (arbitrage Preda, 08/09/2026) : la somme des `store_price` des pièces FRAPPÉES dans la journée. ⚠️ `mintsChiffres` dit sur combien de mints la somme porte — une pièce trop neuve pour le catalogue publié n'a pas encore de prix."
   },
   "omiBrules": null
