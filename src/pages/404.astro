@@ -7,44 +7,122 @@
 // `noindex` : une 404 ne doit jamais entrer dans l'index, et le sitemap
 // l'ignore deja (il ne liste que les routes connues).
 //
-// 🌱 RELOOKING 2 (06/09/2026) — FLOORA ENTRE ICI, ET SEULEMENT ICI POUR L'INSTANT.
-// Le brief : c'est « la seule page où la mascotte ne coûte rien ». Elle est vraie :
-// la 404 est pre-generee, elle ne porte aucun chiffre, et personne n'y vient
-// pour lire une donnee. Une mascotte sur une page de prix aurait a se justifier ;
-// ici elle a juste a etre accueillante.
-// ⛔ LA POSE N'EST PAS CHOISIE : `floora('404')` la rend. Voir engine/lib/floora.mjs.
+// 🎨 REFONTE, LOT 1 (28/11/2026) — LA 404 DE LA MAQUETTE V5 (page 14).
+//   Avant : Floora centree, un bouton « Accueil », et une carte « Articles »
+//   isolee sous le bouton (la liste des sections editoriales, reduite au blog
+//   sur veveprice : une porte vers un seul endroit, qui ressemblait a un oubli).
+//   Maintenant, comme la v5 : le bandeau des autres pages (surtitre, grand
+//   titre), Floora `loupe` et sa bulle, la recherche de l'accueil, et TROIS
+//   PORTES qui disent ce qu'on trouve derriere et combien.
+//   ⭐ Rien de neuf a inventer : le bandeau (`.bandeau`, `mono-t`), la bulle
+//   (`.bulle`), le champ (`.h-rech` + `data-ouvrir-palette`, que `Base.astro`
+//   ecoute deja) existent. Seules les portes ont leur regle, en bas du theme.
+//   ⛔ La pose n'est PAS choisie : `floora('404')` la rend (engine/lib/floora.mjs).
+//   ⛔ Aucun prix : les portes portent des COMPTES (pieces, fiches), deja publics
+//      sur `/collectibles/`, `/comics/` et l'accueil. `test:fuite` n'a rien a voir.
+//   ⚠️ vevewiki (dépôt partagé, sans prix) : pas de portes, ses liens de
+//      sections restent — rien ne change pour lui.
+//   ⛔ Floora reste visible sur mobile : une 404 PORTE un message, c'est le cas
+//      prevu par l'arbitrage A6 (« uniquement quand elle porte un message »).
 import Base from '../layouts/Base.astro';
-import { locales, t, localize } from '../../engine/lib/i18n.mjs';
+import { locales, t, localize, numberLocale } from '../../engine/lib/i18n.mjs';
+import { floora } from '../../engine/lib/floora.mjs';
+import { dataset } from '../../engine/lib/dataset.mjs';
+import { lireMarche } from '../../engine/lib/cote.mjs';
+import { priceEnabled } from '../../engine/lib/features.mjs';
 import { activeSections, sectionMeta } from '../../engine/lib/editorial_pages.mjs';
 import { blogEnabled } from '../../engine/lib/blog.mjs';
-import { floora } from '../../engine/lib/floora.mjs';
 const lang = locales().def;
-const liens = activeSections().map((s) => sectionMeta(s, lang));
-if (blogEnabled()) liens.push({ section: 'blog', path: '/blog/', title: t(lang, 'blog.title') });
+const nf = numberLocale[lang] || 'en-GB';
 const f = floora('404');
+
+// 🔢 LES COMPTES DES PORTES — la MEME source que le bandeau de chaque rayon
+//   (`Rayon.astro` : `ds.rayon`, filtre par type, « avec une fiche » = a un
+//   chemin). Deux sources pour le meme nombre finiraient par diverger.
+const ds = await dataset();
+const compte = (type) => {
+  // ⚠️ `|| []` : ce gabarit sert AUSSI vevewiki tant que le dépôt est partagé ;
+  //   un site sans rayon n'affiche simplement pas ces portes (filtre plus bas).
+  const lignes = (ds.rayon || []).filter((r) => r.type === type);
+  return { n: lignes.length, c: lignes.filter((r) => r.path).length };
+};
+const col = compte('collectible');
+const com = compte('comic');
+// ⭐ Le nombre de pieces cotees vient de la projection du marche, comme sur
+//   l'accueil. ⛔ `lireMarche()` LEVE si la projection manque : la 404 ne doit
+//   jamais tomber pour ca. Sans nombre, la porte du marche s'affiche sans
+//   chiffre — jamais « 0 », un zero invente serait un mensonge exact.
+const cotees = (() => {
+  if (!priceEnabled()) return null;
+  try {
+    const n = lireMarche()?.resume?.publies;
+    return typeof n === 'number' && n > 0 ? n : null;
+  } catch { return null; }
+})();
+// ⛔ LES PORTES SONT CELLES DE VEVEPRICE : `/collectibles/`, `/comics/` et
+//   `/market/` n'existent que sur un site à prix. Ce gabarit sert encore
+//   vevewiki (dépôt partagé) : sans prix, pas de portes, et la 404 garde ses
+//   liens d'avant (les sections de l'encyclopédie, plus bas).
+const portes = !priceEnabled() ? [] : [
+  { sect: 'collectibles', href: '/collectibles/', k: t(lang, 'rayon.collectibles'),
+    n: col.n, s: t(lang, 'notfound.fiches', { c: col.c.toLocaleString(nf) }) },
+  { sect: 'comics', href: '/comics/', k: t(lang, 'rayon.comics'),
+    n: com.n, s: t(lang, 'notfound.fiches', { c: com.c.toLocaleString(nf) }) },
+  // ⛔ Pas de porte du marché sur un site sans prix (vevewiki) : `/market/` n'y
+  //   existe pas, la porte mènerait à une autre 404.
+  { sect: 'cotes', href: '/market/', k: t(lang, 'nav.movers'),
+    n: cotees, s: t(lang, 'notfound.marche') },
+].filter((p) => p.n === null || p.n > 0);
+// L'ancienne grille, gardée pour les sites SANS portes (vevewiki).
+const liens = portes.length ? [] : activeSections().map((sec) => sectionMeta(sec, lang));
+if (!portes.length && blogEnabled()) liens.push({ section: 'blog', path: '/blog/', title: t(lang, 'blog.title') });
 ---
 {/* `altPaths={{}}` : il n'existe qu'UNE 404 (nginx n'en designe qu'une).
     Sans ca, le gabarit annonce un /fr/404.html qui n'est jamais construit —
     un hreflang vers le vide, et un lien mort dans le selecteur de langue. */}
 <Base lang={lang} path="/404.html" altPaths={{}} title={t(lang, 'notfound.title')} description={t(lang, 'notfound.desc')} noindex={true}>
-  <div class="etat">
+  {/* ⭐ LE BANDEAU DES AUTRES PAGES, et `mono-t` sur le `<h1>` : la 404 cesse
+      d'etre l'exception « titre a part » de `test:pages` §M-tete. */}
+  <div class="bandeau bandeau--erreur">
+    <span class="bandeau__s">// 404</span>
+    <h1 class="mono-t">{t(lang, 'floora.404.t')}</h1>
     {/* ⭐ `width`/`height` sont les dimensions d'AFFICHAGE, calculees par
         `floora()` a partir des dimensions MESUREES du fichier : elles reservent
         la place avant que la feuille n'arrive. `loading="eager"` parce que
         cette image EST le contenu de la page — la retarder n'economise rien.
         ⛔ L'`alt` passe par le dictionnaire : il porte « Floora » dans les cinq
-        langues, et un texte en dur serait anglais partout. */}
-    <img class="etat__f" src={f.src} alt={t(lang, f.cle)}
-         width={f.width} height={f.height} loading="eager" decoding="async" />
-    <h1 class="etat__t">{t(lang, 'floora.404.t')}</h1>
-    <p class="etat__d">{t(lang, 'floora.404.d')}</p>
-    <p class="etat__l"><a class="btn btn--principal" href={localize(lang, '/')}>{t(lang, 'home.crumb')}</a></p>
-  </div>
-  {liens.length > 0 && (
-    <div class="grid">
-      {liens.map((l) => (
-        <a class="item" href={localize(lang, l.path)}><div class="n">{l.title}</div></a>
-      ))}
+        langues, et un texte en dur serait anglais partout. `etat__f` reste
+        sur l'image : c'est la regle de hauteur que `test:floora` §3 compare
+        aux attributs. */}
+    <div class="erreur__f">
+      <img class="etat__f" src={f.src} alt={t(lang, f.cle)}
+           width={f.width} height={f.height} loading="eager" decoding="async" />
+      <p class="bulle">{t(lang, 'floora.404.d')}</p>
     </div>
-  )}
+  </div>
+  <div class="erreur">
+    {/* ⭐ UN LIEN, PAS UN BOUTON — la decision du lot 41, reprise de l'accueil :
+        sans JavaScript il mene a l'accueil, le script de `Base.astro` le promeut
+        en palette (`data-ouvrir-palette`). Aucun script neuf ici. */}
+    <a class="h-rech erreur__rech" data-ouvrir-palette href={localize(lang, '/')}>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <span>{t(lang, 'search.placeholder')}</span><span class="kbd">⌘K</span>
+    </a>
+    {portes.length > 0 && <div class="portes">
+      {portes.map((p) => (
+        <a class="porte" data-sect={p.sect} href={localize(lang, p.href)}>
+          <span class="porte__k">{p.k}</span>
+          {p.n !== null && <span class="porte__n">{p.n.toLocaleString(nf)}</span>}
+          <span class="porte__s">{p.s}</span>
+        </a>
+      ))}
+    </div>}
+    {liens.length > 0 && (
+      <div class="grid">
+        {liens.map((l) => (
+          <a class="item" href={localize(lang, l.path)}><div class="n">{l.title}</div></a>
+        ))}
+      </div>
+    )}
+  </div>
 </Base>

@@ -4214,3 +4214,59 @@ body[data-tiroir]::after{ opacity:1; pointer-events:auto; }
   background:var(--surface-2);border:1px solid var(--rule-2);color:var(--text-2);
   font-size:12.5px;line-height:1.45;max-width:330px}
 .bulle b{color:var(--text);font-weight:600}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   🎨 REFONTE, LOT 1 (28/11/2026) — LA PAGE 404 DE LA MAQUETTE V5 (page 14)
+   ═══════════════════════════════════════════════════════════════════════════
+   Le bandeau est celui des autres pages (`.bandeau`) ; on n'y ajoute que le
+   surtitre et Floora avec sa bulle. Le champ est `.h-rech` (l'accueil). Les
+   portes sont neuves : une carte par rayon, son surtitre dans la couleur de la
+   section (`data-sect`, les teintes déjà déclarées plus haut), le compte en
+   grand, ce qu'il compte en petit — « avec ce qu'il compte », comme dit la v5.
+   ⛔ Aucune règle de ce bloc ne sort de `.bandeau--erreur` ou de `.erreur` :
+      la 404 est la seule page qui les porte, rien d'autre ne peut bouger.
+   ⚠️ La 500 garde son écran `.etat` : elle ne doit dépendre de RIEN (voir
+      `src/pages/500.astro`), pas même du bandeau. */
+.bandeau--erreur .bandeau__s{font-family:var(--tech);font-size:10px;letter-spacing:.19em;
+  color:var(--sect-a);text-transform:uppercase;width:100%}
+.erreur__f{display:flex;align-items:flex-end;gap:10px;margin:var(--s3) 0 0;width:100%}
+.erreur__f .etat__f{flex:0 0 auto}
+.erreur__f .bulle{margin:0 0 12px}
+.erreur{max-width:var(--cadre-max,1440px);margin:var(--s5) auto var(--s7);padding:0 16px;
+  display:grid;grid-template-columns:minmax(0,1fr);gap:var(--s4)}
+.erreur__rech{max-width:430px;width:100%;min-width:0}
+/* ⚠️ Sous 900 px, la règle de l'EN-TÊTE (`.h-rech span{display:none}`, plus
+   haut) réduit tout `.h-rech` à une icône. Ici le champ est le contenu de la
+   page, pas un bouton d'en-tête : on lui rend son texte et sa largeur.
+   Spécificité (0,2,0) contre (0,1,1) — sans `!important`. */
+@media (max-width:900px){
+  .erreur .erreur__rech{width:100%;height:44px;justify-content:flex-start;padding:0 7px 0 13px;
+    background:var(--surface-2);border-color:var(--rule-2)}
+  .erreur .erreur__rech span{display:block}
+  .erreur .erreur__rech .kbd{display:none}
+}
+.portes{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(min(200px,100%),1fr));max-width:640px}
+.porte{display:grid;gap:4px;padding:14px 14px 13px;border:1px solid var(--rule-2);
+  border-radius:var(--r-md);background:var(--surface-2);color:var(--text);text-decoration:none;
+  transition:border-color var(--d-base) var(--e-soft)}
+.porte:hover{border-color:var(--sect-a);text-decoration:none}
+.porte__k{font-family:var(--tech);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--sect-a)}
+.porte__n{font-family:var(--tech);font-size:22px;font-weight:600;line-height:1.1}
+.porte__s{font-size:11px;color:var(--muted)}
+@media (min-width:821px){
+  /* Dès 821 px le bandeau est une GRILLE (règle `.bandeau` plus haut) : sans
+     placement explicite, le surtitre se rangerait seul dans la 2ᵉ colonne. */
+  .bandeau--erreur>.bandeau__s{grid-column:1;grid-row:1;align-self:start;margin:0 0 6px}
+  .bandeau--erreur>h1{grid-row:2}
+  .bandeau--erreur>.erreur__f{grid-column:1 / -1;grid-row:3}
+  .erreur{padding:0 32px}
+}
+@media (min-width:1041px){
+  /* PC : Floora rejoint la colonne de droite du bandeau, comme la perche des
+     pages-outil (même grille, `.bandeau>.perche` plus haut). ⚠️ À 1 041 px et
+     pas dès 821 (où la grille du bandeau naît) : mesuré à 900 px, Floora et sa
+     bulle prenaient la moitié de la ligne et le titre tombait à un mot par
+     ligne. En dessous, elle reste sous le titre, comme sur mobile. Seuil de
+     l'échelle (`engine/lib/seuils.mjs` : 1040 et son complément). */
+  .bandeau--erreur>.erreur__f{grid-column:2;grid-row:1 / span 2;align-self:end;margin:0;width:auto}
+}
